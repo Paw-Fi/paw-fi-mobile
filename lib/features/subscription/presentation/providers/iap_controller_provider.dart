@@ -42,7 +42,7 @@ class IapController extends AsyncNotifier<IapState> {
 
   @override
   Future<IapState> build() async {
-    if (kIsWeb) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
       return const IapState(
           storeAvailable: false, productDetailsById: {}, lastError: null);
     }
@@ -122,6 +122,10 @@ class IapController extends AsyncNotifier<IapState> {
   }
 
   Future<void> buy(SubscriptionProduct product) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      throw Exception('In-app purchases are not supported on this platform');
+    }
+
     final user = ref.read(authProvider);
     if (user.isEmpty) {
       throw Exception('User not logged in');

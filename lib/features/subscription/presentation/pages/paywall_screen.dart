@@ -92,6 +92,14 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
 
   Future<void> _launchReferralPage() async {
     const referralUrl = 'https://moneko.io/referral';
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      if (mounted) {
+        AppToast.info(context, 'Please subscribe in-app to continue.');
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -218,6 +226,8 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
         final primaryModeHasReferralCode = isTrialEligible && hasReferralCode;
         final showResubscribe = widget.mode == PaywallMode.resubscribe;
 
+        final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+
         return RefreshIndicator(
           onRefresh: _handleRefresh,
           color: colorScheme.primary,
@@ -271,30 +281,28 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                                   ? 'Welcome, $displayName!'
                                   : 'Unlock Full Access'),
                           style: textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.onSurface,
-                            letterSpacing: -0.5,
+                            fontWeight: FontWeight.w700,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 16),
-
-                        // Description
+                        const SizedBox(height: 12),
                         Text(
                           showResubscribe
                               ? 'Resubscribe to continue enjoying premium features and insights.'
                               : (primaryModeHasReferralCode
                                   ? 'You\'ve been invited to try Moneko Premium. Enjoy exclusive features and insights.'
-                                  : 'Join our referral program to unlock lifetime access and share the love with friends.'),
+                                  : (isIos
+                                      ? 'Subscribe to access premium features and insights.'
+                                      : 'Join our referral program to unlock lifetime access and share the love with friends.')),
                           style: textTheme.bodyLarge?.copyWith(
                             color: colorScheme.onSurface.withValues(alpha: 0.7),
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 48),
+                        const SizedBox(height: 32),
 
-                        // Feature Card
+                        // Features Card
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
@@ -313,25 +321,35 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                           ),
                           child: Column(
                             children: [
-                              _buildFeatureRow(context,
-                                  icon: Icons.star_rounded,
-                                  text: showResubscribe
-                                      ? 'Continue premium access'
-                                      : (primaryModeHasReferralCode
-                                          ? '1 Month Free Premium Access'
-                                          : 'Lifetime Access for You & Friends')),
+                              _buildFeatureRow(
+                                context,
+                                icon: Icons.star_rounded,
+                                text: showResubscribe
+                                    ? 'Continue premium access'
+                                    : (primaryModeHasReferralCode
+                                        ? '1 Month Free Premium Access'
+                                        : (isIos
+                                            ? 'Premium access'
+                                            : 'Lifetime Access for You & Friends')),
+                              ),
                               const SizedBox(height: 16),
-                              _buildFeatureRow(context,
-                                  icon: Icons.check_circle_outline_rounded,
-                                  text: showResubscribe
-                                      ? 'All premium features'
-                                      : (primaryModeHasReferralCode
-                                          ? 'No credit card required'
-                                          : 'Unlimited referrals')),
+                              _buildFeatureRow(
+                                context,
+                                icon: Icons.check_circle_outline_rounded,
+                                text: showResubscribe
+                                    ? 'All premium features'
+                                    : (primaryModeHasReferralCode
+                                        ? 'No credit card required'
+                                        : (isIos
+                                            ? 'Cancel anytime'
+                                            : 'Unlimited referrals')),
+                              ),
                               const SizedBox(height: 16),
-                              _buildFeatureRow(context,
-                                  icon: Icons.flash_on_rounded,
-                                  text: 'Instant upgrade'),
+                              _buildFeatureRow(
+                                context,
+                                icon: Icons.flash_on_rounded,
+                                text: 'Instant upgrade',
+                              ),
                             ],
                           ),
                         ),
@@ -350,7 +368,10 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                                     ? () => _startCheckout(flow: 'resubscribe')
                                     : (primaryModeHasReferralCode
                                         ? () => _startCheckout(flow: 'trial')
-                                        : _launchReferralPage)),
+                                        : (isIos
+                                            ? () =>
+                                                _startCheckout(flow: 'trial')
+                                            : _launchReferralPage))),
                             child: _isLoading
                                 ? SizedBox(
                                     width: 24,
@@ -365,7 +386,9 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
                                         ? 'Resubscribe'
                                         : (primaryModeHasReferralCode
                                             ? 'Claim Free Month'
-                                            : 'Join Referral Program'),
+                                            : (isIos
+                                                ? 'Subscribe'
+                                                : 'Join Referral Program')),
                                     style: const TextStyle(
                                       fontSize: 17,
                                       fontWeight: FontWeight.w700,

@@ -14,6 +14,8 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+const bool FORCE_USE_STRIPE_CHECKOUT = false;
+
 enum PlanSelectionMode {
   trial,
   resubscribe,
@@ -85,7 +87,8 @@ class PlanOption {
 
 // --- PAGE ---
 class PlanSelectionPage extends HookConsumerWidget {
-  const PlanSelectionPage({super.key, this.mode = PlanSelectionMode.resubscribe});
+  const PlanSelectionPage(
+      {super.key, this.mode = PlanSelectionMode.resubscribe});
 
   final PlanSelectionMode mode;
 
@@ -106,10 +109,14 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
 
+    // Check if user is truly new (no subscription data exists)
+    final isNewUser = currentSub?.subscription == null;
+
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    final useIap = isIos && !FORCE_USE_STRIPE_CHECKOUT;
 
     final List<PlanOption> plans;
-    if (isIos) {
+    if (useIap) {
       // iOS uses IAP. Store product IDs:
       // - lifetime: lifetime_earlybird
       // - yearly: yearly
@@ -232,10 +239,14 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
 
       if (mode == PlanSelectionMode.trial && currentPlanId == 'free') {
-        final monthly =
-            plans.where((p) => p.serverPlanId == 'plus' && p.billingInterval == 'monthly').toList();
-        final yearly =
-            plans.where((p) => p.serverPlanId == 'plus' && p.billingInterval == 'yearly').toList();
+        final monthly = plans
+            .where((p) =>
+                p.serverPlanId == 'plus' && p.billingInterval == 'monthly')
+            .toList();
+        final yearly = plans
+            .where((p) =>
+                p.serverPlanId == 'plus' && p.billingInterval == 'yearly')
+            .toList();
         final firstRecurring = (monthly.isNotEmpty
                 ? monthly.first
                 : yearly.isNotEmpty
@@ -296,7 +307,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       return const _LifetimeView();
     }
 
-    if (isIos && productsAsync.isLoading) {
+    if (useIap && productsAsync.isLoading) {
       return AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
@@ -306,7 +317,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       );
     }
 
-    if (isIos && (productsAsync.hasError || plans.isEmpty)) {
+    if (useIap && (productsAsync.hasError || plans.isEmpty)) {
       return AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
@@ -356,27 +367,34 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> startStripeCheckout(PlanOption option) async {
+      print('🔄 Starting Stripe checkout for plan: ${option.serverPlanId}');
+
       final session = supabase.auth.currentSession;
-      if (session == null) throw Exception('No active session');
+      if (session == null) {
+        print('❌ No active session found');
+        throw Exception('No active session');
+      }
+      print('✅ Session validated for user: ${session.user.id}');
 
       // IMPORTANT: Do not URI-encode the Stripe placeholder.
-      final successBase = Uri.https('moneko.io', '/checkout', {
+      final successBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
         'status': 'success',
         'source': 'mobile',
         'redirectUrl': DeepLinks.paymentCallback,
         'plan': option.serverPlanId,
         if (option.billingInterval != null) 'billing': option.billingInterval,
-        'flow': mode.queryValue,
       }).toString();
 
-      final cancelBase = Uri.https('moneko.io', '/checkout', {
+      final cancelBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
         'status': 'canceled',
         'source': 'mobile',
         'redirectUrl': DeepLinks.paymentCallback,
         'plan': option.serverPlanId,
         if (option.billingInterval != null) 'billing': option.billingInterval,
-        'flow': mode.queryValue,
       }).toString();
+
+      print('🌐 Calling Supabase function: create-checkout-session');
+      print('📋 Checkout URL base: ${Constants.checkoutBaseUrl}');
 
       final response = await supabase.functions.invoke(
         'create-checkout-session',
@@ -386,23 +404,35 @@ class PlanSelectionPage extends HookConsumerWidget {
             'billingInterval': option.billingInterval,
           'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
           'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
+          'userId': session.user.id,
         },
       );
 
+      print('📦 Response status: ${response.status}');
+      print('📦 Response data: ${response.data}');
+
       if (response.data != null && response.data['checkoutUrl'] != null) {
         final checkoutUrl = response.data['checkoutUrl'] as String;
+        print('🚀 Launching checkout URL: $checkoutUrl');
+
         await launchUrl(
           Uri.parse(checkoutUrl),
           mode: LaunchMode.externalApplication,
         );
+        print('✅ Checkout URL launched successfully');
       } else {
+        print('❌ No checkout URL received from Supabase function');
         throw Exception('No checkout URL received');
       }
     }
 
     // Action Logic
     Future<void> onMainAction() async {
+      print(
+          '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
+
       if (isCurrentPlan(activePlanOption)) {
+        print('⚠️ User already on this plan');
         // Already on this plan
         AppToast.info(context, 'You are already on this plan.');
         return;
@@ -419,10 +449,10 @@ class PlanSelectionPage extends HookConsumerWidget {
           activePlanOption.billingInterval != null &&
           currentInterval != activePlanOption.billingInterval;
 
-      if (isAndroid && isPlayStore && isIntervalSwitch) {
-        await onManageStoreSubscription();
-        return;
-      }
+      // if (isAndroid && isPlayStore && isIntervalSwitch) {
+      //   await onManageStoreSubscription();
+      //   return;
+      // }
 
       // Smart Dialog Copy
       String title = 'Confirm Selection';
@@ -461,9 +491,11 @@ class PlanSelectionPage extends HookConsumerWidget {
       );
 
       if (result?.confirmed == true) {
+        print('✅ User confirmed subscription dialog');
         isLoading.value = true;
         try {
-          if (isIos) {
+          print('🍎 Platform check - iOS: $isIos');
+          if (useIap) {
             final catalog = activePlanOption.catalogProduct;
             if (catalog == null) throw Exception('Missing iOS product mapping');
 
@@ -472,22 +504,27 @@ class PlanSelectionPage extends HookConsumerWidget {
               AppToast.info(context, 'Complete the purchase in the App Store');
             }
           } else {
+            print('💳 Starting Stripe checkout');
             await startStripeCheckout(activePlanOption);
           }
         } catch (e) {
+          print('❌ Error in subscription flow: $e');
           if (context.mounted) {
             AppToast.error(context, e.toString());
           }
         } finally {
+          print('⏹️ Setting isLoading to false');
           isLoading.value = false;
         }
+      } else {
+        print('❌ User cancelled subscription dialog');
       }
     }
 
     Future<void> onRestorePurchases() async {
       isLoading.value = true;
       try {
-        if (isIos) {
+        if (useIap) {
           await ref.read(iapControllerProvider.notifier).restorePurchases();
         }
         await ref.read(subscriptionManagementProvider.notifier).refresh();
@@ -637,6 +674,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                               plan: plan,
                               isSelected: selectedPlanId.value == plan.id,
                               onTap: () => selectedPlanId.value = plan.id,
+                              isNewUser: isNewUser,
                             ),
                           );
                         }),
@@ -689,8 +727,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                         value: hasAcknowledgedAutoRenew.value,
                         onChanged: isLoading.value
                             ? null
-                            : (value) => hasAcknowledgedAutoRenew.value =
-                                value ?? false,
+                            : (value) =>
+                                hasAcknowledgedAutoRenew.value = value ?? false,
                         controlAffinity: ListTileControlAffinity.leading,
                         activeColor: colorScheme.primary,
                         checkColor: colorScheme.onPrimary,
@@ -730,8 +768,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                       const SizedBox(height: 12),
                     ],
                     PrimaryAdaptiveButton(
-                      onPressed:
-                          isLoading.value || !canConfirmAutoRenew ? null : onMainAction,
+                      onPressed: isLoading.value || !canConfirmAutoRenew
+                          ? null
+                          : onMainAction,
                       child: Text(
                         isLoading.value
                             ? 'Processing...'
@@ -1023,11 +1062,13 @@ class _AppleStylePlanCard extends StatelessWidget {
   final PlanOption plan;
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isNewUser;
 
   const _AppleStylePlanCard({
     required this.plan,
     required this.isSelected,
     required this.onTap,
+    required this.isNewUser,
   });
 
   @override
@@ -1159,6 +1200,17 @@ class _AppleStylePlanCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (plan.billingInterval != null && isNewUser) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Free for first month, cancel anytime',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

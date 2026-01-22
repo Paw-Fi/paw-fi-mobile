@@ -161,17 +161,25 @@ class DeepLinkService {
 
           // Ensure DB is updated before we rely on subscription table.
           // (Best-effort; web also verifies via verify-payment route.)
+          final verificationNonce = uri.queryParameters['v'];
           if (sessionId != null && sessionId.isNotEmpty) {
             try {
               await supabase.functions.invoke(
                 'verify-payment',
-                body: {'sessionId': sessionId},
+                body: {
+                  'sessionId': sessionId,
+                  if (verificationNonce != null && verificationNonce.isNotEmpty)
+                    'v': verificationNonce,
+                },
               );
-            } catch (_) {}
+            } catch (e) {
+              debugPrint('⚠️ verify-payment failed (best-effort): $e');
+            }
           }
 
-          // Poll a few times because webhook + DB write can lag behind the redirect.
-          for (var attempt = 0; attempt < 5; attempt++) {
+          // Poll because webhook + DB write can lag behind the redirect.
+          // Use a short backoff to handle slow webhook delivery.
+          for (var attempt = 0; attempt < 12; attempt++) {
             await ref.read(subscriptionNotifierProvider.notifier).refresh();
 
             final hasSubscription = ref.read(hasActiveSubscriptionProvider);
@@ -183,7 +191,12 @@ class DeepLinkService {
               return;
             }
 
-            await Future.delayed(const Duration(seconds: 1));
+            final delaySeconds = attempt < 3
+                ? 1
+                : attempt < 7
+                    ? 2
+                    : 3;
+            await Future.delayed(Duration(seconds: delaySeconds));
           }
 
           // If still not active, keep user on paywall.

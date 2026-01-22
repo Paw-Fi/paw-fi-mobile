@@ -940,6 +940,8 @@ class _ProfileHeader extends ConsumerWidget {
             fontSize: 14,
             color: colorScheme.onSurface.withOpacity(0.6),
           ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
       ],
     );
@@ -1061,23 +1063,33 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
+                flex: label=="Email"?1:2,
                 child: Text(
                   label,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     color: colorScheme.onSurface,
-                  ),
                 ),
+               
               ),
-              if (value != null)
-                Text(
-                  value!,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade500,
+              ),
+              if (value != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    value!,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
+              ],
               if (valueWidget != null) valueWidget!,
               if (trailing != null) ...[
                 const SizedBox(width: 8),
