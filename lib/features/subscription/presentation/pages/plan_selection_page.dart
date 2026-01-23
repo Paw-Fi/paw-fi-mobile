@@ -13,6 +13,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 const bool FORCE_USE_STRIPE_CHECKOUT = false;
 
@@ -97,7 +98,6 @@ class PlanSelectionPage extends HookConsumerWidget {
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final productsAsync = ref.watch(subscriptionProductsProvider);
     final iapStateAsync = ref.watch(iapControllerProvider);
-    final isLoading = useState(false);
     final colorScheme = Theme.of(context).colorScheme;
 
     // View State
@@ -114,6 +114,9 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !FORCE_USE_STRIPE_CHECKOUT;
+
+    // Track processing state for UI
+    final isProcessing = iapStateAsync.value?.isProcessing ?? false;
 
     final List<PlanOption> plans;
     if (useIap) {
@@ -492,29 +495,65 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       if (result?.confirmed == true) {
         print('✅ User confirmed subscription dialog');
-        isLoading.value = true;
         try {
           print('🍎 Platform check - iOS: $isIos');
           if (useIap) {
             final catalog = activePlanOption.catalogProduct;
+            print(
+                '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
             if (catalog == null) throw Exception('Missing iOS product mapping');
 
-            await ref.read(iapControllerProvider.notifier).buy(catalog);
+            print('✅ catalogProduct is valid, proceeding...');
+
+            // Show processing dialog before starting purchase
             if (context.mounted) {
-              AppToast.info(context, 'Complete the purchase in the App Store');
+              print('🎬 Showing processing dialog...');
+              showBlockingProcessingDialog(
+                context: context,
+                message: 'Processing your purchase...',
+              );
+              print('✅ Processing dialog shown');
+            } else {
+              print('⚠️ Context not mounted, skipping dialog');
             }
+
+            print(
+                '🔍 About to call buy() method with product: ${catalog.storeProductId}');
+            await ref.read(iapControllerProvider.notifier).buy(catalog);
+            print('✅ buy() method completed');
+            // Dialog will remain open until purchase completes
+            // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
           } else {
             print('💳 Starting Stripe checkout');
-            await startStripeCheckout(activePlanOption);
+
+            // Show processing dialog for Stripe
+            if (context.mounted) {
+              showBlockingProcessingDialog(
+                context: context,
+                message: 'Redirecting to checkout...',
+              );
+            }
+
+            try {
+              await startStripeCheckout(activePlanOption);
+            } finally {
+              // Close the processing dialog
+              if (context.mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            }
           }
         } catch (e) {
           print('❌ Error in subscription flow: $e');
+
+          // Close any open dialogs on error
+          if (context.mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+
           if (context.mounted) {
             AppToast.error(context, e.toString());
           }
-        } finally {
-          print('⏹️ Setting isLoading to false');
-          isLoading.value = false;
         }
       } else {
         print('❌ User cancelled subscription dialog');
@@ -522,7 +561,13 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> onRestorePurchases() async {
-      isLoading.value = true;
+      if (context.mounted) {
+        showBlockingProcessingDialog(
+          context: context,
+          message: 'Restoring purchases...',
+        );
+      }
+
       try {
         if (useIap) {
           await ref.read(iapControllerProvider.notifier).restorePurchases();
@@ -536,7 +581,9 @@ class PlanSelectionPage extends HookConsumerWidget {
           AppToast.error(context, 'Failed to restore: ${e.toString()}');
         }
       } finally {
-        isLoading.value = false;
+        if (context.mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
       }
     }
 
@@ -552,7 +599,13 @@ class PlanSelectionPage extends HookConsumerWidget {
       );
 
       if (result?.confirmed == true) {
-        isLoading.value = true;
+        if (context.mounted) {
+          showBlockingProcessingDialog(
+            context: context,
+            message: 'Cancelling subscription...',
+          );
+        }
+
         try {
           await ref
               .read(subscriptionManagementProvider.notifier)
@@ -565,7 +618,9 @@ class PlanSelectionPage extends HookConsumerWidget {
             AppToast.error(context, e.toString());
           }
         } finally {
-          isLoading.value = false;
+          if (context.mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         }
       }
     }
@@ -725,7 +780,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                     if (requiresAutoRenewAcknowledgement) ...[
                       CheckboxListTile(
                         value: hasAcknowledgedAutoRenew.value,
-                        onChanged: isLoading.value
+                        onChanged: isProcessing
                             ? null
                             : (value) =>
                                 hasAcknowledgedAutoRenew.value = value ?? false,
@@ -768,11 +823,11 @@ class PlanSelectionPage extends HookConsumerWidget {
                       const SizedBox(height: 12),
                     ],
                     PrimaryAdaptiveButton(
-                      onPressed: isLoading.value || !canConfirmAutoRenew
+                      onPressed: isProcessing || !canConfirmAutoRenew
                           ? null
                           : onMainAction,
                       child: Text(
-                        isLoading.value
+                        isProcessing
                             ? 'Processing...'
                             : (activePlanOption.serverPlanId == 'lifetime'
                                 ? 'Get Lifetime Access for ${activePlanOption.priceDisplay}'
@@ -792,7 +847,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                                 currentProvider != 'play_store'))) ...[
                       const SizedBox(height: 16),
                       GestureDetector(
-                        onTap: isLoading.value ? null : onCancelSubscription,
+                        onTap: isProcessing ? null : onCancelSubscription,
                         child: Text(
                           'Cancel Subscription',
                           style: TextStyle(
@@ -813,8 +868,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                         currentPlanId != 'lifetime') ...[
                       const SizedBox(height: 16),
                       GestureDetector(
-                        onTap:
-                            isLoading.value ? null : onManageStoreSubscription,
+                        onTap: isProcessing ? null : onManageStoreSubscription,
                         child: Text(
                           'Manage Subscription',
                           style: TextStyle(
@@ -832,7 +886,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                     // Restore Purchases (Always visible)
                     const SizedBox(height: 24),
                     GestureDetector(
-                      onTap: isLoading.value ? null : onRestorePurchases,
+                      onTap: isProcessing ? null : onRestorePurchases,
                       child: Text(
                         'Restore Purchases',
                         style: TextStyle(

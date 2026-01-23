@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/app/router.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/models/subscription_product.dart';
 import 'subscription_products_provider.dart';
@@ -17,22 +20,26 @@ class IapState {
   final bool storeAvailable;
   final Map<String, ProductDetails> productDetailsById;
   final String? lastError;
+  final bool isProcessing;
 
   const IapState({
     required this.storeAvailable,
     required this.productDetailsById,
     required this.lastError,
+    this.isProcessing = false,
   });
 
   IapState copyWith({
     bool? storeAvailable,
     Map<String, ProductDetails>? productDetailsById,
     String? lastError,
+    bool? isProcessing,
   }) {
     return IapState(
       storeAvailable: storeAvailable ?? this.storeAvailable,
       productDetailsById: productDetailsById ?? this.productDetailsById,
       lastError: lastError,
+      isProcessing: isProcessing ?? this.isProcessing,
     );
   }
 }
@@ -42,14 +49,22 @@ class IapController extends AsyncNotifier<IapState> {
 
   @override
   Future<IapState> build() async {
+    print('🏗️ IapController.build() called');
+    print('🌐 Platform: ${defaultTargetPlatform.toString()}, isWeb: $kIsWeb');
+
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
+      print('⚠️ IAP not supported on this platform');
       return const IapState(
           storeAvailable: false, productDetailsById: {}, lastError: null);
     }
 
     final products = ref.watch(subscriptionProductsProvider).value ??
         const <SubscriptionProduct>[];
+    print('📦 Loaded ${products.length} products from catalog');
+    print('🏷️ Product IDs: ${products.map((p) => p.storeProductId).toList()}');
+
     if (products.isEmpty) {
+      print('⚠️ No products loaded from catalog');
       _ensurePurchaseListener();
       return const IapState(
           storeAvailable: false, productDetailsById: {}, lastError: null);
@@ -57,21 +72,33 @@ class IapController extends AsyncNotifier<IapState> {
 
     _ensurePurchaseListener();
 
+    print('🔍 Checking if IAP store is available...');
     final isAvailable = await InAppPurchase.instance.isAvailable();
+    print('🏪 Store available: $isAvailable');
+
     if (!isAvailable) {
+      print('❌ Store not available');
       return const IapState(
           storeAvailable: false, productDetailsById: {}, lastError: null);
     }
 
     final ids = products.map((p) => p.storeProductId).toSet();
+    print('🔍 Querying product details for: $ids');
+
     final response = await InAppPurchase.instance.queryProductDetails(ids);
+
     if (response.error != null) {
+      print('❌ Query error: ${response.error!.message}');
       return IapState(
         storeAvailable: true,
         productDetailsById: const {},
         lastError: response.error!.message,
       );
     }
+
+    print('✅ Found ${response.productDetails.length} product details');
+    print(
+        '📋 Product details IDs: ${response.productDetails.map((p) => p.id).toList()}');
 
     final map = <String, ProductDetails>{
       for (final d in response.productDetails) d.id: d,
@@ -82,11 +109,16 @@ class IapController extends AsyncNotifier<IapState> {
   }
 
   void _ensurePurchaseListener() {
-    if (_purchaseSubscription != null) return;
+    if (_purchaseSubscription != null) {
+      print('✅ Purchase listener already active');
+      return;
+    }
 
+    print('🎧 Setting up purchase stream listener...');
     _purchaseSubscription = InAppPurchase.instance.purchaseStream.listen(
       _onPurchaseUpdated,
       onError: (Object error) {
+        print('❌ Purchase stream error: $error');
         state = AsyncValue.data(
           (state.value ??
                   const IapState(
@@ -97,8 +129,10 @@ class IapController extends AsyncNotifier<IapState> {
         );
       },
     );
+    print('✅ Purchase stream listener set up');
 
     ref.onDispose(() {
+      print('🧹 Disposing purchase listener');
       _purchaseSubscription?.cancel();
       _purchaseSubscription = null;
     });
@@ -122,55 +156,136 @@ class IapController extends AsyncNotifier<IapState> {
   }
 
   Future<void> buy(SubscriptionProduct product) async {
-    if (defaultTargetPlatform != TargetPlatform.iOS) {
-      throw Exception('In-app purchases are not supported on this platform');
-    }
+    print('🚀 buy() called for product: ${product.storeProductId}');
+    final startedAt = DateTime.now();
 
-    final user = ref.read(authProvider);
-    if (user.isEmpty) {
-      throw Exception('User not logged in');
-    }
+    try {
+      print('🧭 buy() step 1: platform check start');
+      print('📱 Platform: ${defaultTargetPlatform.toString()}');
 
-    final current = state.valueOrNull;
-    final details = current?.productDetailsById[product.storeProductId];
-    if (details == null) {
-      throw Exception('Product not available');
-    }
-
-    final platform = _platformString();
-    if (platform == null) {
-      throw Exception('In-app purchases are not supported on this platform');
-    }
-
-    PurchaseParam purchaseParam;
-
-    if (platform == 'android' && details is GooglePlayProductDetails) {
-      // For Google subscriptions, an offer token is required.
-      // GooglePlayProductDetails exposes a convenience getter for the selected offer.
-      final offerToken = details.offerToken;
-
-      if (!product.isLifetime && (offerToken == null || offerToken.isEmpty)) {
-        throw Exception('No subscription offer available for this product');
+      if (defaultTargetPlatform != TargetPlatform.iOS) {
+        print('❌ Platform check failed: not iOS');
+        throw Exception('In-app purchases are not supported on this platform');
       }
-      purchaseParam = GooglePlayPurchaseParam(
-        productDetails: details,
-        applicationUserName: user.uid,
-        offerToken: offerToken,
-      );
-    } else {
-      purchaseParam = PurchaseParam(
-        productDetails: details,
-        applicationUserName: user.uid,
-      );
-    }
+      print('✅ Platform check passed: iOS');
 
-    // Subscriptions and non-consumables both use buyNonConsumable.
-    final ok = await InAppPurchase.instance.buyNonConsumable(
-      purchaseParam: purchaseParam,
-    );
+      print('🧭 buy() step 2: read authProvider start');
+      final user = ref.read(authProvider);
+      print('👤 User: ${user.uid}');
+      if (user.isEmpty) {
+        print('❌ User check failed: not logged in');
+        throw Exception('User not logged in');
+      }
+      print('✅ User check passed');
 
-    if (!ok) {
-      throw Exception('Failed to start purchase');
+      print('🧭 buy() step 3: read state start');
+      final current = state.valueOrNull;
+      print('📊 Current state: ${current != null ? "has value" : "null"}');
+      print(
+          '🏪 Available products: ${current?.productDetailsById.keys.toList()}');
+
+      print('🧭 buy() step 4: find product details');
+      final details = current?.productDetailsById[product.storeProductId];
+      print(
+          '🔍 Product details lookup for ${product.storeProductId}: ${details != null ? "FOUND" : "NOT FOUND"}');
+
+      if (details == null) {
+        print('❌ Product details check failed: not available');
+        throw Exception('Product not available');
+      }
+      print(
+          '✅ Product details: id=${details.id}, title=${details.title}, price=${details.price}');
+
+      print('🧭 buy() step 5: platform string');
+      final platform = _platformString();
+      print('🔧 Platform string: $platform');
+      if (platform == null) {
+        print('❌ Platform string check failed');
+        throw Exception('In-app purchases are not supported on this platform');
+      }
+      print('✅ Platform string check passed');
+
+      print('🧭 buy() step 6: set processing state');
+      // Set processing state
+      state = AsyncValue.data(
+        (state.value ??
+                const IapState(
+                    storeAvailable: false,
+                    productDetailsById: {},
+                    lastError: null))
+            .copyWith(isProcessing: true),
+      );
+      print('✅ Processing state set to true');
+
+      PurchaseParam purchaseParam;
+
+      print('🧭 buy() step 7: build purchase param');
+      if (platform == 'android' && details is GooglePlayProductDetails) {
+        print('🤖 Android purchase flow');
+        // For Google subscriptions, an offer token is required.
+        // GooglePlayProductDetails exposes a convenience getter for the selected offer.
+        final offerToken = details.offerToken;
+
+        if (!product.isLifetime && (offerToken == null || offerToken.isEmpty)) {
+          print('❌ No offer token available for Android subscription');
+          state = AsyncValue.data(
+            (state.value ??
+                    const IapState(
+                        storeAvailable: false,
+                        productDetailsById: {},
+                        lastError: null))
+                .copyWith(isProcessing: false),
+          );
+          throw Exception('No subscription offer available for this product');
+        }
+        purchaseParam = GooglePlayPurchaseParam(
+          productDetails: details,
+          applicationUserName: user.uid,
+          offerToken: offerToken,
+        );
+        print('✅ Android purchase param created');
+      } else {
+        print('🍎 iOS purchase flow');
+        purchaseParam = PurchaseParam(
+          productDetails: details,
+          applicationUserName: user.uid,
+        );
+        print('✅ iOS purchase param created with user: ${user.uid}');
+      }
+
+      print('🧭 buy() step 8: call buyNonConsumable');
+      print(
+          '📋 Purchase param details: productId=${purchaseParam.productDetails.id}, userName=${purchaseParam.applicationUserName}');
+
+      // Subscriptions and non-consumables both use buyNonConsumable.
+      final ok = await InAppPurchase.instance.buyNonConsumable(
+        purchaseParam: purchaseParam,
+      );
+
+      print('💳 buyNonConsumable returned: $ok');
+
+      if (!ok) {
+        print('❌ Purchase failed: buyNonConsumable returned false');
+        state = AsyncValue.data(
+          (state.value ??
+                  const IapState(
+                      storeAvailable: false,
+                      productDetailsById: {},
+                      lastError: null))
+              .copyWith(isProcessing: false),
+        );
+        throw Exception('Failed to start purchase');
+      }
+
+      print(
+          '✅ Purchase initiated successfully, waiting for purchase stream updates...');
+    } catch (error, stackTrace) {
+      print('❌ buy() threw: $error');
+      print('🧵 buy() stackTrace: $stackTrace');
+      rethrow;
+    } finally {
+      final elapsed = DateTime.now().difference(startedAt);
+      print('🏁 buy() finished. elapsed=${elapsed.inMilliseconds}ms');
     }
   }
 
@@ -185,13 +300,20 @@ class IapController extends AsyncNotifier<IapState> {
   }
 
   Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {
+    print('🔔 _onPurchaseUpdated called with ${purchases.length} purchase(s)');
+
     for (final purchase in purchases) {
+      print(
+          '📦 Processing purchase: id=${purchase.purchaseID}, productId=${purchase.productID}, status=${purchase.status}');
+
       try {
         if (purchase.status == PurchaseStatus.pending) {
+          print('⏳ Purchase pending, skipping...');
           continue;
         }
 
         if (purchase.status == PurchaseStatus.error) {
+          print('❌ Purchase error: ${purchase.error?.message}');
           state = AsyncValue.data(
             (state.value ??
                     const IapState(
@@ -199,71 +321,183 @@ class IapController extends AsyncNotifier<IapState> {
                         productDetailsById: {},
                         lastError: null))
                 .copyWith(
-                    lastError: purchase.error?.message ?? 'Purchase error'),
+                    lastError: purchase.error?.message ?? 'Purchase error',
+                    isProcessing: false),
           );
           continue;
         }
 
         if (purchase.status == PurchaseStatus.purchased ||
             purchase.status == PurchaseStatus.restored) {
+          print(
+              '✅ Purchase ${purchase.status == PurchaseStatus.purchased ? "completed" : "restored"}');
+
           final catalog = _findCatalogProduct(purchase.productID);
+          print(
+              '🔍 Catalog lookup for ${purchase.productID}: ${catalog != null ? "FOUND" : "NOT FOUND"}');
+
           if (catalog == null) {
+            print('❌ Unknown product purchased');
             state = AsyncValue.data(
               (state.value ??
                       const IapState(
                           storeAvailable: false,
                           productDetailsById: {},
                           lastError: null))
-                  .copyWith(lastError: 'Unknown product purchased'),
+                  .copyWith(
+                      lastError: 'Unknown product purchased',
+                      isProcessing: false),
             );
+
+            // Close any open dialogs
+            final context = rootNavigatorKey.currentContext;
+            if (context != null && context.mounted) {
+              final nav = Navigator.of(context);
+              if (nav.canPop()) {
+                nav.pop();
+              }
+            }
             continue;
           }
 
           final platform = _platformString();
-          if (platform == null) continue;
+          print('🔧 Platform for verification: $platform');
 
-          final response = await supabase.functions.invoke(
-            'verify-iap-purchase',
-            body: {
-              'platform': platform,
-              'storeProductId': catalog.storeProductId,
-              'verificationData': {
-                'source': purchase.verificationData.source,
-                'localVerificationData':
-                    purchase.verificationData.localVerificationData,
-                'serverVerificationData':
-                    purchase.verificationData.serverVerificationData,
-              },
-              'purchaseId': purchase.purchaseID,
-              'transactionDate': purchase.transactionDate,
-            },
-          );
-
-          if (response.status >= 400) {
+          if (platform == null) {
+            print('❌ Platform string is null');
             state = AsyncValue.data(
               (state.value ??
                       const IapState(
                           storeAvailable: false,
                           productDetailsById: {},
                           lastError: null))
-                  .copyWith(lastError: 'Verification failed'),
+                  .copyWith(isProcessing: false),
             );
             continue;
           }
 
-          // Refresh subscription state
-          await ref.read(subscriptionManagementProvider.notifier).refresh();
-          await ref.read(subscriptionNotifierProvider.notifier).refresh();
+          print('🌐 Calling verify-iap-purchase Edge Function...');
+          final verificationData = purchase.verificationData;
+          final serverData = verificationData.serverVerificationData;
+          final localData = verificationData.localVerificationData;
+          final serverPrefix = serverData == null
+              ? 'null'
+              : serverData.substring(
+                  0, serverData.length > 8 ? 8 : serverData.length);
+          final localPrefix = localData == null
+              ? 'null'
+              : localData.substring(
+                  0, localData.length > 8 ? 8 : localData.length);
+          print('🧾 Receipt data source: ${verificationData.source}');
+          print(
+              '🧾 Receipt data lengths: server=${serverData?.length ?? 0}, local=${localData?.length ?? 0}');
+          print(
+              '🧾 Receipt data prefix: server=$serverPrefix, local=$localPrefix');
+          final startedAt = DateTime.now();
+          try {
+            final response = await supabase.functions.invoke(
+              'verify-iap-purchase',
+              body: {
+                'platform': platform,
+                'storeProductId': catalog.storeProductId,
+                'verificationData': {
+                  'source': purchase.verificationData.source,
+                  'localVerificationData':
+                      purchase.verificationData.localVerificationData,
+                  'serverVerificationData':
+                      purchase.verificationData.serverVerificationData,
+                },
+                'purchaseId': purchase.purchaseID,
+                'transactionDate': purchase.transactionDate,
+              },
+            );
+
+            final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
+            print('⏱️ Edge Function duration: ${elapsed}ms');
+            print('📡 Edge Function response status: ${response.status}');
+
+            if (response.status >= 400) {
+              print('❌ Verification failed with status ${response.status}');
+              state = AsyncValue.data(
+                (state.value ??
+                        const IapState(
+                            storeAvailable: false,
+                            productDetailsById: {},
+                            lastError: null))
+                    .copyWith(
+                        lastError: 'Verification failed', isProcessing: false),
+              );
+
+              // Close any open dialogs and show error
+              final context = rootNavigatorKey.currentContext;
+              if (context != null && context.mounted) {
+                final nav = Navigator.of(context);
+                if (nav.canPop()) {
+                  nav.pop();
+                }
+              }
+              continue;
+            }
+
+            // Refresh subscription state
+            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            await ref.read(subscriptionNotifierProvider.notifier).refresh();
+
+            // Clear processing state first
+            state = AsyncValue.data(
+              (state.value ??
+                      const IapState(
+                          storeAvailable: false,
+                          productDetailsById: {},
+                          lastError: null))
+                  .copyWith(isProcessing: false),
+            );
+
+            // Navigate to dashboard - this will automatically close any dialogs
+            final context = rootNavigatorKey.currentContext;
+            if (context != null && context.mounted) {
+              context.go('/dashboard');
+            }
+          } catch (error, stackTrace) {
+            final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
+            print('❌ Edge Function invoke threw after ${elapsed}ms: $error');
+            print('🧵 Edge Function stackTrace: $stackTrace');
+            state = AsyncValue.data(
+              (state.value ??
+                      const IapState(
+                          storeAvailable: false,
+                          productDetailsById: {},
+                          lastError: null))
+                  .copyWith(
+                      lastError: 'Verification failed', isProcessing: false),
+            );
+            final context = rootNavigatorKey.currentContext;
+            if (context != null && context.mounted) {
+              final nav = Navigator.of(context);
+              if (nav.canPop()) {
+                nav.pop();
+              }
+            }
+          }
         }
-      } catch (e) {
+      } catch (e, stackTrace) {
+        print('❌ Purchase verification threw: $e');
+        print('🧵 Purchase verification stackTrace: $stackTrace');
         state = AsyncValue.data(
           (state.value ??
                   const IapState(
                       storeAvailable: false,
                       productDetailsById: {},
                       lastError: null))
-              .copyWith(lastError: e.toString()),
+              .copyWith(lastError: e.toString(), isProcessing: false),
         );
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+          }
+        }
       } finally {
         if (purchase.pendingCompletePurchase) {
           try {
