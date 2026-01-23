@@ -93,10 +93,12 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
 
-// Ensure HomeWidget uses a stable Glance build (avoid RC that crashes trampoline)
+// Ensure HomeWidget uses a stable Glance build + patched protobuf artifacts
 configurations.all {
     resolutionStrategy {
-        force "androidx.glance:glance-appwidget:1.1.0"
-        force "androidx.glance:glance:1.1.0"
+        force "androidx.glance:glance-appwidget:1.1.1"
+        force "androidx.glance:glance:1.1.1"
+        force "androidx.glance:glance-appwidget-proto:1.1.1"
+        force "androidx.glance:glance-appwidget-external-protobuf:1.1.1"
     }
 }

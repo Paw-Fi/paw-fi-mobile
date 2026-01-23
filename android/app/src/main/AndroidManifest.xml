@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Package visibility for URL intents (Android 11+) so url_launcher can resolve handlers -->
     <queries>
         <intent>
@@ -56,6 +57,12 @@
         android:label="Moneko"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name="com.plaid.internal.link.LinkActivity"
+            android:exported="false"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            tools:replace="android:resizeableActivity,android:screenOrientation" />
         <!-- Default notification channel (used when FCM message has no channel_id) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
