@@ -6,6 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
@@ -197,6 +199,28 @@ void main() {
             .recordError(e, s, reason: 'initApp failed', fatal: false);
       }
       // Continue; router/splash will still render and can show error UI later
+    }
+
+    // Initialize Intl date formatting for the device locale
+    final deviceLocale = ui.PlatformDispatcher.instance.locale;
+    final localeName = deviceLocale.toString();
+    try {
+      intl.Intl.defaultLocale = localeName;
+      await initializeDateFormatting(localeName, null);
+    } catch (e, s) {
+      debugPrint('❌ initializeDateFormatting failed for $localeName: $e');
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.recordError(
+          e,
+          s,
+          reason: 'initializeDateFormatting',
+          fatal: false,
+        );
+      }
+      try {
+        intl.Intl.defaultLocale = 'en_US';
+        await initializeDateFormatting('en_US', null);
+      } catch (_) {}
     }
 
     // Initialize SharedPreferences for persistent state

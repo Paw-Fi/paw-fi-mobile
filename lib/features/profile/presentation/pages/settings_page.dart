@@ -43,6 +43,8 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:app_badge_plus/app_badge_plus.dart';
 
+bool _isAvatarCropInProgress = false;
+
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
 
@@ -697,28 +699,38 @@ Future<File?> _pickAndCropAvatarImage(
 
     if (!context.mounted) return null;
 
-    final croppedFile = await ImageCropper().cropImage(
-      sourcePath: image.path,
-      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-      compressQuality: 90,
-      maxWidth: 800,
-      maxHeight: 800,
-      compressFormat: ImageCompressFormat.png,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: context.l10n.cropCoverImage,
-          toolbarColor: Theme.of(context).colorScheme.appBackground,
-          toolbarWidgetColor: Theme.of(context).colorScheme.foreground,
-          initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: true,
-        ),
-        IOSUiSettings(
-          title: context.l10n.cropCoverImage,
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-        ),
-      ],
-    );
+    if (_isAvatarCropInProgress) {
+      return null;
+    }
+
+    _isAvatarCropInProgress = true;
+    final CroppedFile? croppedFile;
+    try {
+      croppedFile = await ImageCropper().cropImage(
+        sourcePath: image.path,
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+        compressQuality: 90,
+        maxWidth: 800,
+        maxHeight: 800,
+        compressFormat: ImageCompressFormat.png,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: context.l10n.cropCoverImage,
+            toolbarColor: Theme.of(context).colorScheme.appBackground,
+            toolbarWidgetColor: Theme.of(context).colorScheme.foreground,
+            initAspectRatio: CropAspectRatioPreset.square,
+            lockAspectRatio: true,
+          ),
+          IOSUiSettings(
+            title: context.l10n.cropCoverImage,
+            aspectRatioLockEnabled: true,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+    } finally {
+      _isAvatarCropInProgress = false;
+    }
 
     if (croppedFile == null) {
       return null;
@@ -1063,16 +1075,15 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                flex: label=="Email"?1:2,
+                flex: label == "Email" ? 1 : 2,
                 child: Text(
                   label,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
                     color: colorScheme.onSurface,
+                  ),
                 ),
-               
-              ),
               ),
               if (value != null) ...[
                 const SizedBox(width: 12),

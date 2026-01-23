@@ -101,6 +101,14 @@ class _AppState extends ConsumerState<App> {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
+    final localizationsDelegates = <LocalizationsDelegate<dynamic>>[
+      ...AppLocalizations.localizationsDelegates,
+      GlobalMaterialLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      const FallbackMaterialLocalizationDelegate(),
+      const FallbackCupertinoLocalizationDelegate(),
+    ];
 
     return AdaptiveApp.router(
       routerConfig: router,
@@ -138,18 +146,18 @@ class _AppState extends ConsumerState<App> {
           textStyle: TextStyle(color: AppTheme.darkForeground),
         ),
       ),
-      localizationsDelegates: const [
-        ...AppLocalizations.localizationsDelegates,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate, // Important!
-        DefaultWidgetsLocalizations.delegate,
-      ],
+      localizationsDelegates: localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       locale: locale,
       localeResolutionCallback: localeResolutionCallback,
       builder: (context, child) {
         // Never render an empty child on first frames; fallback to SplashScreen
-        return VersionCheckWrapper(child: child ?? const SplashScreen());
+        return Localizations.override(
+          context: context,
+          locale: locale,
+          delegates: localizationsDelegates,
+          child: VersionCheckWrapper(child: child ?? const SplashScreen()),
+        );
       },
     );
   }

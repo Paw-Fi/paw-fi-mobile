@@ -755,10 +755,12 @@ Future<void> _openSettleUpSheet(
     isScrollControlled: true,
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-    builder: (_) {
+    builder: (sheetContext) {
+      final mediaQuery = MediaQuery.maybeOf(sheetContext);
+      final bottomInset = mediaQuery?.viewInsets.bottom ?? 0.0;
       return Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: bottomInset,
         ),
         child: SettleUpSheet(
           householdId: householdId,

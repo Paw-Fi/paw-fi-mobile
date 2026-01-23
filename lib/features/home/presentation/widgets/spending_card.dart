@@ -214,6 +214,7 @@ class _SpendingCardState extends State<SpendingCard> {
                         }
                         final date = visibleDates[value.toInt()];
                         final locale = Localizations.localeOf(context);
+                        final localeName = locale.toString();
 
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
@@ -222,8 +223,7 @@ class _SpendingCardState extends State<SpendingCard> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      DateFormat('d', locale.toLanguageTag())
-                                          .format(date),
+                                      DateFormat('d', localeName).format(date),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
@@ -234,10 +234,8 @@ class _SpendingCardState extends State<SpendingCard> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      DateFormat(
-                                        'MMM',
-                                        locale.toLanguageTag(),
-                                      ).format(date),
+                                      DateFormat('MMM', localeName)
+                                          .format(date),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w500,
@@ -281,13 +279,11 @@ class _SpendingCardState extends State<SpendingCard> {
                         }
                         final date = visibleDates[spot.spotIndex];
                         final locale = Localizations.localeOf(context);
+                        final localeName = locale.toString();
                         final formattedDate =
                             widget.dateFilter == DateRangeFilter.thisMonth &&
                                     intervalType == 'daily'
-                                ? DateFormat(
-                                    'd MMM',
-                                    locale.toLanguageTag(),
-                                  ).format(date)
+                                ? DateFormat('d MMM', localeName).format(date)
                                 : formatDateForInterval(date, intervalType);
                         final currencyCode = widget.selectedCurrency ?? 'USD';
                         final symbol = resolveCurrencySymbol(currencyCode);

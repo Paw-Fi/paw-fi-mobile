@@ -16,6 +16,8 @@ import '../providers/household_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 class HouseholdImagePicker {
+  static bool _isCropping = false;
+
   static Future<void> showImageSourceModal({
     required BuildContext context,
     required WidgetRef ref,
@@ -431,29 +433,38 @@ class HouseholdImagePicker {
   static Future<CroppedFile?> _cropImage(
       BuildContext context, String imagePath) async {
     try {
+      if (_isCropping) {
+        return null;
+      }
+
       final colorScheme = Theme.of(context).colorScheme;
-      return await ImageCropper().cropImage(
-        sourcePath: imagePath,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        compressQuality: 90,
-        maxWidth: 800,
-        maxHeight: 800,
-        compressFormat: ImageCompressFormat.jpg,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: context.l10n.cropCoverImage,
-            toolbarColor: colorScheme.appBackground,
-            toolbarWidgetColor: colorScheme.foreground,
-            initAspectRatio: CropAspectRatioPreset.square,
-            lockAspectRatio: true,
-          ),
-          IOSUiSettings(
-            title: context.l10n.cropCoverImage,
-            aspectRatioLockEnabled: true,
-            resetAspectRatioEnabled: false,
-          ),
-        ],
-      );
+      _isCropping = true;
+      try {
+        return await ImageCropper().cropImage(
+          sourcePath: imagePath,
+          aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+          compressQuality: 90,
+          maxWidth: 800,
+          maxHeight: 800,
+          compressFormat: ImageCompressFormat.jpg,
+          uiSettings: [
+            AndroidUiSettings(
+              toolbarTitle: context.l10n.cropCoverImage,
+              toolbarColor: colorScheme.appBackground,
+              toolbarWidgetColor: colorScheme.foreground,
+              initAspectRatio: CropAspectRatioPreset.square,
+              lockAspectRatio: true,
+            ),
+            IOSUiSettings(
+              title: context.l10n.cropCoverImage,
+              aspectRatioLockEnabled: true,
+              resetAspectRatioEnabled: false,
+            ),
+          ],
+        );
+      } finally {
+        _isCropping = false;
+      }
     } catch (e) {
       if (context.mounted) {
         _showError(context, ErrorHandler.getUserFriendlyMessage(e));
