@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/domain/models/income_summary.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 /// Income list state provider
 final incomeListProvider =
@@ -177,6 +178,9 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     state = const AsyncValue.loading();
 
     try {
+      final isPortfolio = householdId != null &&
+          ref.read(householdScopeProvider).isPortfolioId(householdId);
+
       final response = await supabase.functions.invoke(
         'save-income',
         body: {
@@ -185,13 +189,14 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           'category': category,
           'currency': currency,
           'date': date.toIso8601String(),
-          'clientCreatedAt': DateTime.now().toIso8601String(),
+          'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
           if (description != null && description.isNotEmpty)
             'description': description,
           if (source != null && source.isNotEmpty) 'source': source,
           'ownerType': ownerType,
           'privacyScope': privacyScope,
           if (householdId != null) 'householdId': householdId,
+          if (householdId != null) 'isPortfolio': isPortfolio,
           if (fxRate != null) 'fxRate': fxRate,
           if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
           if (attachments != null) 'attachments': attachments,

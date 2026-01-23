@@ -28,17 +28,28 @@ class FinancialCalendarWidget extends StatefulWidget {
 
 class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   late DateTime _focusedMonth;
+  late DateTime _focusedWeekStart;
   final DateTime _today = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _focusedMonth = widget.initialMonth ?? DateTime(_today.year, _today.month);
+    _focusedWeekStart = DateTime(_today.year, _today.month, _today.day)
+        .subtract(const Duration(days: 6));
   }
 
   bool get _isCurrentMonth {
     return _focusedMonth.year == _today.year &&
         _focusedMonth.month == _today.month;
+  }
+
+  DateTime get _todayDateOnly =>
+      DateTime(_today.year, _today.month, _today.day);
+
+  bool get _isLatestWeek {
+    final endOfWeek = _focusedWeekStart.add(const Duration(days: 6));
+    return endOfWeek.isAtSameMomentAs(_todayDateOnly);
   }
 
   void _previousMonth() {
@@ -52,6 +63,39 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
     setState(() {
       _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
     });
+  }
+
+  void _previousWeek() {
+    setState(() {
+      _focusedWeekStart = _focusedWeekStart.subtract(const Duration(days: 7));
+    });
+  }
+
+  void _nextWeek() {
+    if (_isLatestWeek) return;
+    setState(() {
+      _focusedWeekStart = _focusedWeekStart.add(const Duration(days: 7));
+    });
+  }
+
+  void _handleHorizontalSwipe(DragEndDetails details) {
+    final velocity = details.velocity.pixelsPerSecond.dx;
+    if (velocity.abs() < 200) return;
+
+    if (velocity < 0) {
+      if (widget.isExpanded) {
+        _nextMonth();
+      } else {
+        _nextWeek();
+      }
+      return;
+    }
+
+    if (widget.isExpanded) {
+      _previousMonth();
+    } else {
+      _previousWeek();
+    }
   }
 
   Map<String, double> _calculateDailyTotals(DateTime date) {
@@ -109,67 +153,71 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
+    return GestureDetector(
+      onHorizontalDragEnd: _handleHorizontalSwipe,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.homeCardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.homeCardBorder,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.homeCardShadow,
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (widget.isExpanded) ...[
-                IconButton(
-                  onPressed: _previousMonth,
-                  icon: Icon(Icons.chevron_left, color: colorScheme.foreground),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  visualDensity: VisualDensity.compact,
-                ),
-                Text(
-                  DateFormat('MMMM yyyy').format(_focusedMonth),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (widget.isExpanded) ...[
+                  IconButton(
+                    onPressed: _previousMonth,
+                    icon:
+                        Icon(Icons.chevron_left, color: colorScheme.foreground),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
                   ),
-                ),
-                IconButton(
-                  onPressed: _isCurrentMonth ? null : _nextMonth,
-                  icon: Icon(Icons.chevron_right,
-                      color: _isCurrentMonth
-                          ? colorScheme.mutedForeground.withValues(alpha: 0.3)
-                          : colorScheme.foreground),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ] else
-                const Spacer(),
-            ],
-          ),
-          if (widget.isExpanded) const SizedBox(height: 8),
+                  Text(
+                    DateFormat('MMMM yyyy').format(_focusedMonth),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _isCurrentMonth ? null : _nextMonth,
+                    icon: Icon(Icons.chevron_right,
+                        color: _isCurrentMonth
+                            ? colorScheme.mutedForeground.withValues(alpha: 0.3)
+                            : colorScheme.foreground),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ] else
+                  const Spacer(),
+              ],
+            ),
+            if (widget.isExpanded) const SizedBox(height: 8),
 
-          if (widget.isExpanded)
-            _buildExpandedView(colorScheme)
-          else
-            _buildCollapsedView(colorScheme),
-        ],
+            if (widget.isExpanded)
+              _buildExpandedView(colorScheme)
+            else
+              _buildCollapsedView(colorScheme),
+          ],
+        ),
       ),
     );
   }
@@ -231,7 +279,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
 
   Widget _buildCollapsedView(ColorScheme colorScheme) {
     final last7Days = List.generate(7, (index) {
-      return _today.subtract(Duration(days: 6 - index));
+      return _focusedWeekStart.add(Duration(days: index));
     });
 
     return Row(

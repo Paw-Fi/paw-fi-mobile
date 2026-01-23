@@ -55,16 +55,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   DateTime? _customStartDate;
   DateTime? _customEndDate;
 
-  // When true, ignore date range filtering and always show all-time data.
-  late bool _ignoreDateFilter;
-
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
 
   @override
   void initState() {
     super.initState();
-    _ignoreDateFilter = !widget.enableDateFilter;
     _customStartDate = widget.initialStartDate;
     _customEndDate = widget.initialEndDate;
 
@@ -120,42 +116,40 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     // Filter by period
-    if (!_ignoreDateFilter) {
-      if (selectedPeriod == 'Custom' &&
-          _customStartDate != null &&
-          _customEndDate != null) {
-        final start = DateTime(_customStartDate!.year, _customStartDate!.month,
-            _customStartDate!.day);
-        final end = DateTime(
-            _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
-        expenses = expenses.where((ex) {
-          final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
-          return !d.isBefore(start) && !d.isAfter(end);
-        }).toList();
-      } else if (selectedPeriod != 'All') {
-        final now = DateTime.now();
-        DateTime startDate;
-        switch (selectedPeriod) {
-          case '1W':
-            startDate = DateTime(now.year, now.month, now.day - 7);
-            break;
-          case '1M':
-            startDate = DateTime(now.year, now.month - 1, now.day);
-            break;
-          case '6M':
-            startDate = DateTime(now.year, now.month - 6, now.day);
-            break;
-          case '1Y':
-            startDate = DateTime(now.year - 1, now.month, now.day);
-            break;
-          case 'All':
-            startDate = DateTime(1970);
-            break;
-          default:
-            startDate = DateTime(now.year, now.month - 1, now.day);
-        }
-        expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
+    if (selectedPeriod == 'Custom' &&
+        _customStartDate != null &&
+        _customEndDate != null) {
+      final start = DateTime(_customStartDate!.year, _customStartDate!.month,
+          _customStartDate!.day);
+      final end = DateTime(
+          _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
+      expenses = expenses.where((ex) {
+        final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
+        return !d.isBefore(start) && !d.isAfter(end);
+      }).toList();
+    } else if (selectedPeriod != 'All') {
+      final now = DateTime.now();
+      DateTime startDate;
+      switch (selectedPeriod) {
+        case '1W':
+          startDate = DateTime(now.year, now.month, now.day - 7);
+          break;
+        case '1M':
+          startDate = DateTime(now.year, now.month - 1, now.day);
+          break;
+        case '6M':
+          startDate = DateTime(now.year, now.month - 6, now.day);
+          break;
+        case '1Y':
+          startDate = DateTime(now.year - 1, now.month, now.day);
+          break;
+        case 'All':
+          startDate = DateTime(1970);
+          break;
+        default:
+          startDate = DateTime(now.year, now.month - 1, now.day);
       }
+      expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
 
     // Filter by search query
@@ -724,8 +718,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final periodTotals = groupExpensesByInterval(
       filteredExpenses,
       chartIntervalType,
-      rangeStart: _ignoreDateFilter ? null : _customStartDate,
-      rangeEnd: _ignoreDateFilter ? null : _customEndDate,
+      rangeStart: selectedPeriod == 'Custom' ? _customStartDate : null,
+      rangeEnd: selectedPeriod == 'Custom' ? _customEndDate : null,
     );
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {

@@ -121,6 +121,41 @@ Future<void> _persistAiTransactions(
   String? localImagePath,
 }) async {
   var didPersistAny = false;
+
+  String? normalizeBucketId(String? value) {
+    final trimmed = value?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
+
+  void upsertSavedEntry({
+    required String optimisticId,
+    required ExpenseEntry savedEntry,
+  }) {
+    final fromBucket = normalizeBucketId(householdId);
+    final toBucket = normalizeBucketId(savedEntry.householdId);
+
+    if (fromBucket == toBucket) {
+      replaceOptimisticTransaction(
+        ref: ref,
+        optimisticId: optimisticId,
+        savedEntry: savedEntry,
+        householdId: fromBucket,
+      );
+      return;
+    }
+
+    removeOptimisticTransaction(
+      ref: ref,
+      optimisticId: optimisticId,
+      householdId: fromBucket,
+    );
+    addOptimisticTransaction(
+      ref: ref,
+      entry: savedEntry,
+      householdId: toBucket,
+    );
+  }
+
   String? receiptUrl;
   if (localImagePath != null && localImagePath.isNotEmpty) {
     receiptUrl = await ref
@@ -144,6 +179,8 @@ Future<void> _persistAiTransactions(
               'description': item.transaction.description,
             if (householdId != null && householdId.isNotEmpty)
               'householdId': householdId,
+            if (householdId != null && householdId.isNotEmpty)
+              'isPortfolio': isPortfolio,
           },
         );
 
@@ -156,11 +193,9 @@ Future<void> _persistAiTransactions(
         );
         final savedEntry = ExpenseEntry.fromJson(saved);
 
-        replaceOptimisticTransaction(
-          ref: ref,
+        upsertSavedEntry(
           optimisticId: item.optimisticId,
           savedEntry: savedEntry,
-          householdId: householdId,
         );
         didPersistAny = true;
         continue;
@@ -215,16 +250,11 @@ Future<void> _persistAiTransactions(
       final saved = Map<String, dynamic>.from(
         response.data['data'] as Map,
       );
-      final savedEntry = ExpenseEntry.fromJson(saved).copyWith(
-        householdId: householdId,
-        type: 'expense',
-      );
+      final savedEntry = ExpenseEntry.fromJson(saved);
 
-      replaceOptimisticTransaction(
-        ref: ref,
+      upsertSavedEntry(
         optimisticId: item.optimisticId,
         savedEntry: savedEntry,
-        householdId: householdId,
       );
       didPersistAny = true;
     } catch (error) {

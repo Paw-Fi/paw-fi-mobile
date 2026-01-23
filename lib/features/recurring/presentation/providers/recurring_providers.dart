@@ -633,6 +633,9 @@ class RecurringTransactionSaveNotifier
           'ownerType': ownerType,
           'privacyScope': privacyScope,
           if (householdId != null) 'householdId': householdId,
+          if (householdId != null)
+            'isPortfolio':
+                ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': true,
           'recurrence_rule': recurrenceRule,
         },

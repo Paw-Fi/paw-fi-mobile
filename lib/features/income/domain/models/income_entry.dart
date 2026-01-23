@@ -1,6 +1,8 @@
 /// Income entry model
 /// Represents a single income transaction with privacy controls and household sharing
 
+import 'dart:convert';
+
 class IncomeEntry {
   final String id;
   final DateTime date;
@@ -51,40 +53,123 @@ class IncomeEntry {
   });
 
   factory IncomeEntry.fromJson(Map<String, dynamic> json) {
+    // Support both the income endpoints' API shape (camelCase + major units)
+    // and raw `expenses` table rows (snake_case + cents) returned by some
+    // edge functions like `save-income`.
+
+    double? asDouble(dynamic value) {
+      if (value is num) return value.toDouble();
+      return null;
+    }
+
+    String? asNonEmptyString(dynamic value) {
+      if (value is String) {
+        final trimmed = value.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+      return null;
+    }
+
+    DateTime? parseDateTime(dynamic value) {
+      final raw = asNonEmptyString(value);
+      if (raw == null) return null;
+      return DateTime.parse(raw);
+    }
+
+    List<dynamic> parseJsonList(dynamic value) {
+      if (value is List) return value;
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return const [];
+        try {
+          final decoded = jsonDecode(trimmed);
+          return decoded is List ? decoded : const [];
+        } catch (_) {
+          return const [];
+        }
+      }
+      return const [];
+    }
+
+    final dateStr = asNonEmptyString(json['date']) ??
+        asNonEmptyString(json['created_at']) ??
+        DateTime.now().toIso8601String();
+    final parsedDate = DateTime.parse(dateStr);
+
+    final createdAt =
+        parseDateTime(json['createdAt'] ?? json['created_at']) ?? parsedDate;
+
+    final amountMajor = asDouble(json['amountMajor']) ??
+        asDouble(json['amount']) ??
+        (() {
+          final cents = asDouble(json['amountCents'] ?? json['amount_cents']);
+          return cents == null ? null : (cents / 100.0);
+        })() ??
+        0.0;
+
+    final normalizedAmountMajor = asDouble(json['normalizedAmountMajor']) ??
+        asDouble(json['normalizedAmount']) ??
+        (() {
+          final cents = asDouble(
+              json['normalizedAmountCents'] ?? json['normalized_amount_cents']);
+          return cents == null ? null : (cents / 100.0);
+        })();
+
+    final recurrenceRaw = json['recurrenceRule'] ?? json['recurrence_rule'];
+    final recurrenceRule = recurrenceRaw is Map
+        ? RecurrenceRule.fromJson(Map<String, dynamic>.from(recurrenceRaw))
+        : null;
+
+    final attachmentsRaw = parseJsonList(json['attachments']);
+    final attachments = attachmentsRaw
+        .whereType<Map>()
+        .map((e) => Attachment.fromJson(Map<String, dynamic>.from(e)))
+        .toList(growable: false);
+
+    final id = json['id'];
+    if (id is! String || id.trim().isEmpty) {
+      throw const FormatException('IncomeEntry.fromJson: missing id');
+    }
+
     return IncomeEntry(
-      id: json['id'] as String,
-      date: DateTime.parse(json['date'] as String),
-      category: json['category'] as String,
-      description: json['description'] as String?,
-      source: json['source'] as String?,
-      amount: (json['amountMajor'] as num).toDouble(),
-      currency: json['currency'] as String,
-      ownerType: json['ownerType'] as String? ?? 'me',
-      privacyScope: json['privacyScope'] as String? ?? 'full',
-      householdId: json['householdId'] as String?,
-      isAcknowledged: json['isAcknowledged'] as bool? ?? false,
-      acknowledgedCount: json['acknowledgedCount'] as int? ?? 0,
-      normalizedAmount: json['normalizedAmountMajor'] != null
-          ? (json['normalizedAmountMajor'] as num).toDouble()
-          : null,
-      baseCurrency: json['baseCurrency'] as String?,
-      fxRate:
-          json['fxRate'] != null ? (json['fxRate'] as num).toDouble() : null,
-      isRecurring: json['isRecurring'] as bool? ?? false,
-      recurrenceRule: json['recurrenceRule'] != null
-          ? RecurrenceRule.fromJson(
-              json['recurrenceRule'] as Map<String, dynamic>)
-          : null,
-      parentRecurringId: json['parentRecurringId'] as String?,
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => Attachment.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'] as String)
-          : null,
-      privacyRedacted: json['privacyRedacted'] as bool? ?? false,
+      id: id,
+      date: parsedDate,
+      category: (json['category'] as String?) ?? 'income',
+      description: asNonEmptyString(json['description']) ??
+          asNonEmptyString(json['raw_text']),
+      source: asNonEmptyString(json['source']),
+      amount: amountMajor,
+      currency: (json['currency'] as String?) ?? 'USD',
+      ownerType: asNonEmptyString(json['ownerType']) ??
+          asNonEmptyString(json['owner_type']) ??
+          'me',
+      privacyScope: asNonEmptyString(json['privacyScope']) ??
+          asNonEmptyString(json['privacy_scope']) ??
+          'full',
+      householdId: asNonEmptyString(json['householdId']) ??
+          asNonEmptyString(json['household_id']),
+      isAcknowledged: (json['isAcknowledged'] as bool?) ??
+          (json['is_acknowledged'] as bool?) ??
+          false,
+      acknowledgedCount: (json['acknowledgedCount'] as int?) ??
+          (json['acknowledged_count'] as int?) ??
+          0,
+      normalizedAmount: normalizedAmountMajor,
+      baseCurrency: asNonEmptyString(json['baseCurrency']) ??
+          asNonEmptyString(json['base_currency']),
+      fxRate: asDouble(json['fxRate']) ?? asDouble(json['fx_rate']),
+      isRecurring: (json['isRecurring'] as bool?) ??
+          (json['is_recurring'] as bool?) ??
+          false,
+      recurrenceRule: recurrenceRule,
+      parentRecurringId: asNonEmptyString(json['parentRecurringId']) ??
+          asNonEmptyString(json['parent_recurring_id']),
+      attachments: attachments,
+      createdAt: createdAt,
+      updatedAt: parseDateTime(json['updatedAt'] ?? json['updated_at']),
+      privacyRedacted: (json['privacyRedacted'] as bool?) ??
+          (json['privacy_redacted'] as bool?) ??
+          false,
     );
   }
 
@@ -182,13 +267,25 @@ class RecurrenceRule {
   });
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      if (value is String && value.trim().isNotEmpty) {
+        return DateTime.parse(value);
+      }
+      return null;
+    }
+
+    int? parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return null;
+    }
+
     return RecurrenceRule(
-      frequency: json['frequency'] as String,
-      anchorDate: DateTime.parse(json['anchor_date'] as String),
-      endDate: json['end_date'] != null
-          ? DateTime.parse(json['end_date'] as String)
-          : null,
-      interval: json['interval'] as int?,
+      frequency: (json['frequency'] as String?) ?? 'monthly',
+      anchorDate: parseDate(json['anchor_date'] ?? json['anchorDate']) ??
+          DateTime.now(),
+      endDate: parseDate(json['end_date'] ?? json['endDate']),
+      interval: parseInt(json['interval']),
     );
   }
 
