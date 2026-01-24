@@ -49,6 +49,7 @@ void showBlockingProcessingDialog({
 }) {
   showDialog<void>(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: false,
     builder: (dialogContext) => PopScope(
       canPop: false,

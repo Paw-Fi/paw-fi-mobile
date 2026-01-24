@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
+    show TargetPlatform, defaultTargetPlatform, debugPrint, kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -14,6 +14,17 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:go_router/go_router.dart';
+
+void _debugLog(Object? message) {
+  if (!kDebugMode) return;
+  debugPrint(message?.toString() ?? 'null');
+}
+
+// Intentionally shadow dart:core print in this file so any existing purchase
+// flow logs never ship in release builds.
+// ignore: avoid_print
+void print(Object? message) => _debugLog(message);
 
 const bool FORCE_USE_STRIPE_CHECKOUT = false;
 
@@ -103,6 +114,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     // View State
     final selectedPlanId = useState<String>('lifetime');
     final hasAcknowledgedAutoRenew = useState(false);
+    final isStripeProcessing = useState(false);
+    final processingDialogOpen = useState(false);
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
@@ -115,8 +128,78 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !FORCE_USE_STRIPE_CHECKOUT;
 
+    // Avoid accidentally registering multiple listeners across rebuilds.
+    final didRegisterIapListener = useRef(false);
+
     // Track processing state for UI
-    final isProcessing = iapStateAsync.value?.isProcessing ?? false;
+    final isProcessing =
+        (useIap ? (iapStateAsync.value?.isProcessing ?? false) : false) ||
+            isStripeProcessing.value;
+
+    void dismissProcessingDialog() {
+      if (!processingDialogOpen.value) return;
+      processingDialogOpen.value = false;
+      if (!context.mounted) return;
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) {
+        nav.pop();
+      }
+    }
+
+    String humanizePurchaseError(String raw) {
+      final message = raw.trim();
+      final lower = message.toLowerCase();
+      if (lower.contains('cancel')) return 'Purchase cancelled.';
+      if (lower.contains('timed out')) {
+        return 'Purchase timed out. Please try again.';
+      }
+      if (lower.contains('not available') || lower.contains('store')) {
+        return 'Store unavailable. Please try again later.';
+      }
+      if (lower.contains('verification')) {
+        return 'Purchase verification failed. Please try again.';
+      }
+      return 'Purchase failed. Please try again.';
+    }
+
+    if (useIap && !didRegisterIapListener.value) {
+      didRegisterIapListener.value = true;
+      ref.listen<AsyncValue<IapState>>(iapControllerProvider, (prev, next) {
+        if (!context.mounted) return;
+
+        final prevState = prev?.valueOrNull;
+        final nextState = next.valueOrNull;
+        final prevProcessing = prevState?.isProcessing ?? false;
+        final nextProcessing = nextState?.isProcessing ?? false;
+
+        if (next.hasError) {
+          dismissProcessingDialog();
+          _debugLog('IAP provider error: ${next.error}');
+          AppToast.error(context, 'Purchase failed. Please try again.');
+          return;
+        }
+
+        final nextError = nextState?.lastError;
+        final prevError = prevState?.lastError;
+        if (nextError != null &&
+            nextError.isNotEmpty &&
+            nextError != prevError) {
+          dismissProcessingDialog();
+          _debugLog('IAP purchase error: $nextError');
+          AppToast.error(context, humanizePurchaseError(nextError));
+        }
+
+        if (prevProcessing && !nextProcessing) {
+          dismissProcessingDialog();
+
+          // If we exited processing without an error, treat it as a successful
+          // purchase/verification and send the user back to the app.
+          if ((nextState?.lastError ?? '').isEmpty) {
+            context.go('/dashboard');
+          }
+        }
+      });
+    }
 
     final List<PlanOption> plans;
     if (useIap) {
@@ -283,6 +366,9 @@ class PlanSelectionPage extends HookConsumerWidget {
         activePlanOption.serverPlanId != 'lifetime';
     final canConfirmAutoRenew =
         !requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value;
+
+    final isStoreReady =
+        !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
     useEffect(() {
       if (!requiresAutoRenewAcknowledgement) {
@@ -498,6 +584,12 @@ class PlanSelectionPage extends HookConsumerWidget {
         try {
           print('🍎 Platform check - iOS: $isIos');
           if (useIap) {
+            // Don't allow purchase attempts until the store/products are ready.
+            final iapState = iapStateAsync.valueOrNull;
+            if (iapState == null || !iapState.storeAvailable) {
+              throw Exception('Store unavailable');
+            }
+
             final catalog = activePlanOption.catalogProduct;
             print(
                 '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
@@ -508,6 +600,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             // Show processing dialog before starting purchase
             if (context.mounted) {
               print('🎬 Showing processing dialog...');
+              processingDialogOpen.value = true;
               showBlockingProcessingDialog(
                 context: context,
                 message: 'Processing your purchase...',
@@ -526,8 +619,11 @@ class PlanSelectionPage extends HookConsumerWidget {
           } else {
             print('💳 Starting Stripe checkout');
 
+            isStripeProcessing.value = true;
+
             // Show processing dialog for Stripe
             if (context.mounted) {
+              processingDialogOpen.value = true;
               showBlockingProcessingDialog(
                 context: context,
                 message: 'Redirecting to checkout...',
@@ -537,22 +633,18 @@ class PlanSelectionPage extends HookConsumerWidget {
             try {
               await startStripeCheckout(activePlanOption);
             } finally {
-              // Close the processing dialog
-              if (context.mounted && Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              }
+              isStripeProcessing.value = false;
+              dismissProcessingDialog();
             }
           }
         } catch (e) {
           print('❌ Error in subscription flow: $e');
 
-          // Close any open dialogs on error
-          if (context.mounted && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          dismissProcessingDialog();
 
           if (context.mounted) {
-            AppToast.error(context, e.toString());
+            _debugLog('Purchase flow threw: $e');
+            AppToast.error(context, humanizePurchaseError(e.toString()));
           }
         }
       } else {
@@ -562,6 +654,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> onRestorePurchases() async {
       if (context.mounted) {
+        processingDialogOpen.value = true;
         showBlockingProcessingDialog(
           context: context,
           message: 'Restoring purchases...',
@@ -581,9 +674,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           AppToast.error(context, 'Failed to restore: ${e.toString()}');
         }
       } finally {
-        if (context.mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
+        dismissProcessingDialog();
       }
     }
 
@@ -600,6 +691,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       if (result?.confirmed == true) {
         if (context.mounted) {
+          processingDialogOpen.value = true;
           showBlockingProcessingDialog(
             context: context,
             message: 'Cancelling subscription...',
@@ -618,9 +710,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             AppToast.error(context, e.toString());
           }
         } finally {
-          if (context.mounted && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
+          dismissProcessingDialog();
         }
       }
     }
@@ -823,15 +913,18 @@ class PlanSelectionPage extends HookConsumerWidget {
                       const SizedBox(height: 12),
                     ],
                     PrimaryAdaptiveButton(
-                      onPressed: isProcessing || !canConfirmAutoRenew
-                          ? null
-                          : onMainAction,
+                      onPressed:
+                          isProcessing || !canConfirmAutoRenew || !isStoreReady
+                              ? null
+                              : onMainAction,
                       child: Text(
                         isProcessing
                             ? 'Processing...'
-                            : (activePlanOption.serverPlanId == 'lifetime'
-                                ? 'Get Lifetime Access for ${activePlanOption.priceDisplay}'
-                                : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}'),
+                            : !isStoreReady
+                                ? 'Store unavailable'
+                                : (activePlanOption.serverPlanId == 'lifetime'
+                                    ? 'Get Lifetime Access for ${activePlanOption.priceDisplay}'
+                                    : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

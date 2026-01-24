@@ -1,20 +1,27 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint, kDebugMode;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/core/app/router.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/models/subscription_product.dart';
 import 'subscription_products_provider.dart';
 import 'subscription_management_provider.dart';
 import 'subscription_provider.dart';
+
+void _debugLog(Object? message) {
+  if (!kDebugMode) return;
+  debugPrint(message?.toString() ?? 'null');
+}
+
+// Intentionally shadow dart:core print in this file so any existing purchase
+// flow logs never ship in release builds.
+// ignore: avoid_print
+void print(Object? message) => _debugLog(message);
 
 class IapState {
   final bool storeAvailable;
@@ -46,6 +53,50 @@ class IapState {
 
 class IapController extends AsyncNotifier<IapState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  Timer? _processingTimeout;
+
+  static const _processingTimeoutDuration = Duration(minutes: 2);
+
+  IapState _fallbackState() => const IapState(
+        storeAvailable: false,
+        productDetailsById: {},
+        lastError: null,
+      );
+
+  void _setState({
+    bool? storeAvailable,
+    Map<String, ProductDetails>? productDetailsById,
+    String? lastError,
+    bool? isProcessing,
+  }) {
+    final current = state.valueOrNull ?? _fallbackState();
+    final next = current.copyWith(
+      storeAvailable: storeAvailable,
+      productDetailsById: productDetailsById,
+      lastError: lastError,
+      isProcessing: isProcessing,
+    );
+
+    // Safety: never allow the UI to be stuck forever.
+    if (next.isProcessing) {
+      _processingTimeout?.cancel();
+      _processingTimeout = Timer(_processingTimeoutDuration, () {
+        final latest = state.valueOrNull ?? _fallbackState();
+        if (!latest.isProcessing) return;
+        state = AsyncValue.data(
+          latest.copyWith(
+            isProcessing: false,
+            lastError: 'Purchase timed out. Please try again.',
+          ),
+        );
+      });
+    } else {
+      _processingTimeout?.cancel();
+      _processingTimeout = null;
+    }
+
+    state = AsyncValue.data(next);
+  }
 
   @override
   Future<IapState> build() async {
@@ -119,20 +170,18 @@ class IapController extends AsyncNotifier<IapState> {
       _onPurchaseUpdated,
       onError: (Object error) {
         print('❌ Purchase stream error: $error');
-        state = AsyncValue.data(
-          (state.value ??
-                  const IapState(
-                      storeAvailable: false,
-                      productDetailsById: {},
-                      lastError: null))
-              .copyWith(lastError: error.toString()),
+        _setState(
+          isProcessing: false,
+          lastError: error.toString(),
         );
       },
     );
     print('✅ Purchase stream listener set up');
 
     ref.onDispose(() {
-      print('🧹 Disposing purchase listener');
+      print('Disposing purchase listener');
+      _processingTimeout?.cancel();
+      _processingTimeout = null;
       _purchaseSubscription?.cancel();
       _purchaseSubscription = null;
     });
@@ -207,14 +256,7 @@ class IapController extends AsyncNotifier<IapState> {
 
       print('🧭 buy() step 6: set processing state');
       // Set processing state
-      state = AsyncValue.data(
-        (state.value ??
-                const IapState(
-                    storeAvailable: false,
-                    productDetailsById: {},
-                    lastError: null))
-            .copyWith(isProcessing: true),
-      );
+      _setState(isProcessing: true, lastError: null);
       print('✅ Processing state set to true');
 
       PurchaseParam purchaseParam;
@@ -228,14 +270,7 @@ class IapController extends AsyncNotifier<IapState> {
 
         if (!product.isLifetime && (offerToken == null || offerToken.isEmpty)) {
           print('❌ No offer token available for Android subscription');
-          state = AsyncValue.data(
-            (state.value ??
-                    const IapState(
-                        storeAvailable: false,
-                        productDetailsById: {},
-                        lastError: null))
-                .copyWith(isProcessing: false),
-          );
+          _setState(isProcessing: false, lastError: 'No subscription offer');
           throw Exception('No subscription offer available for this product');
         }
         purchaseParam = GooglePlayPurchaseParam(
@@ -266,14 +301,7 @@ class IapController extends AsyncNotifier<IapState> {
 
       if (!ok) {
         print('❌ Purchase failed: buyNonConsumable returned false');
-        state = AsyncValue.data(
-          (state.value ??
-                  const IapState(
-                      storeAvailable: false,
-                      productDetailsById: {},
-                      lastError: null))
-              .copyWith(isProcessing: false),
-        );
+        _setState(isProcessing: false, lastError: 'Failed to start purchase');
         throw Exception('Failed to start purchase');
       }
 
@@ -282,6 +310,13 @@ class IapController extends AsyncNotifier<IapState> {
     } catch (error, stackTrace) {
       print('❌ buy() threw: $error');
       print('🧵 buy() stackTrace: $stackTrace');
+
+      // If we error before receiving any purchaseStream updates, ensure the UI
+      // is not stuck in a processing state.
+      _setState(
+        isProcessing: false,
+        lastError: error.toString(),
+      );
       rethrow;
     } finally {
       final elapsed = DateTime.now().difference(startedAt);
@@ -314,15 +349,9 @@ class IapController extends AsyncNotifier<IapState> {
 
         if (purchase.status == PurchaseStatus.error) {
           print('❌ Purchase error: ${purchase.error?.message}');
-          state = AsyncValue.data(
-            (state.value ??
-                    const IapState(
-                        storeAvailable: false,
-                        productDetailsById: {},
-                        lastError: null))
-                .copyWith(
-                    lastError: purchase.error?.message ?? 'Purchase error',
-                    isProcessing: false),
+          _setState(
+            isProcessing: false,
+            lastError: purchase.error?.message ?? 'Purchase error',
           );
           continue;
         }
@@ -338,25 +367,10 @@ class IapController extends AsyncNotifier<IapState> {
 
           if (catalog == null) {
             print('❌ Unknown product purchased');
-            state = AsyncValue.data(
-              (state.value ??
-                      const IapState(
-                          storeAvailable: false,
-                          productDetailsById: {},
-                          lastError: null))
-                  .copyWith(
-                      lastError: 'Unknown product purchased',
-                      isProcessing: false),
+            _setState(
+              isProcessing: false,
+              lastError: 'Unknown product purchased',
             );
-
-            // Close any open dialogs
-            final context = rootNavigatorKey.currentContext;
-            if (context != null && context.mounted) {
-              final nav = Navigator.of(context);
-              if (nav.canPop()) {
-                nav.pop();
-              }
-            }
             continue;
           }
 
@@ -365,14 +379,7 @@ class IapController extends AsyncNotifier<IapState> {
 
           if (platform == null) {
             print('❌ Platform string is null');
-            state = AsyncValue.data(
-              (state.value ??
-                      const IapState(
-                          storeAvailable: false,
-                          productDetailsById: {},
-                          lastError: null))
-                  .copyWith(isProcessing: false),
-            );
+            _setState(isProcessing: false);
             continue;
           }
 
@@ -418,24 +425,11 @@ class IapController extends AsyncNotifier<IapState> {
 
             if (response.status >= 400) {
               print('❌ Verification failed with status ${response.status}');
-              state = AsyncValue.data(
-                (state.value ??
-                        const IapState(
-                            storeAvailable: false,
-                            productDetailsById: {},
-                            lastError: null))
-                    .copyWith(
-                        lastError: 'Verification failed', isProcessing: false),
+              _setState(
+                isProcessing: false,
+                lastError: 'Verification failed',
               );
 
-              // Close any open dialogs and show error
-              final context = rootNavigatorKey.currentContext;
-              if (context != null && context.mounted) {
-                final nav = Navigator.of(context);
-                if (nav.canPop()) {
-                  nav.pop();
-                }
-              }
               continue;
             }
 
@@ -444,60 +438,24 @@ class IapController extends AsyncNotifier<IapState> {
             await ref.read(subscriptionNotifierProvider.notifier).refresh();
 
             // Clear processing state first
-            state = AsyncValue.data(
-              (state.value ??
-                      const IapState(
-                          storeAvailable: false,
-                          productDetailsById: {},
-                          lastError: null))
-                  .copyWith(isProcessing: false),
-            );
-
-            // Navigate to dashboard - this will automatically close any dialogs
-            final context = rootNavigatorKey.currentContext;
-            if (context != null && context.mounted) {
-              context.go('/dashboard');
-            }
+            _setState(isProcessing: false, lastError: null);
           } catch (error, stackTrace) {
             final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
             print('❌ Edge Function invoke threw after ${elapsed}ms: $error');
             print('🧵 Edge Function stackTrace: $stackTrace');
-            state = AsyncValue.data(
-              (state.value ??
-                      const IapState(
-                          storeAvailable: false,
-                          productDetailsById: {},
-                          lastError: null))
-                  .copyWith(
-                      lastError: 'Verification failed', isProcessing: false),
+            _setState(
+              isProcessing: false,
+              lastError: 'Verification failed',
             );
-            final context = rootNavigatorKey.currentContext;
-            if (context != null && context.mounted) {
-              final nav = Navigator.of(context);
-              if (nav.canPop()) {
-                nav.pop();
-              }
-            }
           }
         }
       } catch (e, stackTrace) {
         print('❌ Purchase verification threw: $e');
         print('🧵 Purchase verification stackTrace: $stackTrace');
-        state = AsyncValue.data(
-          (state.value ??
-                  const IapState(
-                      storeAvailable: false,
-                      productDetailsById: {},
-                      lastError: null))
-              .copyWith(lastError: e.toString(), isProcessing: false),
+        _setState(
+          isProcessing: false,
+          lastError: e.toString(),
         );
-        final context = rootNavigatorKey.currentContext;
-        if (context != null && context.mounted) {
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-          }
-        }
       } finally {
         if (purchase.pendingCompletePurchase) {
           try {
