@@ -13,6 +13,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class PocketEntry {
@@ -106,11 +108,15 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
       final currentTotal = double.tryParse(totalStr) ?? 0.0;
 
       pockets.value = selectedTemplate.value.pockets.map((t) {
+        // Use the template's predefined color and icon directly
+        // This ensures the visual design intent of the template is preserved
+        final pocketColor = t.color ?? _fallbackPocketColor(scheme, t.name);
+
         return PocketEntry(
           id: DateTime.now().microsecondsSinceEpoch.toString() +
               Random().nextInt(1000).toString(), // temporary ID
           name: t.name,
-          color: t.color ?? scheme.primary,
+          color: pocketColor,
           categories: t.suggestedCategories,
           amount: currentTotal * t.percentage,
           iconName: t.iconName,
@@ -182,6 +188,50 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
     final isValid = totalFromPockets > 0;
 
+    Future<void> handleSubmit() async {
+      if (!isValid || isSubmitting.value) return;
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      final toastContext = rootNavigator.context;
+      isSubmitting.value = true;
+      var dialogOpen = false;
+      showBlockingProcessingDialog(
+        context: toastContext,
+        message: l10n.saving,
+      );
+      dialogOpen = true;
+
+      void closeDialog() {
+        if (!dialogOpen) return;
+        if (rootNavigator.canPop()) rootNavigator.pop();
+        dialogOpen = false;
+      }
+
+      try {
+        final notifier = ref.read(pocketsProvider(scopeParams).notifier);
+
+        final finalTemplates =
+            pockets.value.map((p) => p.toTemplate(totalFromPockets)).toList();
+
+        await notifier.createBudgetFromTemplate(
+          totalBudget: totalFromPockets,
+          pockets: finalTemplates,
+        );
+        closeDialog();
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+        AppToast.success(toastContext, l10n.budgetCreatedSuccessfully);
+      } catch (e) {
+        closeDialog();
+        AppToast.error(toastContext, ErrorHandler.getUserFriendlyMessage(e));
+      } finally {
+        closeDialog();
+        if (context.mounted) {
+          isSubmitting.value = false;
+        }
+      }
+    }
+
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
@@ -189,307 +239,314 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border.all(color: scheme.sheetBorder, width: 1),
       ),
-      child: Column(
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.createFromTemplate,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.foreground,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close, color: scheme.mutedForeground),
-                  style: IconButton.styleFrom(
-                    backgroundColor: scheme.muted.withValues(alpha: 0.2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: PopScope(
+        canPop: !isSubmitting.value,
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
                 children: [
-                  Text(
-                    l10n.createFromTemplateDesc,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: scheme.mutedForeground,
+                  IconButton(
+                    onPressed: isSubmitting.value
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon: Icon(Icons.close, color: scheme.mutedForeground),
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.muted.withValues(alpha: 0.2),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Budget Input
-                  Text(
-                    l10n.monthlyBudget,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: budgetController,
-                    focusNode: budgetFocusNode,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.primary,
-                    ),
-                    decoration: InputDecoration(
-                      prefixText: currencySymbol,
-                      prefixStyle: TextStyle(
-                        fontSize: 32,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l10n.createFromTemplate,
+                      style: TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: scheme.mutedForeground,
+                        color: scheme.foreground,
                       ),
-                      border: InputBorder.none,
-                      hintText: '0',
-                      hintStyle: TextStyle(
-                          color: scheme.mutedForeground.withValues(alpha: 0.3)),
                     ),
                   ),
-                  const SizedBox(height: 24),
-
-                  // Template Selector
-                  Text(
-                    'Select Strategy',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.foreground,
+                  IconButton(
+                    onPressed:
+                        isValid && !isSubmitting.value ? handleSubmit : null,
+                    icon: Icon(Icons.check, color: scheme.primary),
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.primary.withValues(alpha: 0.12),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 120, // Slightly more compact
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: BudgetTemplates.all.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final template = BudgetTemplates.all[index];
-                        final isSelected =
-                            selectedTemplate.value.id == template.id;
-                        final templateTitle =
-                            templateTitleMap[template.translationKeyName] ??
-                                l10n.createFromTemplate;
-                        final templateDescription = templateDescriptionMap[
-                                template.translationKeyDescription] ??
-                            l10n.createFromTemplateDesc;
-
-                        return GestureDetector(
-                          onTap: () {
-                            if (!isSelected) {
-                              selectedTemplate.value = template;
-                            }
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 150,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? scheme.primary.withValues(alpha: 0.1)
-                                  : scheme.card,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isSelected
-                                    ? scheme.primary
-                                    : scheme.outline.withValues(alpha: 0.2),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  _getIconData(template.iconName),
-                                  size: 24,
-                                  color: isSelected
-                                      ? scheme.primary
-                                      : scheme.mutedForeground,
-                                ),
-                                const Spacer(),
-                                Text(
-                                  templateTitle,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: scheme.foreground,
-                                    fontSize: 13,
-                                  ),
-                                  maxLines: 1,
-                                ),
-                                Text(
-                                  templateDescription,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: scheme.mutedForeground,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Pocket Breakdown
-                  Text(
-                    'Customize Pockets',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // List of editable pockets
-                  ...pockets.value.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final pocket = entry.value;
-
-                    return _PocketRow(
-                      key: ValueKey(pocket.id), // Important for focus stability
-                      entry: pocket,
-                      totalBudget: totalFromPockets,
-                      currencySymbol: currencySymbol,
-                      onAmountChanged: (newAmount) {
-                        final newPockets = [...pockets.value];
-                        newPockets[index] = pocket.copyWith(amount: newAmount);
-                        pockets.value = newPockets;
-                      },
-                      onRemove: () {
-                        final newPockets = [...pockets.value];
-                        newPockets.removeAt(index);
-                        pockets.value = newPockets;
-                      },
-                      onEdit: () {
-                        // Create a temporary PocketEnvelope to pass as "existing"
-                        // This ensures the current percentage is pre-filled in the sheet
-                        final tempEnvelope = PocketEnvelope(
-                          id: pocket.id,
-                          name: pocket.name,
-                          percentage: totalFromPockets > 0
-                              ? (pocket.amount / totalFromPockets) * 100
-                              : 0,
-                          spent: 0,
-                          currency: 'USD', // Placeholder, sheet uses provider
-                          icon: pocket.iconName,
-                          color:
-                              '#${(pocket.color.r * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.g * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.b * 255).round().toRadixString(16).padLeft(2, '0')}',
-                          lastUpdated: DateTime.now(),
-                        );
-
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor:
-                              scheme.surface.withValues(alpha: 0.0),
-                          builder: (context) => EditPocketEnvelopeSheet(
-                            scopeParams: scopeParams,
-                            existingEnvelope: tempEnvelope,
-                            totalBudget: totalFromPockets,
-                            unallocatedBudget:
-                                0, // In builder, we just assume 0 or let user adjust
-                            budgetId: null,
-                            onSaveOffline: (newTemplate) {
-                              final newPockets = [...pockets.value];
-                              // Update pocket with new details from template
-                              // Recalculate amount based on new percentage and current total budget
-                              newPockets[index] = pocket.copyWith(
-                                name: newTemplate.name,
-                                color: newTemplate.color,
-                                categories: newTemplate.suggestedCategories,
-                                iconName: newTemplate.iconName,
-                                amount:
-                                    totalFromPockets * newTemplate.percentage,
-                              );
-                              pockets.value = newPockets;
-                            },
-                          ),
-                        );
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 100),
                 ],
               ),
             ),
-          ),
 
-          // Footer
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            decoration: BoxDecoration(
-              color: scheme.sheetBackground,
-              border: Border(top: BorderSide(color: scheme.sheetBorder)),
-            ),
-            child: PrimaryAdaptiveButton(
-              onPressed: !isValid || isSubmitting.value
-                  ? null
-                  : () async {
-                      isSubmitting.value = true;
-                      try {
-                        final notifier =
-                            ref.read(pocketsProvider(scopeParams).notifier);
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: GestureDetector(
+                  onTap: () => FocusScope.of(context).unfocus(),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.createFromTemplateDesc,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: scheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                        // Convert back to templates with calculated percentages
-                        final finalTemplates = pockets.value
-                            .map((p) => p.toTemplate(totalFromPockets))
-                            .toList();
+                      // Budget Input
+                      Text(
+                        l10n.monthlyBudget,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: budgetController,
+                        focusNode: budgetFocusNode,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: scheme.primary,
+                        ),
+                        decoration: InputDecoration(
+                          prefixText: currencySymbol,
+                          prefixStyle: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: scheme.mutedForeground,
+                          ),
+                          border: InputBorder.none,
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                              color: scheme.mutedForeground
+                                  .withValues(alpha: 0.3)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                        await notifier.createBudgetFromTemplate(
+                      // Template Selector
+                      Text(
+                        'Select Strategy',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 120, // Slightly more compact
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: BudgetTemplates.all.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final template = BudgetTemplates.all[index];
+                            final isSelected =
+                                selectedTemplate.value.id == template.id;
+                            final templateTitle =
+                                templateTitleMap[template.translationKeyName] ??
+                                    l10n.createFromTemplate;
+                            final templateDescription = templateDescriptionMap[
+                                    template.translationKeyDescription] ??
+                                l10n.createFromTemplateDesc;
+
+                            return GestureDetector(
+                              onTap: () {
+                                if (!isSelected) {
+                                  selectedTemplate.value = template;
+                                }
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 150,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? scheme.primary.withValues(alpha: 0.1)
+                                      : scheme.card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? scheme.primary
+                                        : scheme.outline.withValues(alpha: 0.2),
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      _getIconData(template.iconName),
+                                      size: 24,
+                                      color: isSelected
+                                          ? scheme.primary
+                                          : scheme.mutedForeground,
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      templateTitle,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: scheme.foreground,
+                                        fontSize: 13,
+                                      ),
+                                      maxLines: 1,
+                                    ),
+                                    Text(
+                                      templateDescription,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: scheme.mutedForeground,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Pocket Breakdown
+                      Text(
+                        'Customize Pockets',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // List of editable pockets
+                      ...pockets.value.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final pocket = entry.value;
+
+                        return _PocketRow(
+                          key: ValueKey(
+                              pocket.id), // Important for focus stability
+                          entry: pocket,
                           totalBudget: totalFromPockets,
-                          pockets: finalTemplates,
+                          currencySymbol: currencySymbol,
+                          onAmountChanged: (newAmount) {
+                            final newPockets = [...pockets.value];
+                            newPockets[index] =
+                                pocket.copyWith(amount: newAmount);
+                            pockets.value = newPockets;
+                          },
+                          onRemove: () {
+                            final newPockets = [...pockets.value];
+                            newPockets.removeAt(index);
+                            pockets.value = newPockets;
+                          },
+                          onEdit: () {
+                            // Create a temporary PocketEnvelope to pass as "existing"
+                            // This ensures the current percentage is pre-filled in the sheet
+                            final tempEnvelope = PocketEnvelope(
+                              id: pocket.id,
+                              name: pocket.name,
+                              percentage: totalFromPockets > 0
+                                  ? (pocket.amount / totalFromPockets) * 100
+                                  : 0,
+                              spent: 0,
+                              currency:
+                                  'USD', // Placeholder, sheet uses provider
+                              icon: pocket.iconName,
+                              color:
+                                  '#${(pocket.color.r * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.g * 255).round().toRadixString(16).padLeft(2, '0')}${(pocket.color.b * 255).round().toRadixString(16).padLeft(2, '0')}',
+                              lastUpdated: DateTime.now(),
+                            );
+
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor:
+                                  scheme.surface.withValues(alpha: 0.0),
+                              builder: (context) => EditPocketEnvelopeSheet(
+                                scopeParams: scopeParams,
+                                existingEnvelope: tempEnvelope,
+                                totalBudget: totalFromPockets,
+                                unallocatedBudget:
+                                    0, // In builder, we just assume 0 or let user adjust
+                                budgetId: null,
+                                onSaveOffline: (newTemplate) {
+                                  final newPockets = [...pockets.value];
+                                  // Update pocket with new details from template
+                                  // Recalculate amount based on new percentage and current total budget
+                                  newPockets[index] = pocket.copyWith(
+                                    name: newTemplate.name,
+                                    color: newTemplate.color,
+                                    categories: newTemplate.suggestedCategories,
+                                    iconName: newTemplate.iconName,
+                                    amount: totalFromPockets *
+                                        newTemplate.percentage,
+                                  );
+                                  pockets.value = newPockets;
+                                },
+                              ),
+                            );
+                          },
                         );
-                        if (context.mounted) {
-                          Navigator.of(context).pop();
-                          AppToast.success(
-                              context, l10n.budgetCreatedSuccessfully);
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          AppToast.error(context, e.toString());
-                        }
-                      } finally {
-                        isSubmitting.value = false;
-                      }
-                    },
-              child: isSubmitting.value
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : Text(l10n.createBudget),
+                      }),
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+
+            // Footer
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              decoration: BoxDecoration(
+                color: scheme.sheetBackground,
+                border: Border(top: BorderSide(color: scheme.sheetBorder)),
+              ),
+              child: PrimaryAdaptiveButton(
+                onPressed: !isValid || isSubmitting.value ? null : handleSubmit,
+                child: isSubmitting.value
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(l10n.createBudget),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+
+Color _fallbackPocketColor(ColorScheme scheme, String seed) {
+  final palette = <Color>[
+    scheme.secondary,
+    scheme.tertiary,
+    scheme.primary,
+    scheme.error,
+  ];
+  return palette[seed.hashCode.abs() % palette.length];
 }
 
 Map<String, String> _templateTitleMap(AppLocalizations l10n) => {
@@ -687,6 +744,14 @@ class _PocketRow extends HookWidget {
                 ),
               ),
               const SizedBox(width: 12),
+              if (entry.iconName != null) ...[
+                Icon(
+                  _getIconData(entry.iconName!),
+                  size: 24,
+                  color: entry.color,
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: GestureDetector(
                   onTap: onEdit,
