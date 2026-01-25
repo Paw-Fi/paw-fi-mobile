@@ -18,6 +18,7 @@ import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -531,15 +532,28 @@ class _RecurringTransactionsPageState
     final user = supabase.auth.currentUser;
     if (user == null) {
       debugPrint('⚠️  [RecurringPage] Delete aborted: user is null');
+      if (mounted) {
+        AppToast.error(context, context.l10n.userNotAuthenticated);
+      }
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final toastContext = rootNavigator.context;
+    var dialogOpen = false;
+    void closeDialog() {
+      if (!dialogOpen) return;
+      if (rootNavigator.canPop()) rootNavigator.pop();
+      dialogOpen = false;
+    }
+
     // Show loading dialog
     showBlockingProcessingDialog(
-      context: context,
+      context: toastContext,
       message: '${context.l10n.delete}...',
     );
+    dialogOpen = true;
 
     try {
       final deleteResult = await ref
@@ -548,28 +562,28 @@ class _RecurringTransactionsPageState
 
       if (!mounted) return;
 
-      // Dismiss loading dialog
-      Navigator.of(context).pop();
+      closeDialog();
 
       if (deleteResult.success) {
-        AppToast.success(context, context.l10n.recurringTransactionDeleted);
+        AppToast.success(
+            toastContext, context.l10n.recurringTransactionDeleted);
       } else {
         final message = (deleteResult.error != null &&
                 deleteResult.error!.trim().isNotEmpty)
             ? deleteResult.error!
             : context.l10n.failedToDeleteRecurringTransaction;
-        AppToast.error(context, message);
+        AppToast.error(toastContext, message);
       }
     } catch (e) {
+      closeDialog();
       if (!mounted) return;
 
-      // Dismiss loading dialog
-      Navigator.of(context).pop();
-
       AppToast.error(
-        context,
-        context.l10n.failedToDeleteRecurringTransaction,
+        toastContext,
+        ErrorHandler.getUserFriendlyMessage(e),
       );
+    } finally {
+      closeDialog();
     }
 
     debugPrint('✅ [RecurringPage] Delete operation completed');

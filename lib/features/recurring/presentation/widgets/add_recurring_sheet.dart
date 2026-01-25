@@ -31,6 +31,7 @@ import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -472,13 +473,28 @@ class AddRecurringSheet extends HookConsumerWidget {
         return;
       }
 
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      final toastContext = rootNavigator.context;
       isLoading.value = true;
+      var dialogOpen = false;
+      showBlockingProcessingDialog(
+        context: toastContext,
+        message: context.l10n.saving,
+      );
+      dialogOpen = true;
+
+      void closeDialog() {
+        if (!dialogOpen) return;
+        if (rootNavigator.canPop()) rootNavigator.pop();
+        dialogOpen = false;
+      }
 
       try {
         final user = supabase.auth.currentUser;
         if (user == null) {
-          AppToast.error(context, context.l10n.userNotAuthenticated);
+          AppToast.error(toastContext, context.l10n.userNotAuthenticated);
           isLoading.value = false;
+          closeDialog();
           return;
         }
 
@@ -735,6 +751,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           if (context.mounted) {
+            closeDialog();
             Navigator.of(context).pop();
             final successMsg = isExpense
                 ? (isEditing
@@ -743,7 +760,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 : (isEditing
                     ? l10n.recurringIncomeUpdatedSuccessfully
                     : l10n.recurringIncomeAddedSuccessfully);
-            AppToast.success(context, successMsg);
+            AppToast.success(toastContext, successMsg);
           }
         } else {
           // Surface raw backend/provider error message if available.
@@ -764,7 +781,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                   : 'Failed to save recurring transaction';
 
           if (context.mounted) {
-            AppToast.error(context, msg);
+            closeDialog();
+            AppToast.error(toastContext, msg);
           }
         }
       } catch (e) {
@@ -788,7 +806,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             ? detailedError!
             : e.toString();
 
-        AppToast.error(context, msg);
+        closeDialog();
+        AppToast.error(toastContext, msg);
+      } finally {
+        closeDialog();
       }
     }
 

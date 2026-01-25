@@ -227,13 +227,30 @@ Widget buildRecentTransactionsCard(
                                 final l10n = context.l10n;
                                 final uid = Supabase
                                     .instance.client.auth.currentUser?.id;
-                                if (uid == null) return;
+                                if (uid == null) {
+                                  AppToast.error(
+                                      context, l10n.userNotAuthenticated);
+                                  return;
+                                }
+
+                                final rootNavigator =
+                                    Navigator.of(context, rootNavigator: true);
+                                final toastContext = rootNavigator.context;
+                                var dialogOpen = false;
+                                void closeDialog() {
+                                  if (!dialogOpen) return;
+                                  if (rootNavigator.canPop()) {
+                                    rootNavigator.pop();
+                                  }
+                                  dialogOpen = false;
+                                }
 
                                 // Show loading dialog
                                 showBlockingProcessingDialog(
-                                  context: context,
+                                  context: toastContext,
                                   message: '${l10n.delete}...',
                                 );
+                                dialogOpen = true;
 
                                 try {
                                   final res = await Supabase
@@ -243,10 +260,12 @@ Widget buildRecentTransactionsCard(
                                     'expenseId': e.id,
                                   });
 
-                                  if (!context.mounted) return;
+                                  if (!context.mounted) {
+                                    closeDialog();
+                                    return;
+                                  }
 
-                                  // Dismiss loading dialog
-                                  Navigator.of(context).pop();
+                                  closeDialog();
 
                                   if (res.data != null &&
                                       (res.data['success'] == true)) {
@@ -277,7 +296,7 @@ Widget buildRecentTransactionsCard(
                                     ref.invalidate(
                                         currencyTransactionCountsProvider);
                                     AppToast.success(
-                                        context, l10n.transactionDeleted);
+                                        toastContext, l10n.transactionDeleted);
                                   } else {
                                     final payload =
                                         res.data is Map<String, dynamic>
@@ -286,21 +305,22 @@ Widget buildRecentTransactionsCard(
                                     final message =
                                         (payload?['error'] as String?)?.trim();
                                     AppToast.error(
-                                      context,
+                                      toastContext,
                                       (message != null && message.isNotEmpty)
                                           ? message
                                           : l10n.anErrorOccurred,
                                     );
                                   }
                                 } catch (err) {
+                                  closeDialog();
                                   if (context.mounted) {
-                                    // Dismiss loading dialog
-                                    Navigator.of(context).pop();
                                     AppToast.error(
-                                      context,
+                                      toastContext,
                                       ErrorHandler.getUserFriendlyMessage(err),
                                     );
                                   }
+                                } finally {
+                                  closeDialog();
                                 }
                               },
                               backgroundColor: colorScheme.destructive,
