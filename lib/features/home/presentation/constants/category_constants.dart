@@ -188,7 +188,7 @@ const Map<String, List<String>> categoryGroups = {
 };
 
 // Group palettes (shared hue with varied shades)
-const List<Color> _lifeAndHomePalette = [
+const List<Color> lifeAndHomePalette = [
   Color(0xFF1D4ED8),
   Color(0xFF2563EB),
   Color(0xFF3B82F6),
@@ -196,7 +196,7 @@ const List<Color> _lifeAndHomePalette = [
   Color(0xFF93C5FD),
 ];
 
-const List<Color> _travelAndTransportPalette = [
+const List<Color> travelAndTransportPalette = [
   Color(0xFFC2410C),
   Color(0xFFEA580C),
   Color(0xFFF97316),
@@ -204,7 +204,7 @@ const List<Color> _travelAndTransportPalette = [
   Color(0xFFFFC78A),
 ];
 
-const List<Color> _healthAndWellnessPalette = [
+const List<Color> healthAndWellnessPalette = [
   Color(0xFF0F766E),
   Color(0xFF10B981),
   Color(0xFF34D399),
@@ -212,7 +212,7 @@ const List<Color> _healthAndWellnessPalette = [
   Color(0xFFA7F3D0),
 ];
 
-const List<Color> _kidsPalette = [
+const List<Color> kidsPalette = [
   Color(0xFFBE123C),
   Color(0xFFF43F5E),
   Color(0xFFFB7185),
@@ -220,7 +220,7 @@ const List<Color> _kidsPalette = [
   Color(0xFFFECDD3),
 ];
 
-const List<Color> _petsPalette = [
+const List<Color> petsPalette = [
   Color(0xFFD97706),
   Color(0xFFF59E0B),
   Color(0xFFFBBF24),
@@ -228,7 +228,7 @@ const List<Color> _petsPalette = [
   Color(0xFFFDE68A),
 ];
 
-const List<Color> _workAndLearningPalette = [
+const List<Color> workAndLearningPalette = [
   Color(0xFF312E81),
   Color(0xFF4338CA),
   Color(0xFF4F46E5),
@@ -236,7 +236,7 @@ const List<Color> _workAndLearningPalette = [
   Color(0xFFA5B4FC),
 ];
 
-const List<Color> _funAndSocialPalette = [
+const List<Color> funAndSocialPalette = [
   Color(0xFF9D174D),
   Color(0xFFC026D3),
   Color(0xFFE879F9),
@@ -244,7 +244,7 @@ const List<Color> _funAndSocialPalette = [
   Color(0xFFF9A8D4),
 ];
 
-const List<Color> _moneyInOutPalette = [
+const List<Color> moneyInOutPalette = [
   Color(0xFF166534),
   Color(0xFF15803D),
   Color(0xFF16A34A),
@@ -252,7 +252,7 @@ const List<Color> _moneyInOutPalette = [
   Color(0xFF4ADE80),
 ];
 
-const List<Color> _communityAndServicesPalette = [
+const List<Color> communityAndServicesPalette = [
   Color(0xFF0F172A),
   Color(0xFF1F2937),
   Color(0xFF334155),
@@ -260,7 +260,7 @@ const List<Color> _communityAndServicesPalette = [
   Color(0xFF94A3B8),
 ];
 
-const List<Color> _miscPalette = [
+const List<Color> miscPalette = [
   Color(0xFF6B7280),
   Color(0xFF9CA3AF),
   Color(0xFFD1D5DB),
@@ -277,16 +277,16 @@ Map<String, Color> _buildGroupColorMap(
 }
 
 final Map<String, Color> categoryColors = {
-  ..._buildGroupColorMap(_lifeAndHome, _lifeAndHomePalette),
-  ..._buildGroupColorMap(_travelAndTransport, _travelAndTransportPalette),
-  ..._buildGroupColorMap(_healthAndWellness, _healthAndWellnessPalette),
-  ..._buildGroupColorMap(_kids, _kidsPalette),
-  ..._buildGroupColorMap(_pets, _petsPalette),
-  ..._buildGroupColorMap(_workAndLearning, _workAndLearningPalette),
-  ..._buildGroupColorMap(_funAndSocial, _funAndSocialPalette),
-  ..._buildGroupColorMap(_moneyInOut, _moneyInOutPalette),
-  ..._buildGroupColorMap(_communityAndServices, _communityAndServicesPalette),
-  ..._buildGroupColorMap(_misc, _miscPalette),
+  ..._buildGroupColorMap(_lifeAndHome, lifeAndHomePalette),
+  ..._buildGroupColorMap(_travelAndTransport, travelAndTransportPalette),
+  ..._buildGroupColorMap(_healthAndWellness, healthAndWellnessPalette),
+  ..._buildGroupColorMap(_kids, kidsPalette),
+  ..._buildGroupColorMap(_pets, petsPalette),
+  ..._buildGroupColorMap(_workAndLearning, workAndLearningPalette),
+  ..._buildGroupColorMap(_funAndSocial, funAndSocialPalette),
+  ..._buildGroupColorMap(_moneyInOut, moneyInOutPalette),
+  ..._buildGroupColorMap(_communityAndServices, communityAndServicesPalette),
+  ..._buildGroupColorMap(_misc, miscPalette),
 };
 
 final Map<String, IconData> categoryIcons = {

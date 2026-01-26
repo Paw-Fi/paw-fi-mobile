@@ -576,6 +576,55 @@ Map<String, String> _templateTitleMap(AppLocalizations l10n) => {
       'template_pers_car_title': l10n.template_pers_car_title,
       'template_pers_bio_title': l10n.template_pers_bio_title,
       'template_pers_gamer_title': l10n.template_pers_gamer_title,
+      'template_ynab_a_better_emergency_fund_title':
+          l10n.template_ynab_a_better_emergency_fund_title,
+      'template_ynab_buying_a_home_title':
+          l10n.template_ynab_buying_a_home_title,
+      'template_ynab_christmas_title': l10n.template_ynab_christmas_title,
+      'template_ynab_college_title': l10n.template_ynab_college_title,
+      'template_ynab_debt_payoff_title': l10n.template_ynab_debt_payoff_title,
+      'template_ynab_disaster_prep_title':
+          l10n.template_ynab_disaster_prep_title,
+      'template_ynab_disney_title': l10n.template_ynab_disney_title,
+      'template_ynab_divorce_title': l10n.template_ynab_divorce_title,
+      'template_ynab_family_title': l10n.template_ynab_family_title,
+      'template_ynab_food_title': l10n.template_ynab_food_title,
+      'template_ynab_happiness_title': l10n.template_ynab_happiness_title,
+      'template_ynab_home_project_title': l10n.template_ynab_home_project_title,
+      'template_ynab_house_projects_queue_title':
+          l10n.template_ynab_house_projects_queue_title,
+      'template_ynab_job_layoff_title': l10n.template_ynab_job_layoff_title,
+      'template_ynab_kid_title': l10n.template_ynab_kid_title,
+      'template_ynab_kitchen_remodel_title':
+          l10n.template_ynab_kitchen_remodel_title,
+      'template_ynab_minimalist_ynab_title':
+          l10n.template_ynab_minimalist_ynab_title,
+      'template_ynab_moving_title': l10n.template_ynab_moving_title,
+      'template_ynab_navigating_loss_title':
+          l10n.template_ynab_navigating_loss_title,
+      'template_ynab_new_baby_title': l10n.template_ynab_new_baby_title,
+      'template_ynab_new_puppy_title': l10n.template_ynab_new_puppy_title,
+      'template_ynab_new_years_resolutions_title':
+          l10n.template_ynab_new_years_resolutions_title,
+      'template_ynab_nick_trues_starter_template_title':
+          l10n.template_ynab_nick_trues_starter_template_title,
+      'template_ynab_nick_trues_values_template_title':
+          l10n.template_ynab_nick_trues_values_template_title,
+      'template_ynab_non_monthly_expenses_title':
+          l10n.template_ynab_non_monthly_expenses_title,
+      'template_ynab_recently_graduated_title':
+          l10n.template_ynab_recently_graduated_title,
+      'template_ynab_rockretirementclub_title':
+          l10n.template_ynab_rockretirementclub_title,
+      'template_ynab_teach_ynab_title': l10n.template_ynab_teach_ynab_title,
+      'template_ynab_teen_title': l10n.template_ynab_teen_title,
+      'template_ynab_travel_title': l10n.template_ynab_travel_title,
+      'template_ynab_variable_income_title':
+          l10n.template_ynab_variable_income_title,
+      'template_ynab_wedding_title': l10n.template_ynab_wedding_title,
+      'template_ynab_wish_farm_title': l10n.template_ynab_wish_farm_title,
+      'template_ynab_ynab_beginner_template_title':
+          l10n.template_ynab_ynab_beginner_template_title,
     };
 
 Map<String, String> _templateDescriptionMap(AppLocalizations l10n) => {
@@ -605,6 +654,53 @@ Map<String, String> _templateDescriptionMap(AppLocalizations l10n) => {
       'template_pers_car_desc': l10n.template_pers_car_desc,
       'template_pers_bio_desc': l10n.template_pers_bio_desc,
       'template_pers_gamer_desc': l10n.template_pers_gamer_desc,
+      'template_ynab_a_better_emergency_fund_desc':
+          l10n.template_ynab_a_better_emergency_fund_desc,
+      'template_ynab_buying_a_home_desc': l10n.template_ynab_buying_a_home_desc,
+      'template_ynab_christmas_desc': l10n.template_ynab_christmas_desc,
+      'template_ynab_college_desc': l10n.template_ynab_college_desc,
+      'template_ynab_debt_payoff_desc': l10n.template_ynab_debt_payoff_desc,
+      'template_ynab_disaster_prep_desc': l10n.template_ynab_disaster_prep_desc,
+      'template_ynab_disney_desc': l10n.template_ynab_disney_desc,
+      'template_ynab_divorce_desc': l10n.template_ynab_divorce_desc,
+      'template_ynab_family_desc': l10n.template_ynab_family_desc,
+      'template_ynab_food_desc': l10n.template_ynab_food_desc,
+      'template_ynab_happiness_desc': l10n.template_ynab_happiness_desc,
+      'template_ynab_home_project_desc': l10n.template_ynab_home_project_desc,
+      'template_ynab_house_projects_queue_desc':
+          l10n.template_ynab_house_projects_queue_desc,
+      'template_ynab_job_layoff_desc': l10n.template_ynab_job_layoff_desc,
+      'template_ynab_kid_desc': l10n.template_ynab_kid_desc,
+      'template_ynab_kitchen_remodel_desc':
+          l10n.template_ynab_kitchen_remodel_desc,
+      'template_ynab_minimalist_ynab_desc':
+          l10n.template_ynab_minimalist_ynab_desc,
+      'template_ynab_moving_desc': l10n.template_ynab_moving_desc,
+      'template_ynab_navigating_loss_desc':
+          l10n.template_ynab_navigating_loss_desc,
+      'template_ynab_new_baby_desc': l10n.template_ynab_new_baby_desc,
+      'template_ynab_new_puppy_desc': l10n.template_ynab_new_puppy_desc,
+      'template_ynab_new_years_resolutions_desc':
+          l10n.template_ynab_new_years_resolutions_desc,
+      'template_ynab_nick_trues_starter_template_desc':
+          l10n.template_ynab_nick_trues_starter_template_desc,
+      'template_ynab_nick_trues_values_template_desc':
+          l10n.template_ynab_nick_trues_values_template_desc,
+      'template_ynab_non_monthly_expenses_desc':
+          l10n.template_ynab_non_monthly_expenses_desc,
+      'template_ynab_recently_graduated_desc':
+          l10n.template_ynab_recently_graduated_desc,
+      'template_ynab_rockretirementclub_desc':
+          l10n.template_ynab_rockretirementclub_desc,
+      'template_ynab_teach_ynab_desc': l10n.template_ynab_teach_ynab_desc,
+      'template_ynab_teen_desc': l10n.template_ynab_teen_desc,
+      'template_ynab_travel_desc': l10n.template_ynab_travel_desc,
+      'template_ynab_variable_income_desc':
+          l10n.template_ynab_variable_income_desc,
+      'template_ynab_wedding_desc': l10n.template_ynab_wedding_desc,
+      'template_ynab_wish_farm_desc': l10n.template_ynab_wish_farm_desc,
+      'template_ynab_ynab_beginner_template_desc':
+          l10n.template_ynab_ynab_beginner_template_desc,
     };
 
 IconData _getIconData(String name) {
