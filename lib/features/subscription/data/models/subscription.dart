@@ -140,6 +140,32 @@ class Subscription {
       return true;
     }
 
+    // Case: Active IAP subscription (App Store / Play Store)
+    if ((provider == 'app_store' || provider == 'play_store') &&
+        status == 'active') {
+      // Lifetime plan - always valid when active
+      if (plan == 'lifetime') {
+        appLog('IAP subscription ($provider) - subscribed=true (lifetime)',
+            name: 'Subscription');
+        return true;
+      }
+
+      // For recurring subscriptions, expiry date is REQUIRED
+      if (currentPeriodEnd == null) {
+        appLog(
+            'IAP subscription ($provider) - MISSING expiry date for non-lifetime plan - subscribed=false (FAIL-SAFE)',
+            name: 'Subscription');
+        return false; // Fail-safe: deny access if expiry missing
+      }
+
+      // Check if subscription is still valid
+      final isValid = currentPeriodEnd!.isAfter(DateTime.now());
+      appLog(
+          'IAP subscription ($provider) - plan=$plan, expires=$currentPeriodEnd, valid=$isValid',
+          name: 'Subscription');
+      return isValid;
+    }
+
     // Case 2: All other cases mean free/inactive
     appLog('No matching active/trialing subscription - subscribed=false (FREE)',
         name: 'Subscription');

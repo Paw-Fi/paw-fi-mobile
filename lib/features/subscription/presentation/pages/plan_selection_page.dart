@@ -847,6 +847,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 12),
+                        const _LegalLinks(),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -880,8 +882,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                         contentPadding: EdgeInsets.zero,
                         title: Text(
                           mode == PlanSelectionMode.trial
-                              ? 'I understand that after my trial, my subscription will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'} unless I cancel.'
-                              : 'I understand that my subscription will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'} unless I cancel.',
+                              ? 'I understand that after my ${activePlanOption.billingInterval == 'monthly' ? '30-day' : '1-year'} free trial, my subscription will automatically renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless I cancel at least 24 hours before the trial ends.'
+                              : 'Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
                           style: TextStyle(
                             color: colorScheme.mutedForeground,
                             fontSize: 13,
@@ -1364,6 +1366,75 @@ class _AppleStylePlanCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LegalLinks extends StatelessWidget {
+  const _LegalLinks();
+
+  Future<void> _launchUrl(BuildContext context, String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.error(context, 'Could not open link');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextButton(
+          onPressed: () =>
+              _launchUrl(context, 'https://moneko.io/privacy-policy'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            minimumSize:
+                const Size(0, 44), // Accessibility: 44px minimum tap target
+          ),
+          child: Text(
+            'Privacy',
+            style: TextStyle(fontSize: 12, color: scheme.primary),
+          ),
+        ),
+        Text(' • ',
+            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
+        TextButton(
+          onPressed: () =>
+              _launchUrl(context, 'https://moneko.io/terms-of-service'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            minimumSize:
+                const Size(0, 44), // Accessibility: 44px minimum tap target
+          ),
+          child: Text(
+            'Terms',
+            style: TextStyle(fontSize: 12, color: scheme.primary),
+          ),
+        ),
+        Text(' • ',
+            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
+        TextButton(
+          onPressed: () => _launchUrl(context, 'https://moneko.io/eula'),
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            minimumSize:
+                const Size(0, 44), // Accessibility: 44px minimum tap target
+          ),
+          child: Text(
+            'EULA',
+            style: TextStyle(fontSize: 12, color: scheme.primary),
+          ),
+        ),
+      ],
     );
   }
 }

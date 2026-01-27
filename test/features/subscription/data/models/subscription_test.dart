@@ -527,4 +527,187 @@ void main() {
       expect(subscription.cancelAtPeriodEnd, true);
     });
   });
+
+  group('Subscription - IAP (In-App Purchase) Logic', () {
+    test(
+        'App Store subscription with active status and valid expiry returns true',
+        () {
+      final now = DateTime.now();
+      final futureDate = now.add(const Duration(days: 30));
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'monthly',
+        status: 'active',
+        currentPeriodEnd: futureDate,
+        createdAt: now,
+      );
+
+      expect(subscription.isSubscribed, true);
+      expect(subscription.isIap, true);
+    });
+
+    test(
+        'Play Store subscription with active status and valid expiry returns true',
+        () {
+      final now = DateTime.now();
+      final futureDate = now.add(const Duration(days: 365));
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'play_store',
+        plan: 'yearly',
+        status: 'active',
+        currentPeriodEnd: futureDate,
+        createdAt: now,
+      );
+
+      expect(subscription.isSubscribed, true);
+      expect(subscription.isIap, true);
+    });
+
+    test('App Store subscription with expired date returns false', () {
+      final now = DateTime.now();
+      final pastDate = now.subtract(const Duration(days: 1));
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'monthly',
+        status: 'active',
+        currentPeriodEnd: pastDate,
+        createdAt: now,
+      );
+
+      expect(subscription.isSubscribed, false);
+    });
+
+    test('App Store lifetime subscription with active status returns true', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'lifetime',
+        status: 'active',
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isSubscribed, true);
+      expect(subscription.isIap, true);
+    });
+
+    test(
+        'App Store subscription without currentPeriodEnd (non-lifetime) returns false (fail-safe)',
+        () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'monthly',
+        status: 'active',
+        currentPeriodEnd:
+            null, // Missing expiry date - should fail-safe to false
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isSubscribed, false);
+    });
+
+    test(
+        'Play Store subscription without currentPeriodEnd (non-lifetime) returns false (fail-safe)',
+        () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'play_store',
+        plan: 'yearly',
+        status: 'active',
+        currentPeriodEnd:
+            null, // Missing expiry date - should fail-safe to false
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isSubscribed, false);
+    });
+
+    test('App Store subscription with canceled status returns false', () {
+      final futureDate = DateTime.now().add(const Duration(days: 30));
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'monthly',
+        status: 'canceled',
+        currentPeriodEnd: futureDate,
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isSubscribed, false);
+    });
+
+    test('isIap returns true for app_store provider', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isIap, true);
+    });
+
+    test('isIap returns true for play_store provider', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'play_store',
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isIap, true);
+    });
+
+    test('isIap returns false for stripe provider', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'stripe',
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isIap, false);
+    });
+
+    test('isIap returns false for null provider', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        createdAt: DateTime.now(),
+      );
+
+      expect(subscription.isIap, false);
+    });
+
+    test('App Store subscription edge case: expiry exactly now', () {
+      final now = DateTime.now();
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'monthly',
+        status: 'active',
+        currentPeriodEnd: now,
+        createdAt: now,
+      );
+
+      // Should return false because isAfter(now) is false when times are equal
+      expect(subscription.isSubscribed, false);
+    });
+  });
 }
