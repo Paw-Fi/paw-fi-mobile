@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import '../../data/models/subscription_details.dart';
 
 class SubscriptionManagementNotifier
@@ -47,6 +48,14 @@ class SubscriptionManagementNotifier
       if (user.isEmpty) return null;
       return _fetchSubscriptionDetails(user.uid);
     });
+
+    // Cross-invalidate: Mark subscriptionNotifierProvider as stale
+    // This ensures consistency between the two subscription providers.
+    // When subscriptionNotifierProvider is next watched (e.g., by router),
+    // it will refetch fresh data from the database.
+    ref.invalidate(subscriptionNotifierProvider);
+    appLog('Cross-invalidated subscriptionNotifierProvider',
+        name: 'SubscriptionManagement');
   }
 
   Future<Map<String, dynamic>> previewSubscriptionChange({

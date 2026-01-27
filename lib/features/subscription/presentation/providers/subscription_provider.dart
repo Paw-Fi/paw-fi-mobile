@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart' show AutoDisposeRef;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import '../../data/models/subscription.dart';
 
 part 'subscription_provider.g.dart';
@@ -25,7 +26,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       final List<dynamic> response = await supabase
           .from('subscriptions')
           .select(
-              'id, user_id, stripe_subscription_id, stripe_customer_id, provider, store_product_id, billing_interval, plan, status, bound_to_user_id, bound_to_household_id, created_at, updated_at')
+              'id, user_id, stripe_subscription_id, stripe_customer_id, provider, store_product_id, billing_interval, plan, status, current_period_end, cancel_at_period_end, bound_to_user_id, bound_to_household_id, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .limit(1);
@@ -93,6 +94,15 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
       if (user.isEmpty) return null;
       return _fetchSubscription(user.uid);
     });
+
+    // Cross-invalidate: Mark subscriptionManagementProvider as stale
+    // This ensures consistency between the two subscription providers.
+    // When subscriptionManagementProvider is next watched, it will refetch.
+    // This pattern maintains performance (router uses fast direct DB query)
+    // while ensuring both providers stay in sync.
+    ref.invalidate(subscriptionManagementProvider);
+    appLog('Cross-invalidated subscriptionManagementProvider',
+        name: 'SubscriptionProvider');
   }
 }
 

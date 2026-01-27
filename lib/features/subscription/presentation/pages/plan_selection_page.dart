@@ -195,7 +195,80 @@ class PlanSelectionPage extends HookConsumerWidget {
           // If we exited processing without an error, treat it as a successful
           // purchase/verification and send the user back to the app.
           if ((nextState?.lastError ?? '').isEmpty) {
-            context.go('/dashboard');
+            _debugLog('✅ Purchase successful! Refreshing subscription...');
+
+            // Schedule async work without blocking the listener
+            Future.microtask(() async {
+              try {
+                // Refresh subscription state - cross-invalidation ensures both providers stay in sync
+                _debugLog('🔄 Refreshing subscription state...');
+                await ref
+                    .read(subscriptionManagementProvider.notifier)
+                    .refresh();
+                // Note: subscriptionNotifierProvider is cross-invalidated automatically
+
+                // Wait a bit longer to ensure Supabase propagation
+                await Future.delayed(const Duration(milliseconds: 1000));
+
+                if (!context.mounted) return;
+
+                // Verify subscription is actually active before navigating
+                final subscriptionAsync =
+                    ref.read(subscriptionManagementProvider);
+                final subscriptionDetails = subscriptionAsync.valueOrNull;
+                final subscriptionData = subscriptionDetails?.subscription;
+
+                // Use the Subscription model's isSubscribed check (includes expiry validation)
+                final isActive = subscriptionData?.isSubscribed ?? false;
+
+                _debugLog('📊 Full subscription check:');
+                _debugLog(
+                    '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
+                _debugLog(
+                    '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
+                _debugLog(
+                    '  - SubscriptionDetails: ${subscriptionDetails != null}');
+                _debugLog(
+                    '  - Subscription model: ${subscriptionData != null}');
+                _debugLog('  - plan: ${subscriptionData?.plan}');
+                _debugLog('  - status: ${subscriptionData?.status}');
+                _debugLog('  - provider: ${subscriptionData?.provider}');
+                _debugLog(
+                    '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
+                _debugLog('  - now: ${DateTime.now()}');
+                if (subscriptionData?.currentPeriodEnd != null) {
+                  _debugLog(
+                      '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
+                }
+                _debugLog('  - isSubscribed (from model): $isActive');
+
+                if (isActive) {
+                  _debugLog(
+                      '✅ Subscription confirmed active, navigating to dashboard');
+                  if (context.mounted) {
+                    context.go('/dashboard');
+                  }
+                } else {
+                  // Subscription still not active - show error
+                  _debugLog('❌ Subscription not active after purchase!');
+                  AppToast.error(
+                    context,
+                    'Purchase completed but subscription not activated. Please restart the app.',
+                  );
+                }
+              } catch (e, stack) {
+                _debugLog('❌ Error refreshing subscription: $e');
+                _debugLog('Stack: $stack');
+
+                // Show error to user instead of navigating
+                if (context.mounted) {
+                  AppToast.error(
+                    context,
+                    'Purchase completed but failed to verify subscription. Please restart the app.',
+                  );
+                }
+              }
+            });
           }
         }
       });

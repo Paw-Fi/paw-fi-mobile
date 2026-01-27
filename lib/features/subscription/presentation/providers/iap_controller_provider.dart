@@ -11,7 +11,6 @@ import 'package:moneko/features/auth/auth.dart';
 import '../../data/models/subscription_product.dart';
 import 'subscription_products_provider.dart';
 import 'subscription_management_provider.dart';
-import 'subscription_provider.dart';
 
 void _debugLog(Object? message) {
   if (!kDebugMode) return;
@@ -433,9 +432,9 @@ class IapController extends AsyncNotifier<IapState> {
               continue;
             }
 
-            // Refresh subscription state
+            // Refresh subscription state - cross-invalidation ensures both providers stay in sync
             await ref.read(subscriptionManagementProvider.notifier).refresh();
-            await ref.read(subscriptionNotifierProvider.notifier).refresh();
+            // Note: subscriptionNotifierProvider is cross-invalidated automatically
 
             // Clear processing state first
             _setState(isProcessing: false, lastError: null);
