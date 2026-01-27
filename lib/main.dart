@@ -11,10 +11,10 @@ import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/app/app.dart';
 import 'package:moneko/core/app/init.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -22,10 +22,10 @@ import 'package:moneko/core/theme/app_theme.dart';
 /// Must be a top-level function for iOS background execution
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('🔔 Background message received: ${message.messageId}');
-  debugPrint('🔔 Title: ${message.notification?.title}');
-  debugPrint('🔔 Body: ${message.notification?.body}');
-  debugPrint('🔔 Data: ${message.data}');
+  debugPrint('[FCM] Background message received: ${message.messageId}');
+  debugPrint('[FCM] Title: ${message.notification?.title}');
+  debugPrint('[FCM] Body: ${message.notification?.body}');
+  debugPrint('[FCM] Data: ${message.data}');
 
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -97,15 +97,17 @@ void main() {
 
       final now = DateTime.now();
       const env = Constants.environment;
-      String route = '';
-      try {
-        // May throw if router not available in this context
-        route = GoRouterState.of(details.context as BuildContext).uri.path;
-      } catch (_) {}
+      // FlutterErrorDetails.context is a DiagnosticsNode, not a BuildContext.
+      // Keep this resilient: avoid secondary failures while rendering the error UI.
+      const String route = '';
 
       final fid =
           'E-${now.millisecondsSinceEpoch.toRadixString(36)}-${shortFingerprint('$errorType|$topFrame')}';
       const message = 'Something went wrong. Please restart the app.';
+
+      final diagnosticInfo = kDebugMode
+          ? 'ID: $fid\nEnv: $env\nRoute: ${route.isEmpty ? '-' : route}\nType: $errorType\nTop: ${topFrame.isEmpty ? '-' : topFrame}'
+          : 'ID: $fid\nEnv: $env';
 
       return Directionality(
         textDirection: TextDirection.ltr,
@@ -139,7 +141,7 @@ void main() {
                   const SizedBox(height: 20),
                   // Minimal diagnostic info for screenshots
                   Text(
-                    'ID: $fid\nEnv: $env\nRoute: ${route.isEmpty ? '-' : route}\nType: $errorType\nTop: ${topFrame.isEmpty ? '-' : topFrame}',
+                    diagnosticInfo,
                     style: const TextStyle(
                       color: AppTheme.darkMutedForeground,
                       fontSize: 12,
@@ -192,7 +194,7 @@ void main() {
         FirebaseCrashlytics.instance.log('startup: supabase_initialized');
       }
     } catch (e, s) {
-      debugPrint('❌ initApp failed: $e');
+      debugPrint('[ERR] initApp failed: $e');
       debugPrint(s.toString());
       if (!kIsWeb) {
         FirebaseCrashlytics.instance
@@ -203,12 +205,12 @@ void main() {
 
     // Initialize Intl date formatting for the device locale
     final deviceLocale = ui.PlatformDispatcher.instance.locale;
-    final localeName = deviceLocale.toString();
+    final localeName = intlSafeLocaleName(deviceLocale);
     try {
       intl.Intl.defaultLocale = localeName;
       await initializeDateFormatting(localeName, null);
     } catch (e, s) {
-      debugPrint('❌ initializeDateFormatting failed for $localeName: $e');
+      debugPrint('[ERR] initializeDateFormatting failed for $localeName: $e');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance.recordError(
           e,

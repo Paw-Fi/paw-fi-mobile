@@ -15,6 +15,7 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -32,17 +33,16 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = today.subtract(const Duration(days: 1));
   final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
+  final localeName = intlSafeLocaleName(Localizations.localeOf(context));
 
   if (dateOnly == today) {
     return context.l10n.today;
   } else if (dateOnly == yesterday) {
     return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
-    return DateFormat.EEEE(Localizations.localeOf(context).toString())
-        .format(localDate);
+    return DateFormat.EEEE(localeName).format(localDate);
   } else {
-    return DateFormat.yMMMMd(Localizations.localeOf(context).toString())
-        .format(localDate);
+    return DateFormat.yMMMMd(localeName).format(localDate);
   }
 }
 
@@ -1400,9 +1400,8 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final dateLabel =
-        DateFormat.yMMMMd(Localizations.localeOf(context).toString())
-            .format(toLocalTime(_date));
+    final localeName = intlSafeLocaleName(Localizations.localeOf(context));
+    final dateLabel = DateFormat.yMMMMd(localeName).format(toLocalTime(_date));
     final categoryLabel = getCategoryTranslation(context, _category);
 
     return Container(

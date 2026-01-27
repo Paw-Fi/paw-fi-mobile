@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/utils/intl_locale.dart';
+
 /// Formats a date with localized month names and proper format for the user's language.
 ///
 /// Examples:
@@ -17,7 +19,8 @@ String formatLocalizedDate(
   // Normalize language code for special cases (e.g. custom locales)
   final languageCode =
       _normalizeLanguageCode(locale.languageCode.toLowerCase());
-  final intlLocale = _resolveIntlLocale(locale, languageCode);
+  final intlLocale =
+      intlSafeLocaleName(Locale(languageCode, locale.countryCode));
 
   try {
     // Use DateFormat with locale for automatic month name localization
@@ -60,7 +63,8 @@ String formatLocalizedMonth(
   final locale = Localizations.localeOf(context);
   final languageCode =
       _normalizeLanguageCode(locale.languageCode.toLowerCase());
-  final intlLocale = _resolveIntlLocale(locale, languageCode);
+  final intlLocale =
+      intlSafeLocaleName(Locale(languageCode, locale.countryCode));
 
   final pattern = _getMonthPattern(languageCode, abbreviated);
 
@@ -144,16 +148,6 @@ String _normalizeLanguageCode(String languageCode) {
     default:
       return languageCode;
   }
-}
-
-/// Build the locale string used by intl, preserving country code
-/// but using the normalized language code.
-String _resolveIntlLocale(Locale locale, String normalizedLanguageCode) {
-  final countryCode = locale.countryCode;
-  if (countryCode == null || countryCode.isEmpty) {
-    return normalizedLanguageCode;
-  }
-  return '${normalizedLanguageCode}_$countryCode';
 }
 
 /// Get date pattern with year for different languages.

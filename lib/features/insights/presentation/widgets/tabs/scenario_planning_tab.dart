@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -103,10 +104,12 @@ class _ScenarioPlanningTabContentState
   String _formatLocalizedDate(DateTime date) {
     final locale = Localizations.localeOf(context);
     final dateFormat = context.l10n.scenarioDateFormat;
+    final localeName = intlSafeLocaleName(locale);
+    final languageCode = localeName.split('_').first;
 
     try {
       // Try locale-specific formatting first
-      return DateFormat(dateFormat, locale.languageCode).format(date);
+      return DateFormat(dateFormat, localeName).format(date);
     } catch (e) {
       debugPrint('Locale-specific date formatting failed: $e');
 
@@ -117,7 +120,7 @@ class _ScenarioPlanningTabContentState
         debugPrint('Generic date formatting failed: $e2');
 
         // Ultimate fallback based on language family
-        return _formatDateByLanguageFamily(date, locale.languageCode);
+        return _formatDateByLanguageFamily(date, languageCode);
       }
     }
   }

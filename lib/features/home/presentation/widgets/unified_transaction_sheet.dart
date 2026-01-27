@@ -28,6 +28,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -52,6 +53,7 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = today.subtract(const Duration(days: 1));
   final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
+  final localeName = intlSafeLocaleName(Localizations.localeOf(context));
 
   if (dateOnly == today) {
     return context.l10n.today;
@@ -59,12 +61,10 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
     return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
     // Use localized date formatter for day names
-    return DateFormat.EEEE(Localizations.localeOf(context).toString())
-        .format(localDate);
+    return DateFormat.EEEE(localeName).format(localDate);
   } else {
     // Use localized date formatter for full date
-    return DateFormat.yMMMMd(Localizations.localeOf(context).toString())
-        .format(localDate);
+    return DateFormat.yMMMMd(localeName).format(localDate);
   }
 }
 
@@ -587,7 +587,8 @@ class _UnifiedTransactionSheetState
                             MonekoDisclosureRow(
                               label: context.l10n.date,
                               value: DateFormat.yMMMMd(
-                                Localizations.localeOf(context).toString(),
+                                intlSafeLocaleName(
+                                    Localizations.localeOf(context)),
                               ).format(toLocalTime(displayDate)),
                               onTap: () => _handleEditDate(displayDate),
                             ),

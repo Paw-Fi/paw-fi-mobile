@@ -8,6 +8,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Interactive spending card with swipeable chart and current point highlight
@@ -214,7 +215,7 @@ class _SpendingCardState extends State<SpendingCard> {
                         }
                         final date = visibleDates[value.toInt()];
                         final locale = Localizations.localeOf(context);
-                        final localeName = locale.toString();
+                        final localeName = intlSafeLocaleName(locale);
 
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
@@ -279,7 +280,7 @@ class _SpendingCardState extends State<SpendingCard> {
                         }
                         final date = visibleDates[spot.spotIndex];
                         final locale = Localizations.localeOf(context);
-                        final localeName = locale.toString();
+                        final localeName = intlSafeLocaleName(locale);
                         final formattedDate =
                             widget.dateFilter == DateRangeFilter.thisMonth &&
                                     intervalType == 'daily'

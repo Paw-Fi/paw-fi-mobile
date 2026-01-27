@@ -5,6 +5,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 
 class TransactionListTile extends StatelessWidget {
   final String category;
@@ -39,22 +40,22 @@ class TransactionListTile extends StatelessWidget {
   });
 
   String? _formatDate(BuildContext context, DateTime date) {
-    final locale = Localizations.localeOf(context).toString();
+    final localeName = intlSafeLocaleName(Localizations.localeOf(context));
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final dateOnly = DateTime(date.year, date.month, date.day);
 
     if (dateOnly == today) {
-      return '${context.l10n.today}, ${DateFormat.jm(locale).format(date)}';
+      return '${context.l10n.today}, ${DateFormat.jm(localeName).format(date)}';
     }
     if (dateOnly == yesterday) {
       return context.l10n.yesterday;
     }
     if (date.year == now.year) {
-      return DateFormat.MMMd(locale).format(date);
+      return DateFormat.MMMd(localeName).format(date);
     }
-    return DateFormat.yMMMd(locale).format(date);
+    return DateFormat.yMMMd(localeName).format(date);
   }
 
   @override
