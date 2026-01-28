@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/constants/deep_links.dart';
@@ -63,14 +64,17 @@ class DeepLinkService {
 
   /// Handle deep link navigation
   Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
+    // Only log deep link type, not sensitive parameters
     debugPrint('🔗 Handling deep link: ${uri.scheme}://${uri.host}${uri.path}');
-    debugPrint('🔗 Query parameters: ${uri.queryParameters}');
+    if (kDebugMode) {
+      // Only log query parameters in debug mode
+      debugPrint('🔗 Query parameters: ${uri.queryParameters}');
+    }
 
     // Handle Supabase OAuth callback: io.supabase.moneko://login-callback
     if (DeepLinks.isOAuthCallback(uri)) {
       debugPrint('🔐 Supabase OAuth callback received');
-      debugPrint(
-          '🔐 Access token: ${uri.fragment.contains('access_token') ? 'Present' : 'Missing'}');
+      // Don't log token presence - could leak info about auth state
 
       // Supabase auth tokens are in the URL fragment (#access_token=...)
       // Navigate to auth callback screen which will process the session
@@ -95,21 +99,62 @@ class DeepLinkService {
     }
 
     if (DeepLinks.isPlaidCallback(uri)) {
-      final params = uri.queryParameters;
-      debugPrint('🏦 Plaid deep link received with params: $params');
+      debugPrint('🏦 Plaid deep link received');
 
-      final linkToken = params['link_token'];
-      final oauthStateId = params['oauth_state_id'];
+      final params = uri.queryParameters;
       final status = params['status'];
       final errorCode = params['error_code'];
       final errorMessage = params['error_message'];
 
-      debugPrint('🏦 Plaid link_token: $linkToken');
-      debugPrint('🏦 Plaid oauth_state_id: $oauthStateId');
+      // Only log non-sensitive status info
       debugPrint('🏦 Plaid status: $status');
-      debugPrint('🏦 Plaid error_code: $errorCode');
-      debugPrint('🏦 Plaid error_message: $errorMessage');
+      if (errorCode != null) {
+        debugPrint('🏦 Plaid error_code: $errorCode');
+        debugPrint('🏦 Plaid error_message: $errorMessage');
+      }
 
+      return;
+    }
+
+    // Tink callback: moneko://tink/callback?code=xxx&credentialsId=yyy&state=zzz
+    if (DeepLinks.isTinkCallback(uri)) {
+      debugPrint('🏦 Tink deep link received');
+
+      final params = uri.queryParameters;
+      final code = params['code'];
+      final credentialsId = params['credentialsId'];
+      final state = params['state'];
+      final error = params['error'];
+
+      if (error != null && error.isNotEmpty) {
+        debugPrint('❌ Tink error: $error');
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx?.mounted ?? false) {
+          AppToast.error(navCtx!, 'Bank connection failed: $error');
+        }
+        return;
+      }
+
+      if (code == null || code.isEmpty) {
+        debugPrint('❌ Tink callback missing code');
+        return;
+      }
+
+      if (state == null || state.isEmpty) {
+        debugPrint('❌ Tink callback missing state - CSRF validation will fail');
+        final navCtx = rootNavigatorKey.currentContext;
+        if (navCtx?.mounted ?? false) {
+          AppToast.error(
+              navCtx!, 'Bank connection failed: missing security state');
+        }
+        return;
+      }
+
+      // Don't log sensitive codes - only log that we received them
+      debugPrint('🏦 Tink authorization code and state received');
+
+      // Handle the Tink callback - exchange code for tokens with state for CSRF validation
+      _handleTinkCallback(code, credentialsId, state, ref);
       return;
     }
 
@@ -214,8 +259,8 @@ class DeepLinkService {
     // Handle WhatsApp verification: moneko://verify-whatsapp?otp=123456
     if (DeepLinks.isWhatsAppVerification(uri)) {
       final otp = uri.queryParameters['otp'];
-      debugPrint('📱 WhatsApp verification callback received!');
-      debugPrint('📱 OTP: $otp');
+      // Don't log OTP - it's a secret
+      debugPrint('📱 WhatsApp verification callback received');
 
       // Use global navigator key to get a valid context
       // This ensures the modal can be shown even when app comes from background
@@ -271,9 +316,7 @@ class DeepLinkService {
         }
       }
 
-      debugPrint('🏠 Household invitation link received!');
-      debugPrint('🏠 URI: $uri');
-      debugPrint('🏠 Token: $token');
+      debugPrint('🏠 Household invitation link received');
 
       if (token == null || token.isEmpty) {
         debugPrint('❌ No invitation token provided');
@@ -351,6 +394,67 @@ class DeepLinkService {
         navCtx!.go('/dashboard');
       }
       return;
+    }
+  }
+
+  /// Handle Tink callback - exchange code for tokens and sync transactions
+  Future<void> _handleTinkCallback(
+      String code, String? credentialsId, String state, WidgetRef ref) async {
+    debugPrint('🏦 Handling Tink callback...');
+
+    // Wait a bit to ensure app is fully loaded
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    final navigatorContext = rootNavigatorKey.currentContext;
+
+    try {
+      final user = ref.read(authProvider);
+      if (user.uid.isEmpty) {
+        debugPrint('❌ User not authenticated for Tink callback');
+        return;
+      }
+
+      // Exchange the authorization code for tokens with state for CSRF validation
+      final exchangeResponse = await supabase.functions.invoke(
+        'tink-exchange-auth-code',
+        body: {
+          'code': code,
+          'state': state,
+          if (credentialsId != null) 'credentialsId': credentialsId,
+        },
+      );
+
+      if (exchangeResponse.status >= 400) {
+        throw Exception('Failed to exchange Tink code');
+      }
+
+      debugPrint('✅ Tink code exchanged successfully');
+
+      // Trigger transaction sync
+      final syncResponse = await supabase.functions.invoke(
+        'tink-sync-transactions',
+      );
+
+      if (syncResponse.status >= 400) {
+        debugPrint('⚠️ Tink sync returned error, but connection was created');
+      } else {
+        debugPrint('✅ Tink transactions synced');
+      }
+
+      // Refresh data
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+
+      // Show success message
+      if (navigatorContext?.mounted ?? false) {
+        AppToast.success(navigatorContext!, 'Bank connected successfully!');
+        navigatorContext.go('/dashboard');
+      }
+    } catch (e) {
+      debugPrint('❌ Error handling Tink callback: $e');
+      if (navigatorContext?.mounted ?? false) {
+        AppToast.error(
+            navigatorContext!, 'Failed to connect bank: ${e.toString()}');
+      }
     }
   }
 

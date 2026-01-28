@@ -38,6 +38,11 @@ class HouseholdScope {
 
   ActiveAccountType get activeAccountType {
     if (viewMode == ViewMode.personal) return ActiveAccountType.personal;
+
+    // If the user has no spaces yet (or selection hasn't been initialized),
+    // default to personal scope so data doesn't get filtered out.
+    if (!hasSelectedHousehold) return ActiveAccountType.personal;
+
     if (isPortfolioSelected) return ActiveAccountType.portfolio;
     return ActiveAccountType.household;
   }
@@ -57,20 +62,24 @@ class HouseholdScope {
     final result = viewMode == ViewMode.household &&
         hasSelectedHousehold &&
         !isPortfolioSelected;
-    debugPrint('[HouseholdScope] 🔍 isHouseholdView calculation:');
-    debugPrint(
-        '[HouseholdScope]   - viewMode == household: ${viewMode == ViewMode.household}');
-    debugPrint(
-        '[HouseholdScope]   - hasSelectedHousehold: $hasSelectedHousehold');
-    debugPrint(
-        '[HouseholdScope]   - isPortfolioSelected: $isPortfolioSelected');
-    debugPrint('[HouseholdScope]   - RESULT isHouseholdView: $result');
+    if (kDebugMode) {
+      debugPrint('[HouseholdScope] 🔍 isHouseholdView calculation:');
+      debugPrint(
+          '[HouseholdScope]   - viewMode == household: ${viewMode == ViewMode.household}');
+      debugPrint(
+          '[HouseholdScope]   - hasSelectedHousehold: $hasSelectedHousehold');
+      debugPrint(
+          '[HouseholdScope]   - isPortfolioSelected: $isPortfolioSelected');
+      debugPrint('[HouseholdScope]   - RESULT isHouseholdView: $result');
+    }
     return result;
   }
 
   bool get isPersonalView {
     final result = !isHouseholdView;
-    debugPrint('[HouseholdScope]   - RESULT isPersonalView: $result');
+    if (kDebugMode) {
+      debugPrint('[HouseholdScope]   - RESULT isPersonalView: $result');
+    }
     return result;
   }
 }
@@ -87,18 +96,20 @@ final householdScopeProvider = Provider<HouseholdScope>((ref) {
       households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
 
   // Debug logging for portfolio households
-  debugPrint('[HouseholdScope] 🏠 Building scope:');
-  debugPrint('[HouseholdScope]   - Total households: ${households.length}');
-  debugPrint('[HouseholdScope]   - Portfolio count: ${portfolioIds.length}');
-  debugPrint('[HouseholdScope]   - Portfolio IDs: $portfolioIds');
-  debugPrint('[HouseholdScope]   - View mode: $viewMode');
-  debugPrint(
-      '[HouseholdScope]   - Selected household: ${selected.householdId}');
-
-  // Log each household's portfolio status
-  for (final h in households) {
+  if (kDebugMode) {
+    debugPrint('[HouseholdScope] 🏠 Building scope:');
+    debugPrint('[HouseholdScope]   - Total households: ${households.length}');
+    debugPrint('[HouseholdScope]   - Portfolio count: ${portfolioIds.length}');
+    debugPrint('[HouseholdScope]   - Portfolio IDs: $portfolioIds');
+    debugPrint('[HouseholdScope]   - View mode: $viewMode');
     debugPrint(
-        '[HouseholdScope]   - Household: ${h.name} (${h.id}), isPortfolio=${h.isPortfolio}');
+        '[HouseholdScope]   - Selected household: ${selected.householdId}');
+
+    // Log each household's portfolio status
+    for (final h in households) {
+      debugPrint(
+          '[HouseholdScope]   - Household: ${h.name} (${h.id}), isPortfolio=${h.isPortfolio}');
+    }
   }
 
   return HouseholdScope(

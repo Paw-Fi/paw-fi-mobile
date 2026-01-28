@@ -10,6 +10,8 @@ import 'package:moneko/core/navigation/main_menu_screen.dart'; // For plaidCount
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
+import 'package:moneko/core/bank_sync/bank_provider_routing.dart';
+import 'package:moneko/core/bank_sync/tink_link_service.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -37,8 +39,7 @@ class _PlaidSyncWalkthroughPageState
   bool _isSuccess = false;
   bool _postRefreshComplete = false;
   bool _postRefreshScheduled = false;
-  final int _numPages =
-      3; // Intro, Security, Benefits (Country selection commented out)
+  final int _numPages = 4; // Intro, Security, Benefits, Country Selection
 
   @override
   void dispose() {
@@ -150,85 +151,26 @@ class _PlaidSyncWalkthroughPageState
     }
     final userId = user.uid;
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
-
-    // We don't use the blocking dialog here because we have a UI for it,
-    // but for consistency with the original code, or to show progress clearly:
-    // showBlockingProcessingDialog(context: context, message: context.l10n.autoSync);
-    // However, standard blocking dialogs on top of a nice walkthrough might be jarring.
-    // Let's try to keep it inline or use the blocking dialog if strictly necessary for the flow.
-    // The user request says "once connected, the walkthrough proceed to last step with finish".
+    final provider = getProviderForCountry(selectedCountryCode);
+    final idempotencyKey = generateIdempotencyKey(userId);
 
     final client = Supabase.instance.client;
 
     try {
-      final linkTokenResponse = await client.functions.invoke(
-        'plaid-create-link-token',
-        body: {
-          'platform': Platform.isAndroid ? 'android' : 'ios',
-          if (selectedCountryCode.isNotEmpty)
-            'countryCode': selectedCountryCode,
-        },
-      );
-
-      if (linkTokenResponse.status >= 400) {
-        throw Exception('Failed to create link token');
-      }
-
-      final linkData = linkTokenResponse.data as Map<String, dynamic>?;
-      final linkToken = linkData?['linkToken'] as String?;
-      if (linkToken == null || linkToken.isEmpty) {
-        throw Exception('Missing Plaid link token');
-      }
-
-      final linkResult = await openPlaidLink(linkToken);
-      if (linkResult == null) {
-        // User cancelled Plaid Link
-        setState(() {
-          _isSyncing = false;
-          _fakeProgress = 0.0;
-          _showSyncProgress = false;
-        });
-        return;
-      }
-
-      final exchangeResponse = await client.functions.invoke(
-        'plaid-exchange-public-token',
-        body: {
-          'publicToken': linkResult.publicToken,
-          if (linkResult.institutionId != null)
-            'institutionId': linkResult.institutionId,
-          if (linkResult.institutionName != null)
-            'institutionName': linkResult.institutionName,
-        },
-      );
-
-      if (exchangeResponse.status >= 400) {
-        throw Exception('Failed to exchange token');
-      }
-
-      // Start visible progress only for the long-running sync
-      setState(() {
-        _showSyncProgress = true;
-      });
-      _startFakeProgress();
-
-      final syncResponse = await client.functions.invoke(
-        'plaid-sync-transactions',
-      );
-
-      if (syncResponse.status >= 400) {
-        throw Exception('Failed to sync transactions');
-      }
-
-      if (mounted) {
-        _finishFakeProgress(success: true);
-        setState(() {
-          _isSuccess = true;
-          _isSyncing = false;
-          _showSyncProgress = false;
-        });
-        _schedulePostRefresh(userId);
-        // Animate to success page (which effectively is a 4th page overlay or replacement)
+      if (provider == BankProvider.plaid) {
+        await _performPlaidSync(
+          client: client,
+          userId: userId,
+          countryCode: selectedCountryCode,
+          idempotencyKey: idempotencyKey,
+        );
+      } else {
+        await _performTinkSync(
+          client: client,
+          userId: userId,
+          countryCode: selectedCountryCode,
+          idempotencyKey: idempotencyKey,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -242,6 +184,127 @@ class _PlaidSyncWalkthroughPageState
           _showSyncProgress = false;
         });
       }
+    }
+  }
+
+  Future<void> _performPlaidSync({
+    required SupabaseClient client,
+    required String userId,
+    required String countryCode,
+    required String idempotencyKey,
+  }) async {
+    final linkTokenResponse = await client.functions.invoke(
+      'plaid-create-link-token',
+      body: {
+        'platform': Platform.isAndroid ? 'android' : 'ios',
+        if (countryCode.isNotEmpty) 'countryCode': countryCode,
+      },
+    );
+
+    if (linkTokenResponse.status >= 400) {
+      throw Exception('Failed to create link token');
+    }
+
+    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
+    final linkToken = linkData?['linkToken'] as String?;
+    if (linkToken == null || linkToken.isEmpty) {
+      throw Exception('Missing Plaid link token');
+    }
+
+    final linkResult = await openPlaidLink(linkToken);
+    if (linkResult == null) {
+      // User cancelled Plaid Link
+      setState(() {
+        _isSyncing = false;
+        _fakeProgress = 0.0;
+        _showSyncProgress = false;
+      });
+      return;
+    }
+
+    final exchangeResponse = await client.functions.invoke(
+      'plaid-exchange-public-token',
+      body: {
+        'publicToken': linkResult.publicToken,
+        'countryCode': countryCode,
+        'idempotencyKey': idempotencyKey,
+        if (linkResult.institutionId != null)
+          'institutionId': linkResult.institutionId,
+        if (linkResult.institutionName != null)
+          'institutionName': linkResult.institutionName,
+      },
+    );
+
+    if (exchangeResponse.status >= 400) {
+      throw Exception('Failed to exchange token');
+    }
+
+    // Start visible progress only for the long-running sync
+    setState(() {
+      _showSyncProgress = true;
+    });
+    _startFakeProgress();
+
+    final syncResponse = await client.functions.invoke(
+      'plaid-sync-transactions',
+    );
+
+    if (syncResponse.status >= 400) {
+      throw Exception('Failed to sync transactions');
+    }
+
+    if (mounted) {
+      _finishFakeProgress(success: true);
+      setState(() {
+        _isSuccess = true;
+        _isSyncing = false;
+        _showSyncProgress = false;
+      });
+      _schedulePostRefresh(userId);
+    }
+  }
+
+  Future<void> _performTinkSync({
+    required SupabaseClient client,
+    required String userId,
+    required String countryCode,
+    required String idempotencyKey,
+  }) async {
+    // Step 1: Get Tink Link URL
+    final linkTokenResponse = await client.functions.invoke(
+      'tink-create-link-token',
+      body: {
+        'countryCode': countryCode,
+      },
+    );
+
+    if (linkTokenResponse.status >= 400) {
+      throw Exception('Failed to create Tink link');
+    }
+
+    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
+    final linkUrl = linkData?['linkUrl'] as String?;
+    if (linkUrl == null || linkUrl.isEmpty) {
+      throw Exception('Missing Tink link URL');
+    }
+
+    // Step 2: Open Tink Link in browser
+    // The user will be redirected back via deep link: moneko://tink/callback?code=xxx
+    final opened = await openTinkLink(linkUrl);
+    if (!opened) {
+      throw Exception('Could not open Tink Link');
+    }
+
+    // Note: For Tink, the actual exchange happens when the user returns via deep link.
+    // The deep link handler will call tink-exchange-auth-code and complete the flow.
+    // For now, we'll just close the walkthrough and let the deep link handler take over.
+    if (mounted) {
+      setState(() {
+        _isSyncing = false;
+        _showSyncProgress = false;
+      });
+      // Pop the walkthrough - the deep link handler will show success
+      Navigator.of(context).pop();
     }
   }
 
@@ -467,8 +530,7 @@ class _PlaidSyncWalkthroughPageState
                       height: 58,
                       child: _currentPage == _numPages - 1
                           ? FilledButton(
-                              // onPressed: _isSyncing ? null : _performSync,
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: _isSyncing ? null : _performSync,
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
@@ -489,8 +551,7 @@ class _PlaidSyncWalkthroughPageState
                                       ),
                                     )
                                   : const Text(
-                                      // 'Sync Now',
-                                      'Finish',
+                                      'Connect Bank',
                                       style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w700,
@@ -521,23 +582,31 @@ class _PlaidSyncWalkthroughPageState
                             ),
                     ),
                     const SizedBox(height: 16),
-                    // "Powered by Plaid" or similar trust signal could go here
+                    // "Powered by Plaid/Tink" trust signal
                     if (_currentPage == _numPages - 1)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lock_outline_rounded,
-                              size: 12, color: colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Secured by Plaid',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.outline,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final selectedCode =
+                              ref.watch(plaidCountryCodeProvider);
+                          final provider = getProviderForCountry(selectedCode);
+                          final providerName = getProviderDisplayName(provider);
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.lock_outline_rounded,
+                                  size: 12, color: colorScheme.outline),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Secured by $providerName',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.outline,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       )
                     else
                       const SizedBox(

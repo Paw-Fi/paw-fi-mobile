@@ -54,6 +54,20 @@ String _truncateMenuLabel(String label, {int maxLength = 20}) {
   return '${trimmed.substring(0, maxLength - 1)}…';
 }
 
+String _emailLocalPart(String email) {
+  final trimmed = email.trim();
+  final atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0) return trimmed;
+  return trimmed.substring(0, atIndex);
+}
+
+String _userLabel(AppUser user, {required bool shortenEmail}) {
+  final displayName = user.displayName?.trim();
+  if (displayName != null && displayName.isNotEmpty) return displayName;
+
+  return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
+}
+
 /// Leading widget for app bar that includes:
 /// - Profile/Household avatar
 /// - Personal/Household name
@@ -71,14 +85,14 @@ class HomeHeaderLeading extends ConsumerWidget {
         ref.read(zoomDrawerControllerProvider);
 
     final name = viewMode.mode == ViewMode.personal
-        ? (user.displayName?.isNotEmpty == true
-            ? user.displayName!
-            : user.email)
+        ? _userLabel(user, shortenEmail: false)
         : householdsAsync.when(
-            loading: () => context.l10n.forUs,
-            error: (_, __) => context.l10n.forUs,
+            loading: () => _userLabel(user, shortenEmail: false),
+            error: (_, __) => _userLabel(user, shortenEmail: false),
             data: (households) {
-              if (households.isEmpty) return context.l10n.forUs;
+              if (households.isEmpty) {
+                return _userLabel(user, shortenEmail: false);
+              }
               return _resolveSelectedHousehold(
                       selectedHouseholdState, households)
                   .name;
@@ -155,25 +169,19 @@ class HomeHeaderSliver extends ConsumerWidget {
         : null;
 
     final personalLabel = _truncateMenuLabel(
-      (user.displayName?.trim().isNotEmpty == true)
-          ? user.displayName!
-          : (user.email.contains('@')
-              ? user.email.split('@').first
-              : user.email),
+      _userLabel(user, shortenEmail: true),
     );
 
     final profilePillLabel = _truncateMenuLabel(
       viewMode.mode == ViewMode.personal
-          ? ((user.displayName?.trim().isNotEmpty == true)
-              ? user.displayName!
-              : (user.email.contains('@')
-                  ? user.email.split('@').first
-                  : user.email))
+          ? _userLabel(user, shortenEmail: true)
           : householdsAsync.when(
-              loading: () => context.l10n.forUs,
-              error: (_, __) => context.l10n.forUs,
+              loading: () => _userLabel(user, shortenEmail: true),
+              error: (_, __) => _userLabel(user, shortenEmail: true),
               data: (households) {
-                if (households.isEmpty) return context.l10n.forUs;
+                if (households.isEmpty) {
+                  return _userLabel(user, shortenEmail: true);
+                }
                 return _resolveSelectedHousehold(
                   selectedHouseholdState,
                   households,
@@ -302,7 +310,9 @@ class HomeHeaderSliver extends ConsumerWidget {
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(householdId);
 
-          debugPrint('🔄 Switching to household mode');
+          if (kDebugMode) {
+            debugPrint('🔄 Switching to household mode');
+          }
           ref.invalidate(userHouseholdsProvider(user.uid));
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
         }
@@ -434,10 +444,12 @@ class HomeHeaderSliver extends ConsumerWidget {
               builder: (_) => const SettingsPage(),
             ),
           );
+          return;
         }
 
         if (item.value == 'export_all') {
           await exportAllTransactions();
+          return;
         }
 
         if (item.value == 'manage_household' &&
@@ -449,6 +461,7 @@ class HomeHeaderSliver extends ConsumerWidget {
               ),
             ),
           );
+          return;
         }
       },
     );
