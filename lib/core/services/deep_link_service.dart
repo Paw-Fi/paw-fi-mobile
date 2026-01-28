@@ -10,6 +10,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -21,6 +22,7 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Deep link service that handles app links
 class DeepLinkService {
@@ -116,13 +118,14 @@ class DeepLinkService {
       return;
     }
 
-    // Tink callback: moneko://tink/callback?code=xxx&credentialsId=yyy&state=zzz
+    // Tink callback: moneko://tink?credentialsId=xxx&credentials_id=yyy&state=zzz
+    // Note: Tink Link returns credentialsId (not code) after successful connection
     if (DeepLinks.isTinkCallback(uri)) {
       debugPrint('🏦 Tink deep link received');
 
       final params = uri.queryParameters;
-      final code = params['code'];
-      final credentialsId = params['credentialsId'];
+      // Tink returns both 'credentialsId' (camelCase) and 'credentials_id' (snake_case)
+      final credentialsId = params['credentialsId'] ?? params['credentials_id'];
       final state = params['state'];
       final error = params['error'];
 
@@ -135,8 +138,8 @@ class DeepLinkService {
         return;
       }
 
-      if (code == null || code.isEmpty) {
-        debugPrint('❌ Tink callback missing code');
+      if (credentialsId == null || credentialsId.isEmpty) {
+        debugPrint('❌ Tink callback missing credentialsId');
         return;
       }
 
@@ -150,11 +153,11 @@ class DeepLinkService {
         return;
       }
 
-      // Don't log sensitive codes - only log that we received them
-      debugPrint('🏦 Tink authorization code and state received');
+      // Don't log sensitive credentials - only log that we received them
+      debugPrint('🏦 Tink credentialsId and state received');
 
-      // Handle the Tink callback - exchange code for tokens with state for CSRF validation
-      _handleTinkCallback(code, credentialsId, state, ref);
+      // Handle the Tink callback - sync transactions using credentialsId
+      _handleTinkCallback(credentialsId, state, ref);
       return;
     }
 
@@ -397,15 +400,16 @@ class DeepLinkService {
     }
   }
 
-  /// Handle Tink callback - exchange code for tokens and sync transactions
+  /// Handle Tink callback - sync transactions using credentialsId
   Future<void> _handleTinkCallback(
-      String code, String? credentialsId, String state, WidgetRef ref) async {
+      String credentialsId, String state, WidgetRef ref) async {
     debugPrint('🏦 Handling Tink callback...');
 
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
 
     final navigatorContext = rootNavigatorKey.currentContext;
+    var dialogShown = false;
 
     try {
       final user = ref.read(authProvider);
@@ -414,35 +418,63 @@ class DeepLinkService {
         return;
       }
 
-      // Exchange the authorization code for tokens with state for CSRF validation
-      final exchangeResponse = await supabase.functions.invoke(
-        'tink-exchange-auth-code',
+      if (navigatorContext?.mounted ?? false) {
+        showBlockingProcessingDialog(
+          context: navigatorContext!,
+          message: 'Syncing your bank data...',
+        );
+        dialogShown = true;
+      }
+
+      // Sync transactions using credentialsId with state for CSRF validation
+      final syncResponse = await supabase.functions.invoke(
+        'tink-sync-transactions',
         body: {
-          'code': code,
+          'credentialsId': credentialsId,
           'state': state,
-          if (credentialsId != null) 'credentialsId': credentialsId,
         },
       );
 
-      if (exchangeResponse.status >= 400) {
-        throw Exception('Failed to exchange Tink code');
-      }
-
-      debugPrint('✅ Tink code exchanged successfully');
-
-      // Trigger transaction sync
-      final syncResponse = await supabase.functions.invoke(
-        'tink-sync-transactions',
-      );
-
       if (syncResponse.status >= 400) {
-        debugPrint('⚠️ Tink sync returned error, but connection was created');
-      } else {
-        debugPrint('✅ Tink transactions synced');
+        throw Exception('Failed to sync Tink transactions');
       }
+
+      final data = syncResponse.data as Map<String, dynamic>?;
+      final connections = data?['connections'] as List<dynamic>?;
+      final addedTransactions = data?['addedTransactions'] as List<dynamic>?;
+
+      String? connectionId;
+      if (connections != null && connections.isNotEmpty) {
+        final row = connections.first as Map<String, dynamic>;
+        connectionId = row['connectionId'] as String?;
+      }
+
+      String? syncedCurrency;
+      if (addedTransactions != null && addedTransactions.isNotEmpty) {
+        final tx = addedTransactions.first as Map<String, dynamic>;
+        syncedCurrency = tx['currency'] as String?;
+      }
+
+      String? householdId;
+      if (connectionId != null) {
+        final row = await supabase
+            .from('bank_connections')
+            .select('household_id')
+            .eq('id', connectionId)
+            .maybeSingle();
+        if (row != null) {
+          householdId = row['household_id'] as String?;
+        }
+      }
+
+      debugPrint('✅ Tink transactions synced successfully');
 
       // Refresh data
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
+        householdId: householdId,
+        currencyCode: syncedCurrency,
+      );
 
       // Show success message
       if (navigatorContext?.mounted ?? false) {
@@ -454,6 +486,10 @@ class DeepLinkService {
       if (navigatorContext?.mounted ?? false) {
         AppToast.error(
             navigatorContext!, 'Failed to connect bank: ${e.toString()}');
+      }
+    } finally {
+      if (dialogShown && navigatorContext?.mounted == true) {
+        Navigator.of(navigatorContext!, rootNavigator: true).pop();
       }
     }
   }

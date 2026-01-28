@@ -26,6 +26,9 @@ const List<PlaidCountryOption> plaidCountryOptions = [
   PlaidCountryOption(code: 'PY', label: 'Paraguay'),
   PlaidCountryOption(code: 'GT', label: 'Guatemala'),
   PlaidCountryOption(code: 'DO', label: 'Dominican Republic'),
+  PlaidCountryOption(code: 'AR', label: 'Argentina'),
+  PlaidCountryOption(code: 'JM', label: 'Jamaica'),
+  PlaidCountryOption(code: 'PE', label: 'Peru'),
 
   // Africa & Middle East
   PlaidCountryOption(code: 'NG', label: 'Nigeria'),
@@ -35,6 +38,8 @@ const List<PlaidCountryOption> plaidCountryOptions = [
   PlaidCountryOption(code: 'ZA', label: 'South Africa'),
   PlaidCountryOption(code: 'AE', label: 'United Arab Emirates'),
   PlaidCountryOption(code: 'SA', label: 'Saudi Arabia'),
+  PlaidCountryOption(code: 'MW', label: 'Malawi'),
+  PlaidCountryOption(code: 'TR', label: 'Turkey'),
 
   // Asia-Pacific
   PlaidCountryOption(code: 'CN', label: 'China'),
@@ -52,6 +57,7 @@ const List<PlaidCountryOption> plaidCountryOptions = [
   PlaidCountryOption(code: 'NZ', label: 'New Zealand'),
   PlaidCountryOption(code: 'LK', label: 'Sri Lanka'),
   PlaidCountryOption(code: 'PK', label: 'Pakistan'),
+  PlaidCountryOption(code: 'TW', label: 'Taiwan'),
 
   // Core Europe (including all you listed explicitly)
   PlaidCountryOption(code: 'DE', label: 'Germany'),

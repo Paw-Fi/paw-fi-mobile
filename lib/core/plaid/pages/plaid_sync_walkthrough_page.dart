@@ -20,6 +20,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({super.key});
@@ -245,9 +246,25 @@ class _PlaidSyncWalkthroughPageState
     });
     _startFakeProgress();
 
-    final syncResponse = await client.functions.invoke(
-      'plaid-sync-transactions',
-    );
+    var dialogShown = false;
+    if (mounted) {
+      showBlockingProcessingDialog(
+        context: context,
+        message: 'Syncing your bank data...',
+      );
+      dialogShown = true;
+    }
+
+    late final FunctionResponse syncResponse;
+    try {
+      syncResponse = await client.functions.invoke(
+        'plaid-sync-transactions',
+      );
+    } finally {
+      if (dialogShown && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
 
     if (syncResponse.status >= 400) {
       throw Exception('Failed to sync transactions');
@@ -270,11 +287,107 @@ class _PlaidSyncWalkthroughPageState
     required String countryCode,
     required String idempotencyKey,
   }) async {
-    // Step 1: Get Tink Link URL
+    final market = countryCode.toUpperCase();
+
+    // If the user already has an active Tink connection for this market, don't relink.
+    // Just trigger a manual sync to pull any new transactions since last sync.
+    String? existingConnectionId;
+    String? existingStatus;
+    try {
+      final rows = await client
+          .from('bank_connections')
+          .select('id,status,country_code,updated_at')
+          .eq('user_id', userId)
+          .eq('provider', 'tink')
+          .eq('country_code', market)
+          .neq('status', 'disabled')
+          .order('updated_at', ascending: false)
+          .limit(1);
+
+      final list = rows as List<dynamic>?;
+      if (list != null && list.isNotEmpty) {
+        final row = list.first as Map<String, dynamic>;
+        existingConnectionId = row['id'] as String?;
+        existingStatus = row['status'] as String?;
+      }
+    } catch (_) {
+      // Best-effort lookup; if this fails, we fall back to link flow.
+    }
+
+    // Backward-compat fallback: older rows might not have country_code.
+    if (existingConnectionId == null) {
+      try {
+        final providerItemId = 'tink_$userId-${countryCode.toLowerCase()}';
+        final rows = await client
+            .from('bank_connections')
+            .select('id,status,provider_item_id,updated_at')
+            .eq('user_id', userId)
+            .eq('provider', 'tink')
+            .eq('provider_item_id', providerItemId)
+            .neq('status', 'disabled')
+            .order('updated_at', ascending: false)
+            .limit(1);
+
+        final list = rows as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          final row = list.first as Map<String, dynamic>;
+          existingConnectionId = row['id'] as String?;
+          existingStatus = row['status'] as String?;
+        }
+      } catch (_) {
+        // Ignore and fall back to link flow.
+      }
+    }
+
+    if (existingConnectionId != null && existingStatus == 'active') {
+      var dialogShown = false;
+      if (mounted) {
+        showBlockingProcessingDialog(
+          context: context,
+          message: 'Syncing your bank data...',
+        );
+        dialogShown = true;
+      }
+
+      late final FunctionResponse syncResponse;
+      try {
+        syncResponse = await client.functions.invoke(
+          'tink-sync-transactions',
+          body: {
+            'connectionId': existingConnectionId,
+          },
+        );
+      } finally {
+        if (dialogShown && mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+
+      if (syncResponse.status >= 400) {
+        throw Exception('Failed to sync Tink transactions');
+      }
+
+      if (mounted) {
+        _finishFakeProgress(success: true);
+        setState(() {
+          _isSuccess = true;
+          _isSyncing = false;
+          _showSyncProgress = false;
+        });
+        _schedulePostRefresh(userId);
+      }
+      return;
+    }
+
+    // Otherwise, start (or re-start) the Tink Link flow.
+    // If we have an existing non-active connection, request UPDATE mode to avoid duplicate credentials.
     final linkTokenResponse = await client.functions.invoke(
       'tink-create-link-token',
       body: {
         'countryCode': countryCode,
+        if (existingConnectionId != null) 'connectionId': existingConnectionId,
+        // Let the backend decide between ADD/UPDATE using stored credentials_id.
+        if (existingConnectionId != null) 'intent': 'auto',
       },
     );
 
@@ -288,22 +401,19 @@ class _PlaidSyncWalkthroughPageState
       throw Exception('Missing Tink link URL');
     }
 
-    // Step 2: Open Tink Link in browser
-    // The user will be redirected back via deep link: moneko://tink/callback?code=xxx
+    // Open Tink Link in browser.
+    // The user will be redirected back via deep link: moneko://tink?credentialsId=...&state=...
     final opened = await openTinkLink(linkUrl);
     if (!opened) {
       throw Exception('Could not open Tink Link');
     }
 
-    // Note: For Tink, the actual exchange happens when the user returns via deep link.
-    // The deep link handler will call tink-exchange-auth-code and complete the flow.
-    // For now, we'll just close the walkthrough and let the deep link handler take over.
+    // The deep link handler completes the connection (tink-sync-transactions with credentialsId + state).
     if (mounted) {
       setState(() {
         _isSyncing = false;
         _showSyncProgress = false;
       });
-      // Pop the walkthrough - the deep link handler will show success
       Navigator.of(context).pop();
     }
   }

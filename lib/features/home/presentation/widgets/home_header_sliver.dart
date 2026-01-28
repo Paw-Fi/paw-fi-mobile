@@ -163,6 +163,34 @@ class HomeHeaderSliver extends ConsumerWidget {
     final currencyCode =
         ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
+    ref.listen<BankSyncResult?>(bankSyncResultProvider, (previous, next) {
+      if (next == null) return;
+      Future<void>(() async {
+        if (user.uid.isEmpty) {
+          ref.read(bankSyncResultProvider.notifier).state = null;
+          return;
+        }
+
+        ref.invalidate(userHouseholdsProvider(user.uid));
+        if (next.householdId != null && next.householdId!.isNotEmpty) {
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .selectHousehold(next.householdId!);
+          ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+        }
+
+        final targetCurrency = next.currencyCode?.toUpperCase();
+        if (targetCurrency != null && targetCurrency.isNotEmpty) {
+          ref
+              .read(homeFilterProvider.notifier)
+              .setSelectedCurrency(targetCurrency);
+        }
+
+        await ref.read(analyticsProvider.notifier).loadData(user.uid);
+        ref.read(bankSyncResultProvider.notifier).state = null;
+      });
+    });
+
     final selectedHouseholdIdForSettings = viewMode.mode == ViewMode.household
         ? (selectedHouseholdState.householdId ??
             selectedHouseholdState.household?.id)
