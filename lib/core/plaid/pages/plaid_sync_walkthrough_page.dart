@@ -13,6 +13,7 @@ import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
 import 'package:moneko/core/bank_sync/bank_provider_routing.dart';
 import 'package:moneko/core/bank_sync/tink_link_service.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -366,6 +367,51 @@ class _PlaidSyncWalkthroughPageState
       if (syncResponse.status >= 400) {
         throw Exception('Failed to sync Tink transactions');
       }
+
+      final data = syncResponse.data as Map<String, dynamic>?;
+      final connections = data?['connections'] as List<dynamic>?;
+      final addedTransactions = data?['addedTransactions'] as List<dynamic>?;
+
+      String? connectionId;
+      if (connections != null && connections.isNotEmpty) {
+        final row = connections.first as Map<String, dynamic>;
+        connectionId = row['connectionId'] as String?;
+      }
+
+      String? syncedCurrency;
+      if (addedTransactions != null && addedTransactions.isNotEmpty) {
+        final tx = addedTransactions.first as Map<String, dynamic>;
+        syncedCurrency = tx['currency'] as String?;
+      }
+
+      String? householdId;
+      if (connectionId != null && connectionId.isNotEmpty) {
+        final row = await client
+            .from('bank_connections')
+            .select('household_id')
+            .eq('id', connectionId)
+            .maybeSingle();
+        if (row != null) {
+          householdId = row['household_id'] as String?;
+        }
+
+        if (syncedCurrency?.isEmpty ?? true) {
+          final accountRow = await client
+              .from('bank_accounts')
+              .select('currency')
+              .eq('bank_connection_id', connectionId)
+              .limit(1)
+              .maybeSingle();
+          if (accountRow != null) {
+            syncedCurrency = accountRow['currency'] as String?;
+          }
+        }
+      }
+
+      ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
+        householdId: householdId,
+        currencyCode: syncedCurrency,
+      );
 
       if (mounted) {
         _finishFakeProgress(success: true);
