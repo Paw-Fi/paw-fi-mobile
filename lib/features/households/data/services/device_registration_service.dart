@@ -155,14 +155,15 @@ class DeviceRegistrationService {
 
       // Listen for token refresh first so we don't miss an early emission
       _messaging.onTokenRefresh.listen((newToken) {
-        debugPrint('🔄 FCM Token refreshed: $newToken');
+        debugPrint('🔄 FCM Token refreshed');
         registerDevice(newToken);
       });
 
       // iOS: wait briefly for APNs token to be assigned before requesting FCM token
       if (Platform.isIOS) {
         final apns = await _waitForApnsToken(timeoutMs: 10000);
-        debugPrint('🍎 APNs Token: ${apns ?? "<null>"}');
+        debugPrint(
+            '🍎 APNs Token ${apns != null ? "obtained" : "unavailable"}');
       }
 
       // Get and register FCM token (gracefully handle APNs-not-ready scenarios)
@@ -186,7 +187,7 @@ class DeviceRegistrationService {
         }
 
         if (token != null) {
-          debugPrint('📱 FCM Token: $token');
+          debugPrint('📱 FCM Token obtained');
           await registerDevice(token);
         } else {
           debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
@@ -478,8 +479,7 @@ class DeviceRegistrationService {
           final lastAt = DateTime.tryParse(lastAtIso);
           if (lastAt != null &&
               DateTime.now().difference(lastAt) < const Duration(days: 7)) {
-            debugPrint(
-                '✅ Device registration found in cache (token: ${cachedToken.substring(0, 10)}...)');
+            debugPrint('✅ Device registration found in cache');
             return true;
           }
         }

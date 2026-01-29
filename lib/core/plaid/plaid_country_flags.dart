@@ -22,6 +22,9 @@ String getPlaidCountryFlagPath(String countryCode) {
     'PY': 'PYG',
     'GT': 'GTQ',
     'DO': 'DOP',
+    'AR': 'ARS',
+    'JM': 'JMD',
+    'PE': 'PEN',
 
     // Core Europe / Eurozone → EUR (European flag)
     'DE': 'EUR',
@@ -76,6 +79,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'NZ': 'NZD',
     'LK': 'LKR',
     'PK': 'PKR',
+    'TW': 'TWD',
 
     // Africa & Middle East
     'NG': 'NGN',
@@ -85,6 +89,8 @@ String getPlaidCountryFlagPath(String countryCode) {
     'ZA': 'ZAR',
     'AE': 'AED',
     'SA': 'SAR',
+    'MW': 'MWK',
+    'TR': 'TRY',
   };
 
   final currencyCode = countryToCurrency[code] ?? 'EUR';

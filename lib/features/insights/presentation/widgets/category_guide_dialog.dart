@@ -99,6 +99,7 @@ void showCategoryGuide(BuildContext context, ColorScheme colorScheme) {
                           ),
                           const Spacer(),
                           PrimaryAdaptiveButton(
+                            isExpanded: false,
                             onPressed: () {
                               if (currentPage < slides.length - 1) {
                                 controller.nextPage(

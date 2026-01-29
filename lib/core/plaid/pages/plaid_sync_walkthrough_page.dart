@@ -10,14 +10,19 @@ import 'package:moneko/core/navigation/main_menu_screen.dart'; // For plaidCount
 import 'package:moneko/core/plaid/plaid_countries.dart';
 import 'package:moneko/core/plaid/plaid_country_flags.dart';
 import 'package:moneko/core/plaid/plaid_country_selector_modal.dart';
+import 'package:moneko/core/bank_sync/bank_provider_routing.dart';
+import 'package:moneko/core/bank_sync/tink_link_service.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({super.key});
@@ -37,8 +42,7 @@ class _PlaidSyncWalkthroughPageState
   bool _isSuccess = false;
   bool _postRefreshComplete = false;
   bool _postRefreshScheduled = false;
-  final int _numPages =
-      3; // Intro, Security, Benefits (Country selection commented out)
+  final int _numPages = 4; // Intro, Security, Benefits, Country Selection
 
   @override
   void dispose() {
@@ -122,6 +126,9 @@ class _PlaidSyncWalkthroughPageState
     // Load all analytics data - filtering is done locally
     await ref.read(analyticsProvider.notifier).loadData(userId);
 
+    // Invalidate currency transaction counts after sync to ensure fresh counts
+    ref.invalidate(currencyTransactionCountsProvider);
+
     await Future.delayed(const Duration(milliseconds: 500));
   }
 
@@ -137,6 +144,8 @@ class _PlaidSyncWalkthroughPageState
   }
 
   Future<void> _performSync() async {
+    AppToast.show(context, 'Bank sync coming soon!');
+    return;
     setState(() {
       _isSyncing = true;
       _postRefreshScheduled = false;
@@ -150,85 +159,26 @@ class _PlaidSyncWalkthroughPageState
     }
     final userId = user.uid;
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
-
-    // We don't use the blocking dialog here because we have a UI for it,
-    // but for consistency with the original code, or to show progress clearly:
-    // showBlockingProcessingDialog(context: context, message: context.l10n.autoSync);
-    // However, standard blocking dialogs on top of a nice walkthrough might be jarring.
-    // Let's try to keep it inline or use the blocking dialog if strictly necessary for the flow.
-    // The user request says "once connected, the walkthrough proceed to last step with finish".
+    final provider = getProviderForCountry(selectedCountryCode);
+    final idempotencyKey = generateIdempotencyKey(userId);
 
     final client = Supabase.instance.client;
 
     try {
-      final linkTokenResponse = await client.functions.invoke(
-        'plaid-create-link-token',
-        body: {
-          'platform': Platform.isAndroid ? 'android' : 'ios',
-          if (selectedCountryCode.isNotEmpty)
-            'countryCode': selectedCountryCode,
-        },
-      );
-
-      if (linkTokenResponse.status >= 400) {
-        throw Exception('Failed to create link token');
-      }
-
-      final linkData = linkTokenResponse.data as Map<String, dynamic>?;
-      final linkToken = linkData?['linkToken'] as String?;
-      if (linkToken == null || linkToken.isEmpty) {
-        throw Exception('Missing Plaid link token');
-      }
-
-      final linkResult = await openPlaidLink(linkToken);
-      if (linkResult == null) {
-        // User cancelled Plaid Link
-        setState(() {
-          _isSyncing = false;
-          _fakeProgress = 0.0;
-          _showSyncProgress = false;
-        });
-        return;
-      }
-
-      final exchangeResponse = await client.functions.invoke(
-        'plaid-exchange-public-token',
-        body: {
-          'publicToken': linkResult.publicToken,
-          if (linkResult.institutionId != null)
-            'institutionId': linkResult.institutionId,
-          if (linkResult.institutionName != null)
-            'institutionName': linkResult.institutionName,
-        },
-      );
-
-      if (exchangeResponse.status >= 400) {
-        throw Exception('Failed to exchange token');
-      }
-
-      // Start visible progress only for the long-running sync
-      setState(() {
-        _showSyncProgress = true;
-      });
-      _startFakeProgress();
-
-      final syncResponse = await client.functions.invoke(
-        'plaid-sync-transactions',
-      );
-
-      if (syncResponse.status >= 400) {
-        throw Exception('Failed to sync transactions');
-      }
-
-      if (mounted) {
-        _finishFakeProgress(success: true);
-        setState(() {
-          _isSuccess = true;
-          _isSyncing = false;
-          _showSyncProgress = false;
-        });
-        _schedulePostRefresh(userId);
-        // Animate to success page (which effectively is a 4th page overlay or replacement)
+      if (provider == BankProvider.plaid) {
+        await _performPlaidSync(
+          client: client,
+          userId: userId,
+          countryCode: selectedCountryCode,
+          idempotencyKey: idempotencyKey,
+        );
+      } else {
+        await _performTinkSync(
+          client: client,
+          userId: userId,
+          countryCode: selectedCountryCode,
+          idempotencyKey: idempotencyKey,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -242,6 +192,317 @@ class _PlaidSyncWalkthroughPageState
           _showSyncProgress = false;
         });
       }
+    }
+  }
+
+  Future<void> _performPlaidSync({
+    required SupabaseClient client,
+    required String userId,
+    required String countryCode,
+    required String idempotencyKey,
+  }) async {
+    final linkTokenResponse = await client.functions.invoke(
+      'plaid-create-link-token',
+      body: {
+        'platform': Platform.isAndroid ? 'android' : 'ios',
+        if (countryCode.isNotEmpty) 'countryCode': countryCode,
+      },
+    );
+
+    if (linkTokenResponse.status >= 400) {
+      throw Exception('Failed to create link token');
+    }
+
+    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
+    final linkToken = linkData?['linkToken'] as String?;
+    if (linkToken == null || linkToken.isEmpty) {
+      throw Exception('Missing Plaid link token');
+    }
+
+    final linkResult = await openPlaidLink(linkToken);
+    if (linkResult == null) {
+      // User cancelled Plaid Link
+      setState(() {
+        _isSyncing = false;
+        _fakeProgress = 0.0;
+        _showSyncProgress = false;
+      });
+      return;
+    }
+
+    final exchangeResponse = await client.functions.invoke(
+      'plaid-exchange-public-token',
+      body: {
+        'publicToken': linkResult.publicToken,
+        'countryCode': countryCode,
+        'idempotencyKey': idempotencyKey,
+        if (linkResult.institutionId != null)
+          'institutionId': linkResult.institutionId,
+        if (linkResult.institutionName != null)
+          'institutionName': linkResult.institutionName,
+      },
+    );
+
+    if (exchangeResponse.status >= 400) {
+      throw Exception('Failed to exchange token');
+    }
+
+    final exchangeData = exchangeResponse.data as Map<String, dynamic>?;
+    final connectionId = exchangeData?['connectionId'] as String?;
+    final householdId = exchangeData?['householdId'] as String?;
+
+    // Start visible progress only for the long-running sync
+    setState(() {
+      _showSyncProgress = true;
+    });
+    _startFakeProgress();
+
+    var dialogShown = false;
+    if (mounted) {
+      showBlockingProcessingDialog(
+        context: context,
+        message: 'Syncing your bank data...',
+      );
+      dialogShown = true;
+    }
+
+    late final FunctionResponse syncResponse;
+    try {
+      syncResponse = await client.functions.invoke(
+        'plaid-sync-transactions',
+        body: {
+          if (connectionId != null && connectionId.isNotEmpty)
+            'connectionId': connectionId,
+        },
+      );
+    } finally {
+      if (dialogShown && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
+
+    if (syncResponse.status >= 400) {
+      throw Exception('Failed to sync transactions');
+    }
+
+    final syncData = syncResponse.data as Map<String, dynamic>?;
+    final addedTransactions = syncData?['addedTransactions'] as List<dynamic>?;
+    String? syncedCurrency;
+    if (addedTransactions != null && addedTransactions.isNotEmpty) {
+      final tx = addedTransactions.first as Map<String, dynamic>;
+      syncedCurrency = tx['currency'] as String?;
+    }
+
+    if (syncedCurrency?.isEmpty ?? true) {
+      final resolvedConnectionId = connectionId;
+      if (resolvedConnectionId != null && resolvedConnectionId.isNotEmpty) {
+        final accountRow = await client
+            .from('bank_accounts')
+            .select('currency')
+            .eq('bank_connection_id', resolvedConnectionId)
+            .limit(1)
+            .maybeSingle();
+        if (accountRow != null) {
+          syncedCurrency = accountRow['currency'] as String?;
+        }
+      }
+    }
+
+    ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
+      householdId: householdId,
+      currencyCode: syncedCurrency,
+    );
+
+    if (mounted) {
+      _finishFakeProgress(success: true);
+      setState(() {
+        _isSuccess = true;
+        _isSyncing = false;
+        _showSyncProgress = false;
+      });
+      _schedulePostRefresh(userId);
+    }
+  }
+
+  Future<void> _performTinkSync({
+    required SupabaseClient client,
+    required String userId,
+    required String countryCode,
+    required String idempotencyKey,
+  }) async {
+    final market = countryCode.toUpperCase();
+
+    // If the user already has an active Tink connection for this market, don't relink.
+    // Just trigger a manual sync to pull any new transactions since last sync.
+    String? existingConnectionId;
+    String? existingStatus;
+    try {
+      final rows = await client
+          .from('bank_connections')
+          .select('id,status,country_code,updated_at')
+          .eq('user_id', userId)
+          .eq('provider', 'tink')
+          .eq('country_code', market)
+          .neq('status', 'disabled')
+          .order('updated_at', ascending: false)
+          .limit(1);
+
+      final list = rows as List<dynamic>?;
+      if (list != null && list.isNotEmpty) {
+        final row = list.first as Map<String, dynamic>;
+        existingConnectionId = row['id'] as String?;
+        existingStatus = row['status'] as String?;
+      }
+    } catch (_) {
+      // Best-effort lookup; if this fails, we fall back to link flow.
+    }
+
+    // Backward-compat fallback: older rows might not have country_code.
+    if (existingConnectionId == null) {
+      try {
+        final providerItemId = 'tink_$userId-${countryCode.toLowerCase()}';
+        final rows = await client
+            .from('bank_connections')
+            .select('id,status,provider_item_id,updated_at')
+            .eq('user_id', userId)
+            .eq('provider', 'tink')
+            .eq('provider_item_id', providerItemId)
+            .neq('status', 'disabled')
+            .order('updated_at', ascending: false)
+            .limit(1);
+
+        final list = rows as List<dynamic>?;
+        if (list != null && list.isNotEmpty) {
+          final row = list.first as Map<String, dynamic>;
+          existingConnectionId = row['id'] as String?;
+          existingStatus = row['status'] as String?;
+        }
+      } catch (_) {
+        // Ignore and fall back to link flow.
+      }
+    }
+
+    if (existingConnectionId != null && existingStatus == 'active') {
+      var dialogShown = false;
+      if (mounted) {
+        showBlockingProcessingDialog(
+          context: context,
+          message: 'Syncing your bank data...',
+        );
+        dialogShown = true;
+      }
+
+      late final FunctionResponse syncResponse;
+      try {
+        syncResponse = await client.functions.invoke(
+          'tink-sync-transactions',
+          body: {
+            'connectionId': existingConnectionId,
+          },
+        );
+      } finally {
+        if (dialogShown && mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
+      }
+
+      if (syncResponse.status >= 400) {
+        throw Exception('Failed to sync Tink transactions');
+      }
+
+      final data = syncResponse.data as Map<String, dynamic>?;
+      final connections = data?['connections'] as List<dynamic>?;
+      final addedTransactions = data?['addedTransactions'] as List<dynamic>?;
+
+      String? connectionId;
+      if (connections != null && connections.isNotEmpty) {
+        final row = connections.first as Map<String, dynamic>;
+        connectionId = row['connectionId'] as String?;
+      }
+
+      String? syncedCurrency;
+      if (addedTransactions != null && addedTransactions.isNotEmpty) {
+        final tx = addedTransactions.first as Map<String, dynamic>;
+        syncedCurrency = tx['currency'] as String?;
+      }
+
+      String? householdId;
+      if (connectionId != null && connectionId.isNotEmpty) {
+        final row = await client
+            .from('bank_connections')
+            .select('household_id')
+            .eq('id', connectionId)
+            .maybeSingle();
+        if (row != null) {
+          householdId = row['household_id'] as String?;
+        }
+
+        if (syncedCurrency?.isEmpty ?? true) {
+          final accountRow = await client
+              .from('bank_accounts')
+              .select('currency')
+              .eq('bank_connection_id', connectionId)
+              .limit(1)
+              .maybeSingle();
+          if (accountRow != null) {
+            syncedCurrency = accountRow['currency'] as String?;
+          }
+        }
+      }
+
+      ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
+        householdId: householdId,
+        currencyCode: syncedCurrency,
+      );
+
+      if (mounted) {
+        _finishFakeProgress(success: true);
+        setState(() {
+          _isSuccess = true;
+          _isSyncing = false;
+          _showSyncProgress = false;
+        });
+        _schedulePostRefresh(userId);
+      }
+      return;
+    }
+
+    // Otherwise, start (or re-start) the Tink Link flow.
+    // If we have an existing non-active connection, request UPDATE mode to avoid duplicate credentials.
+    final linkTokenResponse = await client.functions.invoke(
+      'tink-create-link-token',
+      body: {
+        'countryCode': countryCode,
+        if (existingConnectionId != null) 'connectionId': existingConnectionId,
+        // Let the backend decide between ADD/UPDATE using stored credentials_id.
+        if (existingConnectionId != null) 'intent': 'auto',
+      },
+    );
+
+    if (linkTokenResponse.status >= 400) {
+      throw Exception('Failed to create Tink link');
+    }
+
+    final linkData = linkTokenResponse.data as Map<String, dynamic>?;
+    final linkUrl = linkData?['linkUrl'] as String?;
+    if (linkUrl == null || linkUrl.isEmpty) {
+      throw Exception('Missing Tink link URL');
+    }
+
+    // Open Tink Link in browser.
+    // The user will be redirected back via deep link: moneko://tink?credentialsId=...&state=...
+    final opened = await openTinkLink(linkUrl);
+    if (!opened) {
+      throw Exception('Could not open Tink Link');
+    }
+
+    // The deep link handler completes the connection (tink-sync-transactions with credentialsId + state).
+    if (mounted) {
+      setState(() {
+        _isSyncing = false;
+        _showSyncProgress = false;
+      });
+      Navigator.of(context).pop();
     }
   }
 
@@ -467,8 +728,7 @@ class _PlaidSyncWalkthroughPageState
                       height: 58,
                       child: _currentPage == _numPages - 1
                           ? FilledButton(
-                              // onPressed: _isSyncing ? null : _performSync,
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: _isSyncing ? null : _performSync,
                               style: FilledButton.styleFrom(
                                 backgroundColor: colorScheme.primary,
                                 foregroundColor: colorScheme.onPrimary,
@@ -489,8 +749,7 @@ class _PlaidSyncWalkthroughPageState
                                       ),
                                     )
                                   : const Text(
-                                      // 'Sync Now',
-                                      'Finish',
+                                      'Connect Bank',
                                       style: TextStyle(
                                         fontSize: 17,
                                         fontWeight: FontWeight.w700,
@@ -521,23 +780,31 @@ class _PlaidSyncWalkthroughPageState
                             ),
                     ),
                     const SizedBox(height: 16),
-                    // "Powered by Plaid" or similar trust signal could go here
+                    // "Powered by Plaid/Tink" trust signal
                     if (_currentPage == _numPages - 1)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.lock_outline_rounded,
-                              size: 12, color: colorScheme.outline),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Secured by Plaid',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.outline,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final selectedCode =
+                              ref.watch(plaidCountryCodeProvider);
+                          final provider = getProviderForCountry(selectedCode);
+                          final providerName = getProviderDisplayName(provider);
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.lock_outline_rounded,
+                                  size: 12, color: colorScheme.outline),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Secured by $providerName',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: colorScheme.outline,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       )
                     else
                       const SizedBox(

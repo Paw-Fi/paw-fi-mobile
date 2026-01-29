@@ -14,6 +14,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   AnalyticsNotifier(this.ref) : super(AnalyticsData());
 
   final Ref ref;
+  final Set<String> _pendingServerExpenseIds = <String>{};
 
   static const int _maxRetries = 3;
   static const Duration _baseRetryDelay = Duration(seconds: 2);
@@ -45,9 +46,11 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     String userId, {
     int retryCount = 0,
   }) async {
-    // Prevent concurrent loads - if already loading, skip this request
-    // Exception: retries should continue (same operation)
-    if (state.isLoading && retryCount == 0) {
+    // Prevent concurrent loads - if already loading, skip this request.
+    // Exception: retries should continue (same operation).
+    // If we have no data yet, allow the new request to proceed so we don't
+    // get stuck with an empty home screen.
+    if (state.isLoading && retryCount == 0 && state.allExpenses.isNotEmpty) {
       debugPrint('[Analytics] Skipping load - already in progress');
       return;
     }
@@ -158,9 +161,16 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
                   .timeout(_fallbackProcessTimeout);
 
           if (fallbackResult == null) {
-            // Operation was superseded or failed
             debugPrint(
                 '[Analytics] Fallback returned null - operation superseded or failed');
+
+            if (_loadOperationId == currentOperationId) {
+              state = state.copyWith(
+                error: 'Failed to load analytics data',
+                isLoading: false,
+                hasLoadedOnce: true,
+              );
+            }
             return;
           }
 
@@ -201,10 +211,15 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
       // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
       // Filtering will be done locally in the home page
+      final currentState = state;
+      final mergedExpenses = _mergeWithLocalExpenses(
+        serverExpenses: allExpenses,
+        current: currentState,
+      );
       state = state.copyWith(
         contact: fetchedContact,
-        expenses: allExpenses,
-        allExpenses: allExpenses,
+        expenses: mergedExpenses,
+        allExpenses: mergedExpenses,
         budgets: allBudgets,
         allBudgets: allBudgets,
         preferredCurrency: fetchedContact?.preferredCurrency?.toUpperCase(),
@@ -437,6 +452,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void removeOptimisticTransactionById(String id) {
+    if (id.isNotEmpty) {
+      _pendingServerExpenseIds.remove(id);
+    }
     state = state.copyWith(
       expenses: state.expenses.where((e) => e.id != id).toList(),
       allExpenses: state.allExpenses.where((e) => e.id != id).toList(),
@@ -444,6 +462,9 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void replaceOptimisticTransaction(String optimisticId, ExpenseEntry entry) {
+    if (entry.id.isNotEmpty) {
+      _pendingServerExpenseIds.add(entry.id);
+    }
     state = state.copyWith(
       expenses: <ExpenseEntry>[
         entry,
@@ -454,6 +475,46 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         ...state.allExpenses.where((e) => e.id != optimisticId),
       ],
     );
+  }
+
+  List<ExpenseEntry> _mergeWithLocalExpenses({
+    required List<ExpenseEntry> serverExpenses,
+    required AnalyticsData current,
+  }) {
+    final merged = <ExpenseEntry>[];
+    final seen = <String>{};
+
+    void addIfNew(ExpenseEntry entry) {
+      if (entry.id.isEmpty) return;
+      if (seen.add(entry.id)) merged.add(entry);
+    }
+
+    for (final entry in serverExpenses) {
+      addIfNew(entry);
+    }
+
+    final localKeep = current.allExpenses.where((entry) {
+      final id = entry.id;
+      if (id.isEmpty) return false;
+      if (id.startsWith('optimistic_')) return true;
+      return _pendingServerExpenseIds.contains(id);
+    });
+
+    for (final entry in localKeep) {
+      addIfNew(entry);
+    }
+
+    for (final entry in serverExpenses) {
+      _pendingServerExpenseIds.remove(entry.id);
+    }
+
+    merged.sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      if (byDate != 0) return byDate;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
+    return merged;
   }
 
   // Removed setDateRangeFilter - filtering is now done locally in home page
@@ -591,6 +652,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   /// Clear all user data (on logout)
   void clear() {
     state = AnalyticsData();
+    _pendingServerExpenseIds.clear();
     _connectionWarmedUp = false; // Reset warmup flag on logout
   }
 

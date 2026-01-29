@@ -201,14 +201,17 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                                     ),
                                   ),
                                   const SizedBox(height: 6),
-                                  Text(
-                                    displayAmount(selected.amount),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.8,
-                                      color: widget.colorScheme.foreground,
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      displayAmount(selected.amount),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.8,
+                                        color: widget.colorScheme.foreground,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -227,14 +230,17 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                                 key: const ValueKey('total'),
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    displayAmount(totalSpent),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -1.0,
-                                      color: widget.colorScheme.foreground,
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      displayAmount(totalSpent),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -1.0,
+                                        color: widget.colorScheme.foreground,
+                                      ),
                                     ),
                                   ),
                                   Text(

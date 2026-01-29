@@ -13,6 +13,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 
 part 'app_initialization_provider_v2.g.dart';
 
@@ -193,7 +194,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       final userId = auth.isEmpty ? null : auth.uid;
 
       debugPrint(
-          '🚀 [InitV2] Starting initialization (user: $userId, version: $_appVersion)');
+          '🚀 [InitV2] Starting initialization (user: ${userId != null ? 'present' : 'null'}, version: $_appVersion)');
 
       // If not authenticated, mark as initialized immediately
       if (userId == null) {
@@ -287,7 +288,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint(
           '✅ [InitV2] Initialization complete (${stopwatch.elapsedMilliseconds}ms total)');
       debugPrint(
-          '📊 [InitV2] User: ${initData.user?.phoneE164}, Subscription: ${initData.subscription?.plan}, Households: ${initData.households.length}');
+          '📊 [InitV2] User: ${initData.user != null ? 'present' : 'null'}, Subscription: ${initData.subscription?.plan}, Households: ${initData.households.length}');
 
       // Save to cache for next startup
       if (_cacheManager != null && _appVersion != null) {
@@ -301,16 +302,25 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           '🏠 [InitV2] Loading households and initializing selected household...');
       await ref.read(userHouseholdsProvider(userId).notifier).load();
       final householdsState = ref.read(userHouseholdsProvider(userId));
-      final households = householdsState.value ?? const <Household>[];
-      if (households.isEmpty) {
+      final households = householdsState.valueOrNull ?? const <Household>[];
+      if (!householdsState.hasError && households.isEmpty) {
         debugPrint('📭 [InitV2] No households found for user after init');
-        return;
+        // Ensure scope defaults to personal when there are no spaces/accounts.
+        // This prevents filtering out personal data due to a persisted household view mode.
+        await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+        ref.read(viewModeProvider.notifier).setPersonalMode();
+      } else {
+        if (households.isNotEmpty) {
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .initialize(preloadedHouseholds: households);
+          debugPrint(
+              '✅ [InitV2] Selected household initialized during app init');
+        } else {
+          debugPrint(
+              '⚠️ [InitV2] Households failed to load; keeping previous scope');
+        }
       }
-
-      await ref
-          .read(selectedHouseholdProvider.notifier)
-          .initialize(preloadedHouseholds: households);
-      debugPrint('✅ [InitV2] Selected household initialized during app init');
 
       debugPrint('📊 [InitV2] Loading analytics data...');
       final analyticsStopwatch = Stopwatch()..start();
