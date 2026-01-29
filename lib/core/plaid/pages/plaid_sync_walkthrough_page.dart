@@ -15,6 +15,7 @@ import 'package:moneko/core/bank_sync/tink_link_service.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -124,6 +125,9 @@ class _PlaidSyncWalkthroughPageState
     ref.invalidate(pocketsProvider(pocketsScope));
     // Load all analytics data - filtering is done locally
     await ref.read(analyticsProvider.notifier).loadData(userId);
+
+    // Invalidate currency transaction counts after sync to ensure fresh counts
+    ref.invalidate(currencyTransactionCountsProvider);
 
     await Future.delayed(const Duration(milliseconds: 500));
   }
@@ -241,6 +245,10 @@ class _PlaidSyncWalkthroughPageState
       throw Exception('Failed to exchange token');
     }
 
+    final exchangeData = exchangeResponse.data as Map<String, dynamic>?;
+    final connectionId = exchangeData?['connectionId'] as String?;
+    final householdId = exchangeData?['householdId'] as String?;
+
     // Start visible progress only for the long-running sync
     setState(() {
       _showSyncProgress = true;
@@ -260,6 +268,10 @@ class _PlaidSyncWalkthroughPageState
     try {
       syncResponse = await client.functions.invoke(
         'plaid-sync-transactions',
+        body: {
+          if (connectionId != null && connectionId.isNotEmpty)
+            'connectionId': connectionId,
+        },
       );
     } finally {
       if (dialogShown && mounted) {
@@ -270,6 +282,34 @@ class _PlaidSyncWalkthroughPageState
     if (syncResponse.status >= 400) {
       throw Exception('Failed to sync transactions');
     }
+
+    final syncData = syncResponse.data as Map<String, dynamic>?;
+    final addedTransactions = syncData?['addedTransactions'] as List<dynamic>?;
+    String? syncedCurrency;
+    if (addedTransactions != null && addedTransactions.isNotEmpty) {
+      final tx = addedTransactions.first as Map<String, dynamic>;
+      syncedCurrency = tx['currency'] as String?;
+    }
+
+    if (syncedCurrency?.isEmpty ?? true) {
+      final resolvedConnectionId = connectionId;
+      if (resolvedConnectionId != null && resolvedConnectionId.isNotEmpty) {
+        final accountRow = await client
+            .from('bank_accounts')
+            .select('currency')
+            .eq('bank_connection_id', resolvedConnectionId)
+            .limit(1)
+            .maybeSingle();
+        if (accountRow != null) {
+          syncedCurrency = accountRow['currency'] as String?;
+        }
+      }
+    }
+
+    ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
+      householdId: householdId,
+      currencyCode: syncedCurrency,
+    );
 
     if (mounted) {
       _finishFakeProgress(success: true);

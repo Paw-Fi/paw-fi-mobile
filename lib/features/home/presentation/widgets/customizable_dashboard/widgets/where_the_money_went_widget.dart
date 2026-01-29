@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -5,7 +6,6 @@ import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/insights/presentation/widgets/charts/charts.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 
@@ -46,16 +46,11 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    String formatAmount(double amount) {
-      final symbol = resolveCurrencySymbol(currency ?? 'USD');
-      return '$symbol${formatLocalizedNumber(context, amount)}';
-    }
-
-    String percent(double amount) => totalSpent == 0
-        ? '0%'
-        : '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
+    // Show top 5 categories
+    final explicitCategories = sortedCategories.take(5).toList();
 
     return Material(
+      color: Colors.transparent,
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.homeCardSurface,
@@ -114,32 +109,31 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             if (filteredExpenses.isEmpty)
               _EmptyState(colorScheme: colorScheme)
-            else ...[
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 300,
-                child: buildCategoryBarChart(
-                    context, colorScheme, filteredExpenses),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 10,
-                children: sortedCategories.take(6).map((entry) {
-                  final name = getCategoryTranslation(context, entry.key);
-                  return _LegendChip(
-                    label: name,
-                    value:
-                        '${formatAmount(entry.value)} · ${percent(entry.value)}',
-                    color: getCategoryColor(entry.key),
+            else
+              ListView.separated(
+                physics: const NeverScrollableScrollPhysics(),
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: explicitCategories.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final entry = explicitCategories[index];
+                  final catKey = entry.key;
+                  final amount = entry.value;
+
+                  return _CategoryRow(
+                    categoryKey: catKey,
+                    amount: amount,
+                    totalSpent: totalSpent,
                     colorScheme: colorScheme,
+                    currency: currency,
                   );
-                }).toList(),
+                },
               ),
-            ],
           ],
         ),
       ),
@@ -147,49 +141,118 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
   }
 }
 
-class _LegendChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
+class _CategoryRow extends StatelessWidget {
+  final String categoryKey;
+  final double amount;
+  final double totalSpent;
   final ColorScheme colorScheme;
+  final String? currency;
 
-  const _LegendChip({
-    required this.label,
-    required this.value,
-    required this.color,
+  const _CategoryRow({
+    required this.categoryKey,
+    required this.amount,
+    required this.totalSpent,
     required this.colorScheme,
+    this.currency,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+    final name = getCategoryTranslation(context, categoryKey);
+    final color = getCategoryColor(categoryKey);
+    final icon = getCategoryIcon(categoryKey);
+
+    // Calculate percentage, careful of div by zero
+    final percent = totalSpent > 0 ? (amount / totalSpent) : 0.0;
+    final percentString = '${(percent * 100).toStringAsFixed(0)}%';
+
+    final symbol = resolveCurrencySymbol(currency ?? 'USD');
+    final displayAmount = '$symbol${formatLocalizedNumber(context, amount)}';
+
+    return Row(
+      children: [
+        // Leading Icon
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 8),
-          Column(
+          child: Icon(
+            icon,
+            size: 20,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Name and Bar
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.foreground,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        displayAmount,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.foreground,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percent,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        color: color,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    percentString,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -205,22 +268,32 @@ class _EmptyState extends StatelessWidget {
       height: 180,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.08)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.stacked_bar_chart_outlined,
-            color: colorScheme.mutedForeground,
-            size: 28,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.bar_chart_rounded,
+              color: colorScheme.mutedForeground,
+              size: 24,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             context.l10n.noData,
-            style: TextStyle(color: colorScheme.mutedForeground),
+            style: TextStyle(
+                color: colorScheme.mutedForeground,
+                fontSize: 14,
+                fontWeight: FontWeight.w500),
           ),
         ],
       ),

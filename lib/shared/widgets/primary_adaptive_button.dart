@@ -8,11 +8,13 @@ class PrimaryAdaptiveButton extends StatelessWidget {
     required this.onPressed,
     this.prefixIcon,
     required this.child,
+    this.isExpanded = true,
   });
 
   final VoidCallback? onPressed;
   final Widget? prefixIcon;
   final Widget child;
+  final bool isExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +33,7 @@ class PrimaryAdaptiveButton extends StatelessWidget {
           );
 
     return SizedBox(
-      width: double.infinity,
+      width: isExpanded ? double.infinity : null,
       child: CupertinoButton(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         color: scheme.primary,

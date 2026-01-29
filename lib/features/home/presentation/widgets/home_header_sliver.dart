@@ -163,33 +163,40 @@ class HomeHeaderSliver extends ConsumerWidget {
     final currencyCode =
         ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
 
+    Future<void> handleBankSyncResult(BankSyncResult next) async {
+      if (user.uid.isEmpty) return;
+
+      ref.invalidate(userHouseholdsProvider(user.uid));
+      if (next.householdId != null && next.householdId!.isNotEmpty) {
+        await ref
+            .read(selectedHouseholdProvider.notifier)
+            .selectHousehold(next.householdId!);
+        ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+      }
+
+      final targetCurrency = next.currencyCode?.toUpperCase();
+      if (targetCurrency != null && targetCurrency.isNotEmpty) {
+        ref.read(homeFilterProvider.notifier).setSelectedCurrency(targetCurrency);
+      }
+
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+    }
+
     ref.listen<BankSyncResult?>(bankSyncResultProvider, (previous, next) {
       if (next == null) return;
-      Future<void>(() async {
-        if (user.uid.isEmpty) {
-          ref.read(bankSyncResultProvider.notifier).state = null;
-          return;
-        }
 
-        ref.invalidate(userHouseholdsProvider(user.uid));
-        if (next.householdId != null && next.householdId!.isNotEmpty) {
-          await ref
-              .read(selectedHouseholdProvider.notifier)
-              .selectHousehold(next.householdId!);
-          ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-        }
-
-        final targetCurrency = next.currencyCode?.toUpperCase();
-        if (targetCurrency != null && targetCurrency.isNotEmpty) {
-          ref
-              .read(homeFilterProvider.notifier)
-              .setSelectedCurrency(targetCurrency);
-        }
-
-        await ref.read(analyticsProvider.notifier).loadData(user.uid);
-        ref.read(bankSyncResultProvider.notifier).state = null;
-      });
+      // Clear immediately to prevent duplicate scheduling across rebuilds.
+      ref.read(bankSyncResultProvider.notifier).state = null;
+      Future<void>(() => handleBankSyncResult(next));
     });
+
+    // If the result was set before this widget mounted, ref.listen won't fire.
+    // Handle any pending result on first build.
+    final pendingResult = ref.read(bankSyncResultProvider);
+    if (pendingResult != null) {
+      ref.read(bankSyncResultProvider.notifier).state = null;
+      Future<void>(() => handleBankSyncResult(pendingResult));
+    }
 
     final selectedHouseholdIdForSettings = viewMode.mode == ViewMode.household
         ? (selectedHouseholdState.householdId ??
@@ -318,6 +325,9 @@ class HomeHeaderSliver extends ConsumerWidget {
         if (item.value == 'personal') {
           if (viewMode.mode != ViewMode.personal) {
             ref.read(viewModeProvider.notifier).setPersonalMode();
+
+            // Invalidate currency transaction counts after mode switch
+            ref.invalidate(currencyTransactionCountsProvider);
           }
           return;
         }
@@ -343,6 +353,9 @@ class HomeHeaderSliver extends ConsumerWidget {
           }
           ref.invalidate(userHouseholdsProvider(user.uid));
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
+
+          // Invalidate currency transaction counts after household switch
+          ref.invalidate(currencyTransactionCountsProvider);
         }
       },
     );
