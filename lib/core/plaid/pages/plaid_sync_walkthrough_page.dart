@@ -144,6 +144,8 @@ class _PlaidSyncWalkthroughPageState
   }
 
   Future<void> _performSync() async {
+    AppToast.show(context, 'Bank sync coming soon!');
+    return;
     setState(() {
       _isSyncing = true;
       _postRefreshScheduled = false;

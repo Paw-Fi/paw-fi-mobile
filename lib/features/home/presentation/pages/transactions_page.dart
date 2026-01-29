@@ -21,6 +21,13 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -54,6 +61,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   int currentChartIndex = 0;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+
+  // Selection Mode State
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+  bool _isDeleting = false;
 
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
@@ -307,24 +319,51 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         useNativeToolbar: false,
-        title: (context.l10n.transactions),
+        title: _isSelectionMode
+            ? '${_selectedIds.length} Selected'
+            : context.l10n.transactions,
         actions: [
-          AdaptiveAppBarAction(
-            icon: Icons.file_download_rounded,
-            iosSymbol: 'square.and.arrow.up',
-            onPressed: () => exportTransactionsAsExcelSheet(
-              context,
-              expensesToExport,
-              fileNamePrefix: widget.householdId != null
-                  ? 'household_transactions'
-                  : 'transactions',
+          if (!_isSelectionMode) ...[
+            AdaptiveAppBarAction(
+              // "Select" button
+              onPressed: () {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedIds.clear();
+                });
+              },
+              icon: Icons.checklist_rtl_rounded, // Fallback icon
+              // Use text "Select" if possible, but AdaptiveAppBarAction might force icon?
+              // Looking at AdaptiveAppBarAction definition, it usually takes icon.
+              // We will use a check icon list for "Select".
             ),
-          ),
+            AdaptiveAppBarAction(
+              icon: Icons.file_download_rounded,
+              iosSymbol: 'square.and.arrow.up',
+              onPressed: () => exportTransactionsAsExcelSheet(
+                context,
+                expensesToExport,
+                fileNamePrefix: widget.householdId != null
+                    ? 'household_transactions'
+                    : 'transactions',
+              ),
+            ),
+          ] else ...[
+            AdaptiveAppBarAction(
+              onPressed: () {
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                });
+              },
+              icon: Icons.close,
+            ),
+          ]
         ],
       ),
       body: SafeArea(
         child: Material(
-          color: colorScheme.appBackground,
+          color: colorScheme.appleGroupedBackground,
           child: RefreshIndicator(
             onRefresh: () async {
               if (widget.householdId != null) {
@@ -336,233 +375,452 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               }
               await Future.delayed(const Duration(milliseconds: 500));
             },
-            child: CustomScrollView(
-              slivers: [
-                // Search Bar
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: colorScheme.muted,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (value) {
-                                setState(() {
-                                  searchQuery = value;
-                                });
-                              },
-                              style: TextStyle(color: colorScheme.foreground),
-                              decoration: InputDecoration(
-                                hintText: context.l10n.search,
-                                hintStyle: TextStyle(
-                                    color: colorScheme.mutedForeground),
-                                prefixIcon: Icon(Icons.search,
-                                    color: colorScheme.mutedForeground),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        IconButton(
-                          icon: Icon(
-                            Icons.tune,
-                            color: selectedCategory != 'all'
-                                ? colorScheme.primary
-                                : colorScheme.mutedForeground,
-                          ),
-                          onPressed: () =>
-                              _showFilterSheet(context, colorScheme),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                // Period Selector
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: CustomScrollView(
+                slivers: [
+                  // Search Bar
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Row(
                         children: [
-                          '1W',
-                          '1M',
-                          '6M',
-                          '1Y',
-                          'All',
-                          if (selectedPeriod == 'Custom') 'Custom',
-                        ].map((period) {
-                          final isSelected = selectedPeriod == period;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedPeriod = period;
-                                });
-                              },
+                          Expanded(
+                            child: Container(
+                              height: 44, // Standard iOS input height
+                              decoration: BoxDecoration(
+                                color: colorScheme.card,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                onChanged: (value) {
+                                  setState(() {
+                                    searchQuery = value;
+                                  });
+                                },
+                                style: TextStyle(
+                                    color: colorScheme.foreground,
+                                    fontSize: 17),
+                                decoration: InputDecoration(
+                                  hintText: context.l10n.search,
+                                  hintStyle: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 17),
+                                  prefixIcon: Icon(Icons.search,
+                                      color: colorScheme.mutedForeground,
+                                      size: 22),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton(
+                            icon: Icon(
+                              Icons.tune,
+                              color: selectedCategory != 'all'
+                                  ? colorScheme.primary
+                                  : colorScheme.mutedForeground,
+                            ),
+                            onPressed: () =>
+                                _showFilterSheet(context, colorScheme),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  // Period Selector - Minimalist Pill shape
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 16.0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            '1W',
+                            '1M',
+                            '6M',
+                            '1Y',
+                            'All',
+                            if (selectedPeriod == 'Custom') 'Custom',
+                          ].map((period) {
+                            final isSelected = selectedPeriod == period;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    selectedPeriod = period;
+                                  });
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : colorScheme.card,
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: isSelected
+                                        ? null
+                                        : Border.all(
+                                            color: colorScheme.outline
+                                                .withValues(alpha: 0.1),
+                                          ),
+                                  ),
+                                  child: Text(
+                                    getPeriodLabel(period),
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? colorScheme.onPrimary
+                                          : colorScheme.mutedForeground,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Chart Display
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: _buildChart(colorScheme, contact),
+                    ),
+                  ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+                  // Category Filter Header
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            context.l10n.recentTransactions,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          if (selectedCategory != 'all')
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => selectedCategory = 'all'),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 8),
+                                    horizontal: 12, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: isSelected
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      getCategoryTranslation(
+                                          context, selectedCategory),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(Icons.close,
+                                        size: 14, color: colorScheme.primary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Type filter chips
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 0),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          for (final type in const ['all', 'expense', 'income'])
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  selectedType = type;
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: selectedType == type
                                       ? colorScheme.primary
-                                      : colorScheme.muted,
-                                  borderRadius: BorderRadius.circular(20),
+                                      : colorScheme.card,
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: selectedType == type
+                                      ? null
+                                      : Border.all(
+                                          color: colorScheme.outline
+                                              .withValues(alpha: 0.1)),
                                 ),
                                 child: Text(
-                                  getPeriodLabel(period),
+                                  type == 'all'
+                                      ? context.l10n.all
+                                      : type == 'expense'
+                                          ? context.l10n.expenses
+                                          : context.l10n.income,
                                   style: TextStyle(
-                                    color: isSelected
-                                        ? colorScheme.primaryForeground
-                                        : colorScheme.foreground,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
+                                    color: selectedType == type
+                                        ? colorScheme.onPrimary
+                                        : colorScheme.onSurface,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
                             ),
-                          );
-                        }).toList(),
+                        ],
                       ),
                     ),
                   ),
-                ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                // Chart Display
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _buildChart(colorScheme, contact),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-                // Category Filter Header
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        GestureDetector(
-                          onTap: () => _showFilterSheet(context, colorScheme),
-                          child: Row(
-                            children: [
-                              Text(
-                                context.l10n.byCategory,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.foreground,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.keyboard_arrow_down,
-                                  color: colorScheme.foreground),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Type filter chips
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 0),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final type in const ['all', 'expense', 'income'])
-                          ChoiceChip(
-                            label: Text(
-                              type == 'all'
-                                  ? context.l10n.all
-                                  : type == 'expense'
-                                      ? context.l10n.expenses
-                                      : context.l10n.income,
-                            ),
-                            selected: selectedType == type,
-                            onSelected: (v) {
-                              if (!v) return;
-                              setState(() {
-                                selectedType = type;
-                              });
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                // Transactions List
-                filteredExpenses.isEmpty
-                    ? SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(48.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.receipt_long_outlined,
-                                  size: 64,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  context.l10n.noTransactionsFound,
-                                  style: TextStyle(
-                                    fontSize: 16,
+                  // Transactions List
+                  filteredExpenses.isEmpty
+                      ? SliverToBoxAdapter(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(48.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    size: 64,
                                     color: colorScheme.mutedForeground,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    context.l10n.noTransactionsFound,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: colorScheme.mutedForeground,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
+                        )
+                      : SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final expense = filteredExpenses[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: _buildTransactionItem(
+                                    context, expense, contact),
+                              );
+                            },
+                            childCount: filteredExpenses.length,
+                          ),
                         ),
-                      )
-                    : SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final expense = filteredExpenses[index];
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: _buildTransactionItem(
-                                  context, expense, contact),
-                            );
-                          },
-                          childCount: filteredExpenses.length,
-                        ),
-                      ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
+      floatingActionButton: _isSelectionMode && _selectedIds.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: _isDeleting ? null : _handleBulkDelete,
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+              elevation: 4,
+              icon: _isDeleting
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                          color: colorScheme.onError, strokeWidth: 2))
+                  : const Icon(Icons.delete_outline_rounded),
+              label: Text(_isDeleting
+                  ? 'Deleting...'
+                  : '${context.l10n.delete} (${_selectedIds.length})'),
+            )
+          : null,
     );
+  }
+
+  Future<void> _handleBulkDelete() async {
+    if (_selectedIds.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              title: Text(
+                  '${context.l10n.delete} ${_selectedIds.length} transactions?'),
+              content: const Text(
+                  'Are you sure you want to delete these transactions? This action cannot be undone.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(context.l10n.cancel),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error),
+                  child: Text(context.l10n.delete),
+                ),
+              ],
+            ));
+
+    if (confirmed != true) return;
+
+    setState(() => _isDeleting = true);
+    final supabase = Supabase.instance.client;
+    final user = ref.read(authProvider);
+
+    int failCount = 0;
+    int successCount = 0;
+
+    final List<Future<void>> futures = [];
+
+    for (final id in _selectedIds) {
+      futures.add(() async {
+        try {
+          final response = await supabase.functions.invoke(
+            'delete-expense',
+            body: {
+              'userId': user.uid,
+              'expenseId': id,
+            },
+          );
+
+          if (response.data == null || response.data['success'] != true) {
+            failCount++;
+          } else {
+            successCount++;
+          }
+        } catch (e) {
+          debugPrint('Error deleting $id: $e');
+          failCount++;
+        }
+      }());
+    }
+
+    await Future.wait(futures);
+
+    if (widget.householdId != null) {
+      ref.invalidate(householdExpensesProvider);
+    } else {
+      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isDeleting = false;
+        _isSelectionMode = false;
+        _selectedIds.clear();
+      });
+
+      if (failCount > 0) {
+        AppToast.error(context,
+            'Failed to delete $failCount items. Deleted $successCount successfully.',
+            duration: const Duration(seconds: 4));
+      } else {
+        AppToast.success(context, 'Transactions deleted successfully',
+            duration: const Duration(seconds: 3));
+      }
+    }
+  }
+
+  Future<void> _handleSingleDelete(ExpenseEntry expense) async {
+    final l10n = context.l10n;
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: l10n.delete,
+      description: l10n.confirmDeleteExpense,
+      confirmLabel: l10n.delete,
+      isDestructive: true,
+    );
+
+    if (result?.confirmed != true) return;
+
+    if (!mounted) return;
+
+    // Using root navigator for blocking dialog to ensure it overlays everything
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final toastContext = rootNavigator
+        .context; // Use this context for toasts if needed while dialog is up or after
+
+    showBlockingProcessingDialog(
+      context: toastContext,
+      message: '${l10n.delete}...',
+    );
+
+    try {
+      final user = ref.read(authProvider);
+      final res = await Supabase.instance.client.functions
+          .invoke('delete-expense', body: {
+        'userId': user.uid,
+        'expenseId': expense.id,
+      });
+
+      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+
+      if (res.data != null && (res.data['success'] == true)) {
+        // Refresh data
+        if (widget.householdId != null) {
+          ref
+              .read(cacheInvalidatorProvider)
+              .invalidateHouseholdData(widget.householdId!);
+          ref.invalidate(householdExpensesProvider);
+        } else {
+          await ref.read(analyticsProvider.notifier).loadData(user.uid);
+        }
+
+        if (mounted) {
+          AppToast.success(context, l10n.transactionDeleted);
+        }
+      } else {
+        final message = (res.data?['error'] as String?) ?? l10n.anErrorOccurred;
+        if (mounted) AppToast.error(context, message);
+      }
+    } catch (e) {
+      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+      if (mounted)
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
+    }
   }
 
   Widget _buildChart(ColorScheme colorScheme, UserContact? contact) {
@@ -580,20 +838,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
+        color: colorScheme.card,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.homeCardBorder,
+          color: colorScheme.outline.withValues(alpha: 0.08),
           width: 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -985,40 +1235,110 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         expense.userId != null &&
         expense.userId == currentUserId;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+    final isSelected = _selectedIds.contains(expense.id);
+
+    return Slidable(
+      key: ValueKey(expense.id),
+      enabled: !_isSelectionMode, // Disable swipe during selection mode
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) => _handleSingleDelete(expense),
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+            icon: Icons.delete,
+            label: context.l10n.delete,
+            borderRadius: BorderRadius.circular(12),
+            // Add margin to match list item separation if feasible,
+            // but SlidableAction usually fills height.
+            // Since we have margin on container, we might want borderRadius.
           ),
         ],
       ),
-      child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.0),
-        child: Padding(
+      child: InkWell(
+        onTap: () {
+          if (_isSelectionMode) {
+            setState(() {
+              if (isSelected) {
+                _selectedIds.remove(expense.id);
+              } else {
+                _selectedIds.add(expense.id);
+              }
+            });
+          } else {
+            showUnifiedTransactionSheet(context,
+                existingExpense: expense, contact: contact);
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 1), // Separator line effect
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.1)
+                : colorScheme.card, // Clean white/dark surface
+            // No border radius here for "List" feel, or minimal
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          child: TransactionListTile(
-            onTap: () => showUnifiedTransactionSheet(context,
-                existingExpense: expense, contact: contact),
-            category: expense.category ?? 'uncategorized',
-            title: getCategoryTranslation(
-                context, expense.category ?? 'uncategorized'),
-            description: expense.rawText,
-            date: expense.date,
-            amount: expense.amount,
-            currency: expense.currency ?? 'USD',
-            isIncome: isIncome,
-            showYouLabel: isYou,
+          child: Row(
+            children: [
+              // Selection Checkbox
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: _isSelectionMode ? 32 : 0,
+                height: 24,
+                margin: EdgeInsets.only(right: _isSelectionMode ? 12 : 0),
+                child: _isSelectionMode
+                    ? Center(
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colorScheme.primary
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.outline.withValues(alpha: 0.5),
+                              width: 2,
+                            ),
+                          ),
+                          child: isSelected
+                              ? Icon(Icons.check,
+                                  size: 16, color: colorScheme.onPrimary)
+                              : null,
+                        ),
+                      )
+                    : null,
+              ),
+              Expanded(
+                child: TransactionListTile(
+                  onTap: () => _isSelectionMode
+                      ? setState(() {
+                          if (isSelected) {
+                            _selectedIds.remove(expense.id);
+                          } else {
+                            _selectedIds.add(expense.id);
+                          }
+                        })
+                      : showUnifiedTransactionSheet(context,
+                          existingExpense: expense, contact: contact),
+                  category: expense.category ?? 'uncategorized',
+                  title: getCategoryTranslation(
+                      context, expense.category ?? 'uncategorized'),
+                  description: expense.rawText,
+                  date: expense.date,
+                  amount: expense.amount,
+                  currency: expense.currency ?? 'USD',
+                  isIncome: isIncome,
+                  showYouLabel: isYou,
+                ),
+              ),
+            ],
           ),
         ),
       ),
