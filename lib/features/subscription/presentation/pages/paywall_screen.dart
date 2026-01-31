@@ -12,6 +12,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import '../providers/subscription_provider.dart';
 import '../providers/referral_code_provider.dart';
 
@@ -166,6 +167,14 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
           },
         );
 
+        if (response.status >= 400) {
+          final data = response.data;
+          final message = data is Map && data['error'] is String
+              ? data['error'] as String
+              : 'Failed to start checkout';
+          throw Exception(message);
+        }
+
         if (response.data != null && response.data['checkoutUrl'] != null) {
           final checkoutUrl = response.data['checkoutUrl'] as String;
           await launchUrl(
@@ -191,6 +200,31 @@ class _PaywallContentState extends ConsumerState<_PaywallContent> {
       );
     } catch (e) {
       if (mounted) {
+        final raw = e.toString();
+        final lower = raw.toLowerCase();
+        final isManagedInApp = lower.contains('subscription_managed_in_app') ||
+            lower.contains('managed through an in-app purchase');
+
+        if (isManagedInApp && defaultTargetPlatform == TargetPlatform.android) {
+          final result = await MonekoAlertDialog.show(
+            context: context,
+            title: 'Manage subscription in Play Store',
+            description:
+                'Your subscription is managed through an in-app purchase. Please manage billing in the Play Store.',
+            confirmLabel: 'Open Play Store',
+            cancelLabel: 'Cancel',
+          );
+          if (result?.confirmed == true) {
+            await launchUrl(
+              Uri.parse(
+                'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile',
+              ),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+          return;
+        }
+
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
       }
     } finally {

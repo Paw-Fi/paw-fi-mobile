@@ -1,0 +1,220 @@
+{
+  "meta": {
+    "project": "moneko-mobile",
+    "createdAt": "2026-01-30",
+    "updatedAt": "2026-01-30",
+    "goal": "Fix the 3 reported issues with full FE/BE validation",
+    "definitionOfDone": [
+      "Issue 1 onboarding flow is non-swipeable unless skip is used; create space has keyboard dismiss and prefill validation is correct",
+      "Issue 2 bulk delete confirmation uses MonekoAlertDialog",
+      "Issue 3 unified transaction sheet correctly reflects split status; no invalid update on no-change save"
+    ]
+  },
+  "issues": [
+    {
+      "id": "ISSUE-001",
+      "title": "Onboarding swipe + Create Space keyboard dismiss + prefill validation bug",
+      "severity": "high",
+      "status": "fixed",
+      "isFixed": true,
+      "where": {
+        "files": [
+          "moneko-mobile/lib/features/onboarding/presentation/pages/onboarding_flow_page.dart",
+          "moneko-mobile/lib/features/households/presentation/pages/create_space_page.dart",
+          "moneko-mobile/lib/features/households/presentation/widgets/create_household_form_content.dart"
+        ],
+        "ui": ["Onboarding flow PageView", "Create Space form"]
+      },
+      "what": {
+        "symptoms": [
+          "Users can swipe left/right in onboarding, bypassing required steps",
+          "Keyboard cannot be dismissed by tapping outside on Create Space",
+          "Prefilled space name fails validation on immediate continue"
+        ],
+        "expected": [
+          "Swipe disabled unless skip is used",
+          "Tap outside dismisses keyboard",
+          "Prefilled name is treated as valid input"
+        ],
+        "actual": [
+          "Swipe was allowed",
+          "Keyboard remained visible until explicit action",
+          "Validation failed even with prefilled name"
+        ]
+      },
+      "why": {
+        "impact": [
+          "Users skip critical onboarding steps",
+          "Poor UX with stuck keyboard",
+          "Form feels broken with prefilled data"
+        ]
+      },
+      "possibleCulprits": [
+        {
+          "hypothesis": "PageView default physics allow swipe",
+          "confidence": 0.7
+        },
+        {
+          "hypothesis": "CreateSpacePage lacks gesture-based focus dismissal",
+          "confidence": 0.7
+        },
+        {
+          "hypothesis": "AdaptiveTextFormField validator relies on value parameter which may not reflect controller when prefilled",
+          "confidence": 0.6
+        }
+      ],
+      "repro": {
+        "steps": [
+          "Swipe between onboarding steps without pressing CTA",
+          "Tap Create Space input, open keyboard, tap outside",
+          "Launch Create Space from onboarding with prefilled name and tap Continue immediately"
+        ]
+      },
+      "fixPlan": {
+        "approach": [
+          "Disable PageView swipe via NeverScrollableScrollPhysics",
+          "Add tap-to-unfocus wrapper to Create Space body",
+          "Validate using controller text and enable autovalidation"
+        ]
+      },
+      "verification": {
+        "checks": [
+          "Manual onboarding flow test",
+          "Create Space form validation test"
+        ]
+      },
+      "fix": {
+        "fixedAt": "2026-01-30",
+        "fixedBy": "OpenCode",
+        "changes": [
+          "Disabled swipe navigation in onboarding PageView",
+          "Added tap outside to dismiss keyboard in Create Space",
+          "Updated name validator to use controller text and autovalidate"
+        ],
+        "verificationRunAt": null
+      }
+    },
+    {
+      "id": "ISSUE-002",
+      "title": "Bulk delete confirmation should use MonekoAlertDialog",
+      "severity": "medium",
+      "status": "fixed",
+      "isFixed": true,
+      "where": {
+        "files": [
+          "moneko-mobile/lib/features/home/presentation/pages/transactions_page.dart",
+          "moneko-mobile/lib/shared/widgets/moneko_alert_dialog.dart"
+        ]
+      },
+      "what": {
+        "symptoms": [
+          "Bulk delete uses default AlertDialog instead of MonekoAlertDialog"
+        ],
+        "expected": ["Use MonekoAlertDialog for consistent UX"],
+        "actual": ["Used standard AlertDialog"]
+      },
+      "why": {
+        "impact": ["Inconsistent UI/UX with the rest of the app"]
+      },
+      "possibleCulprits": [
+        {
+          "hypothesis": "Bulk delete path predates MonekoAlertDialog",
+          "confidence": 0.6
+        }
+      ],
+      "repro": {
+        "steps": [
+          "Select multiple transactions",
+          "Tap delete",
+          "Observe modal style"
+        ]
+      },
+      "fixPlan": {
+        "approach": [
+          "Replace AlertDialog with MonekoAlertDialog.show",
+          "Preserve destructive styling and labels"
+        ]
+      },
+      "verification": {
+        "checks": ["Manual test of bulk delete flow"]
+      },
+      "fix": {
+        "fixedAt": "2026-01-30",
+        "fixedBy": "OpenCode",
+        "changes": ["Replaced bulk delete confirmation with MonekoAlertDialog"],
+        "verificationRunAt": null
+      }
+    },
+    {
+      "id": "ISSUE-003",
+      "title": "Split banner shown incorrectly + invalid update on no-change save",
+      "severity": "high",
+      "status": "fixed",
+      "isFixed": true,
+      "where": {
+        "files": [
+          "moneko-mobile/lib/features/home/presentation/widgets/unified_transaction_sheet.dart",
+          "moneko-mobile/lib/features/home/presentation/widgets/home_ai_fab.dart",
+          "moneko-mobile/lib/features/home/presentation/state/transaction_edit_notifier.dart",
+          "moneko-mobile/lib/features/home/presentation/state/expense_save_providers.dart"
+        ],
+        "dataSample": [
+          "split_group_id present in saved expense but banner still shows"
+        ]
+      },
+      "what": {
+        "symptoms": [
+          "Banner says 'not yet split' even when split_group_id exists",
+          "Clicking save without changes triggers 'invalid expense update'"
+        ],
+        "expected": [
+          "Banner hidden when split group exists",
+          "No-change save should be a no-op or valid update"
+        ],
+        "actual": ["Banner still shown", "Save failed with validation error"]
+      },
+      "why": {
+        "impact": ["Confusing split state", "User can’t confirm without edits"]
+      },
+      "possibleCulprits": [
+        {
+          "hypothesis": "Split group resolution not seeded when split_group_id exists",
+          "confidence": 0.6
+        },
+        {
+          "hypothesis": "Update payload always sends date/created_at even when unchanged",
+          "confidence": 0.7
+        }
+      ],
+      "repro": {
+        "steps": [
+          "AI log a receipt split among household members",
+          "Open unified transaction sheet",
+          "Observe banner and click save immediately"
+        ]
+      },
+      "fixPlan": {
+        "approach": [
+          "Seed split group state when split_group_id exists",
+          "Skip sending date/created_at when not edited"
+        ]
+      },
+      "verification": {
+        "checks": [
+          "Open sheet for split expense; banner hidden",
+          "Click save without edits; no error"
+        ]
+      },
+      "fix": {
+        "fixedAt": "2026-01-30",
+        "fixedBy": "OpenCode",
+        "changes": [
+          "Seeded resolved split group state from existing expense",
+          "Guarded update payload to avoid unchanged date/time updates",
+          "Skip split resolution when sharing toggle is off"
+        ],
+        "verificationRunAt": null
+      }
+    }
+  ]
+}

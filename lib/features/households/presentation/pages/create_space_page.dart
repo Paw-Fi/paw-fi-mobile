@@ -138,47 +138,51 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       body: Container(
         color: backgroundColor,
         child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.only(
-                    top: getSubPageTopPadding(context),
-                    left: 24,
-                    right: 24,
-                    bottom: 120, // Space for bottom bar
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // Form Card
-                        CreateHouseholdFormContent(
-                          nameController: _nameController,
-                          selectedImageUrl: _selectedImageUrl,
-                          selectedImageFile: _selectedImageFile,
-                          isLoading: isLoading,
-                          onImageSelected: (imageUrl, imageFile) {
-                            if (!mounted) return;
-                            setState(() {
-                              _selectedImageUrl = imageUrl;
-                              _selectedImageFile = imageFile;
-                            });
-                          },
-                        ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      top: getSubPageTopPadding(context),
+                      left: 24,
+                      right: 24,
+                      bottom: 120, // Space for bottom bar
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Form Card
+                          CreateHouseholdFormContent(
+                            nameController: _nameController,
+                            selectedImageUrl: _selectedImageUrl,
+                            selectedImageFile: _selectedImageFile,
+                            isLoading: isLoading,
+                            onImageSelected: (imageUrl, imageFile) {
+                              if (!mounted) return;
+                              setState(() {
+                                _selectedImageUrl = imageUrl;
+                                _selectedImageFile = imageFile;
+                              });
+                            },
+                          ),
 
-                        const SizedBox(height: 36),
+                          const SizedBox(height: 36),
 
-                        // Shared/Members Card
-                        _buildMembersCard(colorScheme),
-                      ],
+                          // Shared/Members Card
+                          _buildMembersCard(colorScheme),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _buildBottomBar(colorScheme, isLoading),
-            ],
+                _buildBottomBar(colorScheme, isLoading),
+              ],
+            ),
           ),
         ),
       ),
@@ -291,7 +295,9 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
             child: isLoading
                 ? const CircularProgressIndicator.adaptive()
                 : Text(
-                    _isSharedSpace ? context.l10n.continueButton : context.l10n.createPrivateSpace,
+                    _isSharedSpace
+                        ? context.l10n.continueButton
+                        : context.l10n.createPrivateSpace,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 17,

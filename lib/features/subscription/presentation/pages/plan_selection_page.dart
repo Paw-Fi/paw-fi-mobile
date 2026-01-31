@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, debugPrint, kDebugMode;
+    show TargetPlatform, defaultTargetPlatform, debugPrint;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -17,7 +17,6 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:go_router/go_router.dart';
 
 void _debugLog(Object? message) {
-  if (!kDebugMode) return;
   debugPrint(message?.toString() ?? 'null');
 }
 
@@ -31,6 +30,13 @@ const bool FORCE_USE_STRIPE_CHECKOUT = false;
 enum PlanSelectionMode {
   trial,
   resubscribe,
+}
+
+enum _ProcessingDialogKind {
+  iapPurchase,
+  stripeCheckout,
+  restorePurchases,
+  cancelSubscription,
 }
 
 extension PlanSelectionModeX on PlanSelectionMode {
@@ -116,6 +122,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final hasAcknowledgedAutoRenew = useState(false);
     final isStripeProcessing = useState(false);
     final processingDialogOpen = useState(false);
+    final processingDialogKind = useState<_ProcessingDialogKind?>(null);
 
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
@@ -136,20 +143,56 @@ class PlanSelectionPage extends HookConsumerWidget {
         (useIap ? (iapStateAsync.value?.isProcessing ?? false) : false) ||
             isStripeProcessing.value;
 
-    void dismissProcessingDialog() {
+    final iapProcessing = iapStateAsync.valueOrNull?.isProcessing ?? false;
+    final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
+    final lastIapErrorShown = useRef<String?>(null);
+    final didSeeIapProcessing = useRef(false);
+
+    void dismissProcessingDialog([String? reason]) {
+      _debugLog(
+        '🧹 Dismissing processing dialog${reason != null ? " - $reason" : ""} | open=${processingDialogOpen.value} mounted=${context.mounted}',
+      );
       if (!processingDialogOpen.value) return;
       processingDialogOpen.value = false;
+      processingDialogKind.value = null;
       if (!context.mounted) return;
       final nav = Navigator.of(context, rootNavigator: true);
-      if (nav.canPop()) {
+      final canPop = nav.canPop();
+      _debugLog('🧭 root nav canPop=$canPop');
+      if (canPop) {
         nav.pop();
+      } else {
+        _debugLog('⚠️ No route to pop for processing dialog');
       }
+    }
+
+    void showProcessingDialog(
+      _ProcessingDialogKind kind,
+      String message,
+    ) {
+      if (!context.mounted) return;
+      processingDialogKind.value = kind;
+      processingDialogOpen.value = true;
+      if (kind == _ProcessingDialogKind.iapPurchase) {
+        didSeeIapProcessing.value = false;
+      }
+      showBlockingProcessingDialog(
+        context: context,
+        message: message,
+      );
     }
 
     String humanizePurchaseError(String raw) {
       final message = raw.trim();
       final lower = message.toLowerCase();
       if (lower.contains('cancel')) return 'Purchase cancelled.';
+      if (lower.contains('subscription_managed_in_app') ||
+          lower.contains('managed through an in-app purchase')) {
+        return 'Your subscription is managed through an in-app purchase. Please manage billing in the App Store / Play Store.';
+      }
+      if (lower.contains('household') || lower.contains('family')) {
+        return 'Your Apple ID is part of a shared subscription. Please leave the household to manage your own subscription.';
+      }
       if (lower.contains('timed out')) {
         return 'Purchase timed out. Please try again.';
       }
@@ -162,6 +205,16 @@ class PlanSelectionPage extends HookConsumerWidget {
       return 'Purchase failed. Please try again.';
     }
 
+    void showIapError(String message, String source) {
+      if (message.isEmpty) return;
+      if (message == lastIapErrorShown.value) return;
+      lastIapErrorShown.value = message;
+      dismissProcessingDialog('iap error $source');
+      if (context.mounted) {
+        AppToast.error(context, humanizePurchaseError(message));
+      }
+    }
+
     if (useIap && !didRegisterIapListener.value) {
       didRegisterIapListener.value = true;
       ref.listen<AsyncValue<IapState>>(iapControllerProvider, (prev, next) {
@@ -172,10 +225,17 @@ class PlanSelectionPage extends HookConsumerWidget {
         final prevProcessing = prevState?.isProcessing ?? false;
         final nextProcessing = nextState?.isProcessing ?? false;
 
+        _debugLog(
+          '🧪 IAP state change | prevProcessing=$prevProcessing nextProcessing=$nextProcessing '
+          'prevError=${prevState?.lastError ?? ""} nextError=${nextState?.lastError ?? ""} '
+          'storeAvailable=${nextState?.storeAvailable ?? false} '
+          'dialogOpen=${processingDialogOpen.value}',
+        );
+
         if (next.hasError) {
-          dismissProcessingDialog();
+          dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
-          AppToast.error(context, 'Purchase failed. Please try again.');
+          showIapError('Purchase failed. Please try again.', 'provider error');
           return;
         }
 
@@ -184,13 +244,12 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
-          dismissProcessingDialog();
           _debugLog('IAP purchase error: $nextError');
-          AppToast.error(context, humanizePurchaseError(nextError));
+          showIapError(nextError, 'lastError');
         }
 
         if (prevProcessing && !nextProcessing) {
-          dismissProcessingDialog();
+          dismissProcessingDialog('processing finished');
 
           // If we exited processing without an error, treat it as a successful
           // purchase/verification and send the user back to the app.
@@ -262,6 +321,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
                 // Show error to user instead of navigating
                 if (context.mounted) {
+                  dismissProcessingDialog('iap verification error');
                   AppToast.error(
                     context,
                     'Purchase completed but failed to verify subscription. Please restart the app.',
@@ -271,8 +331,38 @@ class PlanSelectionPage extends HookConsumerWidget {
             });
           }
         }
+
+        if (!prevProcessing && nextProcessing) {
+          _debugLog('⏳ IAP processing started');
+          didSeeIapProcessing.value = true;
+        }
       });
     }
+
+    useEffect(() {
+      if (!useIap) return null;
+      if (processingDialogKind.value != _ProcessingDialogKind.iapPurchase) {
+        return null;
+      }
+      if (!processingDialogOpen.value) return null;
+
+      if (iapLastError.isNotEmpty) {
+        showIapError(iapLastError, 'effect');
+        return null;
+      }
+
+      if (didSeeIapProcessing.value && !iapProcessing) {
+        dismissProcessingDialog('iap processing ended');
+      }
+
+      return null;
+    }, [
+      useIap,
+      iapProcessing,
+      iapLastError,
+      processingDialogOpen.value,
+      processingDialogKind.value,
+    ]);
 
     final List<PlanOption> plans;
     if (useIap) {
@@ -515,6 +605,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> onManageStoreSubscription() async {
+      _debugLog('🧾 Open manage store subscription');
       final storeProductId = currentSub?.subscription?.storeProductId;
       final uri = defaultTargetPlatform == TargetPlatform.iOS
           ? Uri.parse('https://apps.apple.com/account/subscriptions')
@@ -523,6 +614,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             );
 
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      _debugLog('🧾 Manage subscription launchUrl result: $ok');
       if (!ok && context.mounted) {
         AppToast.error(context, 'Unable to open subscription settings');
       }
@@ -530,6 +622,9 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> startStripeCheckout(PlanOption option) async {
       print('🔄 Starting Stripe checkout for plan: ${option.serverPlanId}');
+      _debugLog(
+        '🧾 Stripe checkout start | plan=${option.serverPlanId} interval=${option.billingInterval}',
+      );
 
       final session = supabase.auth.currentSession;
       if (session == null) {
@@ -573,6 +668,16 @@ class PlanSelectionPage extends HookConsumerWidget {
       print('📦 Response status: ${response.status}');
       print('📦 Response data: ${response.data}');
 
+      if (response.status >= 400) {
+        final data = response.data;
+        final code = data is Map ? data['code'] : null;
+        final message = data is Map && data['error'] is String
+            ? data['error'] as String
+            : 'Failed to start checkout';
+        throw Exception(
+            code is String && code.isNotEmpty ? '$code: $message' : message);
+      }
+
       if (response.data != null && response.data['checkoutUrl'] != null) {
         final checkoutUrl = response.data['checkoutUrl'] as String;
         print('🚀 Launching checkout URL: $checkoutUrl');
@@ -590,6 +695,9 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     // Action Logic
     Future<void> onMainAction() async {
+      _debugLog(
+        '🧭 onMainAction start | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} storeReady=$isStoreReady useIap=$useIap',
+      );
       print(
           '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
 
@@ -603,18 +711,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       // Android subscription upgrades/downgrades require passing ChangeSubscriptionParam
       // with the existing PurchaseDetails. To avoid accidental double subscriptions,
       // we direct users to manage plan changes in Google Play for now.
-      final isPlayStore = currentProvider == 'play_store';
-      final isAndroid = defaultTargetPlatform == TargetPlatform.android;
-      final isIntervalSwitch = currentPlanId == 'plus' &&
-          activePlanOption.serverPlanId == 'plus' &&
-          currentInterval != null &&
-          activePlanOption.billingInterval != null &&
-          currentInterval != activePlanOption.billingInterval;
-
-      // if (isAndroid && isPlayStore && isIntervalSwitch) {
-      //   await onManageStoreSubscription();
-      //   return;
-      // }
 
       // Smart Dialog Copy
       String title = 'Confirm Selection';
@@ -654,6 +750,9 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       if (result?.confirmed == true) {
         print('✅ User confirmed subscription dialog');
+        _debugLog(
+          '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
+        );
         try {
           print('🍎 Platform check - iOS: $isIos');
           if (useIap) {
@@ -674,6 +773,8 @@ class PlanSelectionPage extends HookConsumerWidget {
             if (context.mounted) {
               print('🎬 Showing processing dialog...');
               processingDialogOpen.value = true;
+              _debugLog(
+                  '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
               showBlockingProcessingDialog(
                 context: context,
                 message: 'Processing your purchase...',
@@ -685,8 +786,14 @@ class PlanSelectionPage extends HookConsumerWidget {
 
             print(
                 '🔍 About to call buy() method with product: ${catalog.storeProductId}');
+            _debugLog(
+              '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
+            );
             await ref.read(iapControllerProvider.notifier).buy(catalog);
             print('✅ buy() method completed');
+            _debugLog('🧾 IAP buy completed');
+            _debugLog(
+                '🧾 IAP state after buy: processing=${iapStateAsync.valueOrNull?.isProcessing} lastError=${iapStateAsync.valueOrNull?.lastError ?? ""}');
             // Dialog will remain open until purchase completes
             // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
           } else {
@@ -697,6 +804,8 @@ class PlanSelectionPage extends HookConsumerWidget {
             // Show processing dialog for Stripe
             if (context.mounted) {
               processingDialogOpen.value = true;
+              _debugLog(
+                  '🧾 Dialog open set to true (stripe). plan=${activePlanOption.id}');
               showBlockingProcessingDialog(
                 context: context,
                 message: 'Redirecting to checkout...',
@@ -707,17 +816,39 @@ class PlanSelectionPage extends HookConsumerWidget {
               await startStripeCheckout(activePlanOption);
             } finally {
               isStripeProcessing.value = false;
-              dismissProcessingDialog();
+              dismissProcessingDialog('stripe flow completed');
             }
           }
         } catch (e) {
           print('❌ Error in subscription flow: $e');
 
-          dismissProcessingDialog();
+          dismissProcessingDialog('main action catch');
 
           if (context.mounted) {
             _debugLog('Purchase flow threw: $e');
-            AppToast.error(context, humanizePurchaseError(e.toString()));
+
+            final raw = e.toString();
+            final lower = raw.toLowerCase();
+            final isManagedInApp =
+                lower.contains('subscription_managed_in_app') ||
+                    lower.contains('managed through an in-app purchase');
+
+            if (isManagedInApp) {
+              final result = await MonekoAlertDialog.show(
+                context: context,
+                title: 'Manage subscription in Play Store',
+                description:
+                    'Your subscription is managed through an in-app purchase. Please manage billing in the Play Store.',
+                confirmLabel: 'Open Play Store',
+                cancelLabel: 'Cancel',
+              );
+              if (result?.confirmed == true) {
+                await onManageStoreSubscription();
+              }
+              return;
+            }
+
+            AppToast.error(context, humanizePurchaseError(raw));
           }
         }
       } else {
@@ -728,6 +859,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     Future<void> onRestorePurchases() async {
       if (context.mounted) {
         processingDialogOpen.value = true;
+        _debugLog('🧾 Dialog open set to true (restore purchases)');
         showBlockingProcessingDialog(
           context: context,
           message: 'Restoring purchases...',
@@ -747,7 +879,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           AppToast.error(context, 'Failed to restore: ${e.toString()}');
         }
       } finally {
-        dismissProcessingDialog();
+        dismissProcessingDialog('restore purchases');
       }
     }
 
@@ -765,6 +897,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (result?.confirmed == true) {
         if (context.mounted) {
           processingDialogOpen.value = true;
+          _debugLog('🧾 Dialog open set to true (cancel subscription)');
           showBlockingProcessingDialog(
             context: context,
             message: 'Cancelling subscription...',
@@ -783,7 +916,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             AppToast.error(context, e.toString());
           }
         } finally {
-          dismissProcessingDialog();
+          dismissProcessingDialog('cancel subscription');
         }
       }
     }

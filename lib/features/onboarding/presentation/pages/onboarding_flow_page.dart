@@ -217,6 +217,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
               Expanded(
                 child: PageView(
                   controller: pageController,
+                  physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (i) => currentPage.value = i,
                   children: [
                     const _CurrencyStep(),

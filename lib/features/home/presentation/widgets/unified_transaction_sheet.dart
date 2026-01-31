@@ -185,6 +185,14 @@ class _UnifiedTransactionSheetState
           (widget.existingExpense!.householdId != null ||
               widget.existingExpense!.splitGroupId != null);
 
+      final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
+      if (_isSharedWithHousehold &&
+          existingSplitGroupId != null &&
+          existingSplitGroupId.isNotEmpty) {
+        _resolvedSplitGroupId = existingSplitGroupId;
+        _hasCheckedSplitGroup = true;
+      }
+
       debugPrint(
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
 
@@ -1758,6 +1766,11 @@ class _UnifiedTransactionSheetState
     final expense = widget.existingExpense;
     if (expense == null) return null;
 
+    if (!_isSharedWithHousehold) {
+      _markSplitCheck();
+      return null;
+    }
+
     final existingId = expense.splitGroupId?.trim();
     if (existingId != null && existingId.isNotEmpty) {
       _markSplitCheck(resolvedId: existingId);
@@ -2486,6 +2499,26 @@ class _UnifiedTransactionSheetState
         }
 
         // Only update if there are actual changes or we need to create a split
+        final originalDate = widget.existingExpense!.date;
+        final originalLocalDate = toLocalTime(originalDate);
+        final originalCreatedAtLocal =
+            toLocalTime(widget.existingExpense!.createdAt);
+        final originalTime = TimeOfDay(
+          hour: originalCreatedAtLocal.hour,
+          minute: originalCreatedAtLocal.minute,
+        );
+        final hasDateEdit = _editedDate != null ||
+            originalLocalDate.year != finalDateOnly.year ||
+            originalLocalDate.month != finalDateOnly.month ||
+            originalLocalDate.day != finalDateOnly.day ||
+            originalTime.hour != _selectedTime.hour ||
+            originalTime.minute != _selectedTime.minute;
+
+        if (!hasDateEdit) {
+          updates.remove('date');
+          updates.remove('created_at');
+        }
+
         if (updates.isEmpty && extraBody == null) {
           if (!mounted) {
             closeDialog();

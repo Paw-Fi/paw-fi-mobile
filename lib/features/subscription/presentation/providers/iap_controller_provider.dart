@@ -13,7 +13,6 @@ import 'subscription_products_provider.dart';
 import 'subscription_management_provider.dart';
 
 void _debugLog(Object? message) {
-  if (!kDebugMode) return;
   debugPrint(message?.toString() ?? 'null');
 }
 
@@ -176,6 +175,8 @@ class IapController extends AsyncNotifier<IapState> {
       },
     );
     print('✅ Purchase stream listener set up');
+    print(
+        '🎧 purchaseStream isBroadcast=${InAppPurchase.instance.purchaseStream.isBroadcast}');
 
     ref.onDispose(() {
       print('Disposing purchase listener');
@@ -208,6 +209,8 @@ class IapController extends AsyncNotifier<IapState> {
     final startedAt = DateTime.now();
 
     try {
+      print(
+          '🧪 IAP preflight: storeAvailable=${state.valueOrNull?.storeAvailable} hasDetails=${state.valueOrNull?.productDetailsById.containsKey(product.storeProductId) == true}');
       print('🧭 buy() step 1: platform check start');
       print('📱 Platform: ${defaultTargetPlatform.toString()}');
 
@@ -219,7 +222,7 @@ class IapController extends AsyncNotifier<IapState> {
 
       print('🧭 buy() step 2: read authProvider start');
       final user = ref.read(authProvider);
-      print('👤 User: ${user.uid}');
+      print('👤 User present: ${user.uid.isNotEmpty}');
       if (user.isEmpty) {
         print('❌ User check failed: not logged in');
         throw Exception('User not logged in');
@@ -231,6 +234,8 @@ class IapController extends AsyncNotifier<IapState> {
       print('📊 Current state: ${current != null ? "has value" : "null"}');
       print(
           '🏪 Available products: ${current?.productDetailsById.keys.toList()}');
+      print(
+          '🏪 storeAvailable=${current?.storeAvailable} lastError=${current?.lastError ?? ""}');
 
       print('🧭 buy() step 4: find product details');
       final details = current?.productDetailsById[product.storeProductId];
@@ -284,7 +289,7 @@ class IapController extends AsyncNotifier<IapState> {
           productDetails: details,
           applicationUserName: user.uid,
         );
-        print('✅ iOS purchase param created with user: ${user.uid}');
+        print('✅ iOS purchase param created');
       }
 
       print('🧭 buy() step 8: call buyNonConsumable');
@@ -297,6 +302,8 @@ class IapController extends AsyncNotifier<IapState> {
       );
 
       print('💳 buyNonConsumable returned: $ok');
+      print(
+          '🧭 buyNonConsumable completed at ${DateTime.now().toIso8601String()}');
 
       if (!ok) {
         print('❌ Purchase failed: buyNonConsumable returned false');
@@ -335,6 +342,8 @@ class IapController extends AsyncNotifier<IapState> {
 
   Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {
     print('🔔 _onPurchaseUpdated called with ${purchases.length} purchase(s)');
+    print(
+        '🧭 _onPurchaseUpdated at ${DateTime.now().toIso8601String()} processing=${state.valueOrNull?.isProcessing}');
 
     for (final purchase in purchases) {
       print(

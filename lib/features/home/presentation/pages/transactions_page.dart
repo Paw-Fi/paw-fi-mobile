@@ -681,29 +681,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Future<void> _handleBulkDelete() async {
     if (_selectedIds.isEmpty) return;
 
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              title: Text(
-                  '${context.l10n.delete} ${_selectedIds.length} transactions?'),
-              content: const Text(
-                  'Are you sure you want to delete these transactions? This action cannot be undone.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text(context.l10n.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: TextButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error),
-                  child: Text(context.l10n.delete),
-                ),
-              ],
-            ));
+    final dialogResult = await MonekoAlertDialog.show(
+      context: context,
+      title:
+          '${context.l10n.delete} ${_selectedIds.length} ${context.l10n.transactions}?',
+      description: context.l10n.confirmDeleteExpense,
+      confirmLabel: context.l10n.delete,
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
 
-    if (confirmed != true) return;
+    final confirmed = dialogResult?.confirmed == true;
+
+    if (!confirmed) return;
 
     setState(() => _isDeleting = true);
     final supabase = Supabase.instance.client;

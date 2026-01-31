@@ -153,6 +153,7 @@ class CreateHouseholdFormContent extends ConsumerWidget {
           controller: nameController,
           enabled: !isLoading,
           placeholder: 'Name This Space',
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           maxLines: 1,
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -176,14 +177,15 @@ class CreateHouseholdFormContent extends ConsumerWidget {
             ),
           ),
           validator: (value) {
-            if (value == null || value.trim().isEmpty) {
+            final text = (value ?? nameController.text).trim();
+            if (text.isEmpty) {
               return context.l10n.pleaseEnterHouseholdName;
             }
-            if (value.trim().length < HouseholdConstants.minNameLength) {
+            if (text.length < HouseholdConstants.minNameLength) {
               return context.l10n
                   .nameMinLength(HouseholdConstants.minNameLength);
             }
-            if (value.trim().length > HouseholdConstants.maxNameLength) {
+            if (text.length > HouseholdConstants.maxNameLength) {
               return context.l10n
                   .nameMaxLength(HouseholdConstants.maxNameLength);
             }
