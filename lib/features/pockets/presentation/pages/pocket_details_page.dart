@@ -560,7 +560,7 @@ class _SpendingBreakdownCard extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${(item.percentage * 100).toInt()}%',
+                            '${(item.share * 100).toInt()}%',
                             style: TextStyle(
                               fontSize: 12,
                               color: colorScheme.mutedForeground,

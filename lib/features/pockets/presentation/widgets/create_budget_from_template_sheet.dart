@@ -51,11 +51,11 @@ class PocketEntry {
     );
   }
 
-  // Convert back to PocketTemplate with calculated percentage
+  // Convert back to PocketTemplate with calculated weight
   PocketTemplate toTemplate(double totalBudget) {
     return PocketTemplate(
       name: name,
-      percentage: totalBudget > 0 ? amount / totalBudget : 0,
+      weight: totalBudget > 0 ? amount / totalBudget : 0,
       color: color,
       suggestedCategories: categories,
       iconName: iconName ?? 'wallet',
@@ -118,7 +118,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
           name: t.name,
           color: pocketColor,
           categories: t.suggestedCategories,
-          amount: currentTotal * t.percentage,
+          amount: currentTotal * t.weight,
           iconName: t.iconName,
         );
       }).toList();
@@ -140,15 +140,15 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
           // Avoid infinite loops or tiny updates
           if ((newTotal - totalFromPockets).abs() < 0.01) return;
 
-          // If current total is 0, we can't use ratios. Use template percentages.
+          // If current total is 0, we can't use ratios. Use template weights.
           if (totalFromPockets == 0) {
             pockets.value = pockets.value.map((p) {
-              // Find original template percentage if possible, or just split evenly?
+              // Find original template weight if possible, or just split evenly?
               // Better: Look up from current selected template.
               final templatePocket = selectedTemplate.value.pockets.firstWhere(
                   (tp) => tp.name == p.name,
                   orElse: () => selectedTemplate.value.pockets.first);
-              return p.copyWith(amount: newTotal * templatePocket.percentage);
+              return p.copyWith(amount: newTotal * templatePocket.weight);
             }).toList();
           } else {
             // Scale existing amounts
@@ -459,13 +459,10 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                           },
                           onEdit: () {
                             // Create a temporary PocketEnvelope to pass as "existing"
-                            // This ensures the current percentage is pre-filled in the sheet
                             final tempEnvelope = PocketEnvelope(
                               id: pocket.id,
                               name: pocket.name,
-                              percentage: totalFromPockets > 0
-                                  ? (pocket.amount / totalFromPockets) * 100
-                                  : 0,
+                              budgetAmountCents: (pocket.amount * 100).round(),
                               spent: 0,
                               currency:
                                   'USD', // Placeholder, sheet uses provider
@@ -487,17 +484,18 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                                 unallocatedBudget:
                                     0, // In builder, we just assume 0 or let user adjust
                                 budgetId: null,
+                                initialCategories: pocket.categories,
                                 onSaveOffline: (newTemplate) {
                                   final newPockets = [...pockets.value];
                                   // Update pocket with new details from template
-                                  // Recalculate amount based on new percentage and current total budget
+                                  // Recalculate amount based on new weight and current total budget
                                   newPockets[index] = pocket.copyWith(
                                     name: newTemplate.name,
                                     color: newTemplate.color,
                                     categories: newTemplate.suggestedCategories,
                                     iconName: newTemplate.iconName,
-                                    amount: totalFromPockets *
-                                        newTemplate.percentage,
+                                    amount:
+                                        totalFromPockets * newTemplate.weight,
                                   );
                                   pockets.value = newPockets;
                                 },
@@ -537,7 +535,6 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
     );
   }
 }
-
 
 Color _fallbackPocketColor(ColorScheme scheme, String seed) {
   final palette = <Color>[
@@ -718,7 +715,7 @@ class _PocketRow extends HookWidget {
       return () => controller.removeListener(listener);
     }, [controller, focusNode]);
 
-    final percentage = totalBudget > 0 ? (entry.amount / totalBudget) : 0.0;
+    final share = totalBudget > 0 ? (entry.amount / totalBudget) : 0.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -767,7 +764,7 @@ class _PocketRow extends HookWidget {
                         ),
                       ),
                       Text(
-                        '${(percentage * 100).toStringAsFixed(1)}%',
+                        '${(share * 100).toStringAsFixed(1)}%',
                         style: TextStyle(
                           fontSize: 12,
                           color: scheme.mutedForeground,
@@ -827,7 +824,7 @@ class _PocketRow extends HookWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
-              value: percentage.clamp(0.0, 1.0),
+              value: share.clamp(0.0, 1.0),
               backgroundColor: scheme.muted,
               valueColor: AlwaysStoppedAnimation(entry.color),
               minHeight: 4,

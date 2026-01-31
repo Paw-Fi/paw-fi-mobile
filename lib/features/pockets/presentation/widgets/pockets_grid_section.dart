@@ -377,8 +377,6 @@ class PocketsGridSection extends HookConsumerWidget {
                       colorScheme: colorScheme,
                       totalBudget: totalBudget,
                       envelopeMode: true,
-                      onPercentageChanged: (value) =>
-                          notifier.updatePocketPercentage(pocket.id, value),
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -513,7 +511,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     PocketEnvelope(
       id: 'fake-1',
       name: 'Groceries',
-      percentage: 25,
+      budgetAmountCents: 50000,
       spent: 350,
       currency: currency,
       icon: 'shopping_bag',
@@ -525,7 +523,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     PocketEnvelope(
       id: 'fake-2',
       name: 'Bills',
-      percentage: 30,
+      budgetAmountCents: 70000,
       spent: 420,
       currency: currency,
       icon: 'receipt_long',
@@ -537,7 +535,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     PocketEnvelope(
       id: 'fake-3',
       name: 'Dining Out',
-      percentage: 15,
+      budgetAmountCents: 30000,
       spent: 120,
       currency: currency,
       icon: 'restaurant',
@@ -549,7 +547,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     PocketEnvelope(
       id: 'fake-4',
       name: 'Fun',
-      percentage: 10,
+      budgetAmountCents: 20000,
       spent: 80,
       currency: currency,
       icon: 'celebration',

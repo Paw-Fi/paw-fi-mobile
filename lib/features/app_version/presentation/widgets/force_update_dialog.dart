@@ -17,7 +17,7 @@ Future<void> showForceUpdateDialog({
     if (storeUrl == null || storeUrl.isEmpty) {
       if (Platform.isIOS) {
         // TestFlight public link (replace with your actual link)
-        storeUrl = 'https://testflight.apple.com/join/Q9rNbkN5';
+        storeUrl = 'https://apps.apple.com/app/moneko/id6753925279';
         // OR App Store link:
         // storeUrl = 'https://apps.apple.com/app/idYOUR_APP_ID';
       } else if (Platform.isAndroid) {

@@ -6,15 +6,13 @@ class PocketEnvelope {
   PocketEnvelope({
     required this.id,
     required this.name,
-    required this.percentage,
+    required this.budgetAmountCents,
     required this.spent,
     required this.currency,
     this.icon,
     this.color,
     this.budgetId,
     this.householdId,
-    this.allocationCents,
-    this.effectiveLimitCents,
     required this.lastUpdated,
   });
 
@@ -22,15 +20,13 @@ class PocketEnvelope {
     return PocketEnvelope(
       id: json['id'] as String,
       name: json['name'] as String,
-      percentage: (json['budget_percentage'] as num?)?.toDouble() ?? 0.0,
+      budgetAmountCents: (json['budget_amount_cents'] as num?)?.toInt() ?? 0,
       spent: ((json['spent_cents'] as num?) ?? 0.0).toDouble() / 100.0,
       currency: json['currency'] as String? ?? 'USD',
       icon: json['icon'] as String?,
       color: json['color'] as String?,
       budgetId: json['budget_id'] as String?,
       householdId: json['household_id'] as String?,
-      allocationCents: (json['allocation_cents'] as num?)?.toInt(),
-      effectiveLimitCents: (json['effective_limit_cents'] as num?)?.toInt(),
       lastUpdated: json['last_updated'] != null
           ? DateTime.parse(json['last_updated'] as String)
           : DateTime.now(),
@@ -39,57 +35,22 @@ class PocketEnvelope {
 
   final String id;
   final String name;
-  final double percentage; // Budget allocation as percentage (0-100)
+  final int budgetAmountCents;
   final double spent; // Spent amount in major units
   final String currency;
   final String? icon;
   final String? color;
   final String? budgetId;
   final String? householdId;
-
-  /// Optional fixed allocation for the viewed month.
-  ///
-  /// When present, the envelope's limit is based on this value rather than
-  /// a percentage of the total budget.
-  final int? allocationCents;
-
-  /// Optional computed limit for display.
-  ///
-  /// When present, this is the authoritative limit (in cents) that should be
-  /// displayed across the app for consistency.
-  final int? effectiveLimitCents;
   final DateTime lastUpdated;
 
   /// Calculate the actual limit based on total budget
   double getLimit(double totalBudget) {
-    final totalBudgetCents = (totalBudget * 100).round();
-    return getLimitFromTotalBudgetCents(totalBudgetCents) / 100.0;
+    return budgetAmountCents / 100.0;
   }
 
   int getLimitFromTotalBudgetCents(int totalBudgetCents) {
-    final effective = effectiveLimitCents;
-    if (effective != null) return effective;
-
-    final fixed = allocationCents;
-    if (fixed != null) return fixed;
-
-    return _limitCentsFromPercentage(
-      totalBudgetCents: totalBudgetCents,
-      percentage: percentage,
-    );
-  }
-
-  static int _limitCentsFromPercentage({
-    required int totalBudgetCents,
-    required double percentage,
-  }) {
-    // Represent percent in 1/10,000ths of a percent (0.0001%).
-    // This preserves high precision while keeping computations in integer math.
-    final pctPpm = (percentage * 10000).round().clamp(0, 100 * 10000);
-    final numerator = totalBudgetCents * pctPpm;
-    const denom = 100 * 10000; // 1,000,000
-    // Round-half-up integer division.
-    return ((numerator + (denom ~/ 2)) / denom).floor();
+    return budgetAmountCents;
   }
 
   double getProgress(double totalBudget) {
@@ -114,41 +75,35 @@ class PocketEnvelope {
     return {
       'id': id,
       'name': name,
-      'budget_percentage': percentage,
+      'budget_amount_cents': budgetAmountCents,
       'spent_cents': (spent * 100).toInt(),
       'currency': currency,
       'icon': icon,
       'color': color,
       'budget_id': budgetId,
       'household_id': householdId,
-      'allocation_cents': allocationCents,
-      'effective_limit_cents': effectiveLimitCents,
       'last_updated': lastUpdated.toIso8601String(),
     };
   }
 
   PocketEnvelope copyWith({
-    double? percentage,
+    int? budgetAmountCents,
     double? spent,
     String? currency,
     String? icon,
     String? color,
     String? budgetId,
-    int? allocationCents,
-    int? effectiveLimitCents,
   }) {
     return PocketEnvelope(
       id: id,
       name: name,
-      percentage: percentage ?? this.percentage,
+      budgetAmountCents: budgetAmountCents ?? this.budgetAmountCents,
       spent: spent ?? this.spent,
       currency: currency ?? this.currency,
       icon: icon ?? this.icon,
       color: color ?? this.color,
       budgetId: budgetId ?? this.budgetId,
       householdId: householdId,
-      allocationCents: allocationCents ?? this.allocationCents,
-      effectiveLimitCents: effectiveLimitCents ?? this.effectiveLimitCents,
       lastUpdated: lastUpdated,
     );
   }

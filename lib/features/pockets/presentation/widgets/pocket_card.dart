@@ -15,7 +15,6 @@ class PocketCard extends StatelessWidget {
     required this.colorScheme,
     required this.totalBudget,
     required this.envelopeMode,
-    required this.onPercentageChanged,
     this.onTap,
     this.isSkeleton = false,
   });
@@ -24,7 +23,6 @@ class PocketCard extends StatelessWidget {
   final ColorScheme colorScheme;
   final double totalBudget;
   final bool envelopeMode;
-  final ValueChanged<double> onPercentageChanged;
   final VoidCallback? onTap;
   final bool isSkeleton;
 

@@ -539,7 +539,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                         return AlertDialog(
                           title: const Text('Copy last month\'s pockets?'),
                           content: const Text(
-                            'This will create pockets for this month using the same names, icons, colors, and percentages as last month. You can edit everything afterwards.',
+                            'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
                           ),
                           actions: [
                             TextButton(

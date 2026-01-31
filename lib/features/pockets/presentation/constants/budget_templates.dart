@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 
 class PocketTemplate {
   String name;
-  double percentage; // 0.0 to 1.0
+  double weight; // relative share
   String iconName;
   List<String> suggestedCategories;
   Color? color;
 
   PocketTemplate({
     required this.name,
-    required this.percentage,
+    required this.weight,
     required this.iconName,
     this.suggestedCategories = const [],
     this.color,
@@ -21,14 +21,14 @@ class PocketTemplate {
 
   PocketTemplate copyWith({
     String? name,
-    double? percentage,
+    double? weight,
     String? iconName,
     List<String>? suggestedCategories,
     Color? color,
   }) {
     return PocketTemplate(
       name: name ?? this.name,
-      percentage: percentage ?? this.percentage,
+      weight: weight ?? this.weight,
       iconName: iconName ?? this.iconName,
       suggestedCategories: suggestedCategories ?? this.suggestedCategories,
       color: color ?? this.color,
@@ -104,7 +104,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: [
           'rent',
@@ -118,7 +118,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'local_bar',
         suggestedCategories: [
           'restaurants',
@@ -131,14 +131,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'trending_up',
         suggestedCategories: ['savings', 'investments', 'emergency fund'],
         color: const Color(0xFF10B981), // Green
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -155,28 +155,28 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['rent', 'groceries', 'transport', 'utilities'],
         color: const Color(0xFF607D8B), // BlueGrey
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'savings',
         suggestedCategories: ['investments', 'savings', 'pension'],
         color: const Color(0xFF10B981), // Green
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'coffee',
         suggestedCategories: ['coffee & tea', 'snacks', 'music & streaming'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -193,28 +193,28 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Debt Payoff',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'delete_outline',
         suggestedCategories: ['debt payments', 'loan payments', 'credit card'],
         color: const Color(0xFFB91C1C), // Dark Red
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'shield',
         suggestedCategories: ['rent', 'groceries', 'electricity', 'fuel / gas'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'self_improvement',
         suggestedCategories: ['hobbies', 'music & streaming'],
         color: const Color(0xFFA855F7), // Purple
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -231,21 +231,21 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'house',
         suggestedCategories: ['rent', 'utilities', 'internet'],
         color: const Color(0xFF9CA3AF), // Grey
       ),
       PocketTemplate(
         name: 'Groceries',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'kitchen',
         suggestedCategories: ['groceries', 'kitchen supplies'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Eating Out',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'restaurant',
         suggestedCategories: [
           'restaurants',
@@ -257,7 +257,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'savings',
         suggestedCategories: ['savings', 'miscellaneous'],
         color: const Color(0xFF10B981), // Green
@@ -274,7 +274,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Home & Bills',
-        percentage: 0.55,
+        weight: 0.55,
         iconName: 'house_siding',
         suggestedCategories: [
           'mortgage',
@@ -288,7 +288,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Home Maintenance',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'build_circle',
         suggestedCategories: [
           'home repairs',
@@ -301,14 +301,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Everyday Essentials',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'local_grocery_store',
         suggestedCategories: ['groceries', 'transport', 'personal care'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'savings',
         suggestedCategories: ['savings'],
         color: const Color(0xFF10B981), // Green
@@ -325,7 +325,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Travel Fund',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'flight_takeoff',
         suggestedCategories: [
           'flights',
@@ -338,14 +338,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Home & Bills',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'home',
         suggestedCategories: ['rent', 'storage', 'insurance', 'phone bill'],
         color: const Color(0xFF64748B), // Slate
       ),
       PocketTemplate(
         name: 'Travel Spending',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'backpack',
         suggestedCategories: [
           'restaurants',
@@ -356,7 +356,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -377,7 +377,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: [
           'mortgage',
@@ -390,7 +390,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Kids',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'child_care',
         suggestedCategories: [
           'school supplies',
@@ -402,7 +402,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'weekend',
         suggestedCategories: [
           'restaurants',
@@ -413,7 +413,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'savings',
         suggestedCategories: [
           'savings',
@@ -435,7 +435,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.70,
+        weight: 0.70,
         iconName: 'priority_high',
         suggestedCategories: [
           'rent',
@@ -448,7 +448,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Kids Needs',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'child_friendly',
         suggestedCategories: [
           'baby supplies',
@@ -459,14 +459,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'shield',
         suggestedCategories: ['savings', 'emergency fund'],
         color: const Color(0xFF10B981), // Green
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'favorite',
         suggestedCategories: ['movies & shows', 'parks', 'library'],
         color: const Color(0xFFEC4899), // Pink
@@ -483,14 +483,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'home',
         suggestedCategories: ['rent', 'groceries', 'utilities'],
         color: const Color(0xFF4B5563), // Grey
       ),
       PocketTemplate(
         name: 'Pets',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'pets',
         suggestedCategories: [
           'pet food',
@@ -503,14 +503,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Everyday Spending',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'shopping_bag',
         suggestedCategories: ['transport', 'clothing & shoes', 'personal care'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'savings',
         suggestedCategories: ['savings', 'emergency fund', 'miscellaneous'],
         color: const Color(0xFF10B981), // Green
@@ -527,7 +527,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'house',
         suggestedCategories: [
           'mortgage',
@@ -539,7 +539,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Healthcare',
-        percentage: 0.30,
+        weight: 0.30,
         iconName: 'medical_services',
         suggestedCategories: [
           'medical care',
@@ -552,7 +552,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Wellness',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'healing',
         suggestedCategories: [
           'supplements',
@@ -564,7 +564,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'account_balance',
         suggestedCategories: ['savings'],
         color: const Color(0xFF10B981), // Green
@@ -581,14 +581,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: ['rent', 'groceries', 'utilities'],
         color: const Color(0xFF374151), // Dark Grey
       ),
       PocketTemplate(
         name: 'Activities',
-        percentage: 0.30,
+        weight: 0.30,
         iconName: 'sports_soccer',
         suggestedCategories: [
           'sports clubs',
@@ -600,14 +600,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Transport',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'directions_car',
         suggestedCategories: ['fuel / gas', 'parking', 'tolls', 'car repairs'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'savings',
         suggestedCategories: ['savings', 'emergency fund', 'miscellaneous'],
         color: const Color(0xFF10B981), // Green
@@ -624,7 +624,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'house',
         suggestedCategories: [
           'mortgage',
@@ -636,7 +636,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Food & Hosting',
-        percentage: 0.35,
+        weight: 0.35,
         iconName: 'celebration',
         suggestedCategories: [
           'groceries',
@@ -649,14 +649,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Family Needs',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'people',
         suggestedCategories: ['kids activities', 'clothing & shoes'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'savings',
         suggestedCategories: ['savings', 'emergency fund', 'miscellaneous'],
         color: const Color(0xFF10B981), // Green
@@ -677,7 +677,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Shared Bills',
-        percentage: 0.80,
+        weight: 0.80,
         iconName: 'receipt_long',
         suggestedCategories: [
           'rent',
@@ -690,7 +690,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Shared Supplies',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'cleaning_services',
         suggestedCategories: [
           'household supplies',
@@ -711,14 +711,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: ['rent', 'utilities', 'internet'],
         color: const Color(0xFF475569), // Slate
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'local_bar',
         suggestedCategories: [
           'bars & drinks',
@@ -730,14 +730,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Food & Drinks',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'fastfood',
         suggestedCategories: ['takeout & delivery', 'snacks', 'soda'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -754,7 +754,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'hotel',
         suggestedCategories: [
           'rent',
@@ -765,7 +765,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Work',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'wifi',
         suggestedCategories: [
           'internet',
@@ -777,7 +777,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'map',
         suggestedCategories: [
           'travel',
@@ -789,7 +789,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -806,21 +806,21 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Rent & Internet',
-        percentage: 0.60,
+        weight: 0.60,
         iconName: 'apartment',
         suggestedCategories: ['rent', 'internet'],
         color: const Color(0xFFEF4444), // Red
       ),
       PocketTemplate(
         name: 'Groceries',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'ramen_dining',
         suggestedCategories: ['groceries', 'snacks', 'coffee & tea'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Personal Essentials',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'soap',
         suggestedCategories: [
           'laundry / dry cleaning',
@@ -831,7 +831,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -848,14 +848,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Home & Bills',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'house',
         suggestedCategories: ['rent', 'utilities', 'garden', 'home repairs'],
         color: const Color(0xFF57534E), // Stone
       ),
       PocketTemplate(
         name: 'Groceries',
-        percentage: 0.35,
+        weight: 0.35,
         iconName: 'local_grocery_store',
         suggestedCategories: [
           'groceries',
@@ -866,14 +866,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Shared Stuff',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'inventory_2',
         suggestedCategories: ['pet food', 'tools', 'appliances'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -890,14 +890,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Rent',
-        percentage: 0.75,
+        weight: 0.75,
         iconName: 'house',
         suggestedCategories: ['rent'],
         color: const Color(0xFF1F2937), // Dark Grey
       ),
       PocketTemplate(
         name: 'Utilities',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'bolt',
         suggestedCategories: [
           'electricity',
@@ -923,14 +923,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Taxes (Set Aside)',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'policy',
         suggestedCategories: ['taxes', 'licensing & fees'],
         color: const Color(0xFFDC2626), // Red
       ),
       PocketTemplate(
         name: 'Business',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'work',
         suggestedCategories: [
           'software tools',
@@ -942,14 +942,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'house',
         suggestedCategories: ['rent', 'groceries', 'utilities', 'transport'],
         color: const Color(0xFF4B5563), // Grey
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'savings',
         suggestedCategories: ['savings', 'emergency fund', 'miscellaneous'],
         color: const Color(0xFF10B981), // Green
@@ -966,14 +966,14 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: ['rent', 'groceries', 'transport'],
         color: const Color(0xFFEF4444), // Red
       ),
       PocketTemplate(
         name: 'Tuition & Books',
-        percentage: 0.35,
+        weight: 0.35,
         iconName: 'school',
         suggestedCategories: [
           'books & study materials',
@@ -984,14 +984,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Fun Money',
-        percentage: 0.10,
+        weight: 0.10,
         iconName: 'people',
         suggestedCategories: ['bars & drinks', 'coffee & tea'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -1008,7 +1008,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Lifestyle',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'diamond',
         suggestedCategories: [
           'clothing & shoes',
@@ -1020,7 +1020,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Self Care',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'spa',
         suggestedCategories: [
           'spa & massage',
@@ -1032,14 +1032,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'house',
         suggestedCategories: ['rent', 'utilities', 'bills'],
         color: const Color(0xFF9CA3AF), // Grey
       ),
       PocketTemplate(
         name: 'Goals',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'trending_up',
         suggestedCategories: [
           'investments',
@@ -1061,7 +1061,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Car',
-        percentage: 0.35,
+        weight: 0.35,
         iconName: 'directions_car',
         suggestedCategories: [
           'fuel / gas',
@@ -1075,21 +1075,21 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.45,
+        weight: 0.45,
         iconName: 'house',
         suggestedCategories: ['rent', 'groceries', 'utilities'],
         color: const Color(0xFF4B5563), // Grey
       ),
       PocketTemplate(
         name: 'Car Replacement',
-        percentage: 0.15,
+        weight: 0.15,
         iconName: 'savings',
         suggestedCategories: ['savings'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -1106,7 +1106,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Fitness & Wellness',
-        percentage: 0.40,
+        weight: 0.40,
         iconName: 'fitness_center',
         suggestedCategories: [
           'fitness & gym',
@@ -1119,21 +1119,21 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Groceries',
-        percentage: 0.30,
+        weight: 0.30,
         iconName: 'local_grocery_store',
         suggestedCategories: ['groceries', 'healthy food', 'meal prep'],
         color: const Color(0xFFF59E0B), // Amber
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'house',
         suggestedCategories: ['rent', 'utilities', 'transport'],
         color: const Color(0xFF64748B), // Slate
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate
@@ -1150,7 +1150,7 @@ class BudgetTemplates {
     pockets: [
       PocketTemplate(
         name: 'Games & Tech',
-        percentage: 0.25,
+        weight: 0.25,
         iconName: 'sports_esports',
         suggestedCategories: [
           'games & apps',
@@ -1163,7 +1163,7 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Essentials',
-        percentage: 0.50,
+        weight: 0.50,
         iconName: 'house',
         suggestedCategories: [
           'rent',
@@ -1176,14 +1176,14 @@ class BudgetTemplates {
       ),
       PocketTemplate(
         name: 'Upgrades',
-        percentage: 0.20,
+        weight: 0.20,
         iconName: 'savings',
         suggestedCategories: ['savings'],
         color: const Color(0xFF3B82F6), // Blue
       ),
       PocketTemplate(
         name: 'Buffer',
-        percentage: 0.05,
+        weight: 0.05,
         iconName: 'account_balance_wallet',
         suggestedCategories: ['miscellaneous', 'emergency fund', 'savings'],
         color: const Color(0xFF64748B), // Slate

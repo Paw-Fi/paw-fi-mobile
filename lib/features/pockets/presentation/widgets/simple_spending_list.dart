@@ -44,8 +44,7 @@ class SimpleSpendingList extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final pocket = sortedPockets[index];
-        final percentageOfTotal =
-            totalSpent > 0 ? (pocket.spent / totalSpent) : 0.0;
+        final shareOfTotal = totalSpent > 0 ? (pocket.spent / totalSpent) : 0.0;
 
         final iconData = getPocketIconData(pocket.icon);
 
@@ -99,7 +98,7 @@ class SimpleSpendingList extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           context.l10n.percentageOfSpending(
-                              (percentageOfTotal * 100).toStringAsFixed(1)),
+                              (shareOfTotal * 100).toStringAsFixed(1)),
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -129,7 +128,7 @@ class SimpleSpendingList extends StatelessWidget {
                   color: colorScheme.pocketProgressTrack,
                   child: FractionallySizedBox(
                     alignment: Alignment.centerLeft,
-                    widthFactor: percentageOfTotal.clamp(0.0, 1.0),
+                    widthFactor: shareOfTotal.clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
                         color: colorScheme.primary,

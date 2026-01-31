@@ -499,9 +499,8 @@ class _BudgetStep extends HookConsumerWidget {
           const SizedBox(height: 24),
           PocketsHeaderCard(
             totalBudget: total,
-            totalAllocated: state.saved.fold(0.0, (s, p) => s + p.percentage) /
-                100.0 *
-                (total > 0 ? total : 0),
+            totalAllocated: state.saved
+                .fold<double>(0.0, (s, p) => s + (p.budgetAmountCents / 100.0)),
             totalSpent: state.totalSpent,
             periodMonth: state.periodMonth,
             previousBudget: prev,

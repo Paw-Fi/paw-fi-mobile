@@ -24,10 +24,10 @@ class PocketTransactionsParams {
 class CategorySpend {
   final String category;
   final double amount;
-  final double percentage; // 0-1
+  final double share; // 0-1
 
   CategorySpend(
-      {required this.category, required this.amount, required this.percentage});
+      {required this.category, required this.amount, required this.share});
 }
 
 class DailySpend {
@@ -174,7 +174,7 @@ final pocketDetailsProvider =
     return CategorySpend(
       category: e.key,
       amount: e.value,
-      percentage: totalSpent > 0 ? e.value / totalSpent : 0,
+      share: totalSpent > 0 ? e.value / totalSpent : 0,
     );
   }).toList()
     ..sort((a, b) => b.amount.compareTo(a.amount));

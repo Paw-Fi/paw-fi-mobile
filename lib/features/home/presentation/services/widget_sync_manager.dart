@@ -165,7 +165,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             // Fetch envelopes for this budget/currency
             final envelopesRes = await client
                 .from('budget_envelopes')
-                .select('id,name,budget_percentage,color,icon')
+                .select('id,name,budget_amount_cents,color,icon')
                 .eq('user_id', user.uid)
                 .eq('currency', currency)
                 .eq('budget_id', budgetId)
@@ -237,11 +237,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             for (final row in envRows) {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
-              final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
-              final allocationCents = allocationCentsByEnvelopeId[id];
-              final envelopeBudget = allocationCents != null
-                  ? allocationCents / 100.0
-                  : totalBudget * (pct / 100.0);
+              final rawAmountCents =
+                  (row['budget_amount_cents'] as num?)?.toInt();
+              final resolvedAmountCents =
+                  allocationCentsByEnvelopeId[id] ?? rawAmountCents ?? 0;
+              final envelopeBudget = resolvedAmountCents / 100.0;
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
               // Icon can be stored as a string name or another type (e.g. int codepoint).
@@ -302,7 +302,7 @@ class WidgetSyncManager extends HookConsumerWidget {
 
             final envelopesRes = await client
                 .from('budget_envelopes')
-                .select('id,name,budget_percentage,color,icon')
+                .select('id,name,budget_amount_cents,color,icon')
                 .eq('household_id', householdId)
                 .eq('currency', currency)
                 .eq('budget_id', budgetId)
@@ -390,11 +390,11 @@ class WidgetSyncManager extends HookConsumerWidget {
             for (final row in envRows) {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
-              final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
-              final allocationCents = allocationCentsByEnvelopeId[id];
-              final envelopeBudget = allocationCents != null
-                  ? allocationCents / 100.0
-                  : totalBudget * (pct / 100.0);
+              final rawAmountCents =
+                  (row['budget_amount_cents'] as num?)?.toInt();
+              final resolvedAmountCents =
+                  allocationCentsByEnvelopeId[id] ?? rawAmountCents ?? 0;
+              final envelopeBudget = resolvedAmountCents / 100.0;
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
               final dynamic rawIcon = row['icon'];

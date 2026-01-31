@@ -10,7 +10,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         icon: 'shopping_bag',
@@ -22,7 +22,7 @@ void main() {
 
       expect(pocket.id, 'pocket_1');
       expect(pocket.name, 'Groceries');
-      expect(pocket.percentage, 25.0);
+      expect(pocket.budgetAmountCents, 50000);
       expect(pocket.spent, 350.0);
       expect(pocket.currency, 'USD');
       expect(pocket.icon, 'shopping_bag');
@@ -35,7 +35,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_2',
         name: 'Bills',
-        percentage: 30.0,
+        budgetAmountCents: 60000,
         spent: 420.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -53,7 +53,7 @@ void main() {
       final json = {
         'id': 'pocket_1',
         'name': 'Groceries',
-        'budget_percentage': 25.0,
+        'budget_amount_cents': 50000,
         'spent_cents': 35000,
         'currency': 'USD',
         'icon': 'shopping_bag',
@@ -67,7 +67,7 @@ void main() {
 
       expect(pocket.id, 'pocket_1');
       expect(pocket.name, 'Groceries');
-      expect(pocket.percentage, 25.0);
+      expect(pocket.budgetAmountCents, 50000);
       expect(pocket.spent, 350.0);
       expect(pocket.currency, 'USD');
       expect(pocket.icon, 'shopping_bag');
@@ -80,7 +80,7 @@ void main() {
       final json = {
         'id': 'pocket_2',
         'name': 'Bills',
-        'budget_percentage': 30.0,
+        'budget_amount_cents': 60000,
         'spent_cents': 42000,
       };
 
@@ -97,7 +97,7 @@ void main() {
       final json = {
         'id': 'pocket_3',
         'name': 'Savings',
-        'budget_percentage': 20.0,
+        'budget_amount_cents': 20000,
         'spent_cents': 0,
         'currency': 'EUR',
       };
@@ -112,7 +112,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         icon: 'shopping_bag',
@@ -126,7 +126,7 @@ void main() {
 
       expect(json['id'], 'pocket_1');
       expect(json['name'], 'Groceries');
-      expect(json['budget_percentage'], 25.0);
+      expect(json['budget_amount_cents'], 50000);
       expect(json['spent_cents'], 35000);
       expect(json['currency'], 'USD');
       expect(json['icon'], 'shopping_bag');
@@ -141,7 +141,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -150,14 +150,14 @@ void main() {
       const totalBudget = 2000.0;
       final limit = pocket.getLimit(totalBudget);
 
-      expect(limit, 500.0); // 25% of 2000
+      expect(limit, 500.0);
     });
 
     test('getLimit rounds to cents', () {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 33.33,
+        budgetAmountCents: 33330,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -166,15 +166,14 @@ void main() {
       const totalBudget = 1000.0;
       final limit = pocket.getLimit(totalBudget);
 
-      // 33.33% of 1000 = 333.3, rounded to cents = 333.30
       expect(limit, 333.3);
     });
 
-    test('getLimit handles zero budget', () {
+    test('getLimit ignores total budget', () {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 25.0,
+        budgetAmountCents: 25000,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -182,14 +181,14 @@ void main() {
 
       final limit = pocket.getLimit(0.0);
 
-      expect(limit, 0.0);
+      expect(limit, 250.0);
     });
 
     test('getProgress calculates correctly', () {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 250.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -205,7 +204,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 600.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -221,7 +220,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 0.0,
+        budgetAmountCents: 0,
         spent: 100.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -236,7 +235,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -253,7 +252,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 600.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -267,7 +266,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 400.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -281,7 +280,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 430.0, // 86% of 500
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -295,7 +294,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 400.0, // 80% of 500
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -309,7 +308,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 600.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -323,7 +322,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 600.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -340,7 +339,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 430.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -357,7 +356,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 300.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -372,19 +371,19 @@ void main() {
   });
 
   group('PocketEnvelope - CopyWith', () {
-    test('copies with new percentage', () {
+    test('copies with new budget amount', () {
       final original = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
       );
 
-      final copied = original.copyWith(percentage: 30.0);
+      final copied = original.copyWith(budgetAmountCents: 60000);
 
-      expect(copied.percentage, 30.0);
+      expect(copied.budgetAmountCents, 60000);
       expect(copied.id, original.id);
       expect(copied.name, original.name);
       expect(copied.spent, original.spent);
@@ -394,7 +393,7 @@ void main() {
       final original = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -403,14 +402,14 @@ void main() {
       final copied = original.copyWith(spent: 400.0);
 
       expect(copied.spent, 400.0);
-      expect(copied.percentage, original.percentage);
+      expect(copied.budgetAmountCents, original.budgetAmountCents);
     });
 
     test('copies with new icon and color', () {
       final original = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -429,19 +428,19 @@ void main() {
       final original = PocketEnvelope(
         id: 'pocket_1',
         name: 'Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
       );
 
       final copied = original.copyWith(
-        percentage: 30.0,
+        budgetAmountCents: 60000,
         spent: 400.0,
         currency: 'EUR',
       );
 
-      expect(copied.percentage, 30.0);
+      expect(copied.budgetAmountCents, 60000);
       expect(copied.spent, 400.0);
       expect(copied.currency, 'EUR');
     });
@@ -452,7 +451,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 25.0,
+        budgetAmountCents: 25000000,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -464,11 +463,11 @@ void main() {
       expect(limit, 250000.0);
     });
 
-    test('handles very small percentages', () {
+    test('handles very small budget amounts', () {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 0.01,
+        budgetAmountCents: 100,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -480,11 +479,11 @@ void main() {
       expect(limit, 1.0);
     });
 
-    test('handles 100% percentage', () {
+    test('handles full budget amounts', () {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 100.0,
+        budgetAmountCents: 100000,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -500,7 +499,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Test',
-        percentage: 33.333,
+        budgetAmountCents: 33333,
         spent: 0.0,
         currency: 'USD',
         lastUpdated: DateTime.now(),
@@ -522,7 +521,7 @@ void main() {
         final pocket = PocketEnvelope(
           id: 'pocket_$currency',
           name: 'Test',
-          percentage: 25.0,
+          budgetAmountCents: 25000,
           spent: 100.0,
           currency: currency,
           lastUpdated: DateTime.now(),
@@ -536,7 +535,7 @@ void main() {
       final json = {
         'id': 'pocket_1',
         'name': 'Test',
-        'budget_percentage': 25.0,
+        'budget_amount_cents': 25000,
         'spent_cents': 10000,
       };
 
@@ -551,7 +550,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Shared Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         householdId: 'hh_123',
@@ -565,7 +564,7 @@ void main() {
       final pocket = PocketEnvelope(
         id: 'pocket_1',
         name: 'Personal Groceries',
-        percentage: 25.0,
+        budgetAmountCents: 50000,
         spent: 350.0,
         currency: 'USD',
         householdId: null,
