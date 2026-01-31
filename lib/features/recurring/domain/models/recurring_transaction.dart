@@ -4,6 +4,12 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
+void _debugLog(String message) {
+  if (kDebugMode) {
+    debugPrint(message);
+  }
+}
+
 class RecurringTransaction {
   final String id;
   final DateTime date;
@@ -42,9 +48,7 @@ class RecurringTransaction {
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
-    debugPrint(
-        '🔍 Parsing RecurringTransaction from JSON: ${json.keys.toList()}');
-    debugPrint('🔍 Raw JSON: ${jsonEncode(json)}');
+    _debugLog('🔍 Parsing RecurringTransaction keys: ${json.keys.toList()}');
 
     // Infer type from source field (income) or default to expense
     // Backend doesn't always return 'type' field, so we need to infer it
@@ -59,32 +63,29 @@ class RecurringTransaction {
       inferredType = 'expense';
     }
 
-    debugPrint('🔍 Inferred type: $inferredType');
-    debugPrint('🔍 Attachments type: ${json['attachments'].runtimeType}');
-    debugPrint('🔍 Attachments value: ${json['attachments']}');
+    _debugLog('🔍 Inferred type: $inferredType');
 
     // Parse recurrence_rule - handle both string and Map formats
     dynamic recurrenceRuleData =
         json['recurrenceRule'] ?? json['recurrence_rule'];
-    debugPrint('🔍 recurrenceRuleData type: ${recurrenceRuleData.runtimeType}');
-    debugPrint('🔍 recurrenceRuleData value: $recurrenceRuleData');
+    _debugLog('🔍 recurrenceRuleData type: ${recurrenceRuleData.runtimeType}');
 
     RecurrenceRule? parsedRecurrenceRule;
     if (recurrenceRuleData != null) {
       if (recurrenceRuleData is String) {
         // Backend returned JSONB as string - parse it first
-        debugPrint('🔍 Parsing recurrence_rule from string');
+        _debugLog('🔍 Parsing recurrence_rule from string');
         try {
           final parsed = jsonDecode(recurrenceRuleData);
           if (parsed is Map<String, dynamic>) {
             parsedRecurrenceRule = RecurrenceRule.fromJson(parsed);
           }
         } catch (e) {
-          debugPrint('❌ Failed to parse recurrence_rule string: $e');
+          _debugLog('❌ Failed to parse recurrence_rule string');
         }
       } else if (recurrenceRuleData is Map<String, dynamic>) {
         // Already a map, parse directly
-        debugPrint('🔍 Parsing recurrence_rule from Map');
+        _debugLog('🔍 Parsing recurrence_rule from Map');
         parsedRecurrenceRule = RecurrenceRule.fromJson(recurrenceRuleData);
       }
     }
@@ -129,49 +130,48 @@ class RecurringTransaction {
 
   /// Parse attachments from various formats (List, String, null)
   static List<Attachment> _parseAttachments(dynamic value) {
-    debugPrint(
-        '🔍 _parseAttachments called with type: ${value.runtimeType}, value: $value');
+    _debugLog('🔍 _parseAttachments type: ${value.runtimeType}');
 
     if (value == null) {
-      debugPrint('🔍 Attachments is null, returning empty list');
+      _debugLog('🔍 Attachments is null, returning empty list');
       return [];
     }
 
     if (value is String) {
-      debugPrint('🔍 Attachments is String: "$value"');
+      _debugLog('🔍 Attachments is String');
       // Backend might return JSON string, parse it
       if (value.isEmpty || value == '[]') {
-        debugPrint('🔍 Empty string or "[]", returning empty list');
+        _debugLog('🔍 Empty string or "[]", returning empty list');
         return [];
       }
       try {
         final parsed = jsonDecode(value);
-        debugPrint('🔍 Parsed string to: ${parsed.runtimeType}');
+        _debugLog('🔍 Parsed string to: ${parsed.runtimeType}');
         if (parsed is List) {
           return parsed
               .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
               .toList();
         }
       } catch (e) {
-        debugPrint('❌ Error parsing attachments string: $e');
+        _debugLog('❌ Error parsing attachments string');
         return [];
       }
       return [];
     }
 
     if (value is List) {
-      debugPrint('🔍 Attachments is List with ${value.length} items');
+      _debugLog('🔍 Attachments is List with ${value.length} items');
       try {
         return value
             .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        debugPrint('❌ Error parsing attachments list: $e');
+        _debugLog('❌ Error parsing attachments list');
         return [];
       }
     }
 
-    debugPrint('⚠️ Attachments is unexpected type: ${value.runtimeType}');
+    _debugLog('⚠️ Attachments is unexpected type: ${value.runtimeType}');
     return [];
   }
 
@@ -246,6 +246,29 @@ class RecurringTransaction {
     final reference = from ?? DateTime.now();
     final anchor = rule.anchorDate;
 
+    int clampDayOfMonth(
+        {required int year, required int month, required int day}) {
+      final lastDay = DateTime(year, month + 1, 0).day;
+      return day <= lastDay ? day : lastDay;
+    }
+
+    DateTime buildDatePreservingTime({
+      required int year,
+      required int month,
+      required int day,
+    }) {
+      return DateTime(
+        year,
+        month,
+        day,
+        anchor.hour,
+        anchor.minute,
+        anchor.second,
+        anchor.millisecond,
+        anchor.microsecond,
+      );
+    }
+
     // If reference is before anchor, return anchor
     if (reference.isBefore(anchor)) {
       return anchor;
@@ -277,23 +300,55 @@ class RecurringTransaction {
 
       case 'monthly':
         final interval = rule.interval ?? 1;
-        var nextDate = DateTime(anchor.year, anchor.month, anchor.day);
+        var nextDate = buildDatePreservingTime(
+          year: anchor.year,
+          month: anchor.month,
+          day: clampDayOfMonth(
+            year: anchor.year,
+            month: anchor.month,
+            day: anchor.day,
+          ),
+        );
         while (nextDate.isBefore(reference) ||
             nextDate.isAtSameMomentAs(reference)) {
           final newMonth = nextDate.month + interval;
           final newYear = nextDate.year + (newMonth - 1) ~/ 12;
           final adjustedMonth = ((newMonth - 1) % 12) + 1;
-          nextDate = DateTime(newYear, adjustedMonth, anchor.day);
+          nextDate = buildDatePreservingTime(
+            year: newYear,
+            month: adjustedMonth,
+            day: clampDayOfMonth(
+              year: newYear,
+              month: adjustedMonth,
+              day: anchor.day,
+            ),
+          );
         }
         return nextDate;
 
       case 'yearly':
         final interval = rule.interval ?? 1;
-        var nextDate = DateTime(anchor.year, anchor.month, anchor.day);
+        var nextDate = buildDatePreservingTime(
+          year: anchor.year,
+          month: anchor.month,
+          day: clampDayOfMonth(
+            year: anchor.year,
+            month: anchor.month,
+            day: anchor.day,
+          ),
+        );
         while (nextDate.isBefore(reference) ||
             nextDate.isAtSameMomentAs(reference)) {
-          nextDate =
-              DateTime(nextDate.year + interval, anchor.month, anchor.day);
+          final nextYear = nextDate.year + interval;
+          nextDate = buildDatePreservingTime(
+            year: nextYear,
+            month: anchor.month,
+            day: clampDayOfMonth(
+              year: nextYear,
+              month: anchor.month,
+              day: anchor.day,
+            ),
+          );
         }
         return nextDate;
 

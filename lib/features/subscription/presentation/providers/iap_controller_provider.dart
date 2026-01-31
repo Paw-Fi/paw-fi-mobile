@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart'
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FunctionException;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 
@@ -26,12 +27,21 @@ class IapState {
   final Map<String, ProductDetails> productDetailsById;
   final String? lastError;
   final bool isProcessing;
+  /// The product ID that the user initiated a purchase for in this session.
+  /// Used to distinguish between user-initiated purchases and pending purchases
+  /// from previous sessions that get processed when the listener is set up.
+  final String? initiatedProductId;
+  /// The product ID of the last successfully completed purchase.
+  /// Set when a purchase matching initiatedProductId completes successfully.
+  final String? lastCompletedProductId;
 
   const IapState({
     required this.storeAvailable,
     required this.productDetailsById,
     required this.lastError,
     this.isProcessing = false,
+    this.initiatedProductId,
+    this.lastCompletedProductId,
   });
 
   IapState copyWith({
@@ -39,12 +49,18 @@ class IapState {
     Map<String, ProductDetails>? productDetailsById,
     String? lastError,
     bool? isProcessing,
+    String? initiatedProductId,
+    String? lastCompletedProductId,
+    bool clearInitiatedProductId = false,
+    bool clearLastCompletedProductId = false,
   }) {
     return IapState(
       storeAvailable: storeAvailable ?? this.storeAvailable,
       productDetailsById: productDetailsById ?? this.productDetailsById,
       lastError: lastError,
       isProcessing: isProcessing ?? this.isProcessing,
+      initiatedProductId: clearInitiatedProductId ? null : (initiatedProductId ?? this.initiatedProductId),
+      lastCompletedProductId: clearLastCompletedProductId ? null : (lastCompletedProductId ?? this.lastCompletedProductId),
     );
   }
 }
@@ -66,6 +82,10 @@ class IapController extends AsyncNotifier<IapState> {
     Map<String, ProductDetails>? productDetailsById,
     String? lastError,
     bool? isProcessing,
+    String? initiatedProductId,
+    String? lastCompletedProductId,
+    bool clearInitiatedProductId = false,
+    bool clearLastCompletedProductId = false,
   }) {
     final current = state.valueOrNull ?? _fallbackState();
     final next = current.copyWith(
@@ -73,7 +93,13 @@ class IapController extends AsyncNotifier<IapState> {
       productDetailsById: productDetailsById,
       lastError: lastError,
       isProcessing: isProcessing,
+      initiatedProductId: initiatedProductId,
+      lastCompletedProductId: lastCompletedProductId,
+      clearInitiatedProductId: clearInitiatedProductId,
+      clearLastCompletedProductId: clearLastCompletedProductId,
     );
+
+    print('📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}');
 
     // Safety: never allow the UI to be stuck forever.
     if (next.isProcessing) {
@@ -81,6 +107,7 @@ class IapController extends AsyncNotifier<IapState> {
       _processingTimeout = Timer(_processingTimeoutDuration, () {
         final latest = state.valueOrNull ?? _fallbackState();
         if (!latest.isProcessing) return;
+        print('⏰ Processing timeout triggered');
         state = AsyncValue.data(
           latest.copyWith(
             isProcessing: false,
@@ -94,6 +121,7 @@ class IapController extends AsyncNotifier<IapState> {
     }
 
     state = AsyncValue.data(next);
+    print('📊 State updated successfully');
   }
 
   @override
@@ -259,9 +287,16 @@ class IapController extends AsyncNotifier<IapState> {
       print('✅ Platform string check passed');
 
       print('🧭 buy() step 6: set processing state');
-      // Set processing state
-      _setState(isProcessing: true, lastError: null);
-      print('✅ Processing state set to true');
+      // Set processing state and track which product we're buying
+      // This is critical to distinguish user-initiated purchases from
+      // pending purchases from previous sessions
+      _setState(
+        isProcessing: true,
+        lastError: null,
+        initiatedProductId: product.storeProductId,
+        clearLastCompletedProductId: true,
+      );
+      print('✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
 
       PurchaseParam purchaseParam;
 
@@ -382,6 +417,20 @@ class IapController extends AsyncNotifier<IapState> {
             continue;
           }
 
+          // Check if this purchase matches what the user initiated
+          final currentState = state.valueOrNull;
+          final initiatedProductId = currentState?.initiatedProductId;
+          final isUserInitiated = initiatedProductId == purchase.productID;
+          // Only treat as a NEW purchase if status is 'purchased', not 'restored'
+          // Restored purchases are either:
+          // 1. Pending purchases from previous sessions
+          // 2. User trying to buy something they already own (iOS auto-restores)
+          // In both cases, we should NOT trigger navigation to dashboard
+          final isNewPurchase = purchase.status == PurchaseStatus.purchased;
+          final shouldTriggerNavigation = isUserInitiated && isNewPurchase;
+          print('🔍 Purchase match check: initiatedProductId=$initiatedProductId, purchaseProductId=${purchase.productID}, isUserInitiated=$isUserInitiated');
+          print('🔍 Purchase type check: status=${purchase.status}, isNewPurchase=$isNewPurchase, shouldTriggerNavigation=$shouldTriggerNavigation');
+
           final platform = _platformString();
           print('🔧 Platform for verification: $platform');
 
@@ -433,9 +482,22 @@ class IapController extends AsyncNotifier<IapState> {
 
             if (response.status >= 400) {
               print('❌ Verification failed with status ${response.status}');
+              print('📡 Response data: ${response.data}');
+
+              // Extract error message from response body
+              String errorMessage = 'Verification failed';
+              final data = response.data;
+              if (data is Map && data['error'] is String) {
+                final backendError = (data['error'] as String).trim();
+                if (backendError.isNotEmpty) {
+                  errorMessage = backendError;
+                }
+              }
+              print('🔍 Extracted error message: $errorMessage');
+
               _setState(
                 isProcessing: false,
-                lastError: 'Verification failed',
+                lastError: errorMessage,
               );
 
               continue;
@@ -445,16 +507,60 @@ class IapController extends AsyncNotifier<IapState> {
             await ref.read(subscriptionManagementProvider.notifier).refresh();
             // Note: subscriptionNotifierProvider is cross-invalidated automatically
 
-            // Clear processing state first
-            _setState(isProcessing: false, lastError: null);
+            // Clear processing state and set lastCompletedProductId only if:
+            // 1. This was user-initiated (product ID matches what user clicked to buy)
+            // 2. This is a NEW purchase (status == purchased), not a restored purchase
+            // 
+            // Restored purchases should NOT trigger navigation because they are either:
+            // - Pending purchases from previous sessions being processed
+            // - User trying to buy something they already own (iOS auto-restores)
+            if (shouldTriggerNavigation) {
+              print('✅ NEW user-initiated purchase completed successfully: ${purchase.productID}');
+              _setState(
+                isProcessing: false,
+                lastError: null,
+                lastCompletedProductId: purchase.productID,
+                clearInitiatedProductId: true,
+              );
+            } else if (isUserInitiated && !isNewPurchase) {
+              print('⚠️ User-initiated but RESTORED purchase (already owned): ${purchase.productID}');
+              // User tried to buy something they already own - iOS restored it instead
+              // Clear processing state but DON'T set lastCompletedProductId (no navigation)
+              _setState(
+                isProcessing: false,
+                lastError: 'You already own this subscription. It has been restored.',
+                clearInitiatedProductId: true,
+              );
+            } else {
+              print('ℹ️ Background purchase processed (not user-initiated): ${purchase.productID}');
+              // For non-user-initiated purchases, just clear processing without triggering navigation
+              _setState(isProcessing: false, lastError: null);
+            }
           } catch (error, stackTrace) {
             final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
             print('❌ Edge Function invoke threw after ${elapsed}ms: $error');
             print('🧵 Edge Function stackTrace: $stackTrace');
+
+            // Extract actual error message from FunctionException
+            String errorMessage = 'Verification failed';
+            if (error is FunctionException) {
+              final details = error.details;
+              if (details is Map && details['error'] is String) {
+                final backendError = (details['error'] as String).trim();
+                if (backendError.isNotEmpty) {
+                  errorMessage = backendError;
+                }
+              }
+              print('🔍 FunctionException details: $details');
+              print('🔍 Extracted error message: $errorMessage');
+            }
+
+            print('🚨 Setting error state: isProcessing=false, lastError=$errorMessage');
             _setState(
               isProcessing: false,
-              lastError: 'Verification failed',
+              lastError: errorMessage,
             );
+            print('✅ Error state set successfully');
           }
         }
       } catch (e, stackTrace) {

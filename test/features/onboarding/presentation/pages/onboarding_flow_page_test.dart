@@ -15,6 +15,7 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_pa
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 
 class _MockDeviceRegistrationService extends Mock
     implements DeviceRegistrationService {}
@@ -126,12 +127,25 @@ Future<void> _pumpOnboarding(
 
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
+  // Allow any entrance animations/overlays to settle enough for taps.
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> _tapPrimary(WidgetTester tester) async {
   final primary = find.byType(PrimaryAdaptiveButton);
   expect(primary, findsOneWidget);
   await tester.tap(primary);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 350));
+}
+
+Future<void> _tapSkip(WidgetTester tester) async {
+  final onstage = find.byType(PlainAdaptiveButton);
+  final skip = onstage.evaluate().isNotEmpty
+      ? onstage
+      : find.byType(PlainAdaptiveButton, skipOffstage: false);
+  expect(skip, findsOneWidget);
+  await tester.tap(skip, warnIfMissed: false);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
 }
@@ -157,14 +171,19 @@ void main() {
 
     // Skip now advances to the next step, not exit.
     // Tap through all onboarding steps via Skip.
-    for (var i = 0; i < 5; i++) {
-      await tester.tap(find.textContaining('Skip'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 350));
+    for (var i = 0; i < 4; i++) {
+      await _tapSkip(tester);
     }
 
+    // Allow the finish page route transition to complete.
+    await tester.pump(const Duration(milliseconds: 400));
+
     // Last skip opens the finish page; complete it.
-    final startButton = find.byType(PrimaryAdaptiveButton);
+    final startButton = find.widgetWithText(
+      PrimaryAdaptiveButton,
+      'Start',
+      skipOffstage: false,
+    );
     expect(startButton, findsOneWidget);
     await tester.tap(startButton);
     await tester.pumpAndSettle();

@@ -1876,5 +1876,9 @@
   "template_pers_bio_title": "健康投資・フィットネス",
   "template_pers_bio_desc": "サプリメント、ジム、オーガニック食品を優先。",
   "template_pers_gamer_title": "テック・ゲーマー",
-  "template_pers_gamer_desc": "電子機器、ゲーム、デジタルサービスを優先。"
+  "template_pers_gamer_desc": "電子機器、ゲーム、デジタルサービスを優先。",
+  "categoryHealthInsurance": "医療保険",
+  "categoryHomeInsurance": "火災保険",
+  "categoryLifeInsurance": "生命保険",
+  "categoryRentersInsurance": "家財保険"
 }

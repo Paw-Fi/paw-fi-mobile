@@ -94,10 +94,14 @@ class PocketDetailsPage extends HookConsumerWidget {
     final limit = pocket.getLimit(totalBudget);
     final progress = pocket.getProgress(totalBudget);
 
-    // Calculate unallocated budget for the edit sheet
-    final totalPercentage =
-        state.editing.fold<double>(0, (sum, p) => sum + p.percentage);
-    final unallocatedBudget = totalBudget * ((100 - totalPercentage) / 100);
+    // Calculate unallocated budget for the edit sheet based on the effective
+    // limits shown in the UI (supports fixed allocations).
+    final totalBudgetCents = (totalBudget * 100).round();
+    final allocatedCents = state.editing.fold<int>(
+      0,
+      (sum, p) => sum + p.getLimitFromTotalBudgetCents(totalBudgetCents),
+    );
+    final unallocatedBudget = (totalBudgetCents - allocatedCents) / 100.0;
 
     final pocketColor = pocket.color != null
         ? Color(int.parse(pocket.color!.replaceAll('#', '0xff')))

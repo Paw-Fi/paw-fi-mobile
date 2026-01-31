@@ -490,7 +490,7 @@
   "categoryRent": "Loyer",
   "categoryMortgage": "Prêt immobilier",
   "categoryBills": "Factures",
-  "categoryInsurance": "Assurance",
+  "categoryInsurance": "Assurances",
   "categorySavings": "Épargne",
   "categoryInvestment": "Investissement",
   "categoryInvestments": "Investissements",
@@ -1876,5 +1876,9 @@
   "template_pers_bio_title": "Biohacker / Fitness",
   "template_pers_bio_desc": "Priorise les compléments, le sport et l'alimentation bio.",
   "template_pers_gamer_title": "Tech & Gamer",
-  "template_pers_gamer_desc": "Priorise l'électronique, les jeux et les services numériques."
+  "template_pers_gamer_desc": "Priorise l'électronique, les jeux et les services numériques.",
+  "categoryHealthInsurance": "Assurance santé",
+  "categoryHomeInsurance": "Assurance habitation",
+  "categoryLifeInsurance": "Assurance vie",
+  "categoryRentersInsurance": "Assurance locataire"
 }

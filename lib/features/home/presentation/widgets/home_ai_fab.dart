@@ -8,6 +8,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:crypto/crypto.dart';
+import 'package:in_app_review/in_app_review.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -26,6 +29,14 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
+
+const int _reviewFirstPromptAt = 1;
+const int _reviewSecondInterval = 2;
+const int _reviewThirdInterval = 3;
+const int _reviewMaxInterval = 5;
+const String _reviewExpenseCountKey = 'review_expense_count';
+const String _reviewLastPromptKey = 'review_last_prompt_count';
+const String _reviewLastIntervalKey = 'review_last_prompt_interval';
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -112,6 +123,46 @@ List<Map<String, dynamic>> _buildHouseholdMemberContext(
       .toList(growable: false);
 }
 
+Future<void> _maybeRequestReviewAfterExpenseSave({
+  required String userId,
+  required SharedPreferences prefs,
+  required int additionalExpenseCount,
+}) async {
+  try {
+    if (userId.isEmpty || additionalExpenseCount <= 0) return;
+    final userKey = sha256.convert(utf8.encode(userId)).toString();
+    final countKey = '${_reviewExpenseCountKey}_$userKey';
+    final lastPromptKey = '${_reviewLastPromptKey}_$userKey';
+    final lastIntervalKey = '${_reviewLastIntervalKey}_$userKey';
+
+    final updatedCount = (prefs.getInt(countKey) ?? 0) + additionalExpenseCount;
+    await prefs.setInt(countKey, updatedCount);
+
+    final lastPromptCount = prefs.getInt(lastPromptKey) ?? 0;
+    final lastInterval = prefs.getInt(lastIntervalKey) ?? 0;
+    final nextInterval = () {
+      if (lastInterval <= 0) return _reviewSecondInterval;
+      if (lastInterval == _reviewSecondInterval) return _reviewThirdInterval;
+      return _reviewMaxInterval;
+    }();
+
+    final shouldPrompt = updatedCount == _reviewFirstPromptAt ||
+        (updatedCount - lastPromptCount) >= nextInterval;
+    if (!shouldPrompt) return;
+
+    await prefs.setInt(lastPromptKey, updatedCount);
+    await prefs.setInt(lastIntervalKey, nextInterval);
+
+    final inAppReview = InAppReview.instance;
+    final available = await inAppReview.isAvailable();
+    if (!available) return;
+
+    await inAppReview.requestReview();
+  } catch (error) {
+    debugPrint('[REVIEW] Failed to request review: $error');
+  }
+}
+
 Future<void> _persistAiTransactions(
   WidgetRef ref, {
   required String userId,
@@ -121,6 +172,7 @@ Future<void> _persistAiTransactions(
   String? localImagePath,
 }) async {
   var didPersistAny = false;
+  var savedExpenseCount = 0;
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -257,6 +309,7 @@ Future<void> _persistAiTransactions(
         savedEntry: savedEntry,
       );
       didPersistAny = true;
+      savedExpenseCount += 1;
     } catch (error) {
       removeOptimisticTransaction(
         ref: ref,
@@ -272,6 +325,18 @@ Future<void> _persistAiTransactions(
           userId: userId,
           householdId: householdId,
         );
+  }
+
+  if (savedExpenseCount > 0) {
+    final prefs = ref.read(sharedPreferencesProvider);
+    unawaited(Future<void>.delayed(
+      const Duration(milliseconds: 300),
+      () => _maybeRequestReviewAfterExpenseSave(
+        userId: userId,
+        prefs: prefs,
+        additionalExpenseCount: savedExpenseCount,
+      ),
+    ));
   }
 }
 

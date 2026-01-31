@@ -1820,5 +1820,9 @@
   "template_pers_bio_title": "生物駭客 / 健身愛好者",
   "template_pers_bio_desc": "優先預留保健食品、健身房與有機飲食支出。",
   "template_pers_gamer_title": "科技與遊戲控",
-  "template_pers_gamer_desc": "優先考慮電子產品、遊戲與數位訂閱服務。"
+  "template_pers_gamer_desc": "優先考慮電子產品、遊戲與數位訂閱服務。",
+  "categoryHealthInsurance": "醫療保險",
+  "categoryHomeInsurance": "房屋保險",
+  "categoryLifeInsurance": "人壽保險",
+  "categoryRentersInsurance": "租客保險"
 }

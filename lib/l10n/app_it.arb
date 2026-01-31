@@ -491,7 +491,7 @@
   "categoryRent": "Affitto",
   "categoryMortgage": "Mutuo",
   "categoryBills": "Bollette",
-  "categoryInsurance": "Assicurazione",
+  "categoryInsurance": "Assicurazioni",
   "categorySavings": "Risparmi",
   "categoryInvestment": "Investimento",
   "categoryInvestments": "Investimenti",
@@ -1823,5 +1823,9 @@
   "template_pers_bio_title": "Biohacker / Fitness",
   "template_pers_bio_desc": "Priorità a integratori, palestra e cibo biologico.",
   "template_pers_gamer_title": "Tech & Gamer",
-  "template_pers_gamer_desc": "Priorità a elettronica, giochi e servizi digitali."
+  "template_pers_gamer_desc": "Priorità a elettronica, giochi e servizi digitali.",
+  "categoryHealthInsurance": "Assicurazione sanitaria",
+  "categoryHomeInsurance": "Assicurazione casa",
+  "categoryLifeInsurance": "Assicurazione vita",
+  "categoryRentersInsurance": "Assicurazione per inquilini"
 }

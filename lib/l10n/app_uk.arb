@@ -1868,5 +1868,9 @@
   "template_pers_bio_title": "Біохакінг та фітнес",
   "template_pers_bio_desc": "Пріоритет на добавки, спортзал та органічні продукти.",
   "template_pers_gamer_title": "Гаджети та ігри",
-  "template_pers_gamer_desc": "Пріоритет на електроніку, ігри та цифрові підписки."
+  "template_pers_gamer_desc": "Пріоритет на електроніку, ігри та цифрові підписки.",
+  "categoryHealthInsurance": "Медичне страхування",
+  "categoryHomeInsurance": "Страхування житла",
+  "categoryLifeInsurance": "Страхування життя",
+  "categoryRentersInsurance": "Страхування майна орендаря"
 }

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +10,12 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+
+void _debugLog(String message) {
+  if (foundation.kDebugMode) {
+    foundation.debugPrint(message);
+  }
+}
 
 /// Scope for pockets: personal or household.
 enum PocketsScopeType { personal, portfolio, household }
@@ -69,25 +75,25 @@ class PocketsState {
   bool get hasChanges {
     // Check if budget has changed
     if ((totalBudget - savedTotalBudget).abs() > 0.01) {
-      debugPrint(
+      _debugLog(
           'hasChanges: true (budget changed from $savedTotalBudget to $totalBudget)');
       return true;
     }
 
     // Check if pockets have changed
     if (saved.length != editing.length) {
-      debugPrint('hasChanges: true (pocket count changed)');
+      _debugLog('hasChanges: true (pocket count changed)');
       return true;
     }
     for (var i = 0; i < saved.length; i++) {
       if (saved[i].id != editing[i].id ||
           saved[i].percentage != editing[i].percentage ||
           saved[i].spent != editing[i].spent) {
-        debugPrint('hasChanges: true (pocket ${saved[i].name} changed)');
+        _debugLog('hasChanges: true (pocket ${saved[i].name} changed)');
         return true;
       }
     }
-    debugPrint('hasChanges: false');
+    _debugLog('hasChanges: false');
     return false;
   }
 
@@ -200,7 +206,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
-      debugPrint('[Pockets] No auth user, cannot load');
+      _debugLog('[Pockets] No auth user, cannot load');
       if (!mounted) return;
       state = state.copyWith(isLoading: false, error: 'Not authenticated');
       return;
@@ -210,7 +216,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> _load() async {
-    debugPrint(
+    _debugLog(
         '[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
     if (!mounted) return;
     state = state.copyWith(isLoading: true, clearError: true);
@@ -283,16 +289,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // 2. Analytics preferred currency
       // 3. Fallback to USD
       final analytics = ref.read(analyticsProvider);
-      final hasExplicitCurrency =
-          filter.selectedCurrency != null &&
-              filter.selectedCurrency!.trim().isNotEmpty;
+      final hasExplicitCurrency = filter.selectedCurrency != null &&
+          filter.selectedCurrency!.trim().isNotEmpty;
       final initialCurrency = (filter.selectedCurrency?.toUpperCase() ??
               analytics.preferredCurrency?.toUpperCase() ??
               'USD')
           .toUpperCase();
       var selectedCurrency = initialCurrency;
 
-      debugPrint(
+      _debugLog(
           '[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
 
       // Fetch or create budget for the current month/scope
@@ -339,7 +344,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             allowAnyUser: true,
           );
           if (budgetRow != null) {
-            debugPrint(
+            _debugLog(
                 '[Pockets] Found legacy personal budget without user filter for period $periodMonth');
           }
         }
@@ -350,7 +355,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           if (reusedCurrency != null &&
               reusedCurrency.isNotEmpty &&
               reusedCurrency != selectedCurrency) {
-            debugPrint(
+            _debugLog(
                 '[Pockets] Reused existing budget with currency $reusedCurrency for period $periodMonth (was requesting $selectedCurrency)');
             selectedCurrency = reusedCurrency;
           } else if (reusedCurrency != null) {
@@ -487,6 +492,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final categoryLinksRows =
           (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
 
+      // Fetch fixed allocations for the viewed month (optional per envelope)
+      final allocationsRes = await supabase
+          .from('envelope_allocations')
+          .select('envelope_id,amount_cents')
+          .eq('period_month', periodMonth)
+          .inFilter('envelope_id', envIds);
+      final allocationRows =
+          (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final allocationCentsByEnvelopeId = <String, int>{
+        for (final row in allocationRows)
+          if ((row['envelope_id'] as String?) != null)
+            if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
+              (row['envelope_id'] as String):
+                  (row['amount_cents'] as num?)!.toInt(),
+      };
+
       final categoriesByEnvelopeId = <String, List<String>>{};
       for (final row in categoryLinksRows) {
         final envId = row['envelope_id'] as String;
@@ -570,11 +591,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           color: color,
           budgetId: bId,
           householdId: hhId,
+          allocationCents: allocationCentsByEnvelopeId[id],
           lastUpdated: DateTime.now(),
         );
       }).toList();
 
-      final normalizedPockets = _normalizeToHundred(pockets);
+      final normalizedPockets = _applyEffectiveLimits(
+        _normalizeToHundred(pockets),
+        totalBudgetCents: (budgetRow?['total_budget_cents'] as num?)?.toInt() ??
+            (totalBudget * 100).round(),
+      );
 
       // Use the already-fetched expenses to compute uncategorized totals
       final expenseTotalsByCategory = <String, double>{};
@@ -652,10 +678,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   /// Update total budget - percentages stay the same!
   void updateTotalBudget(double newTotal) {
     if (newTotal < 0) return;
-    debugPrint(
+    _debugLog(
         'updateTotalBudget: $newTotal (saved: ${state.savedTotalBudget})');
-    state = state.copyWith(totalBudget: newTotal);
-    debugPrint('After update - hasChanges: ${state.hasChanges}');
+    final totalBudgetCents = (newTotal * 100).round();
+    state = state.copyWith(
+      totalBudget: newTotal,
+      saved: _applyEffectiveLimits(
+        state.saved,
+        totalBudgetCents: totalBudgetCents,
+      ),
+      editing: _applyEffectiveLimits(
+        state.editing,
+        totalBudgetCents: totalBudgetCents,
+      ),
+    );
+    _debugLog('After update - hasChanges: ${state.hasChanges}');
   }
 
   /// Update a pocket's percentage allocation
@@ -720,7 +757,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     // Normalize to ensure sum = 100
     _normalizePercentages(pockets, index);
 
-    state = state.copyWith(editing: pockets);
+    state = state.copyWith(
+      editing: _applyEffectiveLimits(
+        pockets,
+        totalBudgetCents: (state.totalBudget * 100).round(),
+      ),
+    );
   }
 
   void reusePreviousBudget(double amount) {
@@ -765,6 +807,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     final sourceMonthStart = DateTime(sourceMonth.year, sourceMonth.month, 1);
     final sourcePeriodMonth = _formatDate(sourceMonthStart);
+
+    final targetMonth = params.periodMonth ?? DateTime.now();
+    final targetMonthStart = DateTime(targetMonth.year, targetMonth.month, 1);
+    final targetPeriodMonth = _formatDate(targetMonthStart);
 
     if (!mounted) return;
     state = state.copyWith(isLoading: true, clearError: true);
@@ -825,6 +871,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .whereType<String>()
           .toList();
 
+      // Optional fixed allocations for the source month.
+      final allocationsRes = await supabase
+          .from('envelope_allocations')
+          .select('envelope_id,amount_cents')
+          .eq('period_month', sourcePeriodMonth)
+          .inFilter('envelope_id', sourceEnvIds);
+      final allocationsRows =
+          (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final allocationBySourceEnvId = <String, int>{
+        for (final row in allocationsRows)
+          if ((row['envelope_id'] as String?) != null)
+            (row['envelope_id'] as String):
+                (row['amount_cents'] as num?)?.toInt() ?? 0,
+      };
+
       final categoryLinksRes = await supabase
           .from('envelope_category_links')
           .select('envelope_id,category')
@@ -875,6 +936,20 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         final newEnvId = insertRes?['id'] as String?;
         if (newEnvId == null || newEnvId.isEmpty) {
           throw Exception('Failed to copy pocket: $name');
+        }
+
+        final sourceAmountCents = allocationBySourceEnvId[sourceEnvId];
+        if (sourceAmountCents != null && sourceAmountCents > 0) {
+          await supabase.from('envelope_allocations').upsert(
+            <String, dynamic>{
+              'envelope_id': newEnvId,
+              'period_month': targetPeriodMonth,
+              'amount_cents': sourceAmountCents,
+              'carryover_policy': 'carryover',
+              'updated_at': DateTime.now().toIso8601String(),
+            },
+            onConflict: 'envelope_id,period_month',
+          );
         }
 
         final categories = categoriesByEnvelopeId[sourceEnvId] ?? const [];
@@ -997,10 +1072,89 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     return normalized;
   }
 
+  List<PocketEnvelope> _applyEffectiveLimits(
+    List<PocketEnvelope> pockets, {
+    required int totalBudgetCents,
+  }) {
+    if (pockets.isEmpty) return pockets;
+
+    final fixed = <PocketEnvelope>[];
+    final percent = <PocketEnvelope>[];
+
+    for (final p in pockets) {
+      if (p.allocationCents != null) {
+        fixed.add(p);
+      } else {
+        percent.add(p);
+      }
+    }
+
+    final fixedSum = fixed.fold<int>(
+      0,
+      (sum, p) => sum + (p.allocationCents ?? 0),
+    );
+
+    final remaining = math.max(0, totalBudgetCents - fixedSum);
+
+    final weights = <String, int>{};
+    var weightSum = 0;
+    for (final p in percent) {
+      // 1/10,000ths of a percent (0.0001%).
+      final ppm = (p.percentage * 10000).round().clamp(0, 100 * 10000);
+      weights[p.id] = ppm;
+      weightSum += ppm;
+    }
+
+    final baseCents = <String, int>{};
+    final remainders = <String, int>{};
+    var distributed = 0;
+    if (weightSum > 0 && remaining > 0) {
+      for (final p in percent) {
+        final w = weights[p.id] ?? 0;
+        final numerator = remaining * w;
+        final base = numerator ~/ weightSum;
+        final rem = numerator % weightSum;
+        baseCents[p.id] = base;
+        remainders[p.id] = rem;
+        distributed += base;
+      }
+    } else {
+      for (final p in percent) {
+        baseCents[p.id] = 0;
+        remainders[p.id] = 0;
+      }
+    }
+
+    var leftover = remaining - distributed;
+    if (leftover > 0) {
+      final idsByRemainder = [...percent.map((p) => p.id)];
+      idsByRemainder.sort(
+        (a, b) => (remainders[b] ?? 0).compareTo(remainders[a] ?? 0),
+      );
+      var i = 0;
+      while (leftover > 0 && idsByRemainder.isNotEmpty) {
+        final id = idsByRemainder[i % idsByRemainder.length];
+        baseCents[id] = (baseCents[id] ?? 0) + 1;
+        leftover -= 1;
+        i += 1;
+      }
+    }
+
+    return pockets.map((p) {
+      final int effective;
+      if (p.allocationCents != null) {
+        effective = p.allocationCents!;
+      } else {
+        effective = baseCents[p.id] ?? 0;
+      }
+      return p.copyWith(effectiveLimitCents: effective);
+    }).toList(growable: false);
+  }
+
   Future<void> revertChanges() async {
     if (!mounted) return;
     final restored = state.saved.map((p) => p.copyWith()).toList();
-    debugPrint(
+    _debugLog(
         'revertChanges: restoring budget from ${state.totalBudget} to ${state.savedTotalBudget}');
     state = state.copyWith(
       editing: restored,
@@ -1101,7 +1255,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           currency: null,
         );
         budgetId = existing?['id'] as String?;
-        debugPrint(
+        _debugLog(
             '[Pockets] saveChanges resolved existing budgetId: $budgetId');
       }
 
@@ -1116,7 +1270,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
         budgetId = legacyRow?['id'] as String?;
         if (budgetId != null) {
-          debugPrint(
+          _debugLog(
               '[Pockets] saveChanges found legacy personal budgetId: $budgetId');
         }
       }
@@ -1124,17 +1278,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       Future<String?> upsertBudget(String? existingId) async {
         try {
           if (existingId != null) {
-            debugPrint(
+            _debugLog(
                 '[Pockets] Updating budget $existingId (scope: ${params.scope}, hh: $householdId, month: $periodMonth)');
             await supabase
                 .from('budgets')
                 .update(budgetPayload..['id'] = existingId)
                 .eq('id', existingId);
-            debugPrint('[Pockets] Persisted budgetId via update: $existingId');
+            _debugLog('[Pockets] Persisted budgetId via update: $existingId');
             return existingId;
           }
 
-          debugPrint(
+          _debugLog(
               '[Pockets] Inserting budget (scope: ${params.scope}, hh: $householdId, month: $periodMonth)');
           final insertRes = await supabase
               .from('budgets')
@@ -1144,7 +1298,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           return insertRes?['id'] as String?;
         } catch (e) {
           if (_isConflictError(e)) {
-            debugPrint(
+            _debugLog(
                 '[Pockets] budget upsert conflict, resolving existing row');
             // On conflict, re-query without currency filter; for personal allow legacy rows
             final fallbackRow = await _findBudgetRowForPeriod(
@@ -1156,7 +1310,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             );
             final fallbackId = fallbackRow?['id'] as String?;
             if (fallbackId != null) {
-              debugPrint(
+              _debugLog(
                   '[Pockets] Retrying update using budgetId: $fallbackId');
               await supabase
                   .from('budgets')
@@ -1170,7 +1324,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       budgetId = await upsertBudget(budgetId);
-      debugPrint('[Pockets] Persisted budgetId after saveChanges: $budgetId');
+      _debugLog('[Pockets] Persisted budgetId after saveChanges: $budgetId');
 
       if (budgetId == null) {
         throw Exception('Unable to persist budget for this period');

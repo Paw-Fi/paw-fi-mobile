@@ -1895,5 +1895,9 @@
   "template_pers_bio_title": "Biohacker / Fitness",
   "template_pers_bio_desc": "Prioritizes supplements, gym, and organic food.",
   "template_pers_gamer_title": "Tech & Gamer",
-  "template_pers_gamer_desc": "Prioritizes electronics, games, and digital services."
+  "template_pers_gamer_desc": "Prioritizes electronics, games, and digital services.",
+  "categoryHealthInsurance": "Health Insurance",
+  "categoryHomeInsurance": "Home Insurance",
+  "categoryLifeInsurance": "Life Insurance",
+  "categoryRentersInsurance": "Renters Insurance"
 }

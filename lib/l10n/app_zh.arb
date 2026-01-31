@@ -1872,5 +1872,9 @@
   "template_pers_bio_title": "生物黑客 / 健身",
   "template_pers_bio_desc": "优先考虑补剂、健身房和有机食品支出。",
   "template_pers_gamer_title": "科技与极客",
-  "template_pers_gamer_desc": "优先考虑电子产品、游戏和数字订阅服务。"
+  "template_pers_gamer_desc": "优先考虑电子产品、游戏和数字订阅服务。",
+  "categoryHealthInsurance": "医疗保险",
+  "categoryHomeInsurance": "房屋保险",
+  "categoryLifeInsurance": "人寿保险",
+  "categoryRentersInsurance": "租客保险"
 }

@@ -241,95 +241,104 @@ class PlanSelectionPage extends HookConsumerWidget {
 
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
+        _debugLog(
+            '🔍 Error check: nextError="$nextError" prevError="$prevError"');
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
-          _debugLog('IAP purchase error: $nextError');
+          _debugLog('🚨 IAP purchase error detected: $nextError');
+          _debugLog('🚨 Calling showIapError...');
           showIapError(nextError, 'lastError');
+          _debugLog('🚨 showIapError called');
         }
 
-        if (prevProcessing && !nextProcessing) {
-          dismissProcessingDialog('processing finished');
+        // Check if a user-initiated purchase completed successfully
+        // We use lastCompletedProductId to distinguish between:
+        // 1. User-initiated purchases that completed (should navigate)
+        // 2. Background processing of pending purchases from previous sessions (should NOT navigate)
+        final prevCompletedProductId = prevState?.lastCompletedProductId;
+        final nextCompletedProductId = nextState?.lastCompletedProductId;
+        final hasNewCompletion = nextCompletedProductId != null &&
+            nextCompletedProductId != prevCompletedProductId;
 
-          // If we exited processing without an error, treat it as a successful
-          // purchase/verification and send the user back to the app.
-          if ((nextState?.lastError ?? '').isEmpty) {
-            _debugLog('✅ Purchase successful! Refreshing subscription...');
+        if (hasNewCompletion) {
+          _debugLog(
+              '✅ User-initiated purchase completed: $nextCompletedProductId');
+          dismissProcessingDialog('user-initiated purchase completed');
 
-            // Schedule async work without blocking the listener
-            Future.microtask(() async {
-              try {
-                // Refresh subscription state - cross-invalidation ensures both providers stay in sync
-                _debugLog('🔄 Refreshing subscription state...');
-                await ref
-                    .read(subscriptionManagementProvider.notifier)
-                    .refresh();
-                // Note: subscriptionNotifierProvider is cross-invalidated automatically
+          // User-initiated purchase completed successfully - navigate to dashboard
+          _debugLog('✅ Purchase successful! Refreshing subscription...');
 
-                // Wait a bit longer to ensure Supabase propagation
-                await Future.delayed(const Duration(milliseconds: 1000));
+          // Schedule async work without blocking the listener
+          Future.microtask(() async {
+            try {
+              // Refresh subscription state - cross-invalidation ensures both providers stay in sync
+              _debugLog('🔄 Refreshing subscription state...');
+              await ref.read(subscriptionManagementProvider.notifier).refresh();
+              // Note: subscriptionNotifierProvider is cross-invalidated automatically
 
-                if (!context.mounted) return;
+              // Wait a bit longer to ensure Supabase propagation
+              await Future.delayed(const Duration(milliseconds: 1000));
 
-                // Verify subscription is actually active before navigating
-                final subscriptionAsync =
-                    ref.read(subscriptionManagementProvider);
-                final subscriptionDetails = subscriptionAsync.valueOrNull;
-                final subscriptionData = subscriptionDetails?.subscription;
+              if (!context.mounted) return;
 
-                // Use the Subscription model's isSubscribed check (includes expiry validation)
-                final isActive = subscriptionData?.isSubscribed ?? false;
+              // Verify subscription is actually active before navigating
+              final subscriptionAsync =
+                  ref.read(subscriptionManagementProvider);
+              final subscriptionDetails = subscriptionAsync.valueOrNull;
+              final subscriptionData = subscriptionDetails?.subscription;
 
-                _debugLog('📊 Full subscription check:');
+              // Use the Subscription model's isSubscribed check (includes expiry validation)
+              final isActive = subscriptionData?.isSubscribed ?? false;
+
+              _debugLog('📊 Full subscription check:');
+              _debugLog(
+                  '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
+              _debugLog(
+                  '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
+              _debugLog(
+                  '  - SubscriptionDetails: ${subscriptionDetails != null}');
+              _debugLog('  - Subscription model: ${subscriptionData != null}');
+              _debugLog('  - plan: ${subscriptionData?.plan}');
+              _debugLog('  - status: ${subscriptionData?.status}');
+              _debugLog('  - provider: ${subscriptionData?.provider}');
+              _debugLog(
+                  '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
+              _debugLog('  - now: ${DateTime.now()}');
+              if (subscriptionData?.currentPeriodEnd != null) {
                 _debugLog(
-                    '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
-                _debugLog(
-                    '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
-                _debugLog(
-                    '  - SubscriptionDetails: ${subscriptionDetails != null}');
-                _debugLog(
-                    '  - Subscription model: ${subscriptionData != null}');
-                _debugLog('  - plan: ${subscriptionData?.plan}');
-                _debugLog('  - status: ${subscriptionData?.status}');
-                _debugLog('  - provider: ${subscriptionData?.provider}');
-                _debugLog(
-                    '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
-                _debugLog('  - now: ${DateTime.now()}');
-                if (subscriptionData?.currentPeriodEnd != null) {
-                  _debugLog(
-                      '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
-                }
-                _debugLog('  - isSubscribed (from model): $isActive');
-
-                if (isActive) {
-                  _debugLog(
-                      '✅ Subscription confirmed active, navigating to dashboard');
-                  if (context.mounted) {
-                    context.go('/dashboard');
-                  }
-                } else {
-                  // Subscription still not active - show error
-                  _debugLog('❌ Subscription not active after purchase!');
-                  AppToast.error(
-                    context,
-                    'Purchase completed but subscription not activated. Please restart the app.',
-                  );
-                }
-              } catch (e, stack) {
-                _debugLog('❌ Error refreshing subscription: $e');
-                _debugLog('Stack: $stack');
-
-                // Show error to user instead of navigating
-                if (context.mounted) {
-                  dismissProcessingDialog('iap verification error');
-                  AppToast.error(
-                    context,
-                    'Purchase completed but failed to verify subscription. Please restart the app.',
-                  );
-                }
+                    '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
               }
-            });
-          }
+              _debugLog('  - isSubscribed (from model): $isActive');
+
+              if (isActive) {
+                _debugLog(
+                    '✅ Subscription confirmed active, navigating to dashboard');
+                if (context.mounted) {
+                  context.go('/dashboard');
+                }
+              } else {
+                // Subscription still not active - show error
+                _debugLog('❌ Subscription not active after purchase!');
+                AppToast.error(
+                  context,
+                  'Purchase completed but subscription not activated. Please restart the app.',
+                );
+              }
+            } catch (e, stack) {
+              _debugLog('❌ Error refreshing subscription: $e');
+              _debugLog('Stack: $stack');
+
+              // Show error to user instead of navigating
+              if (context.mounted) {
+                dismissProcessingDialog('iap verification error');
+                AppToast.error(
+                  context,
+                  'Purchase completed but failed to verify subscription. Please restart the app.',
+                );
+              }
+            }
+          });
         }
 
         if (!prevProcessing && nextProcessing) {
@@ -712,147 +721,106 @@ class PlanSelectionPage extends HookConsumerWidget {
       // with the existing PurchaseDetails. To avoid accidental double subscriptions,
       // we direct users to manage plan changes in Google Play for now.
 
-      // Smart Dialog Copy
-      String title = 'Confirm Selection';
-      String description =
-          'Switch to ${activePlanOption.name} for ${activePlanOption.priceDisplay}?';
-      String confirmLabel = 'Confirm';
-
-      if (activePlanOption.serverPlanId == 'lifetime') {
-        title = 'Secure Lifetime Access';
-        description =
-            'Get unlimited access forever for a one-time payment of ${activePlanOption.priceDisplay}. No recurring fees.';
-        confirmLabel = 'Get Lifetime';
-      } else if (currentPlanId == 'plus' &&
-          activePlanOption.serverPlanId == 'plus') {
-        // Switching interval
-        if (activePlanOption.billingInterval == 'yearly') {
-          title = 'Switch to Yearly?';
-          description =
-              'Upgrade to annual billing for ${activePlanOption.priceDisplay}/year.';
-          confirmLabel = 'Switch & Save';
-        } else {
-          title = 'Switch to Monthly?';
-          description =
-              'Switch to monthly billing for ${activePlanOption.priceDisplay}/mo.';
-          confirmLabel = 'Switch';
-        }
-      }
-
-      // Confirm Change
-      final result = await MonekoAlertDialog.show(
-        context: context,
-        title: title,
-        description: description,
-        confirmLabel: confirmLabel,
-        cancelLabel: 'Cancel',
+      _debugLog(
+        '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
       );
-
-      if (result?.confirmed == true) {
-        print('✅ User confirmed subscription dialog');
-        _debugLog(
-          '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
-        );
-        try {
-          print('🍎 Platform check - iOS: $isIos');
-          if (useIap) {
-            // Don't allow purchase attempts until the store/products are ready.
-            final iapState = iapStateAsync.valueOrNull;
-            if (iapState == null || !iapState.storeAvailable) {
-              throw Exception('Store unavailable');
-            }
-
-            final catalog = activePlanOption.catalogProduct;
-            print(
-                '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
-            if (catalog == null) throw Exception('Missing iOS product mapping');
-
-            print('✅ catalogProduct is valid, proceeding...');
-
-            // Show processing dialog before starting purchase
-            if (context.mounted) {
-              print('🎬 Showing processing dialog...');
-              processingDialogOpen.value = true;
-              _debugLog(
-                  '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
-              showBlockingProcessingDialog(
-                context: context,
-                message: 'Processing your purchase...',
-              );
-              print('✅ Processing dialog shown');
-            } else {
-              print('⚠️ Context not mounted, skipping dialog');
-            }
-
-            print(
-                '🔍 About to call buy() method with product: ${catalog.storeProductId}');
-            _debugLog(
-              '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
-            );
-            await ref.read(iapControllerProvider.notifier).buy(catalog);
-            print('✅ buy() method completed');
-            _debugLog('🧾 IAP buy completed');
-            _debugLog(
-                '🧾 IAP state after buy: processing=${iapStateAsync.valueOrNull?.isProcessing} lastError=${iapStateAsync.valueOrNull?.lastError ?? ""}');
-            // Dialog will remain open until purchase completes
-            // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
-          } else {
-            print('💳 Starting Stripe checkout');
-
-            isStripeProcessing.value = true;
-
-            // Show processing dialog for Stripe
-            if (context.mounted) {
-              processingDialogOpen.value = true;
-              _debugLog(
-                  '🧾 Dialog open set to true (stripe). plan=${activePlanOption.id}');
-              showBlockingProcessingDialog(
-                context: context,
-                message: 'Redirecting to checkout...',
-              );
-            }
-
-            try {
-              await startStripeCheckout(activePlanOption);
-            } finally {
-              isStripeProcessing.value = false;
-              dismissProcessingDialog('stripe flow completed');
-            }
+      try {
+        print('🍎 Platform check - iOS: $isIos');
+        if (useIap) {
+          // Don't allow purchase attempts until the store/products are ready.
+          final iapState = iapStateAsync.valueOrNull;
+          if (iapState == null || !iapState.storeAvailable) {
+            throw Exception('Store unavailable');
           }
-        } catch (e) {
-          print('❌ Error in subscription flow: $e');
 
-          dismissProcessingDialog('main action catch');
+          final catalog = activePlanOption.catalogProduct;
+          print(
+              '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
+          if (catalog == null) throw Exception('Missing iOS product mapping');
 
+          print('✅ catalogProduct is valid, proceeding...');
+
+          // Show processing dialog before starting purchase
           if (context.mounted) {
-            _debugLog('Purchase flow threw: $e');
+            print('🎬 Showing processing dialog...');
+            processingDialogOpen.value = true;
+            _debugLog(
+                '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
+            showBlockingProcessingDialog(
+              context: context,
+              message: 'Processing your purchase...',
+            );
+            print('✅ Processing dialog shown');
+          } else {
+            print('⚠️ Context not mounted, skipping dialog');
+          }
 
-            final raw = e.toString();
-            final lower = raw.toLowerCase();
-            final isManagedInApp =
-                lower.contains('subscription_managed_in_app') ||
-                    lower.contains('managed through an in-app purchase');
+          print(
+              '🔍 About to call buy() method with product: ${catalog.storeProductId}');
+          _debugLog(
+            '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
+          );
+          await ref.read(iapControllerProvider.notifier).buy(catalog);
+          print('✅ buy() method completed');
+          _debugLog('🧾 IAP buy completed');
+          _debugLog(
+              '🧾 IAP state after buy: processing=${iapStateAsync.valueOrNull?.isProcessing} lastError=${iapStateAsync.valueOrNull?.lastError ?? ""}');
+          // Dialog will remain open until purchase completes
+          // Navigation in _onPurchaseUpdated will automatically dismiss the dialog
+        } else {
+          print('💳 Starting Stripe checkout');
 
-            if (isManagedInApp) {
-              final result = await MonekoAlertDialog.show(
-                context: context,
-                title: 'Manage subscription in Play Store',
-                description:
-                    'Your subscription is managed through an in-app purchase. Please manage billing in the Play Store.',
-                confirmLabel: 'Open Play Store',
-                cancelLabel: 'Cancel',
-              );
-              if (result?.confirmed == true) {
-                await onManageStoreSubscription();
-              }
-              return;
-            }
+          isStripeProcessing.value = true;
 
-            AppToast.error(context, humanizePurchaseError(raw));
+          // Show processing dialog for Stripe
+          if (context.mounted) {
+            processingDialogOpen.value = true;
+            _debugLog(
+                '🧾 Dialog open set to true (stripe). plan=${activePlanOption.id}');
+            showBlockingProcessingDialog(
+              context: context,
+              message: 'Redirecting to checkout...',
+            );
+          }
+
+          try {
+            await startStripeCheckout(activePlanOption);
+          } finally {
+            isStripeProcessing.value = false;
+            dismissProcessingDialog('stripe flow completed');
           }
         }
-      } else {
-        print('❌ User cancelled subscription dialog');
+      } catch (e) {
+        print('❌ Error in subscription flow: $e');
+
+        dismissProcessingDialog('main action catch');
+
+        if (context.mounted) {
+          _debugLog('Purchase flow threw: $e');
+
+          final raw = e.toString();
+          final lower = raw.toLowerCase();
+          final isManagedInApp =
+              lower.contains('subscription_managed_in_app') ||
+                  lower.contains('managed through an in-app purchase');
+
+          if (isManagedInApp) {
+            final result = await MonekoAlertDialog.show(
+              context: context,
+              title: 'Manage subscription in Play Store',
+              description:
+                  'Your subscription is managed through an in-app purchase. Please manage billing in the Play Store.',
+              confirmLabel: 'Open Play Store',
+              cancelLabel: 'Cancel',
+            );
+            if (result?.confirmed == true) {
+              await onManageStoreSubscription();
+            }
+            return;
+          }
+
+          AppToast.error(context, humanizePurchaseError(raw));
+        }
       }
     }
 

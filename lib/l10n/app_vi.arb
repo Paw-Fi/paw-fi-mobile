@@ -1875,5 +1875,9 @@
   "template_pers_bio_title": "Biohacker / Thể hình",
   "template_pers_bio_desc": "Ưu tiên thực phẩm chức năng, gym và thực phẩm hữu cơ.",
   "template_pers_gamer_title": "Công nghệ & Game",
-  "template_pers_gamer_desc": "Ưu tiên điện tử, trò chơi và dịch vụ số."
+  "template_pers_gamer_desc": "Ưu tiên điện tử, trò chơi và dịch vụ số.",
+  "categoryHealthInsurance": "Bảo hiểm y tế",
+  "categoryHomeInsurance": "Bảo hiểm nhà ở",
+  "categoryLifeInsurance": "Bảo hiểm nhân thọ",
+  "categoryRentersInsurance": "Bảo hiểm người thuê nhà"
 }

@@ -1823,5 +1823,9 @@
   "template_pers_bio_title": "Biohacker / Fitness",
   "template_pers_bio_desc": "Geeft prioriteit aan supplementen, sportschool en biologische voeding.",
   "template_pers_gamer_title": "Tech & Gamer",
-  "template_pers_gamer_desc": "Geeft prioriteit aan elektronica, games en digitale diensten."
+  "template_pers_gamer_desc": "Geeft prioriteit aan elektronica, games en digitale diensten.",
+  "categoryHealthInsurance": "Zorgverzekering",
+  "categoryHomeInsurance": "Woonhuisverzekering",
+  "categoryLifeInsurance": "Levensverzekering",
+  "categoryRentersInsurance": "Inboedelverzekering"
 }

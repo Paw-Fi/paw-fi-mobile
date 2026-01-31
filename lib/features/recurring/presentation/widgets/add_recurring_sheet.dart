@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -32,6 +33,18 @@ import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+
+// Prevent accidental PII/financial logging.
+// Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
@@ -178,25 +191,25 @@ class AddRecurringSheet extends HookConsumerWidget {
         return null;
       }
       if (existingTransaction?.householdId == null) {
-        debugPrint(
+        _debugPrint(
             '🏠 [RECURRING LOAD SPLIT] Skipping - existing transaction is personal');
         return null;
       }
       if (!isSharedWithHousehold.value) {
-        debugPrint(
+        _debugPrint(
             '🏠 [RECURRING LOAD SPLIT] Skipping - isSharedWithHousehold is FALSE');
         return null;
       }
 
       if (!membersAsync.hasValue) {
-        debugPrint(
+        _debugPrint(
             '👥 [RECURRING LOAD SPLIT] Members not loaded yet, waiting for next rebuild');
         return null;
       }
 
       final members = membersAsync.value;
       if (members == null || members.isEmpty) {
-        debugPrint(
+        _debugPrint(
             '👥 [RECURRING LOAD SPLIT] No household members available, aborting split load');
         return null;
       }
@@ -204,7 +217,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       Future.microtask(() async {
         final householdId = existingTransaction!.householdId!;
         final expenseId = existingTransaction!.id;
-        debugPrint(
+        _debugPrint(
             '🔄 [RECURRING LOAD SPLIT] Loading split configuration for recurring expense: $expenseId (household=$householdId)');
 
         try {
@@ -220,14 +233,14 @@ class AddRecurringSheet extends HookConsumerWidget {
             ).future,
           );
 
-          debugPrint(
+          _debugPrint(
               '🔄 [RECURRING LOAD SPLIT] Retrieved ${effectiveSplits.length} split groups for household=$householdId');
 
           final matchingGroups =
               effectiveSplits.where((g) => g.expenseId == expenseId).toList();
 
           if (matchingGroups.isEmpty) {
-            debugPrint(
+            _debugPrint(
                 '⚠️ [RECURRING LOAD SPLIT] No split group found for expenseId=$expenseId');
             return;
           }
@@ -238,12 +251,12 @@ class AddRecurringSheet extends HookConsumerWidget {
           );
           final splitGroup = matchingGroups.first;
 
-          debugPrint(
+          _debugPrint(
               '✅ [RECURRING LOAD SPLIT] Using split group ${splitGroup.id} type=${splitGroup.splitType} lines=${splitGroup.splitLines?.length ?? 0}');
 
           final lines = splitGroup.splitLines;
           if (lines == null || lines.isEmpty) {
-            debugPrint(
+            _debugPrint(
                 '⚠️ [RECURRING LOAD SPLIT] Split group has no lines, aborting');
             return;
           }
@@ -259,7 +272,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             }
 
             if (matchingLine == null) {
-              debugPrint(
+              _debugPrint(
                   '⚠️ [RECURRING LOAD SPLIT] No split line found for member ${member.userId}');
               continue;
             }
@@ -277,13 +290,13 @@ class AddRecurringSheet extends HookConsumerWidget {
               ),
             );
 
-            debugPrint(
+            _debugPrint(
               '   [RECURRING LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=${matchingLine.amountCents}',
             );
           }
 
           if (memberSplits.isEmpty) {
-            debugPrint(
+            _debugPrint(
                 '⚠️ [RECURRING LOAD SPLIT] No usable member splits after mapping');
             return;
           }
@@ -299,12 +312,12 @@ class AddRecurringSheet extends HookConsumerWidget {
             selectedPayerUserId.value = splitGroup.payerUserId;
           }
 
-          debugPrint(
+          _debugPrint(
               '✅ [RECURRING LOAD SPLIT] Initialized split editor for recurring expense $expenseId with type=$uiSplitType, members=${memberSplits.length}, payer=${selectedPayerUserId.value}');
         } catch (error, stackTrace) {
-          debugPrint(
+          _debugPrint(
               '❌ [RECURRING LOAD SPLIT] Error loading split configuration: $error');
-          debugPrint('   Stack: $stackTrace');
+          _debugPrint('   Stack: $stackTrace');
         }
       });
 
@@ -330,11 +343,11 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     // Initialize payer when household mode is active on mount
     useEffect(() {
-      debugPrint('🏠 [ADD RECURRING] Initializing payer for household mode');
-      debugPrint('   isEditing: $isEditing');
-      debugPrint('   viewMode: ${viewMode.mode}');
-      debugPrint('   isSharedWithHousehold: ${isSharedWithHousehold.value}');
-      debugPrint('   selectedHouseholdId: ${selectedHouseholdId.value}');
+      _debugPrint('🏠 [ADD RECURRING] Initializing payer for household mode');
+      _debugPrint('   isEditing: $isEditing');
+      _debugPrint('   viewMode: ${viewMode.mode}');
+      _debugPrint('   isSharedWithHousehold: ${isSharedWithHousehold.value}');
+      _debugPrint('   selectedHouseholdId: ${selectedHouseholdId.value}');
 
       // For EDIT mode, we must NOT blindly override the payer with the
       // current user. The authoritative source for payer on shared
@@ -347,7 +360,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
           existingTransaction?.payerUserId != null) {
-        debugPrint(
+        _debugPrint(
             '   Setting payer from existing transaction: ${existingTransaction!.payerUserId}');
         selectedPayerUserId.value = existingTransaction!.payerUserId;
       }
@@ -359,7 +372,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
           user?.id != null) {
-        debugPrint('   Setting payer to current user: ${user!.id}');
+        _debugPrint('   Setting payer to current user: ${user!.id}');
         selectedPayerUserId.value = user.id;
       }
       return null;
@@ -378,15 +391,15 @@ class AddRecurringSheet extends HookConsumerWidget {
       // Always update when amount is present to ensure correct state
       // Previous logic only updated if hasAmountEverBeenSet, but this could miss cases
       // where the state got out of sync
-      debugPrint(
+      _debugPrint(
           '🔄 [ADD RECURRING] Amount present; ensuring isSharedWithHousehold matches view mode');
-      debugPrint('   Should be shared (view mode only): $shouldBeShared');
-      debugPrint('   ViewMode: ${viewMode.mode}');
-      debugPrint(
+      _debugPrint('   Should be shared (view mode only): $shouldBeShared');
+      _debugPrint('   ViewMode: ${viewMode.mode}');
+      _debugPrint(
           '   HouseholdId (selected state): ${selectedHouseholdState.householdId}');
-      debugPrint(
+      _debugPrint(
           '   Current isSharedWithHousehold: ${isSharedWithHousehold.value}');
-      debugPrint(
+      _debugPrint(
           '   HouseholdId (selected local): ${selectedHouseholdId.value}');
 
       // If in household mode but no household selected yet, pick one from available households
@@ -400,10 +413,10 @@ class AddRecurringSheet extends HookConsumerWidget {
                   shareableHouseholds.any((h) => h.id == preferredId))
               ? preferredId
               : shareableHouseholds.first.id;
-          debugPrint(
+          _debugPrint(
               '   ✅ [ADD RECURRING] Auto-selected householdId: ${selectedHouseholdId.value}');
         } else {
-          debugPrint(
+          _debugPrint(
               '   ⚠️ [ADD RECURRING] No households available to auto-select');
         }
       }
@@ -411,13 +424,14 @@ class AddRecurringSheet extends HookConsumerWidget {
       final resolvedShouldShare = shouldBeShared &&
           (selectedHouseholdState.householdId != null ||
               selectedHouseholdId.value != null);
-      debugPrint(
+      _debugPrint(
           '   Resolved shouldShare (after household pick): $resolvedShouldShare');
 
       // Only update if it doesn't match the expected state
       // This prevents unnecessary rebuilds but ensures correctness
       if (isSharedWithHousehold.value != resolvedShouldShare) {
-        debugPrint('   ⚠️ State mismatch! Correcting to: $resolvedShouldShare');
+        _debugPrint(
+            '   ⚠️ State mismatch! Correcting to: $resolvedShouldShare');
         isSharedWithHousehold.value = resolvedShouldShare;
         if (resolvedShouldShare) {
           selectedPayerUserId.value ??=
@@ -456,7 +470,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       final l10n = context.l10n;
       if (selectedCategory.value == null) {
-        debugPrint('🔴 Error: No category selected');
+        _debugPrint('🔴 Error: No category selected');
         AppToast.error(context, context.l10n.pleaseSelectCategory);
         return;
       }
@@ -467,8 +481,9 @@ class AddRecurringSheet extends HookConsumerWidget {
         return;
       }
 
-      final amount = double.tryParse(amountText);
-      if (amount == null || amount <= 0) {
+      final amountCents = tryParseMoneyToCents(amountText);
+      final amount = amountCents == null ? null : centsToAmount(amountCents);
+      if (amount == null || amountCents == null || amountCents <= 0) {
         AppToast.error(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
@@ -518,10 +533,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             isSharedWithHousehold.value &&
             selectedHouseholdId.value != null;
         final activeHouseholdId = effectiveHouseholdId;
-        debugPrint(
+        _debugPrint(
             '💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
-        debugPrint('   Custom split type: ${customSplitType.value}');
-        debugPrint(
+        _debugPrint('   Custom split type: ${customSplitType.value}');
+        _debugPrint(
             '   Custom splits count: ${customSplits.value?.length ?? 0}');
 
         if (isExpense) {
@@ -638,32 +653,33 @@ class AddRecurringSheet extends HookConsumerWidget {
         isLoading.value = false;
 
         if (result != null) {
-          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-          debugPrint('✅ [SAVE RECURRING] Transaction saved successfully');
-          debugPrint('   Transaction ID: ${result.id}');
-          debugPrint('   Type: ${result.type}');
-          debugPrint('   Category: ${result.category}');
-          debugPrint('   Amount: ${result.amount} ${result.currency}');
-          debugPrint('   HouseholdId: ${result.householdId}');
-          debugPrint('   Has RecurrenceRule: ${result.recurrenceRule != null}');
-          debugPrint(
+          _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          _debugPrint('✅ [SAVE RECURRING] Transaction saved successfully');
+          _debugPrint('   Transaction ID: ${result.id}');
+          _debugPrint('   Type: ${result.type}');
+          _debugPrint('   Category: ${result.category}');
+          _debugPrint('   Amount: ${result.amount} ${result.currency}');
+          _debugPrint('   HouseholdId: ${result.householdId}');
+          _debugPrint(
+              '   Has RecurrenceRule: ${result.recurrenceRule != null}');
+          _debugPrint(
               '   Frequency: ${result.recurrenceRule?.frequency ?? "one-time"}');
 
           // Get current view mode to determine which scope to refresh
           final currentScope = ref.read(householdScopeProvider);
           final currentHouseholdId = currentScope.activeAccountHouseholdId;
 
-          debugPrint(
+          _debugPrint(
               '🔄 [REFRESH] Current view mode: ${currentScope.activeAccountType}');
-          debugPrint('🔄 [REFRESH] Current household ID: $currentHouseholdId');
-          debugPrint(
+          _debugPrint('🔄 [REFRESH] Current household ID: $currentHouseholdId');
+          _debugPrint(
               '🔄 [REFRESH] Transaction household ID (activeHouseholdId): $activeHouseholdId');
 
           // CRITICAL: Force refresh based on CURRENT VIEW MODE
           // This ensures the page the user is viewing refreshes immediately
           if (currentScope.activeAccountType != ActiveAccountType.personal &&
               currentHouseholdId != null) {
-            debugPrint(
+            _debugPrint(
                 '🏠 [REFRESH] Refreshing HOUSEHOLD view for: $currentHouseholdId');
 
             // Invalidate RequestDeduplicator cache for household data
@@ -678,27 +694,27 @@ class AddRecurringSheet extends HookConsumerWidget {
             ref.invalidate(cachedHouseholdSplitsProvider);
 
             // Force refresh (not invalidate) to reload data while keeping state
-            debugPrint(
+            _debugPrint(
                 '   🔄 Forcing refresh of recurringTransactionsProvider($currentHouseholdId)');
             await ref
                 .read(
                     recurringTransactionsProvider(currentHouseholdId).notifier)
                 .refresh(user.id);
 
-            debugPrint(
+            _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (household view)');
             ref.invalidate(pocketsProvider);
           } else {
-            debugPrint('👤 [REFRESH] Refreshing PERSONAL view');
+            _debugPrint('👤 [REFRESH] Refreshing PERSONAL view');
 
             // Force refresh (not invalidate) to reload data while keeping state
-            debugPrint(
+            _debugPrint(
                 '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
             await ref
                 .read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
 
-            debugPrint(
+            _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (personal view)');
             ref.invalidate(pocketsProvider);
           }
@@ -707,7 +723,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           // This ensures consistency across all scopes
           if (activeHouseholdId != null &&
               activeHouseholdId != currentHouseholdId) {
-            debugPrint(
+            _debugPrint(
                 '🔄 [REFRESH] Also refreshing transaction storage scope: $activeHouseholdId');
             ref
                 .read(cacheInvalidatorProvider)
@@ -717,28 +733,28 @@ class AddRecurringSheet extends HookConsumerWidget {
             ref.invalidate(householdSplitsProvider);
             ref.invalidate(cachedHouseholdSplitsProvider);
 
-            debugPrint(
+            _debugPrint(
                 '   🔄 Forcing refresh of recurringTransactionsProvider($activeHouseholdId)');
             await ref
                 .read(recurringTransactionsProvider(activeHouseholdId).notifier)
                 .refresh(user.id);
 
-            debugPrint(
+            _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (transaction household scope)');
             ref.invalidate(pocketsProvider);
           } else if (activeHouseholdId == null &&
               currentScope.activeAccountType != ActiveAccountType.personal) {
             // Transaction is personal but we're in household view - also refresh personal scope
-            debugPrint(
+            _debugPrint(
                 '🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
 
-            debugPrint(
+            _debugPrint(
                 '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
             await ref
                 .read(recurringTransactionsProvider(null).notifier)
                 .refresh(user.id);
 
-            debugPrint(
+            _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (personal scope)');
             ref.invalidate(pocketsProvider);
           }
@@ -746,9 +762,9 @@ class AddRecurringSheet extends HookConsumerWidget {
           // Keep currency selector counts up-to-date.
           ref.invalidate(currencyTransactionCountsProvider);
 
-          debugPrint(
+          _debugPrint(
               '✅ [REFRESH] All providers refreshed/invalidated successfully');
-          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
           if (context.mounted) {
             closeDialog();
@@ -1157,24 +1173,25 @@ class AddRecurringSheet extends HookConsumerWidget {
                         _buildDetailCard(
                           colorScheme: colorScheme,
                           label: context.l10n.frequency,
-                          value: () {
-                            // Get the label for the current frequency
-                            final freq =
-                                getDefaultFrequencyOptions(context).firstWhere(
-                              (f) => f.value == selectedFrequency.value,
-                              orElse: () => getDefaultFrequencyOptions(
-                                  context)[3], // Default to 'monthly'
-                            );
-                            return freq.label;
-                          }(),
+                          value: formatRecurrenceSelectionLabel(
+                            context,
+                            frequency: selectedFrequency.value,
+                            interval: customInterval.value,
+                          ),
                           onTap: () async {
-                            final result = await showFrequencyPicker(
+                            final result = await showRecurrencePicker(
                               context: context,
                               currentFrequency: selectedFrequency.value,
+                              currentInterval: customInterval.value,
                             );
-                            if (result != null) {
-                              selectedFrequency.value = result;
-                            }
+                            if (result == null) return;
+
+                            selectedFrequency.value = result.frequency;
+                            final interval = result.interval;
+                            customInterval.value =
+                                (interval != null && interval > 1)
+                                    ? interval
+                                    : null;
                           },
                         ),
 

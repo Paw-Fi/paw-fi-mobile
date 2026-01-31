@@ -25,6 +25,12 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+
+enum EnvelopeAllocationMode {
+  percentage,
+  fixedAmount,
+}
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -106,32 +112,73 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final amountFocusNode = useFocusNode();
     useListenable(amountFocusNode);
 
-    // Sync amount controller with slider value when slider changes (and not editing amount)
+    final allocationMode = useState<EnvelopeAllocationMode>(
+      (existingEnvelope?.allocationCents != null)
+          ? EnvelopeAllocationMode.fixedAmount
+          : EnvelopeAllocationMode.percentage,
+    );
+
+    String formatPeriodMonth(DateTime date) {
+      final m = date.month.toString().padLeft(2, '0');
+      final d = '01';
+      return '${date.year}-$m-$d';
+    }
+
+    final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
+    final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
+    final periodMonth = formatPeriodMonth(monthStart);
+
+    // Sync amount controller with slider value when slider changes (and not editing amount).
+    // In fixed allocation mode, the amount field is the source of truth.
     useEffect(() {
+      if (allocationMode.value == EnvelopeAllocationMode.fixedAmount) {
+        return null;
+      }
       if (!amountFocusNode.hasFocus) {
         final amount = totalBudget * (sliderValue.value / 100.0);
         amountController.text = formatAmount(amount);
       }
       return null;
-    }, [sliderValue.value, totalBudget]);
+    }, [sliderValue.value, totalBudget, allocationMode.value]);
+
+    // Initialize amount from existing fixed allocation (edit mode) or from current percentage.
+    useEffect(() {
+      if (amountController.text.trim().isNotEmpty) {
+        return null;
+      }
+      final fixedCents = existingEnvelope?.allocationCents;
+      if (fixedCents != null) {
+        amountController.text = formatAmount(centsToAmount(fixedCents));
+        return null;
+      }
+      final amount = totalBudget * (sliderValue.value / 100.0);
+      amountController.text = formatAmount(amount);
+      return null;
+    }, []);
 
     // Handle amount input focus loss
     useEffect(() {
       void onFocusChange() {
         if (!amountFocusNode.hasFocus) {
-          final text = amountController.text;
-          final amount = double.tryParse(text) ?? 0.0;
-          final clampedAmount = amount.clamp(0.0, totalBudget);
-
-          double newPct = 0.0;
-          if (totalBudget > 0) {
-            newPct = (clampedAmount / totalBudget) * 100.0;
+          final amountCents = tryParseMoneyToCents(amountController.text);
+          if (amountCents == null) {
+            // Keep previous value; user can still save via percentage.
+            return;
           }
 
-          // Update slider and percentage controller
-          sliderValue.value = newPct.clamp(0.0, effectiveMax);
-          percentageController.text =
-              sliderValue.value.toStringAsFixed(_pctPrecision);
+          final totalBudgetCents = (totalBudget * 100).round();
+          final clampedCents = amountCents.clamp(0, totalBudgetCents);
+          final clampedAmount = centsToAmount(clampedCents);
+
+          if (allocationMode.value == EnvelopeAllocationMode.percentage) {
+            double newPct = 0.0;
+            if (totalBudgetCents > 0) {
+              newPct = (clampedCents / totalBudgetCents) * 100.0;
+            }
+            sliderValue.value = newPct.clamp(0.0, effectiveMax);
+            percentageController.text =
+                sliderValue.value.toStringAsFixed(_pctPrecision);
+          }
 
           // Re-format the amount text
           amountController.text = formatAmount(clampedAmount);
@@ -149,6 +196,22 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
       return null;
     }, [percentageController.text]);
+
+    useEffect(() {
+      // When switching modes, ensure the amount field reflects the new source.
+      if (allocationMode.value == EnvelopeAllocationMode.fixedAmount) {
+        final existing = existingEnvelope?.allocationCents;
+        if (existing != null) {
+          amountController.text = formatAmount(centsToAmount(existing));
+        }
+      } else {
+        if (!amountFocusNode.hasFocus) {
+          final amount = totalBudget * (sliderValue.value / 100.0);
+          amountController.text = formatAmount(amount);
+        }
+      }
+      return null;
+    }, [allocationMode.value]);
 
     final selectedCategories = useState<List<String>>(
         existingEnvelope == null ? (template?.suggestedCategories ?? []) : []);
@@ -209,23 +272,39 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     Future<void> handleSave() async {
       final l10n = context.l10n;
+      FocusScope.of(context).unfocus();
       final name = nameController.text.trim();
       final percentageText = percentageController.text.trim();
+      final isFixed =
+          allocationMode.value == EnvelopeAllocationMode.fixedAmount;
 
       if (name.isEmpty) {
         AppToast.error(context, l10n.pleaseEnterPocketName);
         return;
       }
 
-      if (percentageText.isEmpty) {
-        AppToast.error(context, l10n.pleaseEnterPocketPercentage);
-        return;
-      }
+      final totalBudgetCents = (totalBudget * 100).round();
+      final amountCents = tryParseMoneyToCents(amountController.text) ?? 0;
+      final clampedAmountCents = amountCents.clamp(0, totalBudgetCents);
 
-      final percentage = double.tryParse(percentageText);
-      if (percentage == null || percentage < 0 || percentage > 100) {
-        AppToast.error(context, l10n.pleaseEnterValidPocketPercentage);
-        return;
+      double percentage = 0.0;
+      if (!isFixed) {
+        if (percentageText.isEmpty) {
+          AppToast.error(context, l10n.pleaseEnterPocketPercentage);
+          return;
+        }
+
+        final parsed = double.tryParse(percentageText);
+        if (parsed == null || parsed < 0 || parsed > 100) {
+          AppToast.error(context, l10n.pleaseEnterValidPocketPercentage);
+          return;
+        }
+        percentage = parsed;
+      } else {
+        if (clampedAmountCents <= 0) {
+          AppToast.error(context, l10n.pleaseEnterAmount);
+          return;
+        }
       }
 
       if (selectedCategories.value.isEmpty) {
@@ -280,40 +359,56 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
 
       try {
-        // Rebalance percentages: preserve user allocations unless totals exceed 100.
-        final others = allPockets
-            .where((p) => isEditing ? p.id != existingEnvelope!.id : true)
-            .toList();
-        var desiredPct = double.parse(
-            percentage.clamp(0, 100).toStringAsFixed(_pctPrecision));
-        final totalOther =
-            others.fold<double>(0.0, (sum, p) => sum + p.percentage);
-        final adjustedOthers = <String, double>{};
-
-        final currentTotal = desiredPct + totalOther;
-        if (currentTotal > 100.0 + 0.0001) {
-          // Scale others down to fit within 100 (leave desiredPct as entered)
-          final available = (100.0 - desiredPct).clamp(0.0, 100.0);
-          if (totalOther <= 0 || available <= 0) {
-            desiredPct = 100.0;
-          } else {
-            final factor = available / totalOther;
-            var remaining = available;
-            for (var i = 0; i < others.length; i++) {
-              final raw = (others[i].percentage * factor).clamp(0, 100);
-              final pct = i == others.length - 1
-                  ? remaining
-                  : double.parse(raw.toStringAsFixed(_pctPrecision));
-              remaining -= pct;
-              adjustedOthers[others[i].id] = double.parse(
-                  pct.clamp(0, 100).toStringAsFixed(_pctPrecision));
-            }
-          }
+        final nowIso = DateTime.now().toIso8601String();
+        // Determine the percentage we will store for this envelope.
+        // - Fixed mode: store 0% (budget comes from envelope_allocations)
+        // - Percentage mode: if the user is actively editing the amount field,
+        //   treat the amount as the source of truth; otherwise use the percent.
+        double desiredPct;
+        if (isFixed) {
+          desiredPct = 0.0;
+        } else if (amountFocusNode.hasFocus && totalBudgetCents > 0) {
+          desiredPct = (clampedAmountCents / totalBudgetCents) * 100.0;
         } else {
-          // Keep others as-is (clamped), allowing unallocated budget.
-          for (final p in others) {
-            adjustedOthers[p.id] = double.parse(
-                p.percentage.clamp(0, 100).toStringAsFixed(_pctPrecision));
+          desiredPct = percentage;
+        }
+        desiredPct = double.parse(
+            desiredPct.clamp(0, 100).toStringAsFixed(_pctPrecision));
+
+        final adjustedOthers = <String, double>{};
+        if (!isFixed) {
+          // Rebalance percentages: preserve user allocations unless totals exceed 100.
+          final others = allPockets
+              .where((p) => isEditing ? p.id != existingEnvelope!.id : true)
+              .toList();
+          final totalOther =
+              others.fold<double>(0.0, (sum, p) => sum + p.percentage);
+
+          final currentTotal = desiredPct + totalOther;
+          if (currentTotal > 100.0 + 0.0001) {
+            // Scale others down to fit within 100 (leave desiredPct as entered)
+            final available = (100.0 - desiredPct).clamp(0.0, 100.0);
+            if (totalOther <= 0 || available <= 0) {
+              desiredPct = 100.0;
+            } else {
+              final factor = available / totalOther;
+              var remaining = available;
+              for (var i = 0; i < others.length; i++) {
+                final raw = (others[i].percentage * factor).clamp(0, 100);
+                final pct = i == others.length - 1
+                    ? remaining
+                    : double.parse(raw.toStringAsFixed(_pctPrecision));
+                remaining -= pct;
+                adjustedOthers[others[i].id] = double.parse(
+                    pct.clamp(0, 100).toStringAsFixed(_pctPrecision));
+              }
+            }
+          } else {
+            // Keep others as-is (clamped), allowing unallocated budget.
+            for (final p in others) {
+              adjustedOthers[p.id] = double.parse(
+                  p.percentage.clamp(0, 100).toStringAsFixed(_pctPrecision));
+            }
           }
         }
 
@@ -325,7 +420,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             'name': name,
             'budget_id': budgetId,
             'budget_percentage': desiredPct,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': nowIso,
             'color': selectedColor.value,
             'icon': selectedIcon.value,
             'household_id': scopeParams.scope == PocketsScopeType.personal
@@ -363,8 +458,32 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           envelopeId = id;
         }
 
+        // Persist optional fixed allocation for this envelope (current month)
+        if (allocationMode.value == EnvelopeAllocationMode.fixedAmount) {
+          if (clampedAmountCents < 0) {
+            throw Exception('Invalid allocation amount');
+          }
+          await supabase.from('envelope_allocations').upsert(
+            <String, dynamic>{
+              'envelope_id': envelopeId,
+              'period_month': periodMonth,
+              'amount_cents': clampedAmountCents,
+              'carryover_policy': 'carryover',
+              'updated_at': nowIso,
+            },
+            onConflict: 'envelope_id,period_month',
+          );
+        } else {
+          // If the user switches back to percentage mode, remove the fixed
+          // allocation for this month so percentages take effect.
+          await supabase
+              .from('envelope_allocations')
+              .delete()
+              .eq('envelope_id', envelopeId)
+              .eq('period_month', periodMonth);
+        }
+
         // Persist redistributed percentages for other envelopes
-        final nowIso = DateTime.now().toIso8601String();
         for (final entry in adjustedOthers.entries) {
           await supabase.from('budget_envelopes').update(<String, dynamic>{
             'budget_percentage': entry.value,
@@ -860,6 +979,84 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => allocationMode.value =
+                                          EnvelopeAllocationMode.percentage,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: allocationMode.value ==
+                                                  EnvelopeAllocationMode
+                                                      .percentage
+                                              ? colorScheme.primary
+                                              : colorScheme.surface
+                                                  .withValues(alpha: 0.0),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: colorScheme.border,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          context.l10n.percent,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: allocationMode.value ==
+                                                    EnvelopeAllocationMode
+                                                        .percentage
+                                                ? colorScheme.primaryForeground
+                                                : colorScheme.foreground,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => allocationMode.value =
+                                          EnvelopeAllocationMode.fixedAmount,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 10),
+                                        decoration: BoxDecoration(
+                                          color: allocationMode.value ==
+                                                  EnvelopeAllocationMode
+                                                      .fixedAmount
+                                              ? colorScheme.primary
+                                              : colorScheme.surface
+                                                  .withValues(alpha: 0.0),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: colorScheme.border,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          context.l10n.amount,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: allocationMode.value ==
+                                                    EnvelopeAllocationMode
+                                                        .fixedAmount
+                                                ? colorScheme.primaryForeground
+                                                : colorScheme.foreground,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
                               Text(
                                 context.l10n.budgetAmount,
                                 style: TextStyle(
@@ -955,31 +1152,33 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 6,
-                                  activeTrackColor: colorScheme.primary,
-                                  inactiveTrackColor: colorScheme.primary
-                                      .withValues(alpha: 0.1),
-                                  thumbColor: colorScheme.primaryForeground,
-                                  overlayColor: colorScheme.primary
-                                      .withValues(alpha: 0.1),
-                                  thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 12, elevation: 4),
-                                  overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 24),
+                              if (allocationMode.value ==
+                                  EnvelopeAllocationMode.percentage)
+                                SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    trackHeight: 6,
+                                    activeTrackColor: colorScheme.primary,
+                                    inactiveTrackColor: colorScheme.primary
+                                        .withValues(alpha: 0.1),
+                                    thumbColor: colorScheme.primaryForeground,
+                                    overlayColor: colorScheme.primary
+                                        .withValues(alpha: 0.1),
+                                    thumbShape: const RoundSliderThumbShape(
+                                        enabledThumbRadius: 12, elevation: 4),
+                                    overlayShape: const RoundSliderOverlayShape(
+                                        overlayRadius: 24),
+                                  ),
+                                  child: Slider(
+                                    value: sliderValue.value,
+                                    min: 0,
+                                    max: effectiveMax,
+                                    onChanged: (value) {
+                                      sliderValue.value = value;
+                                      percentageController.text =
+                                          value.toStringAsFixed(_pctPrecision);
+                                    },
+                                  ),
                                 ),
-                                child: Slider(
-                                  value: sliderValue.value,
-                                  min: 0,
-                                  max: effectiveMax,
-                                  onChanged: (value) {
-                                    sliderValue.value = value;
-                                    percentageController.text =
-                                        value.toStringAsFixed(_pctPrecision);
-                                  },
-                                ),
-                              ),
                               if (unallocatedBudget < 0)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 12),

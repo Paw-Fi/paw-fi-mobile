@@ -84,6 +84,25 @@ class CategoryPicker extends HookWidget {
     final grouped = _buildGroups(context, canonicalCategories);
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
+    final normalizedQuery = searchQuery.value.trim().toLowerCase();
+    final normalizedCreateKey =
+        normalizedQuery.isEmpty ? '' : normalizeCategory(normalizedQuery);
+
+    bool hasExactOrLocalizedMatch(String key) {
+      if (key.isEmpty) return false;
+      if (canonicalCategories.contains(key)) return true;
+      final localized = getCategoryTranslation(context, key).toLowerCase();
+      return canonicalCategories.any((k) {
+        if (k == key) return true;
+        return getCategoryTranslation(context, k).toLowerCase() == localized;
+      });
+    }
+
+    final canCreateFromQuery = normalizedQuery.isNotEmpty &&
+        normalizedCreateKey.isNotEmpty &&
+        normalizedCreateKey.length <= 48 &&
+        !hasExactOrLocalizedMatch(normalizedCreateKey);
+
     void handleToggle(String key) {
       final current = <String>{...selected.value};
 
@@ -136,6 +155,69 @@ class CategoryPicker extends HookWidget {
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
                           children: [
+                            if (canCreateFromQuery)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.l10n.categoryOther,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Divider(height: 1),
+                                    const SizedBox(height: 12),
+                                    GestureDetector(
+                                      onTap: () => handleToggle(
+                                        normalizedCreateKey,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.surface
+                                              .withValues(alpha: 0.0),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: colorScheme.border,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.add,
+                                              size: 18,
+                                              color: colorScheme.primary,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                normalizedCreateKey,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.foreground,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             for (final entry in filtered.entries)
                               _CategoryGroupSection(
                                 groupTitle: getCategoryGroupTranslation(

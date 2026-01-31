@@ -157,6 +157,11 @@ class WidgetSyncManager extends HookConsumerWidget {
           try {
             final client = Supabase.instance.client;
 
+            final now = DateTime.now();
+            final periodMonth = DateTime(now.year, now.month, 1)
+                .toIso8601String()
+                .substring(0, 10);
+
             // Fetch envelopes for this budget/currency
             final envelopesRes = await client
                 .from('budget_envelopes')
@@ -173,6 +178,21 @@ class WidgetSyncManager extends HookConsumerWidget {
             }
 
             final envIds = envRows.map((e) => e['id'] as String).toList();
+
+            final allocationsRes = await client
+                .from('envelope_allocations')
+                .select('envelope_id,amount_cents')
+                .eq('period_month', periodMonth)
+                .inFilter('envelope_id', envIds);
+            final allocationRows =
+                (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+            final allocationCentsByEnvelopeId = <String, int>{
+              for (final row in allocationRows)
+                if ((row['envelope_id'] as String?) != null)
+                  if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
+                    (row['envelope_id'] as String):
+                        (row['amount_cents'] as num?)!.toInt(),
+            };
 
             // Category links per envelope
             final categoryLinksRes = await client
@@ -218,7 +238,10 @@ class WidgetSyncManager extends HookConsumerWidget {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
               final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
-              final envelopeBudget = totalBudget * (pct / 100.0);
+              final allocationCents = allocationCentsByEnvelopeId[id];
+              final envelopeBudget = allocationCents != null
+                  ? allocationCents / 100.0
+                  : totalBudget * (pct / 100.0);
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
               // Icon can be stored as a string name or another type (e.g. int codepoint).
@@ -293,6 +316,21 @@ class WidgetSyncManager extends HookConsumerWidget {
 
             final envIds = envRows.map((e) => e['id'] as String).toList();
 
+            final allocationsRes = await client
+                .from('envelope_allocations')
+                .select('envelope_id,amount_cents')
+                .eq('period_month', periodMonth)
+                .inFilter('envelope_id', envIds);
+            final allocationRows =
+                (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+            final allocationCentsByEnvelopeId = <String, int>{
+              for (final row in allocationRows)
+                if ((row['envelope_id'] as String?) != null)
+                  if (((row['amount_cents'] as num?)?.toInt() ?? 0) > 0)
+                    (row['envelope_id'] as String):
+                        (row['amount_cents'] as num?)!.toInt(),
+            };
+
             final categoryLinksRes = await client
                 .from('envelope_category_links')
                 .select('envelope_id,category')
@@ -353,7 +391,10 @@ class WidgetSyncManager extends HookConsumerWidget {
               final id = row['id'] as String;
               final name = row['name'] as String? ?? '';
               final pct = (row['budget_percentage'] as num?)?.toDouble() ?? 0.0;
-              final envelopeBudget = totalBudget * (pct / 100.0);
+              final allocationCents = allocationCentsByEnvelopeId[id];
+              final envelopeBudget = allocationCents != null
+                  ? allocationCents / 100.0
+                  : totalBudget * (pct / 100.0);
               final spent = spentById[id] ?? 0.0;
               final color = row['color'] as String? ?? '#7458FF';
               final dynamic rawIcon = row['icon'];

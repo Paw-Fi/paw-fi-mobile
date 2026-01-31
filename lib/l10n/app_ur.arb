@@ -491,7 +491,7 @@
   "categoryRent": "کرایہ",
   "categoryMortgage": "رہن",
   "categoryBills": "بلز",
-  "categoryInsurance": "انشورنس",
+  "categoryInsurance": "بیمہ",
   "categorySavings": "بچت",
   "categoryInvestment": "سرمایہ کاری",
   "categoryInvestments": "سرمایہ کاریاں",
@@ -1822,5 +1822,9 @@
   "template_pers_bio_title": "بایوہیکر / فٹنس",
   "template_pers_bio_desc": "سپلیمنٹس، جم اور نامیاتی خوراک کو ترجیح دیتا ہے۔",
   "template_pers_gamer_title": "ٹیک اور گیمر",
-  "template_pers_gamer_desc": "الیکٹرانکس، گیمز اور ڈیجیٹલ سروسز کو ترجیح دیتا ہے۔"
+  "template_pers_gamer_desc": "الیکٹرانکس، گیمز اور ڈیجیٹલ سروسز کو ترجیح دیتا ہے۔",
+  "categoryHealthInsurance": "صحت بیمہ",
+  "categoryHomeInsurance": "گھریلو بیمہ",
+  "categoryLifeInsurance": "زندگی کا بیمہ",
+  "categoryRentersInsurance": "کرایہ دار کا بیمہ"
 }

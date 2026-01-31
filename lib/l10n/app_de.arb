@@ -1876,5 +1876,9 @@
   "template_pers_bio_title": "Biohacker / Fitness",
   "template_pers_bio_desc": "Priorisiert Nahrungsergänzungsmittel, Fitnessstudio und Bio-Lebensmittel.",
   "template_pers_gamer_title": "Tech & Gamer",
-  "template_pers_gamer_desc": "Priorisiert Elektronik, Spiele und digitale Dienste."
+  "template_pers_gamer_desc": "Priorisiert Elektronik, Spiele und digitale Dienste.",
+  "categoryHealthInsurance": "Krankenversicherung",
+  "categoryHomeInsurance": "Hausratversicherung",
+  "categoryLifeInsurance": "Lebensversicherung",
+  "categoryRentersInsurance": "Hausratversicherung"
 }

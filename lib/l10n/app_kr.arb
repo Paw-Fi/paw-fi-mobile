@@ -1689,5 +1689,9 @@
   "template_pers_bio_title": "바이오해커 / 피트니스",
   "template_pers_bio_desc": "영양제, 헬스장 및 유기농 식품을 우선합니다.",
   "template_pers_gamer_title": "테크 & 게이머",
-  "template_pers_gamer_desc": "전자제품, 게임 및 디지털 서비스 지출을 우선합니다."
+  "template_pers_gamer_desc": "전자제품, 게임 및 디지털 서비스 지출을 우선합니다.",
+  "categoryHealthInsurance": "건강보험",
+  "categoryHomeInsurance": "주택 보험",
+  "categoryLifeInsurance": "생명보험",
+  "categoryRentersInsurance": "임차인 보험"
 }

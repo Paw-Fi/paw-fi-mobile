@@ -131,9 +131,10 @@ void main() {
       expect(normalizeCategory('Car'), 'car repairs');
     });
 
-    test('maps insurance to car insurance', () {
-      expect(normalizeCategory('insurance'), 'car insurance');
-      expect(normalizeCategory('Insurance'), 'car insurance');
+    test('maps generic insurance to insurance', () {
+      expect(normalizeCategory('insurance'), 'insurance');
+      expect(normalizeCategory('Insurance'), 'insurance');
+      expect(normalizeCategory('auto insurance'), 'car insurance');
     });
 
     test('maps health aliases to medical care', () {

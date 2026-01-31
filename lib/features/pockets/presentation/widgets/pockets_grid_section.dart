@@ -209,6 +209,12 @@ class PocketsGridSection extends HookConsumerWidget {
         ? _buildFakePockets(selectedCurrency)
         : sortedPockets;
 
+    final totalAllocated = pocketsForDisplay.fold<double>(
+      0.0,
+      (sum, e) => sum + e.getLimit(totalBudget),
+    );
+    final unallocatedBudget = totalBudget - totalAllocated;
+
     return Skeletonizer(
       enabled: isLoading,
       effect: ShimmerEffect(
@@ -232,8 +238,7 @@ class PocketsGridSection extends HookConsumerWidget {
           ],
           PocketsHeaderCard(
             totalBudget: totalBudget,
-            totalAllocated: pocketsForDisplay.fold(
-                0.0, (sum, e) => sum + e.getLimit(totalBudget)),
+            totalAllocated: totalAllocated,
             totalSpent: totalSpent,
             periodMonth: state.periodMonth,
             previousBudget: state.previousBudget,
@@ -354,7 +359,7 @@ class PocketsGridSection extends HookConsumerWidget {
                                 scopeParams: scopeParams,
                                 budgetId: state.budgetId,
                                 totalBudget: totalBudget,
-                                unallocatedBudget: state.unallocatedSpend,
+                                unallocatedBudget: unallocatedBudget,
                                 allPockets: state.editing,
                               );
                             },
@@ -432,7 +437,7 @@ class PocketsGridSection extends HookConsumerWidget {
                                 scopeParams: scopeParams,
                                 budgetId: state.budgetId,
                                 totalBudget: totalBudget,
-                                unallocatedBudget: state.unallocatedSpend,
+                                unallocatedBudget: unallocatedBudget,
                                 allPockets: state.editing,
                               );
                             },
