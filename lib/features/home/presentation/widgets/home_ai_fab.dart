@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -171,8 +172,7 @@ Future<void> _persistAiTransactions(
   required List<_AiParsedItem> transactions,
   String? localImagePath,
 }) async {
-  var didPersistAny = false;
-  var savedExpenseCount = 0;
+  if (transactions.isEmpty) return;
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -208,6 +208,7 @@ Future<void> _persistAiTransactions(
     );
   }
 
+  // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
   if (localImagePath != null && localImagePath.isNotEmpty) {
     receiptUrl = await ref
@@ -215,128 +216,141 @@ Future<void> _persistAiTransactions(
         .uploadReceiptImage(File(localImagePath), userId);
   }
 
-  for (final item in transactions) {
-    try {
-      if (item.transaction.isIncome) {
-        final response = await supabase.functions.invoke(
-          'save-income',
-          body: {
-            'userId': userId,
-            'amount': item.transaction.amount,
-            'category': item.transaction.category,
-            'currency': item.transaction.currency,
-            'date': item.transaction.date.toIso8601String(),
-            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
-            if (item.transaction.description?.isNotEmpty == true)
-              'description': item.transaction.description,
-            if (householdId != null && householdId.isNotEmpty)
-              'householdId': householdId,
-            if (householdId != null && householdId.isNotEmpty)
-              'isPortfolio': isPortfolio,
-          },
-        );
+  // Build batch payload - all transactions in a single request
+  final batchTransactions = transactions.map((item) {
+    final tx = item.transaction;
+    final isIncome = tx.isIncome;
 
-        if (response.data == null || response.data['success'] != true) {
-          throw Exception(response.data?['error'] ?? 'Failed to save income');
+    // Extract payer and splits for expenses
+    final rawPayerUserId = item.raw['payerUserId'];
+    final payerUserId =
+        rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+            ? rawPayerUserId.trim()
+            : null;
+
+    final rawCustomSplits = item.raw['customSplits'];
+    final customSplits = rawCustomSplits is Map
+        ? Map<String, dynamic>.from(rawCustomSplits)
+        : null;
+
+    final splitType = customSplits?['splitType']?.toString().trim();
+    final safeCustomSplits =
+        (splitType == null || splitType == 'equal') ? null : customSplits;
+
+    return <String, dynamic>{
+      'type': isIncome ? 'income' : 'expense',
+      'amount': tx.amount,
+      'category': tx.category,
+      'currency': tx.currency,
+      'date': tx.date.toIso8601String().split('T')[0],
+      'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+      if (tx.description?.isNotEmpty == true) 'description': tx.description,
+      if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
+      // Expense-specific fields
+      if (!isIncome && payerUserId != null) 'payerUserId': payerUserId,
+      if (!isIncome && safeCustomSplits != null)
+        'customSplits': safeCustomSplits,
+      // Income-specific fields (ownerType, privacyScope use defaults on backend)
+    };
+  }).toList(growable: false);
+
+  try {
+    debugPrint(
+        '[AI Batch Save] Saving ${batchTransactions.length} transactions in single request');
+
+    final response = await supabase.functions.invoke(
+      'save-transactions-batch',
+      body: {
+        'userId': userId,
+        if (householdId != null && householdId.isNotEmpty)
+          'householdId': householdId,
+        if (householdId != null && householdId.isNotEmpty)
+          'isPortfolio': isPortfolio,
+        'transactions': batchTransactions,
+      },
+    );
+
+    if (response.data == null) {
+      throw Exception('No response from save-transactions-batch');
+    }
+
+    final responseData = response.data as Map<String, dynamic>;
+    final results = responseData['results'] as List?;
+    final summary = responseData['summary'] as Map<String, dynamic>?;
+
+    debugPrint(
+        '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
+
+    var didPersistAny = false;
+    var savedExpenseCount = 0;
+
+    if (results != null && results.isNotEmpty) {
+      // Map results back to optimistic entries by index
+      for (final resultItem in results) {
+        final result = resultItem as Map<String, dynamic>;
+        final index = result['index'] as int;
+        final success = result['success'] as bool;
+        final data = result['data'] as Map<String, dynamic>?;
+
+        if (index < 0 || index >= transactions.length) continue;
+
+        final originalItem = transactions[index];
+
+        if (success && data != null) {
+          final savedEntry = ExpenseEntry.fromJson(data);
+          upsertSavedEntry(
+            optimisticId: originalItem.optimisticId,
+            savedEntry: savedEntry,
+          );
+          didPersistAny = true;
+          if (!originalItem.transaction.isIncome) {
+            savedExpenseCount += 1;
+          }
+        } else {
+          // Remove failed optimistic entry
+          removeOptimisticTransaction(
+            ref: ref,
+            optimisticId: originalItem.optimisticId,
+            householdId: householdId,
+          );
+          debugPrint(
+              '❌ Failed to persist transaction at index $index: ${result['error']}');
         }
-
-        final saved = Map<String, dynamic>.from(
-          response.data['data'] as Map,
-        );
-        final savedEntry = ExpenseEntry.fromJson(saved);
-
-        upsertSavedEntry(
-          optimisticId: item.optimisticId,
-          savedEntry: savedEntry,
-        );
-        didPersistAny = true;
-        continue;
       }
+    }
 
-      final rawPayerUserId = item.raw['payerUserId'];
-      final payerUserId =
-          rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
-              ? rawPayerUserId.trim()
-              : null;
+    if (didPersistAny) {
+      await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+            userId: userId,
+            householdId: householdId,
+          );
+    }
 
-      final rawCustomSplits = item.raw['customSplits'];
-      final customSplits = rawCustomSplits is Map
-          ? Map<String, dynamic>.from(rawCustomSplits)
-          : null;
+    if (savedExpenseCount > 0) {
+      final prefs = ref.read(sharedPreferencesProvider);
+      unawaited(Future<void>.delayed(
+        const Duration(milliseconds: 300),
+        () => _maybeRequestReviewAfterExpenseSave(
+          userId: userId,
+          prefs: prefs,
+          additionalExpenseCount: savedExpenseCount,
+        ),
+      ));
+    }
+  } catch (error) {
+    debugPrint('❌ Batch save failed: $error');
 
-      final splitType = customSplits?['splitType']?.toString().trim();
-      final safeCustomSplits =
-          (splitType == null || splitType == 'equal') ? null : customSplits;
-
-      final response = await supabase.functions.invoke(
-        'save-expense',
-        body: {
-          'userId': userId,
-          'amount': item.transaction.amount,
-          'category': item.transaction.category,
-          'currency': item.transaction.currency,
-          'date': item.transaction.date.toIso8601String(),
-          'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
-          if (item.transaction.description?.isNotEmpty == true)
-            'description': item.transaction.description,
-          if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
-          if (householdId != null && householdId.isNotEmpty)
-            'householdId': householdId,
-          if (householdId != null && householdId.isNotEmpty)
-            'isPortfolio': isPortfolio,
-          if (householdId != null &&
-              householdId.isNotEmpty &&
-              payerUserId != null)
-            'payerUserId': payerUserId,
-          if (householdId != null &&
-              householdId.isNotEmpty &&
-              safeCustomSplits != null)
-            'customSplits': safeCustomSplits,
-        },
-      );
-
-      if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? 'Failed to save expense');
-      }
-
-      final saved = Map<String, dynamic>.from(
-        response.data['data'] as Map,
-      );
-      final savedEntry = ExpenseEntry.fromJson(saved);
-
-      upsertSavedEntry(
-        optimisticId: item.optimisticId,
-        savedEntry: savedEntry,
-      );
-      didPersistAny = true;
-      savedExpenseCount += 1;
-    } catch (error) {
+    // On batch failure, remove all optimistic entries
+    for (final item in transactions) {
       removeOptimisticTransaction(
         ref: ref,
         optimisticId: item.optimisticId,
         householdId: householdId,
       );
-      debugPrint('❌ Failed to persist AI transaction: $error');
     }
-  }
 
-  if (didPersistAny) {
-    await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
-          userId: userId,
-          householdId: householdId,
-        );
-  }
-
-  if (savedExpenseCount > 0) {
-    final prefs = ref.read(sharedPreferencesProvider);
-    unawaited(Future<void>.delayed(
-      const Duration(milliseconds: 300),
-      () => _maybeRequestReviewAfterExpenseSave(
-        userId: userId,
-        prefs: prefs,
-        additionalExpenseCount: savedExpenseCount,
-      ),
-    ));
+    // Rethrow to allow caller to handle if needed
+    rethrow;
   }
 }
 
@@ -504,6 +518,60 @@ Future<void> handleAiFileOrGallery(
   );
 }
 
+/// Process analysis request with SSE streaming for real-time progress updates
+Future<Map<String, dynamic>?> _processWithSSE({
+  required Map<String, dynamic> body,
+  required BlockingProcessingController dialogController,
+  required bool Function() onCancelCheck,
+}) async {
+  // Get Supabase URL and auth token
+  final supabaseUrl = Constants.supabaseUrl;
+  final session = supabase.auth.currentSession;
+  if (session == null) {
+    throw Exception('No auth session');
+  }
+
+  // Build SSE URL with stream=true query param
+  final sseUrl =
+      Uri.parse('$supabaseUrl/functions/v1/analyze-expense?stream=true');
+
+  debugPrint('[SSE] Starting streaming request to $sseUrl');
+
+  Map<String, dynamic>? result;
+
+  await for (final event in SSEService.streamRequest(
+    url: sseUrl,
+    body: body,
+    headers: {
+      'Authorization': 'Bearer ${session.accessToken}',
+    },
+    timeout: const Duration(minutes: 3),
+  )) {
+    // Check for cancellation
+    if (onCancelCheck()) {
+      debugPrint('[SSE] Cancelled by user');
+      throw Exception('Cancelled');
+    }
+
+    debugPrint('[SSE] Received event: ${event.event} - ${event.data}');
+
+    switch (event.event) {
+      case 'progress':
+        final progressEvent = AnalysisProgressEvent.fromJson(event.data);
+        dialogController.updateSubMessage(progressEvent.displayMessage);
+        break;
+      case 'complete':
+        result = event.data;
+        break;
+      case 'error':
+        final errorMsg = event.data['error']?.toString() ?? 'Unknown error';
+        throw Exception(errorMsg);
+    }
+  }
+
+  return result;
+}
+
 Future<void> _processExpense(
   BuildContext context,
   WidgetRef ref, {
@@ -519,13 +587,43 @@ Future<void> _processExpense(
   final scope = ref.read(householdScopeProvider);
   final isPortfolio = scope.activeAccountType == ActiveAccountType.portfolio;
 
-  // Show processing modal
-  showBlockingProcessingDialog(
-    context: context,
-    message: imagePath != null
-        ? context.l10n.analyzingReceipt
-        : context.l10n.analyzingExpense,
-  );
+  // Determine if this is a potentially slow operation (PDF/file uploads)
+  final isPdfUpload = attachments?.any((a) =>
+          a['contentType']?.toString().contains('pdf') == true ||
+          a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
+      false;
+  final isLargeFile = attachments?.any((a) {
+        final data = a['data']?.toString() ?? '';
+        // Base64 data > 500KB (roughly 375KB raw)
+        return data.length > 500000;
+      }) ??
+      false;
+
+  // Show enhanced processing modal with timeout handling for PDFs
+  BlockingProcessingController? dialogController;
+  bool wasCancelled = false;
+
+  if (isPdfUpload || isLargeFile) {
+    dialogController = showEnhancedBlockingDialog(
+      context: context,
+      message: context.l10n.analyzingReceipt,
+      subMessage: isPdfUpload
+          ? 'Processing PDF document...'
+          : 'Processing large file...',
+      showElapsedTime: true,
+      enableCancelAfterSeconds: 45,
+      onCancel: () {
+        wasCancelled = true;
+      },
+    );
+  } else {
+    showBlockingProcessingDialog(
+      context: context,
+      message: imagePath != null
+          ? context.l10n.analyzingReceipt
+          : context.l10n.analyzingExpense,
+    );
+  }
 
   try {
     final locale = Localizations.localeOf(context);
@@ -601,11 +699,54 @@ Future<void> _processExpense(
       };
     }
 
-    // Call analyze-expense endpoint to extract structured transactions (then log immediately).
-    final response = await supabase.functions.invoke(
-      'analyze-expense',
-      body: body,
-    );
+    // Update dialog for PDFs
+    if (dialogController != null && isPdfUpload) {
+      dialogController.updateSubMessage('Extracting transactions from PDF...');
+    }
+
+    // Check if user cancelled before making request
+    if (wasCancelled || (dialogController?.isCancelled ?? false)) {
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      return;
+    }
+
+    Map<String, dynamic>? responseData;
+
+    // Use SSE streaming for PDF/large files to get real-time progress
+    if ((isPdfUpload || isLargeFile) && dialogController != null) {
+      try {
+        responseData = await _processWithSSE(
+          body: body,
+          dialogController: dialogController,
+          onCancelCheck: () =>
+              wasCancelled || (dialogController?.isCancelled ?? false),
+        );
+      } catch (e) {
+        debugPrint('[SSE] Failed, falling back to regular request: $e');
+        // Fall through to regular request
+        responseData = null;
+      }
+    }
+
+    // Regular request (fallback or non-PDF/small files)
+    if (responseData == null) {
+      // Update dialog for PDFs
+      if (dialogController != null && isPdfUpload) {
+        dialogController
+            .updateSubMessage('Extracting transactions from PDF...');
+      }
+
+      final response = await supabase.functions.invoke(
+        'analyze-expense',
+        body: body,
+      );
+
+      if (response.data != null) {
+        responseData = response.data as Map<String, dynamic>;
+      }
+    }
 
     // Close processing modal
     if (context.mounted) {
@@ -613,14 +754,14 @@ Future<void> _processExpense(
     }
 
     debugPrint('=== ANALYSIS RESPONSE ===');
-    debugPrint('response.data: ${response.data}');
+    debugPrint('response data: $responseData');
     debugPrint('========================');
 
-    if (response.data != null && response.data['success'] == true) {
-      final responseData = response.data['data'];
+    if (responseData != null && responseData['success'] == true) {
+      final innerData = responseData['data'];
 
-      if (responseData != null && responseData['items'] != null) {
-        List items = List.from(responseData['items'] as List);
+      if (innerData != null && innerData['items'] != null) {
+        List items = List.from(innerData['items'] as List);
         // Safety filter: drop total/subtotal rows when multiple items exist
         if (items.length > 1) {
           bool isTotalLike(dynamic it) {
@@ -731,9 +872,10 @@ Future<void> _processExpense(
     } else {
       String error;
       if (context.mounted) {
-        error = response.data?['error'] ?? context.l10n.failedToAnalyze;
+        error =
+            responseData?['error']?.toString() ?? context.l10n.failedToAnalyze;
       } else {
-        error = response.data?['error'] ?? 'Failed to analyze';
+        error = responseData?['error']?.toString() ?? 'Failed to analyze';
       }
       if (context.mounted) {
         AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
@@ -748,8 +890,18 @@ Future<void> _processExpense(
     }
 
     String errorMessage;
-    // Check if exception has a 'details' property with an 'error' field
-    if (e.runtimeType.toString().contains('Exception') &&
+    final errorString = e.toString().toLowerCase();
+
+    // Check for gateway timeout errors (502, 504)
+    if (errorString.contains('502') ||
+        errorString.contains('504') ||
+        errorString.contains('bad gateway') ||
+        errorString.contains('gateway timeout') ||
+        errorString.contains('timeout')) {
+      errorMessage = context.mounted
+          ? 'Request timed out. Try with a smaller file or fewer pages.'
+          : 'Request timed out';
+    } else if (e.runtimeType.toString().contains('Exception') &&
         e.toString().contains('status: 400') &&
         e.toString().contains('details:')) {
       // Parse the error from the exception string representation
