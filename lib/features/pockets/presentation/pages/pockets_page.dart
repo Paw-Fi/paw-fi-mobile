@@ -24,6 +24,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -488,15 +489,15 @@ class _PocketsMonthView extends HookConsumerWidget {
     }
 
     // When a new month starts, users often have zero budget and no pockets yet.
-    // If we can detect a previous month budget, offer a quick start action.
-    final showCopyBudget = !pocketsState.isLoading &&
-        pocketsState.editing.isEmpty &&
-        pocketsState.totalBudget == 0 &&
-        pocketsState.previousBudget > 0;
-
-    final showTemplateOption = !pocketsState.isLoading &&
+    // If there are no pockets and no budget amount set, show an onboarding CTA.
+    // Priority: copy previous month pockets (if any) > create from template.
+    final shouldShowEmptyMonthCta = !pocketsState.isLoading &&
         pocketsState.editing.isEmpty &&
         pocketsState.totalBudget == 0;
+    final showCopyPocketsFromPreviousMonth =
+        shouldShowEmptyMonthCta && pocketsState.hasPreviousMonthPockets;
+    final showCreateFromTemplate =
+        shouldShowEmptyMonthCta && !pocketsState.hasPreviousMonthPockets;
 
     final isCopyingPockets = useState(false);
 
@@ -505,7 +506,7 @@ class _PocketsMonthView extends HookConsumerWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          if (showCopyBudget)
+          if (showCopyPocketsFromPreviousMonth)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -533,29 +534,14 @@ class _PocketsMonthView extends HookConsumerWidget {
                   onCopyPockets: () async {
                     if (isCopyingPockets.value) return;
 
-                    final confirmed = await showDialog<bool>(
+                    final result = await MonekoAlertDialog.show(
                       context: context,
-                      builder: (dialogContext) {
-                        return AlertDialog(
-                          title: const Text('Copy last month\'s pockets?'),
-                          content: const Text(
-                            'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(false),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.of(dialogContext).pop(true),
-                              child: const Text('Copy pockets'),
-                            ),
-                          ],
-                        );
-                      },
+                      title: 'Copy last month\'s pockets?',
+                      description: 'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
+                      confirmLabel: 'Copy pockets',
+                      cancelLabel: 'Cancel',
                     );
+                    final confirmed = result?.confirmed ?? false;
 
                     if (confirmed != true || !context.mounted) return;
 
@@ -589,7 +575,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                 ),
               ),
             ),
-          if (showTemplateOption && !showCopyBudget)
+          if (showCreateFromTemplate)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -608,34 +594,6 @@ class _PocketsMonthView extends HookConsumerWidget {
                       ),
                     );
                   },
-                ),
-              ),
-            ),
-          if (showTemplateOption && showCopyBudget)
-            SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: PlainAdaptiveButton(
-                    onPressed: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        isDismissible: false,
-                        enableDrag: false,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => CreateBudgetFromTemplateSheet(
-                          scopeParams: scopeParams,
-                        ),
-                      );
-                    },
-                    child: Text(
-                      context.l10n.createFromTemplate,
-                      style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
                 ),
               ),
             ),
@@ -717,19 +675,20 @@ class _CopyBudgetBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: PlainAdaptiveButton(
-              onPressed: onCopy,
-              child: Text(
-                'Just use last month\'s budget ($formattedAmount)',
-                style: TextStyle(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+          if (previousBudget > 0)
+            SizedBox(
+              width: double.infinity,
+              child: PlainAdaptiveButton(
+                onPressed: onCopy,
+                child: Text(
+                  'Just use last month\'s budget ($formattedAmount)',
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );

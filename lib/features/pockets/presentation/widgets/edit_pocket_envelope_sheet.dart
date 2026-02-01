@@ -109,7 +109,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           }
 
           final totalBudgetCents = (totalBudget * 100).round();
-          final clampedCents = amountCents.clamp(0, totalBudgetCents).toInt();
+          final maxBudgetCents = math.max(0, totalBudgetCents);
+          final clampedCents = amountCents.clamp(0, maxBudgetCents).toInt();
           amountController.text = formatAmount(centsToAmount(clampedCents));
         }
       }
@@ -147,14 +148,19 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final isMounted = useIsMounted();
     final currency = selectedCurrency;
     final totalBudgetCents = (totalBudget * 100).round();
+    final maxBudgetCents = math.max(0, totalBudgetCents);
+    final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
+    final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
+    final periodMonth =
+        '${monthStart.year}-${monthStart.month.toString().padLeft(2, '0')}-01';
     final previewAmountCents = (tryParseMoneyToCents(amountController.text) ??
             existingEnvelope?.budgetAmountCents ??
             0)
-        .clamp(0, totalBudgetCents)
+        .clamp(0, maxBudgetCents)
         .toInt();
-    final previewShare = totalBudgetCents > 0
-        ? (previewAmountCents / totalBudgetCents) * 100
-        : 0.0;
+    final previewShare =
+        maxBudgetCents > 0 ? (previewAmountCents / maxBudgetCents) * 100 : 0.0;
+    final sliderPercent = previewShare.clamp(0.0, 100.0);
 
     useEffect(() {
       if (!isEditing) {
@@ -202,7 +208,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         AppToast.error(context, l10n.pleaseEnterAmount);
         return;
       }
-      final clampedAmountCents = amountCents.clamp(0, totalBudgetCents).toInt();
+      final clampedAmountCents = amountCents.clamp(0, maxBudgetCents).toInt();
 
       if (selectedCategories.value.isEmpty) {
         AppToast.info(context, l10n.pleaseSelectCategory);
@@ -302,6 +308,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           }
           envelopeId = id;
         }
+
+        await supabase.from('envelope_allocations').upsert(
+          <String, dynamic>{
+            'envelope_id': envelopeId,
+            'period_month': periodMonth,
+            'amount_cents': clampedAmountCents,
+            'carryover_policy': 'carryover',
+            'updated_at': nowIso,
+          },
+          onConflict: 'envelope_id,period_month',
+        );
 
         final linksPayload = selectedCategories.value
             .map((category) => <String, dynamic>{
@@ -883,7 +900,81 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 14),
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 4,
+                                  activeTrackColor: colorScheme.primary,
+                                  inactiveTrackColor:
+                                      colorScheme.border.withValues(alpha: 0.6),
+                                  thumbColor: colorScheme.primary,
+                                  overlayColor: colorScheme.primary
+                                      .withValues(alpha: 0.12),
+                                  valueIndicatorColor: colorScheme.primary,
+                                  valueIndicatorTextStyle: TextStyle(
+                                    color: colorScheme.primaryForeground,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                child: Slider(
+                                  value: sliderPercent,
+                                  min: 0,
+                                  max: 100,
+                                  divisions: 100,
+                                  label: '${sliderPercent.toStringAsFixed(0)}%',
+                                  semanticFormatterCallback: (value) =>
+                                      '${value.toStringAsFixed(0)} percent',
+                                  onChanged: (maxBudgetCents <= 0 ||
+                                          isLoading.value)
+                                      ? null
+                                      : (value) {
+                                          if (amountFocusNode.hasFocus) {
+                                            amountFocusNode.unfocus();
+                                          }
+
+                                          final pct = value.clamp(0.0, 100.0);
+                                          final newCents =
+                                              ((pct / 100.0) * maxBudgetCents)
+                                                  .round()
+                                                  .clamp(0, maxBudgetCents)
+                                                  .toInt();
+                                          final formatted = formatAmount(
+                                            centsToAmount(newCents),
+                                          );
+                                          amountController.value =
+                                              TextEditingValue(
+                                            text: formatted,
+                                            selection: TextSelection.collapsed(
+                                              offset: formatted.length,
+                                            ),
+                                          );
+                                        },
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${resolveCurrencySymbol(currency)}0',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.mutedForeground,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, double.parse(formatAmount(totalBudget)))}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.mutedForeground,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
                               if (unallocatedBudget < 0)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 12),
