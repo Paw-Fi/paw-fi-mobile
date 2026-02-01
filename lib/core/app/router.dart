@@ -17,6 +17,7 @@ import 'package:moneko/features/households/presentation/pages/household_members_
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -208,7 +209,8 @@ GoRouter router(RouterRef ref) {
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
-        final isOnPlanSelectionPage = state.matchedLocation == '/plan-selection';
+        final isOnPlanSelectionPage =
+            state.matchedLocation == '/plan-selection';
         final isOnErrorPage = state.matchedLocation == '/error';
 
         if (kDebugMode) {
@@ -369,6 +371,7 @@ class RouterNotifier extends ChangeNotifier {
               debugPrint('👋 User logged out, clearing cache (V2)');
             }
             _ref.read(appInitializationV2Provider.notifier).onLogout();
+            _ref.read(widgetSyncStateProvider.notifier).reset();
           } else {
             // Reset initialization for login (not logout)
             _ref.read(appInitializationV2Provider.notifier).reset();

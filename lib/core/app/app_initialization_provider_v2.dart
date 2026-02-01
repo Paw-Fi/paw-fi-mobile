@@ -146,6 +146,28 @@ class AppInitializationState {
       lastInitDuration: lastInitDuration ?? this.lastInitDuration,
     );
   }
+
+  /// Whether the app is fully initialized and ready for feature providers
+  /// to start their work (like widget sync, analytics refresh, etc.)
+  ///
+  /// Returns true when:
+  /// - State is initialized (not initializing or failed)
+  /// - We have data available (either from cache or fresh)
+  bool get isReady => state == AppInitState.initialized && data != null;
+
+  /// Whether we have fresh (non-cached) data
+  /// Use this when you need to ensure the backend data is current
+  bool get hasFreshData => isReady && data?.isFromCache == false;
+
+  /// Whether we only have cached data (backend fetch pending or failed)
+  bool get hasCachedDataOnly => isReady && data?.isFromCache == true;
+
+  /// Whether initialization failed without any fallback data
+  bool get isFailedWithoutData => state == AppInitState.failed && data == null;
+
+  /// Whether the app is still initializing
+  bool get isInitializing =>
+      state == AppInitState.initializing || state == AppInitState.uninitialized;
 }
 
 /// Improved app initialization provider with cache-first strategy
