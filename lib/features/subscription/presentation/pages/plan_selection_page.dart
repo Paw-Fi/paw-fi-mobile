@@ -25,7 +25,7 @@ void _debugLog(Object? message) {
 // ignore: avoid_print
 void print(Object? message) => _debugLog(message);
 
-const bool FORCE_USE_STRIPE_CHECKOUT = false;
+const bool forceUseStripeCheckout = false;
 
 enum PlanSelectionMode {
   trial,
@@ -34,9 +34,9 @@ enum PlanSelectionMode {
 
 enum _ProcessingDialogKind {
   iapPurchase,
-  stripeCheckout,
-  restorePurchases,
-  cancelSubscription,
+  // stripeCheckout,  // Uncomment when needed
+  // restorePurchases,  // Uncomment when needed
+  // cancelSubscription,  // Uncomment when needed
 }
 
 extension PlanSelectionModeX on PlanSelectionMode {
@@ -133,7 +133,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isNewUser = currentSub?.subscription == null;
 
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-    final useIap = isIos && !FORCE_USE_STRIPE_CHECKOUT;
+    final useIap = isIos && !forceUseStripeCheckout;
 
     // Avoid accidentally registering multiple listeners across rebuilds.
     final didRegisterIapListener = useRef(false);
@@ -166,22 +166,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    void showProcessingDialog(
-      _ProcessingDialogKind kind,
-      String message,
-    ) {
-      if (!context.mounted) return;
-      processingDialogKind.value = kind;
-      processingDialogOpen.value = true;
-      if (kind == _ProcessingDialogKind.iapPurchase) {
-        didSeeIapProcessing.value = false;
-      }
-      showBlockingProcessingDialog(
-        context: context,
-        message: message,
-      );
-    }
-
+    
     String humanizePurchaseError(String raw) {
       final message = raw.trim();
       final lower = message.toLowerCase();

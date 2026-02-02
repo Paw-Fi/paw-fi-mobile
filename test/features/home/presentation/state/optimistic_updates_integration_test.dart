@@ -63,7 +63,7 @@ void main() {
         description: 'Lunch at restaurant',
       );
 
-      final optimisticId = 'optimistic_123';
+      const optimisticId = 'optimistic_123';
       final entry = buildOptimisticEntry(
         transaction: transaction,
         optimisticId: optimisticId,

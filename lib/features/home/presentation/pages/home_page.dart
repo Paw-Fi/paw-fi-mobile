@@ -404,9 +404,17 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
 
       // Call analyze-expense endpoint to extract structured transactions (then log immediately).
+      // Explicitly pass JWT so the Edge Function can enrich household context
+      // (householdMembers) under RLS. This is required for reliable split output.
+      final session = supabase.auth.currentSession;
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
+        headers: session != null
+            ? <String, String>{
+                'Authorization': 'Bearer ${session.accessToken}',
+              }
+            : null,
       );
 
       if (!mounted) return;

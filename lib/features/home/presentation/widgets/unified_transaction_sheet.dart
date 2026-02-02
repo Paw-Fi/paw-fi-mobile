@@ -1336,6 +1336,7 @@ class _UnifiedTransactionSheetState
     DateTime? result;
 
     if (Platform.isIOS) {
+      final colorScheme = Theme.of(context).colorScheme;
       // Use Cupertino date picker for iOS
       result = await showCupertinoModalPopup<DateTime>(
         context: context,
@@ -1343,7 +1344,7 @@ class _UnifiedTransactionSheetState
           DateTime tempDate = currentDate;
           return Container(
             height: 300,
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: Column(
               children: [
                 // Header with Done button
@@ -1353,7 +1354,7 @@ class _UnifiedTransactionSheetState
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: CupertinoColors.separator.resolveFrom(context),
+                        color: colorScheme.sheetBorder,
                         width: 0.5,
                       ),
                     ),
@@ -1420,6 +1421,7 @@ class _UnifiedTransactionSheetState
     TimeOfDay? result;
 
     if (Platform.isIOS) {
+      final colorScheme = Theme.of(context).colorScheme;
       // Use Cupertino time picker for iOS
       final now = DateTime.now();
       final initialDateTime = DateTime(
@@ -1436,7 +1438,7 @@ class _UnifiedTransactionSheetState
           DateTime tempTime = initialDateTime;
           return Container(
             height: 300,
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: Column(
               children: [
                 // Header with Done button
@@ -1446,7 +1448,7 @@ class _UnifiedTransactionSheetState
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: CupertinoColors.separator.resolveFrom(context),
+                        color: colorScheme.sheetBorder,
                         width: 0.5,
                       ),
                     ),
@@ -1521,7 +1523,7 @@ class _UnifiedTransactionSheetState
           return Container(
             padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom),
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: SafeArea(
               top: false,
               child: Column(
@@ -1532,7 +1534,7 @@ class _UnifiedTransactionSheetState
                     width: 32,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: CupertinoColors.separator.resolveFrom(context),
+                      color: colorScheme.sheetBorder,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -2002,6 +2004,12 @@ class _UnifiedTransactionSheetState
       if (!mounted) return;
 
       final signature = _buildSplitSignature(uiSplitType, memberSplits);
+      debugPrint(
+        '✅ [LOAD SPLIT] About to setState with: type=$uiSplitType, splits=${memberSplits.length}, signature=$signature',
+      );
+      debugPrint(
+        '✅ [LOAD SPLIT] Current state before setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
+      );
       setState(() {
         _customSplitType = uiSplitType;
         _customSplits = memberSplits;
@@ -2011,6 +2019,9 @@ class _UnifiedTransactionSheetState
 
       debugPrint(
         '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType signature=$signature',
+      );
+      debugPrint(
+        '✅ [LOAD SPLIT] State after setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
       );
     } catch (error) {
       debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');

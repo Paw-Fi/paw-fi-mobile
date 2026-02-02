@@ -257,6 +257,8 @@ Future<void> _persistAiTransactions(
   try {
     debugPrint(
         '[AI Batch Save] Saving ${batchTransactions.length} transactions in single request');
+    debugPrint('[AI Batch Save] Supabase URL: ${Constants.supabaseUrl}');
+    debugPrint('[AI Batch Save] Function: save-transactions-batch');
 
     final response = await supabase.functions.invoke(
       'save-transactions-batch',
@@ -340,7 +342,121 @@ Future<void> _persistAiTransactions(
   } catch (error) {
     debugPrint('❌ Batch save failed: $error');
 
-    // On batch failure, remove all optimistic entries
+    // Check if it's a 404 error (function not found) - fallback to individual saves
+    final is404 = error.toString().contains('404') ||
+        error.toString().contains('NOT_FOUND');
+
+    if (is404) {
+      debugPrint(
+          '⚠️ Batch endpoint not available, falling back to individual saves');
+
+      // Save transactions individually using existing endpoints
+      var savedCount = 0;
+      var savedExpenseCount = 0;
+
+      for (final item in transactions) {
+        try {
+          final tx = item.transaction;
+          final isIncome = tx.isIncome;
+          final endpoint = isIncome ? 'save-income' : 'save-expense';
+
+          final requestBody = <String, dynamic>{
+            'userId': userId,
+            'amount': tx.amount,
+            'category': tx.category,
+            'currency': tx.currency,
+            'date': tx.date.toIso8601String().split('T')[0],
+            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            if (tx.description?.isNotEmpty == true)
+              'description': tx.description,
+            if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
+            if (householdId != null && householdId.isNotEmpty)
+              'householdId': householdId,
+            if (householdId != null && householdId.isNotEmpty)
+              'isPortfolio': isPortfolio,
+          };
+
+          // Add expense-specific fields
+          if (!isIncome) {
+            final rawPayerUserId = item.raw['payerUserId'];
+            final payerUserId =
+                rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+                    ? rawPayerUserId.trim()
+                    : null;
+
+            final rawCustomSplits = item.raw['customSplits'];
+            final customSplits = rawCustomSplits is Map
+                ? Map<String, dynamic>.from(rawCustomSplits)
+                : null;
+
+            final splitType = customSplits?['splitType']?.toString().trim();
+            final safeCustomSplits = (splitType == null || splitType == 'equal')
+                ? null
+                : customSplits;
+
+            if (payerUserId != null) requestBody['payerUserId'] = payerUserId;
+            if (safeCustomSplits != null)
+              requestBody['customSplits'] = safeCustomSplits;
+          }
+
+          final response =
+              await supabase.functions.invoke(endpoint, body: requestBody);
+
+          if (response.data != null) {
+            final savedEntry =
+                ExpenseEntry.fromJson(response.data as Map<String, dynamic>);
+            upsertSavedEntry(
+              optimisticId: item.optimisticId,
+              savedEntry: savedEntry,
+            );
+            savedCount++;
+            if (!isIncome) savedExpenseCount++;
+          } else {
+            // Remove failed optimistic entry
+            removeOptimisticTransaction(
+              ref: ref,
+              optimisticId: item.optimisticId,
+              householdId: householdId,
+            );
+          }
+        } catch (itemError) {
+          debugPrint('❌ Failed to save individual transaction: $itemError');
+          removeOptimisticTransaction(
+            ref: ref,
+            optimisticId: item.optimisticId,
+            householdId: householdId,
+          );
+        }
+      }
+
+      debugPrint(
+          '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
+
+      if (savedCount > 0) {
+        await ref
+            .read(expenseSaveNotifierProvider.notifier)
+            .invalidateAfterBatch(
+              userId: userId,
+              householdId: householdId,
+            );
+      }
+
+      if (savedExpenseCount > 0) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        unawaited(Future<void>.delayed(
+          const Duration(milliseconds: 300),
+          () => _maybeRequestReviewAfterExpenseSave(
+            userId: userId,
+            prefs: prefs,
+            additionalExpenseCount: savedExpenseCount,
+          ),
+        ));
+      }
+
+      return; // Exit successfully after fallback
+    }
+
+    // For non-404 errors, remove all optimistic entries and rethrow
     for (final item in transactions) {
       removeOptimisticTransaction(
         ref: ref,
@@ -349,7 +465,6 @@ Future<void> _persistAiTransactions(
       );
     }
 
-    // Rethrow to allow caller to handle if needed
     rethrow;
   }
 }
@@ -738,9 +853,17 @@ Future<void> _processExpense(
             .updateSubMessage('Extracting transactions from PDF...');
       }
 
+      // Explicitly pass JWT so the Edge Function can enrich household context
+      // (householdMembers) under RLS. This is required for reliable split output.
+      final session = supabase.auth.currentSession;
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
+        headers: session != null
+            ? <String, String>{
+                'Authorization': 'Bearer ${session.accessToken}',
+              }
+            : null,
       );
 
       if (response.data != null) {

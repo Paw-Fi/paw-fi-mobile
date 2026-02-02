@@ -227,50 +227,34 @@ void main() {
           householdRepositoryProvider.overrideWithValue(householdRepository),
           dashboardRepositoryFutureProvider
               .overrideWith((ref) async => dashboardRepo),
-          analyticsProvider.overrideWithProvider(
-            StateNotifierProvider<AnalyticsNotifier, AnalyticsData>(
-              (ref) => MockAnalyticsNotifier(ref, AnalyticsData()),
-            ),
+          analyticsProvider.overrideWith(
+            (ref) => MockAnalyticsNotifier(ref, AnalyticsData()),
           ),
           cachedHouseholdExpensesProvider(
             const HouseholdExpensesParams(householdId: 'h1'),
-          ).overrideWithProvider(
-            FutureProvider<List<ExpenseEntry>>(
-              (ref) async => [_expense(id: 'e1')],
-            ),
+          ).overrideWith(
+            (ref) async => [_expense(id: 'e1')],
           ),
-          selectedHouseholdProvider.overrideWithProvider(
-            StateNotifierProvider<SelectedHouseholdNotifier,
-                SelectedHouseholdState>(
-              (ref) => MockSelectedHouseholdNotifier(ref, prefs, 'u1'),
-            ),
+          selectedHouseholdProvider.overrideWith(
+            (ref) => MockSelectedHouseholdNotifier(ref, prefs, 'u1'),
           ),
-          recurringTransactionsProvider('h1').overrideWithProvider(
-            StateNotifierProvider<RecurringTransactionsNotifier,
-                RecurringTransactionsState>(
-              (ref) => MockRecurringTransactionsNotifier(ref, 'h1'),
-            ),
+          recurringTransactionsProvider('h1').overrideWith(
+            (ref) => MockRecurringTransactionsNotifier(ref, 'h1'),
           ),
           householdExpensesProvider(
             const HouseholdExpensesParams(householdId: 'h1'),
-          ).overrideWithProvider(
-            FutureProvider<List<ExpenseEntry>>(
-              (ref) async => [_expense(id: 'e1')],
-            ),
+          ).overrideWith(
+            (ref) async => [_expense(id: 'e1')],
           ),
           householdSplitsProvider(
             const HouseholdSplitsParams(householdId: 'h1'),
-          ).overrideWithProvider(
-            FutureProvider<List<ExpenseSplitGroup>>(
-              (ref) async => const <ExpenseSplitGroup>[],
-            ),
+          ).overrideWith(
+            (ref) async => const <ExpenseSplitGroup>[],
           ),
           cachedHouseholdSplitsProvider(
             const HouseholdSplitsParams(householdId: 'h1'),
-          ).overrideWithProvider(
-            FutureProvider<List<ExpenseSplitGroup>>(
-              (ref) async => [],
-            ),
+          ).overrideWith(
+            (ref) async => [],
           ),
         ],
       );

@@ -337,8 +337,8 @@ void main() {
         ),
       ];
 
-      final portfolioIds = {'portfolio_1'};
-      final selectedHouseholdId = 'household_1';
+      const portfolioIds = {'portfolio_1'};
+      const selectedHouseholdId = 'household_1';
 
       // Household view: show only transactions for the selected household
       // that are NOT portfolio households

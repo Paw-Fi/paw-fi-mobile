@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint, kDebugMode;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, debugPrint;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
@@ -444,17 +444,15 @@ class IapController extends AsyncNotifier<IapState> {
           final verificationData = purchase.verificationData;
           final serverData = verificationData.serverVerificationData;
           final localData = verificationData.localVerificationData;
-          final serverPrefix = serverData == null
-              ? 'null'
-              : serverData.substring(
-                  0, serverData.length > 8 ? 8 : serverData.length);
-          final localPrefix = localData == null
-              ? 'null'
-              : localData.substring(
-                  0, localData.length > 8 ? 8 : localData.length);
+          final serverPrefix = serverData.length > 8
+              ? serverData.substring(0, 8)
+              : serverData;
+          final localPrefix = localData.length > 8
+              ? localData.substring(0, 8)
+              : localData;
           print('🧾 Receipt data source: ${verificationData.source}');
           print(
-              '🧾 Receipt data lengths: server=${serverData?.length ?? 0}, local=${localData?.length ?? 0}');
+              '🧾 Receipt data lengths: server=${serverData.length}, local=${localData.length}');
           print(
               '🧾 Receipt data prefix: server=$serverPrefix, local=$localPrefix');
           final startedAt = DateTime.now();
