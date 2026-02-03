@@ -28,7 +28,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/home/presentation/pages/budget_dashboard_page.dart';
+import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 // import 'package:moneko/features/profile/presentation/widgets/whatsapp_binding_card.dart'; // Removed unused import
@@ -446,7 +446,7 @@ class SettingsPage extends HookConsumerWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
-                          builder: (context) => const BudgetDashboardPage(),
+                          builder: (context) => const OverviewDashboardPage(),
                         ),
                       );
                     },

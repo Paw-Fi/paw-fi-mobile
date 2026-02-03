@@ -22,32 +22,33 @@ class DashboardSpaceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final balance = income - expense;
-    final balanceColor = balance >= 0 ? AppTheme.success : AppTheme.danger;
+    final balanceColor = balance >= 0 ? colorScheme.success : colorScheme.error;
     final formatter = NumberFormat.compactSimpleCurrency(name: currency);
 
     return Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.5),
+          color: colorScheme.surfaceBorder,
+          width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 8,
+            color: colorScheme.homeCardShadow,
+            blurRadius: 10,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -59,7 +60,7 @@ class DashboardSpaceCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: colorScheme.primary.withOpacity(0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -85,13 +86,17 @@ class DashboardSpaceCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _buildRow(
-                    context, 'Income', income, AppTheme.success, formatter),
+                    context, 'Income', income, colorScheme.success, formatter),
                 const SizedBox(height: 8),
                 _buildRow(
-                    context, 'Expense', expense, AppTheme.danger, formatter),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(height: 1),
+                    context, 'Expense', expense, colorScheme.error, formatter),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    color: colorScheme.border.withValues(alpha: 0.5),
+                  ),
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -131,7 +136,7 @@ class DashboardSpaceCard extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 12,
-            color: colorScheme.onSurfaceVariant,
+            color: colorScheme.mutedForeground,
           ),
         ),
         Text(

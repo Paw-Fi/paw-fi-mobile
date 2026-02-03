@@ -6,9 +6,11 @@ import 'package:moneko/features/home/presentation/state/budget_dashboard_provide
 
 class DashboardTrendChart extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
+  final double Function(ConsolidatedTransaction tx)? amountResolver;
   const DashboardTrendChart({
     super.key,
     required this.transactions,
+    this.amountResolver,
   });
 
   @override
@@ -35,7 +37,9 @@ class DashboardTrendChart extends StatelessWidget {
     for (final tx in currentMonthTx) {
       final day = tx.entry.date.day;
       if (day >= 1 && day <= daysInMonth) {
-        dailyTotals[day - 1] += tx.entry.amount;
+        final baseAmount = tx.entry.amount;
+        final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
+        dailyTotals[day - 1] += resolvedAmount;
       }
     }
 
@@ -53,124 +57,82 @@ class DashboardTrendChart extends StatelessWidget {
     }
 
     if (spots.isEmpty) {
-      return Center(
-        child: Text(
-          'No data for this month',
-          style: TextStyle(color: colorScheme.mutedForeground),
-        ),
-      );
+      for (int i = 0; i < now.day; i++) {
+        spots.add(FlSpot((i + 1).toDouble(), 0));
+      }
     }
 
     // Smooth out the chart visuals
-    final maxY = maxAmount * 1.2;
+    final maxY = maxAmount > 0 ? maxAmount * 1.2 : 1.0;
 
-    return Container(
+    return SizedBox(
       height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 0.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'SPENDING TREND',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Icon(Icons.show_chart_rounded,
-                  color: colorScheme.primary, size: 20),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 5,
-                      getTitlesWidget: (value, meta) {
-                        final val = value.toInt();
-                        if (val % 5 == 0 && val > 0 && val <= daysInMonth) {
-                          return Text(
-                            val.toString(),
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 10,
-                            ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 1,
-                maxX: daysInMonth.toDouble(),
-                minY: 0,
-                maxY: maxY > 0 ? maxY : 100,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: colorScheme.primary,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: colorScheme.primary.withValues(alpha: 0.1),
-                    ),
-                  ),
-                ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => colorScheme.cardSurface,
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        return LineTooltipItem(
-                          amountFormatter.format(spot.y),
-                          TextStyle(
-                              color: colorScheme.onSurface,
-                              fontWeight: FontWeight.bold),
-                        );
-                      }).toList();
-                    },
-                  ),
-                ),
+      child: LineChart(
+        LineChartData(
+          gridData: const FlGridData(show: false),
+          titlesData: FlTitlesData(
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 5,
+                getTitlesWidget: (value, meta) {
+                  final val = value.toInt();
+                  if (val % 5 == 0 && val > 0 && val <= daysInMonth) {
+                    return Text(
+                      val.toString(),
+                      style: TextStyle(
+                        color: colorScheme.mutedForeground,
+                        fontSize: 10,
+                      ),
+                    );
+                  }
+                  return const SizedBox();
+                },
               ),
             ),
           ),
-        ],
+          borderData: FlBorderData(show: false),
+          minX: 1,
+          maxX: now.day.toDouble(),
+          minY: 0,
+          maxY: maxY > 0 ? maxY : 100,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: colorScheme.primary,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                color: colorScheme.primary.withValues(alpha: 0.1),
+              ),
+            ),
+          ],
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (touchedSpot) => colorScheme.card,
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  return LineTooltipItem(
+                    amountFormatter.format(spot.y),
+                    TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
+          ),
+        ),
       ),
     );
   }

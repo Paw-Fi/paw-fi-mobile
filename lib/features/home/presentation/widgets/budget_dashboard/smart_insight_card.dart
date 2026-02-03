@@ -2,45 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 class SmartInsightCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
   final VoidCallback? onTap;
 
-  const SmartInsightCard({super.key, this.onTap});
+  const SmartInsightCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.infoSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.infoBorder,
-          width: 1,
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.0),
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: colorScheme.surfaceBorder, width: 0.5),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: colorScheme.info.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    Icons.lightbulb_outline_rounded,
-                    color: colorScheme.info,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -48,31 +53,39 @@ class SmartInsightCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Spending Insight'.toUpperCase(),
+                        title,
                         style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.info,
-                          letterSpacing: 1.0,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'You spent 15% less on Dining Out this week. Great job!',
+                        subtitle,
                         style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                          height: 1.2,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(width: 4),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: colorScheme.onSurface.withOpacity(0.3),
+                  size: 18,
+                  color: colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
               ],
             ),

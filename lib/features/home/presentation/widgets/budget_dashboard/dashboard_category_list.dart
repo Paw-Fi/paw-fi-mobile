@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
-import 'package:collection/collection.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashboard_section_widgets.dart';
 
 class DashboardCategoryList extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
+  final void Function(String categoryId)? onCategoryTap;
+  final VoidCallback? onTap;
+  final double Function(ConsolidatedTransaction tx)? amountResolver;
+
   const DashboardCategoryList({
     super.key,
     required this.transactions,
+    this.onCategoryTap,
+    this.onTap,
+    this.amountResolver,
   });
 
   @override
@@ -17,8 +25,8 @@ class DashboardCategoryList extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
+    final amountFormatter = NumberFormat.compact();
 
-    // Filter and Group
     final validTx = transactions.where((tx) =>
         tx.entry.date
             .isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
@@ -26,146 +34,95 @@ class DashboardCategoryList extends StatelessWidget {
 
     final grouped = validTx.groupListsBy((tx) => tx.entry.category);
 
-    // Calculate totals
     final categoryTotals = grouped.entries.map((entry) {
       final catId = entry.key;
       final txs = entry.value;
-      final total = txs.fold<int>(0, (sum, tx) => sum + tx.entry.amountCents);
+      final total = txs.fold<double>(0.0, (sum, tx) {
+        final base = tx.entry.amountCents / 100.0;
+        final resolved = amountResolver?.call(tx) ?? base;
+        return sum + resolved;
+      });
 
       final name = getCategoryTranslation(context, catId);
 
       return _CategoryTotal(
         id: catId ?? 'uncategorized',
         name: name,
-        amount: total / 100.0,
+        amount: total,
         transactionCount: txs.length,
       );
     }).toList();
 
-    // Sort descending
     categoryTotals.sort((a, b) => b.amount.compareTo(a.amount));
 
     final topCategories = categoryTotals.take(5).toList();
     final maxAmount = topCategories.isNotEmpty ? topCategories.first.amount : 0;
 
-    final amountFormatter = NumberFormat.compact();
+    if (topCategories.isEmpty) {
+      return DashboardSectionCard(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Text(
+            'No expenses recorded this month',
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ),
+      );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-          child: Column(
+    return DashboardSectionCard(
+      onTap: onTap,
+      children: topCategories.map((cat) {
+        final percent = maxAmount > 0 ? cat.amount / maxAmount : 0.0;
+        final color = getCategoryColor(cat.id);
+
+        return DashboardListTile(
+          title: cat.name,
+          subtitleWidget: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Top Categories',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'All currencies combined',
+                '${cat.transactionCount} transactions',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: colorScheme.mutedForeground,
                 ),
               ),
-            ],
-          ),
-        ),
-        if (topCategories.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              'No spending this month',
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
-            ),
-          )
-        else
-          ...topCategories.map((cat) {
-            final percent = maxAmount > 0 ? cat.amount / maxAmount : 0.0;
-            final color = getCategoryColor(cat.id);
-
-            return Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
-              child: Row(
+              const SizedBox(height: 6),
+              Stack(
                 children: [
-                  // Icon placeholder
                   Container(
-                    width: 40,
-                    height: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
+                      color: colorScheme.onSurface.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child:
-                        Icon(getCategoryIcon(cat.id), color: color, size: 20),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              cat.name,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            Text(
-                              amountFormatter.format(cat.amount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Stack(
-                          children: [
-                            Container(
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: colorScheme.muted,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            FractionallySizedBox(
-                              widthFactor:
-                                  percent, // Relative to max for visual scaling, or relative to budget?
-                              // "Spent vs planned" - usually relative to budget.
-                              // If no budget, visually scaling relative to highest category is a good fallback for distribution.
-                              child: Container(
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  FractionallySizedBox(
+                    widthFactor: percent,
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
               ),
-            );
-          }),
-      ],
+            ],
+          ),
+          icon: getCategoryIcon(cat.id),
+          iconColor: color,
+          value: amountFormatter.format(cat.amount),
+          showChevron: onCategoryTap != null,
+          onTap: onCategoryTap == null ? null : () => onCategoryTap!(cat.id),
+        );
+      }).toList(),
     );
   }
 }
@@ -176,9 +133,10 @@ class _CategoryTotal {
   final double amount;
   final int transactionCount;
 
-  _CategoryTotal(
-      {required this.id,
-      required this.name,
-      required this.amount,
-      required this.transactionCount});
+  _CategoryTotal({
+    required this.id,
+    required this.name,
+    required this.amount,
+    required this.transactionCount,
+  });
 }

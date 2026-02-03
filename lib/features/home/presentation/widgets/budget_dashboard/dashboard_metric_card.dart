@@ -28,26 +28,25 @@ class DashboardMetricCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 0.5,
-        ),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
             color: colorScheme.homeCardShadow,
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
-        color: colorScheme.surface.withValues(alpha: 0.0),
-        borderRadius: BorderRadius.circular(24),
+        color: colorScheme.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: colorScheme.surfaceBorder, width: 0.5),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -62,7 +61,7 @@ class DashboardMetricCard extends StatelessWidget {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: primaryColor.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
                           icon,
@@ -77,7 +76,7 @@ class DashboardMetricCard extends StatelessWidget {
                         child: Icon(
                           Icons.info_outline_rounded,
                           size: 16,
-                          color: colorScheme.onSurfaceVariant,
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                   ],
@@ -89,10 +88,10 @@ class DashboardMetricCard extends StatelessWidget {
                     Text(
                       title.toUpperCase(),
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        color: colorScheme.onSurfaceVariant,
+                        letterSpacing: -0.2,
+                        color: colorScheme.mutedForeground,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -112,7 +111,7 @@ class DashboardMetricCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurfaceVariant,
+                          color: colorScheme.mutedForeground,
                         ),
                       ),
                     ],
