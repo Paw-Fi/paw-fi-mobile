@@ -4,31 +4,61 @@ class CurrencyRates {
   // To convert USD to specific currency: Amount * Rate
   // To convert A to B: (Amount / RateA) * RateB
 
-  // NOTE FOR USER: Paste your full list of currency rates here.
-  // Ensure the base currency is USD = 1.0.
-  static const Map<String, double> rates = {
-    'USD': 1.0,
-    'EUR': 0.92, // Euro
-    'GBP': 0.78, // British Pound
-    'JPY': 150.0, // Japanese Yen
-    'CAD': 1.35, // Canadian Dollar
-    'AUD': 1.52, // Australian Dollar
-    'CHF': 0.88, // Swiss Franc
-    'CNY': 7.20, // Chinese Yuan
-    'HKD': 7.82, // Hong Kong Dollar
-    'NZD': 1.63, // New Zealand Dollar
-    'SGD': 1.34, // Singapore Dollar
-    'KRW': 1330.0, // South Korean Won
-    'INR': 83.0, // Indian Rupee
-    'BRL': 4.95, // Brazilian Real
-    'RUB': 92.5, // Russian Ruble
-    'ZAR': 19.0, // South African Rand
-    'MXN': 17.0, // Mexican Peso
-    'SAR': 3.75, // Saudi Riyal
-    'AED': 3.67, // United Arab Emirates Dirham
-    'TRY': 31.0, // Turkish Lira
-    // Add more currencies here...
-  };
+  // Rates are units of <currency> per 1 USD.
+// Last updated: Tue, 03 Feb 2026 00:02:32 +0000 (source: open.er-api.com / ExchangeRate-API).
+static const Map<String, double> rates = {
+  'USD': 1.0,
+  'AED': 3.6725,
+  'ARS': 1452.25,
+  'AUD': 1.438541,
+  'BRL': 5.259668,
+  'CAD': 1.367158,
+  'CHF': 0.778587,
+  'CLP': 872.071166,
+  'CNY': 6.951947,
+  'CZK': 20.560576,
+  'DKK': 6.3122,
+  'DOP': 63.264178,
+  'EGP': 47.085185,
+  'EUR': 0.846294,
+  'GBP': 0.731608,
+  'GHS': 10.961152,
+  'GTQ': 7.692866,
+  'HKD': 7.810905,
+  'HUF': 322.471388,
+  'IDR': 16806.053031,
+  'INR': 91.523929,
+  'JPY': 155.348973,
+  'JMD': 157.158571,
+  'KES': 128.975801,
+  'KRW': 1451.961052,
+  'LKR': 309.350928,
+  'MXN': 17.398047,
+  'MYR': 3.941977,
+  'MWK': 1743.789522,
+  'NGN': 1389.026982,
+  'NOK': 9.69353,
+  'NZD': 1.664528,
+  'PHP': 58.905709,
+  'PEN': 3.367771,
+  'PLN': 3.570934,
+  'PKR': 280.066929,
+  'PYG': 6711.53431,
+  'RSD': 99.258129,
+  'RON': 4.305581,
+  'RUB': 76.731769,
+  'SAR': 3.75,
+  'SEK': 8.962244,
+  'SGD': 1.272014,
+  'THB': 31.576774,
+  'TWD': 31.607991,
+  'TRY': 43.497391,
+  'UAH': 42.99175,
+  'VND': 25955.156387,
+  'ZAR': 16.069211,
+  'MMK': 2104.444036,
+  'JOD': 0.709,
+};
 
   /// Converts an [amount] from [fromCurrency] to [toCurrency].
   /// Returns the original amount if currency codes are invalid or missing.
