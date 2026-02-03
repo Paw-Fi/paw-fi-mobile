@@ -6,18 +6,16 @@ import 'package:moneko/features/home/presentation/state/budget_dashboard_provide
 
 class DashboardTrendChart extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
-  final String currency;
-
   const DashboardTrendChart({
     super.key,
     required this.transactions,
-    required this.currency,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
+    final amountFormatter = NumberFormat.compact();
 
     // Group by Date for the current month
     final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
@@ -30,6 +28,7 @@ class DashboardTrendChart extends StatelessWidget {
       final date = tx.entry.date;
       return date.year == now.year &&
           date.month == now.month &&
+          tx.entry.type != 'income' &&
           (tx.entry.amount > 0);
     }).toList();
 
@@ -69,15 +68,15 @@ class DashboardTrendChart extends StatelessWidget {
       height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.cardSurface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.outlineVariant.withOpacity(0.5),
+          color: colorScheme.homeCardBorder,
           width: 0.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: colorScheme.homeCardShadow,
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -149,18 +148,17 @@ class DashboardTrendChart extends StatelessWidget {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: colorScheme.primary.withOpacity(0.1),
+                      color: colorScheme.primary.withValues(alpha: 0.1),
                     ),
                   ),
                 ],
                 lineTouchData: LineTouchData(
                   touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) => colorScheme.surface,
+                    getTooltipColor: (touchedSpot) => colorScheme.cardSurface,
                     getTooltipItems: (touchedSpots) {
                       return touchedSpots.map((spot) {
                         return LineTooltipItem(
-                          NumberFormat.simpleCurrency(name: currency)
-                              .format(spot.y),
+                          amountFormatter.format(spot.y),
                           TextStyle(
                               color: colorScheme.onSurface,
                               fontWeight: FontWeight.bold),

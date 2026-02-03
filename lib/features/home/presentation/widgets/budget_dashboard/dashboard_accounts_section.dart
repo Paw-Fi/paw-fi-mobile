@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 
 class DashboardAccountsSection extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final List<Household> households;
-  final String currency;
-
   const DashboardAccountsSection({
     super.key,
     required this.transactions,
     required this.households,
-    required this.currency,
   });
 
   @override
@@ -22,6 +20,7 @@ class DashboardAccountsSection extends StatelessWidget {
 
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
+    final amountFormatter = NumberFormat.compact();
 
     // Helper to calc spending for a scope
     Map<String, double> calcScopeStats(String? accountId) {
@@ -31,10 +30,6 @@ class DashboardAccountsSection extends StatelessWidget {
 
       for (final tx in transactions) {
         if (tx.entry.date.isBefore(startOfMonth)) continue;
-
-        // Filter by currency
-        if ((tx.entry.currency ?? '').toUpperCase() != currency.toUpperCase())
-          continue;
 
         if (accountId == null) {
           if (tx.accountId != null || tx.accountLabel != 'Personal') continue;
@@ -52,13 +47,7 @@ class DashboardAccountsSection extends StatelessWidget {
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final currencySymbol =
-        NumberFormat.simpleCurrency(name: currency).currencySymbol;
-
-    // Filter households matching currency
-    final relativeHouseholds = households
-        .where((h) => h.currency.toUpperCase() == currency.toUpperCase())
-        .toList();
+    final relativeHouseholds = households.toList();
 
     // Check personal has activity
     final personalStats = calcScopeStats(null);
@@ -71,11 +60,22 @@ class DashboardAccountsSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
           child: Text(
-            'Accounts ($currency)',
+            'Accounts',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'All currencies combined',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
             ),
           ),
         ),
@@ -89,20 +89,17 @@ class DashboardAccountsSection extends StatelessWidget {
             name: 'Personal',
             isPersonal: true,
             stats: personalStats,
-            currencySymbol: currencySymbol,
+            amountFormatter: amountFormatter,
           ),
 
         // Households
         ...relativeHouseholds.map((h) {
           final stats = calcScopeStats(h.id);
-          // Household currency should match 'currency' here due to filter
-          final symbol =
-              NumberFormat.simpleCurrency(name: h.currency).currencySymbol;
           return _AccountRow(
             name: h.name,
             isPortfolio: h.isPortfolio,
             stats: stats,
-            currencySymbol: symbol,
+            amountFormatter: amountFormatter,
           );
         }),
 
@@ -110,8 +107,8 @@ class DashboardAccountsSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              'No accounts with this currency',
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+              'No activity yet this month',
+              style: TextStyle(color: colorScheme.mutedForeground),
             ),
           ),
       ],
@@ -124,14 +121,14 @@ class _AccountRow extends StatelessWidget {
   final bool isPersonal;
   final bool isPortfolio;
   final Map<String, double> stats;
-  final String currencySymbol;
+  final NumberFormat amountFormatter;
 
   const _AccountRow({
     required this.name,
     this.isPersonal = false,
     this.isPortfolio = false,
     required this.stats,
-    required this.currencySymbol,
+    required this.amountFormatter,
   });
 
   @override
@@ -144,11 +141,12 @@ class _AccountRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: colorScheme.cardSurface,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.homeCardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
+              color: colorScheme.homeCardShadow,
               blurRadius: 4,
               offset: const Offset(0, 2),
             )
@@ -158,11 +156,12 @@ class _AccountRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isPersonal
-                  ? Colors.blue.withOpacity(0.1)
-                  : (isPortfolio
-                      ? Colors.purple.withOpacity(0.1)
-                      : Colors.orange.withOpacity(0.1)),
+              color: (isPersonal
+                      ? colorScheme.info
+                      : (isPortfolio
+                          ? colorScheme.warning
+                          : colorScheme.success))
+                  .withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -170,8 +169,8 @@ class _AccountRow extends StatelessWidget {
                   ? Icons.person
                   : (isPortfolio ? Icons.trending_up : Icons.people),
               color: isPersonal
-                  ? Colors.blue
-                  : (isPortfolio ? Colors.purple : Colors.orange),
+                  ? colorScheme.info
+                  : (isPortfolio ? colorScheme.warning : colorScheme.success),
               size: 20,
             ),
           ),
@@ -194,7 +193,7 @@ class _AccountRow extends StatelessWidget {
                       : (isPortfolio ? 'Portfolio' : 'Shared'),
                   style: TextStyle(
                     fontSize: 12,
-                    color: colorScheme.onSurface.withOpacity(0.5),
+                    color: colorScheme.mutedForeground,
                   ),
                 ),
               ],
@@ -204,7 +203,7 @@ class _AccountRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '-$currencySymbol${expense.toStringAsFixed(0)}',
+                '-${amountFormatter.format(expense)}',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
@@ -213,10 +212,10 @@ class _AccountRow extends StatelessWidget {
               ),
               if (income > 0)
                 Text(
-                  '+$currencySymbol${income.toStringAsFixed(0)}',
-                  style: const TextStyle(
+                  '+${amountFormatter.format(income)}',
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Colors.green,
+                    color: colorScheme.success,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

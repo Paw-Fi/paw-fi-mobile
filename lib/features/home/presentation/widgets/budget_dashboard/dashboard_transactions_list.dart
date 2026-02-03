@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -54,18 +55,19 @@ class DashboardTransactionsList extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Text(
               'No recent transactions',
-              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+              style: TextStyle(color: colorScheme.mutedForeground),
             ),
           )
         else
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-                color: colorScheme.surface,
+                color: colorScheme.cardSurface,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.homeCardBorder),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
+                    color: colorScheme.homeCardShadow,
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   )
@@ -78,7 +80,7 @@ class DashboardTransactionsList extends StatelessWidget {
               separatorBuilder: (context, index) => Divider(
                 height: 1,
                 indent: 56,
-                color: colorScheme.onSurface.withOpacity(0.05),
+                color: colorScheme.homeCardBorder,
               ),
               itemBuilder: (context, index) {
                 final tx = recent[index];
@@ -105,7 +107,7 @@ class DashboardTransactionsList extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: colorScheme.primary.withOpacity(0.1),
+                              color: colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -121,7 +123,7 @@ class DashboardTransactionsList extends StatelessWidget {
                           _formatDate(context, tx.entry.date),
                           style: TextStyle(
                             fontSize: 12,
-                            color: colorScheme.onSurface.withOpacity(0.5),
+                            color: colorScheme.mutedForeground,
                           ),
                         ),
                       ],

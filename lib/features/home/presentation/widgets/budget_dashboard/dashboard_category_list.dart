@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:collection/collection.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 
 class DashboardCategoryList extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
-  final String currency;
-
   const DashboardCategoryList({
     super.key,
     required this.transactions,
-    required this.currency,
   });
 
   @override
@@ -50,21 +48,34 @@ class DashboardCategoryList extends StatelessWidget {
     final topCategories = categoryTotals.take(5).toList();
     final maxAmount = topCategories.isNotEmpty ? topCategories.first.amount : 0;
 
-    final currencySymbol =
-        NumberFormat.simpleCurrency(name: currency).currencySymbol;
+    final amountFormatter = NumberFormat.compact();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-          child: Text(
-            'Top Categories',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Top Categories',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'All currencies combined',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
           ),
         ),
         if (topCategories.isEmpty)
@@ -90,7 +101,7 @@ class DashboardCategoryList extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child:
@@ -106,13 +117,19 @@ class DashboardCategoryList extends StatelessWidget {
                           children: [
                             Text(
                               cat.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 16),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                             Text(
-                              '$currencySymbol${cat.amount.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 16),
+                              amountFormatter.format(cat.amount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                                color: colorScheme.onSurface,
+                              ),
                             ),
                           ],
                         ),
@@ -122,8 +139,7 @@ class DashboardCategoryList extends StatelessWidget {
                             Container(
                               height: 4,
                               decoration: BoxDecoration(
-                                color:
-                                    colorScheme.surfaceVariant.withOpacity(0.5),
+                                color: colorScheme.muted,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -135,7 +151,7 @@ class DashboardCategoryList extends StatelessWidget {
                               child: Container(
                                 height: 4,
                                 decoration: BoxDecoration(
-                                  color: colorScheme.primary,
+                                  color: color,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),

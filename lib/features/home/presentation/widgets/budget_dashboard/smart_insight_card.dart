@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/theme/app_theme.dart';
 
 class SmartInsightCard extends StatelessWidget {
   final VoidCallback? onTap;
@@ -12,15 +13,15 @@ class SmartInsightCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer.withOpacity(0.4),
+        color: colorScheme.infoSurface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.tertiary.withOpacity(0.1),
+          color: colorScheme.infoBorder,
           width: 1,
         ),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
@@ -32,12 +33,12 @@ class SmartInsightCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: colorScheme.tertiary.withOpacity(0.1),
+                    color: colorScheme.info.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.lightbulb_outline_rounded,
-                    color: colorScheme.tertiary,
+                    color: colorScheme.info,
                     size: 24,
                   ),
                 ),
@@ -51,7 +52,7 @@ class SmartInsightCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: colorScheme.tertiary,
+                          color: colorScheme.info,
                           letterSpacing: 1.0,
                         ),
                       ),
