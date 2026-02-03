@@ -166,7 +166,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    
     String humanizePurchaseError(String raw) {
       final message = raw.trim();
       final lower = message.toLowerCase();

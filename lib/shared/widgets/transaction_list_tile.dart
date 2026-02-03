@@ -44,18 +44,19 @@ class TransactionListTile extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final dateOnly = DateTime(date.year, date.month, date.day);
+    final localDate = date.toLocal();
+    final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
 
     if (dateOnly == today) {
-      return '${context.l10n.today}, ${DateFormat.jm(localeName).format(date)}';
+      return '${context.l10n.today}, ${DateFormat.jm(localeName).format(localDate)}';
     }
     if (dateOnly == yesterday) {
       return context.l10n.yesterday;
     }
-    if (date.year == now.year) {
-      return DateFormat.MMMd(localeName).format(date);
+    if (localDate.year == now.year) {
+      return DateFormat.MMMd(localeName).format(localDate);
     }
-    return DateFormat.yMMMd(localeName).format(date);
+    return DateFormat.yMMMd(localeName).format(localDate);
   }
 
   @override

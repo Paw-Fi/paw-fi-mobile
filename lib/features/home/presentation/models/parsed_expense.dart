@@ -12,6 +12,9 @@ class ParsedExpense {
   final DateTime date;
   final String? description;
   final String? localImagePath; // Local image path for display before upload
+  // Household sharing (expense only)
+  final String? payerUserId; // Who paid
+  final String? payerHint; // Parsed hint when no userId is available
 
   ParsedExpense({
     this.isIncome = false,
@@ -22,6 +25,8 @@ class ParsedExpense {
     required this.date,
     this.description,
     this.localImagePath,
+    this.payerUserId,
+    this.payerHint,
   });
 
   factory ParsedExpense.fromJson(Map<String, dynamic> json) {
@@ -35,6 +40,12 @@ class ParsedExpense {
       date: DateTime.parse(json['date'] as String),
       description: json['description'] as String?,
       localImagePath: json['localImagePath'] as String?,
+      payerUserId: (json['payerUserId'] as String?) ??
+          (json['payer_user_id'] as String?),
+      payerHint: (json['payerHint'] as String?) ??
+          (json['payerName'] as String?) ??
+          (json['paidBy'] as String?) ??
+          (json['payerEmail'] as String?),
     );
   }
 
@@ -48,6 +59,8 @@ class ParsedExpense {
       'date': date.toIso8601String().split('T')[0],
       'description': description,
       'localImagePath': localImagePath,
+      'payerUserId': payerUserId,
+      'payerHint': payerHint,
     };
   }
 
@@ -61,6 +74,8 @@ class ParsedExpense {
     DateTime? date,
     String? description,
     String? localImagePath,
+    String? payerUserId,
+    String? payerHint,
   }) {
     return ParsedExpense(
       isIncome: isIncome ?? this.isIncome,
@@ -71,6 +86,8 @@ class ParsedExpense {
       date: date ?? this.date,
       description: description ?? this.description,
       localImagePath: localImagePath ?? this.localImagePath,
+      payerUserId: payerUserId ?? this.payerUserId,
+      payerHint: payerHint ?? this.payerHint,
     );
   }
 

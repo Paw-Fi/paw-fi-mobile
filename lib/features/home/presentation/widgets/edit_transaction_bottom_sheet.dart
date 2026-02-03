@@ -61,7 +61,7 @@ class _EditTransactionBottomSheetState
     }
 
     if (widget.field == EditField.time) {
-      final dateTime = widget.currentValue as DateTime;
+      final dateTime = toLocalTime(widget.currentValue as DateTime);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
     }
 
@@ -82,7 +82,7 @@ class _EditTransactionBottomSheetState
       case EditField.date:
         return DateFormat('yyyy-MM-dd').format(widget.currentValue as DateTime);
       case EditField.time:
-        final dateTime = widget.currentValue as DateTime;
+        final dateTime = toLocalTime(widget.currentValue as DateTime);
         return DateFormat('HH:mm').format(dateTime);
       case EditField.currency:
         return widget.currentValue?.toString() ?? 'USD';
@@ -909,19 +909,20 @@ class _EditTransactionBottomSheetState
         break;
 
       case EditField.time:
-        final oldTime = widget.expense.createdAt;
+        final oldTime = toLocalTime(widget.expense.createdAt);
         final newTime = _selectedTime!;
         // Compare time parts only
         if (newTime.hour != oldTime.hour || newTime.minute != oldTime.minute) {
-          // Create datetime with current date but new time
-          final updatedDateTime = DateTime(
+          // Interpret as a local wall-clock edit, then persist as UTC ISO.
+          final updatedLocalDateTime = DateTime(
             oldTime.year,
             oldTime.month,
             oldTime.day,
             newTime.hour,
             newTime.minute,
           );
-          updates['created_at'] = updatedDateTime.toIso8601String();
+          updates['created_at'] =
+              updatedLocalDateTime.toUtc().toIso8601String();
         }
         break;
 

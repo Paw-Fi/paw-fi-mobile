@@ -27,10 +27,12 @@ class IapState {
   final Map<String, ProductDetails> productDetailsById;
   final String? lastError;
   final bool isProcessing;
+
   /// The product ID that the user initiated a purchase for in this session.
   /// Used to distinguish between user-initiated purchases and pending purchases
   /// from previous sessions that get processed when the listener is set up.
   final String? initiatedProductId;
+
   /// The product ID of the last successfully completed purchase.
   /// Set when a purchase matching initiatedProductId completes successfully.
   final String? lastCompletedProductId;
@@ -59,8 +61,12 @@ class IapState {
       productDetailsById: productDetailsById ?? this.productDetailsById,
       lastError: lastError,
       isProcessing: isProcessing ?? this.isProcessing,
-      initiatedProductId: clearInitiatedProductId ? null : (initiatedProductId ?? this.initiatedProductId),
-      lastCompletedProductId: clearLastCompletedProductId ? null : (lastCompletedProductId ?? this.lastCompletedProductId),
+      initiatedProductId: clearInitiatedProductId
+          ? null
+          : (initiatedProductId ?? this.initiatedProductId),
+      lastCompletedProductId: clearLastCompletedProductId
+          ? null
+          : (lastCompletedProductId ?? this.lastCompletedProductId),
     );
   }
 }
@@ -99,7 +105,8 @@ class IapController extends AsyncNotifier<IapState> {
       clearLastCompletedProductId: clearLastCompletedProductId,
     );
 
-    print('📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}');
+    print(
+        '📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}');
 
     // Safety: never allow the UI to be stuck forever.
     if (next.isProcessing) {
@@ -296,7 +303,8 @@ class IapController extends AsyncNotifier<IapState> {
         initiatedProductId: product.storeProductId,
         clearLastCompletedProductId: true,
       );
-      print('✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
+      print(
+          '✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
 
       PurchaseParam purchaseParam;
 
@@ -428,8 +436,10 @@ class IapController extends AsyncNotifier<IapState> {
           // In both cases, we should NOT trigger navigation to dashboard
           final isNewPurchase = purchase.status == PurchaseStatus.purchased;
           final shouldTriggerNavigation = isUserInitiated && isNewPurchase;
-          print('🔍 Purchase match check: initiatedProductId=$initiatedProductId, purchaseProductId=${purchase.productID}, isUserInitiated=$isUserInitiated');
-          print('🔍 Purchase type check: status=${purchase.status}, isNewPurchase=$isNewPurchase, shouldTriggerNavigation=$shouldTriggerNavigation');
+          print(
+              '🔍 Purchase match check: initiatedProductId=$initiatedProductId, purchaseProductId=${purchase.productID}, isUserInitiated=$isUserInitiated');
+          print(
+              '🔍 Purchase type check: status=${purchase.status}, isNewPurchase=$isNewPurchase, shouldTriggerNavigation=$shouldTriggerNavigation');
 
           final platform = _platformString();
           print('🔧 Platform for verification: $platform');
@@ -444,12 +454,10 @@ class IapController extends AsyncNotifier<IapState> {
           final verificationData = purchase.verificationData;
           final serverData = verificationData.serverVerificationData;
           final localData = verificationData.localVerificationData;
-          final serverPrefix = serverData.length > 8
-              ? serverData.substring(0, 8)
-              : serverData;
-          final localPrefix = localData.length > 8
-              ? localData.substring(0, 8)
-              : localData;
+          final serverPrefix =
+              serverData.length > 8 ? serverData.substring(0, 8) : serverData;
+          final localPrefix =
+              localData.length > 8 ? localData.substring(0, 8) : localData;
           print('🧾 Receipt data source: ${verificationData.source}');
           print(
               '🧾 Receipt data lengths: server=${serverData.length}, local=${localData.length}');
@@ -508,12 +516,13 @@ class IapController extends AsyncNotifier<IapState> {
             // Clear processing state and set lastCompletedProductId only if:
             // 1. This was user-initiated (product ID matches what user clicked to buy)
             // 2. This is a NEW purchase (status == purchased), not a restored purchase
-            // 
+            //
             // Restored purchases should NOT trigger navigation because they are either:
             // - Pending purchases from previous sessions being processed
             // - User trying to buy something they already own (iOS auto-restores)
             if (shouldTriggerNavigation) {
-              print('✅ NEW user-initiated purchase completed successfully: ${purchase.productID}');
+              print(
+                  '✅ NEW user-initiated purchase completed successfully: ${purchase.productID}');
               _setState(
                 isProcessing: false,
                 lastError: null,
@@ -521,16 +530,19 @@ class IapController extends AsyncNotifier<IapState> {
                 clearInitiatedProductId: true,
               );
             } else if (isUserInitiated && !isNewPurchase) {
-              print('⚠️ User-initiated but RESTORED purchase (already owned): ${purchase.productID}');
+              print(
+                  '⚠️ User-initiated but RESTORED purchase (already owned): ${purchase.productID}');
               // User tried to buy something they already own - iOS restored it instead
               // Clear processing state but DON'T set lastCompletedProductId (no navigation)
               _setState(
                 isProcessing: false,
-                lastError: 'You already own this subscription. It has been restored.',
+                lastError:
+                    'You already own this subscription. It has been restored.',
                 clearInitiatedProductId: true,
               );
             } else {
-              print('ℹ️ Background purchase processed (not user-initiated): ${purchase.productID}');
+              print(
+                  'ℹ️ Background purchase processed (not user-initiated): ${purchase.productID}');
               // For non-user-initiated purchases, just clear processing without triggering navigation
               _setState(isProcessing: false, lastError: null);
             }
@@ -553,7 +565,8 @@ class IapController extends AsyncNotifier<IapState> {
               print('🔍 Extracted error message: $errorMessage');
             }
 
-            print('🚨 Setting error state: isProcessing=false, lastError=$errorMessage');
+            print(
+                '🚨 Setting error state: isProcessing=false, lastError=$errorMessage');
             _setState(
               isProcessing: false,
               lastError: errorMessage,

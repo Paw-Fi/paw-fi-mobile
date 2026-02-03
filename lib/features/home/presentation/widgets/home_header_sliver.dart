@@ -176,7 +176,9 @@ class HomeHeaderSliver extends ConsumerWidget {
 
       final targetCurrency = next.currencyCode?.toUpperCase();
       if (targetCurrency != null && targetCurrency.isNotEmpty) {
-        ref.read(homeFilterProvider.notifier).setSelectedCurrency(targetCurrency);
+        ref
+            .read(homeFilterProvider.notifier)
+            .setSelectedCurrency(targetCurrency);
       }
 
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
@@ -436,10 +438,13 @@ class HomeHeaderSliver extends ConsumerWidget {
 
     if (selectedHouseholdIdForSettings != null) {
       final currentHousehold = householdsAsync.when(
-        data: (households) => households.firstWhere(
-          (h) => h.id == selectedHouseholdIdForSettings,
-          orElse: () => households.first,
-        ),
+        data: (households) {
+          if (households.isEmpty) return null;
+          return households.firstWhere(
+            (h) => h.id == selectedHouseholdIdForSettings,
+            orElse: () => households.first,
+          );
+        },
         loading: () => null,
         error: (_, __) => null,
       );

@@ -165,7 +165,7 @@ Future<void> _maybeRequestReviewAfterExpenseSave({
 }
 
 Future<void> _persistAiTransactions(
-  WidgetRef ref, {
+  ProviderContainer container, {
   required String userId,
   required String? householdId,
   required bool isPortfolio,
@@ -187,8 +187,8 @@ Future<void> _persistAiTransactions(
     final toBucket = normalizeBucketId(savedEntry.householdId);
 
     if (fromBucket == toBucket) {
-      replaceOptimisticTransaction(
-        ref: ref,
+      replaceOptimisticTransactionWithContainer(
+        container: container,
         optimisticId: optimisticId,
         savedEntry: savedEntry,
         householdId: fromBucket,
@@ -196,13 +196,13 @@ Future<void> _persistAiTransactions(
       return;
     }
 
-    removeOptimisticTransaction(
-      ref: ref,
+    removeOptimisticTransactionWithContainer(
+      container: container,
       optimisticId: optimisticId,
       householdId: fromBucket,
     );
-    addOptimisticTransaction(
-      ref: ref,
+    addOptimisticTransactionWithContainer(
+      container: container,
       entry: savedEntry,
       householdId: toBucket,
     );
@@ -211,7 +211,7 @@ Future<void> _persistAiTransactions(
   // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
   if (localImagePath != null && localImagePath.isNotEmpty) {
-    receiptUrl = await ref
+    receiptUrl = await container
         .read(expenseSaveNotifierProvider.notifier)
         .uploadReceiptImage(File(localImagePath), userId);
   }
@@ -310,8 +310,8 @@ Future<void> _persistAiTransactions(
           }
         } else {
           // Remove failed optimistic entry
-          removeOptimisticTransaction(
-            ref: ref,
+          removeOptimisticTransactionWithContainer(
+            container: container,
             optimisticId: originalItem.optimisticId,
             householdId: householdId,
           );
@@ -322,14 +322,16 @@ Future<void> _persistAiTransactions(
     }
 
     if (didPersistAny) {
-      await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+      await container
+          .read(expenseSaveNotifierProvider.notifier)
+          .invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
           );
     }
 
     if (savedExpenseCount > 0) {
-      final prefs = ref.read(sharedPreferencesProvider);
+      final prefs = container.read(sharedPreferencesProvider);
       unawaited(Future<void>.delayed(
         const Duration(milliseconds: 300),
         () => _maybeRequestReviewAfterExpenseSave(
@@ -413,16 +415,16 @@ Future<void> _persistAiTransactions(
             if (!isIncome) savedExpenseCount++;
           } else {
             // Remove failed optimistic entry
-            removeOptimisticTransaction(
-              ref: ref,
+            removeOptimisticTransactionWithContainer(
+              container: container,
               optimisticId: item.optimisticId,
               householdId: householdId,
             );
           }
         } catch (itemError) {
           debugPrint('❌ Failed to save individual transaction: $itemError');
-          removeOptimisticTransaction(
-            ref: ref,
+          removeOptimisticTransactionWithContainer(
+            container: container,
             optimisticId: item.optimisticId,
             householdId: householdId,
           );
@@ -433,7 +435,7 @@ Future<void> _persistAiTransactions(
           '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
       if (savedCount > 0) {
-        await ref
+        await container
             .read(expenseSaveNotifierProvider.notifier)
             .invalidateAfterBatch(
               userId: userId,
@@ -442,7 +444,7 @@ Future<void> _persistAiTransactions(
       }
 
       if (savedExpenseCount > 0) {
-        final prefs = ref.read(sharedPreferencesProvider);
+        final prefs = container.read(sharedPreferencesProvider);
         unawaited(Future<void>.delayed(
           const Duration(milliseconds: 300),
           () => _maybeRequestReviewAfterExpenseSave(
@@ -458,8 +460,8 @@ Future<void> _persistAiTransactions(
 
     // For non-404 errors, remove all optimistic entries and rethrow
     for (final item in transactions) {
-      removeOptimisticTransaction(
-        ref: ref,
+      removeOptimisticTransactionWithContainer(
+        container: container,
         optimisticId: item.optimisticId,
         householdId: householdId,
       );
@@ -937,6 +939,18 @@ Future<void> _processExpense(
               date: DateTime.parse(item['date'] as String),
               description: item['description'] as String?,
               localImagePath: imagePath,
+              payerUserId: (item['payerUserId'] is String)
+                  ? (item['payerUserId'] as String)
+                  : null,
+              payerHint: (item['payerHint'] is String)
+                  ? (item['payerHint'] as String)
+                  : (item['payerName'] is String)
+                      ? (item['payerName'] as String)
+                      : (item['paidBy'] is String)
+                          ? (item['paidBy'] as String)
+                          : (item['payerEmail'] is String)
+                              ? (item['payerEmail'] as String)
+                              : null,
             );
 
             final optimisticId = makeOptimisticTransactionId();
@@ -972,9 +986,10 @@ Future<void> _processExpense(
             );
           }
 
+          final container = ProviderScope.containerOf(context, listen: false);
           unawaited(
             _persistAiTransactions(
-              ref,
+              container,
               userId: user.uid,
               householdId: householdId,
               isPortfolio: isPortfolio,

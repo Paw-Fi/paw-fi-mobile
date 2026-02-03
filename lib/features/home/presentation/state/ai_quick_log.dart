@@ -81,3 +81,53 @@ void replaceOptimisticTransaction({
       .read(analyticsProvider.notifier)
       .replaceOptimisticTransaction(optimisticId, savedEntry);
 }
+
+void addOptimisticTransactionWithContainer({
+  required ProviderContainer container,
+  required ExpenseEntry entry,
+  required String? householdId,
+}) {
+  if (householdId != null && householdId.isNotEmpty) {
+    container
+        .read(householdOptimisticExpensesProvider.notifier)
+        .addExpense(householdId, entry);
+    return;
+  }
+
+  container.read(analyticsProvider.notifier).addOptimisticTransaction(entry);
+}
+
+void removeOptimisticTransactionWithContainer({
+  required ProviderContainer container,
+  required String optimisticId,
+  required String? householdId,
+}) {
+  if (householdId != null && householdId.isNotEmpty) {
+    container
+        .read(householdOptimisticExpensesProvider.notifier)
+        .removeExpense(householdId, optimisticId);
+    return;
+  }
+
+  container.read(analyticsProvider.notifier).removeOptimisticTransactionById(
+        optimisticId,
+      );
+}
+
+void replaceOptimisticTransactionWithContainer({
+  required ProviderContainer container,
+  required String optimisticId,
+  required ExpenseEntry savedEntry,
+  required String? householdId,
+}) {
+  if (householdId != null && householdId.isNotEmpty) {
+    container
+        .read(householdOptimisticExpensesProvider.notifier)
+        .replaceExpense(householdId, optimisticId, savedEntry);
+    return;
+  }
+
+  container
+      .read(analyticsProvider.notifier)
+      .replaceOptimisticTransaction(optimisticId, savedEntry);
+}

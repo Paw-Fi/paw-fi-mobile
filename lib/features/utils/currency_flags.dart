@@ -55,6 +55,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'CLP': 'chile',
     'RSD': 'serbia',
     'HUF': 'hungary',
+    'MMK': 'myanmar',
   };
 
   final flagName = flagMap[code];

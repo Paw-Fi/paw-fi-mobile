@@ -363,10 +363,13 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         return;
       }
 
-      // No cached data - this is a critical error
-      final error =
-          Exception('Failed to load app data: Request timed out after 10s');
-      _recordError(error, StackTrace.current, stopwatch.elapsed);
+      // No cached data - move to failed state but don't record as Crashlytics error
+      // Timeouts are common on cold start; treat as non-fatal to avoid noise.
+      _setFailedState(
+        Exception('Failed to load app data: Request timed out after 10s'),
+        StackTrace.current,
+        stopwatch.elapsed,
+      );
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch timed out with no cache fallback');
     } catch (e, stackTrace) {
@@ -382,7 +385,14 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         return;
       }
 
-      // No cached data - this is a critical error
+      // No cached data - move to failed state but avoid Crashlytics for network errors
+      if (_isNetworkError(e)) {
+        _setFailedState(e, stackTrace, stopwatch.elapsed);
+        debugPrint(
+            '❌ [InitV2] Critical (network): Fresh fetch failed with no cache fallback: $e');
+        return;
+      }
+
       _recordError(e, stackTrace, stopwatch.elapsed);
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
@@ -412,8 +422,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     );
   }
 
-  /// Record error state
-  void _recordError(Object error, StackTrace stackTrace, Duration duration) {
+  void _setFailedState(Object error, StackTrace stackTrace, Duration duration) {
     final exception = error is Exception ? error : Exception(error.toString());
     final message = 'App initialization failed: $error';
 
@@ -424,7 +433,22 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       errorStackTrace: stackTrace,
       lastInitDuration: duration,
     );
+  }
 
+  bool _isNetworkError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('socketexception') ||
+        message.contains('handshakeexception') ||
+        message.contains('connection reset') ||
+        message.contains('connection terminated') ||
+        message.contains('timed out') ||
+        message.contains('timeout') ||
+        message.contains('clientexception');
+  }
+
+  /// Record error state
+  void _recordError(Object error, StackTrace stackTrace, Duration duration) {
+    _setFailedState(error, stackTrace, duration);
     // Log to Crashlytics
     try {
       FirebaseCrashlytics.instance.recordError(

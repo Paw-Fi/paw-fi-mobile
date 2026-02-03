@@ -77,10 +77,23 @@ class Auth extends _$Auth {
     }, onError: (error) {
       // Handle auth stream errors gracefully
       appLog('Auth state change error: $error', name: 'Auth', error: error);
-      try {
-        FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
-      } catch (_) {}
+      if (!_isNetworkError(error)) {
+        try {
+          FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
+        } catch (_) {}
+      }
     });
+  }
+
+  bool _isNetworkError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('socketexception') ||
+        message.contains('connection reset') ||
+        message.contains('connection terminated') ||
+        message.contains('handshakeexception') ||
+        message.contains('timed out') ||
+        message.contains('timeout') ||
+        message.contains('clientexception');
   }
 
   /// Ensure Web3 logins set a reasonable display name and persist

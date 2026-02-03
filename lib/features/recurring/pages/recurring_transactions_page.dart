@@ -569,8 +569,7 @@ class _RecurringTransactionsPageState
       closeDialog();
 
       if (deleteResult.success) {
-        AppToast.success(
-            toastContext, l10n.recurringTransactionDeleted);
+        AppToast.success(toastContext, l10n.recurringTransactionDeleted);
       } else {
         final message = (deleteResult.error != null &&
                 deleteResult.error!.trim().isNotEmpty)

@@ -73,4 +73,31 @@ void main() {
       expect(localTime, isA<DateTime>());
     });
   });
+
+  group('combineLocalDateWithLocalTime', () {
+    test(
+        'uses local calendar date from date and local time components from timeSource',
+        () {
+      final date = DateTime.utc(2024, 1, 15, 0, 0, 0);
+      final timeSource = DateTime.utc(2024, 1, 10, 23, 30, 15, 123, 456);
+
+      final localDate = date.toLocal();
+      final localTime = timeSource.toLocal();
+
+      final combined = combineLocalDateWithLocalTime(
+        date: date,
+        timeSource: timeSource,
+      );
+
+      expect(combined.isUtc, false);
+      expect(combined.year, localDate.year);
+      expect(combined.month, localDate.month);
+      expect(combined.day, localDate.day);
+      expect(combined.hour, localTime.hour);
+      expect(combined.minute, localTime.minute);
+      expect(combined.second, localTime.second);
+      expect(combined.millisecond, localTime.millisecond);
+      expect(combined.microsecond, localTime.microsecond);
+    });
+  });
 }

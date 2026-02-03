@@ -13,6 +13,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
@@ -720,15 +721,9 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                 final isLast = index == expenses.length - 1;
                 final isIncome =
                     (expense.type ?? 'expense').toLowerCase() == 'income';
-                final displayDateTime = DateTime(
-                  expense.date.year,
-                  expense.date.month,
-                  expense.date.day,
-                  expense.createdAt.hour,
-                  expense.createdAt.minute,
-                  expense.createdAt.second,
-                  expense.createdAt.millisecond,
-                  expense.createdAt.microsecond,
+                final localDisplayDateTime = combineLocalDateWithLocalTime(
+                  date: expense.date,
+                  timeSource: expense.createdAt,
                 );
                 return Column(
                   children: [
@@ -736,7 +731,7 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                       context: context,
                       category: expense.category,
                       rawText: expense.rawText,
-                      date: displayDateTime,
+                      date: localDisplayDateTime,
                       amount: expense.amount,
                       currency: expense.currency ?? currency,
                       isIncome: isIncome,

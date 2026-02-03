@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
@@ -223,6 +224,12 @@ class _UnifiedTransactionSheetState
     } else if (widget.newExpense != null) {
       // For new expenses, default to current local time (BE usually returns date-only)
       _selectedTime = TimeOfDay.now();
+
+      final newExpense = widget.newExpense!;
+      if (newExpense.payerUserId != null &&
+          newExpense.payerUserId!.isNotEmpty) {
+        _selectedPayerUserId = newExpense.payerUserId;
+      }
       // Auto-enable household sharing when in household view mode
       final scope = ref.read(householdScopeProvider);
       debugPrint('🆕 [ADD EXPENSE] View mode: ${scope.viewMode}');
@@ -240,6 +247,9 @@ class _UnifiedTransactionSheetState
 
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Seed the pending expense so edits/saves are consistent.
+        ref.read(pendingExpenseProvider.notifier).state = newExpense;
+
         if (selected != null) {
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
@@ -1704,6 +1714,29 @@ class _UnifiedTransactionSheetState
       debugPrint('👥 [LOAD MEMBERS] Fetched ${members.length} members');
 
       if (mounted) {
+        // If AI provided a payer hint (e.g. "paid by Bob"), resolve it to a
+        // concrete household member userId once members are available.
+        if (isNewExpense) {
+          final pending = ref.read(pendingExpenseProvider) ?? widget.newExpense;
+          final hint = pending?.payerHint;
+          if (hint != null && hint.trim().isNotEmpty) {
+            final resolved = resolveHouseholdPayerUserIdFromHint(
+              members: members,
+              hint: hint,
+            );
+
+            if (resolved != null && resolved.isNotEmpty) {
+              final current = _selectedPayerUserId;
+              final currentIsValid =
+                  current != null && members.any((m) => m.userId == current);
+              final currentIsDefault = current == ref.read(authProvider).uid;
+              if (!currentIsValid || currentIsDefault) {
+                _selectedPayerUserId = resolved;
+              }
+            }
+          }
+        }
+
         // Validate that _selectedPayerUserId exists in members
         // This is critical for the "Who paid" dropdown to work correctly
         final currentPayerId = _selectedPayerUserId;

@@ -15,5 +15,6 @@ abstract class Constants {
   static const int discordVoucherMonths = 12;
 
   // Checkout URLs
-  static String get checkoutBaseUrl => dotenv.env['PAYMENT_CHECKOUT_URL'] ??'moneko.io';
+  static String get checkoutBaseUrl =>
+      dotenv.env['PAYMENT_CHECKOUT_URL'] ?? 'moneko.io';
 }

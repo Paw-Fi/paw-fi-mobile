@@ -537,7 +537,8 @@ class _PocketsMonthView extends HookConsumerWidget {
                     final result = await MonekoAlertDialog.show(
                       context: context,
                       title: 'Copy last month\'s pockets?',
-                      description: 'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
+                      description:
+                          'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
                       confirmLabel: 'Copy pockets',
                       cancelLabel: 'Cancel',
                     );

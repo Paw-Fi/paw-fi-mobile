@@ -95,7 +95,7 @@ class _HouseholdMembersSectionState
           canManageMembers,
           currentUserRole,
           currentUserId,
-        ),    
+        ),
       ],
     );
   }
