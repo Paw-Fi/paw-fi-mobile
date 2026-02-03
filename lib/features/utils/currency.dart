@@ -52,6 +52,7 @@ const Map<String, String> currencyOptions = {
   'VND': '₫',
   'ZAR': 'R',
   'MMK': 'Ks',
+  'JOD': 'د.أ',
 };
 
 const String _defaultCurrencySymbol = r'$';

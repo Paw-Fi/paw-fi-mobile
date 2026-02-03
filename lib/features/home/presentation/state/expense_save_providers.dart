@@ -455,7 +455,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     debugPrint('🔄 Invalidating providers...');
 
     // Always refresh personal analytics (expense is in user's expenses table)
-    ref.read(analyticsProvider.notifier).refresh(userId);
+    // Avoid a full reload on household-mode saves to keep the home dashboard
+    // from re-entering the initial skeleton state.
+    if (householdId == null || householdId.isEmpty) {
+      ref.read(analyticsProvider.notifier).refresh(userId);
+    }
 
     // Always refresh pockets + currency counts so other tabs reflect changes.
     ref.invalidate(pocketsProvider);

@@ -59,6 +59,7 @@ const List<PlaidCountryOption> plaidCountryOptions = [
   PlaidCountryOption(code: 'PK', label: 'Pakistan'),
   PlaidCountryOption(code: 'TW', label: 'Taiwan'),
   PlaidCountryOption(code: 'MM', label: 'Myanmar'),
+  PlaidCountryOption(code: 'JO', label: 'Jordan'),
 
   // Core Europe (including all you listed explicitly)
   PlaidCountryOption(code: 'DE', label: 'Germany'),

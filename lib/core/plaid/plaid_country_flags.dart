@@ -81,6 +81,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'PK': 'PKR',
     'TW': 'TWD',
     'MM': 'MMK',
+    'JO': 'JOD',
 
     // Africa & Middle East
     'NG': 'NGN',

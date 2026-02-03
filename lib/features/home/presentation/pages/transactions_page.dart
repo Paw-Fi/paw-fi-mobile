@@ -335,8 +335,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final sortedDates = groupedExpenses.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
-    // Flatten list for rendering
-    final List<dynamic> flatList = [];
+    // Build Groups
+    final List<_TransactionGroup> groups = [];
     for (final date in sortedDates) {
       final expenses = groupedExpenses[date]!;
       double total = 0;
@@ -349,8 +349,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           total -= val;
         }
       }
-      flatList.add(_DateHeader(date: date, total: total));
-      flatList.addAll(expenses);
+      groups
+          .add(_TransactionGroup(date: date, total: total, expenses: expenses));
     }
 
     // Prepare Filter Menu Items
@@ -510,6 +510,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     decoration: BoxDecoration(
                       color: colorScheme.card,
                       borderRadius: BorderRadius.circular(10),
+                      boxShadow: Theme.of(context).brightness == Brightness.dark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
                     ),
                     child: TextField(
                       controller: _searchController,
@@ -539,8 +548,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
               ),
 
-              // Transactions List with Headers
-              flatList.isEmpty
+              // Transactions List Groups
+              groups.isEmpty
                   ? SliverToBoxAdapter(
                       child: Center(
                         child: Padding(
@@ -569,31 +578,52 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final item = flatList[index];
-                          if (item is _DateHeader) {
-                            return _buildDateHeader(context, item, colorScheme);
-                          } else if (item is ExpenseEntry) {
-                            // Determine grouping position
-                            final isFirst = index == 0 ||
-                                flatList[index - 1] is _DateHeader;
-                            final isLast = index == flatList.length - 1 ||
-                                flatList[index + 1] is _DateHeader;
-
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: _buildTransactionItem(
-                                context,
-                                item,
-                                contact,
-                                isFirst: isFirst,
-                                isLast: isLast,
+                          final group = groups[index];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildDateHeader(context, group, colorScheme),
+                              Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                clipBehavior: Clip.hardEdge,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.card,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? null
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.05),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ],
+                                ),
+                                child: Column(
+                                  children: group.expenses
+                                      .asMap()
+                                      .entries
+                                      .map((entry) {
+                                    final itemIndex = entry.key;
+                                    final item = entry.value;
+                                    final isLast =
+                                        itemIndex == group.expenses.length - 1;
+                                    return _buildTransactionItem(
+                                      context,
+                                      item,
+                                      contact,
+                                      isLast: isLast,
+                                    );
+                                  }).toList(),
+                                ),
                               ),
-                            );
-                          }
-                          return const SizedBox();
+                            ],
+                          );
                         },
-                        childCount: flatList.length,
+                        childCount: groups.length,
                       ),
                     ),
 
@@ -624,9 +654,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildDateHeader(
-      BuildContext context, _DateHeader header, ColorScheme colorScheme) {
+      BuildContext context, _TransactionGroup group, ColorScheme colorScheme) {
     final now = DateTime.now();
-    final date = header.date;
+    final date = group.date;
     String dateLabel;
 
     if (date.year == now.year &&
@@ -643,9 +673,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final filterState = ref.watch(homeFilterProvider);
     final currency = filterState.selectedCurrency ?? 'USD';
-    final totalFormatted = formatLocalizedNumber(context, header.total.abs());
+    final totalFormatted = formatLocalizedNumber(context, group.total.abs());
     final symbol = resolveCurrencySymbol(currency);
-    final totalString = '${header.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    final totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -826,11 +856,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.08),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(10), // Radius 10
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                )
+              ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -1214,7 +1249,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildTransactionItem(
       BuildContext context, ExpenseEntry expense, UserContact? contact,
-      {bool isFirst = false, bool isLast = false}) {
+      {bool isLast = false}) {
     final colorScheme = Theme.of(context).colorScheme;
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
@@ -1225,148 +1260,112 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final isSelected = _selectedIds.contains(expense.id);
 
-    // Aesthetic Rules: Radius 10
-    const double kCardRadius = 10.0;
-    final borderRadius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(kCardRadius) : Radius.zero,
-      bottom: isLast ? const Radius.circular(kCardRadius) : Radius.zero,
-    );
-
-    // Shadow for the group bottom or individual?
-    // Settings groups have a shadow on the wrapper container.
-    // Here we are building individual items that *look* like a group.
-    // If isLast is true, we should theoretically ensure the bottom has shadow?
-    // It's hard to stitch shadows on split items.
-    // We will omit shadow for now to ensure clean rendering, or just use card color.
-    // SettingsGroup uses:
-    // boxShadow: isDarkMode ? [] : [ BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: Offset(0, 2)) ]
-
-    // To replicate the shadow effect perfectly for a list of items:
-    // We would need the SliverList to be inside a Container with the shadow, matching the group rect.
-    // Since we are building item by item, we can't easily wrap the whole group unless we change the ListView builder logic to yield Groups instead of Items.
-    // BUT: The current builder flattens the list.
-    // A decent compromise: No shadow, just clean rounded corners and background.
-    // Or, apply shadow to every item and rely on clipping? No, that would show shadows between items.
-
-    return Padding(
-      // Add visual separation between groups if needed? handled by list items logic usually.
-      padding: EdgeInsets.zero,
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Slidable(
-          key: ValueKey(expense.id),
-          enabled: !_isSelectionMode,
-          endActionPane: ActionPane(
-            motion: const ScrollMotion(),
-            extentRatio: 0.22,
-            children: [
-              SlidableAction(
-                onPressed: (_) => _handleSingleDelete(expense),
-                backgroundColor: colorScheme.error,
-                foregroundColor: colorScheme.onError,
-                icon: Icons.delete,
-                spacing: 2,
-                borderRadius: BorderRadius.zero,
-              ),
-            ],
+    return Slidable(
+      key: ValueKey(expense.id),
+      enabled: !_isSelectionMode,
+      endActionPane: ActionPane(
+        motion: const ScrollMotion(),
+        extentRatio: 0.22,
+        children: [
+          SlidableAction(
+            onPressed: (_) => _handleSingleDelete(expense),
+            backgroundColor: colorScheme.error,
+            foregroundColor: colorScheme.onError,
+            icon: Icons.delete,
+            spacing: 2,
+            borderRadius: BorderRadius.zero,
           ),
-          child: Material(
-            color: isSelected
-                ? colorScheme.primary.withValues(alpha: 0.1)
-                : colorScheme.card, // Match Settings Group Color
-            child: InkWell(
-              onTap: () {
-                if (_isSelectionMode) {
-                  setState(() {
-                    if (isSelected) {
-                      _selectedIds.remove(expense.id);
-                    } else {
-                      _selectedIds.add(expense.id);
-                    }
-                  });
+        ],
+      ),
+      child: Material(
+        color: isSelected
+            ? colorScheme.primary.withValues(alpha: 0.1)
+            : Colors.transparent, // Background handled by container
+        child: InkWell(
+          onTap: () {
+            if (_isSelectionMode) {
+              setState(() {
+                if (isSelected) {
+                  _selectedIds.remove(expense.id);
                 } else {
-                  showUnifiedTransactionSheet(context,
-                      existingExpense: expense, contact: contact);
+                  _selectedIds.add(expense.id);
                 }
-              },
-              child: Container(
-                // Ensure internal padding aligns with typical list items
-                // SettingsTile uses: padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)
-                // We use vertical: 0 because TransactionListTile likely handles padding?
-                padding: EdgeInsets.zero,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          // Selection Checkbox
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: _isSelectionMode ? 32 : 0,
-                            height: _isSelectionMode
-                                ? 56
-                                : 0, // Ensure height acts as spacing
-                            margin: EdgeInsets.only(
-                                right: _isSelectionMode ? 12 : 0),
-                            child: _isSelectionMode
-                                ? Center(
-                                    child: Container(
-                                      width: 22,
-                                      height: 22,
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? colorScheme.primary
-                                            : Colors.transparent,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? colorScheme.primary
-                                              : colorScheme.outline
-                                                  .withValues(alpha: 0.5),
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: isSelected
-                                          ? Icon(Icons.check,
-                                              size: 16,
-                                              color: colorScheme.onPrimary)
-                                          : null,
+              });
+            } else {
+              showUnifiedTransactionSheet(context,
+                  existingExpense: expense, contact: contact);
+            }
+          },
+          child: Container(
+            padding: EdgeInsets.zero,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      // Selection Checkbox
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isSelectionMode ? 32 : 0,
+                        height: _isSelectionMode ? 56 : 0,
+                        margin:
+                            EdgeInsets.only(right: _isSelectionMode ? 12 : 0),
+                        child: _isSelectionMode
+                            ? Center(
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? colorScheme.primary
+                                          : colorScheme.outline
+                                              .withValues(alpha: 0.5),
+                                      width: 2,
                                     ),
-                                  )
-                                : null,
-                          ),
-                          Expanded(
-                            child: TransactionListTile(
-                              // Ensure tile itself doesn't have conflicting padding if we want to control it
-                              // Assuming TransactionListTile manages its own "vertical" content height
-                              onTap: null, // Tap handled by parent InkWell
-                              category: expense.category ?? 'uncategorized',
-                              title: getCategoryTranslation(
-                                  context, expense.category ?? 'uncategorized'),
-                              description: expense.rawText,
-                              date: expense.date,
-                              amount: expense.amount,
-                              currency: expense.currency ?? 'USD',
-                              isIncome: isIncome,
-                              showYouLabel: isYou,
-                            ),
-                          ),
-                        ],
+                                  ),
+                                  child: isSelected
+                                      ? Icon(Icons.check,
+                                          size: 16,
+                                          color: colorScheme.onPrimary)
+                                      : null,
+                                ),
+                              )
+                            : null,
                       ),
-                    ),
-                    // Inset Divider
-                    if (!isLast)
-                      Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        indent: 72, // 16 pad + 40 icon space + 16 gap
-                        color: Colors.grey.withValues(alpha: 0.2),
+                      Expanded(
+                        child: TransactionListTile(
+                          onTap: null, // Tap handled by parent InkWell
+                          category: expense.category ?? 'uncategorized',
+                          title: getCategoryTranslation(
+                              context, expense.category ?? 'uncategorized'),
+                          description: expense.rawText,
+                          date: expense.date,
+                          amount: expense.amount,
+                          currency: expense.currency ?? 'USD',
+                          isIncome: isIncome,
+                          showYouLabel: isYou,
+                        ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                // Inset Divider
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    indent: 56, // Indent 56px per spec
+                    color: Colors.grey.withValues(alpha: 0.2),
+                  ),
+              ],
             ),
           ),
         ),
@@ -1499,8 +1498,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 // Keep DateHeader logic if needed or ensure it's not duplicated.
 // The previous step might have added it partially or failed.
 // I will ensure it's here.
-class _DateHeader {
+class _TransactionGroup {
   final DateTime date;
   final double total;
-  _DateHeader({required this.date, required this.total});
+  final List<ExpenseEntry> expenses;
+  _TransactionGroup(
+      {required this.date, required this.total, required this.expenses});
 }

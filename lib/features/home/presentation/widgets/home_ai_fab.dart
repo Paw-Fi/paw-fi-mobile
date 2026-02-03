@@ -24,7 +24,9 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -183,6 +185,11 @@ Future<void> _persistAiTransactions(
     required String optimisticId,
     required ExpenseEntry savedEntry,
   }) {
+    if (savedEntry.id.isNotEmpty) {
+      container
+          .read(householdOptimisticExpensesProvider.notifier)
+          .removeExpenseByIdAcrossHouseholds(savedEntry.id);
+    }
     final fromBucket = normalizeBucketId(householdId);
     final toBucket = normalizeBucketId(savedEntry.householdId);
 
@@ -206,6 +213,63 @@ Future<void> _persistAiTransactions(
       entry: savedEntry,
       householdId: toBucket,
     );
+  }
+
+  Future<void> attachOptimisticSplitsForSavedExpenses(
+    Map<String, ExpenseEntry> savedExpensesById,
+  ) async {
+    if (savedExpensesById.isEmpty) return;
+    final targetHouseholdId = householdId?.trim();
+    if (targetHouseholdId == null || targetHouseholdId.isEmpty) return;
+    if (isPortfolio) return;
+
+    try {
+      final repository = container.read(householdRepositoryProvider);
+      const maxAttempts = 5;
+      const delay = Duration(milliseconds: 250);
+
+      List<ExpenseSplitGroup> splits = const <ExpenseSplitGroup>[];
+      Map<String, ExpenseSplitGroup> splitsByExpenseId =
+          const <String, ExpenseSplitGroup>{};
+
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        splits = await repository.getHouseholdSplits(
+          householdId: targetHouseholdId,
+        );
+
+        splitsByExpenseId = {
+          for (final group in splits) group.expenseId: group,
+        };
+
+        final missing = savedExpensesById.keys
+            .where((id) => !splitsByExpenseId.containsKey(id))
+            .toList(growable: false);
+
+        if (missing.isEmpty || attempt == maxAttempts) break;
+        await Future.delayed(delay);
+      }
+
+      if (splitsByExpenseId.isEmpty) return;
+
+      final splitsNotifier =
+          container.read(householdOptimisticSplitsProvider.notifier);
+      final expensesNotifier =
+          container.read(householdOptimisticExpensesProvider.notifier);
+
+      for (final entry in savedExpensesById.values) {
+        final group = splitsByExpenseId[entry.id];
+        if (group == null) continue;
+        splitsNotifier.addSplitGroup(targetHouseholdId, group);
+
+        final splitGroupId = entry.splitGroupId?.trim();
+        if (splitGroupId == null || splitGroupId.isEmpty) {
+          final updated = entry.copyWith(splitGroupId: group.id);
+          expensesNotifier.replaceExpense(targetHouseholdId, entry.id, updated);
+        }
+      }
+    } catch (error) {
+      debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
+    }
   }
 
   // Upload receipt image first (if any) - shared across all transactions
@@ -285,6 +349,7 @@ Future<void> _persistAiTransactions(
 
     var didPersistAny = false;
     var savedExpenseCount = 0;
+    final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
     if (results != null && results.isNotEmpty) {
       // Map results back to optimistic entries by index
@@ -307,6 +372,7 @@ Future<void> _persistAiTransactions(
           didPersistAny = true;
           if (!originalItem.transaction.isIncome) {
             savedExpenseCount += 1;
+            savedExpenseEntriesById[savedEntry.id] = savedEntry;
           }
         } else {
           // Remove failed optimistic entry
@@ -320,6 +386,8 @@ Future<void> _persistAiTransactions(
         }
       }
     }
+
+    await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
 
     if (didPersistAny) {
       await container
@@ -355,6 +423,7 @@ Future<void> _persistAiTransactions(
       // Save transactions individually using existing endpoints
       var savedCount = 0;
       var savedExpenseCount = 0;
+      final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
       for (final item in transactions) {
         try {
@@ -412,7 +481,10 @@ Future<void> _persistAiTransactions(
               savedEntry: savedEntry,
             );
             savedCount++;
-            if (!isIncome) savedExpenseCount++;
+            if (!isIncome) {
+              savedExpenseCount++;
+              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+            }
           } else {
             // Remove failed optimistic entry
             removeOptimisticTransactionWithContainer(
@@ -441,6 +513,10 @@ Future<void> _persistAiTransactions(
               userId: userId,
               householdId: householdId,
             );
+      }
+
+      if (savedExpenseEntriesById.isNotEmpty) {
+        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
       }
 
       if (savedExpenseCount > 0) {

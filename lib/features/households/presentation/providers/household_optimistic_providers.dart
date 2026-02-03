@@ -92,6 +92,19 @@ class OptimisticHouseholdExpensesNotifier
     state = next;
   }
 
+  void removeExpenseByIdAcrossHouseholds(String expenseId) {
+    if (expenseId.isEmpty) return;
+    final next = <String, List<ExpenseEntry>>{};
+    for (final entry in state.entries) {
+      final filtered =
+          entry.value.where((expense) => expense.id != expenseId).toList();
+      if (filtered.isNotEmpty) {
+        next[entry.key] = filtered;
+      }
+    }
+    state = next;
+  }
+
   void clearHousehold(String householdId) {
     if (!state.containsKey(householdId)) return;
     final next = {...state}..remove(householdId);

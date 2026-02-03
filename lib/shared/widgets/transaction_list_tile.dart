@@ -144,11 +144,11 @@ class TransactionListTile extends StatelessWidget {
       dense: dense,
       contentPadding: EdgeInsets.zero,
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+          color: colorScheme.onSurface.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
       ),
@@ -157,8 +157,8 @@ class TransactionListTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
           color: colorScheme.foreground,
         ),
       ),
