@@ -500,7 +500,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ]
                 ],
               ),
-      
+
               // Search Bar
               SliverToBoxAdapter(
                 child: Padding(
@@ -513,8 +513,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     ),
                     child: TextField(
                       controller: _searchController,
-                      onChanged: (value) =>
-                          setState(() => searchQuery = value),
+                      onChanged: (value) => setState(() => searchQuery = value),
                       style: TextStyle(
                           color: colorScheme.foreground, fontSize: 17),
                       decoration: InputDecoration(
@@ -531,7 +530,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ),
                 ),
               ),
-      
+
               // Chart Display
               SliverToBoxAdapter(
                 child: Padding(
@@ -539,7 +538,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   child: _buildChart(colorScheme, contact),
                 ),
               ),
-      
+
               // Transactions List with Headers
               flatList.isEmpty
                   ? SliverToBoxAdapter(
@@ -572,18 +571,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         (context, index) {
                           final item = flatList[index];
                           if (item is _DateHeader) {
-                            return _buildDateHeader(
-                                context, item, colorScheme);
+                            return _buildDateHeader(context, item, colorScheme);
                           } else if (item is ExpenseEntry) {
                             // Determine grouping position
                             final isFirst = index == 0 ||
                                 flatList[index - 1] is _DateHeader;
                             final isLast = index == flatList.length - 1 ||
                                 flatList[index + 1] is _DateHeader;
-      
+
                             return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16.0),
                               child: _buildTransactionItem(
                                 context,
                                 item,
@@ -598,7 +596,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         childCount: flatList.length,
                       ),
                     ),
-      
+
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
@@ -654,26 +652,23 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       child: Row(
         children: [
           Text(
-            dateLabel,
+            dateLabel.toUpperCase(),
             style: TextStyle(
-                color: colorScheme.mutedForeground,
-                fontWeight: FontWeight.w600,
-                fontSize: 13),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: colorScheme.outline.withValues(alpha: 0.15),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: -0.2,
             ),
           ),
-          const SizedBox(width: 8),
+          const Spacer(),
           Text(
             totalString,
             style: TextStyle(
-                color: colorScheme.mutedForeground,
-                fontWeight: FontWeight.w600,
-                fontSize: 13),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: -0.2,
+            ),
           ),
         ],
       ),
@@ -1230,111 +1225,147 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final isSelected = _selectedIds.contains(expense.id);
 
-    // Soft rounded corners logic
+    // Aesthetic Rules: Radius 10
+    const double kCardRadius = 10.0;
     final borderRadius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(20) : Radius.zero,
-      bottom: isLast ? const Radius.circular(20) : Radius.zero,
+      top: isFirst ? const Radius.circular(kCardRadius) : Radius.zero,
+      bottom: isLast ? const Radius.circular(kCardRadius) : Radius.zero,
     );
 
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: Slidable(
-        key: ValueKey(expense.id),
-        enabled: !_isSelectionMode, // Disable swipe during selection mode
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          extentRatio: 0.22,
-          children: [
-            SlidableAction(
-              onPressed: (_) => _handleSingleDelete(expense),
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-              icon: Icons.delete,
-              spacing: 2,
-              // label: context.l10n.delete, // Icon only for cleaner look in small space
-              borderRadius: BorderRadius.zero, // Clipped by parent
-            ),
-          ],
-        ),
-        child: Material(
-          color: isSelected
-              ? colorScheme.primary.withValues(alpha: 0.1)
-              : colorScheme.card,
-          child: InkWell(
-            onTap: () {
-              if (_isSelectionMode) {
-                setState(() {
-                  if (isSelected) {
-                    _selectedIds.remove(expense.id);
-                  } else {
-                    _selectedIds.add(expense.id);
-                  }
-                });
-              } else {
-                showUnifiedTransactionSheet(context,
-                    existingExpense: expense, contact: contact);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              child: Row(
-                children: [
-                  // Selection Checkbox
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: _isSelectionMode ? 32 : 0,
-                    height: 24,
-                    margin: EdgeInsets.only(right: _isSelectionMode ? 12 : 0),
-                    child: _isSelectionMode
-                        ? Center(
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? colorScheme.primary
-                                      : colorScheme.outline
-                                          .withValues(alpha: 0.5),
-                                  width: 2,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? Icon(Icons.check,
-                                      size: 16, color: colorScheme.onPrimary)
-                                  : null,
+    // Shadow for the group bottom or individual?
+    // Settings groups have a shadow on the wrapper container.
+    // Here we are building individual items that *look* like a group.
+    // If isLast is true, we should theoretically ensure the bottom has shadow?
+    // It's hard to stitch shadows on split items.
+    // We will omit shadow for now to ensure clean rendering, or just use card color.
+    // SettingsGroup uses:
+    // boxShadow: isDarkMode ? [] : [ BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: Offset(0, 2)) ]
+
+    // To replicate the shadow effect perfectly for a list of items:
+    // We would need the SliverList to be inside a Container with the shadow, matching the group rect.
+    // Since we are building item by item, we can't easily wrap the whole group unless we change the ListView builder logic to yield Groups instead of Items.
+    // BUT: The current builder flattens the list.
+    // A decent compromise: No shadow, just clean rounded corners and background.
+    // Or, apply shadow to every item and rely on clipping? No, that would show shadows between items.
+
+    return Padding(
+      // Add visual separation between groups if needed? handled by list items logic usually.
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Slidable(
+          key: ValueKey(expense.id),
+          enabled: !_isSelectionMode,
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 0.22,
+            children: [
+              SlidableAction(
+                onPressed: (_) => _handleSingleDelete(expense),
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+                icon: Icons.delete,
+                spacing: 2,
+                borderRadius: BorderRadius.zero,
+              ),
+            ],
+          ),
+          child: Material(
+            color: isSelected
+                ? colorScheme.primary.withValues(alpha: 0.1)
+                : colorScheme.card, // Match Settings Group Color
+            child: InkWell(
+              onTap: () {
+                if (_isSelectionMode) {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedIds.remove(expense.id);
+                    } else {
+                      _selectedIds.add(expense.id);
+                    }
+                  });
+                } else {
+                  showUnifiedTransactionSheet(context,
+                      existingExpense: expense, contact: contact);
+                }
+              },
+              child: Container(
+                // Ensure internal padding aligns with typical list items
+                // SettingsTile uses: padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+                // We use vertical: 0 because TransactionListTile likely handles padding?
+                padding: EdgeInsets.zero,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          // Selection Checkbox
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: _isSelectionMode ? 32 : 0,
+                            height: _isSelectionMode
+                                ? 56
+                                : 0, // Ensure height acts as spacing
+                            margin: EdgeInsets.only(
+                                right: _isSelectionMode ? 12 : 0),
+                            child: _isSelectionMode
+                                ? Center(
+                                    child: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? colorScheme.primary
+                                            : Colors.transparent,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? colorScheme.primary
+                                              : colorScheme.outline
+                                                  .withValues(alpha: 0.5),
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: isSelected
+                                          ? Icon(Icons.check,
+                                              size: 16,
+                                              color: colorScheme.onPrimary)
+                                          : null,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          Expanded(
+                            child: TransactionListTile(
+                              // Ensure tile itself doesn't have conflicting padding if we want to control it
+                              // Assuming TransactionListTile manages its own "vertical" content height
+                              onTap: null, // Tap handled by parent InkWell
+                              category: expense.category ?? 'uncategorized',
+                              title: getCategoryTranslation(
+                                  context, expense.category ?? 'uncategorized'),
+                              description: expense.rawText,
+                              date: expense.date,
+                              amount: expense.amount,
+                              currency: expense.currency ?? 'USD',
+                              isIncome: isIncome,
+                              showYouLabel: isYou,
                             ),
-                          )
-                        : null,
-                  ),
-                  Expanded(
-                    child: TransactionListTile(
-                      onTap: () => _isSelectionMode
-                          ? setState(() {
-                              if (isSelected) {
-                                _selectedIds.remove(expense.id);
-                              } else {
-                                _selectedIds.add(expense.id);
-                              }
-                            })
-                          : showUnifiedTransactionSheet(context,
-                              existingExpense: expense, contact: contact),
-                      category: expense.category ?? 'uncategorized',
-                      title: getCategoryTranslation(
-                          context, expense.category ?? 'uncategorized'),
-                      description: expense.rawText,
-                      date: expense.date,
-                      amount: expense.amount,
-                      currency: expense.currency ?? 'USD',
-                      isIncome: isIncome,
-                      showYouLabel: isYou,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    // Inset Divider
+                    if (!isLast)
+                      Divider(
+                        height: 1,
+                        thickness: 0.5,
+                        indent: 72, // 16 pad + 40 icon space + 16 gap
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
