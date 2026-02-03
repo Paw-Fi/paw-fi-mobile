@@ -81,7 +81,6 @@ class _BlockingProcessingDialogState extends State<BlockingProcessingDialog> {
   Timer? _elapsedTimer;
   late String _currentMessage;
   String? _subMessage;
-  bool _canCancel = false;
   int _elapsedSeconds = 0;
 
   @override
@@ -89,7 +88,6 @@ class _BlockingProcessingDialogState extends State<BlockingProcessingDialog> {
     super.initState();
     _currentMessage = widget.controller?.message ?? widget.message;
     _subMessage = widget.controller?.subMessage;
-    _canCancel = widget.controller?.allowCancel ?? false;
 
     widget.controller?.addListener(_onControllerUpdate);
     widget.controller?.markStarted();
@@ -99,11 +97,6 @@ class _BlockingProcessingDialogState extends State<BlockingProcessingDialog> {
         if (!mounted) return;
         setState(() {
           _elapsedSeconds++;
-          if (_elapsedSeconds >= widget.enableCancelAfterSeconds &&
-              !_canCancel) {
-            _canCancel = true;
-            _subMessage ??= 'Taking longer than expected...';
-          }
         });
       });
     }
@@ -121,14 +114,7 @@ class _BlockingProcessingDialogState extends State<BlockingProcessingDialog> {
     setState(() {
       _currentMessage = widget.controller!.message;
       _subMessage = widget.controller!.subMessage;
-      _canCancel = widget.controller!.allowCancel;
     });
-  }
-
-  void _handleCancel() {
-    widget.controller?.cancel();
-    widget.onCancel?.call();
-    Navigator.of(context, rootNavigator: true).pop();
   }
 
   String _formatElapsed() {
@@ -191,19 +177,6 @@ class _BlockingProcessingDialogState extends State<BlockingProcessingDialog> {
                 ),
               ),
             ],
-            if (_canCancel) ...[
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: _handleCancel,
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(
-                    color: colorScheme.destructive,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -222,7 +195,9 @@ void showBlockingProcessingDialog({
     barrierDismissible: false,
     builder: (dialogContext) => PopScope(
       canPop: false,
-      child: BlockingProcessingDialog(message: message),
+      child: BlockingProcessingDialog(
+        message: message,
+      ),
     ),
   );
 }

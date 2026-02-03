@@ -81,7 +81,6 @@ class SSEService {
       debugPrint('[SSEService] Error: $e');
       rethrow;
     } finally {
-      response?.stream.listen(null).cancel();
       client?.close();
     }
   }

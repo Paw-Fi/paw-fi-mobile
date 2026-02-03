@@ -781,6 +781,7 @@ Future<void> _processExpense(
   final isPortfolio = scope.activeAccountType == ActiveAccountType.portfolio;
 
   // Determine if this is a potentially slow operation (PDF/file uploads)
+  final hasAttachments = attachments?.isNotEmpty ?? false;
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -792,22 +793,23 @@ Future<void> _processExpense(
       }) ??
       false;
 
+  final shouldStream = hasAttachments;
+  final useEnhancedDialog = shouldStream || isPdfUpload || isLargeFile;
+
   // Show enhanced processing modal with timeout handling for PDFs
   BlockingProcessingController? dialogController;
-  bool wasCancelled = false;
 
-  if (isPdfUpload || isLargeFile) {
+  if (useEnhancedDialog) {
     dialogController = showEnhancedBlockingDialog(
       context: context,
       message: context.l10n.analyzingReceipt,
       subMessage: isPdfUpload
           ? 'Processing PDF document...'
-          : 'Processing large file...',
+          : hasAttachments
+              ? 'Processing file...'
+              : 'Processing large file...',
       showElapsedTime: true,
       enableCancelAfterSeconds: 45,
-      onCancel: () {
-        wasCancelled = true;
-      },
     );
   } else {
     showBlockingProcessingDialog(
@@ -898,7 +900,7 @@ Future<void> _processExpense(
     }
 
     // Check if user cancelled before making request
-    if (wasCancelled || (dialogController?.isCancelled ?? false)) {
+    if (dialogController?.isCancelled ?? false) {
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
@@ -907,14 +909,13 @@ Future<void> _processExpense(
 
     Map<String, dynamic>? responseData;
 
-    // Use SSE streaming for PDF/large files to get real-time progress
-    if ((isPdfUpload || isLargeFile) && dialogController != null) {
+    // Use SSE streaming for file uploads to get real-time progress
+    if (shouldStream && dialogController != null) {
       try {
         responseData = await _processWithSSE(
           body: body,
           dialogController: dialogController,
-          onCancelCheck: () =>
-              wasCancelled || (dialogController?.isCancelled ?? false),
+          onCancelCheck: () => dialogController?.isCancelled ?? false,
         );
       } catch (e) {
         debugPrint('[SSE] Failed, falling back to regular request: $e');
