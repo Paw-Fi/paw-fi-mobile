@@ -60,6 +60,10 @@ class RecurringTransactionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isIncome = transaction.type == 'income';
+    final description = transaction.description?.trim();
+    final hasDescription = description != null && description.isNotEmpty;
+    final localizedCategory =
+        getCategoryTranslation(context, transaction.category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -107,9 +111,8 @@ class RecurringTransactionCard extends ConsumerWidget {
               child: TransactionListTile(
                 onTap: onTap,
                 category: transaction.category,
-                title: transaction.description ??
-                    getCategoryTranslation(context, transaction.category),
-                description: transaction.description,
+                title: hasDescription ? description : localizedCategory,
+                description: hasDescription ? description : null,
                 date: transaction.date,
                 amount: transaction.amount,
                 currency: transaction.currency,

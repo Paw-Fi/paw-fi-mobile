@@ -69,11 +69,13 @@ class AppleLoginButton extends HookConsumerWidget {
           final result = await supabase.auth.signInWithOAuth(
             OAuthProvider.apple,
             redirectTo: kIsWeb ? null : DeepLinks.oauthCallback,
-            authScreenLaunchMode:
-                kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+            authScreenLaunchMode: kIsWeb
+                ? LaunchMode.platformDefault
+                : LaunchMode.externalApplication,
           );
 
-          debugPrint('🔐 Apple OAuth initiated: ${result ? "Success" : "Failed"}');
+          debugPrint(
+              '🔐 Apple OAuth initiated: ${result ? "Success" : "Failed"}');
           isLoading.value = false;
           return;
         }
@@ -153,7 +155,9 @@ class AppleLoginButton extends HookConsumerWidget {
                   color: theme.colorScheme.primaryForeground,
                 ),
           child: Text(
-            isLoading.value ? 'Signing in with Apple...' : 'Continue with Apple',
+            isLoading.value
+                ? 'Signing in with Apple...'
+                : 'Continue with Apple',
           ),
         ),
         if (error.value != null) ...[

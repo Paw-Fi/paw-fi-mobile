@@ -21,6 +21,8 @@ void main() {
       expect(expense.date, date);
       expect(expense.description, null);
       expect(expense.localImagePath, null);
+      expect(expense.payerUserId, null);
+      expect(expense.payerHint, null);
     });
 
     test('creates income with all optional fields', () {
@@ -44,6 +46,8 @@ void main() {
       expect(expense.date, date);
       expect(expense.description, 'Monthly salary');
       expect(expense.localImagePath, '/path/to/image.jpg');
+      expect(expense.payerUserId, null);
+      expect(expense.payerHint, null);
     });
   });
 
@@ -58,6 +62,8 @@ void main() {
         'date': '2024-01-01',
         'description': 'Lunch',
         'localImagePath': '/path/to/image.jpg',
+        'payerUserId': 'user_bob',
+        'payerHint': 'Bob',
       };
 
       final expense = ParsedExpense.fromJson(json);
@@ -71,6 +77,8 @@ void main() {
       expect(expense.date, DateTime(2024, 1, 1));
       expect(expense.description, 'Lunch');
       expect(expense.localImagePath, '/path/to/image.jpg');
+      expect(expense.payerUserId, 'user_bob');
+      expect(expense.payerHint, 'Bob');
     });
 
     test('fromJson parses income correctly with type field', () {
@@ -139,12 +147,33 @@ void main() {
         'date': '2024-01-01',
         'description': null,
         'localImagePath': null,
+        'payerUserId': null,
+        'payerHint': null,
       };
 
       final expense = ParsedExpense.fromJson(json);
 
       expect(expense.description, null);
       expect(expense.localImagePath, null);
+      expect(expense.payerUserId, null);
+      expect(expense.payerHint, null);
+    });
+
+    test('fromJson supports legacy payer keys', () {
+      final json = {
+        'amount': 50.0,
+        'category': 'Food',
+        'currency': 'USD',
+        'currencySymbol': '\$',
+        'date': '2024-01-01',
+        'payer_user_id': 'user_alice',
+        'payerName': 'Alice',
+      };
+
+      final expense = ParsedExpense.fromJson(json);
+
+      expect(expense.payerUserId, 'user_alice');
+      expect(expense.payerHint, 'Alice');
     });
 
     test('fromJson parses amount as int', () {
@@ -172,6 +201,8 @@ void main() {
         date: date,
         description: 'Lunch',
         localImagePath: '/path/to/image.jpg',
+        payerUserId: 'user_bob',
+        payerHint: 'Bob',
       );
 
       final json = expense.toJson();
@@ -184,6 +215,8 @@ void main() {
       expect(json['date'], '2024-01-15');
       expect(json['description'], 'Lunch');
       expect(json['localImagePath'], '/path/to/image.jpg');
+      expect(json['payerUserId'], 'user_bob');
+      expect(json['payerHint'], 'Bob');
     });
 
     test('toJson formats date correctly without time', () {
@@ -216,6 +249,8 @@ void main() {
       final updated = original.copyWith(
         amount: 75.0,
         description: 'Dinner',
+        payerUserId: 'user_bob',
+        payerHint: 'Bob',
       );
 
       expect(updated.amount, 75.0);
@@ -223,6 +258,8 @@ void main() {
       expect(updated.category, 'Food');
       expect(updated.currency, 'USD');
       expect(updated.date, date);
+      expect(updated.payerUserId, 'user_bob');
+      expect(updated.payerHint, 'Bob');
     });
 
     test('copyWith without parameters returns identical values', () {

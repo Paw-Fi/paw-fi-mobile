@@ -135,10 +135,18 @@ final cachedHouseholdExpensesProvider =
     }
 
     final merged = mergeHouseholdExpenses(result, optimistic);
+    final deduped = <ExpenseEntry>[];
+    final seen = <String>{};
+    for (final entry in merged) {
+      if (entry.id.isEmpty) continue;
+      if (seen.add(entry.id)) {
+        deduped.add(entry);
+      }
+    }
 
     debugPrint(
-        '✅ [CACHED_EXPENSES] Returning ${merged.length} expenses for key: $key');
-    return merged;
+        '✅ [CACHED_EXPENSES] Returning ${deduped.length} expenses for key: $key');
+    return deduped;
   },
 );
 

@@ -367,8 +367,8 @@ class HouseholdImagePicker {
                       ),
                     ],
                   ),
-                  child:
-                      Icon(Icons.check_rounded, color: Colors.white, size: 16),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 16),
                 ),
               ),
             ],

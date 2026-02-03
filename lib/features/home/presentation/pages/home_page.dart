@@ -404,9 +404,17 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
 
       // Call analyze-expense endpoint to extract structured transactions (then log immediately).
+      // Explicitly pass JWT so the Edge Function can enrich household context
+      // (householdMembers) under RLS. This is required for reliable split output.
+      final session = supabase.auth.currentSession;
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
+        headers: session != null
+            ? <String, String>{
+                'Authorization': 'Bearer ${session.accessToken}',
+              }
+            : null,
       );
 
       if (!mounted) return;
@@ -475,6 +483,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                 date: DateTime.parse(item['date'] as String),
                 description: item['description'] as String?,
                 localImagePath: imagePath,
+                payerUserId: (item['payerUserId'] is String)
+                    ? (item['payerUserId'] as String)
+                    : null,
+                payerHint: (item['payerHint'] is String)
+                    ? (item['payerHint'] as String)
+                    : (item['payerName'] is String)
+                        ? (item['payerName'] as String)
+                        : (item['paidBy'] is String)
+                            ? (item['paidBy'] as String)
+                            : (item['payerEmail'] is String)
+                                ? (item['payerEmail'] as String)
+                                : null,
               );
 
               final optimisticId = makeOptimisticTransactionId();

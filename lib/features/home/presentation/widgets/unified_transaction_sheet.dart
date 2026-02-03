@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
@@ -223,6 +224,12 @@ class _UnifiedTransactionSheetState
     } else if (widget.newExpense != null) {
       // For new expenses, default to current local time (BE usually returns date-only)
       _selectedTime = TimeOfDay.now();
+
+      final newExpense = widget.newExpense!;
+      if (newExpense.payerUserId != null &&
+          newExpense.payerUserId!.isNotEmpty) {
+        _selectedPayerUserId = newExpense.payerUserId;
+      }
       // Auto-enable household sharing when in household view mode
       final scope = ref.read(householdScopeProvider);
       debugPrint('🆕 [ADD EXPENSE] View mode: ${scope.viewMode}');
@@ -240,6 +247,9 @@ class _UnifiedTransactionSheetState
 
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Seed the pending expense so edits/saves are consistent.
+        ref.read(pendingExpenseProvider.notifier).state = newExpense;
+
         if (selected != null) {
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
@@ -1336,6 +1346,7 @@ class _UnifiedTransactionSheetState
     DateTime? result;
 
     if (Platform.isIOS) {
+      final colorScheme = Theme.of(context).colorScheme;
       // Use Cupertino date picker for iOS
       result = await showCupertinoModalPopup<DateTime>(
         context: context,
@@ -1343,7 +1354,7 @@ class _UnifiedTransactionSheetState
           DateTime tempDate = currentDate;
           return Container(
             height: 300,
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: Column(
               children: [
                 // Header with Done button
@@ -1353,7 +1364,7 @@ class _UnifiedTransactionSheetState
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: CupertinoColors.separator.resolveFrom(context),
+                        color: colorScheme.sheetBorder,
                         width: 0.5,
                       ),
                     ),
@@ -1420,6 +1431,7 @@ class _UnifiedTransactionSheetState
     TimeOfDay? result;
 
     if (Platform.isIOS) {
+      final colorScheme = Theme.of(context).colorScheme;
       // Use Cupertino time picker for iOS
       final now = DateTime.now();
       final initialDateTime = DateTime(
@@ -1436,7 +1448,7 @@ class _UnifiedTransactionSheetState
           DateTime tempTime = initialDateTime;
           return Container(
             height: 300,
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: Column(
               children: [
                 // Header with Done button
@@ -1446,7 +1458,7 @@ class _UnifiedTransactionSheetState
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: CupertinoColors.separator.resolveFrom(context),
+                        color: colorScheme.sheetBorder,
                         width: 0.5,
                       ),
                     ),
@@ -1521,7 +1533,7 @@ class _UnifiedTransactionSheetState
           return Container(
             padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom),
-            color: CupertinoColors.systemBackground.resolveFrom(context),
+            color: colorScheme.sheetBackground,
             child: SafeArea(
               top: false,
               child: Column(
@@ -1532,7 +1544,7 @@ class _UnifiedTransactionSheetState
                     width: 32,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: CupertinoColors.separator.resolveFrom(context),
+                      color: colorScheme.sheetBorder,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1702,6 +1714,29 @@ class _UnifiedTransactionSheetState
       debugPrint('👥 [LOAD MEMBERS] Fetched ${members.length} members');
 
       if (mounted) {
+        // If AI provided a payer hint (e.g. "paid by Bob"), resolve it to a
+        // concrete household member userId once members are available.
+        if (isNewExpense) {
+          final pending = ref.read(pendingExpenseProvider) ?? widget.newExpense;
+          final hint = pending?.payerHint;
+          if (hint != null && hint.trim().isNotEmpty) {
+            final resolved = resolveHouseholdPayerUserIdFromHint(
+              members: members,
+              hint: hint,
+            );
+
+            if (resolved != null && resolved.isNotEmpty) {
+              final current = _selectedPayerUserId;
+              final currentIsValid =
+                  current != null && members.any((m) => m.userId == current);
+              final currentIsDefault = current == ref.read(authProvider).uid;
+              if (!currentIsValid || currentIsDefault) {
+                _selectedPayerUserId = resolved;
+              }
+            }
+          }
+        }
+
         // Validate that _selectedPayerUserId exists in members
         // This is critical for the "Who paid" dropdown to work correctly
         final currentPayerId = _selectedPayerUserId;
@@ -2002,6 +2037,12 @@ class _UnifiedTransactionSheetState
       if (!mounted) return;
 
       final signature = _buildSplitSignature(uiSplitType, memberSplits);
+      debugPrint(
+        '✅ [LOAD SPLIT] About to setState with: type=$uiSplitType, splits=${memberSplits.length}, signature=$signature',
+      );
+      debugPrint(
+        '✅ [LOAD SPLIT] Current state before setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
+      );
       setState(() {
         _customSplitType = uiSplitType;
         _customSplits = memberSplits;
@@ -2011,6 +2052,9 @@ class _UnifiedTransactionSheetState
 
       debugPrint(
         '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType signature=$signature',
+      );
+      debugPrint(
+        '✅ [LOAD SPLIT] State after setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
       );
     } catch (error) {
       debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');

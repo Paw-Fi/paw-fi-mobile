@@ -172,7 +172,7 @@ void main() {
     });
 
     test('isPersonalView returns true in personal mode', () {
-      final selectedState = SelectedHouseholdState(
+      const selectedState = SelectedHouseholdState(
         householdId: null,
         household: null,
       );

@@ -19,6 +19,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/utils/datetime.dart';
 
 String _buildUpcomingDueLabel(BuildContext context, int daysUntil) {
   if (daysUntil <= 0) return context.l10n.today;
@@ -205,15 +206,9 @@ Widget buildRecentTransactionsCard(
                       // the time component comes from createdAt. This avoids
                       // showing 00:00 when the original transaction time was later
                       // in the day (e.g. 14:25).
-                      final displayDateTime = DateTime(
-                        e.date.year,
-                        e.date.month,
-                        e.date.day,
-                        e.createdAt.hour,
-                        e.createdAt.minute,
-                        e.createdAt.second,
-                        e.createdAt.millisecond,
-                        e.createdAt.microsecond,
+                      final displayDateTime = combineLocalDateWithLocalTime(
+                        date: e.date,
+                        timeSource: e.createdAt,
                       );
 
                       return Slidable(

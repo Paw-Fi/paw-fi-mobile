@@ -10,7 +10,9 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -529,11 +531,12 @@ class _RecurringTransactionsPageState
       return;
     }
 
-    final user = supabase.auth.currentUser;
-    if (user == null) {
-      debugPrint('⚠️  [RecurringPage] Delete aborted: user is null');
+    final user = ref.read(authProvider);
+    if (user.uid.isEmpty) {
+      debugPrint('⚠️  [RecurringPage] Delete aborted: user is empty');
       if (mounted) {
-        AppToast.error(context, context.l10n.userNotAuthenticated);
+        final l10n = context.l10n;
+        AppToast.error(context, l10n.userNotAuthenticated);
       }
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
@@ -541,6 +544,7 @@ class _RecurringTransactionsPageState
 
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
+    final l10n = context.l10n;
     var dialogOpen = false;
     void closeDialog() {
       if (!dialogOpen) return;
@@ -551,27 +555,26 @@ class _RecurringTransactionsPageState
     // Show loading dialog
     showBlockingProcessingDialog(
       context: toastContext,
-      message: '${context.l10n.delete}...',
+      message: '${l10n.delete}...',
     );
     dialogOpen = true;
 
     try {
       final deleteResult = await ref
           .read(recurringTransactionsProvider(householdId).notifier)
-          .deleteRecurring(user.id, transaction.id);
+          .deleteRecurring(user.uid, transaction.id);
 
       if (!mounted) return;
 
       closeDialog();
 
       if (deleteResult.success) {
-        AppToast.success(
-            toastContext, context.l10n.recurringTransactionDeleted);
+        AppToast.success(toastContext, l10n.recurringTransactionDeleted);
       } else {
         final message = (deleteResult.error != null &&
                 deleteResult.error!.trim().isNotEmpty)
             ? deleteResult.error!
-            : context.l10n.failedToDeleteRecurringTransaction;
+            : l10n.failedToDeleteRecurringTransaction;
         AppToast.error(toastContext, message);
       }
     } catch (e) {

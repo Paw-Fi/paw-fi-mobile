@@ -1446,10 +1446,12 @@ class AddRecurringSheet extends HookConsumerWidget {
                                       context: context,
                                       items: ['days'],
                                       getLabel: (unit) {
-                                        if (unit == 'days')
+                                        if (unit == 'days') {
                                           return context.l10n.days;
-                                        if (unit == 'hours')
+                                        }
+                                        if (unit == 'hours') {
                                           return context.l10n.hours;
+                                        }
                                         return unit;
                                       },
                                       initial: reminderUnit.value,

@@ -475,11 +475,13 @@ class SettingsPage extends HookConsumerWidget {
                         try {
                           bool launched = await launchUrl(url,
                               mode: LaunchMode.externalApplication);
-                          if (!launched)
+                          if (!launched) {
                             launched = await launchUrl(url,
                                 mode: LaunchMode.inAppBrowserView);
-                          if (!launched)
+                          }
+                          if (!launched) {
                             await launchUrl(url, mode: LaunchMode.inAppWebView);
+                          }
                         } catch (_) {
                           if (context.mounted)
                             AppToast.error(
@@ -903,7 +905,7 @@ class _ProfileHeader extends ConsumerWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 10,
                             offset: const Offset(0, 5),
                           ),
@@ -962,7 +964,7 @@ class _ProfileHeader extends ConsumerWidget {
           authState.email,
           style: TextStyle(
             fontSize: 14,
-            color: colorScheme.onSurface.withOpacity(0.6),
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
           ),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
@@ -1009,7 +1011,7 @@ class _SettingsGroup extends StatelessWidget {
                 ? null
                 : [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -1025,7 +1027,7 @@ class _SettingsGroup extends StatelessWidget {
                     child: Divider(
                       height: 1,
                       thickness: 0.5,
-                      color: Colors.grey.withOpacity(0.2),
+                      color: Colors.grey.withValues(alpha: 0.2),
                     ),
                   ),
               ],
@@ -1075,7 +1077,7 @@ class _SettingsTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurface.withOpacity(0.04),
+                  color: colorScheme.onSurface.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: customIcon ??
@@ -1122,7 +1124,7 @@ class _SettingsTile extends StatelessWidget {
                 Icon(
                   Icons.chevron_right,
                   size: 20,
-                  color: Colors.grey.withOpacity(0.4),
+                  color: Colors.grey.withValues(alpha: 0.4),
                 ),
               ],
             ],

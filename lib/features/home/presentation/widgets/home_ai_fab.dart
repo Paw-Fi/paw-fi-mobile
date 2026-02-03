@@ -24,7 +24,9 @@ import 'package:moneko/features/home/presentation/state/expense_save_providers.d
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -165,7 +167,7 @@ Future<void> _maybeRequestReviewAfterExpenseSave({
 }
 
 Future<void> _persistAiTransactions(
-  WidgetRef ref, {
+  ProviderContainer container, {
   required String userId,
   required String? householdId,
   required bool isPortfolio,
@@ -183,12 +185,17 @@ Future<void> _persistAiTransactions(
     required String optimisticId,
     required ExpenseEntry savedEntry,
   }) {
+    if (savedEntry.id.isNotEmpty) {
+      container
+          .read(householdOptimisticExpensesProvider.notifier)
+          .removeExpenseByIdAcrossHouseholds(savedEntry.id);
+    }
     final fromBucket = normalizeBucketId(householdId);
     final toBucket = normalizeBucketId(savedEntry.householdId);
 
     if (fromBucket == toBucket) {
-      replaceOptimisticTransaction(
-        ref: ref,
+      replaceOptimisticTransactionWithContainer(
+        container: container,
         optimisticId: optimisticId,
         savedEntry: savedEntry,
         householdId: fromBucket,
@@ -196,22 +203,79 @@ Future<void> _persistAiTransactions(
       return;
     }
 
-    removeOptimisticTransaction(
-      ref: ref,
+    removeOptimisticTransactionWithContainer(
+      container: container,
       optimisticId: optimisticId,
       householdId: fromBucket,
     );
-    addOptimisticTransaction(
-      ref: ref,
+    addOptimisticTransactionWithContainer(
+      container: container,
       entry: savedEntry,
       householdId: toBucket,
     );
   }
 
+  Future<void> attachOptimisticSplitsForSavedExpenses(
+    Map<String, ExpenseEntry> savedExpensesById,
+  ) async {
+    if (savedExpensesById.isEmpty) return;
+    final targetHouseholdId = householdId?.trim();
+    if (targetHouseholdId == null || targetHouseholdId.isEmpty) return;
+    if (isPortfolio) return;
+
+    try {
+      final repository = container.read(householdRepositoryProvider);
+      const maxAttempts = 5;
+      const delay = Duration(milliseconds: 250);
+
+      List<ExpenseSplitGroup> splits = const <ExpenseSplitGroup>[];
+      Map<String, ExpenseSplitGroup> splitsByExpenseId =
+          const <String, ExpenseSplitGroup>{};
+
+      for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+        splits = await repository.getHouseholdSplits(
+          householdId: targetHouseholdId,
+        );
+
+        splitsByExpenseId = {
+          for (final group in splits) group.expenseId: group,
+        };
+
+        final missing = savedExpensesById.keys
+            .where((id) => !splitsByExpenseId.containsKey(id))
+            .toList(growable: false);
+
+        if (missing.isEmpty || attempt == maxAttempts) break;
+        await Future.delayed(delay);
+      }
+
+      if (splitsByExpenseId.isEmpty) return;
+
+      final splitsNotifier =
+          container.read(householdOptimisticSplitsProvider.notifier);
+      final expensesNotifier =
+          container.read(householdOptimisticExpensesProvider.notifier);
+
+      for (final entry in savedExpensesById.values) {
+        final group = splitsByExpenseId[entry.id];
+        if (group == null) continue;
+        splitsNotifier.addSplitGroup(targetHouseholdId, group);
+
+        final splitGroupId = entry.splitGroupId?.trim();
+        if (splitGroupId == null || splitGroupId.isEmpty) {
+          final updated = entry.copyWith(splitGroupId: group.id);
+          expensesNotifier.replaceExpense(targetHouseholdId, entry.id, updated);
+        }
+      }
+    } catch (error) {
+      debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
+    }
+  }
+
   // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
   if (localImagePath != null && localImagePath.isNotEmpty) {
-    receiptUrl = await ref
+    receiptUrl = await container
         .read(expenseSaveNotifierProvider.notifier)
         .uploadReceiptImage(File(localImagePath), userId);
   }
@@ -257,6 +321,8 @@ Future<void> _persistAiTransactions(
   try {
     debugPrint(
         '[AI Batch Save] Saving ${batchTransactions.length} transactions in single request');
+    debugPrint('[AI Batch Save] Supabase URL: ${Constants.supabaseUrl}');
+    debugPrint('[AI Batch Save] Function: save-transactions-batch');
 
     final response = await supabase.functions.invoke(
       'save-transactions-batch',
@@ -283,6 +349,7 @@ Future<void> _persistAiTransactions(
 
     var didPersistAny = false;
     var savedExpenseCount = 0;
+    final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
     if (results != null && results.isNotEmpty) {
       // Map results back to optimistic entries by index
@@ -305,11 +372,12 @@ Future<void> _persistAiTransactions(
           didPersistAny = true;
           if (!originalItem.transaction.isIncome) {
             savedExpenseCount += 1;
+            savedExpenseEntriesById[savedEntry.id] = savedEntry;
           }
         } else {
           // Remove failed optimistic entry
-          removeOptimisticTransaction(
-            ref: ref,
+          removeOptimisticTransactionWithContainer(
+            container: container,
             optimisticId: originalItem.optimisticId,
             householdId: householdId,
           );
@@ -319,15 +387,19 @@ Future<void> _persistAiTransactions(
       }
     }
 
+    await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+
     if (didPersistAny) {
-      await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+      await container
+          .read(expenseSaveNotifierProvider.notifier)
+          .invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
           );
     }
 
     if (savedExpenseCount > 0) {
-      final prefs = ref.read(sharedPreferencesProvider);
+      final prefs = container.read(sharedPreferencesProvider);
       unawaited(Future<void>.delayed(
         const Duration(milliseconds: 300),
         () => _maybeRequestReviewAfterExpenseSave(
@@ -340,16 +412,137 @@ Future<void> _persistAiTransactions(
   } catch (error) {
     debugPrint('❌ Batch save failed: $error');
 
-    // On batch failure, remove all optimistic entries
+    // Check if it's a 404 error (function not found) - fallback to individual saves
+    final is404 = error.toString().contains('404') ||
+        error.toString().contains('NOT_FOUND');
+
+    if (is404) {
+      debugPrint(
+          '⚠️ Batch endpoint not available, falling back to individual saves');
+
+      // Save transactions individually using existing endpoints
+      var savedCount = 0;
+      var savedExpenseCount = 0;
+      final savedExpenseEntriesById = <String, ExpenseEntry>{};
+
+      for (final item in transactions) {
+        try {
+          final tx = item.transaction;
+          final isIncome = tx.isIncome;
+          final endpoint = isIncome ? 'save-income' : 'save-expense';
+
+          final requestBody = <String, dynamic>{
+            'userId': userId,
+            'amount': tx.amount,
+            'category': tx.category,
+            'currency': tx.currency,
+            'date': tx.date.toIso8601String().split('T')[0],
+            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            if (tx.description?.isNotEmpty == true)
+              'description': tx.description,
+            if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
+            if (householdId != null && householdId.isNotEmpty)
+              'householdId': householdId,
+            if (householdId != null && householdId.isNotEmpty)
+              'isPortfolio': isPortfolio,
+          };
+
+          // Add expense-specific fields
+          if (!isIncome) {
+            final rawPayerUserId = item.raw['payerUserId'];
+            final payerUserId =
+                rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+                    ? rawPayerUserId.trim()
+                    : null;
+
+            final rawCustomSplits = item.raw['customSplits'];
+            final customSplits = rawCustomSplits is Map
+                ? Map<String, dynamic>.from(rawCustomSplits)
+                : null;
+
+            final splitType = customSplits?['splitType']?.toString().trim();
+            final safeCustomSplits = (splitType == null || splitType == 'equal')
+                ? null
+                : customSplits;
+
+            if (payerUserId != null) requestBody['payerUserId'] = payerUserId;
+            if (safeCustomSplits != null)
+              requestBody['customSplits'] = safeCustomSplits;
+          }
+
+          final response =
+              await supabase.functions.invoke(endpoint, body: requestBody);
+
+          if (response.data != null) {
+            final savedEntry =
+                ExpenseEntry.fromJson(response.data as Map<String, dynamic>);
+            upsertSavedEntry(
+              optimisticId: item.optimisticId,
+              savedEntry: savedEntry,
+            );
+            savedCount++;
+            if (!isIncome) {
+              savedExpenseCount++;
+              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+            }
+          } else {
+            // Remove failed optimistic entry
+            removeOptimisticTransactionWithContainer(
+              container: container,
+              optimisticId: item.optimisticId,
+              householdId: householdId,
+            );
+          }
+        } catch (itemError) {
+          debugPrint('❌ Failed to save individual transaction: $itemError');
+          removeOptimisticTransactionWithContainer(
+            container: container,
+            optimisticId: item.optimisticId,
+            householdId: householdId,
+          );
+        }
+      }
+
+      debugPrint(
+          '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
+
+      if (savedCount > 0) {
+        await container
+            .read(expenseSaveNotifierProvider.notifier)
+            .invalidateAfterBatch(
+              userId: userId,
+              householdId: householdId,
+            );
+      }
+
+      if (savedExpenseEntriesById.isNotEmpty) {
+        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+      }
+
+      if (savedExpenseCount > 0) {
+        final prefs = container.read(sharedPreferencesProvider);
+        unawaited(Future<void>.delayed(
+          const Duration(milliseconds: 300),
+          () => _maybeRequestReviewAfterExpenseSave(
+            userId: userId,
+            prefs: prefs,
+            additionalExpenseCount: savedExpenseCount,
+          ),
+        ));
+      }
+
+      return; // Exit successfully after fallback
+    }
+
+    // For non-404 errors, remove all optimistic entries and rethrow
     for (final item in transactions) {
-      removeOptimisticTransaction(
-        ref: ref,
+      removeOptimisticTransactionWithContainer(
+        container: container,
         optimisticId: item.optimisticId,
         householdId: householdId,
       );
     }
 
-    // Rethrow to allow caller to handle if needed
     rethrow;
   }
 }
@@ -738,9 +931,17 @@ Future<void> _processExpense(
             .updateSubMessage('Extracting transactions from PDF...');
       }
 
+      // Explicitly pass JWT so the Edge Function can enrich household context
+      // (householdMembers) under RLS. This is required for reliable split output.
+      final session = supabase.auth.currentSession;
       final response = await supabase.functions.invoke(
         'analyze-expense',
         body: body,
+        headers: session != null
+            ? <String, String>{
+                'Authorization': 'Bearer ${session.accessToken}',
+              }
+            : null,
       );
 
       if (response.data != null) {
@@ -814,6 +1015,18 @@ Future<void> _processExpense(
               date: DateTime.parse(item['date'] as String),
               description: item['description'] as String?,
               localImagePath: imagePath,
+              payerUserId: (item['payerUserId'] is String)
+                  ? (item['payerUserId'] as String)
+                  : null,
+              payerHint: (item['payerHint'] is String)
+                  ? (item['payerHint'] as String)
+                  : (item['payerName'] is String)
+                      ? (item['payerName'] as String)
+                      : (item['paidBy'] is String)
+                          ? (item['paidBy'] as String)
+                          : (item['payerEmail'] is String)
+                              ? (item['payerEmail'] as String)
+                              : null,
             );
 
             final optimisticId = makeOptimisticTransactionId();
@@ -849,9 +1062,10 @@ Future<void> _processExpense(
             );
           }
 
+          final container = ProviderScope.containerOf(context, listen: false);
           unawaited(
             _persistAiTransactions(
-              ref,
+              container,
               userId: user.uid,
               householdId: householdId,
               isPortfolio: isPortfolio,

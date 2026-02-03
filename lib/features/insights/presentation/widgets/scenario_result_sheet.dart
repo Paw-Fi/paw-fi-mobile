@@ -387,8 +387,9 @@ void showScenarioResultSheet(
                                                       onDeleted();
                                                     }
 
-                                                    if (!context.mounted)
+                                                    if (!context.mounted) {
                                                       return;
+                                                    }
                                                     AppToast.success(
                                                       context,
                                                       context
@@ -399,8 +400,9 @@ void showScenarioResultSheet(
                                                     // successful deletion.
                                                     Navigator.of(context).pop();
                                                   } catch (e) {
-                                                    if (!context.mounted)
+                                                    if (!context.mounted) {
                                                       return;
+                                                    }
                                                     AppToast.error(
                                                       context,
                                                       context.l10n

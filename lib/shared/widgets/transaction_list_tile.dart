@@ -44,18 +44,19 @@ class TransactionListTile extends StatelessWidget {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final dateOnly = DateTime(date.year, date.month, date.day);
+    final localDate = date.toLocal();
+    final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
 
     if (dateOnly == today) {
-      return '${context.l10n.today}, ${DateFormat.jm(localeName).format(date)}';
+      return '${context.l10n.today}, ${DateFormat.jm(localeName).format(localDate)}';
     }
     if (dateOnly == yesterday) {
       return context.l10n.yesterday;
     }
-    if (date.year == now.year) {
-      return DateFormat.MMMd(localeName).format(date);
+    if (localDate.year == now.year) {
+      return DateFormat.MMMd(localeName).format(localDate);
     }
-    return DateFormat.yMMMd(localeName).format(date);
+    return DateFormat.yMMMd(localeName).format(localDate);
   }
 
   @override
@@ -143,11 +144,11 @@ class TransactionListTile extends StatelessWidget {
       dense: dense,
       contentPadding: EdgeInsets.zero,
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
+          color: colorScheme.onSurface.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: color, size: 20),
       ),
@@ -156,8 +157,8 @@ class TransactionListTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
           color: colorScheme.foreground,
         ),
       ),

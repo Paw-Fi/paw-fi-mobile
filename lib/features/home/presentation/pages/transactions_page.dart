@@ -316,344 +316,319 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   AdaptiveScaffold _buildMainScaffold(
       ColorScheme colorScheme, UserContact? contact) {
     final expensesToExport = filteredExpenses;
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        useNativeToolbar: false,
-        title: _isSelectionMode
-            ? '${_selectedIds.length} Selected'
-            : context.l10n.transactions,
-        actions: [
-          if (!_isSelectionMode) ...[
-            AdaptiveAppBarAction(
-              // "Select" button
-              onPressed: () {
-                setState(() {
-                  _isSelectionMode = true;
-                  _selectedIds.clear();
-                });
-              },
-              icon: Icons.checklist_rtl_rounded, // Fallback icon
-              // Use text "Select" if possible, but AdaptiveAppBarAction might force icon?
-              // Looking at AdaptiveAppBarAction definition, it usually takes icon.
-              // We will use a check icon list for "Select".
-            ),
-            AdaptiveAppBarAction(
-              icon: Icons.file_download_rounded,
-              iosSymbol: 'square.and.arrow.up',
-              onPressed: () => exportTransactionsAsExcelSheet(
-                context,
-                expensesToExport,
-                fileNamePrefix: widget.householdId != null
-                    ? 'household_transactions'
-                    : 'transactions',
-              ),
-            ),
-          ] else ...[
-            AdaptiveAppBarAction(
-              onPressed: () {
-                setState(() {
-                  _isSelectionMode = false;
-                  _selectedIds.clear();
-                });
-              },
-              icon: Icons.close,
-            ),
-          ]
-        ],
+
+    // Group expenses by date
+    final groupedExpenses = <DateTime, List<ExpenseEntry>>{};
+    for (var expense in expensesToExport) {
+      final date = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
+      if (!groupedExpenses.containsKey(date)) {
+        groupedExpenses[date] = [];
+      }
+      groupedExpenses[date]!.add(expense);
+    }
+
+    // Sort dates descending
+    final sortedDates = groupedExpenses.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    // Build Groups
+    final List<_TransactionGroup> groups = [];
+    for (final date in sortedDates) {
+      final expenses = groupedExpenses[date]!;
+      double total = 0;
+      for (var e in expenses) {
+        final val = e.amount;
+        final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
+        if (isIncome) {
+          total += val;
+        } else {
+          total -= val;
+        }
+      }
+      groups
+          .add(_TransactionGroup(date: date, total: total, expenses: expenses));
+    }
+
+    // Prepare Filter Menu Items
+    final filterItems = <AdaptivePopupMenuItem>[
+      // Period Options
+      ...['1W', '1M', '6M', '1Y', 'All'].map((period) {
+        final isSelected = selectedPeriod == period;
+        return AdaptivePopupMenuItem(
+          label: 'Period: ${getPeriodLabel(period)}',
+          icon: isSelected
+              ? (PlatformInfo.isIOS26OrHigher() ? 'checkmark' : Icons.check)
+              : null,
+          value: 'period_$period',
+        );
+      }),
+      AdaptivePopupMenuItem(
+        label: 'Period: ${context.l10n.customRange}',
+        icon: selectedPeriod == 'Custom'
+            ? (PlatformInfo.isIOS26OrHigher() ? 'checkmark' : Icons.check)
+            : null,
+        value: 'period_Custom',
       ),
-      body: SafeArea(
-        child: Material(
-          color: colorScheme.appleGroupedBackground,
-          child: RefreshIndicator(
-            onRefresh: () async {
-              if (widget.householdId != null) {
-                ref.invalidate(householdExpensesProvider);
-              } else {
-                ref
-                    .read(analyticsProvider.notifier)
-                    .refresh(ref.read(authProvider).uid);
-              }
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: CustomScrollView(
-                slivers: [
-                  // Search Bar
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 44, // Standard iOS input height
-                              decoration: BoxDecoration(
-                                color: colorScheme.card,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: (value) {
-                                  setState(() {
-                                    searchQuery = value;
-                                  });
-                                },
-                                style: TextStyle(
-                                    color: colorScheme.foreground,
-                                    fontSize: 17),
-                                decoration: InputDecoration(
-                                  hintText: context.l10n.search,
-                                  hintStyle: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 17),
-                                  prefixIcon: Icon(Icons.search,
-                                      color: colorScheme.mutedForeground,
-                                      size: 22),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 10),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            icon: Icon(
-                              Icons.tune,
-                              color: selectedCategory != 'all'
-                                  ? colorScheme.primary
-                                  : colorScheme.mutedForeground,
-                            ),
-                            onPressed: () =>
-                                _showFilterSheet(context, colorScheme),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      // Type Options
+      ...['all', 'expense', 'income'].map((type) {
+        final isSelected = selectedType == type;
+        final label = type == 'all'
+            ? context.l10n.all
+            : type == 'expense'
+                ? context.l10n.expenses
+                : context.l10n.income;
+        return AdaptivePopupMenuItem(
+          label: 'Type: $label',
+          icon: isSelected
+              ? (PlatformInfo.isIOS26OrHigher() ? 'checkmark' : Icons.check)
+              : null,
+          value: 'type_$type',
+        );
+      }),
 
-                  // Period Selector - Minimalist Pill shape
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16.0),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            '1W',
-                            '1M',
-                            '6M',
-                            '1Y',
-                            'All',
-                            if (selectedPeriod == 'Custom') 'Custom',
-                          ].map((period) {
-                            final isSelected = selectedPeriod == period;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    selectedPeriod = period;
-                                  });
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? colorScheme.primary
-                                        : colorScheme.card,
-                                    borderRadius: BorderRadius.circular(100),
-                                    border: isSelected
-                                        ? null
-                                        : Border.all(
-                                            color: colorScheme.outline
-                                                .withValues(alpha: 0.1),
-                                          ),
-                                  ),
-                                  child: Text(
-                                    getPeriodLabel(period),
-                                    style: TextStyle(
-                                      color: isSelected
-                                          ? colorScheme.onPrimary
-                                          : colorScheme.mutedForeground,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
+      // Category Option
+      AdaptivePopupMenuItem(
+        label: selectedCategory == 'all'
+            ? '${context.l10n.category}: ${context.l10n.all}'
+            : '${context.l10n.category}: ${getCategoryTranslation(context, selectedCategory)}',
+        icon: PlatformInfo.isIOS26OrHigher() ? 'tag' : Icons.category_outlined,
+        value: 'category_filter',
+      ),
+    ];
+
+    return AdaptiveScaffold(
+      // Remove default AppBar to use SliverAppBar for custom actions logic
+      // appBar: null,
+      body: Material(
+        color: colorScheme.appleGroupedBackground,
+        child: RefreshIndicator(
+          onRefresh: () async {
+            if (widget.householdId != null) {
+              ref.invalidate(householdExpensesProvider);
+            } else {
+              ref
+                  .read(analyticsProvider.notifier)
+                  .refresh(ref.read(authProvider).uid);
+            }
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                pinned: true,
+                floating: true,
+                snap: true,
+                backgroundColor: colorScheme.appleGroupedBackground,
+                surfaceTintColor: Colors.transparent,
+                title: Text(
+                  _isSelectionMode
+                      ? '${_selectedIds.length} Selected'
+                      : context.l10n.transactions,
+                  style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontWeight: FontWeight.bold),
+                ),
+                iconTheme: IconThemeData(color: colorScheme.foreground),
+                actions: [
+                  if (!_isSelectionMode) ...[
+                    AdaptivePopupMenuButton.widget(
+                      items: filterItems,
+                      onSelected: (index, item) async {
+                        final value = item.value as String;
+                        if (value.startsWith('period_')) {
+                          final newPeriod = value.substring(7);
+                          if (newPeriod == 'Custom') {
+                            final result = await showDateRangePicker(
+                              context: context,
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime.now(),
+                              initialDateRange: _customStartDate != null &&
+                                      _customEndDate != null
+                                  ? DateTimeRange(
+                                      start: _customStartDate!,
+                                      end: _customEndDate!)
+                                  : null,
                             );
-                          }).toList(),
-                        ),
+                            if (result != null) {
+                              setState(() {
+                                _customStartDate = result.start;
+                                _customEndDate = result.end;
+                                selectedPeriod = 'Custom';
+                              });
+                            }
+                          } else {
+                            setState(() => selectedPeriod = newPeriod);
+                          }
+                        } else if (value.startsWith('type_')) {
+                          setState(() => selectedType = value.substring(5));
+                        } else if (value == 'category_filter') {
+                          _showFilterSheet(context, colorScheme);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                        child: Icon(Icons.filter_list_rounded,
+                            color: colorScheme.foreground),
                       ),
                     ),
-                  ),
-
-                  // Chart Display
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: _buildChart(colorScheme, contact),
-                    ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                  // Category Filter Header
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            context.l10n.recentTransactions,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.foreground,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          if (selectedCategory != 'all')
-                            GestureDetector(
-                              onTap: () =>
-                                  setState(() => selectedCategory = 'all'),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.primary
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      getCategoryTranslation(
-                                          context, selectedCategory),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(Icons.close,
-                                        size: 14, color: colorScheme.primary),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
+                    IconButton(
+                      icon: Icon(Icons.file_download_rounded,
+                          color: colorScheme.foreground),
+                      onPressed: () => exportTransactionsAsExcelSheet(
+                        context,
+                        expensesToExport,
+                        fileNamePrefix: widget.householdId != null
+                            ? 'household_transactions'
+                            : 'transactions',
                       ),
                     ),
-                  ),
-
-                  // Type filter chips
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0, vertical: 0),
-                      child: Wrap(
-                        spacing: 8,
-                        children: [
-                          for (final type in const ['all', 'expense', 'income'])
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedType = type;
-                                });
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: selectedType == type
-                                      ? colorScheme.primary
-                                      : colorScheme.card,
-                                  borderRadius: BorderRadius.circular(100),
-                                  border: selectedType == type
-                                      ? null
-                                      : Border.all(
-                                          color: colorScheme.outline
-                                              .withValues(alpha: 0.1)),
-                                ),
-                                child: Text(
-                                  type == 'all'
-                                      ? context.l10n.all
-                                      : type == 'expense'
-                                          ? context.l10n.expenses
-                                          : context.l10n.income,
-                                  style: TextStyle(
-                                    color: selectedType == type
-                                        ? colorScheme.onPrimary
-                                        : colorScheme.onSurface,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                  ] else ...[
+                    IconButton(
+                      icon: Icon(Icons.close, color: colorScheme.foreground),
+                      onPressed: () {
+                        setState(() {
+                          _isSelectionMode = false;
+                          _selectedIds.clear();
+                        });
+                      },
                     ),
-                  ),
-
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                  // Transactions List
-                  filteredExpenses.isEmpty
-                      ? SliverToBoxAdapter(
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(48.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.receipt_long_outlined,
-                                    size: 64,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    context.l10n.noTransactionsFound,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final expense = filteredExpenses[index];
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: _buildTransactionItem(
-                                    context, expense, contact),
-                              );
-                            },
-                            childCount: filteredExpenses.length,
-                          ),
-                        ),
+                  ]
                 ],
               ),
-            ),
+
+              // Search Bar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: Theme.of(context).brightness == Brightness.dark
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => searchQuery = value),
+                      style: TextStyle(
+                          color: colorScheme.foreground, fontSize: 17),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.search,
+                        hintStyle: TextStyle(
+                            color: colorScheme.mutedForeground, fontSize: 17),
+                        prefixIcon: Icon(Icons.search,
+                            color: colorScheme.mutedForeground, size: 22),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Chart Display
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildChart(colorScheme, contact),
+                ),
+              ),
+
+              // Transactions List Groups
+              groups.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(48.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                size: 64,
+                                color: colorScheme.mutedForeground,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                context.l10n.noTransactionsFound,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final group = groups[index];
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildDateHeader(context, group, colorScheme),
+                              Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                clipBehavior: Clip.hardEdge,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.card,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? null
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.05),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ],
+                                ),
+                                child: Column(
+                                  children: group.expenses
+                                      .asMap()
+                                      .entries
+                                      .map((entry) {
+                                    final itemIndex = entry.key;
+                                    final item = entry.value;
+                                    final isLast =
+                                        itemIndex == group.expenses.length - 1;
+                                    return _buildTransactionItem(
+                                      context,
+                                      item,
+                                      contact,
+                                      isLast: isLast,
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                        childCount: groups.length,
+                      ),
+                    ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            ],
           ),
         ),
       ),
@@ -675,6 +650,58 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : '${context.l10n.delete} (${_selectedIds.length})'),
             )
           : null,
+    );
+  }
+
+  Widget _buildDateHeader(
+      BuildContext context, _TransactionGroup group, ColorScheme colorScheme) {
+    final now = DateTime.now();
+    final date = group.date;
+    String dateLabel;
+
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      dateLabel = context.l10n.today;
+    } else if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day - 1) {
+      dateLabel = context.l10n.yesterday;
+    } else {
+      dateLabel = DateFormat('MMM d').format(date);
+    }
+
+    final filterState = ref.watch(homeFilterProvider);
+    final currency = filterState.selectedCurrency ?? 'USD';
+    final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+    final symbol = resolveCurrencySymbol(currency);
+    final totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            dateLabel.toUpperCase(),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            totalString,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -829,11 +856,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.card,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.08),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(10), // Radius 10
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                )
+              ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -1216,7 +1248,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildTransactionItem(
-      BuildContext context, ExpenseEntry expense, UserContact? contact) {
+      BuildContext context, ExpenseEntry expense, UserContact? contact,
+      {bool isLast = false}) {
     final colorScheme = Theme.of(context).colorScheme;
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
@@ -1229,7 +1262,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     return Slidable(
       key: ValueKey(expense.id),
-      enabled: !_isSelectionMode, // Disable swipe during selection mode
+      enabled: !_isSelectionMode,
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
         extentRatio: 0.22,
@@ -1239,96 +1272,101 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             backgroundColor: colorScheme.error,
             foregroundColor: colorScheme.onError,
             icon: Icons.delete,
-            label: context.l10n.delete,
-            borderRadius: BorderRadius.circular(12),
-            // Add margin to match list item separation if feasible,
-            // but SlidableAction usually fills height.
-            // Since we have margin on container, we might want borderRadius.
+            spacing: 2,
+            borderRadius: BorderRadius.zero,
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () {
-          if (_isSelectionMode) {
-            setState(() {
-              if (isSelected) {
-                _selectedIds.remove(expense.id);
-              } else {
-                _selectedIds.add(expense.id);
-              }
-            });
-          } else {
-            showUnifiedTransactionSheet(context,
-                existingExpense: expense, contact: contact);
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.only(bottom: 1), // Separator line effect
-          decoration: BoxDecoration(
-            color: isSelected
-                ? colorScheme.primary.withValues(alpha: 0.1)
-                : colorScheme.card, // Clean white/dark surface
-            // No border radius here for "List" feel, or minimal
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          child: Row(
-            children: [
-              // Selection Checkbox
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: _isSelectionMode ? 32 : 0,
-                height: 24,
-                margin: EdgeInsets.only(right: _isSelectionMode ? 12 : 0),
-                child: _isSelectionMode
-                    ? Center(
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? colorScheme.primary
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : colorScheme.outline.withValues(alpha: 0.5),
-                              width: 2,
-                            ),
-                          ),
-                          child: isSelected
-                              ? Icon(Icons.check,
-                                  size: 16, color: colorScheme.onPrimary)
-                              : null,
+      child: Material(
+        color: isSelected
+            ? colorScheme.primary.withValues(alpha: 0.1)
+            : Colors.transparent, // Background handled by container
+        child: InkWell(
+          onTap: () {
+            if (_isSelectionMode) {
+              setState(() {
+                if (isSelected) {
+                  _selectedIds.remove(expense.id);
+                } else {
+                  _selectedIds.add(expense.id);
+                }
+              });
+            } else {
+              showUnifiedTransactionSheet(context,
+                  existingExpense: expense, contact: contact);
+            }
+          },
+          child: Container(
+            padding: EdgeInsets.zero,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      // Selection Checkbox
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: _isSelectionMode ? 32 : 0,
+                        height: _isSelectionMode ? 56 : 0,
+                        margin:
+                            EdgeInsets.only(right: _isSelectionMode ? 12 : 0),
+                        child: _isSelectionMode
+                            ? Center(
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colorScheme.primary
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? colorScheme.primary
+                                          : colorScheme.outline
+                                              .withValues(alpha: 0.5),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: isSelected
+                                      ? Icon(Icons.check,
+                                          size: 16,
+                                          color: colorScheme.onPrimary)
+                                      : null,
+                                ),
+                              )
+                            : null,
+                      ),
+                      Expanded(
+                        child: TransactionListTile(
+                          onTap: null, // Tap handled by parent InkWell
+                          category: expense.category ?? 'uncategorized',
+                          title: getCategoryTranslation(
+                              context, expense.category ?? 'uncategorized'),
+                          description: expense.rawText,
+                          date: expense.date,
+                          amount: expense.amount,
+                          currency: expense.currency ?? 'USD',
+                          isIncome: isIncome,
+                          showYouLabel: isYou,
                         ),
-                      )
-                    : null,
-              ),
-              Expanded(
-                child: TransactionListTile(
-                  onTap: () => _isSelectionMode
-                      ? setState(() {
-                          if (isSelected) {
-                            _selectedIds.remove(expense.id);
-                          } else {
-                            _selectedIds.add(expense.id);
-                          }
-                        })
-                      : showUnifiedTransactionSheet(context,
-                          existingExpense: expense, contact: contact),
-                  category: expense.category ?? 'uncategorized',
-                  title: getCategoryTranslation(
-                      context, expense.category ?? 'uncategorized'),
-                  description: expense.rawText,
-                  date: expense.date,
-                  amount: expense.amount,
-                  currency: expense.currency ?? 'USD',
-                  isIncome: isIncome,
-                  showYouLabel: isYou,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                // Inset Divider
+                if (!isLast)
+                  Divider(
+                    height: 1,
+                    thickness: 0.5,
+                    indent: 56, // Indent 56px per spec
+                    color: Colors.grey.withValues(alpha: 0.2),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1455,4 +1493,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       },
     );
   }
+}
+
+// Keep DateHeader logic if needed or ensure it's not duplicated.
+// The previous step might have added it partially or failed.
+// I will ensure it's here.
+class _TransactionGroup {
+  final DateTime date;
+  final double total;
+  final List<ExpenseEntry> expenses;
+  _TransactionGroup(
+      {required this.date, required this.total, required this.expenses});
 }

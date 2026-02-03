@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// A tappable button that looks like an input field with a selector arrow.

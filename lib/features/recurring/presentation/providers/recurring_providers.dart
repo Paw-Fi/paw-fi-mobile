@@ -249,8 +249,9 @@ class RecurringTransactionsNotifier
       debugPrint('   TransactionId: $transactionId');
 
       // Optimistic update
-      if (!mounted)
+      if (!mounted) {
         return const DeleteRecurringResult.failure('Provider unmounted');
+      }
       state.data.whenData((transactions) {
         state = state.copyWith(
           data: AsyncValue.data(
