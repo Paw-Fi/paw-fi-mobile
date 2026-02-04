@@ -489,7 +489,11 @@ class DeepLinkService {
       }
     } finally {
       if (dialogShown && navigatorContext?.mounted == true) {
-        Navigator.of(navigatorContext!, rootNavigator: true).pop();
+        final navigator =
+            Navigator.maybeOf(navigatorContext!, rootNavigator: true);
+        if (navigator?.canPop() ?? false) {
+          navigator!.pop();
+        }
       }
     }
   }

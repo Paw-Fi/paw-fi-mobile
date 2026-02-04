@@ -7,7 +7,6 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -18,7 +17,9 @@ Future<String?> showCurrencySelectorModal(
   WidgetRef ref, {
   bool showAllByDefault = false,
 }) async {
-  return Navigator.of(context).push<String>(
+  final navigator = Navigator.maybeOf(context, rootNavigator: true);
+  if (navigator == null) return null;
+  return navigator.push<String>(
     MaterialPageRoute(
       fullscreenDialog: true,
       builder: (_) =>
@@ -55,6 +56,7 @@ class _CurrencySelectorScreenState
 
   Future<void> _loadCustomOrder() async {
     try {
+      if (!mounted) return;
       final service = ref.read(currencyPreferenceServiceProvider);
       final order = await service.getCurrencyOrder();
       if (order != null && mounted) {
@@ -69,6 +71,7 @@ class _CurrencySelectorScreenState
 
   Future<void> _saveCustomOrder(List<String> order) async {
     try {
+      if (!mounted) return;
       final service = ref.read(currencyPreferenceServiceProvider);
       await service.setCurrencyOrder(order);
       if (mounted) {
@@ -323,7 +326,6 @@ class _CurrencySelectorScreenState
                             filterState.selectedCurrency?.toUpperCase() ==
                                 summary.currencyCode,
                         onTap: () async {
-                          final authState = ref.read(authProvider);
                           final previousCurrency = filterState.selectedCurrency;
                           final service =
                               ref.read(currencyPreferenceServiceProvider);
@@ -331,6 +333,9 @@ class _CurrencySelectorScreenState
                               ref.read(homeFilterProvider.notifier);
                           final analyticsNotifier =
                               ref.read(analyticsProvider.notifier);
+                          final toastContext =
+                              Navigator.maybeOf(context, rootNavigator: true)
+                                  ?.context;
 
                           // Optimistically update UI immediately
                           await service
@@ -346,12 +351,13 @@ class _CurrencySelectorScreenState
                           }
 
                           // Make BE call in background
-                          if (authState.uid.isNotEmpty) {
+                          final hasSession =
+                              supabase.auth.currentSession != null;
+                          if (hasSession) {
                             try {
                               final response = await supabase.functions.invoke(
                                 'update-preferred-currency',
                                 body: {
-                                  'userId': authState.uid,
                                   'currency': summary.currencyCode,
                                 },
                               );
@@ -361,12 +367,18 @@ class _CurrencySelectorScreenState
                                 throw Exception('Request failed ($status)');
                               }
 
+                              final payloadData = response.data;
+                              if (payloadData is! Map) {
+                                throw Exception('Invalid response');
+                              }
                               final payload =
-                                  response.data as Map<String, dynamic>?;
-                              if (payload == null || payload['ok'] != true) {
-                                final message = payload?['error'] as String? ??
-                                    'Unable to update currency';
-                                throw Exception(message);
+                                  payloadData.cast<String, dynamic>();
+                              if (payload['ok'] != true) {
+                                throw Exception(
+                                  (payload['error'] ??
+                                          'Unable to update currency')
+                                      .toString(),
+                                );
                               }
 
                               // Success - currency is now synced with backend
@@ -375,7 +387,13 @@ class _CurrencySelectorScreenState
                               debugPrint(
                                   'Failed to update preferred currency on backend: $error');
 
-                              if (previousCurrency != null) {
+                              final currentSelection = filterNotifier
+                                  .state.selectedCurrency
+                                  ?.toUpperCase();
+                              final selectedCode =
+                                  summary.currencyCode.toUpperCase();
+                              if (previousCurrency != null &&
+                                  currentSelection == selectedCode) {
                                 await service
                                     .setSelectedCurrency(previousCurrency);
                                 filterNotifier
@@ -384,25 +402,47 @@ class _CurrencySelectorScreenState
                                     .updatePreferredCurrency(previousCurrency);
                               }
 
-                              // Use AppToast with action so message appears above any bottom sheet
-                              if (context.mounted) {
+                              if (toastContext != null &&
+                                  toastContext.mounted) {
+                                final toastCtx = toastContext;
+                                // Use AppToast with action so message appears above any bottom sheet
                                 AppToast.action(
-                                  context,
-                                  'Failed to sync currency preference: $error',
+                                  toastCtx,
+                                  'Failed to sync currency preference.',
                                   actionLabel: 'Retry',
                                   type: AppToastType.warning,
                                   onPressed: () async {
                                     try {
+                                      if (!toastCtx.mounted) return;
+                                      final hasSession =
+                                          supabase.auth.currentSession != null;
+                                      if (!hasSession) {
+                                        throw Exception('Missing user session');
+                                      }
                                       final retryResponse =
                                           await supabase.functions.invoke(
                                         'update-preferred-currency',
                                         body: {
-                                          'userId': authState.uid,
                                           'currency': summary.currencyCode,
                                         },
                                       );
                                       if (retryResponse.status >= 400) {
-                                        throw Exception('Retry failed');
+                                        throw Exception(
+                                            'Retry failed (${retryResponse.status})');
+                                      }
+                                      final retryData = retryResponse.data;
+                                      if (retryData is! Map) {
+                                        throw Exception(
+                                            'Retry failed: invalid response');
+                                      }
+                                      final payload =
+                                          retryData.cast<String, dynamic>();
+                                      if (payload['ok'] != true) {
+                                        throw Exception(
+                                          (payload['error'] ??
+                                                  'Unable to update currency')
+                                              .toString(),
+                                        );
                                       }
                                       await service.setSelectedCurrency(
                                           summary.currencyCode);
@@ -410,14 +450,20 @@ class _CurrencySelectorScreenState
                                           summary.currencyCode);
                                       analyticsNotifier.updatePreferredCurrency(
                                           summary.currencyCode);
-                                      if (context.mounted) {
-                                        AppToast.success(context,
-                                            'Currency updated successfully');
+                                      if (toastCtx.mounted) {
+                                        AppToast.success(
+                                          toastCtx,
+                                          'Currency updated successfully',
+                                        );
                                       }
                                     } catch (retryError) {
-                                      if (context.mounted) {
-                                        AppToast.error(context,
-                                            'Retry failed: $retryError');
+                                      debugPrint(
+                                          'Failed to retry preferred currency update: $retryError');
+                                      if (toastCtx.mounted) {
+                                        AppToast.error(
+                                          toastCtx,
+                                          'Retry failed. Please try again.',
+                                        );
                                       }
                                     }
                                   },

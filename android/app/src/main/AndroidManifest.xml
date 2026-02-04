@@ -150,6 +150,7 @@
             android:name=".MonekoWidgetConfigureActivity"
             android:exported="true" />
 
+        <!-- Temporarily disabled widget provider due to compilation errors
         <receiver android:name=".MonekoWidgetProvider" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -157,6 +158,7 @@
             <meta-data android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+        -->
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

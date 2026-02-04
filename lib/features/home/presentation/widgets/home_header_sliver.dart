@@ -27,16 +27,12 @@ import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 
-Household _resolveSelectedHousehold(
+Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
   List<Household> households,
 ) {
   if (households.isEmpty) {
-    throw ArgumentError.value(
-      households,
-      'households',
-      'Must not be empty when resolving selection',
-    );
+    return selectedState.household;
   }
 
   final selectedId = selectedState.householdId ?? selectedState.household?.id;
@@ -93,9 +89,9 @@ class HomeHeaderLeading extends ConsumerWidget {
               if (households.isEmpty) {
                 return _userLabel(user, shortenEmail: false);
               }
-              return _resolveSelectedHousehold(
-                      selectedHouseholdState, households)
-                  .name;
+              final resolved =
+                  _resolveSelectedHousehold(selectedHouseholdState, households);
+              return resolved?.name ?? _userLabel(user, shortenEmail: false);
             },
           );
 
@@ -219,10 +215,11 @@ class HomeHeaderSliver extends ConsumerWidget {
                 if (households.isEmpty) {
                   return _userLabel(user, shortenEmail: true);
                 }
-                return _resolveSelectedHousehold(
+                final resolved = _resolveSelectedHousehold(
                   selectedHouseholdState,
                   households,
-                ).name;
+                );
+                return resolved?.name ?? _userLabel(user, shortenEmail: true);
               },
             ),
       maxLength: 18,

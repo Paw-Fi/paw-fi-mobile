@@ -12,6 +12,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -636,8 +637,9 @@ class _ScenarioPlanningTabContentState
                                             gotMeta = true;
                                             break;
                                           case 'chunk':
-                                            final chunkText =
-                                                obj['text'] as String? ?? '';
+                                            final chunkText = sanitizeUtf16(
+                                              obj['text'] as String? ?? '',
+                                            );
                                             adviceNotifier.value =
                                                 '${adviceNotifier.value}$chunkText';
 

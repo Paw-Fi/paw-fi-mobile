@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 
 /// Server-Sent Events (SSE) service for streaming responses
 class SSEService {
@@ -126,7 +127,7 @@ class AnalysisProgressEvent {
   factory AnalysisProgressEvent.fromJson(Map<String, dynamic> json) {
     return AnalysisProgressEvent(
       stage: json['stage'] as String? ?? 'processing',
-      message: json['message'] as String? ?? 'Processing...',
+      message: sanitizeUtf16(json['message'] as String? ?? 'Processing...'),
       currentItem: json['currentItem'] as int?,
       totalItems: json['totalItems'] as int?,
     );

@@ -582,9 +582,11 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
     context,
     controller,
     (text) async {
+      if (!context.mounted) return;
       await _processExpense(context, ref, text: text);
     },
     onSubmitAudio: (audioBytes, contentType) async {
+      if (!context.mounted) return;
       await _processExpense(
         context,
         ref,
@@ -953,6 +955,10 @@ Future<void> _processExpense(
     // Close processing modal
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    if (!context.mounted) {
+      return;
     }
 
     debugPrint('=== ANALYSIS RESPONSE ===');

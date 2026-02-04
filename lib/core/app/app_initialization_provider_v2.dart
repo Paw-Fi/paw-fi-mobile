@@ -492,6 +492,13 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   /// Record fetch error with cache fallback
   void _recordFetchErrorWithCache(Object error, Duration duration) {
     try {
+      if (_isNetworkError(error)) {
+        FirebaseCrashlytics.instance
+            .log('Init fetch network error with cache fallback');
+        FirebaseCrashlytics.instance
+            .setCustomKey('init_duration_ms', duration.inMilliseconds);
+        return;
+      }
       FirebaseCrashlytics.instance.recordError(
         error,
         StackTrace.current,

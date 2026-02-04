@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -5,22 +7,22 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
-import '../../../../core/l10n/l10n.dart';
-import 'package:moneko/core/resources/lib/supabase.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
@@ -42,11 +44,11 @@ class OnboardingFlowPage extends HookConsumerWidget {
     void goToPage(int targetPage) {
       if (!context.mounted) return;
       void go() {
-        pageController.animateToPage(
+        unawaited(pageController.animateToPage(
           targetPage,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-        );
+        ));
       }
 
       if (pageController.hasClients) {
@@ -79,13 +81,14 @@ class OnboardingFlowPage extends HookConsumerWidget {
         final targetPage = currentPage.value + 1;
         goToPage(targetPage);
       } else {
-        showFinishPage();
+        unawaited(showFinishPage());
       }
     }
 
     void skip() => next(); // Now skip goes to next step instead of exiting
 
     Future<void> handleNotificationsFlow() async {
+      if (!context.mounted) return;
       if (notificationFlowStarted.value || notificationFlowCompleted.value) {
         if (notificationFlowCompleted.value) {
           next();
@@ -95,23 +98,34 @@ class OnboardingFlowPage extends HookConsumerWidget {
       notificationFlowStarted.value = true;
       final uid = ref.read(authProvider).uid;
       final prefs = ref.read(sharedPreferencesProvider);
-      final promptedKey = '$_kNotificationsPromptedPrefix$uid';
-      final prompted = prefs.getBool(promptedKey) ?? false;
-      if (!prompted) {
-        await prefs.setBool(promptedKey, true);
-      }
+      final deviceRegistration = ref.read(deviceRegistrationServiceProvider);
       try {
-        await ref.read(deviceRegistrationServiceProvider).initialize();
-      } catch (_) {}
-      notificationFlowCompleted.value = true;
-      notificationFlowStarted.value = false;
-      next();
+        final promptedKey = '$_kNotificationsPromptedPrefix$uid';
+        final prompted = prefs.getBool(promptedKey) ?? false;
+        if (!prompted) {
+          await prefs.setBool(promptedKey, true);
+        }
+
+        if (!context.mounted) return;
+
+        try {
+          await deviceRegistration.initialize();
+        } catch (_) {}
+
+        if (!context.mounted) return;
+
+        notificationFlowCompleted.value = true;
+        next();
+      } finally {
+        if (context.mounted) {
+          notificationFlowStarted.value = false;
+        }
+      }
     }
 
     Future<void> primary() async {
       if (currentPage.value == 0) {
         // Step 1 (Currency): persist current selection (or USD) and advance immediately
-        final user = ref.read(authProvider);
         final filter = ref.read(homeFilterProvider);
         final selectedCurrency =
             (filter.selectedCurrency ?? 'USD').toUpperCase();
@@ -128,24 +142,34 @@ class OnboardingFlowPage extends HookConsumerWidget {
         next();
 
         // Fire-and-forget local preference write and backend sync
-        Future(() async {
+        unawaited(() async {
           try {
             await ref
                 .read(currencyPreferenceServiceProvider)
                 .setSelectedCurrency(selectedCurrency);
           } catch (_) {}
-          if (user.uid.isNotEmpty) {
+          if (supabase.auth.currentSession != null) {
             try {
-              await supabase.functions.invoke(
+              final response = await supabase.functions.invoke(
                 'update-preferred-currency',
                 body: {
-                  'userId': user.uid,
                   'currency': selectedCurrency,
                 },
               );
+              if (response.status >= 400) {
+                debugPrint(
+                    'update-preferred-currency failed: ${response.status}');
+                return;
+              }
+              final payload = response.data;
+              final ok = payload is Map && payload['ok'] == true;
+              if (!ok) {
+                debugPrint(
+                    'update-preferred-currency returned unexpected payload: $payload');
+              }
             } catch (_) {}
           }
-        });
+        }());
         return;
       }
 
@@ -190,7 +214,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
     useEffect(() {
       if (currentPage.value == 2) {
-        handleNotificationsFlow();
+        unawaited(handleNotificationsFlow());
       }
       return null;
     }, [currentPage.value]);
@@ -262,7 +286,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                         onPressed: () {
                           // Fire-and-forget call to async handler to avoid type mismatch
                           // and ensure reliable button taps
-                          primary();
+                          unawaited(primary());
                         },
                         child: Text(
                           currentPage.value == 0

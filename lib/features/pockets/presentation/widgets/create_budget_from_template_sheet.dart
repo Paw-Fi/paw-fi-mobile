@@ -145,9 +145,14 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
             pockets.value = pockets.value.map((p) {
               // Find original template weight if possible, or just split evenly?
               // Better: Look up from current selected template.
-              final templatePocket = selectedTemplate.value.pockets.firstWhere(
-                  (tp) => tp.name == p.name,
-                  orElse: () => selectedTemplate.value.pockets.first);
+              final templatePockets = selectedTemplate.value.pockets;
+              if (templatePockets.isEmpty) {
+                return p.copyWith(amount: 0);
+              }
+              final templatePocket = templatePockets.firstWhere(
+                (tp) => tp.name == p.name,
+                orElse: () => templatePockets.first,
+              );
               return p.copyWith(amount: newTotal * templatePocket.weight);
             }).toList();
           } else {

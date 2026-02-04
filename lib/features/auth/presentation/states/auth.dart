@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -77,12 +78,37 @@ class Auth extends _$Auth {
     }, onError: (error) {
       // Handle auth stream errors gracefully
       appLog('Auth state change error: $error', name: 'Auth', error: error);
+      if (_isRefreshTokenNotFound(error)) {
+        appLog('Auth session expired, clearing local session', name: 'Auth');
+        unawaited(supabase.auth.signOut());
+        return;
+      }
+      if (_isFlowStateNotFound(error)) {
+        return;
+      }
       if (!_isNetworkError(error)) {
         try {
           FirebaseCrashlytics.instance.recordError(error, null, fatal: false);
         } catch (_) {}
       }
     });
+  }
+
+  bool _isRefreshTokenNotFound(Object error) {
+    if (error is AuthApiException) {
+      return error.code?.toLowerCase() == 'refresh_token_not_found';
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('refresh_token_not_found') ||
+        message.contains('refresh token not found');
+  }
+
+  bool _isFlowStateNotFound(Object error) {
+    if (error is AuthApiException) {
+      return error.code?.toLowerCase() == 'flow_state_not_found';
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('flow_state_not_found');
   }
 
   bool _isNetworkError(Object error) {

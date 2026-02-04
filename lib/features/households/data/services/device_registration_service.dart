@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,7 +78,7 @@ class DeviceRegistrationService {
       debugPrint('❌ Device registration initialization failed: $e');
       // Mark as initialized anyway to prevent blocking app startup
       _initialized = true;
-      rethrow;
+      return;
     }
   }
 
@@ -435,13 +436,44 @@ class DeviceRegistrationService {
       iOS: iosDetails,
     );
 
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'Moneko',
-      message.notification?.body ?? '',
-      notificationDetails,
-      payload: message.data.toString(),
+    const fallbackAndroidDetails = AndroidNotificationDetails(
+      _androidChannelId,
+      _androidChannelName,
+      channelDescription: _androidChannelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      icon: '@mipmap/ic_launcher_monochrome',
+      color: AppTheme.monekoPrimary,
     );
+
+    const fallbackDetails = NotificationDetails(
+      android: fallbackAndroidDetails,
+      iOS: iosDetails,
+    );
+
+    try {
+      await _localNotifications.show(
+        message.hashCode,
+        message.notification?.title ?? 'Moneko',
+        message.notification?.body ?? '',
+        notificationDetails,
+        payload: message.data.toString(),
+      );
+    } on PlatformException catch (e) {
+      if (e.code == 'invalid_large_icon') {
+        await _localNotifications.show(
+          message.hashCode,
+          message.notification?.title ?? 'Moneko',
+          message.notification?.body ?? '',
+          fallbackDetails,
+          payload: message.data.toString(),
+        );
+      } else {
+        rethrow;
+      }
+    }
   }
 
   /// Handle notification tap (for local notifications shown in foreground)

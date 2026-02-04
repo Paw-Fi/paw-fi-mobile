@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'dart:async';
 
 enum AppToastType { info, success, warning, error }
@@ -50,6 +51,7 @@ class AppToast {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 3),
   }) {
+    final safeMessage = sanitizeUtf16(message);
     // Dismiss any existing toast
     _dismissCurrentToast();
 
@@ -67,14 +69,19 @@ class AppToast {
       // Fallback to a MaterialBanner at the top of the Scaffold when no overlay
       // is available. This keeps user-visible feedback instead of silently
       // dropping the toast (common during cold start/deep links).
-      _showMaterialBannerFallback(effectiveContext, message, type, duration);
+      _showMaterialBannerFallback(
+        effectiveContext,
+        safeMessage,
+        type,
+        duration,
+      );
       return;
     }
 
     // Create overlay entry with animation
     final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
-        message: message,
+        message: safeMessage,
         type: type,
       ),
     );
@@ -105,6 +112,7 @@ class AppToast {
     AppToastType type = AppToastType.info,
     Duration duration = const Duration(seconds: 4),
   }) {
+    final safeMessage = sanitizeUtf16(message);
     // Dismiss any existing toast
     _dismissCurrentToast();
 
@@ -117,14 +125,19 @@ class AppToast {
 
     final overlay = _resolveOverlayState(effectiveContext);
     if (overlay == null) {
-      _showMaterialBannerFallback(effectiveContext, message, type, duration);
+      _showMaterialBannerFallback(
+        effectiveContext,
+        safeMessage,
+        type,
+        duration,
+      );
       return;
     }
 
     // Create overlay entry with animation and action button
     final entry = OverlayEntry(
       builder: (context) => _ToastWidget(
-        message: message,
+        message: safeMessage,
         type: type,
         actionLabel: actionLabel,
         onActionPressed: () {

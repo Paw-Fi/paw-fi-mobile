@@ -1,4 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'dart:async';
+
 import 'package:home_widget/home_widget.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:flutter/cupertino.dart';
@@ -25,6 +27,7 @@ class App extends ConsumerStatefulWidget {
 class _AppState extends ConsumerState<App> {
   final DeepLinkService _deepLinkService = DeepLinkService();
   bool _deepLinkInitialized = false;
+  StreamSubscription<Uri?>? _widgetClickSubscription;
 
   @override
   void initState() {
@@ -53,6 +56,8 @@ class _AppState extends ConsumerState<App> {
 
     // Check for widget launch
     _checkForWidgetLaunch();
+    _widgetClickSubscription ??=
+        HomeWidget.widgetClicked.listen(_launchedFromWidget);
   }
 
   void _checkForWidgetLaunch() {
@@ -84,14 +89,8 @@ class _AppState extends ConsumerState<App> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Deep link initialization happens post-frame to avoid early platform-channel churn
-    HomeWidget.widgetClicked.listen(_launchedFromWidget);
-  }
-
-  @override
   void dispose() {
+    _widgetClickSubscription?.cancel();
     _deepLinkService.dispose();
     super.dispose();
   }
