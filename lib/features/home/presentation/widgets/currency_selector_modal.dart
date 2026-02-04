@@ -355,10 +355,16 @@ class _CurrencySelectorScreenState
                               supabase.auth.currentSession != null;
                           if (hasSession) {
                             try {
+                              final userId =
+                                  supabase.auth.currentSession?.user.id;
+                              if (userId == null || userId.isEmpty) {
+                                throw Exception('Missing user session');
+                              }
                               final response = await supabase.functions.invoke(
                                 'update-preferred-currency',
                                 body: {
                                   'currency': summary.currencyCode,
+                                  'userId': userId,
                                 },
                               );
 
@@ -419,11 +425,17 @@ class _CurrencySelectorScreenState
                                       if (!hasSession) {
                                         throw Exception('Missing user session');
                                       }
+                                      final userId =
+                                          supabase.auth.currentSession?.user.id;
+                                      if (userId == null || userId.isEmpty) {
+                                        throw Exception('Missing user session');
+                                      }
                                       final retryResponse =
                                           await supabase.functions.invoke(
                                         'update-preferred-currency',
                                         body: {
                                           'currency': summary.currencyCode,
+                                          'userId': userId,
                                         },
                                       );
                                       if (retryResponse.status >= 400) {

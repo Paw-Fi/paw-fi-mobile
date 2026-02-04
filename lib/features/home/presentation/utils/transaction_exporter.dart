@@ -63,6 +63,7 @@ Future<void> exportAllTransactionsAsExcelSheet(
   required String personalLabel,
   Map<String, String> householdNames = const {},
   String fileNamePrefix = 'moneko_full_export',
+  VoidCallback? onBeforeShare,
 }) async {
   if (expenses.isEmpty) {
     AppToast.info(context, context.l10n.noTransactionsFound);
@@ -75,12 +76,13 @@ Future<void> exportAllTransactionsAsExcelSheet(
       '[exportAllTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
 
   try {
-    final receiptBundle = await _downloadReceiptImages(expenses);
+    // NOTE: Receipt image downloads are temporarily disabled for export.
+    // final receiptBundle = await _downloadReceiptImages(expenses);
     final excelBytes = await _buildFullExportExcel(
       expenses,
       personalLabel: personalLabel,
       householdNames: householdNames,
-      receiptFileNamesById: receiptBundle.fileNamesByExpenseId,
+      receiptFileNamesById: const {},
     );
 
     if (!context.mounted) return;
@@ -89,32 +91,82 @@ Future<void> exportAllTransactionsAsExcelSheet(
       throw Exception('Failed to generate Excel file');
     }
 
-    if (receiptBundle.files.isNotEmpty) {
-      final zipBytes = _buildReceiptsZip(
-        excelBytes,
-        receiptBundle.files,
-        fileNamePrefix: fileNamePrefix,
-      );
-      await _shareZipBytes(
-        context,
-        zipBytes,
-        shareOrigin: shareOrigin,
-        fileNamePrefix: fileNamePrefix,
-        logPrefix: '[exportAllTransactionsAsExcelSheet]',
-      );
-    } else {
-      await _shareExcelBytes(
-        context,
-        excelBytes,
-        shareOrigin: shareOrigin,
-        fileNamePrefix: fileNamePrefix,
-        logPrefix: '[exportAllTransactionsAsExcelSheet]',
-      );
-    }
+    // NOTE: Receipt zipping is temporarily disabled for export.
+    // if (receiptBundle.files.isNotEmpty) {
+    //   final zipBytes = _buildReceiptsZip(
+    //     excelBytes,
+    //     receiptBundle.files,
+    //     fileNamePrefix: fileNamePrefix,
+    //   );
+    //   await _shareZipBytes(
+    //     context,
+    //     zipBytes,
+    //     shareOrigin: shareOrigin,
+    //     fileNamePrefix: fileNamePrefix,
+    //     logPrefix: '[exportAllTransactionsAsExcelSheet]',
+    //   );
+    // } else {
+    onBeforeShare?.call();
+    await _shareExcelBytes(
+      context,
+      excelBytes,
+      shareOrigin: shareOrigin,
+      fileNamePrefix: fileNamePrefix,
+      logPrefix: '[exportAllTransactionsAsExcelSheet]',
+    );
+    // }
   } catch (e, stack) {
     debugPrint(
       '[exportAllTransactionsAsExcelSheet] failed: $e\n$stack',
     );
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.anUnexpectedErrorOccurred} (${e.toString()})',
+      );
+    }
+  }
+}
+
+Future<void> exportAllReceiptsAsZip(
+  BuildContext context,
+  List<ExpenseEntry> expenses, {
+  String fileNamePrefix = 'moneko_receipts_export',
+  VoidCallback? onBeforeShare,
+}) async {
+  if (expenses.isEmpty) {
+    AppToast.info(context, context.l10n.noTransactionsFound);
+    return;
+  }
+
+  final shareOrigin = _resolveShareOrigin(context);
+
+  debugPrint('[exportAllReceiptsAsZip] count=${expenses.length} web=$kIsWeb');
+
+  try {
+    final receiptBundle = await _downloadReceiptImages(expenses);
+
+    if (!context.mounted) return;
+
+    if (receiptBundle.files.isEmpty) {
+      AppToast.info(context, context.l10n.noReceiptsFound);
+      return;
+    }
+
+    final zipBytes = _buildReceiptsOnlyZip(receiptBundle.files);
+    if (zipBytes.isEmpty) {
+      throw Exception('Failed to create receipts zip');
+    }
+    onBeforeShare?.call();
+    await _shareZipBytes(
+      context,
+      zipBytes,
+      shareOrigin: shareOrigin,
+      fileNamePrefix: fileNamePrefix,
+      logPrefix: '[exportAllReceiptsAsZip]',
+    );
+  } catch (e, stack) {
+    debugPrint('[exportAllReceiptsAsZip] failed: $e\n$stack');
     if (context.mounted) {
       AppToast.error(
         context,
@@ -683,15 +735,10 @@ Future<Uint8List?> _downloadBytes(String url) async {
   }
 }
 
-List<int> _buildReceiptsZip(
-  List<int> excelBytes,
-  List<_ReceiptFile> receipts, {
-  required String fileNamePrefix,
-}) {
-  final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-  final excelName = '${fileNamePrefix}_$timestamp.xlsx';
-  final archive = Archive()
-    ..addFile(ArchiveFile(excelName, excelBytes.length, excelBytes));
+List<int> _buildReceiptsOnlyZip(
+  List<_ReceiptFile> receipts,
+) {
+  final archive = Archive();
 
   for (final receipt in receipts) {
     archive.addFile(
@@ -702,6 +749,8 @@ List<int> _buildReceiptsZip(
       ),
     );
   }
+
+  if (archive.isEmpty) return <int>[];
 
   return ZipEncoder().encode(archive) ?? <int>[];
 }

@@ -1827,5 +1827,8 @@
   "categoryHealthInsurance": "Zorgverzekering",
   "categoryHomeInsurance": "Woonhuisverzekering",
   "categoryLifeInsurance": "Levensverzekering",
-  "categoryRentersInsurance": "Inboedelverzekering"
+  "categoryRentersInsurance": "Inboedelverzekering",
+  "exportExcel": "Excel-bestand",
+  "exportReceiptsZip": "Bonnen (ZIP)",
+  "noReceiptsFound": "Geen bonnen gevonden"
 }

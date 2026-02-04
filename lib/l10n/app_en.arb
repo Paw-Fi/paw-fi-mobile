@@ -1899,5 +1899,8 @@
   "categoryHealthInsurance": "Health Insurance",
   "categoryHomeInsurance": "Home Insurance",
   "categoryLifeInsurance": "Life Insurance",
-  "categoryRentersInsurance": "Renters Insurance"
+  "categoryRentersInsurance": "Renters Insurance",
+  "exportExcel": "Excel file",
+  "exportReceiptsZip": "Receipts ZIP",
+  "noReceiptsFound": "No receipts found"
 }

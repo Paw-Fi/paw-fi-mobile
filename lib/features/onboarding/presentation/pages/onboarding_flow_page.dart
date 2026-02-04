@@ -150,10 +150,15 @@ class OnboardingFlowPage extends HookConsumerWidget {
           } catch (_) {}
           if (supabase.auth.currentSession != null) {
             try {
+              final userId = supabase.auth.currentSession?.user.id;
+              if (userId == null || userId.isEmpty) {
+                return;
+              }
               final response = await supabase.functions.invoke(
                 'update-preferred-currency',
                 body: {
                   'currency': selectedCurrency,
+                  'userId': userId,
                 },
               );
               if (response.status >= 400) {

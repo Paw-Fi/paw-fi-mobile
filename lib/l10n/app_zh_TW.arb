@@ -1824,5 +1824,8 @@
   "categoryHealthInsurance": "醫療保險",
   "categoryHomeInsurance": "房屋保險",
   "categoryLifeInsurance": "人壽保險",
-  "categoryRentersInsurance": "租客保險"
+  "categoryRentersInsurance": "租客保險",
+  "exportExcel": "Excel 檔案",
+  "exportReceiptsZip": "收據壓縮檔 (ZIP)",
+  "noReceiptsFound": "找不到收據"
 }

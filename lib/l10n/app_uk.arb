@@ -1872,5 +1872,8 @@
   "categoryHealthInsurance": "Медичне страхування",
   "categoryHomeInsurance": "Страхування житла",
   "categoryLifeInsurance": "Страхування життя",
-  "categoryRentersInsurance": "Страхування майна орендаря"
+  "categoryRentersInsurance": "Страхування майна орендаря",
+  "exportExcel": "Файл Excel",
+  "exportReceiptsZip": "Квитанції (ZIP)",
+  "noReceiptsFound": "Квитанцій не знайдено"
 }

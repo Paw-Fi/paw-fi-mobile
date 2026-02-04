@@ -26,6 +26,13 @@ import 'package:moneko/features/households/presentation/pages/household_settings
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+
+enum _ExportAction {
+  exportExcel,
+  exportReceipts,
+  cancel,
+}
 
 Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -226,6 +233,50 @@ class HomeHeaderSliver extends ConsumerWidget {
     );
 
     Future<void> exportAllTransactions() async {
+      _ExportAction? selection;
+      await AdaptiveAlertDialog.show(
+        context: context,
+        title: context.l10n.exportTransactions,
+        message: context.l10n.chooseSourceForAnalysis,
+        actions: [
+        
+          AlertAction(
+            title: context.l10n.exportReceiptsZip,
+            style: AlertActionStyle.primary,
+            onPressed: () {
+              selection = _ExportAction.exportReceipts;
+            },
+          ),
+            AlertAction(
+            title: context.l10n.exportExcel,
+            style: AlertActionStyle.primary,
+            onPressed: () {
+              selection = _ExportAction.exportExcel;
+            },
+          ),
+          AlertAction(
+            title: context.l10n.cancel,
+            style: AlertActionStyle.cancel,
+            onPressed: () {
+              selection = _ExportAction.cancel;
+            },
+          ),
+        ],
+      );
+      if (!context.mounted || selection == null) return;
+      if (selection == _ExportAction.cancel) return;
+
+      showBlockingProcessingDialog(
+        context: context,
+        message: context.l10n.exportTransactions,
+      );
+      var dialogClosed = false;
+      void closeBlockingDialog() {
+        if (!context.mounted || dialogClosed) return;
+        dialogClosed = true;
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+
       final analyticsData = ref.read(analyticsProvider);
       final households = householdsAsync.valueOrNull ?? const <Household>[];
       final householdNames = {
@@ -234,13 +285,25 @@ class HomeHeaderSliver extends ConsumerWidget {
       final personalLabel = user.displayName?.trim().isNotEmpty == true
           ? user.displayName!.trim()
           : user.email;
-
-      await exportAllTransactionsAsExcelSheet(
-        context,
-        analyticsData.allExpenses,
-        personalLabel: personalLabel,
-        householdNames: householdNames,
-      );
+      try {
+        if (selection == _ExportAction.exportExcel) {
+          await exportAllTransactionsAsExcelSheet(
+            context,
+            analyticsData.allExpenses,
+            personalLabel: personalLabel,
+            householdNames: householdNames,
+            onBeforeShare: closeBlockingDialog,
+          );
+        } else if (selection == _ExportAction.exportReceipts) {
+          await exportAllReceiptsAsZip(
+            context,
+            analyticsData.allExpenses,
+            onBeforeShare: closeBlockingDialog,
+          );
+        }
+      } finally {
+        closeBlockingDialog();
+      }
     }
 
     // Profile Pill (Left)

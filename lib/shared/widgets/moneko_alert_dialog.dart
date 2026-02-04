@@ -26,13 +26,21 @@ class MonekoAlertDialogInputConfig {
 class MonekoAlertDialogResult {
   const MonekoAlertDialogResult({
     required this.confirmed,
+    required this.action,
     this.text,
     this.secondaryText,
   });
 
   final bool confirmed;
+  final MonekoAlertDialogAction action;
   final String? text;
   final String? secondaryText;
+}
+
+enum MonekoAlertDialogAction {
+  confirm,
+  secondary,
+  cancel,
 }
 
 /// Custom, modern alert dialog with optional text input.
@@ -50,6 +58,7 @@ class MonekoAlertDialog {
     String? description,
     String? confirmLabel,
     String? cancelLabel,
+    String? secondaryLabel,
     bool barrierDismissible = true,
     MonekoAlertDialogInputConfig? inputConfig,
     MonekoAlertDialogInputConfig? secondaryInputConfig,
@@ -81,6 +90,7 @@ class MonekoAlertDialog {
               description: description,
               confirmLabel: confirmLabel ?? context.l10n.confirm,
               cancelLabel: cancelLabel ?? context.l10n.cancel,
+              secondaryLabel: secondaryLabel,
               inputConfig: inputConfig,
               secondaryInputConfig: secondaryInputConfig,
               content: content,
@@ -99,6 +109,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
     this.description,
     required this.confirmLabel,
     this.cancelLabel,
+    this.secondaryLabel,
     this.inputConfig,
     this.secondaryInputConfig,
     this.content,
@@ -109,6 +120,7 @@ class _MonekoAlertDialogWidget extends StatefulWidget {
   final String? description;
   final String confirmLabel;
   final String? cancelLabel;
+  final String? secondaryLabel;
   final MonekoAlertDialogInputConfig? inputConfig;
   final MonekoAlertDialogInputConfig? secondaryInputConfig;
   final Widget? content;
@@ -203,7 +215,22 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
 
   void _handleCancel() {
     Navigator.of(context).pop(
-      const MonekoAlertDialogResult(confirmed: false, text: null),
+      const MonekoAlertDialogResult(
+        confirmed: false,
+        action: MonekoAlertDialogAction.cancel,
+        text: null,
+      ),
+    );
+  }
+
+  void _handleSecondary() {
+    Navigator.of(context).pop(
+      MonekoAlertDialogResult(
+        confirmed: false,
+        action: MonekoAlertDialogAction.secondary,
+        text: _controller?.text.trim(),
+        secondaryText: _secondaryController?.text.trim(),
+      ),
     );
   }
 
@@ -222,6 +249,7 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
     Navigator.of(context).pop(
       MonekoAlertDialogResult(
         confirmed: true,
+        action: MonekoAlertDialogAction.confirm,
         text: _controller?.text.trim(),
         secondaryText: _secondaryController?.text.trim(),
       ),
@@ -318,6 +346,18 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                     onPressed: _handleCancel,
                     child: Text(
                       widget.cancelLabel!,
+                      style: TextStyle(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                if (widget.secondaryLabel != null) ...[
+                  TextButton(
+                    onPressed: _canConfirm ? _handleSecondary : null,
+                    child: Text(
+                      widget.secondaryLabel!,
                       style: TextStyle(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -442,6 +482,32 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: scheme.onSurface.withValues(
                                         alpha: 0.65), // Neutral Cancel
+                                    fontSize: 17,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 0.5,
+                          color: scheme.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                      ],
+                      if (widget.secondaryLabel != null) ...[
+                        Expanded(
+                          child: InkWell(
+                            onTap: _canConfirm ? _handleSecondary : null,
+                            child: Center(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Text(
+                                  widget.secondaryLabel!,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: scheme.onSurface
+                                        .withValues(alpha: 0.65),
                                     fontSize: 17,
                                   ),
                                 ),

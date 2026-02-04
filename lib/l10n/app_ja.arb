@@ -1880,5 +1880,8 @@
   "categoryHealthInsurance": "医療保険",
   "categoryHomeInsurance": "火災保険",
   "categoryLifeInsurance": "生命保険",
-  "categoryRentersInsurance": "家財保険"
+  "categoryRentersInsurance": "家財保険",
+  "exportExcel": "Excelファイル",
+  "exportReceiptsZip": "領収書 (ZIP)",
+  "noReceiptsFound": "領収書が見つかりません"
 }

@@ -1826,5 +1826,8 @@
   "categoryHealthInsurance": "صحت بیمہ",
   "categoryHomeInsurance": "گھریلو بیمہ",
   "categoryLifeInsurance": "زندگی کا بیمہ",
-  "categoryRentersInsurance": "کرایہ دار کا بیمہ"
+  "categoryRentersInsurance": "کرایہ دار کا بیمہ",
+  "exportExcel": "ایکسل فائل",
+  "exportReceiptsZip": "رسیدیں (ZIP)",
+  "noReceiptsFound": "کوئی رسید نہیں ملی"
 }

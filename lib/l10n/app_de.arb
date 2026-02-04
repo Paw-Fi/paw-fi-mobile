@@ -1880,5 +1880,8 @@
   "categoryHealthInsurance": "Krankenversicherung",
   "categoryHomeInsurance": "Hausratversicherung",
   "categoryLifeInsurance": "Lebensversicherung",
-  "categoryRentersInsurance": "Hausratversicherung"
+  "categoryRentersInsurance": "Hausratversicherung",
+  "exportExcel": "Excel-Datei",
+  "exportReceiptsZip": "Belege (ZIP)",
+  "noReceiptsFound": "Keine Belege gefunden"
 }

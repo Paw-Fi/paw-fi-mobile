@@ -1879,5 +1879,8 @@
   "categoryHealthInsurance": "Bảo hiểm y tế",
   "categoryHomeInsurance": "Bảo hiểm nhà ở",
   "categoryLifeInsurance": "Bảo hiểm nhân thọ",
-  "categoryRentersInsurance": "Bảo hiểm người thuê nhà"
+  "categoryRentersInsurance": "Bảo hiểm người thuê nhà",
+  "exportExcel": "Tệp Excel",
+  "exportReceiptsZip": "Biên lai (ZIP)",
+  "noReceiptsFound": "Không tìm thấy biên lai"
 }

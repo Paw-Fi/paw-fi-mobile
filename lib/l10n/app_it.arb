@@ -1827,5 +1827,8 @@
   "categoryHealthInsurance": "Assicurazione sanitaria",
   "categoryHomeInsurance": "Assicurazione casa",
   "categoryLifeInsurance": "Assicurazione vita",
-  "categoryRentersInsurance": "Assicurazione per inquilini"
+  "categoryRentersInsurance": "Assicurazione per inquilini",
+  "exportExcel": "File Excel",
+  "exportReceiptsZip": "Ricevute (ZIP)",
+  "noReceiptsFound": "Nessuna ricevuta trovata"
 }

@@ -1882,5 +1882,8 @@
   "categoryHealthInsurance": "Seguro de salud",
   "categoryHomeInsurance": "Seguro de hogar",
   "categoryLifeInsurance": "Seguro de vida",
-  "categoryRentersInsurance": "Seguro para inquilinos"
+  "categoryRentersInsurance": "Seguro para inquilinos",
+  "exportExcel": "Archivo Excel",
+  "exportReceiptsZip": "Comprobantes (ZIP)",
+  "noReceiptsFound": "No se encontraron comprobantes"
 }

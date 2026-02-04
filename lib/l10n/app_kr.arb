@@ -1693,5 +1693,8 @@
   "categoryHealthInsurance": "건강보험",
   "categoryHomeInsurance": "주택 보험",
   "categoryLifeInsurance": "생명보험",
-  "categoryRentersInsurance": "임차인 보험"
+  "categoryRentersInsurance": "임차인 보험",
+  "exportExcel": "Excel 파일",
+  "exportReceiptsZip": "영수증 (ZIP)",
+  "noReceiptsFound": "영수증을 찾을 수 없습니다"
 }

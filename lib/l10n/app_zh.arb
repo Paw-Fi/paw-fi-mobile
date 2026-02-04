@@ -1876,5 +1876,8 @@
   "categoryHealthInsurance": "医疗保险",
   "categoryHomeInsurance": "房屋保险",
   "categoryLifeInsurance": "人寿保险",
-  "categoryRentersInsurance": "租客保险"
+  "categoryRentersInsurance": "租客保险",
+  "exportExcel": "Excel 文件",
+  "exportReceiptsZip": "收据 (ZIP)",
+  "noReceiptsFound": "未找到收据"
 }

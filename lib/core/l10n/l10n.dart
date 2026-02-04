@@ -12,3 +12,9 @@ extension L10nX on BuildContext {
     return AppLocalizationsEn('en');
   }
 }
+
+extension ExportL10n on AppLocalizations {
+  String get exportExcel => 'Excel file';
+  String get exportReceiptsZip => 'Receipts ZIP';
+  String get noReceiptsFound => 'No receipts found';
+}

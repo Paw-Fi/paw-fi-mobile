@@ -1830,5 +1830,8 @@
   "categoryHealthInsurance": "Медицинская страховка",
   "categoryHomeInsurance": "Страхование жилья",
   "categoryLifeInsurance": "Страхование жизни",
-  "categoryRentersInsurance": "Страхование имущества арендатора"
+  "categoryRentersInsurance": "Страхование имущества арендатора",
+  "exportExcel": "Файл Excel",
+  "exportReceiptsZip": "Квитанции (ZIP)",
+  "noReceiptsFound": "Квитанции не найдены"
 }

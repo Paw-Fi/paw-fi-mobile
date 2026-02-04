@@ -1880,5 +1880,8 @@
   "categoryHealthInsurance": "Assurance santé",
   "categoryHomeInsurance": "Assurance habitation",
   "categoryLifeInsurance": "Assurance vie",
-  "categoryRentersInsurance": "Assurance locataire"
+  "categoryRentersInsurance": "Assurance locataire",
+  "exportExcel": "Fichier Excel",
+  "exportReceiptsZip": "Reçus (ZIP)",
+  "noReceiptsFound": "Aucun reçu trouvé"
 }
