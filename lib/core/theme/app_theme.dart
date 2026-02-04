@@ -88,7 +88,7 @@ extension AppColorScheme on ColorScheme {
   /// Use this on Container(decoration: BoxDecoration(border: Border.all(color: scheme.surfaceBorder)))
   Color get surfaceBorder => brightness == Brightness.dark
       ? Colors.white.withValues(alpha: 0.12)
-      : Colors.transparent;
+      : surface.withValues(alpha: 0.0);
 
   /// REVISED: Border for inputs and selection tiles.
   /// Increased opacity in light mode to ensure inputs are seen if they share bg color with card.
@@ -371,7 +371,7 @@ extension AppColorScheme on ColorScheme {
 
   /// Home: standard card shadow
   Color get homeCardShadow => shadow.withValues(
-        alpha: brightness == Brightness.dark ? 0.12 : 0.05,
+        alpha: brightness == Brightness.dark ? 0.0 : 0.05,
       );
 
   /// Home: search field background
