@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:excel/excel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -73,10 +75,12 @@ Future<void> exportAllTransactionsAsExcelSheet(
       '[exportAllTransactionsAsExcelSheet] count=${expenses.length} web=$kIsWeb');
 
   try {
+    final receiptBundle = await _downloadReceiptImages(expenses);
     final excelBytes = await _buildFullExportExcel(
       expenses,
       personalLabel: personalLabel,
       householdNames: householdNames,
+      receiptFileNamesById: receiptBundle.fileNamesByExpenseId,
     );
 
     if (!context.mounted) return;
@@ -85,13 +89,28 @@ Future<void> exportAllTransactionsAsExcelSheet(
       throw Exception('Failed to generate Excel file');
     }
 
-    await _shareExcelBytes(
-      context,
-      excelBytes,
-      shareOrigin: shareOrigin,
-      fileNamePrefix: fileNamePrefix,
-      logPrefix: '[exportAllTransactionsAsExcelSheet]',
-    );
+    if (receiptBundle.files.isNotEmpty) {
+      final zipBytes = _buildReceiptsZip(
+        excelBytes,
+        receiptBundle.files,
+        fileNamePrefix: fileNamePrefix,
+      );
+      await _shareZipBytes(
+        context,
+        zipBytes,
+        shareOrigin: shareOrigin,
+        fileNamePrefix: fileNamePrefix,
+        logPrefix: '[exportAllTransactionsAsExcelSheet]',
+      );
+    } else {
+      await _shareExcelBytes(
+        context,
+        excelBytes,
+        shareOrigin: shareOrigin,
+        fileNamePrefix: fileNamePrefix,
+        logPrefix: '[exportAllTransactionsAsExcelSheet]',
+      );
+    }
   } catch (e, stack) {
     debugPrint(
       '[exportAllTransactionsAsExcelSheet] failed: $e\n$stack',
@@ -123,7 +142,7 @@ Future<void> _shareExcelBytes(
   required String fileNamePrefix,
   required String logPrefix,
 }) async {
-  final timestamp = DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
+  final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
   final fileName = '${fileNamePrefix}_$timestamp.xlsx';
   final bytes = Uint8List.fromList(excelBytes);
 
@@ -161,6 +180,48 @@ Future<void> _shareExcelBytes(
   );
 }
 
+Future<void> _shareZipBytes(
+  BuildContext context,
+  List<int> zipBytes, {
+  required Rect? shareOrigin,
+  required String fileNamePrefix,
+  required String logPrefix,
+}) async {
+  final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+  final fileName = '${fileNamePrefix}_$timestamp.zip';
+  final bytes = Uint8List.fromList(zipBytes);
+
+  if (kIsWeb) {
+    debugPrint('$logPrefix sharing in web: $fileName');
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          mimeType: 'application/zip',
+          name: fileName,
+        ),
+      ],
+      subject: fileName,
+      sharePositionOrigin: shareOrigin,
+    );
+    return;
+  }
+
+  final directory = await getTemporaryDirectory();
+  final file = File('${directory.path}/$fileName');
+  debugPrint('$logPrefix temp file: ${file.path}');
+  await file.writeAsBytes(bytes, flush: true);
+  debugPrint('$logPrefix share file');
+
+  await Share.shareXFiles(
+    [
+      XFile(file.path, mimeType: 'application/zip'),
+    ],
+    subject: fileName,
+    sharePositionOrigin: shareOrigin,
+  );
+}
+
 Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
   final excel = Excel.createExcel();
 
@@ -181,6 +242,7 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
     'Amount',
     'Type',
     'Notes',
+    'Receipt Image',
   ];
 
   sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
@@ -224,13 +286,14 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
 
     // Calculation Logic
     final isIncome = type.toLowerCase() == 'income';
+    final amountAbs = amountVal.abs();
     if (isIncome) {
-      totalIncome += amountVal;
+      totalIncome += amountAbs;
     } else {
-      totalExpense += amountVal;
+      totalExpense += amountAbs;
       // Track category for expenses only
       final currentCatTotal = categoryMap[category] ?? 0.0;
-      categoryMap[category] = currentCatTotal + amountVal;
+      categoryMap[category] = currentCatTotal + amountAbs;
     }
 
     const notes = '';
@@ -243,6 +306,7 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
       DoubleCellValue(amountVal),
       TextCellValue(type),
       TextCellValue(notes),
+      TextCellValue(''),
     ];
 
     sheet.appendRow(row);
@@ -326,6 +390,7 @@ Future<List<int>?> _buildFullExportExcel(
   List<ExpenseEntry> expenses, {
   required String personalLabel,
   required Map<String, String> householdNames,
+  Map<String, String> receiptFileNamesById = const {},
 }) async {
   final excel = Excel.createExcel();
   final existingNames = <String>{};
@@ -349,6 +414,7 @@ Future<List<int>?> _buildFullExportExcel(
     expenses,
     personalLabel: personalLabel,
     householdNames: householdNames,
+    receiptFileNamesById: receiptFileNamesById,
   );
   existingNames.add(allSheetName);
 
@@ -366,6 +432,7 @@ Future<List<int>?> _buildFullExportExcel(
       entry.value,
       personalLabel: personalLabel,
       householdNames: householdNames,
+      receiptFileNamesById: receiptFileNamesById,
     );
     existingNames.add(sheetName);
   }
@@ -459,6 +526,7 @@ void _appendTransactionsSheet(
   List<ExpenseEntry> expenses, {
   required String personalLabel,
   required Map<String, String> householdNames,
+  Map<String, String> receiptFileNamesById = const {},
 }) {
   final headers = [
     'Date',
@@ -470,6 +538,7 @@ void _appendTransactionsSheet(
     'Currency',
     'Type',
     'Notes',
+    'Receipt Image',
   ];
 
   sheet.appendRow(headers.map((h) => TextCellValue(h)).toList());
@@ -493,6 +562,7 @@ void _appendTransactionsSheet(
     final amountVal = expense.amount;
     final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
     final type = expense.type ?? 'expense';
+    final receiptFileName = receiptFileNamesById[expense.id] ?? '';
 
     sheet.appendRow([
       TextCellValue(date),
@@ -504,8 +574,136 @@ void _appendTransactionsSheet(
       TextCellValue(currency),
       TextCellValue(type),
       TextCellValue(''),
+      TextCellValue(receiptFileName),
     ]);
   }
+}
+
+class _ReceiptBundle {
+  const _ReceiptBundle({
+    required this.fileNamesByExpenseId,
+    required this.files,
+  });
+
+  final Map<String, String> fileNamesByExpenseId;
+  final List<_ReceiptFile> files;
+}
+
+class _ReceiptFile {
+  const _ReceiptFile({
+    required this.fileName,
+    required this.bytes,
+  });
+
+  final String fileName;
+  final Uint8List bytes;
+}
+
+Future<_ReceiptBundle> _downloadReceiptImages(
+  List<ExpenseEntry> expenses,
+) async {
+  final fileNamesByExpenseId = <String, String>{};
+  final files = <_ReceiptFile>[];
+  final usedNames = <String>{};
+
+  for (final expense in expenses) {
+    final url = expense.receiptImageUrl?.trim() ?? '';
+    if (url.isEmpty) continue;
+
+    final fileName = _uniqueReceiptFileName(
+      expenseId: expense.id,
+      url: url,
+      usedNames: usedNames,
+    );
+    final bytes = await _downloadBytes(url);
+    if (bytes == null || bytes.isEmpty) continue;
+
+    fileNamesByExpenseId[expense.id] = 'receipts/$fileName';
+    files.add(_ReceiptFile(fileName: fileName, bytes: bytes));
+  }
+
+  return _ReceiptBundle(
+    fileNamesByExpenseId: fileNamesByExpenseId,
+    files: files,
+  );
+}
+
+String _uniqueReceiptFileName({
+  required String expenseId,
+  required String url,
+  required Set<String> usedNames,
+}) {
+  final extension = _resolveImageExtension(url);
+  final baseName = _sanitizeFileName('receipt_$expenseId');
+  var candidate = '$baseName$extension';
+  var index = 2;
+  while (usedNames.contains(candidate)) {
+    candidate = '${baseName}_$index$extension';
+    index += 1;
+  }
+  usedNames.add(candidate);
+  return candidate;
+}
+
+String _resolveImageExtension(String url) {
+  try {
+    final path = Uri.parse(url).path;
+    final dotIndex = path.lastIndexOf('.');
+    if (dotIndex != -1 && dotIndex < path.length - 1) {
+      final ext = path.substring(dotIndex).toLowerCase();
+      if (ext == '.jpg' || ext == '.jpeg' || ext == '.png' || ext == '.webp') {
+        return ext;
+      }
+    }
+  } catch (_) {}
+  return '.jpg';
+}
+
+String _sanitizeFileName(String value) {
+  final sanitized = value
+      .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')
+      .replaceAll(RegExp(r'_+'), '_');
+  if (sanitized.isEmpty) return 'receipt';
+  return sanitized.length > 80 ? sanitized.substring(0, 80) : sanitized;
+}
+
+Future<Uint8List?> _downloadBytes(String url) async {
+  try {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return null;
+    }
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return null;
+    }
+    return response.bodyBytes;
+  } catch (_) {
+    return null;
+  }
+}
+
+List<int> _buildReceiptsZip(
+  List<int> excelBytes,
+  List<_ReceiptFile> receipts, {
+  required String fileNamePrefix,
+}) {
+  final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+  final excelName = '${fileNamePrefix}_$timestamp.xlsx';
+  final archive = Archive()
+    ..addFile(ArchiveFile(excelName, excelBytes.length, excelBytes));
+
+  for (final receipt in receipts) {
+    archive.addFile(
+      ArchiveFile(
+        'receipts/${receipt.fileName}',
+        receipt.bytes.length,
+        receipt.bytes,
+      ),
+    );
+  }
+
+  return ZipEncoder().encode(archive) ?? <int>[];
 }
 
 Map<String?, List<ExpenseEntry>> _groupExpensesByAccount(

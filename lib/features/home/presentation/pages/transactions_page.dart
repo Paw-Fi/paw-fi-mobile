@@ -418,6 +418,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             await Future.delayed(const Duration(milliseconds: 500));
           },
           child: CustomScrollView(
+            key: const PageStorageKey('transactions_scroll'),
             slivers: [
               SliverAppBar(
                 pinned: true,
@@ -436,6 +437,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 iconTheme: IconThemeData(color: colorScheme.foreground),
                 actions: [
                   if (!_isSelectionMode) ...[
+                    if (expensesToExport.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.checklist_rounded,
+                            color: colorScheme.foreground),
+                        onPressed: () {
+                          setState(() {
+                            _isSelectionMode = true;
+                            _selectedIds.clear();
+                          });
+                        },
+                      ),
                     AdaptivePopupMenuButton.widget(
                       items: filterItems,
                       onSelected: (index, item) async {
@@ -1296,6 +1308,23 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   existingExpense: expense, contact: contact);
             }
           },
+          onLongPress: () {
+            if (_isSelectionMode) {
+              setState(() {
+                if (isSelected) {
+                  _selectedIds.remove(expense.id);
+                } else {
+                  _selectedIds.add(expense.id);
+                }
+              });
+              return;
+            }
+
+            setState(() {
+              _isSelectionMode = true;
+              _selectedIds.add(expense.id);
+            });
+          },
           child: Container(
             padding: EdgeInsets.zero,
             child: Column(
@@ -1303,7 +1332,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               children: [
                 Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   child: Row(
                     children: [
                       // Selection Checkbox

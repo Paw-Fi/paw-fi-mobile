@@ -137,4 +137,80 @@ void main() {
     expect(latestSplits, isNotNull);
     expect(latestSplits!.first.shares, isNull);
   });
+
+  testWidgets('Rescales amount splits when total changes', (tester) async {
+    final members = <HouseholdMember>[
+      _member('u1', 'Alice'),
+      _member('u2', 'Bob'),
+    ];
+
+    final initialSplits = <MemberSplit>[
+      MemberSplit(
+        member: members[0],
+        amount: 30,
+        percentage: 60,
+        shares: 1,
+        includedInAmount: true,
+        includedInPercentage: true,
+      ),
+      MemberSplit(
+        member: members[1],
+        amount: 20,
+        percentage: 40,
+        shares: 1,
+        includedInAmount: true,
+        includedInPercentage: true,
+      ),
+    ];
+
+    SplitType? latestType;
+    List<MemberSplit>? latestSplits;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomSplitEditor(
+            members: members,
+            totalAmount: 50,
+            currencySymbol: '\$',
+            initialSplitType: SplitType.amount,
+            initialSplits: initialSplits,
+            onChanged: (type, splits) {
+              latestType = type;
+              latestSplits = splits;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomSplitEditor(
+            members: members,
+            totalAmount: 100,
+            currencySymbol: '\$',
+            initialSplitType: SplitType.amount,
+            initialSplits: initialSplits,
+            onChanged: (type, splits) {
+              latestType = type;
+              latestSplits = splits;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(latestType, SplitType.amount);
+    expect(latestSplits, isNotNull);
+    final amounts = latestSplits!.map((s) => s.amount ?? 0).toList();
+    expect(amounts[0], closeTo(60, 0.01));
+    expect(amounts[1], closeTo(40, 0.01));
+  });
 }

@@ -31,6 +31,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/money_parser.dart';
@@ -126,7 +127,8 @@ class AddRecurringSheet extends HookConsumerWidget {
     final viewMode = ref.watch(viewModeProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
-    final user = supabase.auth.currentUser;
+    final authState = ref.watch(authProvider);
+    final currentUserId = authState.uid.isNotEmpty ? authState.uid : null;
 
     final existingHouseholdId = existingTransaction?.householdId;
     final isExistingPortfolio = existingHouseholdId != null &&
@@ -143,7 +145,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           householdScope.isPortfolioId(householdScope.activeAccountHouseholdId);
     }();
 
-    final canShowSharingSection = user != null &&
+    final canShowSharingSection = currentUserId != null &&
         !isPortfolioContext &&
         (householdScope.activeAccountType == ActiveAccountType.household ||
             (isEditing &&
@@ -168,14 +170,15 @@ class AddRecurringSheet extends HookConsumerWidget {
                   householdScope.activeAccountType ==
                       ActiveAccountType.household &&
                   householdScope.activeAccountHouseholdId != null
-              ? user?.id
+              ? currentUserId
               : null),
     );
     final customSplitType = useState<SplitType?>(null);
     final customSplits = useState<List<MemberSplit>?>(null);
+    final initialSplitSignature = useRef<String?>(null);
 
-    final householdsAsync = user != null
-        ? ref.watch(userHouseholdsProvider(user.id))
+    final householdsAsync = currentUserId != null
+        ? ref.watch(userHouseholdsProvider(currentUserId))
         : const AsyncValue<List<Household>>.data([]);
 
     final membersAsync =
@@ -306,6 +309,8 @@ class AddRecurringSheet extends HookConsumerWidget {
 
           customSplitType.value = uiSplitType;
           customSplits.value = memberSplits;
+          initialSplitSignature.value =
+              _buildSplitSignature(uiSplitType, memberSplits);
 
           if (selectedPayerUserId.value == null &&
               splitGroup.payerUserId.isNotEmpty) {
@@ -340,6 +345,15 @@ class AddRecurringSheet extends HookConsumerWidget {
     if (hasAmountForSplit && !hasAmountEverBeenSet.value) {
       hasAmountEverBeenSet.value = true;
     }
+    final previousAmountRef = useRef<double?>(
+      isEditing ? existingTransaction?.amount : null,
+    );
+    useEffect(() {
+      if (previousAmountRef.value == null && hasAmountForSplit) {
+        previousAmountRef.value = parsedAmount;
+      }
+      return null;
+    }, [hasAmountForSplit]);
 
     // Initialize payer when household mode is active on mount
     useEffect(() {
@@ -371,9 +385,9 @@ class AddRecurringSheet extends HookConsumerWidget {
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
-          user?.id != null) {
-        _debugPrint('   Setting payer to current user: ${user!.id}');
-        selectedPayerUserId.value = user.id;
+          currentUserId != null) {
+        _debugPrint('   Setting payer to current user: $currentUserId');
+        selectedPayerUserId.value = currentUserId;
       }
       return null;
     }, []);
@@ -435,7 +449,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         isSharedWithHousehold.value = resolvedShouldShare;
         if (resolvedShouldShare) {
           selectedPayerUserId.value ??=
-              existingTransaction?.payerUserId ?? user?.id;
+              existingTransaction?.payerUserId ?? currentUserId;
         } else if (viewMode.mode != ViewMode.household) {
           selectedHouseholdId.value = null;
         }
@@ -467,6 +481,29 @@ class AddRecurringSheet extends HookConsumerWidget {
       return null;
     }, [currentAmountText]);
 
+    useEffect(() {
+      if (!isEditing) return null;
+      if (!hasAmountForSplit) return null;
+      if (customSplitType.value != SplitType.amount) return null;
+      final splits = customSplits.value;
+      if (splits == null || splits.isEmpty) return null;
+
+      final currentTotal = parsedAmount!;
+      final previousTotal = previousAmountRef.value;
+      previousAmountRef.value = currentTotal;
+      if (previousTotal == null ||
+          (previousTotal - currentTotal).abs() < 0.01) {
+        return null;
+      }
+
+      customSplits.value = rescaleAmountSplits(
+        splits: splits,
+        previousTotal: previousTotal,
+        newTotal: currentTotal,
+      );
+      return null;
+    }, [parsedAmount, customSplitType.value]);
+
     Future<void> handleSave() async {
       final l10n = context.l10n;
       if (selectedCategory.value == null) {
@@ -488,6 +525,30 @@ class AddRecurringSheet extends HookConsumerWidget {
         return;
       }
 
+      if (isExpense &&
+          isSharedWithHousehold.value &&
+          customSplitType.value == SplitType.amount &&
+          customSplits.value != null &&
+          customSplits.value!.isNotEmpty) {
+        final isValid = isAmountSplitTotalValid(
+          type: customSplitType.value!,
+          splits: customSplits.value!,
+          totalAmount: amount,
+        );
+        if (!isValid) {
+          final currencySymbol = resolveCurrencySymbol(selectedCurrency.value);
+          AppToast.error(
+            context,
+            context.l10n.splitAmountsMustEqual(
+              currencySymbol,
+              amount.toStringAsFixed(2),
+              currencySymbol,
+            ),
+          );
+          return;
+        }
+      }
+
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       final toastContext = rootNavigator.context;
       isLoading.value = true;
@@ -505,8 +566,8 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
 
       try {
-        final user = supabase.auth.currentUser;
-        if (user == null) {
+        final userId = ref.read(authProvider).uid;
+        if (userId.isEmpty) {
           AppToast.error(toastContext, context.l10n.userNotAuthenticated);
           isLoading.value = false;
           closeDialog();
@@ -533,6 +594,24 @@ class AddRecurringSheet extends HookConsumerWidget {
             isSharedWithHousehold.value &&
             selectedHouseholdId.value != null;
         final activeHouseholdId = effectiveHouseholdId;
+        final hasSplitConfig = customSplitType.value != null &&
+            customSplits.value != null &&
+            customSplits.value!.isNotEmpty;
+        final currentSplitSignature = hasSplitConfig
+            ? _buildSplitSignature(
+                customSplitType.value!,
+                customSplits.value!,
+              )
+            : null;
+        final initialSignature = initialSplitSignature.value;
+        final shouldCreateSplitGroup = shareWithHousehold &&
+            hasSplitConfig &&
+            (existingTransaction?.householdId == null);
+        final shouldSendSplitUpdate = shareWithHousehold &&
+            hasSplitConfig &&
+            initialSignature != null &&
+            currentSplitSignature != null &&
+            currentSplitSignature != initialSignature;
         _debugPrint(
             '💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
         _debugPrint('   Custom split type: ${customSplitType.value}');
@@ -545,7 +624,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringExpense(
-                  userId: user.id,
+                  userId: userId,
                   expenseId: existingTransaction!.id,
                   amount: amount,
                   category: selectedCategory.value!,
@@ -563,10 +642,15 @@ class AddRecurringSheet extends HookConsumerWidget {
                   householdId: activeHouseholdId,
                   previousHouseholdId: existingTransaction?.householdId,
                   customSplitType:
-                      shareWithHousehold ? customSplitType.value : null,
-                  customSplits: shareWithHousehold ? customSplits.value : null,
+                      (shouldCreateSplitGroup || shouldSendSplitUpdate)
+                          ? customSplitType.value
+                          : null,
+                  customSplits:
+                      (shouldCreateSplitGroup || shouldSendSplitUpdate)
+                          ? customSplits.value
+                          : null,
                   payerUserId: shareWithHousehold
-                      ? (selectedPayerUserId.value ?? user.id)
+                      ? (selectedPayerUserId.value ?? userId)
                       : null,
                 );
           } else {
@@ -574,7 +658,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringExpense(
-                  userId: user.id,
+                  userId: userId,
                   amount: amount,
                   category: selectedCategory.value!,
                   currency: selectedCurrency.value,
@@ -593,7 +677,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                       shareWithHousehold ? customSplitType.value : null,
                   customSplits: shareWithHousehold ? customSplits.value : null,
                   payerUserId: shareWithHousehold
-                      ? (selectedPayerUserId.value ?? user.id)
+                      ? (selectedPayerUserId.value ?? userId)
                       : null,
                 );
           }
@@ -603,7 +687,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringIncome(
-                  userId: user.id,
+                  userId: userId,
                   expenseId: existingTransaction!.id,
                   amount: amount,
                   category: selectedCategory.value!,
@@ -628,7 +712,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringIncome(
-                  userId: user.id,
+                  userId: userId,
                   amount: amount,
                   category: selectedCategory.value!,
                   currency: selectedCurrency.value,
@@ -699,7 +783,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             await ref
                 .read(
                     recurringTransactionsProvider(currentHouseholdId).notifier)
-                .refresh(user.id);
+                .refresh(userId);
 
             _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (household view)');
@@ -712,7 +796,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
             await ref
                 .read(recurringTransactionsProvider(null).notifier)
-                .refresh(user.id);
+                .refresh(userId);
 
             _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (personal view)');
@@ -737,7 +821,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 '   🔄 Forcing refresh of recurringTransactionsProvider($activeHouseholdId)');
             await ref
                 .read(recurringTransactionsProvider(activeHouseholdId).notifier)
-                .refresh(user.id);
+                .refresh(userId);
 
             _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (transaction household scope)');
@@ -752,7 +836,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 '   🔄 Forcing refresh of recurringTransactionsProvider(null)');
             await ref
                 .read(recurringTransactionsProvider(null).notifier)
-                .refresh(user.id);
+                .refresh(userId);
 
             _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (personal scope)');
@@ -1161,7 +1245,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 currencySymbol: resolveCurrencySymbol(
                                     selectedCurrency.value),
                                 isEditing: isEditing,
-                                currentUserId: user.id,
+                                currentUserId: currentUserId,
                               );
                             },
                             loading: () => const SizedBox.shrink(),
@@ -1949,5 +2033,37 @@ class AddRecurringSheet extends HookConsumerWidget {
       default:
         return SplitType.amount;
     }
+  }
+
+  SplitType _normalizeUiSplitTypeForEditor(SplitType type) {
+    // The editor UI currently exposes Amount / Percent / Share. Represent Equal
+    // splits as Amount so users see a selected chip and can edit amounts.
+    return type == SplitType.equal ? SplitType.amount : type;
+  }
+
+  String _buildSplitSignature(SplitType type, List<MemberSplit> splits) {
+    final effectiveType = _normalizeUiSplitTypeForEditor(type);
+    final entries = splits.map((split) {
+      final userId = split.member.userId;
+      switch (effectiveType) {
+        case SplitType.amount:
+          final cents = ((split.amount ?? 0) * 100).round();
+          return MapEntry(userId, cents.toString());
+        case SplitType.percentage:
+          final basisPoints =
+              ((split.percentage ?? 0) * 100).round(); // 100.00% = 10000
+          return MapEntry(userId, basisPoints.toString());
+        case SplitType.shares:
+          final shares = (split.shares ?? 0) > 0 ? split.shares : null;
+          return MapEntry(userId, shares?.toString() ?? 'n');
+        case SplitType.equal:
+          // Normalized above, but keep a safe fallback.
+          final cents = ((split.amount ?? 0) * 100).round();
+          return MapEntry(userId, cents.toString());
+      }
+    }).toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return '${effectiveType.name}|${entries.map((e) => '${e.key}:${e.value}').join(',')}';
   }
 }

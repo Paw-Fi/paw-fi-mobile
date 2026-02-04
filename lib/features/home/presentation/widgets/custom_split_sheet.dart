@@ -64,6 +64,67 @@ List<MemberSplit> buildDefaultMemberSplits({
       .toList();
 }
 
+List<MemberSplit> rescaleAmountSplits({
+  required List<MemberSplit> splits,
+  required double previousTotal,
+  required double newTotal,
+}) {
+  if (splits.isEmpty || newTotal <= 0) return splits;
+  if (previousTotal <= 0) {
+    final included = splits.where((s) => s.includedInAmount).toList();
+    if (included.isEmpty) return splits;
+    final perMember = newTotal / included.length;
+    return splits
+        .map(
+          (split) => split.includedInAmount
+              ? split.copyWith(amount: perMember)
+              : split.copyWith(amount: 0),
+        )
+        .toList();
+  }
+
+  final included = splits.where((s) => s.includedInAmount).toList();
+  if (included.isEmpty) return splits;
+  final newTotalCents = (newTotal * 100).round();
+  final prevTotalCents = (previousTotal * 100).round();
+  if (prevTotalCents <= 0) return splits;
+
+  final scaledCents = <int>[];
+  for (final split in included) {
+    final amountCents = ((split.amount ?? 0) * 100).round();
+    final scaled = (amountCents * newTotalCents) / prevTotalCents;
+    scaledCents.add(scaled.round());
+  }
+  final sumScaled = scaledCents.fold<int>(0, (a, b) => a + b);
+  final diff = newTotalCents - sumScaled;
+  if (diff != 0 && scaledCents.isNotEmpty) {
+    scaledCents[scaledCents.length - 1] += diff;
+  }
+
+  var includedIndex = 0;
+  return splits.map((split) {
+    if (!split.includedInAmount) {
+      return split.copyWith(amount: 0);
+    }
+    final cents = scaledCents[includedIndex];
+    includedIndex += 1;
+    return split.copyWith(amount: cents / 100.0);
+  }).toList();
+}
+
+bool isAmountSplitTotalValid({
+  required SplitType type,
+  required List<MemberSplit> splits,
+  required double totalAmount,
+}) {
+  if (type != SplitType.amount) return true;
+  final totalSplit = splits.fold<double>(
+    0,
+    (sum, split) => sum + (split.amount ?? 0),
+  );
+  return (totalSplit - totalAmount).abs() <= 0.01;
+}
+
 /// Shows custom split configuration sheet
 void showCustomSplitSheet({
   required BuildContext context,
@@ -335,7 +396,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     }
 
     if (membersChanged || totalChanged || splitTypeChanged) {
-      _reconcileSplits(splitTypeChanged: splitTypeChanged);
+      _reconcileSplits(
+        splitTypeChanged: splitTypeChanged,
+        previousTotalAmount: oldWidget.totalAmount,
+        totalChanged: totalChanged,
+      );
     }
   }
 
@@ -372,7 +437,11 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     return !listEquals(previousIds, currentIds);
   }
 
-  void _reconcileSplits({required bool splitTypeChanged}) {
+  void _reconcileSplits({
+    required bool splitTypeChanged,
+    required double previousTotalAmount,
+    required bool totalChanged,
+  }) {
     final existingByUserId = {
       for (final split in _memberSplits) split.member.userId: split,
     };
@@ -384,7 +453,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         split.member.userId: split,
     };
 
-    final updatedSplits = widget.members.map((member) {
+    var updatedSplits = widget.members.map((member) {
       final existing = existingByUserId[member.userId];
       if (existing != null) {
         return MemberSplit(
@@ -407,6 +476,14 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         includedInPercentage: fallback?.includedInPercentage ?? true,
       );
     }).toList();
+
+    if (totalChanged && _selectedType == SplitType.amount) {
+      updatedSplits = rescaleAmountSplits(
+        splits: updatedSplits,
+        previousTotal: previousTotalAmount,
+        newTotal: widget.totalAmount,
+      );
+    }
 
     for (final controller in _controllers) {
       controller.dispose();
