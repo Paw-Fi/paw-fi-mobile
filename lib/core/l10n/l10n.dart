@@ -7,7 +7,7 @@ extension L10nX on BuildContext {
   /// Returns generated English localizations if the context is not yet
   /// wrapped with Localizations (early frames) or the locale is unsupported.
   AppLocalizations get l10n {
-    final loc = AppLocalizations.of(this);
+    final loc = Localizations.of<AppLocalizations>(this, AppLocalizations);
     if (loc != null) return loc;
     return AppLocalizationsEn('en');
   }
