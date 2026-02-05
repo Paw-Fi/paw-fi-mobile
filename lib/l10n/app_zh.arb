@@ -1966,5 +1966,6 @@
   "noExpensesRecorded": "本月无支出记录",
   "transactionsCount": "笔交易",
   "noTransactionsRecorded": "本月无交易记录",
-  "noExpensesDisplay": "无支出可显示"
+  "noExpensesDisplay": "无支出可显示",
+  "importInto": "导入至"
 }

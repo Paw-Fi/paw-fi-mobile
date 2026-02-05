@@ -1970,5 +1970,6 @@
   "noExpensesRecorded": "Diesen Monat keine Ausgaben erfasst",
   "transactionsCount": "Transaktionen",
   "noTransactionsRecorded": "Diesen Monat keine Transaktionen erfasst",
-  "noExpensesDisplay": "Keine Ausgaben zum Anzeigen"
+  "noExpensesDisplay": "Keine Ausgaben zum Anzeigen",
+  "importInto": "Import in"
 }

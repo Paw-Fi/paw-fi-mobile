@@ -1989,5 +1989,6 @@
   "noExpensesRecorded": "No expenses recorded this month",
   "transactionsCount": "transactions",
   "noTransactionsRecorded": "No transactions recorded this month",
-  "noExpensesDisplay": "No expenses to display"
+  "noExpensesDisplay": "No expenses to display",
+  "importInto": "Import into"
 }

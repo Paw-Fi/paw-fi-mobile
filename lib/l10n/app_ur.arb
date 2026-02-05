@@ -1916,5 +1916,6 @@
   "noExpensesRecorded": "اس ماہ کوئی اخراجات ریکارڈ نہیں کیے گئے",
   "transactionsCount": "لین دین",
   "noTransactionsRecorded": "اس ماہ کوئی لین دین ریکارڈ نہیں کیا گیا",
-  "noExpensesDisplay": "دکھانے کے لیے کوئی اخراجات نہیں ہیں"
+  "noExpensesDisplay": "دکھانے کے لیے کوئی اخراجات نہیں ہیں",
+  "importInto": "میں امپورٹ کریں"
 }

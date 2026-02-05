@@ -1914,5 +1914,6 @@
   "noExpensesRecorded": "本月無支出紀錄",
   "transactionsCount": "筆交易",
   "noTransactionsRecorded": "本月無交易紀錄",
-  "noExpensesDisplay": "無支出可顯示"
+  "noExpensesDisplay": "無支出可顯示",
+  "importInto": "匯入至"
 }

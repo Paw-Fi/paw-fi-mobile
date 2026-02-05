@@ -1972,5 +1972,6 @@
   "noExpensesRecorded": "No se registraron gastos este mes",
   "transactionsCount": "transacciones",
   "noTransactionsRecorded": "No se registraron transacciones este mes",
-  "noExpensesDisplay": "No hay gastos para mostrar"
+  "noExpensesDisplay": "No hay gastos para mostrar",
+  "importInto": "Importar en"
 }

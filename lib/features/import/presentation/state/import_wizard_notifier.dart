@@ -10,12 +10,14 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
 import 'package:moneko/features/import/data/import_excel_parser.dart';
 import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final importWizardProvider =
     StateNotifierProvider<ImportWizardNotifier, ImportWizardState>((ref) {
@@ -23,9 +25,21 @@ final importWizardProvider =
 });
 
 class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
-  ImportWizardNotifier(this._ref) : super(const ImportWizardState());
+  ImportWizardNotifier(this._ref) : super(const ImportWizardState()) {
+    _initializeTargetAccount();
+  }
 
   final Ref _ref;
+
+  void _initializeTargetAccount() {
+    final scope = _ref.read(householdScopeProvider);
+    state = state.copyWith(
+      targetHouseholdId: scope.activeAccountHouseholdId,
+      targetIsPortfolio: scope.activeAccountType == ActiveAccountType.portfolio,
+      clearTargetHouseholdId: scope.activeAccountHouseholdId == null ||
+          scope.activeAccountHouseholdId!.isEmpty,
+    );
+  }
 
   Future<void> pickFile() async {
     state = state.copyWith(clearErrorMessage: true);
@@ -258,12 +272,37 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     state = state.copyWith(skipDuplicates: value);
   }
 
+  void setTargetAccount({String? householdId, required bool isPortfolio}) {
+    final trimmed = householdId?.trim();
+    final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
+    final updatedRows = markDuplicates(
+      state.parsedRows,
+      _existingExpensesForTarget(normalized),
+    );
+    state = state.copyWith(
+      targetHouseholdId: normalized,
+      targetIsPortfolio: normalized == null ? false : isPortfolio,
+      clearTargetHouseholdId: normalized == null,
+      parsedRows: updatedRows,
+    );
+  }
+
+  void resetAfterImport() {
+    final targetHouseholdId = state.targetHouseholdId;
+    final targetIsPortfolio = state.targetIsPortfolio;
+    state = ImportWizardState(
+      step: ImportStep.selectFile,
+      targetHouseholdId: targetHouseholdId,
+      targetIsPortfolio: targetIsPortfolio,
+    );
+  }
+
   void updateParsedRow(ImportParsedRow updated) {
     final rows = [...state.parsedRows];
     if (updated.index < 0 || updated.index >= rows.length) return;
     rows[updated.index] = _validateRow(updated);
-    final deduped =
-        markDuplicates(rows, _ref.read(analyticsProvider).allExpenses);
+    final deduped = markDuplicates(
+        rows, _existingExpensesForTarget(state.targetHouseholdId));
     state = state.copyWith(parsedRows: deduped);
   }
 
@@ -276,15 +315,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     // Let's just remove it from the list. The 'index' field on ImportParsedRow is used for identification.
     final updatedRows = rows.where((r) => r.index != index).toList();
-    
-    // We might want to re-dedupe? 
+
+    // We might want to re-dedupe?
     // If we remove a transaction that was a duplicate of another, the other one remains.
-    // If we remove a transaction that was the *original* that caused others to be duplicates... 
+    // If we remove a transaction that was the *original* that caused others to be duplicates...
     // The current dedupe logic compares against *existing* DB expenses and *other rows in the list*.
-    
-    final existing = _ref.read(analyticsProvider).allExpenses;
-    final deduped = markDuplicates(updatedRows, existing);
-    
+
+    final deduped = markDuplicates(
+        updatedRows, _existingExpensesForTarget(state.targetHouseholdId));
+
     state = state.copyWith(parsedRows: deduped);
   }
 
@@ -309,6 +348,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final analytics = _ref.read(analyticsProvider);
     final defaultCurrency =
         filterState.selectedCurrency ?? analytics.preferredCurrency ?? 'USD';
+    final targetHouseholdId = state.targetHouseholdId;
+    final targetIsPortfolio = state.targetIsPortfolio;
 
     int success = 0;
     int failed = 0;
@@ -337,6 +378,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'date': dateOnly,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         'type': row.type ?? 'expense',
+        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+          'householdId': targetHouseholdId,
+        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+          'isPortfolio': targetIsPortfolio,
         if (row.description != null) 'description': row.description,
       };
 
@@ -352,7 +397,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       }
     }
 
-    if (authUser.uid.isNotEmpty) {
+    if (authUser.uid.isNotEmpty &&
+        (targetHouseholdId == null || targetHouseholdId.isEmpty)) {
       await _ref.read(analyticsProvider.notifier).loadData(authUser.uid);
     }
 
@@ -373,8 +419,24 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       rows.add(parseRow(table.rows[i], mapping, index: i));
     }
 
-    final existing = _ref.read(analyticsProvider).allExpenses;
-    return markDuplicates(rows, existing);
+    return markDuplicates(
+        rows, _existingExpensesForTarget(state.targetHouseholdId));
+  }
+
+  List<ExpenseEntry> _existingExpensesForTarget(String? householdId) {
+    final allExpenses = _ref.read(analyticsProvider).allExpenses;
+    if (householdId == null || householdId.isEmpty) {
+      return allExpenses
+          .where(
+            (expense) =>
+                expense.householdId == null ||
+                (expense.householdId?.isEmpty ?? false),
+          )
+          .toList();
+    }
+    return allExpenses
+        .where((expense) => expense.householdId == householdId)
+        .toList();
   }
 
   ImportParsedRow _validateRow(ImportParsedRow row) {

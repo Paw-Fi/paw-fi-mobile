@@ -1920,5 +1920,6 @@
   "noExpensesRecorded": "В этом месяце расходов не зафиксировано",
   "transactionsCount": "транзакций",
   "noTransactionsRecorded": "В этом месяце транзакций не зафиксировано",
-  "noExpensesDisplay": "Нет расходов для отображения"
+  "noExpensesDisplay": "Нет расходов для отображения",
+  "importInto": "Импорт в"
 }

@@ -1917,5 +1917,6 @@
   "noExpensesRecorded": "Geen uitgaven geregistreerd deze maand",
   "transactionsCount": "transacties",
   "noTransactionsRecorded": "Geen transacties geregistreerd deze maand",
-  "noExpensesDisplay": "Geen uitgaven om weer te geven"
+  "noExpensesDisplay": "Geen uitgaven om weer te geven",
+  "importInto": "Importeren in"
 }

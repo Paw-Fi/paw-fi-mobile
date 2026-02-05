@@ -1917,5 +1917,6 @@
   "noExpensesRecorded": "Nessuna spesa registrata questo mese",
   "transactionsCount": "transazioni",
   "noTransactionsRecorded": "Nessuna transazione registrata questo mese",
-  "noExpensesDisplay": "Nessuna spesa da visualizzare"
+  "noExpensesDisplay": "Nessuna spesa da visualizzare",
+  "importInto": "Importa in"
 }

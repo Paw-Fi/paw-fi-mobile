@@ -18,6 +18,8 @@ class ImportWizardState {
   final String? errorMessage;
   final int importedCount;
   final int failedCount;
+  final String? targetHouseholdId;
+  final bool targetIsPortfolio;
 
   const ImportWizardState({
     this.step = ImportStep.selectFile,
@@ -31,6 +33,8 @@ class ImportWizardState {
     this.errorMessage,
     this.importedCount = 0,
     this.failedCount = 0,
+    this.targetHouseholdId,
+    this.targetIsPortfolio = false,
   });
 
   ImportWizardState copyWith({
@@ -46,6 +50,9 @@ class ImportWizardState {
     bool clearErrorMessage = false,
     int? importedCount,
     int? failedCount,
+    String? targetHouseholdId,
+    bool? targetIsPortfolio,
+    bool clearTargetHouseholdId = false,
   }) {
     return ImportWizardState(
       step: step ?? this.step,
@@ -60,6 +67,10 @@ class ImportWizardState {
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       importedCount: importedCount ?? this.importedCount,
       failedCount: failedCount ?? this.failedCount,
+      targetHouseholdId: clearTargetHouseholdId
+          ? null
+          : (targetHouseholdId ?? this.targetHouseholdId),
+      targetIsPortfolio: targetIsPortfolio ?? this.targetIsPortfolio,
     );
   }
 

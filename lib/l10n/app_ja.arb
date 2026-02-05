@@ -1970,5 +1970,6 @@
   "noExpensesRecorded": "今月の支出はありません",
   "transactionsCount": "件の取引",
   "noTransactionsRecorded": "今月の取引はありません",
-  "noExpensesDisplay": "表示する支出はありません"
+  "noExpensesDisplay": "表示する支出はありません",
+  "importInto": "インポート先"
 }

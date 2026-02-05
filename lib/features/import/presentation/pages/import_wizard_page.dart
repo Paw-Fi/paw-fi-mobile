@@ -1,5 +1,6 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -12,6 +13,7 @@ import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -24,6 +26,26 @@ import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+
+String _truncateMenuLabel(String label, {int maxLength = 20}) {
+  final trimmed = label.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return '${trimmed.substring(0, maxLength - 1)}…';
+}
+
+String _emailLocalPart(String email) {
+  final trimmed = email.trim();
+  final atIndex = trimmed.indexOf('@');
+  if (atIndex <= 0) return trimmed;
+  return trimmed.substring(0, atIndex);
+}
+
+String _userLabel(AppUser user, {required bool shortenEmail}) {
+  final displayName = user.displayName?.trim();
+  if (displayName != null && displayName.isNotEmpty) return displayName;
+
+  return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
+}
 
 class ImportWizardPage extends ConsumerStatefulWidget {
   const ImportWizardPage({super.key});
@@ -75,8 +97,8 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
             child: Column(
               children: [
                 Padding(
-                  padding:
-                      EdgeInsets.fromLTRB(16, getTopPadding(context), 16, 24),
+                  padding: EdgeInsets.fromLTRB(
+                      16, getTopPadding(context) - 65, 16, 24),
                   child: _ImportTimeline(currentStep: state.step),
                 ),
                 Expanded(
@@ -146,9 +168,13 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       final authState = ref.read(authProvider);
       final userId = authState.uid;
       if (userId.isNotEmpty) {
-        final scope = ref.read(householdScopeProvider);
-        if (scope.isHouseholdView) {
-          ref.read(cacheInvalidatorProvider).invalidateAll();
+        final targetHouseholdId = next.targetHouseholdId;
+        if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
+          ref.read(analyticsProvider.notifier).refresh(userId);
+        } else {
+          ref
+              .read(cacheInvalidatorProvider)
+              .invalidateHouseholdData(targetHouseholdId);
           ref.invalidate(userHouseholdsProvider(userId));
           ref.invalidate(householdExpensesProvider);
           ref.invalidate(cachedHouseholdExpensesProvider);
@@ -156,8 +182,6 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           ref.invalidate(cachedHouseholdSplitsProvider);
           ref.invalidate(householdBudgetsProvider);
           ref.invalidate(householdMembersProvider);
-        } else {
-          ref.read(analyticsProvider.notifier).loadData(userId);
         }
 
         ref.invalidate(pocketsProvider);
@@ -169,6 +193,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           context,
           '${context.l10n.imported}: ${next.importedCount}',
         );
+        ref.read(importWizardProvider.notifier).resetAfterImport();
         Navigator.of(context).pop(true);
       } else {
         AppToast.error(
@@ -205,8 +230,7 @@ class _ImportTimeline extends StatelessWidget {
               isLast: i == steps.length - 1,
             ),
           ),
-          if (i < steps.length - 1)
-            const _TimelineConnector(),
+          if (i < steps.length - 1) const _TimelineConnector(),
         ],
       ],
     );
@@ -303,7 +327,10 @@ class _TimelineConnector extends StatelessWidget {
           final scheme = Theme.of(context).colorScheme;
           return Container(
             height: 2,
-            margin: EdgeInsets.only(top: 13, left: constraints.maxWidth > 0 ? 8 : 0, right: constraints.maxWidth > 0 ? 8 : 0),
+            margin: EdgeInsets.only(
+                top: 13,
+                left: constraints.maxWidth > 0 ? 8 : 0,
+                right: constraints.maxWidth > 0 ? 8 : 0),
             color: scheme.primary.withValues(alpha: 0.5),
           );
         },
@@ -561,12 +588,13 @@ class _PreviewStep extends ConsumerWidget {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            itemCount: rowsToDisplay.length + 3, // Summary + Options + Header + Rows
+            itemCount:
+                rowsToDisplay.length + 3, // Summary + Options + Header + Rows
             itemBuilder: (context, index) {
               if (index == 0) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 24),
-                  child: _buildSummaryCard(context),
+                  child: _buildOverviewCard(context, ref),
                 );
               }
               if (index == 1) {
@@ -647,10 +675,12 @@ class _PreviewStep extends ConsumerWidget {
     );
   }
 
-  Widget _buildSummaryCard(BuildContext context) {
+  Widget _buildOverviewCard(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
     return _GroupedSectionCard(
       title: context.l10n.summary.toUpperCase(),
       children: [
+        _buildAccountSelectorRow(context, ref, scheme),
         _MetricRow(
           leftLabel: context.l10n.rows,
           leftValue: '${state.totalRows}',
@@ -664,6 +694,142 @@ class _PreviewStep extends ConsumerWidget {
           rightValue: '${state.duplicateRows}',
         ),
       ],
+    );
+  }
+
+  Widget _buildAccountSelectorRow(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme scheme,
+  ) {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final user = ref.watch(authProvider);
+    final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final households = householdsAsync.valueOrNull ?? const [];
+    final selectedHouseholdId = state.targetHouseholdId;
+
+    Household? selectedHousehold;
+    if (selectedHouseholdId != null) {
+      for (final household in households) {
+        if (household.id == selectedHouseholdId) {
+          selectedHousehold = household;
+          break;
+        }
+      }
+    }
+
+    final selectedLabel = selectedHouseholdId == null
+        ? _userLabel(user, shortenEmail: false)
+        : (selectedHousehold?.name ?? context.l10n.forUs);
+    final pillLabel = _truncateMenuLabel(selectedLabel, maxLength: 18);
+    final personalLabel =
+        _truncateMenuLabel(_userLabel(user, shortenEmail: true));
+
+    final items = <AdaptivePopupMenuItem>[
+      AdaptivePopupMenuItem(
+        label: personalLabel,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'person.crop.circle.fill'
+            : Icons.account_circle,
+        value: 'personal',
+      ),
+      ...households.map(
+        (household) => AdaptivePopupMenuItem(
+          label: _truncateMenuLabel(household.name),
+          icon: household.isPortfolio
+              ? (PlatformInfo.isIOS26OrHigher()
+                  ? 'person.crop.circle.fill'
+                  : Icons.person)
+              : (PlatformInfo.isIOS26OrHigher()
+                  ? 'person.2.fill'
+                  : Icons.group),
+          value: 'household:${household.id}',
+        ),
+      ),
+    ];
+
+    final selector = AdaptivePopupMenuButton.widget(
+      items: items,
+      onSelected: (index, item) {
+        HapticFeedback.selectionClick();
+        SystemSound.play(SystemSoundType.click);
+
+        if (item.value == 'personal') {
+          notifier.setTargetAccount(householdId: null, isPortfolio: false);
+          return;
+        }
+
+        if (item.value is String &&
+            (item.value as String).startsWith('household:')) {
+          final householdId = (item.value as String).split(':').last;
+          Household? picked;
+          for (final household in households) {
+            if (household.id == householdId) {
+              picked = household;
+              break;
+            }
+          }
+          notifier.setTargetAccount(
+            householdId: householdId,
+            isPortfolio: picked?.isPortfolio ?? false,
+          );
+        }
+      },
+      child: Container(
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+        decoration: BoxDecoration(
+          color: scheme.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: 150,
+              ),
+              child: Text(
+                pillLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.foreground,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: scheme.mutedForeground,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.importInto,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: scheme.foreground,
+              ),
+            ),
+          ),
+          selector,
+        ],
+      ),
     );
   }
 

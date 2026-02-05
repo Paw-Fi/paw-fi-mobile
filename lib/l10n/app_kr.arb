@@ -1783,5 +1783,6 @@
   "noExpensesRecorded": "이번 달에 기록된 지출이 없습니다",
   "transactionsCount": "개의 거래",
   "noTransactionsRecorded": "이번 달에 기록된 거래가 없습니다",
-  "noExpensesDisplay": "표시할 지출이 없습니다"
+  "noExpensesDisplay": "표시할 지출이 없습니다",
+  "importInto": "가져올 공간"
 }

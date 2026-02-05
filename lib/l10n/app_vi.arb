@@ -1969,5 +1969,6 @@
   "noExpensesRecorded": "Không có chi phí nào được ghi lại trong tháng này",
   "transactionsCount": "giao dịch",
   "noTransactionsRecorded": "Không có giao dịch nào được ghi lại trong tháng này",
-  "noExpensesDisplay": "Không có chi phí để hiển thị"
+  "noExpensesDisplay": "Không có chi phí để hiển thị",
+  "importInto": "Nhập vào"
 }

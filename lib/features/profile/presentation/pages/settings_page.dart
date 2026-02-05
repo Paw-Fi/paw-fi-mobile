@@ -281,7 +281,7 @@ class SettingsPage extends HookConsumerWidget {
                   children: [
                     _SettingsTile(
                       icon: Icons.insights_rounded,
-                      label: 'Account Overview',
+                      label: context.l10n.accountOverview,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(

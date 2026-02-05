@@ -1962,5 +1962,6 @@
   "noExpensesRecorded": "Цього місяця витрат не зафіксовано",
   "transactionsCount": "транзакцій",
   "noTransactionsRecorded": "Цього місяця транзакцій не зафіксовано",
-  "noExpensesDisplay": "Немає витрат для відображення"
+  "noExpensesDisplay": "Немає витрат для відображення",
+  "importInto": "Імпорт в"
 }
