@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -46,7 +47,7 @@ class DashboardCategoryList extends StatelessWidget {
       final name = getCategoryTranslation(context, catId);
 
       return _CategoryTotal(
-        id: catId ?? 'uncategorized',
+        id: catId ?? context.l10n.uncategorized,
         name: name,
         amount: total,
         transactionCount: txs.length,
@@ -63,7 +64,7 @@ class DashboardCategoryList extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Text(
-            'No expenses recorded this month',
+            context.l10n.noExpensesRecorded,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -85,7 +86,7 @@ class DashboardCategoryList extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${cat.transactionCount} transactions',
+                '${cat.transactionCount} ${context.l10n.transactionsCount}',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
@@ -72,7 +73,8 @@ class DashboardSpaceCard extends StatelessWidget {
                           : Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
@@ -98,11 +100,11 @@ class DashboardSpaceCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildRow(
-                    context, 'Income', income, colorScheme.success, formatter),
+                _buildRow(context, context.l10n.income, income,
+                    colorScheme.success, formatter),
                 const SizedBox(height: 8),
-                _buildRow(
-                    context, 'Expense', expense, colorScheme.error, formatter),
+                _buildRow(context, context.l10n.expense, expense,
+                    colorScheme.error, formatter),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Divider(
@@ -115,7 +117,7 @@ class DashboardSpaceCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Net',
+                      context.l10n.net,
                       style: TextStyle(
                         fontSize: 12,
                         color: colorScheme.mutedForeground,

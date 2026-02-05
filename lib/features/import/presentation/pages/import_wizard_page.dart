@@ -38,16 +38,6 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   @override
   void initState() {
     super.initState();
-
-    ref.listen<ImportWizardState>(importWizardProvider, (previous, next) {
-      _syncBlockingDialog(previous: previous, next: next);
-
-      final importJustCompleted =
-          previous?.isImporting == true && next.isImporting == false;
-      if (importJustCompleted) {
-        _handleImportCompleted(next);
-      }
-    });
   }
 
   @override
@@ -65,6 +55,16 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(importWizardProvider);
     final scheme = Theme.of(context).colorScheme;
+
+    ref.listen<ImportWizardState>(importWizardProvider, (previous, next) {
+      _syncBlockingDialog(previous: previous, next: next);
+
+      final importJustCompleted =
+          previous?.isImporting == true && next.isImporting == false;
+      if (importJustCompleted) {
+        _handleImportCompleted(next);
+      }
+    });
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(title: context.l10n.importData),
@@ -205,6 +205,8 @@ class _ImportTimeline extends StatelessWidget {
               isLast: i == steps.length - 1,
             ),
           ),
+          if (i < steps.length - 1)
+            const _TimelineConnector(),
         ],
       ],
     );
@@ -243,61 +245,69 @@ class _TimelineStep extends StatelessWidget {
     final primary = scheme.primary;
     final muted = scheme.mutedForeground.withValues(alpha: 0.3);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: isActive || isCompleted ? primary : Colors.transparent,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isActive || isCompleted ? primary : muted,
-                  width: 2,
-                ),
-              ),
-              child: Center(
-                child: isCompleted
-                    ? Icon(
-                        Icons.check_rounded,
-                        size: 16,
-                        color: scheme.onPrimary,
-                      )
-                    : Text(
-                        '$stepIndex',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? scheme.onPrimary : muted,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? scheme.foreground : scheme.mutedForeground,
-              ),
-            ),
-          ],
-        ),
-        if (!isLast)
-          Expanded(
-            child: Container(
-              height: 2,
-              margin: const EdgeInsets.only(left: 8, right: 8, top: 13),
-              color: isCompleted ? primary : muted.withValues(alpha: 0.2),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: isActive || isCompleted ? primary : Colors.transparent,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isActive || isCompleted ? primary : muted,
+              width: 2,
             ),
           ),
+          child: Center(
+            child: isCompleted
+                ? Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: scheme.onPrimary,
+                  )
+                : Text(
+                    '$stepIndex',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isActive ? scheme.onPrimary : muted,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+            color: isActive ? scheme.foreground : scheme.mutedForeground,
+          ),
+        ),
       ],
+    );
+  }
+}
+
+class _TimelineConnector extends StatelessWidget {
+  const _TimelineConnector();
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final scheme = Theme.of(context).colorScheme;
+          return Container(
+            height: 2,
+            margin: EdgeInsets.only(top: 13, left: constraints.maxWidth > 0 ? 8 : 0, right: constraints.maxWidth > 0 ? 8 : 0),
+            color: scheme.primary.withValues(alpha: 0.5),
+          );
+        },
+      ),
     );
   }
 }

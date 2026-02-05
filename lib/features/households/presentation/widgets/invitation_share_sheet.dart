@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:share_plus/share_plus.dart';
@@ -35,7 +35,7 @@ class InvitationShareSheet extends StatelessWidget {
     final successBorder = colorScheme.successBorder;
 
     return Semantics(
-      label: AppLocalizations.of(context)!
+      label: context.l10n
           .shareInvitationForHousehold(householdName),
       container: true,
       child: Container(
@@ -55,7 +55,7 @@ class InvitationShareSheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      AppLocalizations.of(context)!.shareInvitation,
+                      context.l10n.shareInvitation,
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -83,7 +83,7 @@ class InvitationShareSheet extends StatelessWidget {
 
             // Success message
             Semantics(
-              label: AppLocalizations.of(context)!
+              label: context.l10n
                   .householdCreatedSuccessfully(householdName),
               readOnly: true,
               child: Container(
@@ -106,7 +106,7 @@ class InvitationShareSheet extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context)!
+                        context.l10n
                             .householdCreatedSuccessfullyWithQuotes(
                                 householdName),
                         style: TextStyle(
@@ -128,7 +128,7 @@ class InvitationShareSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  AppLocalizations.of(context)!.invitationLink,
+                  context.l10n.invitationLink,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -137,7 +137,7 @@ class InvitationShareSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Semantics(
-                  label: AppLocalizations.of(context)!
+                  label: context.l10n
                       .invitationLinkWithUrl(inviteUrl),
                   textField: true,
                   readOnly: true,
@@ -170,7 +170,7 @@ class InvitationShareSheet extends StatelessWidget {
                         const SizedBox(width: 12),
                         Semantics(
                           label:
-                              AppLocalizations.of(context)!.copyInvitationLink,
+                              context.l10n.copyInvitationLink,
                           button: true,
                           child: InkWell(
                             onTap: () => _copyToClipboard(context, inviteUrl),
@@ -204,7 +204,7 @@ class InvitationShareSheet extends StatelessWidget {
             //   children: [
             //     Expanded(
             //       child: Semantics(
-            //         label: AppLocalizations.of(context)!.copyInvitationLinkToClipboard,
+            //         label: context.l10n.copyInvitationLinkToClipboard,
             //         button: true,
             //         child: shadcnui.OutlineButton(
             //           onPressed: () => _copyToClipboard(context, inviteUrl),
@@ -214,7 +214,7 @@ class InvitationShareSheet extends StatelessWidget {
             //               const Icon(Icons.copy, size: 20),
             //               const SizedBox(width: 8),
             //               Text(
-            //                 AppLocalizations.of(context)!.copyLink,
+            //                 context.l10n.copyLink,
             //                 style: const TextStyle(
             //                   fontSize: 15,
             //                   fontWeight: FontWeight.w600,
@@ -229,7 +229,7 @@ class InvitationShareSheet extends StatelessWidget {
             //     const SizedBox(width: 12),
             //     Expanded(
             //       child: Semantics(
-            //         label: AppLocalizations.of(context)!.shareInvitationLink,
+            //         label: context.l10n.shareInvitationLink,
             //         button: true,
             //         child: shadcnui.PrimaryButton(
             //           onPressed: () => _shareInvite(context),
@@ -239,7 +239,7 @@ class InvitationShareSheet extends StatelessWidget {
             //               const Icon(Icons.share, size: 20),
             //               const SizedBox(width: 8),
             //               Text(
-            //                 AppLocalizations.of(context)!.share,
+            //                 context.l10n.share,
             //                 style: const TextStyle(
             //                   fontSize: 15,
             //                   fontWeight: FontWeight.w600,
@@ -259,7 +259,7 @@ class InvitationShareSheet extends StatelessWidget {
             PrimaryAdaptiveButton(
               onPressed: onClose ?? () => Navigator.pop(context),
               child: Text(
-                AppLocalizations.of(context)!.done,
+                context.l10n.done,
               ),
             ),
             // Done button
@@ -278,15 +278,15 @@ class InvitationShareSheet extends StatelessWidget {
     if (!context.mounted) return;
     // Use AppToast to ensure visibility above this bottom sheet
     AppToast.success(
-        context, AppLocalizations.of(context)!.invitationLinkCopiedToClipboard);
+        context, context.l10n.invitationLinkCopiedToClipboard);
   }
 
   // ignore: unused_element
   void _shareInvite(BuildContext context) {
     Share.share(
-      AppLocalizations.of(context)!
+      context.l10n
           .joinMyHouseholdMessage(householdName, inviteUrl),
-      subject: AppLocalizations.of(context)!.joinMyHouseholdSubject,
+      subject: context.l10n.joinMyHouseholdSubject,
     );
   }
 

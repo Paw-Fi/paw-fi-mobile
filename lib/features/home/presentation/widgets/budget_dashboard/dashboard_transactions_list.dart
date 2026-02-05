@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -33,7 +34,7 @@ class DashboardTransactionsList extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Text(
-            'No transactions recorded this month',
+            context.l10n.noTransactionsRecorded,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -47,7 +48,7 @@ class DashboardTransactionsList extends StatelessWidget {
       onTap: onTap,
       children: List.generate(recent.length, (index) {
         final tx = recent[index];
-        final categoryId = tx.entry.category ?? 'uncategorized';
+        final categoryId = tx.entry.category ?? context.l10n.uncategorized;
         final isIncome = tx.entry.type == 'income';
         final categoryName = getCategoryTranslation(context, categoryId);
         final baseAmount = tx.entry.amountCents / 100.0;

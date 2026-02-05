@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
@@ -223,8 +224,8 @@ class _CurrencyHeroCard extends StatelessWidget {
         children: [
           Text(
             hasBudget
-                ? '${remaining < 0 ? "-" : ""}$currencySymbol${remaining.abs().toStringAsFixed(0)} left'
-                : '$currencySymbol${spent.toStringAsFixed(0)} spent', // Hardcoded english per request "Content is UI"
+                ? '${remaining < 0 ? "-" : ""}$currencySymbol${remaining.abs().toStringAsFixed(0)} ${context.l10n.left}'
+                : '$currencySymbol${spent.toStringAsFixed(0)} ${context.l10n.spentLabel}',
             style: TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.w700,
@@ -238,8 +239,8 @@ class _CurrencyHeroCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   hasBudget
-                      ? '$currencySymbol${spent.toStringAsFixed(0)} of $currencySymbol${totalBudget.toStringAsFixed(0)} spent'
-                      : 'Spent this month ($currency)',
+                      ? '$currencySymbol${spent.toStringAsFixed(0)} ${context.l10n.of} $currencySymbol${totalBudget.toStringAsFixed(0)} ${context.l10n.spentLabel}'
+                      : '${context.l10n.spentThisMonth} ($currency)',
                   style: TextStyle(
                     fontSize: 15,
                     color: colorScheme.onSurface.withOpacity(0.6),

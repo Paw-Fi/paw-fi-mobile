@@ -1310,7 +1310,7 @@ Future<void> _showEditNameSheet({
   required VoidCallback onUpdated,
 }) async {
   final authState = ref.read(authProvider);
-  final l10n = AppLocalizations.of(context)!;
+  final l10n = context.l10n;
 
   final result = await MonekoAlertDialog.show(
     context: context,
@@ -1354,7 +1354,7 @@ Future<void> _saveName(
 ) async {
   final newName = controller.text.trim();
   if (newName.isEmpty || newName.length < 2) {
-    AppToast.info(ctx, AppLocalizations.of(ctx)!.pleaseEnterAValidName);
+    AppToast.info(ctx, ctx.l10n.pleaseEnterAValidName);
     return;
   }
 
@@ -1378,12 +1378,12 @@ Future<void> _saveName(
     if (navigator.canPop()) {
       navigator.pop();
     }
-    AppToast.success(ctx, AppLocalizations.of(ctx)!.profileUpdated);
+    AppToast.success(ctx, ctx.l10n.profileUpdated);
   } catch (e) {
     if (ctx.mounted) {
       AppToast.error(
         ctx,
-        AppLocalizations.of(ctx)!.failedToUpdate(e.toString()),
+        ctx.l10n.failedToUpdate(e.toString()),
       );
     }
   }

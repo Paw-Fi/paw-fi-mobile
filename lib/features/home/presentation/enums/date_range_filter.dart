@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:moneko/l10n/app_localizations.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 /// Date range filter options
 enum DateRangeFilter {
@@ -18,7 +18,7 @@ enum DateRangeFilter {
 
 extension DateRangeFilterExtension on DateRangeFilter {
   String getLabel(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = context.l10n;
     switch (this) {
       case DateRangeFilter.today:
         return l10n.today;
@@ -46,7 +46,7 @@ extension DateRangeFilterExtension on DateRangeFilter {
   }
 
   String getSpentLabel(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final l10n = context.l10n;
     switch (this) {
       case DateRangeFilter.today:
         return l10n.spentToday;

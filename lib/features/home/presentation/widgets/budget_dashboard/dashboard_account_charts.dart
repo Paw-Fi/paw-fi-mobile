@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 class AccountChartData {
@@ -193,13 +194,13 @@ class AccountIncomeExpenseChart extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       _AccountStatChip(
-                        label: 'Income',
+                        label: context.l10n.accountIncome,
                         value: formatter.format(item.income),
                         color: colorScheme.success,
                         icon: Icons.arrow_downward_rounded,
                       ),
                       _AccountStatChip(
-                        label: 'Spend',
+                        label: context.l10n.accountSpendLabel,
                         value: formatter.format(item.expense),
                         color: colorScheme.error,
                         icon: Icons.arrow_upward_rounded,

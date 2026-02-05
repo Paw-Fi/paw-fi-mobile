@@ -18,6 +18,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/datetime.dart';
 
 class OverviewDashboardPage extends ConsumerWidget {
@@ -30,7 +31,7 @@ class OverviewDashboardPage extends ConsumerWidget {
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
-        title: "Overview",
+        title: context.l10n.overview,
       ),
       body: Material(
         child: Container(
@@ -191,7 +192,8 @@ class OverviewDashboardPage extends ConsumerWidget {
 
               final categoryTotals = <String, double>{};
               for (final tx in expenseTransactions) {
-                final category = tx.entry.category ?? 'uncategorized';
+                final category =
+                    tx.entry.category ?? context.l10n.uncategorized;
                 categoryTotals[category] =
                     (categoryTotals[category] ?? 0) + resolveExpenseAmount(tx);
               }
@@ -204,7 +206,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   topCategoryEntry.isNotEmpty ? topCategoryEntry.first : null;
               final topCategoryName = topCategory != null
                   ? getCategoryTranslation(context, topCategory.key)
-                  : 'No expenses';
+                  : context.l10n.noExpensesRecorded;
               final topCategoryPercent = topCategory != null && totalExpense > 0
                   ? (topCategory.value / totalExpense) * 100
                   : 0.0;
@@ -291,7 +293,7 @@ class OverviewDashboardPage extends ConsumerWidget {
               householdTotals['personal'] = {
                 'income': 0.0,
                 'expense': 0.0,
-                'name': 'Personal',
+                'name': context.l10n.personal,
                 'currency': displayCurrency,
               };
 
@@ -332,7 +334,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'Display Currency',
+                                  context.l10n.displayCurrency,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
@@ -341,8 +343,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 6),
                                 Tooltip(
-                                  message:
-                                      'All amounts on this page are roughly converted to the selected currency.',
+                                  message: context.l10n.displayCurrencyTooltip,
                                   triggerMode: TooltipTriggerMode.tap,
                                   waitDuration: Duration.zero,
                                   child: Icon(
@@ -400,10 +401,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                         children: [
                           _DashboardTile(
                             icon: Icons.grid_view_rounded,
-                            label: 'Active Accounts',
+                            label: context.l10n.activeAccounts,
                             value: '${activeSpaces.length}',
                             onTap: () => openDetail(
-                              'Activity',
+                              context.l10n.activity,
                               _ActivityDetail(
                                 accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
@@ -414,10 +415,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                           const _Divider(),
                           _DashboardTile(
                             icon: Icons.receipt_long_rounded,
-                            label: 'Transactions',
+                            label: context.l10n.transactions,
                             value: '${monthTransactions.length}',
                             onTap: () => openDetail(
-                              'Activity',
+                              context.l10n.activity,
                               _ActivityDetail(
                                 accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
@@ -430,20 +431,20 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Financial Overview Group
                       _DashboardGroup(
-                        title: 'Financial Overview',
+                        title: context.l10n.financialOverview,
                         children: [
                           _DashboardTile(
                             icon: Icons.arrow_downward_rounded,
                             iconColor: colorScheme.success,
-                            label: 'Total Income',
+                            label: context.l10n.totalIncome,
                             value: formatMoney(totalIncome),
                             valueColor: colorScheme.success,
                             onTap: () => openDetail(
-                              'Income',
+                              context.l10n.income,
                               _MetricDetail(
-                                title: 'Total Income',
+                                title: context.l10n.totalIncome,
                                 value: totalIncome,
-                                subtitle: 'Income this month',
+                                subtitle: context.l10n.incomeThisMonth,
                                 transactions: incomeTransactions,
                                 showCategories: false,
                               ),
@@ -453,15 +454,15 @@ class OverviewDashboardPage extends ConsumerWidget {
                           _DashboardTile(
                             icon: Icons.arrow_upward_rounded,
                             iconColor: colorScheme.error,
-                            label: 'Total Spent',
+                            label: context.l10n.totalSpent,
                             value: formatMoney(totalExpense),
                             valueColor: colorScheme.error,
                             onTap: () => openDetail(
-                              'Spent',
+                              context.l10n.spent,
                               _MetricDetail(
-                                title: 'Total Spent',
+                                title: context.l10n.totalSpent,
                                 value: totalExpense,
-                                subtitle: 'Expenses this month',
+                                subtitle: context.l10n.expensesThisMonth,
                                 transactions: expenseTransactions,
                                 showCategories: true,
                                 amountResolver: resolveExpenseAmount,
@@ -471,13 +472,13 @@ class OverviewDashboardPage extends ConsumerWidget {
                           const _Divider(),
                           _DashboardTile(
                             icon: Icons.account_balance_wallet_rounded,
-                            label: 'Net Flow',
+                            label: context.l10n.netFlow,
                             value: formatMoney(netFlow),
                             valueColor: netFlow >= 0
                                 ? colorScheme.success
                                 : colorScheme.error,
                             onTap: () => openDetail(
-                              'Net Flow',
+                              context.l10n.netFlow,
                               _NetFlowDetail(
                                 income: totalIncome,
                                 expense: totalExpense,
@@ -488,10 +489,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                           const _Divider(),
                           _DashboardTile(
                             icon: Icons.calendar_today_rounded,
-                            label: 'Daily Average',
+                            label: context.l10n.dailyAverage,
                             value: formatMoney(avgDaily),
                             onTap: () => openDetail(
-                              'Daily Average',
+                              context.l10n.dailyAverage,
                               _AverageDetail(
                                 avgDaily: avgDaily,
                                 daysTracked: now.day,
@@ -507,7 +508,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                       // Spending Breakdown Pie Chart
                       if (hasExpenses)
                         _DashboardGroup(
-                          title: 'Spending Breakdown',
+                          title: context.l10n.spendingBreakdown,
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(16),
@@ -521,11 +522,11 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Trends Chart Group
                       _DashboardGroup(
-                        title: 'Spending Trend',
+                        title: context.l10n.spendingTrend,
                         children: [
                           InkWell(
                             onTap: () => openDetail(
-                              'Spending Trend',
+                              context.l10n.spendingTrend,
                               _TrendDetail(
                                 transactions: expenseTransactions,
                                 amountResolver: resolveExpenseAmount,
@@ -544,7 +545,7 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Insights Group
                       _DashboardGroup(
-                        title: 'Top Insight',
+                        title: context.l10n.topInsight,
                         children: [
                           _DashboardTile(
                             customIcon: Icon(
@@ -559,10 +560,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 ? formatMoney(topCategory?.value ?? 0)
                                 : '-',
                             subtitle: hasExpenses
-                                ? '${topCategoryPercent.toStringAsFixed(0)}% of spend'
+                                ? '${topCategoryPercent.toStringAsFixed(0)}% ${context.l10n.percentOfSpend}'
                                 : null,
                             onTap: () => openDetail(
-                              'Insight',
+                              context.l10n.insight,
                               _InsightDetail(
                                 categoryName: topCategoryName,
                                 categoryId: topCategory?.key,
@@ -578,14 +579,14 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Accounts Charts Group
                       _DashboardGroup(
-                        title: 'Accounts Analysis',
+                        title: context.l10n.accountsAnalysis,
                         children: [
                           _DashboardTile(
                             icon: Icons.pie_chart_rounded,
-                            label: 'Spend by Account',
+                            label: context.l10n.spendByAccount,
                             showChevron: true,
                             onTap: () => openDetail(
-                              'Account Spend',
+                              context.l10n.accountSpend,
                               _AccountsDetail(
                                 households: data.households,
                                 transactions: monthTransactions,
@@ -599,7 +600,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.all(16),
                               child: Text(
-                                'No account activity yet',
+                                context.l10n.noAccountActivity,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: colorScheme.mutedForeground,
@@ -617,13 +618,13 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Recent Transactions Group
                       _DashboardGroup(
-                        title: 'Recent Activity',
+                        title: context.l10n.recentActivity,
                         children: [
                           _DashboardTile(
                             icon: Icons.list_rounded,
-                            label: 'View All Transactions',
+                            label: context.l10n.viewAllTransactions,
                             onTap: () => openDetail(
-                              'Transactions',
+                              context.l10n.transactions,
                               _TransactionsDetail(
                                 transactions: monthTransactions,
                                 amountResolver: resolveAmount,
@@ -636,12 +637,16 @@ class OverviewDashboardPage extends ConsumerWidget {
                             ...monthTransactions.take(3).map((tx) {
                               final isIncome = tx.entry.type == 'income';
                               final amount = resolveAmount(tx);
-                              final displayDateTime = combineLocalDateWithLocalTime(
+                              final displayDateTime =
+                                  combineLocalDateWithLocalTime(
                                 date: tx.entry.date,
                                 timeSource: tx.entry.createdAt,
                               );
-                              final currency = ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
-                              
+                              final currency = ref
+                                      .watch(homeFilterProvider)
+                                      .selectedCurrency ??
+                                  'USD';
+
                               return Column(
                                 children: [
                                   buildExpenseTransactionTile(
@@ -659,7 +664,8 @@ class OverviewDashboardPage extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: colorScheme.primary.withValues(alpha: 0.1),
+                                        color: colorScheme.primary
+                                            .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
@@ -1009,24 +1015,24 @@ class _NetFlowDetail extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Net Flow Breakdown',
+          title: context.l10n.netFlowBreakdown,
           children: [
             _DashboardTile(
-              label: 'Total Income',
+              label: context.l10n.totalIncome,
               value: currencyFormatter.format(income),
               valueColor: colorScheme.success,
               showChevron: false,
             ),
             const _Divider(),
             _DashboardTile(
-              label: 'Total Expense',
+              label: context.l10n.totalExpense,
               value: currencyFormatter.format(expense),
               valueColor: colorScheme.error,
               showChevron: false,
             ),
             const _Divider(),
             _DashboardTile(
-              label: 'Net Result',
+              label: context.l10n.netResult,
               value: currencyFormatter.format(net),
               valueColor: net >= 0 ? colorScheme.success : colorScheme.error,
               showChevron: false,
@@ -1061,19 +1067,19 @@ class _AverageDetail extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Statistics',
+          title: context.l10n.statistics,
           children: [
             _DashboardTile(
-              label: 'Average Daily Spend',
+              label: context.l10n.averageDailySpend,
               value: currencyFormatter.format(avgDaily),
-              subtitle: '$daysTracked days tracked',
+              subtitle: '${daysTracked} ${context.l10n.daysTracked}',
               showChevron: false,
             ),
           ],
         ),
         const SizedBox(height: 24),
         _DashboardGroup(
-          title: 'Trend',
+          title: context.l10n.trend,
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
@@ -1105,7 +1111,7 @@ class _TrendDetail extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Chart',
+          title: context.l10n.chart,
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
@@ -1209,7 +1215,8 @@ class _InsightDetail extends StatelessWidget {
     final filtered = categoryId == null
         ? transactions
         : transactions
-            .where((tx) => (tx.entry.category ?? 'uncategorized') == categoryId)
+            .where((tx) =>
+                (tx.entry.category ?? context.l10n.uncategorized) == categoryId)
             .toList();
 
     return Column(
@@ -1218,7 +1225,9 @@ class _InsightDetail extends StatelessWidget {
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text('TRANSACTIONS IN $categoryName'.toUpperCase(),
+          child: Text(
+              context.l10n.transactionsInCategory +
+                  ' ${categoryName.toUpperCase()}'.toUpperCase(),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -1281,18 +1290,20 @@ class _ActivityDetail extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Details',
+          title: context.l10n.details,
           children: [
             _DashboardTile(
-                label: 'Total Accounts',
+                label: context.l10n.totalAccounts,
                 value: '$accounts',
                 showChevron: false),
             const _Divider(),
             _DashboardTile(
-                label: 'Currencies', value: '$currencies', showChevron: false),
+                label: context.l10n.currencies,
+                value: '$currencies',
+                showChevron: false),
             const _Divider(),
             _DashboardTile(
-                label: 'Total Transactions',
+                label: context.l10n.totalTransactions,
                 value: '$transactions',
                 showChevron: false),
           ],

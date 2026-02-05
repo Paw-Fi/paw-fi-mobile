@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -61,7 +62,7 @@ class DashboardAccountsSection extends StatelessWidget {
     if (hasPersonalActivity) {
       accountTiles.add(
         _AccountTile(
-          name: 'Personal',
+          name: context.l10n.personal,
           isPersonal: true,
           stats: personalStats,
           amountFormatter: amountFormatter,
@@ -87,7 +88,7 @@ class DashboardAccountsSection extends StatelessWidget {
     if (accountTiles.isEmpty) {
       accountTiles.add(
         _AccountTile(
-          name: 'Personal',
+          name: context.l10n.personal,
           isPersonal: true,
           stats: const {'income': 0, 'expense': 0},
           amountFormatter: amountFormatter,
@@ -130,7 +131,7 @@ class _AccountTile extends StatelessWidget {
     return DashboardListTile(
       title: name,
       subtitle:
-          'Spent ${amountFormatter.format(expense)} • Income ${amountFormatter.format(income)}',
+          '${context.l10n.accountSpent} ${amountFormatter.format(expense)} ${context.l10n.of} ${amountFormatter.format(income)}',
       icon: isPersonal
           ? Icons.person
           : (isPortfolio ? Icons.trending_up : Icons.people),
