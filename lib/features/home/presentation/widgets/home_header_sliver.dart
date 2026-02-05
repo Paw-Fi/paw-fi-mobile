@@ -26,6 +26,7 @@ import 'package:moneko/features/households/presentation/pages/household_settings
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
+import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 enum _ExportAction {
@@ -481,6 +482,13 @@ class HomeHeaderSliver extends ConsumerWidget {
     // Build menu items dynamically
     final menuItems = <AdaptivePopupMenuItem>[
       AdaptivePopupMenuItem(
+        label: context.l10n.accountOverview,
+        icon: PlatformInfo.isIOS26OrHigher()
+            ? 'chart.pie.fill'
+            : Icons.pie_chart,
+        value: 'overview',
+      ),
+      AdaptivePopupMenuItem(
         label: context.l10n.settings,
         icon: PlatformInfo.isIOS26OrHigher()
             ? 'gearshape'
@@ -544,6 +552,15 @@ class HomeHeaderSliver extends ConsumerWidget {
       ),
       items: menuItems,
       onSelected: (index, item) async {
+        if (item.value == 'overview') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const OverviewDashboardPage(),
+            ),
+          );
+          return;
+        }
+
         if (item.value == 'settings') {
           Navigator.of(context).push(
             MaterialPageRoute(

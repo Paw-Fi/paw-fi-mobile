@@ -280,7 +280,7 @@ class SettingsPage extends HookConsumerWidget {
                   title: context.l10n.account,
                   children: [
                     _SettingsTile(
-                      icon: Icons.insights_rounded,
+                      icon: Icons.pie_chart,
                       label: context.l10n.accountOverview,
                       onTap: () {
                         Navigator.of(context).push(

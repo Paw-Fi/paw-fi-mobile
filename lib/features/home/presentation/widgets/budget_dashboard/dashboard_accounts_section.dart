@@ -131,7 +131,7 @@ class _AccountTile extends StatelessWidget {
     return DashboardListTile(
       title: name,
       subtitle:
-          '${context.l10n.accountSpent} ${amountFormatter.format(expense)} ${context.l10n.of} ${amountFormatter.format(income)}',
+          '${context.l10n.accountSpent} ${amountFormatter.format(expense)} ${context.l10n.ofWord} ${amountFormatter.format(income)}',
       icon: isPersonal
           ? Icons.person
           : (isPortfolio ? Icons.trending_up : Icons.people),
