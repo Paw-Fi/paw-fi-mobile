@@ -89,6 +89,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['description'] = description;
       }
 
+      final breakdown = expense.breakdown;
+      if (breakdown != null && breakdown.isNotEmpty) {
+        requestBody['breakdown'] = breakdown;
+      }
+
       if (receiptImageUrl != null && receiptImageUrl.trim().isNotEmpty) {
         requestBody['receiptImageUrl'] = receiptImageUrl;
       }
@@ -284,6 +289,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       category: expense.category,
       createdAt: createdAt,
       rawText: expense.description,
+      breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,
       splitGroupId: splitGroupId,
       type: 'expense',

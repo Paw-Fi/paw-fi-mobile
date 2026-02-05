@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/moneko_avatar.dart';
 
 class DashboardSpaceCard extends StatelessWidget {
   final String spaceName;
   final double income;
   final double expense;
   final String currency;
+  final String? coverImageUrl;
   final VoidCallback? onTap;
 
   const DashboardSpaceCard({
@@ -15,6 +17,7 @@ class DashboardSpaceCard extends StatelessWidget {
     required this.income,
     required this.expense,
     required this.currency,
+    this.coverImageUrl,
     this.onTap,
   });
 
@@ -57,17 +60,27 @@ class DashboardSpaceCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.workspaces_rounded,
-                        size: 16,
-                        color: colorScheme.primary,
-                      ),
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: coverImageUrl != null
+                          ? MonekoAvatar.network(
+                              size: 32,
+                              fallbackIcon: Icons.workspaces_rounded,
+                              imageUrl: coverImageUrl!,
+                            )
+                          : Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.workspaces_rounded,
+                                size: 20,
+                                color: colorScheme.primary,
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(

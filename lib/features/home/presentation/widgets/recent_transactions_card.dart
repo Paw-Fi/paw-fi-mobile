@@ -252,7 +252,7 @@ Widget buildRecentTransactionsCard(
                                       .instance.client.functions
                                       .invoke('delete-expense', body: {
                                     'userId': uid,
-                                    'expenseId': e.id,
+                                    'expenseIds': e.id,
                                   });
 
                                   if (!context.mounted) {

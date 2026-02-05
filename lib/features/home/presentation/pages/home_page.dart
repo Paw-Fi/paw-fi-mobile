@@ -43,6 +43,8 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/mounted_guard.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -71,6 +73,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Initialize filters on first mount
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       // Initialize currency filter on first load (one-time)
       // Check provider state instead of local flag to prevent race conditions
       final currentCurrency = ref.read(homeFilterProvider).selectedCurrency;
@@ -78,7 +81,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         await _initializeCurrencyFilter();
       }
       // Initialize date range filter from local storage
-      await _initializeDateRangeFilter();
     });
   }
 
@@ -156,6 +158,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Future<void> _initializeCurrencyFilter() async {
     // Early exit if already initialized (idempotency check)
+    if (!mounted) return;
     if (ref.read(homeFilterProvider).selectedCurrency != null) {
       return;
     }
@@ -168,7 +171,11 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     // 1. Try local storage first
     try {
-      final storedCurrency = await service.getSelectedCurrency();
+      final storedCurrency = await runIfMounted(
+        isMounted: () => mounted,
+        action: service.getSelectedCurrency,
+      );
+      if (!mounted) return;
       if (storedCurrency != null && storedCurrency.isNotEmpty) {
         selectedCurrency = storedCurrency;
       }
@@ -188,26 +195,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref
           .read(homeFilterProvider.notifier)
           .setSelectedCurrency(selectedCurrency);
-    }
-  }
-
-  Future<void> _initializeDateRangeFilter() async {
-    try {
-      final service = ref.read(dateRangePreferenceServiceProvider);
-      final stored = await service.getSelectedDateRange();
-      if (stored != null && stored.isNotEmpty) {
-        final matched = DateRangeFilter.values.firstWhere(
-          (e) => e.name == stored,
-          orElse: () => DateRangeFilter.last30Days,
-        );
-        if (!mounted) return;
-        final current = ref.read(homeFilterProvider).dateRangeFilter;
-        if (current != matched) {
-          ref.read(homeFilterProvider.notifier).setFilter(matched);
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading date range filter from storage: $e');
     }
   }
 
@@ -292,7 +279,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     try {
       // On iOS, image_picker handles permissions internally
       // Just try to open the camera directly
-      final XFile? photo = await _imagePicker.pickImage(
+      final XFile? photo = await pickImageWithGuard(
+        picker: _imagePicker,
         source: ImageSource.camera,
         imageQuality: 85,
       );

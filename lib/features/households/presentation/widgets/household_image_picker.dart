@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
 import '../../../../core/utils/error_handler.dart';
 import '../../../../core/config/storage_config.dart';
 import '../providers/household_providers.dart';
@@ -384,7 +385,8 @@ class HouseholdImagePicker {
     ImageSource source,
   ) async {
     try {
-      final XFile? image = await imagePicker.pickImage(
+      final XFile? image = await pickImageWithGuard(
+        picker: imagePicker,
         source: source,
         imageQuality: 100,
       );

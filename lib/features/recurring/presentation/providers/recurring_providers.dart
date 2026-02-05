@@ -120,10 +120,9 @@ class RecurringTransactionsNotifier
       final baseQuery = supabase
           .from('expenses')
           .select(
-            'id, date, category, raw_text, source, amount_cents, currency, '
-            'owner_type, privacy_scope, household_id, '
-            'is_recurring, recurrence_rule, type, attachments, '
-            'created_at, updated_at',
+            'id, date, category, raw_text, breakdown, source, amount_cents, '
+            'currency, owner_type, privacy_scope, household_id, is_recurring, '
+            'recurrence_rule, type, attachments, created_at, updated_at',
           )
           .eq('is_recurring', true);
 
@@ -263,7 +262,7 @@ class RecurringTransactionsNotifier
       // Backend call
       final response = await supabase.functions.invoke(
         'delete-expense',
-        body: {'userId': userId, 'expenseId': transactionId},
+        body: {'userId': userId, 'expenseIds': transactionId},
       );
 
       debugPrint(

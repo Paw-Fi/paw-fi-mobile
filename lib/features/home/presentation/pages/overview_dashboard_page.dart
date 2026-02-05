@@ -13,6 +13,12 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/main_page_top_padding.dart';
+import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/features/utils/datetime.dart';
 
 class OverviewDashboardPage extends ConsumerWidget {
   const OverviewDashboardPage({super.key});
@@ -25,7 +31,6 @@ class OverviewDashboardPage extends ConsumerWidget {
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: "Overview",
-    
       ),
       body: Material(
         child: Container(
@@ -35,16 +40,18 @@ class OverviewDashboardPage extends ConsumerWidget {
               if (data.isLoading && data.allTransactions.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
-        
+
               final now = DateTime.now();
               final user = ref.watch(authProvider);
               final analytics = ref.watch(analyticsProvider);
-              final preferredCurrency =
-                  analytics.contact?.preferredCurrency ?? 'USD';
+              final displayCurrency =
+                  ref.watch(homeFilterProvider).selectedCurrency ??
+                      analytics.contact?.preferredCurrency ??
+                      'USD';
               final startOfMonth = DateTime(now.year, now.month, 1);
               final endOfMonth =
                   DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-        
+
               final monthTransactions = data.allTransactions.where((tx) {
                 return tx.entry.date.isAfter(
                         startOfMonth.subtract(const Duration(seconds: 1))) &&
@@ -52,14 +59,14 @@ class OverviewDashboardPage extends ConsumerWidget {
                         .isBefore(endOfMonth.add(const Duration(seconds: 1)));
               }).toList(growable: false)
                 ..sort((a, b) => b.entry.date.compareTo(a.entry.date));
-        
+
               final expenseTransactions = monthTransactions
                   .where((tx) => tx.entry.type != 'income')
                   .toList(growable: false);
               final incomeTransactions = monthTransactions
                   .where((tx) => tx.entry.type == 'income')
                   .toList(growable: false);
-        
+
               final splitGroupsByExpenseId = <String, ExpenseSplitGroup>{};
               final splitGroupsById = <String, ExpenseSplitGroup>{};
               for (final household in data.households) {
@@ -75,7 +82,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   splitGroupsById[split.id] = split;
                 }
               }
-        
+
               double resolveSplitLineAmount(ExpenseSplitGroup group) {
                 final lines = group.splitLines;
                 if (lines == null || lines.isEmpty) return 0.0;
@@ -87,7 +94,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   }
                 }
                 if (line == null) return 0.0;
-        
+
                 switch (group.splitType) {
                   case SplitType.amount:
                     return (line.amountCents ?? 0) / 100.0;
@@ -106,11 +113,11 @@ class OverviewDashboardPage extends ConsumerWidget {
                     return (group.totalAmountCents / 100.0) / lines.length;
                 }
               }
-        
+
               double resolveExpenseAmount(ConsolidatedTransaction tx) {
                 final currency = tx.entry.currency ?? 'USD';
                 double rawAmount = 0.0;
-        
+
                 if (user.uid.isEmpty) {
                   rawAmount = tx.entry.amountCents / 100.0;
                 } else {
@@ -122,7 +129,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                         (tx.entry.splitGroupId != null
                             ? splitGroupsById[tx.entry.splitGroupId!]
                             : null);
-        
+
                     if (splitGroup != null) {
                       rawAmount = resolveSplitLineAmount(splitGroup);
                     } else {
@@ -141,19 +148,18 @@ class OverviewDashboardPage extends ConsumerWidget {
                   }
                 }
                 return CurrencyRates.convert(
-                    rawAmount, currency, preferredCurrency);
+                    rawAmount, currency, displayCurrency);
               }
-        
+
               double resolveAmount(ConsolidatedTransaction tx) {
                 if (tx.entry.type == 'income') {
                   final currency = tx.entry.currency ?? 'USD';
                   final raw = tx.entry.amountCents / 100.0;
-                  return CurrencyRates.convert(
-                      raw, currency, preferredCurrency);
+                  return CurrencyRates.convert(raw, currency, displayCurrency);
                 }
                 return resolveExpenseAmount(tx);
               }
-        
+
               final totalIncome = incomeTransactions.fold<double>(
                   0.0, (sum, tx) => sum + resolveAmount(tx));
               final totalExpense = expenseTransactions.fold<double>(
@@ -161,8 +167,11 @@ class OverviewDashboardPage extends ConsumerWidget {
                 (sum, tx) => sum + resolveExpenseAmount(tx),
               );
               final netFlow = totalIncome - totalExpense;
-              final avgDaily = now.day > 0 ? totalExpense / now.day : 0.0;
-        
+              final daysInRange =
+                  endOfMonth.difference(startOfMonth).inDays + 1;
+              final avgDaily =
+                  daysInRange > 0 ? totalExpense / daysInRange : totalExpense;
+
               final activeSpaces = <String>{};
               final activeCurrencies = <String>{};
               for (final tx in monthTransactions) {
@@ -172,24 +181,24 @@ class OverviewDashboardPage extends ConsumerWidget {
                   activeCurrencies.add(currency.toUpperCase());
                 }
               }
-        
+
               final currencyFormatter = NumberFormat.simpleCurrency(
-                  name: preferredCurrency, decimalDigits: 0);
-        
+                  name: displayCurrency, decimalDigits: 0);
+
               String formatMoney(double value) {
                 return currencyFormatter.format(value);
               }
-        
+
               final categoryTotals = <String, double>{};
               for (final tx in expenseTransactions) {
                 final category = tx.entry.category ?? 'uncategorized';
                 categoryTotals[category] =
                     (categoryTotals[category] ?? 0) + resolveExpenseAmount(tx);
               }
-        
+
               final topCategoryEntry = categoryTotals.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value));
-        
+
               final hasExpenses = totalExpense > 0;
               final topCategory =
                   topCategoryEntry.isNotEmpty ? topCategoryEntry.first : null;
@@ -199,14 +208,14 @@ class OverviewDashboardPage extends ConsumerWidget {
               final topCategoryPercent = topCategory != null && totalExpense > 0
                   ? (topCategory.value / totalExpense) * 100
                   : 0.0;
-        
+
               final accountChartData = _buildAccountChartData(
                 now: now,
                 households: data.households,
                 transactions: monthTransactions,
                 amountResolver: resolveAmount,
               );
-        
+
               void openDetail(String title, Widget child) {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -217,7 +226,57 @@ class OverviewDashboardPage extends ConsumerWidget {
                   ),
                 );
               }
-        
+
+              Future<void> handleCurrencyChange() async {
+                await showCurrencySelectorModal(context, ref);
+                if (user.uid.isEmpty) return;
+                ref.read(analyticsProvider.notifier).refresh(user.uid);
+
+                final currentViewMode = ref.read(viewModeProvider);
+                final currentSelectedHousehold =
+                    ref.read(selectedHouseholdProvider);
+                final householdId = currentViewMode.mode == ViewMode.household
+                    ? currentSelectedHousehold.householdId
+                    : null;
+
+                ref
+                    .read(recurringTransactionsProvider(householdId).notifier)
+                    .refresh(user.uid);
+                ref.invalidate(pocketsProvider);
+              }
+
+              final currencyPill = GestureDetector(
+                onTap: handleCurrencyChange,
+                child: Container(
+                  height: 36,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.cardSurface,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        displayCurrency,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
               // Calculate household totals for space cards
               final householdTotals = <String, Map<String, dynamic>>{};
               for (final h in data.households) {
@@ -225,7 +284,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   'income': 0.0,
                   'expense': 0.0,
                   'name': h.name,
-                  'currency': preferredCurrency,
+                  'currency': displayCurrency,
                 };
               }
               // Add personal space
@@ -233,37 +292,74 @@ class OverviewDashboardPage extends ConsumerWidget {
                 'income': 0.0,
                 'expense': 0.0,
                 'name': 'Personal',
-                'currency': preferredCurrency,
+                'currency': displayCurrency,
               };
-        
+
               for (final tx in monthTransactions) {
                 final spaceId = tx.entry.householdId ?? 'personal';
                 final stats = householdTotals[spaceId];
                 if (stats != null) {
                   if (tx.entry.type == 'income') {
-                    final currency = tx.entry.currency ?? 'USD';
-                    final raw = tx.entry.amountCents / 100.0;
-                    final converted =
-                        CurrencyRates.convert(raw, currency, preferredCurrency);
-                    stats['income'] = (stats['income'] as double) + converted;
+                    stats['income'] =
+                        (stats['income'] as double) + resolveAmount(tx);
                   } else {
                     stats['expense'] =
                         (stats['expense'] as double) + resolveExpenseAmount(tx);
                   }
                 }
               }
-        
+
               return RefreshIndicator(
-                onRefresh: () async {},
+                onRefresh: () async {
+                  if (user.uid.isEmpty) return;
+                  await ref.read(analyticsProvider.notifier).loadData(user.uid);
+                },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding:  EdgeInsets.only(bottom: 40,top:getTopPadding(context)),
+                  padding:
+                      EdgeInsets.only(bottom: 40, top: getTopPadding(context)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 16),
-        
-                      // Spaces Carousel
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Display Currency',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Tooltip(
+                                  message:
+                                      'All amounts on this page are roughly converted to the selected currency.',
+                                  triggerMode: TooltipTriggerMode.tap,
+                                  waitDuration: Duration.zero,
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 16,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            currencyPill,
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Spaces Carousel (Accounts)
                       SizedBox(
                         height: 180,
                         child: ListView.builder(
@@ -297,25 +393,21 @@ class OverviewDashboardPage extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-        
+
                       // Month Summary Group
                       _DashboardGroup(
                         title: '${DateFormat.MMMM().format(now)} ${now.year}',
                         children: [
                           _DashboardTile(
                             icon: Icons.grid_view_rounded,
-                            label: 'Active Spaces',
+                            label: 'Active Accounts',
                             value: '${activeSpaces.length}',
                             onTap: () => openDetail(
                               'Activity',
                               _ActivityDetail(
-                                spaces: activeSpaces.length,
+                                accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
                                 transactions: monthTransactions.length,
-                                accounts: data.households,
-                                transactionsData: monthTransactions,
-                                chartData: accountChartData,
-                                amountResolver: resolveAmount,
                               ),
                             ),
                           ),
@@ -327,19 +419,15 @@ class OverviewDashboardPage extends ConsumerWidget {
                             onTap: () => openDetail(
                               'Activity',
                               _ActivityDetail(
-                                spaces: activeSpaces.length,
+                                accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
                                 transactions: monthTransactions.length,
-                                accounts: data.households,
-                                transactionsData: monthTransactions,
-                                chartData: accountChartData,
-                                amountResolver: resolveAmount,
                               ),
                             ),
                           ),
                         ],
                       ),
-        
+
                       // Financial Overview Group
                       _DashboardGroup(
                         title: 'Financial Overview',
@@ -415,7 +503,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-        
+
                       // Spending Breakdown Pie Chart
                       if (hasExpenses)
                         _DashboardGroup(
@@ -430,7 +518,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                             ),
                           ],
                         ),
-        
+
                       // Trends Chart Group
                       _DashboardGroup(
                         title: 'Spending Trend',
@@ -453,7 +541,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-        
+
                       // Insights Group
                       _DashboardGroup(
                         title: 'Top Insight',
@@ -487,7 +575,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                           ),
                         ],
                       ),
-        
+
                       // Accounts Charts Group
                       _DashboardGroup(
                         title: 'Accounts Analysis',
@@ -507,14 +595,26 @@ class OverviewDashboardPage extends ConsumerWidget {
                             ),
                           ),
                           const _Divider(),
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child:
-                                AccountSpendListChart(data: accountChartData),
-                          ),
+                          if (accountChartData.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                'No account activity yet',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            )
+                          else
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child:
+                                  AccountSpendListChart(data: accountChartData),
+                            ),
                         ],
                       ),
-        
+
                       // Recent Transactions Group
                       _DashboardGroup(
                         title: 'Recent Activity',
@@ -536,77 +636,40 @@ class OverviewDashboardPage extends ConsumerWidget {
                             ...monthTransactions.take(3).map((tx) {
                               final isIncome = tx.entry.type == 'income';
                               final amount = resolveAmount(tx);
+                              final displayDateTime = combineLocalDateWithLocalTime(
+                                date: tx.entry.date,
+                                timeSource: tx.entry.createdAt,
+                              );
+                              final currency = ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
+                              
                               return Column(
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 12),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: (isIncome
-                                                    ? colorScheme.success
-                                                    : colorScheme.primary)
-                                                .withValues(alpha: 0.1),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            isIncome
-                                                ? Icons.arrow_downward
-                                                : getCategoryIcon(
-                                                    tx.entry.category),
-                                            size: 16,
-                                            color: isIncome
-                                                ? colorScheme.success
-                                                : colorScheme.primary,
-                                          ),
+                                  buildExpenseTransactionTile(
+                                    context: context,
+                                    category: tx.entry.category,
+                                    rawText: tx.entry.rawText,
+                                    date: displayDateTime,
+                                    amount: amount,
+                                    currency: currency,
+                                    isIncome: isIncome,
+                                    onTap: () {
+                                      // TODO: Navigate to transaction details
+                                    },
+                                    trailingWidget: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.primary.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        tx.accountLabel,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.primary,
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                (tx.entry.rawText ?? '')
-                                                        .isNotEmpty
-                                                    ? tx.entry.rawText!
-                                                    : (isIncome
-                                                        ? 'Income'
-                                                        : 'Expense'),
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: colorScheme.onSurface,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              Text(
-                                                DateFormat.MMMd()
-                                                    .format(tx.entry.date),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: colorScheme
-                                                      .mutedForeground,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          formatMoney(amount),
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w500,
-                                            color: isIncome
-                                                ? colorScheme.success
-                                                : colorScheme.onSurface,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                   if (tx != monthTransactions.take(3).last)
@@ -626,10 +689,6 @@ class OverviewDashboardPage extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ),
-      ),
-      floatingActionButton: AdaptiveFloatingActionButton(
-        onPressed: () {},
-        child: const Icon(Icons.add_rounded),
       ),
     );
   }
@@ -659,9 +718,9 @@ class _DashboardGroup extends StatelessWidget {
             child: Text(
               title.toUpperCase(),
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
+                color: Colors.grey.shade600,
                 letterSpacing: -0.2,
               ),
             ),
@@ -722,11 +781,11 @@ class _DashboardTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: Colors.transparent,
+      color: colorScheme.surface.withValues(alpha: 0.0),
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               if (icon != null || customIcon != null) ...[
@@ -752,7 +811,7 @@ class _DashboardTile extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w400,
                         color: colorScheme.onSurface,
                       ),
@@ -761,7 +820,7 @@ class _DashboardTile extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           color: colorScheme.mutedForeground,
                         ),
                       ),
@@ -774,7 +833,7 @@ class _DashboardTile extends StatelessWidget {
                   value!,
                   textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: valueColor ?? colorScheme.mutedForeground,
                     fontWeight: valueColor != null
                         ? FontWeight.w500
@@ -806,13 +865,12 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(left: indent),
       child: Divider(
         height: 1,
         thickness: 0.5,
-        color: colorScheme.border.withValues(alpha: 0.5),
+        color: Colors.grey.withValues(alpha: 0.2),
       ),
     );
   }
@@ -863,6 +921,7 @@ class _MetricDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final bool showCategories;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
 
   const _MetricDetail({
     required this.title,
@@ -871,6 +930,7 @@ class _MetricDetail extends StatelessWidget {
     required this.transactions,
     required this.showCategories,
     this.amountResolver,
+    this.accountLabelResolver,
   });
 
   @override
@@ -896,9 +956,9 @@ class _MetricDetail extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, bottom: 8),
             child: Text('TOP CATEGORIES',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.mutedForeground,
+                  color: Colors.grey.shade600,
                   letterSpacing: -0.2,
                 )),
           ),
@@ -912,9 +972,9 @@ class _MetricDetail extends StatelessWidget {
           padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text('TRANSACTIONS',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.mutedForeground,
+                color: Colors.grey.shade600,
                 letterSpacing: -0.2,
               )),
         ),
@@ -1108,9 +1168,9 @@ class _AccountsDetail extends StatelessWidget {
           padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text('ACCOUNTS LIST',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.mutedForeground,
+                color: Colors.grey.shade600,
                 letterSpacing: -0.2,
               )),
         ),
@@ -1132,6 +1192,7 @@ class _InsightDetail extends StatelessWidget {
   final double amount;
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
 
   const _InsightDetail({
     required this.categoryName,
@@ -1140,6 +1201,7 @@ class _InsightDetail extends StatelessWidget {
     required this.amount,
     required this.transactions,
     this.amountResolver,
+    this.accountLabelResolver,
   });
 
   @override
@@ -1158,15 +1220,16 @@ class _InsightDetail extends StatelessWidget {
           padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text('TRANSACTIONS IN $categoryName'.toUpperCase(),
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.mutedForeground,
+                color: Colors.grey.shade600,
                 letterSpacing: -0.2,
               )),
         ),
         DashboardTransactionsList(
           transactions: filtered,
           amountResolver: amountResolver,
+          accountLabelResolver: accountLabelResolver,
         ),
       ],
     );
@@ -1176,10 +1239,12 @@ class _InsightDetail extends StatelessWidget {
 class _TransactionsDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
 
   const _TransactionsDetail({
     required this.transactions,
     this.amountResolver,
+    this.accountLabelResolver,
   });
 
   @override
@@ -1199,22 +1264,14 @@ class _TransactionsDetail extends StatelessWidget {
 }
 
 class _ActivityDetail extends StatelessWidget {
-  final int spaces;
+  final int accounts;
   final int currencies;
   final int transactions;
-  final List<Household> accounts;
-  final List<ConsolidatedTransaction> transactionsData;
-  final List<AccountChartData> chartData;
-  final double Function(ConsolidatedTransaction tx)? amountResolver;
 
   const _ActivityDetail({
-    required this.spaces,
+    required this.accounts,
     required this.currencies,
     required this.transactions,
-    required this.accounts,
-    required this.transactionsData,
-    required this.chartData,
-    this.amountResolver,
   });
 
   @override
@@ -1227,7 +1284,9 @@ class _ActivityDetail extends StatelessWidget {
           title: 'Details',
           children: [
             _DashboardTile(
-                label: 'Total Spaces', value: '$spaces', showChevron: false),
+                label: 'Total Accounts',
+                value: '$accounts',
+                showChevron: false),
             const _Divider(),
             _DashboardTile(
                 label: 'Currencies', value: '$currencies', showChevron: false),
@@ -1395,9 +1454,9 @@ class _SpaceDetail extends StatelessWidget {
             padding: const EdgeInsets.only(left: 16, bottom: 8),
             child: Text('SPENDING BREAKDOWN',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
+                  color: Colors.grey.shade600,
                   letterSpacing: -0.2,
                 )),
           ),
@@ -1419,9 +1478,9 @@ class _SpaceDetail extends StatelessWidget {
           padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text('TRANSACTIONS',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
+                color: Colors.grey.shade600,
                 letterSpacing: -0.2,
               )),
         ),

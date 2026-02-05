@@ -405,7 +405,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               final expensesRes = await client
                   .from('expenses')
                   .select(
-                      'amount_cents,category,type,household_id,currency,date')
+                      'amount_cents,category,type,household_id,currency,date,breakdown')
                   .eq('household_id', householdId)
                   .eq('currency', currency)
                   .gte('date', monthStart.toIso8601String())
@@ -523,7 +523,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   var expenseQuery = Supabase.instance.client
                       .from('expenses')
                       .select(
-                          'amount_cents,category,type,household_id,currency,date')
+                          'amount_cents,category,type,household_id,currency,date,breakdown')
                       .eq('user_id', user.uid)
                       .eq('currency', currency)
                       .gte('date', monthStr)
@@ -620,6 +620,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                             'created_at': row['date'],
                             'updated_at': row['date'],
                             'raw_text': null,
+                            'breakdown': row['breakdown'],
                             'receipt_image_url': null,
                             'household_id': row['household_id'],
                             'split_group_id': null,

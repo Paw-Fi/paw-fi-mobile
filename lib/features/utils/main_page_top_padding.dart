@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 double getTopPadding(BuildContext context) {
   final mediaQuery = MediaQuery.of(context);
-  final topInset = mediaQuery.padding.top + 65;
+  final topInset = mediaQuery.padding.top ;
   return topInset;
 }
 

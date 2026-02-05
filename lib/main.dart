@@ -17,6 +17,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/util/constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/app/startup_guard.dart';
+import 'package:moneko/core/app/flutter_error_reporter.dart';
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
@@ -54,7 +56,17 @@ void main() {
     // Record Flutter framework errors as fatal in Crashlytics (only on non-web)
     if (!kIsWeb) {
       FlutterError.onError = (FlutterErrorDetails details) {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        final exception = details.exception;
+        if (shouldReportFatalFlutterError(exception)) {
+          FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        } else {
+          FirebaseCrashlytics.instance.recordError(
+            exception,
+            details.stack ?? StackTrace.empty,
+            reason: 'flutter_error_non_fatal',
+            fatal: false,
+          );
+        }
         FlutterError.presentError(details);
       };
     } else {
@@ -226,7 +238,28 @@ void main() {
     }
 
     // Initialize SharedPreferences for persistent state
-    final sharedPreferences = await SharedPreferences.getInstance();
+    final sharedPreferences = await runStartupStep(
+      label: 'shared_preferences',
+      timeout: const Duration(seconds: 10),
+      action: SharedPreferences.getInstance,
+      fallback: () async {
+        SharedPreferences.setMockInitialValues({});
+        return SharedPreferences.getInstance();
+      },
+      onError: (error, stack) {
+        debugPrint('[ERR] SharedPreferences init failed: $error');
+        if (!kIsWeb) {
+          try {
+            FirebaseCrashlytics.instance.recordError(
+              error,
+              stack,
+              reason: 'shared_preferences_init',
+              fatal: false,
+            );
+          } catch (_) {}
+        }
+      },
+    );
     if (!kIsWeb) {
       FirebaseCrashlytics.instance.log('startup: shared_prefs_ready');
     }

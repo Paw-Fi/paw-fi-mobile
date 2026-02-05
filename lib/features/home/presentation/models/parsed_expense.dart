@@ -11,6 +11,7 @@ class ParsedExpense {
   final String currencySymbol;
   final DateTime date;
   final String? description;
+  final List<String>? breakdown;
   final String? localImagePath; // Local image path for display before upload
   // Household sharing (expense only)
   final String? payerUserId; // Who paid
@@ -24,6 +25,7 @@ class ParsedExpense {
     required this.currencySymbol,
     required this.date,
     this.description,
+    this.breakdown,
     this.localImagePath,
     this.payerUserId,
     this.payerHint,
@@ -39,6 +41,9 @@ class ParsedExpense {
       currencySymbol: json['currencySymbol'] as String? ?? '\$',
       date: DateTime.parse(json['date'] as String),
       description: json['description'] as String?,
+      breakdown: json['breakdown'] != null
+          ? List<String>.from(json['breakdown'] as List)
+          : null,
       localImagePath: json['localImagePath'] as String?,
       payerUserId: (json['payerUserId'] as String?) ??
           (json['payer_user_id'] as String?),
@@ -58,6 +63,7 @@ class ParsedExpense {
       'currencySymbol': currencySymbol,
       'date': date.toIso8601String().split('T')[0],
       'description': description,
+      'breakdown': breakdown,
       'localImagePath': localImagePath,
       'payerUserId': payerUserId,
       'payerHint': payerHint,
@@ -73,6 +79,7 @@ class ParsedExpense {
     String? currencySymbol,
     DateTime? date,
     String? description,
+    List<String>? breakdown,
     String? localImagePath,
     String? payerUserId,
     String? payerHint,
@@ -85,6 +92,7 @@ class ParsedExpense {
       currencySymbol: currencySymbol ?? this.currencySymbol,
       date: date ?? this.date,
       description: description ?? this.description,
+      breakdown: breakdown ?? this.breakdown,
       localImagePath: localImagePath ?? this.localImagePath,
       payerUserId: payerUserId ?? this.payerUserId,
       payerHint: payerHint ?? this.payerHint,

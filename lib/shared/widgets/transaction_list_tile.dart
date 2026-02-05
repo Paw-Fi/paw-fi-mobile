@@ -157,7 +157,7 @@ class TransactionListTile extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
           color: colorScheme.foreground,
         ),
@@ -202,17 +202,20 @@ Widget buildExpenseTransactionTile({
   final effectiveCategory = category ?? 'other';
   final title = getCategoryTranslation(context, effectiveCategory);
 
-  return TransactionListTile(
-    onTap: onTap,
-    category: effectiveCategory,
-    title: title,
-    description: rawText,
-    date: date,
-    amount: amount,
-    currency: currency,
-    isIncome: isIncome,
-    trailingWidget: trailingWidget,
-    dense: dense,
-    showYouLabel: showYouLabel,
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    child: TransactionListTile(
+      onTap: onTap,
+      category: effectiveCategory,
+      title: title,
+      description: rawText,
+      date: date,
+      amount: amount,
+      currency: currency,
+      isIncome: isIncome,
+      trailingWidget: trailingWidget,
+      dense: dense,
+      showYouLabel: showYouLabel,
+    ),
   );
 }

@@ -267,17 +267,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
+      final periodSelection = ref.read(periodFilterProvider);
 
       final DateTime targetDate;
       if (params.periodMonth != null) {
         targetDate = params.periodMonth!;
       } else {
-        final range = getDateRangeFromFilter(
-          filter.dateRangeFilter,
-          filter.customStartDate,
-          filter.customEndDate,
-        );
-        targetDate = range['to'] ?? DateTime.now();
+        final range = resolvePeriodDateRange(periodSelection);
+        targetDate = range.end;
       }
 
       final monthStart = DateTime(targetDate.year, targetDate.month, 1);

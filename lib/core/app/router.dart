@@ -18,6 +18,7 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_pa
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -108,6 +109,11 @@ GoRouter router(RouterRef ref) {
           final mode = state.uri.queryParameters['mode'];
           return PlanSelectionPage(mode: PlanSelectionModeX.fromQuery(mode));
         },
+      ),
+
+      GoRoute(
+        path: '/import',
+        builder: (context, state) => const ImportWizardPage(),
       ),
 
       // Deep link routes - show dashboard so sheet appears on a valid page

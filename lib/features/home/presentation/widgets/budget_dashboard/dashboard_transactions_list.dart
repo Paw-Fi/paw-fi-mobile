@@ -11,6 +11,7 @@ class DashboardTransactionsList extends StatelessWidget {
   final void Function(ConsolidatedTransaction tx)? onTransactionTap;
   final VoidCallback? onTap;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
 
   const DashboardTransactionsList({
     super.key,
@@ -18,6 +19,7 @@ class DashboardTransactionsList extends StatelessWidget {
     this.onTransactionTap,
     this.onTap,
     this.amountResolver,
+    this.accountLabelResolver,
   });
 
   @override
@@ -50,9 +52,13 @@ class DashboardTransactionsList extends StatelessWidget {
         final categoryName = getCategoryTranslation(context, categoryId);
         final baseAmount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
+        final accountLabel = accountLabelResolver?.call(tx) ?? tx.accountLabel;
+        final shouldShowLabel = accountLabelResolver != null
+            ? accountLabel.trim().isNotEmpty
+            : accountLabel.trim().isNotEmpty && accountLabel != 'Personal';
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           child: TransactionListTile(
             category: categoryId,
             title: tx.entry.rawText ?? categoryName,
@@ -62,7 +68,7 @@ class DashboardTransactionsList extends StatelessWidget {
             date: tx.entry.date,
             subtitleWidget: Row(
               children: [
-                if (tx.accountLabel != 'Personal')
+                if (shouldShowLabel)
                   Container(
                     margin: const EdgeInsets.only(right: 6),
                     padding:
@@ -72,7 +78,7 @@ class DashboardTransactionsList extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      tx.accountLabel,
+                      accountLabel,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,

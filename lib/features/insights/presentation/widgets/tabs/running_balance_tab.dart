@@ -21,7 +21,10 @@ Widget buildRunningBalanceTab(
   required HouseholdScope householdScope,
   String? selectedCurrency,
 }) {
-  final scoped = buildInsightsScopedData(analyticsData, householdScope);
+  final scoped = buildInsightsScopedData(
+    analyticsData,
+    householdScope,
+  );
   var expenses = scoped.expenses;
   var budgets = scoped.budgets;
 

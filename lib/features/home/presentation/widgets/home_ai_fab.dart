@@ -16,6 +16,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
@@ -40,6 +41,7 @@ const int _reviewMaxInterval = 5;
 const String _reviewExpenseCountKey = 'review_expense_count';
 const String _reviewLastPromptKey = 'review_last_prompt_count';
 const String _reviewLastIntervalKey = 'review_last_prompt_interval';
+const int _maxBatchSize = 500;
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -309,6 +311,7 @@ Future<void> _persistAiTransactions(
       'date': tx.date.toIso8601String().split('T')[0],
       'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
+      if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
       // Expense-specific fields
       if (!isIncome && payerUserId != null) 'payerUserId': payerUserId,
@@ -324,67 +327,81 @@ Future<void> _persistAiTransactions(
     debugPrint('[AI Batch Save] Supabase URL: ${Constants.supabaseUrl}');
     debugPrint('[AI Batch Save] Function: save-transactions-batch');
 
-    final response = await supabase.functions.invoke(
-      'save-transactions-batch',
-      body: {
-        'userId': userId,
-        if (householdId != null && householdId.isNotEmpty)
-          'householdId': householdId,
-        if (householdId != null && householdId.isNotEmpty)
-          'isPortfolio': isPortfolio,
-        'transactions': batchTransactions,
-      },
-    );
-
-    if (response.data == null) {
-      throw Exception('No response from save-transactions-batch');
-    }
-
-    final responseData = response.data as Map<String, dynamic>;
-    final results = responseData['results'] as List?;
-    final summary = responseData['summary'] as Map<String, dynamic>?;
-
-    debugPrint(
-        '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
+    final batches = chunkList(batchTransactions, _maxBatchSize);
+    var batchOffset = 0;
 
     var didPersistAny = false;
     var savedExpenseCount = 0;
     final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
-    if (results != null && results.isNotEmpty) {
-      // Map results back to optimistic entries by index
-      for (final resultItem in results) {
-        final result = resultItem as Map<String, dynamic>;
-        final index = result['index'] as int;
-        final success = result['success'] as bool;
-        final data = result['data'] as Map<String, dynamic>?;
+    for (var batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      final batch = batches[batchIndex];
+      debugPrint(
+          '[AI Batch Save] Batch ${batchIndex + 1}/${batches.length} size=${batch.length}');
 
-        if (index < 0 || index >= transactions.length) continue;
+      final response = await supabase.functions.invoke(
+        'save-transactions-batch',
+        body: {
+          'userId': userId,
+          if (householdId != null && householdId.isNotEmpty)
+            'householdId': householdId,
+          if (householdId != null && householdId.isNotEmpty)
+            'isPortfolio': isPortfolio,
+          'transactions': batch,
+        },
+      );
 
-        final originalItem = transactions[index];
+      if (response.data == null) {
+        throw Exception('No response from save-transactions-batch');
+      }
 
-        if (success && data != null) {
-          final savedEntry = ExpenseEntry.fromJson(data);
-          upsertSavedEntry(
-            optimisticId: originalItem.optimisticId,
-            savedEntry: savedEntry,
-          );
-          didPersistAny = true;
-          if (!originalItem.transaction.isIncome) {
-            savedExpenseCount += 1;
-            savedExpenseEntriesById[savedEntry.id] = savedEntry;
+      final responseData = response.data as Map<String, dynamic>;
+      final results = responseData['results'] as List?;
+      final summary = responseData['summary'] as Map<String, dynamic>?;
+
+      debugPrint(
+          '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
+
+      if (results != null && results.isNotEmpty) {
+        // Map results back to optimistic entries by index
+        for (final resultItem in results) {
+          final result = resultItem as Map<String, dynamic>;
+          final index = result['index'] as int;
+          final success = result['success'] as bool;
+          final data = result['data'] as Map<String, dynamic>?;
+
+          final originalIndex = batchOffset + index;
+          if (originalIndex < 0 || originalIndex >= transactions.length) {
+            continue;
           }
-        } else {
-          // Remove failed optimistic entry
-          removeOptimisticTransactionWithContainer(
-            container: container,
-            optimisticId: originalItem.optimisticId,
-            householdId: householdId,
-          );
-          debugPrint(
-              '❌ Failed to persist transaction at index $index: ${result['error']}');
+
+          final originalItem = transactions[originalIndex];
+
+          if (success && data != null) {
+            final savedEntry = ExpenseEntry.fromJson(data);
+            upsertSavedEntry(
+              optimisticId: originalItem.optimisticId,
+              savedEntry: savedEntry,
+            );
+            didPersistAny = true;
+            if (!originalItem.transaction.isIncome) {
+              savedExpenseCount += 1;
+              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+            }
+          } else {
+            // Remove failed optimistic entry
+            removeOptimisticTransactionWithContainer(
+              container: container,
+              optimisticId: originalItem.optimisticId,
+              householdId: householdId,
+            );
+            debugPrint(
+                '❌ Failed to persist transaction at index $originalIndex: ${result['error']}');
+          }
         }
       }
+
+      batchOffset += batch.length;
     }
 
     await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
@@ -412,11 +429,9 @@ Future<void> _persistAiTransactions(
   } catch (error) {
     debugPrint('❌ Batch save failed: $error');
 
-    // Check if it's a 404 error (function not found) - fallback to individual saves
-    final is404 = error.toString().contains('404') ||
-        error.toString().contains('NOT_FOUND');
+    final shouldFallback = shouldFallbackForBatchError(error);
 
-    if (is404) {
+    if (shouldFallback) {
       debugPrint(
           '⚠️ Batch endpoint not available, falling back to individual saves');
 
@@ -440,6 +455,7 @@ Future<void> _persistAiTransactions(
             'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
             if (tx.description?.isNotEmpty == true)
               'description': tx.description,
+            if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
             if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
             if (householdId != null && householdId.isNotEmpty)
               'householdId': householdId,
@@ -534,7 +550,7 @@ Future<void> _persistAiTransactions(
       return; // Exit successfully after fallback
     }
 
-    // For non-404 errors, remove all optimistic entries and rethrow
+    // For non-recoverable errors, remove all optimistic entries and rethrow
     for (final item in transactions) {
       removeOptimisticTransactionWithContainer(
         container: container,
@@ -547,11 +563,33 @@ Future<void> _persistAiTransactions(
   }
 }
 
+bool shouldFallbackForBatchError(Object error) {
+  final message = error.toString().toLowerCase();
+  if (message.contains('404') || message.contains('not_found')) {
+    return true;
+  }
+  if (message.contains('bad file descriptor')) {
+    return true;
+  }
+  return false;
+}
+
+List<List<T>> chunkList<T>(List<T> items, int maxSize) {
+  if (items.isEmpty) return <List<T>>[];
+  final chunks = <List<T>>[];
+  for (var i = 0; i < items.length; i += maxSize) {
+    final end = (i + maxSize) > items.length ? items.length : (i + maxSize);
+    chunks.add(items.sublist(i, end));
+  }
+  return chunks;
+}
+
 Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
   debugPrint('🎥 Starting camera capture...');
 
   try {
-    final XFile? photo = await _imagePicker.pickImage(
+    final XFile? photo = await pickImageWithGuard(
+      picker: _imagePicker,
       source: ImageSource.camera,
       imageQuality: 85,
     );
@@ -684,7 +722,8 @@ Future<void> handleAiFileOrGallery(
         style: AlertActionStyle.primary,
         onPressed: () async {
           try {
-            final XFile? image = await _imagePicker.pickImage(
+            final XFile? image = await pickImageWithGuard(
+              picker: _imagePicker,
               source: ImageSource.gallery,
               imageQuality: 85,
             );
@@ -1021,6 +1060,9 @@ Future<void> _processExpense(
               currencySymbol: item['currencySymbol'] as String? ?? '\$',
               date: DateTime.parse(item['date'] as String),
               description: item['description'] as String?,
+              breakdown: item['breakdown'] is List
+                  ? List<String>.from(item['breakdown'] as List)
+                  : null,
               localImagePath: imagePath,
               payerUserId: (item['payerUserId'] is String)
                   ? (item['payerUserId'] as String)

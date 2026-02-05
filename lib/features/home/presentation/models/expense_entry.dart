@@ -15,9 +15,11 @@ class ExpenseEntry {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? rawText;
+  final List<String>? breakdown;
   final String? receiptImageUrl;
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
+  final String? bankAccountId;
   final String? type; // 'expense' | 'income'
 
   ExpenseEntry({
@@ -34,9 +36,11 @@ class ExpenseEntry {
     required this.createdAt,
     this.updatedAt,
     this.rawText,
+    this.breakdown,
     this.receiptImageUrl,
     this.sharedMemberIds,
     this.splitGroupId,
+    this.bankAccountId,
     this.type,
   });
 
@@ -82,11 +86,15 @@ class ExpenseEntry {
       updatedAt:
           json['updated_at'] != null ? parseDate(json['updated_at']) : null,
       rawText: json['raw_text'] as String?,
+      breakdown: json['breakdown'] != null
+          ? List<String>.from(json['breakdown'] as List)
+          : null,
       receiptImageUrl: json['receipt_image_url'] as String?,
       sharedMemberIds: json['shared_member_ids'] != null
           ? List<String>.from(json['shared_member_ids'] as List)
           : null,
       splitGroupId: json['split_group_id'] as String?,
+      bankAccountId: json['bank_account_id'] as String?,
       type: json['type'] as String?,
     );
   }
@@ -106,9 +114,11 @@ class ExpenseEntry {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'raw_text': rawText,
+      'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
+      'bank_account_id': bankAccountId,
       'type': type,
     };
   }
@@ -128,9 +138,11 @@ class ExpenseEntry {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? rawText,
+    List<String>? breakdown,
     String? receiptImageUrl,
     List<String>? sharedMemberIds,
     String? splitGroupId,
+    String? bankAccountId,
     String? type,
   }) {
     return ExpenseEntry(
@@ -147,9 +159,11 @@ class ExpenseEntry {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rawText: rawText ?? this.rawText,
+      breakdown: breakdown ?? this.breakdown,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
+      bankAccountId: bankAccountId ?? this.bankAccountId,
       type: type ?? this.type,
     );
   }

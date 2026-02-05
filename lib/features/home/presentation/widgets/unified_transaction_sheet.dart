@@ -30,6 +30,7 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -360,7 +361,8 @@ class _UnifiedTransactionSheetState
     debugPrint('📷 Adding photo to existing expense...');
 
     try {
-      final XFile? photo = await _imagePicker.pickImage(
+      final XFile? photo = await pickImageWithGuard(
+        picker: _imagePicker,
         source: ImageSource.camera,
         imageQuality: 85,
       );
@@ -434,6 +436,12 @@ class _UnifiedTransactionSheetState
     final displayDescription = isNewExpense && pendingExpense != null
         ? pendingExpense.description
         : description;
+    final displayBreakdown = isNewExpense
+        ? (pendingExpense?.breakdown ?? widget.newExpense?.breakdown)
+        : widget.existingExpense?.breakdown;
+    final breakdownItems = (displayBreakdown ?? const <String>[])
+        .where((item) => item.trim().isNotEmpty)
+        .toList(growable: false);
 
     // Income mode for display (for new or existing items)
     final isIncomeMode = isNewExpense
@@ -672,6 +680,15 @@ class _UnifiedTransactionSheetState
                         ),
                       ),
 
+                      if (breakdownItems.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildBreakdownSection(
+                          context: context,
+                          colorScheme: colorScheme,
+                          breakdown: breakdownItems,
+                        ),
+                      ],
+
                       const SizedBox(height: 24),
 
                       // Receipt Section
@@ -817,6 +834,41 @@ class _UnifiedTransactionSheetState
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildBreakdownSection({
+    required BuildContext context,
+    required ColorScheme colorScheme,
+    required List<String> breakdown,
+  }) {
+    return AdaptiveExpansionTile(
+      iconColor: colorScheme.mutedForeground,
+      collapsedIconColor: colorScheme.mutedForeground,
+      initiallyExpanded: false,
+      title: Text(
+        context.l10n.breakdown,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.onSurface,
+        ),
+      ),
+      children: [
+        for (final item in breakdown)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Text(
+              item,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
@@ -2692,7 +2744,7 @@ class _UnifiedTransactionSheetState
         'delete-expense',
         body: {
           'userId': user.uid,
-          'expenseId': widget.existingExpense!.id,
+          'expenseIds': widget.existingExpense!.id,
         },
       );
 

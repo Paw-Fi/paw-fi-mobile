@@ -33,66 +33,82 @@ class AccountSpendListChart extends StatelessWidget {
         0.0, (max, item) => item.expense > max ? item.expense : max);
     final denom = maxValue > 0 ? maxValue : 1.0;
 
-    return Column(
-      children: List.generate(data.length, (index) {
-        final item = data[index];
-        final color = palette[index % palette.length];
-        final percent = (item.expense / denom).clamp(0.0, 1.0);
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.name,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    formatter.format(item.expense),
+    Widget buildRow(AccountChartData item, int index) {
+      final color = palette[index % palette.length];
+      final percent = (item.expense / denom).clamp(0.0, 1.0);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.name,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: colorScheme.mutedForeground,
+                      color: colorScheme.onSurface,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Stack(
-                children: [
-                  Container(
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  formatter.format(item.expense),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Stack(
+              children: [
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurface.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                FractionallySizedBox(
+                  widthFactor: percent,
+                  child: Container(
                     height: 6,
                     decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withValues(alpha: 0.08),
+                      color: color,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  FractionallySizedBox(
-                    widthFactor: percent,
-                    child: Container(
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.hasBoundedHeight) {
+          return ListView.separated(
+            itemCount: data.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 0),
+            itemBuilder: (context, index) => buildRow(data[index], index),
+          );
+        }
+
+        return Column(
+          children: List.generate(
+            data.length,
+            (index) => buildRow(data[index], index),
           ),
         );
-      }),
+      },
     );
   }
 }
@@ -126,10 +142,10 @@ class AccountIncomeExpenseChart extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surface,
+                color: colorScheme.card,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: colorScheme.surfaceBorder.withValues(alpha: 0.8),
+                  color: colorScheme.border.withValues(alpha: 0.6),
                   width: 0.5,
                 ),
               ),

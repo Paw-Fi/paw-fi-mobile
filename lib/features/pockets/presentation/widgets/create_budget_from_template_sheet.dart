@@ -452,15 +452,18 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                           totalBudget: totalFromPockets,
                           currencySymbol: currencySymbol,
                           onAmountChanged: (newAmount) {
-                            final newPockets = [...pockets.value];
-                            newPockets[index] =
-                                pocket.copyWith(amount: newAmount);
-                            pockets.value = newPockets;
+                            pockets.value = updatePocketEntryById(
+                              pockets.value,
+                              id: pocket.id,
+                              update: (entry) =>
+                                  entry.copyWith(amount: newAmount),
+                            );
                           },
                           onRemove: () {
-                            final newPockets = [...pockets.value];
-                            newPockets.removeAt(index);
-                            pockets.value = newPockets;
+                            pockets.value = removePocketEntryById(
+                              pockets.value,
+                              id: pocket.id,
+                            );
                           },
                           onEdit: () {
                             // Create a temporary PocketEnvelope to pass as "existing"
@@ -491,18 +494,19 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                                 budgetId: null,
                                 initialCategories: pocket.categories,
                                 onSaveOffline: (newTemplate) {
-                                  final newPockets = [...pockets.value];
-                                  // Update pocket with new details from template
-                                  // Recalculate amount based on new weight and current total budget
-                                  newPockets[index] = pocket.copyWith(
-                                    name: newTemplate.name,
-                                    color: newTemplate.color,
-                                    categories: newTemplate.suggestedCategories,
-                                    iconName: newTemplate.iconName,
-                                    amount:
-                                        totalFromPockets * newTemplate.weight,
+                                  pockets.value = updatePocketEntryById(
+                                    pockets.value,
+                                    id: pocket.id,
+                                    update: (entry) => entry.copyWith(
+                                      name: newTemplate.name,
+                                      color: newTemplate.color,
+                                      categories:
+                                          newTemplate.suggestedCategories,
+                                      iconName: newTemplate.iconName,
+                                      amount:
+                                          totalFromPockets * newTemplate.weight,
+                                    ),
                                   );
-                                  pockets.value = newPockets;
                                 },
                               ),
                             );
@@ -662,6 +666,28 @@ IconData _getIconData(String name) {
     default:
       return Icons.help_outline;
   }
+}
+
+List<PocketEntry> updatePocketEntryById(
+  List<PocketEntry> entries, {
+  required String id,
+  required PocketEntry Function(PocketEntry entry) update,
+}) {
+  final index = entries.indexWhere((entry) => entry.id == id);
+  if (index == -1) return entries;
+  final updated = List<PocketEntry>.from(entries);
+  updated[index] = update(entries[index]);
+  return updated;
+}
+
+List<PocketEntry> removePocketEntryById(
+  List<PocketEntry> entries, {
+  required String id,
+}) {
+  final index = entries.indexWhere((entry) => entry.id == id);
+  if (index == -1) return entries;
+  final updated = List<PocketEntry>.from(entries)..removeAt(index);
+  return updated;
 }
 
 class _PocketRow extends HookWidget {

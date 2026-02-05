@@ -31,7 +31,7 @@ InsightsScopedData buildInsightsScopedData(
   }).toList(growable: false);
 
   final filteredBudgets = scope.activeAccountType == ActiveAccountType.personal
-      ? analyticsData.allBudgets
+      ? analyticsData.allBudgets.toList(growable: false)
       : const <DailyBudgetEntry>[];
 
   return InsightsScopedData(

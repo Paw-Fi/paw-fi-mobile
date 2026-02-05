@@ -2,11 +2,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:intl/intl.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -54,13 +54,8 @@ class TransactionsPage extends ConsumerStatefulWidget {
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
   String selectedCategory = 'all';
-  // Default period depends on context: for personal view use last 30 days (1M),
-  // for household view show all time by default so group expenses are visible.
-  late String selectedPeriod;
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
-  DateTime? _customStartDate;
-  DateTime? _customEndDate;
 
   // Selection Mode State
   bool _isSelectionMode = false;
@@ -69,21 +64,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
-
-  @override
-  void initState() {
-    super.initState();
-    _customStartDate = widget.initialStartDate;
-    _customEndDate = widget.initialEndDate;
-
-    if (widget.enableDateFilter &&
-        widget.initialStartDate != null &&
-        widget.initialEndDate != null) {
-      selectedPeriod = 'Custom';
-    } else {
-      selectedPeriod = widget.householdId != null ? 'All' : '1M';
-    }
-  }
 
   @override
   void dispose() {
@@ -125,43 +105,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       expenses = expenses.where((e) {
         return (e.currency?.toUpperCase() == selectedCurrency);
       }).toList();
-    }
-
-    // Filter by period
-    if (selectedPeriod == 'Custom' &&
-        _customStartDate != null &&
-        _customEndDate != null) {
-      final start = DateTime(_customStartDate!.year, _customStartDate!.month,
-          _customStartDate!.day);
-      final end = DateTime(
-          _customEndDate!.year, _customEndDate!.month, _customEndDate!.day);
-      expenses = expenses.where((ex) {
-        final d = DateTime(ex.date.year, ex.date.month, ex.date.day);
-        return !d.isBefore(start) && !d.isAfter(end);
-      }).toList();
-    } else if (selectedPeriod != 'All') {
-      final now = DateTime.now();
-      DateTime startDate;
-      switch (selectedPeriod) {
-        case '1W':
-          startDate = DateTime(now.year, now.month, now.day - 7);
-          break;
-        case '1M':
-          startDate = DateTime(now.year, now.month - 1, now.day);
-          break;
-        case '6M':
-          startDate = DateTime(now.year, now.month - 6, now.day);
-          break;
-        case '1Y':
-          startDate = DateTime(now.year - 1, now.month, now.day);
-          break;
-        case 'All':
-          startDate = DateTime(1970);
-          break;
-        default:
-          startDate = DateTime(now.year, now.month - 1, now.day);
-      }
-      expenses = expenses.where((e) => !e.date.isBefore(startDate)).toList();
     }
 
     // Filter by search query
@@ -208,53 +151,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ..sort();
     return ['all', ...cats];
   }
-
-  String get periodLabel {
-    switch (selectedPeriod) {
-      case '1W':
-        return context.l10n.thisWeek;
-      case '1M':
-        return context.l10n.last30Days;
-      case '6M':
-        return context.l10n.last6Months;
-      case '1Y':
-        return context.l10n.thisYear;
-      case 'All':
-        return context.l10n.allTime;
-      case 'Custom':
-        if (_customStartDate != null && _customEndDate != null) {
-          final sameYear = _customStartDate!.year == _customEndDate!.year;
-          final fmt =
-              sameYear ? DateFormat('MMM d') : DateFormat('MMM d, yyyy');
-          return '${fmt.format(_customStartDate!)} – ${fmt.format(_customEndDate!)}';
-        }
-        return context.l10n.customRange;
-      default:
-        return context.l10n.last30Days;
-    }
-  }
-
-  String getPeriodLabel(String period) {
-    switch (period) {
-      case '1W':
-        return context.l10n.thisWeek;
-      case '1M':
-        return context.l10n.last30Days;
-      case '6M':
-        return context.l10n.last6Months;
-      case '1Y':
-        return context.l10n.thisYear;
-      case 'All':
-        return context.l10n.allTime;
-      case 'Custom':
-        return context.l10n.customRange;
-      default:
-        return period;
-    }
-  }
-
-  String get chartIntervalType =>
-      getChartIntervalTypeFromPeriod(selectedPeriod);
 
   String _formatLocalizedCurrency(
     BuildContext context,
@@ -317,63 +213,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ColorScheme colorScheme, UserContact? contact) {
     final expensesToExport = filteredExpenses;
 
-    // Group expenses by date
-    final groupedExpenses = <DateTime, List<ExpenseEntry>>{};
-    for (var expense in expensesToExport) {
-      final date = DateTime(
-        expense.date.year,
-        expense.date.month,
-        expense.date.day,
-      );
-      if (!groupedExpenses.containsKey(date)) {
-        groupedExpenses[date] = [];
+    final groups = groupTransactionsByMonth(expensesToExport);
+    final listItems = <_MonthListItem>[];
+    for (final group in groups) {
+      listItems.add(_MonthListItem.header(group));
+      for (var i = 0; i < group.expenses.length; i++) {
+        listItems.add(
+          _MonthListItem.entry(
+            group: group,
+            expense: group.expenses[i],
+            isFirst: i == 0,
+            isLast: i == group.expenses.length - 1,
+          ),
+        );
       }
-      groupedExpenses[date]!.add(expense);
-    }
-
-    // Sort dates descending
-    final sortedDates = groupedExpenses.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    // Build Groups
-    final List<_TransactionGroup> groups = [];
-    for (final date in sortedDates) {
-      final expenses = groupedExpenses[date]!;
-      double total = 0;
-      for (var e in expenses) {
-        final val = e.amount;
-        final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
-        if (isIncome) {
-          total += val;
-        } else {
-          total -= val;
-        }
-      }
-      groups
-          .add(_TransactionGroup(date: date, total: total, expenses: expenses));
     }
 
     // Prepare Filter Menu Items
     final filterItems = <AdaptivePopupMenuItem>[
-      // Period Options
-      ...['1W', '1M', '6M', '1Y', 'All'].map((period) {
-        final isSelected = selectedPeriod == period;
-        return AdaptivePopupMenuItem(
-          label: 'Period: ${getPeriodLabel(period)}',
-          icon: isSelected
-              ? (PlatformInfo.isIOS26OrHigher() ? 'checkmark' : Icons.check)
-              : null,
-          value: 'period_$period',
-        );
-      }),
-      AdaptivePopupMenuItem(
-        label: 'Period: ${context.l10n.customRange}',
-        icon: selectedPeriod == 'Custom'
-            ? (PlatformInfo.isIOS26OrHigher() ? 'checkmark' : Icons.check)
-            : null,
-        value: 'period_Custom',
-      ),
-
       // Type Options
       ...['all', 'expense', 'income'].map((type) {
         final isSelected = selectedType == type;
@@ -452,31 +309,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       items: filterItems,
                       onSelected: (index, item) async {
                         final value = item.value as String;
-                        if (value.startsWith('period_')) {
-                          final newPeriod = value.substring(7);
-                          if (newPeriod == 'Custom') {
-                            final result = await showDateRangePicker(
-                              context: context,
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime.now(),
-                              initialDateRange: _customStartDate != null &&
-                                      _customEndDate != null
-                                  ? DateTimeRange(
-                                      start: _customStartDate!,
-                                      end: _customEndDate!)
-                                  : null,
-                            );
-                            if (result != null) {
-                              setState(() {
-                                _customStartDate = result.start;
-                                _customEndDate = result.end;
-                                selectedPeriod = 'Custom';
-                              });
-                            }
-                          } else {
-                            setState(() => selectedPeriod = newPeriod);
-                          }
-                        } else if (value.startsWith('type_')) {
+                        if (value.startsWith('type_')) {
                           setState(() => selectedType = value.substring(5));
                         } else if (value == 'category_filter') {
                           _showFilterSheet(context, colorScheme);
@@ -556,12 +389,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: _buildChart(colorScheme, contact),
+                  child: _buildChart(
+                    colorScheme,
+                    contact,
+                    expensesToExport,
+                  ),
                 ),
               ),
 
               // Transactions List Groups
-              groups.isEmpty
+              listItems.isEmpty
                   ? SliverToBoxAdapter(
                       child: Center(
                         child: Padding(
@@ -590,52 +427,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final group = groups[index];
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildDateHeader(context, group, colorScheme),
-                              Container(
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                clipBehavior: Clip.hardEdge,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.card,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? null
-                                      : [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.05),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 2),
-                                          )
-                                        ],
-                                ),
-                                child: Column(
-                                  children: group.expenses
-                                      .asMap()
-                                      .entries
-                                      .map((entry) {
-                                    final itemIndex = entry.key;
-                                    final item = entry.value;
-                                    final isLast =
-                                        itemIndex == group.expenses.length - 1;
-                                    return _buildTransactionItem(
-                                      context,
-                                      item,
-                                      contact,
-                                      isLast: isLast,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
+                          final item = listItems[index];
+                          if (item.isHeader) {
+                            return _buildMonthHeader(
+                              context,
+                              item.group,
+                              colorScheme,
+                            );
+                          }
+                          return _buildTransactionRow(
+                            context,
+                            item.expense!,
+                            contact,
+                            colorScheme,
+                            isFirst: item.isFirst,
+                            isLast: item.isLast,
                           );
                         },
-                        childCount: groups.length,
+                        childCount: listItems.length,
                       ),
                     ),
 
@@ -665,54 +474,101 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildDateHeader(
-      BuildContext context, _TransactionGroup group, ColorScheme colorScheme) {
-    final now = DateTime.now();
-    final date = group.date;
-    String dateLabel;
-
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      dateLabel = context.l10n.today;
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
-      dateLabel = context.l10n.yesterday;
-    } else {
-      dateLabel = DateFormat('MMM d').format(date);
-    }
+  Widget _buildMonthHeader(
+    BuildContext context,
+    MonthTransactionGroup group,
+    ColorScheme colorScheme,
+  ) {
+    final locale = Localizations.localeOf(context).toString();
+    final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
 
     final filterState = ref.watch(homeFilterProvider);
-    final currency = filterState.selectedCurrency ?? 'USD';
-    final totalFormatted = formatLocalizedNumber(context, group.total.abs());
-    final symbol = resolveCurrencySymbol(currency);
-    final totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final currencies = group.expenses
+        .map((e) => e.currency?.toUpperCase())
+        .where((c) => c != null && c.isNotEmpty)
+        .cast<String>()
+        .toSet();
+
+    String? totalString;
+    if (selectedCurrency != null) {
+      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+      final symbol = resolveCurrencySymbol(selectedCurrency);
+      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    } else if (currencies.length == 1) {
+      final currency = currencies.first;
+      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+      final symbol = resolveCurrencySymbol(currency);
+      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    } else if (currencies.length > 1) {
+      totalString = context.l10n.multipleCurrencies;
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Row(
         children: [
           Text(
-            dateLabel.toUpperCase(),
+            dateLabel,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: colorScheme.mutedForeground,
               letterSpacing: -0.2,
             ),
           ),
           const Spacer(),
-          Text(
-            totalString,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
-              letterSpacing: -0.2,
+          if (totalString != null)
+            Text(
+              totalString,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
+                letterSpacing: -0.2,
+              ),
             ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionRow(
+    BuildContext context,
+    ExpenseEntry item,
+    UserContact? contact,
+    ColorScheme colorScheme, {
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    final radius = BorderRadius.vertical(
+      top: isFirst ? const Radius.circular(10) : Radius.zero,
+      bottom: isLast ? const Radius.circular(10) : Radius.zero,
+    );
+    final shouldShadow = isFirst || isLast;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(16, 0, 16, isLast ? 16 : 0),
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: radius,
+        boxShadow:
+            Theme.of(context).brightness == Brightness.dark || !shouldShadow
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    )
+                  ],
+      ),
+      child: _buildTransactionItem(
+        context,
+        item,
+        contact,
+        isLast: isLast,
       ),
     );
   }
@@ -741,32 +597,27 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     int failCount = 0;
     int successCount = 0;
 
-    final List<Future<void>> futures = [];
+    try {
+      final response = await supabase.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': user.uid,
+          'expenseIds': _selectedIds.join(','),
+        },
+      );
 
-    for (final id in _selectedIds) {
-      futures.add(() async {
-        try {
-          final response = await supabase.functions.invoke(
-            'delete-expense',
-            body: {
-              'userId': user.uid,
-              'expenseId': id,
-            },
-          );
-
-          if (response.data == null || response.data['success'] != true) {
-            failCount++;
-          } else {
-            successCount++;
-          }
-        } catch (e) {
-          debugPrint('Error deleting $id: $e');
-          failCount++;
-        }
-      }());
+      final payload = response.data as Map<String, dynamic>?;
+      if (payload == null || payload['success'] != true) {
+        failCount = payload?['failedCount'] as int? ?? _selectedIds.length;
+        successCount = payload?['deletedCount'] as int? ?? 0;
+      } else {
+        successCount = payload?['deletedCount'] as int? ?? _selectedIds.length;
+        failCount = payload?['failedCount'] as int? ?? 0;
+      }
+    } catch (e) {
+      debugPrint('Error deleting transactions: $e');
+      failCount = _selectedIds.length;
     }
-
-    await Future.wait(futures);
 
     if (widget.householdId != null) {
       ref.invalidate(householdExpensesProvider);
@@ -822,7 +673,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       final res = await Supabase.instance.client.functions
           .invoke('delete-expense', body: {
         'userId': user.uid,
-        'expenseId': expense.id,
+        'expenseIds': expense.id,
       });
 
       if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
@@ -852,18 +703,31 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
   }
 
-  Widget _buildChart(ColorScheme colorScheme, UserContact? contact) {
-    final spendOnly = filteredExpenses
+  Widget _buildChart(
+    ColorScheme colorScheme,
+    UserContact? contact,
+    List<ExpenseEntry> expenses,
+  ) {
+    final spendOnly = expenses
         .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
         .toList();
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
+    final periodLabel = context.l10n.allTime;
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final currencies = spendOnly
+        .map((e) => e.currency?.toUpperCase())
+        .where((c) => c != null && c.isNotEmpty)
+        .cast<String>()
+        .toSet();
 
-    final displayText = _formatLocalizedCurrency(
-      context,
-      totalSpent,
-      filterState.selectedCurrency,
-    );
+    final displayText = selectedCurrency == null && currencies.length > 1
+        ? context.l10n.multipleCurrencies
+        : _formatLocalizedCurrency(
+            context,
+            totalSpent,
+            filterState.selectedCurrency,
+          );
 
     return Container(
       decoration: BoxDecoration(
@@ -873,7 +737,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Theme.of(context).shadowColor.withValues(alpha: 0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 )
@@ -921,11 +785,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: _buildLineChart(colorScheme),
+                  child: _buildLineChart(colorScheme, expenses),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: _buildBarChart(colorScheme),
+                  child: _buildBarChart(colorScheme, expenses),
                 ),
               ],
             ),
@@ -997,14 +861,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return value.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
-  Widget _buildLineChart(ColorScheme colorScheme) {
-    // Group expenses using utility function
-    final periodTotals = groupExpensesByInterval(
-      filteredExpenses,
-      chartIntervalType,
-      rangeStart: selectedPeriod == 'Custom' ? _customStartDate : null,
-      rangeEnd: selectedPeriod == 'Custom' ? _customEndDate : null,
-    );
+  Widget _buildLineChart(
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+  ) {
+    const chartIntervalType = 'yearly';
+    final periodTotals = groupExpensesByInterval(expenses, chartIntervalType);
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
@@ -1015,13 +877,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     // Calculate cumulative spending
     double cumulative = 0;
-    final cumulativeData = sortedDates.map((date) {
+    final cumulativeData = <FlSpot>[];
+    for (var i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
       cumulative += periodTotals[date] ?? 0;
-      return FlSpot(
-        sortedDates.indexOf(date).toDouble(),
-        cumulative,
-      );
-    }).toList();
+      cumulativeData.add(FlSpot(i.toDouble(), cumulative));
+    }
 
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
@@ -1124,10 +985,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildBarChart(ColorScheme colorScheme) {
-    // Group expenses using utility function
-    final barData =
-        groupExpensesForBarChart(filteredExpenses, chartIntervalType);
+  Widget _buildBarChart(
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+  ) {
+    const chartIntervalType = 'yearly';
+    final barData = groupExpensesForBarChart(expenses, chartIntervalType);
 
     if (barData.periodTotals.isEmpty) {
       return Center(
@@ -1524,13 +1387,47 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 }
 
+class _MonthListItem {
+  final MonthTransactionGroup group;
+  final ExpenseEntry? expense;
+  final bool isHeader;
+  final bool isFirst;
+  final bool isLast;
+
+  const _MonthListItem._({
+    required this.group,
+    required this.expense,
+    required this.isHeader,
+    required this.isFirst,
+    required this.isLast,
+  });
+
+  factory _MonthListItem.header(MonthTransactionGroup group) {
+    return _MonthListItem._(
+      group: group,
+      expense: null,
+      isHeader: true,
+      isFirst: false,
+      isLast: false,
+    );
+  }
+
+  factory _MonthListItem.entry({
+    required MonthTransactionGroup group,
+    required ExpenseEntry expense,
+    required bool isFirst,
+    required bool isLast,
+  }) {
+    return _MonthListItem._(
+      group: group,
+      expense: expense,
+      isHeader: false,
+      isFirst: isFirst,
+      isLast: isLast,
+    );
+  }
+}
+
 // Keep DateHeader logic if needed or ensure it's not duplicated.
 // The previous step might have added it partially or failed.
 // I will ensure it's here.
-class _TransactionGroup {
-  final DateTime date;
-  final double total;
-  final List<ExpenseEntry> expenses;
-  _TransactionGroup(
-      {required this.date, required this.total, required this.expenses});
-}

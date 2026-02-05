@@ -27,6 +27,7 @@ ExpenseEntry buildOptimisticEntry({
     category: transaction.category,
     createdAt: DateTime.now(),
     rawText: transaction.description,
+    breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
     type: type,
   );

@@ -68,46 +68,52 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         },
         child: SizedBox(
           width: double.infinity,
-          child: MonekoTabBarView(
-            tabs: [
-              context.l10n.scenarioTab,
-              context.l10n.runningTab,
-              context.l10n.day30Tab,
-              context.l10n.longTermTab,
-            ],
+          child: Column(
             children: [
-              _buildScenarioPlanningTabWithProvider(
-                colorScheme,
-                analyticsData,
-                filterState.selectedCurrency,
-                _insightsTourController,
-              ),
-              buildRunningBalanceTab(
-                context,
-                colorScheme,
-                analyticsData,
-                householdScope: householdScope,
-                selectedCurrency: filterState.selectedCurrency,
-              ),
-              build30DayLookAheadTab(
-                context,
-                colorScheme,
-                analyticsData,
-                householdScope: householdScope,
-                selectedCurrency: filterState.selectedCurrency,
-              ),
-              buildLongTermProjectionTab(
-                context,
-                colorScheme,
-                analyticsData,
-                householdScope: householdScope,
-                selectedCurrency: filterState.selectedCurrency,
+              Expanded(
+                child: MonekoTabBarView(
+                  tabs: [
+                    context.l10n.scenarioTab,
+                    context.l10n.runningTab,
+                    context.l10n.day30Tab,
+                    context.l10n.longTermTab,
+                  ],
+                  children: [
+                    _buildScenarioPlanningTabWithProvider(
+                      colorScheme,
+                      analyticsData,
+                      filterState.selectedCurrency,
+                      _insightsTourController,
+                    ),
+                    buildRunningBalanceTab(
+                      context,
+                      colorScheme,
+                      analyticsData,
+                      householdScope: householdScope,
+                      selectedCurrency: filterState.selectedCurrency,
+                    ),
+                    build30DayLookAheadTab(
+                      context,
+                      colorScheme,
+                      analyticsData,
+                      householdScope: householdScope,
+                      selectedCurrency: filterState.selectedCurrency,
+                    ),
+                    buildLongTermProjectionTab(
+                      context,
+                      colorScheme,
+                      analyticsData,
+                      householdScope: householdScope,
+                      selectedCurrency: filterState.selectedCurrency,
+                    ),
+                  ],
+                  onTabChanged: (index) {
+                    if (ref.read(insightsTabIndexProvider) == index) return;
+                    ref.read(insightsTabIndexProvider.notifier).state = index;
+                  },
+                ),
               ),
             ],
-            onTabChanged: (index) {
-              if (ref.read(insightsTabIndexProvider) == index) return;
-              ref.read(insightsTabIndexProvider.notifier).state = index;
-            },
           ),
         ),
       ),

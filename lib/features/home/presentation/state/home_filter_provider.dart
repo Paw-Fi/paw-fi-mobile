@@ -1,35 +1,21 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
-/// Local filter state for home page only
-/// This doesn't affect the analytics provider data
+/// Local filter state for home page only (currency)
 class HomeFilterState {
-  final DateRangeFilter dateRangeFilter;
-  final DateTime? customStartDate;
-  final DateTime? customEndDate;
   final String? selectedCurrency; // null = "All Currencies"
 
   HomeFilterState({
-    this.dateRangeFilter = DateRangeFilter.last30Days,
-    this.customStartDate,
-    this.customEndDate,
     this.selectedCurrency,
   });
 
   HomeFilterState copyWith({
-    DateRangeFilter? dateRangeFilter,
-    DateTime? customStartDate,
-    DateTime? customEndDate,
     String? selectedCurrency,
     bool clearCurrency = false,
   }) {
     return HomeFilterState(
-      dateRangeFilter: dateRangeFilter ?? this.dateRangeFilter,
-      customStartDate: customStartDate ?? this.customStartDate,
-      customEndDate: customEndDate ?? this.customEndDate,
       selectedCurrency:
           clearCurrency ? null : (selectedCurrency ?? this.selectedCurrency),
     );
@@ -39,15 +25,6 @@ class HomeFilterState {
 /// Notifier for home page filter
 class HomeFilterNotifier extends StateNotifier<HomeFilterState> {
   HomeFilterNotifier() : super(HomeFilterState());
-
-  void setFilter(DateRangeFilter filter,
-      {DateTime? startDate, DateTime? endDate}) {
-    state = state.copyWith(
-      dateRangeFilter: filter,
-      customStartDate: startDate,
-      customEndDate: endDate,
-    );
-  }
 
   void setSelectedCurrency(String? currency) {
     state = state.copyWith(
@@ -63,71 +40,6 @@ final homeFilterProvider =
   return HomeFilterNotifier();
 });
 
-/// Helper function to calculate date range from filter
-Map<String, DateTime> getDateRangeFromFilter(
-  DateRangeFilter filter,
-  DateTime? customStart,
-  DateTime? customEnd,
-) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-
-  switch (filter) {
-    case DateRangeFilter.today:
-      return {'from': today, 'to': today};
-
-    case DateRangeFilter.yesterday:
-      final yesterday = today.subtract(const Duration(days: 1));
-      return {'from': yesterday, 'to': yesterday};
-
-    case DateRangeFilter.thisWeek:
-      final weekStart = today.subtract(Duration(days: today.weekday - 1));
-      return {'from': weekStart, 'to': today};
-
-    case DateRangeFilter.lastWeek:
-      final lastWeekEnd = today.subtract(Duration(days: today.weekday));
-      final lastWeekStart = lastWeekEnd.subtract(const Duration(days: 6));
-      return {'from': lastWeekStart, 'to': lastWeekEnd};
-
-    case DateRangeFilter.last7Days:
-      final from = today.subtract(const Duration(days: 6));
-      return {'from': from, 'to': today};
-
-    case DateRangeFilter.thisMonth:
-      final monthStart = DateTime(now.year, now.month, 1);
-      return {'from': monthStart, 'to': today};
-
-    case DateRangeFilter.lastMonth:
-      final firstOfThisMonth = DateTime(now.year, now.month, 1);
-      final lastOfLastMonth =
-          firstOfThisMonth.subtract(const Duration(days: 1));
-      final firstOfLastMonth =
-          DateTime(lastOfLastMonth.year, lastOfLastMonth.month, 1);
-      return {'from': firstOfLastMonth, 'to': lastOfLastMonth};
-
-    case DateRangeFilter.thisYear:
-      final firstOfYear = DateTime(now.year, 1, 1);
-      return {'from': firstOfYear, 'to': today};
-
-    case DateRangeFilter.last30Days:
-      final from = today.subtract(const Duration(days: 29));
-      return {'from': from, 'to': today};
-
-    case DateRangeFilter.allTime:
-      // Treat as unbounded past to today
-      final from = DateTime.fromMillisecondsSinceEpoch(0);
-      return {'from': from, 'to': today};
-
-    case DateRangeFilter.custom:
-      if (customStart != null && customEnd != null) {
-        return {'from': customStart, 'to': customEnd};
-      }
-      // Fallback to last 30 days if custom dates not set
-      final from = today.subtract(const Duration(days: 29));
-      return {'from': from, 'to': today};
-  }
-}
-
 /// Filtered expenses for home page based on local filter (date + currency + view mode)
 final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final analyticsData = ref.watch(analyticsProvider);
@@ -138,27 +50,11 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   // Get all expenses from provider
   final allExpenses = analyticsData.allExpenses;
 
-  // Calculate date range from local filter
-  final dateRange = getDateRangeFromFilter(
-    filterState.dateRangeFilter,
-    filterState.customStartDate,
-    filterState.customEndDate,
-  );
-
-  final from = dateRange['from']!;
-  final to = dateRange['to']!;
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-  // Filter expenses locally by date AND currency AND view mode
+  // Filter expenses locally by currency AND view mode
   final filtered = allExpenses
       .where((expense) {
-        final expenseDate = DateTime(
-          expense.date.year,
-          expense.date.month,
-          expense.date.day,
-        );
-        // Simplified date range check (inclusive boundaries)
-        final dateOk = !expenseDate.isBefore(from) && !expenseDate.isAfter(to);
         final currencyOk = selectedCurrency == null ||
             (expense.currency?.toUpperCase() == selectedCurrency);
 
@@ -172,7 +68,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
               expense.householdId == selectedHouseholdId,
         };
 
-        return dateOk && currencyOk && activeOk;
+        return currencyOk && activeOk;
       })
       // Treat incomes separately; filteredExpenses represents spending only for UI cards
       .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
@@ -188,19 +84,9 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedHouseholdId = scope.selectedHouseholdId;
 
   final all = analyticsData.allExpenses;
-
-  final dateRange = getDateRangeFromFilter(
-    filterState.dateRangeFilter,
-    filterState.customStartDate,
-    filterState.customEndDate,
-  );
-  final from = dateRange['from']!;
-  final to = dateRange['to']!;
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   return all.where((tx) {
-    final d = DateTime(tx.date.year, tx.date.month, tx.date.day);
-    final dateOk = !d.isBefore(from) && !d.isAfter(to);
     final currencyOk = selectedCurrency == null ||
         (tx.currency?.toUpperCase() == selectedCurrency);
     final activeOk = switch (scope.activeAccountType) {
@@ -211,7 +97,7 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
       ActiveAccountType.household =>
         selectedHouseholdId != null && tx.householdId == selectedHouseholdId,
     };
-    return dateOk && currencyOk && activeOk;
+    return currencyOk && activeOk;
   }).toList();
 });
 
@@ -229,61 +115,15 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
     return [];
   }
 
-  // Calculate date range from local filter
-  final dateRange = getDateRangeFromFilter(
-    filterState.dateRangeFilter,
-    filterState.customStartDate,
-    filterState.customEndDate,
-  );
-
-  final from = dateRange['from']!;
-  final to = dateRange['to']!;
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-  // Filter budgets in the date range AND currency
-  final budgetsInRange = allBudgets.where((budget) {
-    final budgetDate = DateTime(
-      budget.date.year,
-      budget.date.month,
-      budget.date.day,
-    );
-    // Simplified date range check (inclusive boundaries)
-    final dateOk = !budgetDate.isBefore(from) && !budgetDate.isAfter(to);
-    final currencyOk = selectedCurrency == null ||
-        (budget.currency?.toUpperCase() == selectedCurrency);
-    return dateOk && currencyOk;
-  }).toList();
-
-  // If we have budgets in the range, return them
-  if (budgetsInRange.isNotEmpty) {
-    return budgetsInRange;
-  }
-
-  // No budgets in range - find the most recent budget before the range start date (matching currency)
-  DailyBudgetEntry? mostRecentBudget;
-  for (final budget in allBudgets.reversed) {
-    final budgetDate = DateTime(
-      budget.date.year,
-      budget.date.month,
-      budget.date.day,
-    );
-    final currencyOk = selectedCurrency == null ||
-        (budget.currency?.toUpperCase() == selectedCurrency);
-    if (currencyOk && budgetDate.isBefore(from)) {
-      mostRecentBudget = budget;
-      break;
-    }
-  }
-
-  // If we found a recent budget, use it as the default for the entire range
-  if (mostRecentBudget != null) {
-    // Return a single entry representing the most recent budget
-    // The UI will display this as the budget for the period
-    return [mostRecentBudget];
-  }
-
-  // No budgets at all before this date range - return empty
-  return [];
+  // Filter budgets by currency (all-time)
+  return allBudgets
+      .where((budget) {
+        return selectedCurrency == null ||
+            (budget.currency?.toUpperCase() == selectedCurrency);
+      })
+      .toList();
 });
 
 /// Unique list of currencies present in expenses/budgets (uppercased)
@@ -305,18 +145,10 @@ final availableCurrenciesProvider = Provider<List<String>>((ref) {
   return list;
 });
 
-/// Per-currency summaries for the current date range
+/// Per-currency summaries across all time
 final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final data = ref.watch(analyticsProvider);
-  final filter = ref.watch(homeFilterProvider);
   final scope = ref.watch(householdScopeProvider);
-  final range = getDateRangeFromFilter(
-    filter.dateRangeFilter,
-    filter.customStartDate,
-    filter.customEndDate,
-  );
-  final from = range['from']!;
-  final to = range['to']!;
 
   String? _normalizeHouseholdId(String? raw) {
     if (raw == null) return null;
@@ -348,9 +180,6 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
     final currencyCode = (e.currency ?? '').toUpperCase();
     if (currencyCode.isEmpty) continue;
 
-    final transactionDay = DateTime(e.date.year, e.date.month, e.date.day);
-    if (transactionDay.isBefore(from) || transactionDay.isAfter(to)) continue;
-
     final type = (e.type ?? 'expense').toLowerCase();
     if (type == 'income') {
       byCurIncome[currencyCode] =
@@ -369,8 +198,6 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
       final currencyCode = (b.currency ?? '').toUpperCase();
       if (currencyCode.isEmpty) continue;
 
-      final budgetDay = DateTime(b.date.year, b.date.month, b.date.day);
-      if (budgetDay.isBefore(from) || budgetDay.isAfter(to)) continue;
       byCurBudgets[currencyCode] = (byCurBudgets[currencyCode] ?? 0) + b.amount;
     }
   }

@@ -537,7 +537,7 @@ final householdExpensesProvider =
       var expensesQuery = supabase
           .from('expenses')
           .select(
-              'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
+              'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
           .eq('household_id', params.householdId)
           .or('is_recurring.eq.false,is_recurring.is.null');
 

@@ -1,5 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/period_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/period_selection.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -199,7 +201,7 @@ class RunwayInfo {
 final runwayProvider = Provider<RunwayInfo>((ref) {
   final expenses = ref.watch(homeFilteredExpensesProvider);
   final budgets = ref.watch(homeFilteredBudgetsProvider);
-  final filter = ref.watch(homeFilterProvider);
+  final periodSelection = ref.watch(periodFilterProvider);
 
   if (expenses.isEmpty || budgets.isEmpty) {
     return const RunwayInfo(
@@ -207,14 +209,9 @@ final runwayProvider = Provider<RunwayInfo>((ref) {
   }
 
   // Date range window
-  final range = getDateRangeFromFilter(
-    filter.dateRangeFilter,
-    filter.customStartDate,
-    filter.customEndDate,
-  );
-  final from =
-      DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
-  final to = DateTime(range['to']!.year, range['to']!.month, range['to']!.day);
+  final range = resolvePeriodDateRange(periodSelection);
+  final from = DateTime(range.start.year, range.start.month, range.start.day);
+  final to = DateTime(range.end.year, range.end.month, range.end.day);
   final daysInWindow =
       (to.difference(from).inDays + 1).clamp(1, 365).toDouble();
 

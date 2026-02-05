@@ -12,7 +12,7 @@ import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -585,17 +585,14 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       ));
       try {
         final homeFilter = ref.read(homeFilterProvider);
-        final range = getDateRangeFromFilter(
-          homeFilter.dateRangeFilter,
-          homeFilter.customStartDate,
-          homeFilter.customEndDate,
-        );
+        final periodSelection = ref.read(periodFilterProvider);
+        final range = resolvePeriodDateRange(periodSelection);
         ref.invalidate(householdExpensesProvider(
           HouseholdExpensesParams(
             householdId: widget.householdId,
             limit: 10000,
-            startDate: range['from'],
-            endDate: range['to'],
+            startDate: range.start,
+            endDate: range.end,
           ),
         ));
         ref.invalidate(householdSplitsProvider(
@@ -606,8 +603,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           HouseholdSummaryParams(
             householdId: widget.householdId,
             currency: currency,
-            startDate: range['from']!.toIso8601String(),
-            endDate: range['to']!.toIso8601String(),
+            startDate: range.start.toIso8601String(),
+            endDate: range.end.toIso8601String(),
           ),
         ));
         ref.invalidate(householdBudgetsProvider(widget.householdId));

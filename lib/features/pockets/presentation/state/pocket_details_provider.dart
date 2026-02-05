@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 class PocketTransactionsParams {
@@ -60,14 +60,11 @@ final pocketDetailsProvider =
         (ref, params) async {
   final authUser = ref.read(authProvider);
   final filter = ref.read(homeFilterProvider);
+  final periodSelection = ref.read(periodFilterProvider);
   final selectedCurrency = filter.selectedCurrency ?? 'USD';
-  final range = getDateRangeFromFilter(
-    filter.dateRangeFilter,
-    filter.customStartDate,
-    filter.customEndDate,
-  );
+  final range = resolvePeriodDateRange(periodSelection);
 
-  final end = range['to'] ?? DateTime.now();
+  final end = range.end;
   final monthStart = DateTime(end.year, end.month, 1);
   final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
 

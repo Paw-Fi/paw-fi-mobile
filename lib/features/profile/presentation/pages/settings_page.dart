@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' as material;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -35,6 +36,7 @@ import 'package:moneko/features/profile/presentation/providers/user_profile_prov
 import 'package:moneko/features/income/presentation/providers/income_providers.dart';
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -231,7 +233,7 @@ class SettingsPage extends HookConsumerWidget {
                             material.Text(
                               'Debug Menu',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: scheme.foreground,
                               ),
@@ -277,6 +279,17 @@ class SettingsPage extends HookConsumerWidget {
                 _SettingsGroup(
                   title: context.l10n.account,
                   children: [
+                    _SettingsTile(
+                      icon: Icons.insights_rounded,
+                      label: 'Account Overview',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const OverviewDashboardPage(),
+                          ),
+                        );
+                      },
+                    ),
                     FutureBuilder<Map<String, dynamic>?>(
                       key: ValueKey('name-${nameReloadKey.value}'),
                       future: Supabase.instance.client
@@ -353,7 +366,7 @@ class SettingsPage extends HookConsumerWidget {
                               child: Text(
                                 context.l10n.systemDefault,
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 13,
                                   color: colorScheme.mutedForeground,
                                 ),
                               ),
@@ -413,14 +426,39 @@ class SettingsPage extends HookConsumerWidget {
                           ? Icons.dark_mode_rounded
                           : Icons.light_mode_rounded,
                       label: context.l10n.darkMode,
-                      trailing: AdaptiveSwitch(
-                        value: isDarkMode,
-                        onChanged: (value) {
-                          ref.read(themeModeProvider.notifier).setThemeMode(
-                                value ? ThemeMode.dark : ThemeMode.light,
-                              );
-                        },
+                      trailing: Padding(
+                        padding: const EdgeInsets.only(right: 16.0),
+                        child: AdaptiveSwitch(
+                          value: isDarkMode,
+                          onChanged: (value) {
+                            ref.read(themeModeProvider.notifier).setThemeMode(
+                                  value ? ThemeMode.dark : ThemeMode.light,
+                                );
+                          },
+                        ),
                       ),
+                    ),
+                  ],
+                ),
+
+                // Notifications Group
+                _SettingsGroup(
+                  title: context.l10n.notifications,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.notifications_active_rounded,
+                      label: context.l10n.pushNotifications,
+                      onTap: () => handleNotificationToggle(),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.build_circle_rounded,
+                      label: context.l10n.fixNotificationIssuesTitle,
+                      onTap: () => handleManualNotificationFix(),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.remove_circle_outline_rounded,
+                      label: context.l10n.clearAppIconBadgeTitle,
+                      onTap: () => handleClearAppBadge(),
                     ),
                   ],
                 ),
@@ -441,14 +479,10 @@ class SettingsPage extends HookConsumerWidget {
                     },
                   ),
                   _SettingsTile(
-                    icon: Icons.dashboard_rounded,
-                    label: 'Budget Dashboard',
+                    icon: Icons.upload_file_rounded,
+                    label: context.l10n.importData,
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) => const OverviewDashboardPage(),
-                        ),
-                      );
+                      context.push('/import');
                     },
                   ),
                   _SettingsTile(
@@ -499,28 +533,6 @@ class SettingsPage extends HookConsumerWidget {
                     },
                   ),
                 ]),
-
-                // Notifications Group
-                _SettingsGroup(
-                  title: context.l10n.notifications,
-                  children: [
-                    _SettingsTile(
-                      icon: Icons.notifications_active_rounded,
-                      label: context.l10n.pushNotifications,
-                      onTap: () => handleNotificationToggle(),
-                    ),
-                    _SettingsTile(
-                      icon: Icons.build_circle_rounded,
-                      label: context.l10n.fixNotificationIssuesTitle,
-                      onTap: () => handleManualNotificationFix(),
-                    ),
-                    _SettingsTile(
-                      icon: Icons.remove_circle_outline_rounded,
-                      label: context.l10n.clearAppIconBadgeTitle,
-                      onTap: () => handleClearAppBadge(),
-                    ),
-                  ],
-                ),
 
                 // Subscription
                 // Manage Membership
@@ -601,7 +613,10 @@ class SettingsPage extends HookConsumerWidget {
                       }
                     },
                     child: material.Text(context.l10n.signOut,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        )),
                   ),
                 ),
 
@@ -613,7 +628,7 @@ class SettingsPage extends HookConsumerWidget {
                         : '',
                     style: TextStyle(
                       color: Colors.grey.shade500,
-                      fontSize: 12,
+                      fontSize: 10,
                     ),
                   ),
                 ),
@@ -680,7 +695,8 @@ Future<File?> _pickAndCropAvatarImage(
 ) async {
   try {
     final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
+    final XFile? image = await pickImageWithGuard(
+      picker: picker,
       source: source,
       imageQuality: 100,
     );
@@ -954,7 +970,7 @@ class _ProfileHeader extends ConsumerWidget {
         Text(
           authState.displayName ?? 'User',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
             color: colorScheme.onSurface,
             letterSpacing: -0.5,
@@ -963,7 +979,7 @@ class _ProfileHeader extends ConsumerWidget {
         Text(
           authState.email,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 12,
             color: colorScheme.onSurface.withValues(alpha: 0.6),
           ),
           overflow: TextOverflow.ellipsis,
@@ -995,7 +1011,7 @@ class _SettingsGroup extends StatelessWidget {
           child: Text(
             title.toUpperCase(),
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade600,
               letterSpacing: -0.2,
@@ -1071,7 +1087,7 @@ class _SettingsTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Container(
@@ -1093,7 +1109,7 @@ class _SettingsTile extends StatelessWidget {
                 child: Text(
                   label,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: colorScheme.onSurface,
                   ),
@@ -1107,7 +1123,7 @@ class _SettingsTile extends StatelessWidget {
                     value!,
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       color: Colors.grey.shade500,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -1392,7 +1408,7 @@ class _InitialsAvatar extends StatelessWidget {
       child: Text(
         initials,
         style: TextStyle(
-          fontSize: 32,
+          fontSize: 30,
           fontWeight: FontWeight.bold,
           color: colorScheme.primaryForeground,
           letterSpacing: -0.5,

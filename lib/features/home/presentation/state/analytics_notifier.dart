@@ -766,7 +766,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     debugPrint('[Analytics]   - range: $from-$to');
 
     var query = supabase.from('expenses').select(
-        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,receipt_image_url,household_id,split_group_id,type,is_recurring');
+        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,bank_account_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
       debugPrint(
