@@ -49,24 +49,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                   ref.watch(homeFilterProvider).selectedCurrency ??
                       analytics.contact?.preferredCurrency ??
                       'USD';
-              final startOfMonth = DateTime(now.year, now.month, 1);
-              final endOfMonth =
-                  DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-              final monthTransactions = data.allTransactions.where((tx) {
-                return tx.entry.date.isAfter(
-                        startOfMonth.subtract(const Duration(seconds: 1))) &&
-                    tx.entry.date
-                        .isBefore(endOfMonth.add(const Duration(seconds: 1)));
-              }).toList(growable: false)
-                ..sort((a, b) => b.entry.date.compareTo(a.entry.date));
-
-              final expenseTransactions = monthTransactions
-                  .where((tx) => tx.entry.type != 'income')
-                  .toList(growable: false);
-              final incomeTransactions = monthTransactions
-                  .where((tx) => tx.entry.type == 'income')
-                  .toList(growable: false);
+              final allTransactions = data.allTransactions;
 
               final splitGroupsByExpenseId = <String, ExpenseSplitGroup>{};
               final splitGroupsById = <String, ExpenseSplitGroup>{};
@@ -115,68 +98,140 @@ class OverviewDashboardPage extends ConsumerWidget {
                 }
               }
 
+              double resolveMyShareRawAmount(ConsolidatedTransaction tx) {
+                final fullAmount = tx.entry.amountCents / 100.0;
+                if (user.uid.isEmpty) return fullAmount;
+
+                final householdId = tx.entry.householdId;
+                if (householdId == null || householdId.isEmpty) {
+                  return fullAmount;
+                }
+
+                final splitGroupId = tx.entry.splitGroupId?.trim();
+                final hasSplitGroupId =
+                    splitGroupId != null && splitGroupId.isNotEmpty;
+                final splitGroup = splitGroupsByExpenseId[tx.entry.id] ??
+                    (hasSplitGroupId ? splitGroupsById[splitGroupId] : null);
+
+                if (splitGroup != null) {
+                  return resolveSplitLineAmount(splitGroup);
+                }
+
+                if (hasSplitGroupId) return 0.0;
+
+                final sharedMembers = tx.entry.sharedMemberIds;
+                if (sharedMembers != null && sharedMembers.isNotEmpty) {
+                  if (!sharedMembers.contains(user.uid)) return 0.0;
+                  return fullAmount / sharedMembers.length;
+                }
+
+                return 0.0;
+              }
+
               double resolveExpenseAmount(ConsolidatedTransaction tx) {
                 final currency = tx.entry.currency ?? 'USD';
-                double rawAmount = 0.0;
-
-                if (user.uid.isEmpty) {
-                  rawAmount = tx.entry.amountCents / 100.0;
-                } else {
-                  final householdId = tx.entry.householdId;
-                  if (householdId == null || householdId.isEmpty) {
-                    rawAmount = tx.entry.amountCents / 100.0;
-                  } else {
-                    final splitGroup = splitGroupsByExpenseId[tx.entry.id] ??
-                        (tx.entry.splitGroupId != null
-                            ? splitGroupsById[tx.entry.splitGroupId!]
-                            : null);
-
-                    if (splitGroup != null) {
-                      rawAmount = resolveSplitLineAmount(splitGroup);
-                    } else {
-                      final sharedMembers = tx.entry.sharedMemberIds;
-                      if (sharedMembers != null && sharedMembers.isNotEmpty) {
-                        if (sharedMembers.contains(user.uid)) {
-                          rawAmount = (tx.entry.amountCents / 100.0) /
-                              sharedMembers.length;
-                        } else {
-                          rawAmount = 0.0;
-                        }
-                      } else {
-                        rawAmount = tx.entry.amountCents / 100.0;
-                      }
-                    }
-                  }
-                }
+                final rawAmount = resolveMyShareRawAmount(tx).abs();
                 return CurrencyRates.convert(
                     rawAmount, currency, displayCurrency);
               }
 
               double resolveAmount(ConsolidatedTransaction tx) {
-                if (tx.entry.type == 'income') {
+                if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
                   final currency = tx.entry.currency ?? 'USD';
-                  final raw = tx.entry.amountCents / 100.0;
+                  final raw = resolveMyShareRawAmount(tx);
                   return CurrencyRates.convert(raw, currency, displayCurrency);
                 }
                 return resolveExpenseAmount(tx);
               }
 
-              final totalIncome = incomeTransactions.fold<double>(
-                  0.0, (sum, tx) => sum + resolveAmount(tx));
-              final totalExpense = expenseTransactions.fold<double>(
+              const shareEpsilon = 0.000001;
+
+              final resolvedAmountById = <String, double>{};
+              final resolvedExpenseAmountById = <String, double>{};
+
+              double resolveCachedAmount(ConsolidatedTransaction tx) {
+                return resolvedAmountById.putIfAbsent(
+                  tx.entry.id,
+                  () => resolveAmount(tx),
+                );
+              }
+
+              double resolveCachedExpenseAmount(ConsolidatedTransaction tx) {
+                return resolvedExpenseAmountById.putIfAbsent(
+                  tx.entry.id,
+                  () => resolveExpenseAmount(tx),
+                );
+              }
+
+              double resolveMyShareAmount(ConsolidatedTransaction tx) {
+                return resolveCachedAmount(tx);
+              }
+
+              final myAllTransactions = allTransactions
+                  .where((tx) => resolveMyShareAmount(tx).abs() > shareEpsilon)
+                  .toList(growable: false);
+              final myIncomeTransactions = myAllTransactions
+                  .where((tx) =>
+                      (tx.entry.type ?? 'expense').toLowerCase() == 'income')
+                  .toList(growable: false);
+              final myExpenseTransactions = myAllTransactions
+                  .where((tx) =>
+                      (tx.entry.type ?? 'expense').toLowerCase() != 'income')
+                  .toList(growable: false);
+              final recentTransactions = myAllTransactions.take(10).toList();
+
+              final allTimeTotalIncome = myIncomeTransactions.fold<double>(
+                  0.0, (sum, tx) => sum + resolveCachedAmount(tx));
+              final allTimeTotalExpense = myExpenseTransactions.fold<double>(
                 0.0,
-                (sum, tx) => sum + resolveExpenseAmount(tx),
+                (sum, tx) => sum + resolveCachedExpenseAmount(tx),
               );
-              final netFlow = totalIncome - totalExpense;
-              final daysInRange =
-                  endOfMonth.difference(startOfMonth).inDays + 1;
-              final avgDaily =
-                  daysInRange > 0 ? totalExpense / daysInRange : totalExpense;
+              final allTimeNetFlow = allTimeTotalIncome - allTimeTotalExpense;
+              DateTime? allTimeStart;
+              DateTime? allTimeEnd;
+              for (final tx in myExpenseTransactions) {
+                final date = tx.entry.date;
+                if (allTimeStart == null || date.isBefore(allTimeStart!)) {
+                  allTimeStart = date;
+                }
+                if (allTimeEnd == null || date.isAfter(allTimeEnd!)) {
+                  allTimeEnd = date;
+                }
+              }
+              final allTimeStartDate = allTimeStart == null
+                  ? now
+                  : DateTime(
+                      allTimeStart.year, allTimeStart.month, allTimeStart.day);
+              final allTimeEndDate = allTimeEnd == null
+                  ? now
+                  : DateTime(allTimeEnd.year, allTimeEnd.month, allTimeEnd.day);
+              final allTimeDaysInRange = myExpenseTransactions.isEmpty
+                  ? 0
+                  : allTimeEndDate.difference(allTimeStartDate).inDays + 1;
+              final allTimeAvgDaily = allTimeDaysInRange > 0
+                  ? allTimeTotalExpense / allTimeDaysInRange
+                  : allTimeTotalExpense;
+
+              String resolveSpaceId(ConsolidatedTransaction tx) {
+                final householdId = tx.entry.householdId;
+                if (householdId == null || householdId.isEmpty) {
+                  return 'personal';
+                }
+                return householdId;
+              }
+
+              String normalizeCategoryId(String? categoryId) {
+                final trimmed = categoryId?.trim();
+                final normalized = (trimmed == null || trimmed.isEmpty)
+                    ? 'uncategorized'
+                    : trimmed;
+                return normalizeCategory(normalized);
+              }
 
               final activeSpaces = <String>{};
               final activeCurrencies = <String>{};
-              for (final tx in monthTransactions) {
-                activeSpaces.add(tx.accountId ?? 'personal');
+              for (final tx in myAllTransactions) {
+                activeSpaces.add(resolveSpaceId(tx));
                 final currency = tx.entry.currency;
                 if (currency != null && currency.trim().isNotEmpty) {
                   activeCurrencies.add(currency.toUpperCase());
@@ -191,31 +246,31 @@ class OverviewDashboardPage extends ConsumerWidget {
               }
 
               final categoryTotals = <String, double>{};
-              for (final tx in expenseTransactions) {
-                final category =
-                    tx.entry.category ?? context.l10n.uncategorized;
-                categoryTotals[category] =
-                    (categoryTotals[category] ?? 0) + resolveExpenseAmount(tx);
+              for (final tx in myExpenseTransactions) {
+                final categoryId = normalizeCategoryId(tx.entry.category);
+                categoryTotals[categoryId] = (categoryTotals[categoryId] ?? 0) +
+                    resolveCachedExpenseAmount(tx);
               }
 
               final topCategoryEntry = categoryTotals.entries.toList()
                 ..sort((a, b) => b.value.compareTo(a.value));
 
-              final hasExpenses = totalExpense > 0;
+              final hasExpenses = allTimeTotalExpense > 0;
               final topCategory =
                   topCategoryEntry.isNotEmpty ? topCategoryEntry.first : null;
               final topCategoryName = topCategory != null
                   ? getCategoryTranslation(context, topCategory.key)
-                  : context.l10n.noExpensesRecorded;
-              final topCategoryPercent = topCategory != null && totalExpense > 0
-                  ? (topCategory.value / totalExpense) * 100
-                  : 0.0;
+                  : context.l10n.noExpensesYet;
+              final topCategoryPercent =
+                  topCategory != null && allTimeTotalExpense > 0
+                      ? (topCategory.value / allTimeTotalExpense) * 100
+                      : 0.0;
 
               final accountChartData = _buildAccountChartData(
                 now: now,
                 households: data.households,
-                transactions: monthTransactions,
-                amountResolver: resolveAmount,
+                transactions: myAllTransactions,
+                amountResolver: resolveCachedAmount,
               );
 
               void openDetail(String title, Widget child) {
@@ -297,16 +352,16 @@ class OverviewDashboardPage extends ConsumerWidget {
                 'currency': displayCurrency,
               };
 
-              for (final tx in monthTransactions) {
-                final spaceId = tx.entry.householdId ?? 'personal';
+              for (final tx in myAllTransactions) {
+                final spaceId = resolveSpaceId(tx);
                 final stats = householdTotals[spaceId];
                 if (stats != null) {
-                  if (tx.entry.type == 'income') {
+                  if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
                     stats['income'] =
-                        (stats['income'] as double) + resolveAmount(tx);
+                        (stats['income'] as double) + resolveCachedAmount(tx);
                   } else {
-                    stats['expense'] =
-                        (stats['expense'] as double) + resolveExpenseAmount(tx);
+                    stats['expense'] = (stats['expense'] as double) +
+                        resolveCachedExpenseAmount(tx);
                   }
                 }
               }
@@ -370,6 +425,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                           itemBuilder: (context, index) {
                             final key = householdTotals.keys.elementAt(index);
                             final stats = householdTotals[key]!;
+                            final spaceTransactions = myAllTransactions
+                                .where((tx) => resolveSpaceId(tx) == key)
+                                .toList();
                             return DashboardSpaceCard(
                               spaceName: stats['name'] as String,
                               income: stats['income'] as double,
@@ -380,13 +438,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 _SpaceDetail(
                                   spaceId: key,
                                   spaceName: stats['name'] as String,
-                                  transactions: monthTransactions
-                                      .where((tx) =>
-                                          (tx.entry.householdId ??
-                                              'personal') ==
-                                          key)
-                                      .toList(),
-                                  amountResolver: resolveAmount,
+                                  transactions: spaceTransactions,
+                                  amountResolver: resolveCachedAmount,
+                                  currencyCode: displayCurrency,
                                 ),
                               ),
                             );
@@ -395,9 +449,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 24),
 
-                      // Month Summary Group
+                      // Summary Group
                       _DashboardGroup(
-                        title: '${DateFormat.MMMM().format(now)} ${now.year}',
+                        title: context.l10n.allTime,
                         children: [
                           _DashboardTile(
                             icon: Icons.grid_view_rounded,
@@ -408,7 +462,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               _ActivityDetail(
                                 accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
-                                transactions: monthTransactions.length,
+                                transactions: myAllTransactions.length,
                               ),
                             ),
                           ),
@@ -416,13 +470,13 @@ class OverviewDashboardPage extends ConsumerWidget {
                           _DashboardTile(
                             icon: Icons.receipt_long_rounded,
                             label: context.l10n.transactions,
-                            value: '${monthTransactions.length}',
+                            value: '${myAllTransactions.length}',
                             onTap: () => openDetail(
                               context.l10n.activity,
                               _ActivityDetail(
                                 accounts: activeSpaces.length,
                                 currencies: activeCurrencies.length,
-                                transactions: monthTransactions.length,
+                                transactions: myAllTransactions.length,
                               ),
                             ),
                           ),
@@ -437,16 +491,18 @@ class OverviewDashboardPage extends ConsumerWidget {
                             icon: Icons.arrow_downward_rounded,
                             iconColor: colorScheme.success,
                             label: context.l10n.totalIncome,
-                            value: formatMoney(totalIncome),
+                            value: formatMoney(allTimeTotalIncome),
                             valueColor: colorScheme.success,
                             onTap: () => openDetail(
                               context.l10n.income,
                               _MetricDetail(
                                 title: context.l10n.totalIncome,
-                                value: totalIncome,
-                                subtitle: context.l10n.incomeThisMonth,
-                                transactions: incomeTransactions,
+                                value: allTimeTotalIncome,
+                                subtitle: context.l10n.allTime,
+                                transactions: myIncomeTransactions,
                                 showCategories: false,
+                                amountResolver: resolveCachedAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -455,17 +511,18 @@ class OverviewDashboardPage extends ConsumerWidget {
                             icon: Icons.arrow_upward_rounded,
                             iconColor: colorScheme.error,
                             label: context.l10n.totalSpent,
-                            value: formatMoney(totalExpense),
+                            value: formatMoney(allTimeTotalExpense),
                             valueColor: colorScheme.error,
                             onTap: () => openDetail(
                               context.l10n.spent,
                               _MetricDetail(
                                 title: context.l10n.totalSpent,
-                                value: totalExpense,
-                                subtitle: context.l10n.expensesThisMonth,
-                                transactions: expenseTransactions,
+                                value: allTimeTotalExpense,
+                                subtitle: context.l10n.allTime,
+                                transactions: myExpenseTransactions,
                                 showCategories: true,
-                                amountResolver: resolveExpenseAmount,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -473,16 +530,17 @@ class OverviewDashboardPage extends ConsumerWidget {
                           _DashboardTile(
                             icon: Icons.account_balance_wallet_rounded,
                             label: context.l10n.netFlow,
-                            value: formatMoney(netFlow),
-                            valueColor: netFlow >= 0
+                            value: formatMoney(allTimeNetFlow),
+                            valueColor: allTimeNetFlow >= 0
                                 ? colorScheme.success
                                 : colorScheme.error,
                             onTap: () => openDetail(
                               context.l10n.netFlow,
                               _NetFlowDetail(
-                                income: totalIncome,
-                                expense: totalExpense,
-                                net: netFlow,
+                                income: allTimeTotalIncome,
+                                expense: allTimeTotalExpense,
+                                net: allTimeNetFlow,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -490,15 +548,16 @@ class OverviewDashboardPage extends ConsumerWidget {
                           _DashboardTile(
                             icon: Icons.calendar_today_rounded,
                             label: context.l10n.dailyAverage,
-                            value: formatMoney(avgDaily),
+                            value: formatMoney(allTimeAvgDaily),
                             onTap: () => openDetail(
                               context.l10n.dailyAverage,
                               _AverageDetail(
-                                avgDaily: avgDaily,
-                                daysTracked: now.day,
-                                totalExpense: totalExpense,
-                                transactions: expenseTransactions,
-                                amountResolver: resolveExpenseAmount,
+                                avgDaily: allTimeAvgDaily,
+                                daysTracked: allTimeDaysInRange,
+                                totalExpense: allTimeTotalExpense,
+                                transactions: myExpenseTransactions,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -513,8 +572,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.all(16),
                               child: DashboardPieChart(
-                                transactions: expenseTransactions,
-                                amountResolver: resolveExpenseAmount,
+                                transactions: myExpenseTransactions,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ],
@@ -528,15 +588,17 @@ class OverviewDashboardPage extends ConsumerWidget {
                             onTap: () => openDetail(
                               context.l10n.spendingTrend,
                               _TrendDetail(
-                                transactions: expenseTransactions,
-                                amountResolver: resolveExpenseAmount,
+                                transactions: myExpenseTransactions,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: DashboardTrendChart(
-                                transactions: expenseTransactions,
-                                amountResolver: resolveExpenseAmount,
+                                transactions: myExpenseTransactions,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -569,8 +631,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                                 categoryId: topCategory?.key,
                                 percent: topCategoryPercent,
                                 amount: topCategory?.value ?? 0,
-                                transactions: expenseTransactions,
-                                amountResolver: resolveExpenseAmount,
+                                transactions: myExpenseTransactions,
+                                amountResolver: resolveCachedExpenseAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -589,9 +652,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                               context.l10n.accountSpend,
                               _AccountsDetail(
                                 households: data.households,
-                                transactions: monthTransactions,
+                                transactions: myAllTransactions,
                                 chartData: accountChartData,
-                                amountResolver: resolveAmount,
+                                amountResolver: resolveCachedAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
@@ -610,8 +674,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                           else
                             Padding(
                               padding: const EdgeInsets.all(16),
-                              child:
-                                  AccountSpendListChart(data: accountChartData),
+                              child: AccountSpendListChart(
+                                data: accountChartData,
+                                currencyCode: displayCurrency,
+                              ),
                             ),
                         ],
                       ),
@@ -626,32 +692,34 @@ class OverviewDashboardPage extends ConsumerWidget {
                             onTap: () => openDetail(
                               context.l10n.transactions,
                               _TransactionsDetail(
-                                transactions: monthTransactions,
-                                amountResolver: resolveAmount,
+                                transactions: myAllTransactions,
+                                amountResolver: resolveCachedAmount,
+                                currencyCode: displayCurrency,
                               ),
                             ),
                           ),
-                          if (monthTransactions.isNotEmpty) ...[
+                          if (recentTransactions.isNotEmpty) ...[
                             const _Divider(),
                             // Show first 3 transactions as simplified list items
-                            ...monthTransactions.take(3).map((tx) {
-                              final isIncome = tx.entry.type == 'income';
-                              final amount = resolveAmount(tx);
+                            ...recentTransactions.take(3).map((tx) {
+                              final isIncome =
+                                  (tx.entry.type ?? 'expense').toLowerCase() ==
+                                      'income';
+                              final amount = resolveCachedAmount(tx);
                               final displayDateTime =
                                   combineLocalDateWithLocalTime(
                                 date: tx.entry.date,
                                 timeSource: tx.entry.createdAt,
                               );
-                              final currency = ref
-                                      .watch(homeFilterProvider)
-                                      .selectedCurrency ??
-                                  'USD';
+                              final currency = displayCurrency;
+                              final categoryId =
+                                  normalizeCategoryId(tx.entry.category);
 
                               return Column(
                                 children: [
                                   buildExpenseTransactionTile(
                                     context: context,
-                                    category: tx.entry.category,
+                                    category: categoryId,
                                     rawText: tx.entry.rawText,
                                     date: displayDateTime,
                                     amount: amount,
@@ -678,7 +746,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
-                                  if (tx != monthTransactions.take(3).last)
+                                  if (tx != recentTransactions.take(3).last)
                                     const _Divider(indent: 56),
                                 ],
                               );
@@ -691,7 +759,8 @@ class OverviewDashboardPage extends ConsumerWidget {
                 ),
               );
             },
-            error: (err, stack) => Center(child: Text('Error: $err')),
+            error: (err, stack) =>
+                Center(child: Text(context.l10n.errorLoadingDashboard)),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ),
@@ -712,7 +781,6 @@ class _DashboardGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -726,7 +794,7 @@ class _DashboardGroup extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: colorScheme.mutedForeground,
                 letterSpacing: -0.2,
               ),
             ),
@@ -736,15 +804,13 @@ class _DashboardGroup extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.card,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isDarkMode
-                ? null
-                : [
-                    BoxShadow(
-                      color: colorScheme.homeCardShadow,
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.homeCardShadow,
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -871,12 +937,13 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(left: indent),
       child: Divider(
         height: 1,
         thickness: 0.5,
-        color: Colors.grey.withValues(alpha: 0.2),
+        color: colorScheme.border.withValues(alpha: 0.2),
       ),
     );
   }
@@ -928,6 +995,7 @@ class _MetricDetail extends StatelessWidget {
   final bool showCategories;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
+  final String currencyCode;
 
   const _MetricDetail({
     required this.title,
@@ -937,17 +1005,20 @@ class _MetricDetail extends StatelessWidget {
     required this.showCategories,
     this.amountResolver,
     this.accountLabelResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency(decimalDigits: 0);
+    final colorScheme = Theme.of(context).colorScheme;
+    final currencyFormatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Summary',
+          title: context.l10n.summary,
           children: [
             _DashboardTile(
               label: title,
@@ -960,33 +1031,35 @@ class _MetricDetail extends StatelessWidget {
         if (showCategories) ...[
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
-            child: Text('TOP CATEGORIES',
+            child: Text(context.l10n.topCategories,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.mutedForeground,
                   letterSpacing: -0.2,
                 )),
           ),
           DashboardCategoryList(
             transactions: transactions,
             amountResolver: amountResolver,
+            currencyCode: currencyCode,
           ),
           const SizedBox(height: 24),
         ],
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text('TRANSACTIONS',
+          child: Text(context.l10n.transactions,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: colorScheme.mutedForeground,
                 letterSpacing: -0.2,
               )),
         ),
         DashboardTransactionsList(
           transactions: transactions,
           amountResolver: amountResolver,
+          currency: currencyCode,
         ),
         const SizedBox(height: 40),
       ],
@@ -998,16 +1071,19 @@ class _NetFlowDetail extends StatelessWidget {
   final double income;
   final double expense;
   final double net;
+  final String currencyCode;
 
   const _NetFlowDetail({
     required this.income,
     required this.expense,
     required this.net,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency(decimalDigits: 0);
+    final currencyFormatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -1050,6 +1126,7 @@ class _AverageDetail extends StatelessWidget {
   final double totalExpense;
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String currencyCode;
 
   const _AverageDetail({
     required this.avgDaily,
@@ -1057,11 +1134,13 @@ class _AverageDetail extends StatelessWidget {
     required this.totalExpense,
     required this.transactions,
     this.amountResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency(decimalDigits: 0);
+    final currencyFormatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1086,6 +1165,7 @@ class _AverageDetail extends StatelessWidget {
               child: DashboardTrendChart(
                 transactions: transactions,
                 amountResolver: amountResolver,
+                currencyCode: currencyCode,
               ),
             ),
           ],
@@ -1098,14 +1178,17 @@ class _AverageDetail extends StatelessWidget {
 class _TrendDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String currencyCode;
 
   const _TrendDetail({
     required this.transactions,
     this.amountResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1118,6 +1201,7 @@ class _TrendDetail extends StatelessWidget {
               child: DashboardTrendChart(
                 transactions: transactions,
                 amountResolver: amountResolver,
+                currencyCode: currencyCode,
               ),
             ),
           ],
@@ -1135,28 +1219,34 @@ class _AccountsDetail extends StatelessWidget {
   final List<Household> households;
   final List<AccountChartData> chartData;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String currencyCode;
 
   const _AccountsDetail({
     required this.transactions,
     required this.households,
     required this.chartData,
     this.amountResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Charts',
+          title: context.l10n.charts,
           children: [
             SizedBox(
               height: 200,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: AccountSpendListChart(data: chartData),
+                child: AccountSpendListChart(
+                  data: chartData,
+                  currencyCode: currencyCode,
+                ),
               ),
             ),
             const _Divider(indent: 0),
@@ -1164,7 +1254,10 @@ class _AccountsDetail extends StatelessWidget {
               height: 200,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: AccountIncomeExpenseChart(data: chartData),
+                child: AccountIncomeExpenseChart(
+                  data: chartData,
+                  currencyCode: currencyCode,
+                ),
               ),
             ),
           ],
@@ -1172,11 +1265,11 @@ class _AccountsDetail extends StatelessWidget {
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text('ACCOUNTS LIST',
+          child: Text(context.l10n.accountsList,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: colorScheme.mutedForeground,
                 letterSpacing: -0.2,
               )),
         ),
@@ -1184,6 +1277,7 @@ class _AccountsDetail extends StatelessWidget {
           transactions: transactions,
           households: households,
           amountResolver: amountResolver,
+          currencyCode: currencyCode,
         ),
         const SizedBox(height: 40),
       ],
@@ -1199,6 +1293,7 @@ class _InsightDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
+  final String currencyCode;
 
   const _InsightDetail({
     required this.categoryName,
@@ -1208,15 +1303,25 @@ class _InsightDetail extends StatelessWidget {
     required this.transactions,
     this.amountResolver,
     this.accountLabelResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    String normalizeCategoryId(String? categoryId) {
+      final trimmed = categoryId?.trim();
+      final normalized =
+          (trimmed == null || trimmed.isEmpty) ? 'uncategorized' : trimmed;
+      return normalizeCategory(normalized);
+    }
+
     final filtered = categoryId == null
         ? transactions
         : transactions
             .where((tx) =>
-                (tx.entry.category ?? context.l10n.uncategorized) == categoryId)
+                normalizeCategoryId(tx.entry.category) ==
+                normalizeCategoryId(categoryId))
             .toList();
 
     return Column(
@@ -1231,7 +1336,7 @@ class _InsightDetail extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: colorScheme.mutedForeground,
                 letterSpacing: -0.2,
               )),
         ),
@@ -1239,6 +1344,7 @@ class _InsightDetail extends StatelessWidget {
           transactions: filtered,
           amountResolver: amountResolver,
           accountLabelResolver: accountLabelResolver,
+          currency: currencyCode,
         ),
       ],
     );
@@ -1249,11 +1355,13 @@ class _TransactionsDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
+  final String currencyCode;
 
   const _TransactionsDetail({
     required this.transactions,
     this.amountResolver,
     this.accountLabelResolver,
+    required this.currencyCode,
   });
 
   @override
@@ -1265,6 +1373,7 @@ class _TransactionsDetail extends StatelessWidget {
         DashboardTransactionsList(
           transactions: transactions,
           amountResolver: amountResolver,
+          currency: currencyCode,
         ),
         const SizedBox(height: 40),
       ],
@@ -1318,6 +1427,7 @@ class _AccountAccumulator {
   final String name;
   double income;
   double expense;
+  // Monthly expense series for trend charts.
   final List<double> dailyExpenses;
 
   _AccountAccumulator({
@@ -1335,14 +1445,50 @@ List<AccountChartData> _buildAccountChartData({
   required List<ConsolidatedTransaction> transactions,
   required double Function(ConsolidatedTransaction tx) amountResolver,
 }) {
-  final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+  DateTime resolveStartMonth(List<ConsolidatedTransaction> txs) {
+    if (txs.isEmpty) return DateTime(now.year, now.month, 1);
+    DateTime minDate = txs.first.entry.date;
+    for (final tx in txs) {
+      if (tx.entry.date.isBefore(minDate)) {
+        minDate = tx.entry.date;
+      }
+    }
+    return DateTime(minDate.year, minDate.month, 1);
+  }
+
+  DateTime resolveEndMonth(List<ConsolidatedTransaction> txs) {
+    if (txs.isEmpty) return DateTime(now.year, now.month, 1);
+    DateTime maxDate = txs.first.entry.date;
+    for (final tx in txs) {
+      if (tx.entry.date.isAfter(maxDate)) {
+        maxDate = tx.entry.date;
+      }
+    }
+    return DateTime(maxDate.year, maxDate.month, 1);
+  }
+
+  const maxChartMonths = 6;
+  var startMonth = resolveStartMonth(transactions);
+  final endMonth = resolveEndMonth(transactions);
+  var monthsCount = (endMonth.year - startMonth.year) * 12 +
+      endMonth.month -
+      startMonth.month +
+      1;
+  if (monthsCount > maxChartMonths) {
+    startMonth = DateTime(
+      endMonth.year,
+      endMonth.month - (maxChartMonths - 1),
+      1,
+    );
+    monthsCount = maxChartMonths;
+  }
   final accounts = <String, _AccountAccumulator>{
     'personal': _AccountAccumulator(
       id: 'personal',
       name: 'Personal',
       income: 0,
       expense: 0,
-      dailyExpenses: List<double>.filled(daysInMonth, 0.0),
+      dailyExpenses: List<double>.filled(monthsCount, 0.0),
     ),
   };
 
@@ -1352,7 +1498,7 @@ List<AccountChartData> _buildAccountChartData({
       name: household.name,
       income: 0,
       expense: 0,
-      dailyExpenses: List<double>.filled(daysInMonth, 0.0),
+      dailyExpenses: List<double>.filled(monthsCount, 0.0),
     );
   }
 
@@ -1360,14 +1506,17 @@ List<AccountChartData> _buildAccountChartData({
     final key = tx.accountId ?? 'personal';
     final account = accounts[key];
     if (account == null) continue;
-    final dayIndex = (tx.entry.date.day - 1).clamp(0, daysInMonth - 1);
+    final monthIndex = (tx.entry.date.year - startMonth.year) * 12 +
+        tx.entry.date.month -
+        startMonth.month;
+    if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
-    if (tx.entry.type == 'income') {
+    if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
       account.income += amountResolver(tx);
     } else {
-      final expenseAmount = amountResolver(tx);
+      final expenseAmount = amountResolver(tx).abs();
       account.expense += expenseAmount;
-      account.dailyExpenses[dayIndex] += expenseAmount;
+      account.dailyExpenses[monthIndex] += expenseAmount;
     }
   }
 
@@ -1403,21 +1552,26 @@ class _SpaceDetail extends StatelessWidget {
   final String spaceName;
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String currencyCode;
 
   const _SpaceDetail({
     required this.spaceId,
     required this.spaceName,
     required this.transactions,
     this.amountResolver,
+    required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currencyFormatter = NumberFormat.simpleCurrency(decimalDigits: 0);
+    final currencyFormatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
 
-    final incomeTx = transactions.where((tx) => tx.entry.type == 'income');
-    final expenseTx = transactions.where((tx) => tx.entry.type != 'income');
+    final incomeTx = transactions
+        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() == 'income');
+    final expenseTx = transactions
+        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income');
 
     final totalIncome = incomeTx.fold<double>(0.0, (sum, tx) {
       final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
@@ -1425,7 +1579,7 @@ class _SpaceDetail extends StatelessWidget {
     });
     final totalExpense = expenseTx.fold<double>(0.0, (sum, tx) {
       final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
-      return sum + amt;
+      return sum + amt.abs();
     });
 
     final net = totalIncome - totalExpense;
@@ -1435,24 +1589,24 @@ class _SpaceDetail extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         _DashboardGroup(
-          title: 'Summary',
+          title: context.l10n.summary,
           children: [
             _DashboardTile(
-              label: 'Income',
+              label: context.l10n.income,
               value: currencyFormatter.format(totalIncome),
               valueColor: colorScheme.success,
               showChevron: false,
             ),
             const _Divider(),
             _DashboardTile(
-              label: 'Expense',
+              label: context.l10n.expense,
               value: currencyFormatter.format(totalExpense),
               valueColor: colorScheme.error,
               showChevron: false,
             ),
             const _Divider(),
             _DashboardTile(
-              label: 'Net',
+              label: context.l10n.net,
               value: currencyFormatter.format(net),
               valueColor: net >= 0 ? colorScheme.success : colorScheme.error,
               showChevron: false,
@@ -1463,11 +1617,11 @@ class _SpaceDetail extends StatelessWidget {
         if (expenseTx.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.only(left: 16, bottom: 8),
-            child: Text('SPENDING BREAKDOWN',
+            child: Text(context.l10n.spendingBreakdown,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: colorScheme.mutedForeground,
                   letterSpacing: -0.2,
                 )),
           ),
@@ -1479,6 +1633,7 @@ class _SpaceDetail extends StatelessWidget {
                 child: DashboardPieChart(
                   transactions: expenseTx.toList(),
                   amountResolver: amountResolver,
+                  currencyCode: currencyCode,
                 ),
               ),
             ],
@@ -1487,17 +1642,18 @@ class _SpaceDetail extends StatelessWidget {
         ],
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 8),
-          child: Text('TRANSACTIONS',
+          child: Text(context.l10n.transactions,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: colorScheme.mutedForeground,
                 letterSpacing: -0.2,
               )),
         ),
         DashboardTransactionsList(
           transactions: transactions,
           amountResolver: amountResolver,
+          currency: currencyCode,
         ),
         const SizedBox(height: 40),
       ],

@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -9,11 +10,13 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 class DashboardPieChart extends StatefulWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String? currencyCode;
 
   const DashboardPieChart({
     super.key,
     required this.transactions,
     this.amountResolver,
+    this.currencyCode,
   });
 
   @override
@@ -26,22 +29,34 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currencyFormatter = NumberFormat.compactSimpleCurrency();
+    final displayCurrency = widget.currencyCode?.trim().isNotEmpty == true
+        ? widget.currencyCode!.trim()
+        : null;
+    final currencyFormatter =
+        NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
     // 1. Filter expenses (no income)
-    final expenses =
-        widget.transactions.where((tx) => tx.entry.type != 'income');
+    final expenses = widget.transactions
+        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income');
+
+    String normalizeCategoryId(String? categoryId) {
+      final trimmed = categoryId?.trim();
+      final normalized =
+          (trimmed == null || trimmed.isEmpty) ? 'uncategorized' : trimmed;
+      return normalizeCategory(normalized);
+    }
 
     // 2. Group by category
-    final grouped = expenses.groupListsBy((tx) => tx.entry.category);
+    final grouped =
+        expenses.groupListsBy((tx) => normalizeCategoryId(tx.entry.category));
 
     // 3. Sum amounts
     final data = grouped.entries.map((entry) {
-      final categoryId = entry.key ?? 'uncategorized';
+      final categoryId = entry.key;
       final total = entry.value.fold<double>(0.0, (sum, tx) {
         final resolved =
             widget.amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);
-        return sum + resolved;
+        return sum + resolved.abs();
       });
       return _PieData(
         categoryId: categoryId,
@@ -64,7 +79,7 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
           categoryId: 'other',
           amount: otherAmount,
           color: colorScheme.muted,
-          name: 'Other',
+          name: context.l10n.other,
         ));
       }
     }
@@ -77,7 +92,7 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
         height: 200,
         child: Center(
           child: Text(
-            'No expenses to display',
+            context.l10n.noExpensesDisplay,
             style: TextStyle(color: colorScheme.mutedForeground),
           ),
         ),
@@ -122,7 +137,7 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
                   titleStyle: TextStyle(
                     fontSize: fontSize,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xffffffff),
+                    color: colorScheme.onPrimary,
                   ),
                   badgeWidget: isTouched
                       ? Container(
@@ -133,7 +148,8 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
                             borderRadius: BorderRadius.circular(4),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.1),
                                 blurRadius: 4,
                               )
                             ],

@@ -12,6 +12,7 @@ class DashboardCategoryList extends StatelessWidget {
   final void Function(String categoryId)? onCategoryTap;
   final VoidCallback? onTap;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String? currencyCode;
 
   const DashboardCategoryList({
     super.key,
@@ -19,21 +20,29 @@ class DashboardCategoryList extends StatelessWidget {
     this.onCategoryTap,
     this.onTap,
     this.amountResolver,
+    this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final amountFormatter = NumberFormat.compact();
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final amountFormatter =
+        NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
-    final validTx = transactions.where((tx) =>
-        tx.entry.date
-            .isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
-        tx.entry.type != 'income');
+    String normalizeCategoryId(String? categoryId) {
+      final trimmed = categoryId?.trim();
+      final normalized =
+          (trimmed == null || trimmed.isEmpty) ? 'uncategorized' : trimmed;
+      return normalizeCategory(normalized);
+    }
 
-    final grouped = validTx.groupListsBy((tx) => tx.entry.category);
+    final validTx = transactions
+        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income');
+
+    final grouped =
+        validTx.groupListsBy((tx) => normalizeCategoryId(tx.entry.category));
 
     final categoryTotals = grouped.entries.map((entry) {
       final catId = entry.key;
@@ -41,13 +50,13 @@ class DashboardCategoryList extends StatelessWidget {
       final total = txs.fold<double>(0.0, (sum, tx) {
         final base = tx.entry.amountCents / 100.0;
         final resolved = amountResolver?.call(tx) ?? base;
-        return sum + resolved;
+        return sum + resolved.abs();
       });
 
       final name = getCategoryTranslation(context, catId);
 
       return _CategoryTotal(
-        id: catId ?? context.l10n.uncategorized,
+        id: catId,
         name: name,
         amount: total,
         transactionCount: txs.length,
@@ -64,7 +73,7 @@ class DashboardCategoryList extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Text(
-            context.l10n.noExpensesRecorded,
+            context.l10n.noExpensesYet,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,

@@ -436,14 +436,13 @@ class PlanSelectionPage extends HookConsumerWidget {
       // Android remains Stripe checkout (web) for now.
       plans = const [
         PlanOption(
-          id: 'lifetime',
-          serverPlanId: 'lifetime',
-          billingInterval: null,
-          name: 'Lifetime',
+          id: 'plus_monthly',
+          serverPlanId: 'plus',
+          billingInterval: 'monthly',
+          name: 'Monthly',
           storePrice: null,
-          displayPriceUsd: 39.99,
-          tagline: 'Pay once, own it forever.',
-          badgeText: 'LIMITED',
+          displayPriceUsd: 2.99,
+          tagline: 'Flexible. Cancel anytime.',
         ),
         PlanOption(
           id: 'plus_yearly',
@@ -451,28 +450,23 @@ class PlanSelectionPage extends HookConsumerWidget {
           billingInterval: 'yearly',
           name: 'Yearly',
           storePrice: null,
-          displayPriceUsd: 29.99,
-          originalPriceUsd: 59.99,
+          displayPriceUsd: 9.99,
           tagline: 'Best value for 12 months.',
           isPopular: true,
           badgeText: 'SAVE 50%',
         ),
         PlanOption(
-          id: 'plus_monthly',
-          serverPlanId: 'plus',
-          billingInterval: 'monthly',
-          name: 'Monthly',
+          id: 'lifetime',
+          serverPlanId: 'lifetime',
+          billingInterval: null,
+          name: 'Lifetime',
           storePrice: null,
-          displayPriceUsd: 5.99,
-          originalPriceUsd: 7.99,
-          tagline: 'Flexible. Cancel anytime.',
+          displayPriceUsd: 19.99,
+          tagline: 'Pay once, own it forever.',
+          badgeText: 'LIMITED',
         ),
       ];
     }
-
-    final lifetimePlan =
-        plans.where((p) => p.serverPlanId == 'lifetime').toList();
-    final subPlans = plans.where((p) => p.serverPlanId != 'lifetime').toList();
 
     // Effect: If user is already on a plan, try to select it visually
     useEffect(() {
@@ -932,45 +926,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                         ),
                         const SizedBox(height: 32),
 
-                        // --- HERO: LIFETIME PLAN ---
-                        if (lifetimePlan.isNotEmpty)
-                          _LifetimeHeroCard(
-                            plan: lifetimePlan.first,
-                            isSelected:
-                                selectedPlanId.value == lifetimePlan.first.id,
-                            onTap: () =>
-                                selectedPlanId.value = lifetimePlan.first.id,
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        Row(
-                          children: [
-                            Expanded(
-                                child: Divider(
-                                    color: colorScheme.outlineVariant
-                                        .withValues(alpha: 0.5))),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('OR SUBSCRIBE',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: colorScheme.mutedForeground
-                                          .withValues(alpha: 0.6))),
-                            ),
-                            Expanded(
-                                child: Divider(
-                                    color: colorScheme.outlineVariant
-                                        .withValues(alpha: 0.5))),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // --- STANDARD: SUBSCRIPTION PLANS ---
-                        ...subPlans.map((plan) {
+                        // --- SUBSCRIPTION PLANS ---
+                        ...plans.map((plan) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16),
                             child: _AppleStylePlanCard(
@@ -1040,7 +997,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                         contentPadding: EdgeInsets.zero,
                         title: Text(
                           mode == PlanSelectionMode.trial
-                              ? 'I understand that after my ${activePlanOption.billingInterval == 'monthly' ? '30-day' : '1-year'} free trial, my subscription will automatically renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless I cancel at least 24 hours before the trial ends.'
+                              ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
                               : 'Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
                           style: TextStyle(
                             color: colorScheme.mutedForeground,
@@ -1082,9 +1039,14 @@ class PlanSelectionPage extends HookConsumerWidget {
                             ? 'Processing...'
                             : !isStoreReady
                                 ? 'Store unavailable'
-                                : (activePlanOption.serverPlanId == 'lifetime'
-                                    ? 'Get Lifetime Access for ${activePlanOption.priceDisplay}'
-                                    : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}'),
+                                : mode == PlanSelectionMode.trial &&
+                                        activePlanOption.serverPlanId !=
+                                            'lifetime'
+                                    ? 'Start your free month'
+                                    : activePlanOption.serverPlanId ==
+                                            'lifetime'
+                                        ? 'Get Lifetime Access'
+                                        : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -1264,18 +1226,6 @@ class _LifetimeHeroCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    if (plan.originalPriceUsd != null) ...[
-                      Text(
-                        '\$${plan.originalPriceUsd!.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 20,
-                          decoration: TextDecoration.lineThrough,
-                          color: scheme.mutedForeground.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
                     Text(
                       plan.priceDisplay,
                       style: TextStyle(
@@ -1475,19 +1425,6 @@ class _AppleStylePlanCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (plan.originalPriceUsd != null) ...[
-                        Text(
-                          '\$${plan.originalPriceUsd!.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            decoration: TextDecoration.lineThrough,
-                            color:
-                                scheme.mutedForeground.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
                       Text(
                         plan.priceDisplay,
                         style: TextStyle(

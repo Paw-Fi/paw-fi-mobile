@@ -48,7 +48,7 @@ class DashboardSpaceCard extends StatelessWidget {
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,

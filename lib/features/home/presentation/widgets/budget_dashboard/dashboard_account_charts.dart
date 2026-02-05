@@ -22,14 +22,21 @@ class AccountChartData {
 
 class AccountSpendListChart extends StatelessWidget {
   final List<AccountChartData> data;
+  final String? currencyCode;
 
-  const AccountSpendListChart({super.key, required this.data});
+  const AccountSpendListChart({
+    super.key,
+    required this.data,
+    this.currencyCode,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final palette = AppTheme.pocketChartPalette;
-    final formatter = NumberFormat.compact();
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
     final maxValue = data.fold<double>(
         0.0, (max, item) => item.expense > max ? item.expense : max);
     final denom = maxValue > 0 ? maxValue : 1.0;
@@ -116,13 +123,20 @@ class AccountSpendListChart extends StatelessWidget {
 
 class AccountIncomeExpenseChart extends StatelessWidget {
   final List<AccountChartData> data;
+  final String? currencyCode;
 
-  const AccountIncomeExpenseChart({super.key, required this.data});
+  const AccountIncomeExpenseChart({
+    super.key,
+    required this.data,
+    this.currencyCode,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final formatter = NumberFormat.compact();
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
     return SizedBox(
       height: 120,
       child: ListView.separated(
@@ -457,18 +471,22 @@ class AccountTrendGrid extends StatelessWidget {
 class AccountChartLegend extends StatelessWidget {
   final List<AccountChartData> data;
   final bool showTotals;
+  final String? currencyCode;
 
   const AccountChartLegend({
     super.key,
     required this.data,
     this.showTotals = false,
+    this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
     final palette = AppTheme.pocketChartPalette;
     final colorScheme = Theme.of(context).colorScheme;
-    final formatter = NumberFormat.compact();
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
     return Column(
       children: List.generate(data.length, (index) {

@@ -520,7 +520,7 @@ class HouseholdExpensesParams {
 /// 1. Needs user_id and contact_id for user enrichment (not returned by backend)
 /// 2. Needs to fetch and join with users table for display names
 /// 3. Backend endpoint is optimized for simple lists, not joined data
-/// The is_recurring filter is applied here to ensure data separation
+/// Includes recurring rows so household dashboards match home totals
 final householdExpensesProvider =
     FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
@@ -532,14 +532,11 @@ final householdExpensesProvider =
       // Fetch expenses (RLS allows: own or any with same household membership)
       // Include ALL expenses with this household_id, regardless of split_group_id.
       // Expenses logged via WhatsApp AI bot may not have a split group yet.
-      // Exclude recurring items here; recurring are surfaced in the dedicated
-      // recurring flow.
       var expensesQuery = supabase
           .from('expenses')
           .select(
               'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
-          .eq('household_id', params.householdId)
-          .or('is_recurring.eq.false,is_recurring.is.null');
+          .eq('household_id', params.householdId);
 
       // Apply date filters if provided
       if (params.startDate != null) {
@@ -567,7 +564,7 @@ final householdExpensesProvider =
           .toSet()
           .toList();
       FirebaseCrashlytics.instance
-          .log('🔍 Found ${userIds.length} unique user IDs: $userIds');
+          .log('🔍 Found ${userIds.length} unique user IDs');
 
       Map<String, Map<String, dynamic>> usersMap = {};
       if (userIds.isNotEmpty) {

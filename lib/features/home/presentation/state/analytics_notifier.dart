@@ -352,11 +352,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
           batchSize: _fallbackExpenseBatchSize,
           perBatchTimeout: _fallbackQueryTimeout,
         );
-        final filteredData = fallbackRaw.where((json) {
-          final isRecurring = json['is_recurring'];
-          return (isRecurring == null || isRecurring == false);
-        }).toList();
-        allExpenses = filteredData.map(ExpenseEntry.fromJson).toList();
+        allExpenses = fallbackRaw.map(ExpenseEntry.fromJson).toList();
         debugPrint(
             '[Analytics] Fallback batched query succeeded: ${allExpenses.length} expenses');
       } catch (fallbackError) {
@@ -793,27 +789,15 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final response = await orderedQuery.range(from, to).timeout(timeout);
     final results = (response as List).cast<Map<String, dynamic>>();
 
-    final withoutRecurring = results.where((e) {
-      final isRecurring = e['is_recurring'];
-      return isRecurring == null || isRecurring == false;
-    }).toList();
-    if (withoutRecurring.length != results.length) {
-      debugPrint(
-        '[Analytics] 🧹 Filtered out recurring: ${results.length - withoutRecurring.length}',
-      );
-    }
-
     debugPrint(
-        '[Analytics] ✅ Query completed: ${withoutRecurring.length} expenses returned');
+        '[Analytics] ✅ Query completed: ${results.length} expenses returned');
 
     // Log first few expenses for debugging
-    if (withoutRecurring.isNotEmpty) {
+    if (results.isNotEmpty) {
       debugPrint(
-          '[Analytics] 📋 First ${withoutRecurring.length > 3 ? 3 : withoutRecurring.length} expenses:');
-      for (int i = 0;
-          i < (withoutRecurring.length > 3 ? 3 : withoutRecurring.length);
-          i++) {
-        final exp = withoutRecurring[i];
+          '[Analytics] 📋 First ${results.length > 3 ? 3 : results.length} expenses:');
+      for (int i = 0; i < (results.length > 3 ? 3 : results.length); i++) {
+        final exp = results[i];
         debugPrint(
             '[Analytics]   [$i] id=${exp['id']}, category=${exp['category']}, '
             'household_id=${exp['household_id']}, split_group_id=${exp['split_group_id']}, '
@@ -821,7 +805,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       }
 
       // Specifically check for the portfolio expense
-      final portfolioExpense = withoutRecurring
+      final portfolioExpense = results
           .where((e) =>
               e['household_id'] == 'a044d6af-d96a-4a6b-9c73-564dbe338d93')
           .toList();
@@ -835,7 +819,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       debugPrint('[Analytics] ⚠️ No expenses returned from query');
     }
 
-    return withoutRecurring;
+    return results;
   }
 
   Future<List<ExpenseEntry>> _loadExpensesFromDb({

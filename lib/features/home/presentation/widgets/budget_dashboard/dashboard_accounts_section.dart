@@ -12,6 +12,7 @@ class DashboardAccountsSection extends StatelessWidget {
   final void Function(String name, double income, double expense)? onAccountTap;
   final VoidCallback? onTap;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
+  final String? currencyCode;
 
   const DashboardAccountsSection({
     super.key,
@@ -20,21 +21,21 @@ class DashboardAccountsSection extends StatelessWidget {
     this.onAccountTap,
     this.onTap,
     this.amountResolver,
+    this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final amountFormatter = NumberFormat.compact();
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
+    final amountFormatter =
+        NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
     Map<String, double> calcScopeStats(String? accountId) {
       double income = 0;
       double expense = 0;
 
       for (final tx in transactions) {
-        if (tx.entry.date.isBefore(startOfMonth)) continue;
-
         if (accountId == null) {
           if (tx.accountId != null) continue;
         } else {
@@ -43,10 +44,10 @@ class DashboardAccountsSection extends StatelessWidget {
 
         final amount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? amount;
-        if (tx.entry.type == 'income') {
+        if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
           income += resolvedAmount;
         } else {
-          expense += resolvedAmount;
+          expense += resolvedAmount.abs();
         }
       }
 

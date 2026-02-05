@@ -1948,67 +1948,27 @@ class AddRecurringSheet extends HookConsumerWidget {
                 //   the backend. This avoids clobbering the real payer with
                 //   an arbitrary default like the first member.
               }
+              if (selectedPayerUserId.value != null &&
+                  !members.any((m) => m.userId == selectedPayerUserId.value)) {
+                selectedPayerUserId.value =
+                    members.isNotEmpty ? members.first.userId : null;
+              }
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: colorScheme.muted.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+              return GroupSplitEditorSection(
+                members: members,
+                selectedPayerUserId: selectedPayerUserId.value,
+                onPayerChanged: (v) => selectedPayerUserId.value = v,
+                totalAmount: totalAmount,
+                currencySymbol: currencySymbol,
+                initialSplitType: customSplitType.value,
+                initialSplits: customSplits.value,
+                splitEditorKey: ValueKey(
+                  'recurring_split_${selectedHouseholdId.value}_${members.length}_${(totalAmount * 100).round()}',
                 ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              context.l10n.whoPaid,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.foreground,
-                              ),
-                            ),
-                          ),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedPayerUserId.value,
-                              items: members
-                                  .map(
-                                    (m) => DropdownMenuItem<String>(
-                                      value: m.userId,
-                                      child: Text(
-                                        m.userName ??
-                                            m.userEmail ??
-                                            context.l10n.member,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) => selectedPayerUserId.value = v,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    CustomSplitEditor(
-                      key: ValueKey(
-                        'recurring_split_${selectedHouseholdId.value}_${members.length}_${(totalAmount * 100).round()}',
-                      ),
-                      members: members,
-                      totalAmount: totalAmount,
-                      currencySymbol: currencySymbol,
-                      initialSplitType: customSplitType.value,
-                      initialSplits: customSplits.value,
-                      onChanged: (splitType, splits) {
-                        customSplitType.value = splitType;
-                        customSplits.value = splits;
-                      },
-                    ),
-                  ],
-                ),
+                onSplitChanged: (splitType, splits) {
+                  customSplitType.value = splitType;
+                  customSplits.value = splits;
+                },
               );
             },
             loading: () => const SizedBox.shrink(),

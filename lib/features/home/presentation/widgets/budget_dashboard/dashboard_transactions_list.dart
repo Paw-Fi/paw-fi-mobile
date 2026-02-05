@@ -13,6 +13,7 @@ class DashboardTransactionsList extends StatelessWidget {
   final VoidCallback? onTap;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
+  final String? currency;
 
   const DashboardTransactionsList({
     super.key,
@@ -21,6 +22,7 @@ class DashboardTransactionsList extends StatelessWidget {
     this.onTap,
     this.amountResolver,
     this.accountLabelResolver,
+    this.currency,
   });
 
   @override
@@ -28,13 +30,20 @@ class DashboardTransactionsList extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final recent = transactions.take(10).toList();
 
+    String normalizeCategoryId(String? categoryId) {
+      final trimmed = categoryId?.trim();
+      final normalized =
+          (trimmed == null || trimmed.isEmpty) ? 'uncategorized' : trimmed;
+      return normalizeCategory(normalized);
+    }
+
     if (recent.isEmpty) {
       return DashboardSectionCard(
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Text(
-            context.l10n.noTransactionsRecorded,
+            context.l10n.noTransactionsYet,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -48,12 +57,18 @@ class DashboardTransactionsList extends StatelessWidget {
       onTap: onTap,
       children: List.generate(recent.length, (index) {
         final tx = recent[index];
-        final categoryId = tx.entry.category ?? context.l10n.uncategorized;
-        final isIncome = tx.entry.type == 'income';
+        final categoryId = normalizeCategoryId(tx.entry.category);
+        final isIncome = (tx.entry.type ?? 'expense').toLowerCase() == 'income';
         final categoryName = getCategoryTranslation(context, categoryId);
         final baseAmount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
+        final displayAmount = isIncome ? resolvedAmount : resolvedAmount.abs();
         final accountLabel = accountLabelResolver?.call(tx) ?? tx.accountLabel;
+        final displayCurrency =
+            currency?.trim().isNotEmpty == true ? currency!.trim() : null;
+        final currencyCode = amountResolver == null
+            ? (tx.entry.currency ?? displayCurrency ?? 'USD')
+            : (displayCurrency ?? tx.entry.currency ?? 'USD');
         final shouldShowLabel = accountLabelResolver != null
             ? accountLabel.trim().isNotEmpty
             : accountLabel.trim().isNotEmpty && accountLabel != 'Personal';
@@ -63,8 +78,8 @@ class DashboardTransactionsList extends StatelessWidget {
           child: TransactionListTile(
             category: categoryId,
             title: tx.entry.rawText ?? categoryName,
-            amount: resolvedAmount,
-            currency: tx.entry.currency ?? 'USD',
+            amount: displayAmount,
+            currency: currencyCode,
             isIncome: isIncome,
             date: tx.entry.date,
             subtitleWidget: Row(
