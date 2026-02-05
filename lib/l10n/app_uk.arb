@@ -1955,7 +1955,7 @@
   "currencies": "Валюти",
   "totalTransactions": "Всього транзакцій",
   "personal": "Особисті",
-  "of": "з",
+  "ofWord": "з",
   "accountSpent": "Витрачено",
   "accountIncome": "Дохід",
   "accountSpendLabel": "Витрати",

@@ -1910,7 +1910,7 @@
   "currencies": "Valuta's",
   "totalTransactions": "Totaal aantal transacties",
   "personal": "Persoonlijk",
-  "of": "van",
+  "ofWord": "van",
   "accountSpent": "Uitgegeven",
   "accountIncome": "Inkomsten",
   "accountSpendLabel": "Uitgaven",

@@ -239,7 +239,7 @@ class _CurrencyHeroCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   hasBudget
-                      ? '$currencySymbol${spent.toStringAsFixed(0)} ${context.l10n.of} $currencySymbol${totalBudget.toStringAsFixed(0)} ${context.l10n.spentLabel}'
+                      ? '$currencySymbol${spent.toStringAsFixed(0)} ${context.l10n.ofWord} $currencySymbol${totalBudget.toStringAsFixed(0)} ${context.l10n.spentLabel}'
                       : '${context.l10n.spentThisMonth} ($currency)',
                   style: TextStyle(
                     fontSize: 15,

@@ -1959,7 +1959,7 @@
   "currencies": "货币",
   "totalTransactions": "交易总数",
   "personal": "个人",
-  "of": "/",
+  "ofWord": "/",
   "accountSpent": "已支出",
   "accountIncome": "收入",
   "accountSpendLabel": "支出",

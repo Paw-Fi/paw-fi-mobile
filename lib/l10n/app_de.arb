@@ -1963,7 +1963,7 @@
   "currencies": "Währungen",
   "totalTransactions": "Transaktionen insgesamt",
   "personal": "Persönlich",
-  "of": "von",
+  "ofWord": "von",
   "accountSpent": "Ausgegeben",
   "accountIncome": "Einnahmen",
   "accountSpendLabel": "Ausgaben",

@@ -1910,7 +1910,7 @@
   "currencies": "Valute",
   "totalTransactions": "Totale transazioni",
   "personal": "Personale",
-  "of": "di",
+  "ofWord": "di",
   "accountSpent": "Speso",
   "accountIncome": "Entrate",
   "accountSpendLabel": "Spesa",

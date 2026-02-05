@@ -1913,7 +1913,7 @@
   "currencies": "Валюты",
   "totalTransactions": "Всего транзакций",
   "personal": "Личные",
-  "of": "из",
+  "ofWord": "из",
   "accountSpent": "Потрачено",
   "accountIncome": "Доход",
   "accountSpendLabel": "Расход",

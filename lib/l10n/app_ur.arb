@@ -1909,7 +1909,7 @@
   "currencies": "کرنسیاں",
   "totalTransactions": "کل لین دین",
   "personal": "ذاتی",
-  "of": "کا",
+  "ofWord": "کا",
   "accountSpent": "خرچ کیا گیا",
   "accountIncome": "آمدنی",
   "accountSpendLabel": "خرچ",

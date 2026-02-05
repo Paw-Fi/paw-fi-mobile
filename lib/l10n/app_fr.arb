@@ -1963,7 +1963,7 @@
   "currencies": "Devises",
   "totalTransactions": "Total des transactions",
   "personal": "Personnel",
-  "of": "sur",
+  "ofWord": "sur",
   "accountSpent": "Dépensé",
   "accountIncome": "Revenus",
   "accountSpendLabel": "Dépense",

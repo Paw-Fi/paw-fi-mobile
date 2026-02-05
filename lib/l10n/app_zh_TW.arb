@@ -1907,7 +1907,7 @@
   "currencies": "幣別",
   "totalTransactions": "交易總數",
   "personal": "個人",
-  "of": "/",
+  "ofWord": "/",
   "accountSpent": "支出",
   "accountIncome": "收入",
   "accountSpendLabel": "支出",

@@ -1965,7 +1965,7 @@
   "currencies": "Monedas",
   "totalTransactions": "Transacciones totales",
   "personal": "Personal",
-  "of": "de",
+  "ofWord": "de",
   "accountSpent": "Gastado",
   "accountIncome": "Ingresos",
   "accountSpendLabel": "Gasto",

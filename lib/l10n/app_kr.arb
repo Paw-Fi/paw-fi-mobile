@@ -1776,7 +1776,7 @@
   "currencies": "통화",
   "totalTransactions": "총 거래 건수",
   "personal": "개인",
-  "of": "/",
+  "ofWord": "/",
   "accountSpent": "지출액",
   "accountIncome": "수입",
   "accountSpendLabel": "지출",

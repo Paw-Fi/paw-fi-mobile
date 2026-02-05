@@ -1963,7 +1963,7 @@
   "currencies": "通貨",
   "totalTransactions": "合計取引数",
   "personal": "個人用",
-  "of": "/",
+  "ofWord": "/",
   "accountSpent": "支出額",
   "accountIncome": "収入",
   "accountSpendLabel": "支出",

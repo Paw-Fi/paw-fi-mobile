@@ -1962,7 +1962,7 @@
   "currencies": "Tiền tệ",
   "totalTransactions": "Tổng giao dịch",
   "personal": "Cá nhân",
-  "of": "trên",
+  "ofWord": "trên",
   "accountSpent": "Đã chi",
   "accountIncome": "Thu nhập",
   "accountSpendLabel": "Chi tiêu",

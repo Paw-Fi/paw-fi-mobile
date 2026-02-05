@@ -1982,7 +1982,7 @@
   "currencies": "Currencies",
   "totalTransactions": "Total Transactions",
   "personal": "Personal",
-  "of": "of",
+  "ofWord": "of",
   "accountSpent": "Spent",
   "accountIncome": "Income",
   "accountSpendLabel": "Spend",
