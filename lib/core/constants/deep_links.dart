@@ -51,6 +51,13 @@ class DeepLinks {
   /// The OTP parameter contains the 6-digit verification code.
   static const String whatsappVerification = '$appScheme://verify-whatsapp';
 
+  /// Telegram verification callback URL
+  /// Format: moneko://verify-telegram?otp=123456
+  ///
+  /// Users receive this link via Telegram when they start verification.
+  /// The OTP parameter contains the 6-digit verification code.
+  static const String telegramVerification = '$appScheme://verify-telegram';
+
   // ==================== Household Invitation Deep Links ====================
 
   /// Household invitation callback URL
@@ -96,6 +103,11 @@ class DeepLinks {
   /// Check if a URI is a WhatsApp verification callback
   static bool isWhatsAppVerification(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'verify-whatsapp';
+  }
+
+  /// Check if a URI is a Telegram verification callback
+  static bool isTelegramVerification(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'verify-telegram';
   }
 
   /// Check if a URI is a household invitation callback
