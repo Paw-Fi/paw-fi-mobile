@@ -1927,5 +1927,7 @@
   "youLabel": "您",
   "unknownLabel": "未知",
   "selectEllipsis": "請選擇...",
-  "howItSCalculated": "計算方式"
+  "howItSCalculated": "計算方式",
+  "appExperience": "應用體驗",
+  "restartOnboarding": "重新開始引導"
 }

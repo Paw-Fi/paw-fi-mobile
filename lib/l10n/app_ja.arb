@@ -1983,5 +1983,7 @@
   "youLabel": "あなた",
   "unknownLabel": "不明",
   "selectEllipsis": "選択...",
-  "howItSCalculated": "計算の仕組み"
+  "howItSCalculated": "計算の仕組み",
+  "appExperience": "アプリ体験",
+  "restartOnboarding": "オンボーディングを再起動"
 }

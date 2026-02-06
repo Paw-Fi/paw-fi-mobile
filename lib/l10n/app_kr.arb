@@ -1796,5 +1796,7 @@
   "youLabel": "나",
   "unknownLabel": "알 수 없음",
   "selectEllipsis": "선택...",
-  "howItSCalculated": "계산 방식"
+  "howItSCalculated": "계산 방식",
+  "appExperience": "앱 경험",
+  "restartOnboarding": "온보딩 재시작"
 }

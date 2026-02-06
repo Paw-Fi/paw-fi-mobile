@@ -1930,5 +1930,7 @@
   "youLabel": "Jij",
   "unknownLabel": "?",
   "selectEllipsis": "Selecteer...",
-  "howItSCalculated": "Hoe het wordt berekend"
+  "howItSCalculated": "Hoe het wordt berekend",
+  "appExperience": "App-ervaring",
+  "restartOnboarding": "Onboarding opnieuw starten"
 }

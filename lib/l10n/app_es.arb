@@ -1985,5 +1985,7 @@
   "youLabel": "Tú",
   "unknownLabel": "?",
   "selectEllipsis": "Seleccionar...",
-  "howItSCalculated": "Cómo se calcula"
+  "howItSCalculated": "Cómo se calcula",
+  "appExperience": "Experiencia de la app",
+  "restartOnboarding": "Reiniciar onboarding"
 }

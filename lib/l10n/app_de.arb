@@ -1983,5 +1983,7 @@
   "youLabel": "Du",
   "unknownLabel": "?",
   "selectEllipsis": "Auswählen...",
-  "howItSCalculated": "Berechnungsgrundlage"
+  "howItSCalculated": "Berechnungsgrundlage",
+  "appExperience": "App-Erfahrung",
+  "restartOnboarding": "Onboarding neu starten"
 }

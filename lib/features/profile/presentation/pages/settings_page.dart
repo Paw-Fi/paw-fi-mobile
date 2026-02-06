@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -44,7 +45,7 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
-import 'package:app_badge_plus/app_badge_plus.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 
 bool _isAvatarCropInProgress = false;
 
@@ -553,6 +554,25 @@ class SettingsPage extends HookConsumerWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (context) => const PlanSelectionPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // App Experience
+                _SettingsGroup(
+                  title: context.l10n.appExperience,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.play_circle_rounded,
+                      label: context.l10n.restartOnboarding,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const OnboardingFlowPage(fromSettings: true),
                           ),
                         );
                       },

@@ -2002,5 +2002,7 @@
   "youLabel": "You",
   "unknownLabel": "?",
   "selectEllipsis": "Select...",
-  "howItSCalculated": "How it's calculated"
+  "howItSCalculated": "How it's calculated",
+  "appExperience": "App experience",
+  "restartOnboarding": "Restart onboarding"
 }

@@ -1979,5 +1979,7 @@
   "youLabel": "你",
   "unknownLabel": "未知",
   "selectEllipsis": "请选择...",
-  "howItSCalculated": "计算方式"
+  "howItSCalculated": "计算方式",
+  "appExperience": "应用体验",
+  "restartOnboarding": "重新开始引导"
 }

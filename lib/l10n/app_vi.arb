@@ -1982,5 +1982,7 @@
   "youLabel": "Bạn",
   "unknownLabel": "Không xác định",
   "selectEllipsis": "Chọn...",
-  "howItSCalculated": "Cách tính"
+  "howItSCalculated": "Cách tính",
+  "appExperience": "Trải nghiệm ứng dụng",
+  "restartOnboarding": "Khởi động lại onboarding"
 }

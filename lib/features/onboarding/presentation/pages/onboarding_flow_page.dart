@@ -28,7 +28,9 @@ const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
 
 class OnboardingFlowPage extends HookConsumerWidget {
-  const OnboardingFlowPage({super.key});
+  const OnboardingFlowPage({super.key, this.fromSettings = false});
+
+  final bool fromSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -332,7 +334,12 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
     await _markOnboardingCompleted(ref);
-    if (context.mounted) context.go('/dashboard');
+    if (!context.mounted) return;
+    if (fromSettings) {
+      Navigator.of(context).pop();
+    } else {
+      context.go('/dashboard');
+    }
   }
 }
 

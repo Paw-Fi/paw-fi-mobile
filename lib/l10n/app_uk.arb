@@ -1975,5 +1975,7 @@
   "youLabel": "Ви",
   "unknownLabel": "?",
   "selectEllipsis": "Вибрати...",
-  "howItSCalculated": "Як це рахується"
+  "howItSCalculated": "Як це рахується",
+  "appExperience": "Досвід додатка",
+  "restartOnboarding": "Перезапустити онбординг"
 }

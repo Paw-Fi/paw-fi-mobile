@@ -1930,5 +1930,7 @@
   "youLabel": "Tu",
   "unknownLabel": "?",
   "selectEllipsis": "Seleziona...",
-  "howItSCalculated": "Metodo di calcolo"
+  "howItSCalculated": "Metodo di calcolo",
+  "appExperience": "Esperienza dell'app",
+  "restartOnboarding": "Riavvia l'onboarding"
 }

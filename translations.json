@@ -206,5 +206,37 @@
     "zh": "计算方式",
     "zh_TW": "計算方式",
     "vi": "Cách tính"
+  },
+  "appExperience": {
+    "en": "App experience",
+    "de": "App-Erfahrung",
+    "es": "Experiencia de la app",
+    "fr": "Expérience de l'application",
+    "it": "Esperienza dell'app",
+    "ja": "アプリ体験",
+    "kr": "앱 경험",
+    "nl": "App-ervaring",
+    "ur": "ایپ تجربہ",
+    "ru": "Опыт приложения",
+    "uk": "Досвід додатка",
+    "zh": "应用体验",
+    "zh_TW": "應用體驗",
+    "vi": "Trải nghiệm ứng dụng"
+  },
+  "restartOnboarding": {
+    "en": "Restart onboarding",
+    "de": "Onboarding neu starten",
+    "es": "Reiniciar onboarding",
+    "fr": "Redémarrer l'onboarding",
+    "it": "Riavvia l'onboarding",
+    "ja": "オンボーディングを再起動",
+    "kr": "온보딩 재시작",
+    "nl": "Onboarding opnieuw starten",
+    "ur": "آن بورڈنگ دوبار شروع کریں",
+    "ru": "Перезапустить онбординг",
+    "uk": "Перезапустити онбординг",
+    "zh": "重新开始引导",
+    "zh_TW": "重新開始引導",
+    "vi": "Khởi động lại onboarding"
   }
 }

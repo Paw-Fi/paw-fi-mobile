@@ -1929,5 +1929,7 @@
   "youLabel": "آپ",
   "unknownLabel": "؟",
   "selectEllipsis": "منتخب کریں...",
-  "howItSCalculated": "اس کا حساب کیسے لگایا جاتا ہے"
+  "howItSCalculated": "اس کا حساب کیسے لگایا جاتا ہے",
+  "appExperience": "ایپ تجربہ",
+  "restartOnboarding": "آن بورڈنگ دوبار شروع کریں"
 }

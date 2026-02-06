@@ -1933,5 +1933,7 @@
   "youLabel": "Вы",
   "unknownLabel": "?",
   "selectEllipsis": "Выбрать...",
-  "howItSCalculated": "Как это считается"
+  "howItSCalculated": "Как это считается",
+  "appExperience": "Опыт приложения",
+  "restartOnboarding": "Перезапустить онбординг"
 }

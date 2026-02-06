@@ -1983,5 +1983,7 @@
   "youLabel": "Vous",
   "unknownLabel": "?",
   "selectEllipsis": "Sélectionner...",
-  "howItSCalculated": "Méthode de calcul"
+  "howItSCalculated": "Méthode de calcul",
+  "appExperience": "Expérience de l'application",
+  "restartOnboarding": "Redémarrer l'onboarding"
 }
