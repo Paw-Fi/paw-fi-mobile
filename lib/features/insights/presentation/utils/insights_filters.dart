@@ -17,6 +17,7 @@ InsightsScopedData buildInsightsScopedData(
   HouseholdScope scope,
 ) {
   final filteredExpenses = analyticsData.allExpenses.where((expense) {
+    if (expense.isRecurring) return false;
     final householdId = expense.householdId;
     switch (scope.activeAccountType) {
       case ActiveAccountType.personal:

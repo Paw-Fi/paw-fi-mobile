@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -7,6 +8,8 @@ import 'package:moneko/features/households/domain/entities/household_summary.dar
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 final householdDerivedSummaryProvider =
     Provider.family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(
@@ -26,6 +29,24 @@ final householdDerivedSummaryProvider =
     final budgetsAsync =
         ref.watch(householdBudgetsProvider(params.householdId));
 
+    // Recurring: used to project synthetic occurrences into analytics.
+    // This provider is a StateNotifier that may not have loaded yet.
+    final recurringState = ref.watch(recurringTransactionsProvider(
+      params.householdId,
+    ));
+
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId != null &&
+        currentUserId.isNotEmpty &&
+        !recurringState.hasLoadedOnce &&
+        !recurringState.data.isLoading) {
+      Future.microtask(() {
+        ref
+            .read(recurringTransactionsProvider(params.householdId).notifier)
+            .loadRecurringTransactions(currentUserId);
+      });
+    }
+
     final expenses = expensesAsync.valueOrNull;
     if (expenses == null) {
       if (expensesAsync.hasError) {
@@ -41,9 +62,23 @@ final householdDerivedSummaryProvider =
     final members = membersAsync.valueOrNull ?? const <HouseholdMember>[];
     final budgets = budgetsAsync.valueOrNull ?? const <SharedBudget>[];
 
+    final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
+    final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
+    final projectedRecurring = projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: recurringState.data.valueOrNull ?? const [],
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      selectedCurrency: params.currency,
+    );
+
+    final expensesWithRecurring = <ExpenseEntry>[
+      ...expenses,
+      ...projectedRecurring
+    ];
+
     final summary = _buildHouseholdSummary(
       params: params,
-      expenses: expenses,
+      expenses: expensesWithRecurring,
       splits: splits,
       members: members,
       budgets: budgets,
@@ -79,6 +114,8 @@ HouseholdSummary _buildHouseholdSummary({
   int transactionCount = 0;
 
   for (final e in expenses) {
+    // Never count recurring template rows as real transactions.
+    if (e.isRecurring) continue;
     if (!_expenseMatchesCurrency(e, currency)) continue;
     if (!_expenseInRange(e, rangeStart, rangeEnd)) continue;
 

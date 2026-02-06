@@ -35,8 +35,7 @@ class InvitationShareSheet extends StatelessWidget {
     final successBorder = colorScheme.successBorder;
 
     return Semantics(
-      label: context.l10n
-          .shareInvitationForHousehold(householdName),
+      label: context.l10n.shareInvitationForHousehold(householdName),
       container: true,
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -83,8 +82,7 @@ class InvitationShareSheet extends StatelessWidget {
 
             // Success message
             Semantics(
-              label: context.l10n
-                  .householdCreatedSuccessfully(householdName),
+              label: context.l10n.householdCreatedSuccessfully(householdName),
               readOnly: true,
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -106,9 +104,8 @@ class InvitationShareSheet extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        context.l10n
-                            .householdCreatedSuccessfullyWithQuotes(
-                                householdName),
+                        context.l10n.householdCreatedSuccessfullyWithQuotes(
+                            householdName),
                         style: TextStyle(
                           fontSize: 15,
                           color: successBase,
@@ -137,8 +134,7 @@ class InvitationShareSheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Semantics(
-                  label: context.l10n
-                      .invitationLinkWithUrl(inviteUrl),
+                  label: context.l10n.invitationLinkWithUrl(inviteUrl),
                   textField: true,
                   readOnly: true,
                   child: Container(
@@ -169,8 +165,7 @@ class InvitationShareSheet extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Semantics(
-                          label:
-                              context.l10n.copyInvitationLink,
+                          label: context.l10n.copyInvitationLink,
                           button: true,
                           child: InkWell(
                             onTap: () => _copyToClipboard(context, inviteUrl),
@@ -277,15 +272,13 @@ class InvitationShareSheet extends StatelessWidget {
 
     if (!context.mounted) return;
     // Use AppToast to ensure visibility above this bottom sheet
-    AppToast.success(
-        context, context.l10n.invitationLinkCopiedToClipboard);
+    AppToast.success(context, context.l10n.invitationLinkCopiedToClipboard);
   }
 
   // ignore: unused_element
   void _shareInvite(BuildContext context) {
     Share.share(
-      context.l10n
-          .joinMyHouseholdMessage(householdName, inviteUrl),
+      context.l10n.joinMyHouseholdMessage(householdName, inviteUrl),
       subject: context.l10n.joinMyHouseholdSubject,
     );
   }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -153,6 +154,18 @@ Future<void> _tapSkip(WidgetTester tester) async {
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    // Onboarding uses the global Supabase singleton via core/resources.
+    // Tests only need it to be initialized (no real network).
+    await Supabase.initialize(
+      url: 'http://localhost',
+      anonKey: 'test-anon-key',
+    );
   });
 
   testWidgets('Skip completes onboarding and navigates to dashboard',

@@ -4,6 +4,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/households/presentation/pages/daily_financial_details_page.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 class FinancialCalendarWidget extends StatefulWidget {
   final List<ExpenseEntry> transactions;
@@ -30,6 +31,40 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   late DateTime _focusedMonth;
   late DateTime _focusedWeekStart;
   final DateTime _today = DateTime.now();
+
+  Map<DateTime, Map<String, double>> _buildRecurringDailyTotals({
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+  }) {
+    final projected = projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: widget.recurringTransactions,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      selectedCurrency: widget.currency,
+    );
+
+    final totals = <DateTime, Map<String, double>>{};
+
+    for (final e in projected) {
+      final day = DateTime(e.date.year, e.date.month, e.date.day);
+      final entry = totals.putIfAbsent(
+          day,
+          () => {
+                'expense': 0.0,
+                'income': 0.0,
+              });
+
+      final amount = e.amountCents.abs() / 100.0;
+      final type = (e.type ?? 'expense').toLowerCase();
+      if (type == 'income') {
+        entry['income'] = (entry['income'] ?? 0) + amount;
+      } else {
+        entry['expense'] = (entry['expense'] ?? 0) + amount;
+      }
+    }
+
+    return totals;
+  }
 
   @override
   void initState() {
@@ -98,12 +133,18 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
     }
   }
 
-  Map<String, double> _calculateDailyTotals(DateTime date) {
+  Map<String, double> _calculateDailyTotals(
+    DateTime date, {
+    required Map<DateTime, Map<String, double>> recurringDailyTotals,
+  }) {
     double totalExpense = 0;
     double totalIncome = 0;
 
     // 1. Actual Transactions
     for (final t in widget.transactions) {
+      // Recurring rows are template rows; projected recurring below handles them.
+      // Counting them as actuals would double-count on their anchor day.
+      if (t.isRecurring) continue;
       if (t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day) {
@@ -121,29 +162,11 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
       }
     }
 
-    // 2. Recurring Transactions (Projected)
-    final isFutureOrToday =
-        !date.isBefore(DateTime(_today.year, _today.month, _today.day));
-
-    if (isFutureOrToday) {
-      for (final r in widget.recurringTransactions) {
-        if (!r.isActive) continue;
-        if (r.currency.toUpperCase() != widget.currency) continue;
-
-        final next = r.getNextOccurrence(date);
-        final isMatch = next.year == date.year &&
-            next.month == date.month &&
-            next.day == date.day;
-
-        if (isMatch) {
-          final amount = r.amount;
-          if (r.type.toLowerCase() == 'income') {
-            totalIncome += amount;
-          } else {
-            totalExpense += amount;
-          }
-        }
-      }
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final recurring = recurringDailyTotals[dateOnly];
+    if (recurring != null) {
+      totalExpense += recurring['expense'] ?? 0;
+      totalIncome += recurring['income'] ?? 0;
     }
 
     return {'expense': totalExpense, 'income': totalIncome};
@@ -152,6 +175,22 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    final DateTime rangeStart;
+    final DateTime rangeEnd;
+
+    if (widget.isExpanded) {
+      rangeStart = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+      rangeEnd = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+    } else {
+      rangeStart = _focusedWeekStart;
+      rangeEnd = _focusedWeekStart.add(const Duration(days: 6));
+    }
+
+    final recurringDailyTotals = _buildRecurringDailyTotals(
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+    );
 
     return GestureDetector(
       onHorizontalDragEnd: _handleHorizontalSwipe,
@@ -213,16 +252,19 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
             if (widget.isExpanded) const SizedBox(height: 8),
 
             if (widget.isExpanded)
-              _buildExpandedView(colorScheme)
+              _buildExpandedView(colorScheme, recurringDailyTotals)
             else
-              _buildCollapsedView(colorScheme),
+              _buildCollapsedView(colorScheme, recurringDailyTotals),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildExpandedView(ColorScheme colorScheme) {
+  Widget _buildExpandedView(
+    ColorScheme colorScheme,
+    Map<DateTime, Map<String, double>> recurringDailyTotals,
+  ) {
     final daysInMonth =
         DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final firstDayOfMonth =
@@ -270,14 +312,17 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
             final day = index - weekdayOffset + 1;
             final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
 
-            return _buildDayCell(date, colorScheme);
+            return _buildDayCell(date, colorScheme, recurringDailyTotals);
           },
         ),
       ],
     );
   }
 
-  Widget _buildCollapsedView(ColorScheme colorScheme) {
+  Widget _buildCollapsedView(
+    ColorScheme colorScheme,
+    Map<DateTime, Map<String, double>> recurringDailyTotals,
+  ) {
     final last7Days = List.generate(7, (index) {
       return _focusedWeekStart.add(Duration(days: index));
     });
@@ -298,7 +343,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
               const SizedBox(height: 4),
               AspectRatio(
                 aspectRatio: 0.85,
-                child: _buildDayCell(date, colorScheme),
+                child: _buildDayCell(date, colorScheme, recurringDailyTotals),
               ),
             ],
           ),
@@ -307,8 +352,15 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
     );
   }
 
-  Widget _buildDayCell(DateTime date, ColorScheme colorScheme) {
-    final totals = _calculateDailyTotals(date);
+  Widget _buildDayCell(
+    DateTime date,
+    ColorScheme colorScheme,
+    Map<DateTime, Map<String, double>> recurringDailyTotals,
+  ) {
+    final totals = _calculateDailyTotals(
+      date,
+      recurringDailyTotals: recurringDailyTotals,
+    );
     final hasExpense = totals['expense']! > 0;
     final hasIncome = totals['income']! > 0;
 

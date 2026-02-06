@@ -21,6 +21,7 @@ class ExpenseEntry {
   final String? splitGroupId;
   final String? bankAccountId;
   final String? type; // 'expense' | 'income'
+  final bool isRecurring;
 
   ExpenseEntry({
     required this.id,
@@ -42,6 +43,7 @@ class ExpenseEntry {
     this.splitGroupId,
     this.bankAccountId,
     this.type,
+    this.isRecurring = false,
   });
 
   double get amount => amountCents / 100.0;
@@ -96,6 +98,7 @@ class ExpenseEntry {
       splitGroupId: json['split_group_id'] as String?,
       bankAccountId: json['bank_account_id'] as String?,
       type: json['type'] as String?,
+      isRecurring: json['is_recurring'] == true,
     );
   }
 
@@ -120,6 +123,7 @@ class ExpenseEntry {
       'split_group_id': splitGroupId,
       'bank_account_id': bankAccountId,
       'type': type,
+      'is_recurring': isRecurring,
     };
   }
 
@@ -144,6 +148,7 @@ class ExpenseEntry {
     String? splitGroupId,
     String? bankAccountId,
     String? type,
+    bool? isRecurring,
   }) {
     return ExpenseEntry(
       id: id ?? this.id,
@@ -165,6 +170,7 @@ class ExpenseEntry {
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
       type: type ?? this.type,
+      isRecurring: isRecurring ?? this.isRecurring,
     );
   }
 }

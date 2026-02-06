@@ -14,6 +14,7 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 class DailyFinancialDetailsPage extends StatelessWidget {
   final DateTime date;
@@ -39,18 +40,44 @@ class DailyFinancialDetailsPage extends StatelessWidget {
       return t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day &&
+          !t.isRecurring &&
           (t.currency ?? '').trim().toUpperCase() == currency;
     }).toList();
 
+    final projectedRecurringEntriesForDay =
+        projectRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: recurringTransactions,
+      rangeStart: date,
+      rangeEnd: date,
+      selectedCurrency: currency,
+    );
+
+    String? tryExtractRecurringId(String syntheticId) {
+      final d = DateTime(date.year, date.month, date.day);
+      final y = d.year.toString().padLeft(4, '0');
+      final m = d.month.toString().padLeft(2, '0');
+      final day = d.day.toString().padLeft(2, '0');
+      final key = '$y$m$day';
+      const prefix = 'recurring_';
+      final suffix = '_$key';
+
+      if (!syntheticId.startsWith(prefix)) return null;
+      if (!syntheticId.endsWith(suffix)) return null;
+
+      final endIndex = syntheticId.length - suffix.length;
+      if (endIndex <= prefix.length) return null;
+      return syntheticId.substring(prefix.length, endIndex);
+    }
+
+    final recurringIdsForDay = projectedRecurringEntriesForDay
+        .map((e) => tryExtractRecurringId(e.id))
+        .whereType<String>()
+        .toSet();
+
     // Filter recurring transactions for this specific day
-    final dailyRecurring = recurringTransactions.where((r) {
-      if (!r.isActive) return false;
-      if (r.currency.toUpperCase() != currency) return false;
-      final next = r.getNextOccurrence(date);
-      return next.year == date.year &&
-          next.month == date.month &&
-          next.day == date.day;
-    }).toList();
+    final dailyRecurring = recurringTransactions
+        .where((r) => recurringIdsForDay.contains(r.id))
+        .toList();
 
     // Calculate totals
     double totalIncome = 0;
@@ -65,10 +92,9 @@ class DailyFinancialDetailsPage extends StatelessWidget {
       }
     }
 
-    // Add recurring to totals (if not already covered - simple addition for now)
-    for (final r in dailyRecurring) {
-      final amount = r.amount;
-      if (r.type.toLowerCase() == 'income') {
+    for (final e in projectedRecurringEntriesForDay) {
+      final amount = e.amountCents.abs() / 100.0;
+      if ((e.type ?? 'expense').toLowerCase() == 'income') {
         totalIncome += amount;
       } else {
         totalExpense += amount;
@@ -107,7 +133,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                   if (dailyTransactions.any((t) =>
                       (t.type ?? 'expense').toLowerCase() != 'income')) ...[
                     _DailySpendingChart(
-                      transactions: dailyTransactions,
+                      transactions: [
+                        ...dailyTransactions,
+                        ...projectedRecurringEntriesForDay,
+                      ],
                       currency: currency,
                     ),
                     const SizedBox(height: 24),

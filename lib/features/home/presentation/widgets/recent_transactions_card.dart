@@ -121,9 +121,12 @@ Widget buildRecentTransactionsCard(
   String? householdId,
   required VoidCallback onViewAll,
 }) {
+  final nonRecurringExpenses =
+      allExpenses.where((e) => !e.isRecurring).toList(growable: false);
+
   // Recent transactions - show latest 5 by transaction date (to match
   // TransactionsPage behavior and user expectation of "recent" by date).
-  final recent = allExpenses.toList()
+  final recent = nonRecurringExpenses.toList()
     ..sort((a, b) {
       final byDate = b.date.compareTo(a.date);
       if (byDate != 0) return byDate;

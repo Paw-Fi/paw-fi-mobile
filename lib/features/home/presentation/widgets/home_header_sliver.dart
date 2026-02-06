@@ -242,7 +242,6 @@ class HomeHeaderSliver extends ConsumerWidget {
         title: context.l10n.exportTransactions,
         message: context.l10n.chooseSourceForAnalysis,
         actions: [
-        
           AlertAction(
             title: context.l10n.exportReceiptsZip,
             style: AlertActionStyle.primary,
@@ -250,7 +249,7 @@ class HomeHeaderSliver extends ConsumerWidget {
               selection = _ExportAction.exportReceipts;
             },
           ),
-            AlertAction(
+          AlertAction(
             title: context.l10n.exportExcel,
             style: AlertActionStyle.primary,
             onPressed: () {
@@ -281,6 +280,9 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
 
       final analyticsData = ref.read(analyticsProvider);
+      final exportableExpenses = analyticsData.allExpenses
+          .where((e) => !e.isRecurring)
+          .toList(growable: false);
       final households = householdsAsync.valueOrNull ?? const <Household>[];
       final householdNames = {
         for (final household in households) household.id: household.name,
@@ -292,7 +294,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         if (selection == _ExportAction.exportExcel) {
           await exportAllTransactionsAsExcelSheet(
             context,
-            analyticsData.allExpenses,
+            exportableExpenses,
             personalLabel: personalLabel,
             householdNames: householdNames,
             onBeforeShare: closeBlockingDialog,
@@ -300,7 +302,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         } else if (selection == _ExportAction.exportReceipts) {
           await exportAllReceiptsAsZip(
             context,
-            analyticsData.allExpenses,
+            exportableExpenses,
             onBeforeShare: closeBlockingDialog,
           );
         }
@@ -485,9 +487,8 @@ class HomeHeaderSliver extends ConsumerWidget {
     final menuItems = <AdaptivePopupMenuItem>[
       AdaptivePopupMenuItem(
         label: context.l10n.accountOverview,
-        icon: PlatformInfo.isIOS26OrHigher()
-            ? 'chart.pie.fill'
-            : Icons.pie_chart,
+        icon:
+            PlatformInfo.isIOS26OrHigher() ? 'chart.pie.fill' : Icons.pie_chart,
         value: 'overview',
       ),
       AdaptivePopupMenuItem(
@@ -596,7 +597,8 @@ class HomeHeaderSliver extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding:  EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 0),
+          padding:
+              EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

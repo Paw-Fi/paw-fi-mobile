@@ -55,6 +55,7 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   final map = {for (final k in keys) k: 0.0};
 
   for (final e in data.allExpenses) {
+    if (e.isRecurring) continue;
     // Expense-only
     if ((e.type ?? 'expense').toLowerCase() == 'income') continue;
     if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency))

@@ -55,6 +55,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   // Filter expenses locally by currency AND view mode
   final filtered = allExpenses
       .where((expense) {
+        if (expense.isRecurring) return false;
         final currencyOk = selectedCurrency == null ||
             (expense.currency?.toUpperCase() == selectedCurrency);
 
@@ -87,6 +88,7 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   return all.where((tx) {
+    if (tx.isRecurring) return false;
     final currencyOk = selectedCurrency == null ||
         (tx.currency?.toUpperCase() == selectedCurrency);
     final activeOk = switch (scope.activeAccountType) {
@@ -118,12 +120,10 @@ final homeFilteredBudgetsProvider = Provider<List<DailyBudgetEntry>>((ref) {
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   // Filter budgets by currency (all-time)
-  return allBudgets
-      .where((budget) {
-        return selectedCurrency == null ||
-            (budget.currency?.toUpperCase() == selectedCurrency);
-      })
-      .toList();
+  return allBudgets.where((budget) {
+    return selectedCurrency == null ||
+        (budget.currency?.toUpperCase() == selectedCurrency);
+  }).toList();
 });
 
 /// Unique list of currencies present in expenses/budgets (uppercased)

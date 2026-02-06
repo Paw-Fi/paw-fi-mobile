@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 
@@ -14,9 +17,22 @@ class FakeAnalyticsNotifier extends AnalyticsNotifier {
 }
 
 void main() {
-  test('updateParsedRow revalidates and marks duplicates', () {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+      url: 'http://localhost',
+      anonKey: 'test-anon-key',
+    );
+  });
+
+  test('updateParsedRow revalidates and marks duplicates', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     final container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
       ],
     );
@@ -60,9 +76,13 @@ void main() {
     expect(updated[1].isDuplicate, isTrue);
   });
 
-  test('updateParsedRow applies validation errors', () {
+  test('updateParsedRow applies validation errors', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     final container = ProviderContainer(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
       ],
     );

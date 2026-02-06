@@ -26,6 +26,7 @@ import 'package:moneko/features/households/presentation/widgets/group_fairness_m
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
@@ -41,6 +42,8 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 }
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
+  String? _recurringLoadScheduledForHouseholdId;
+
   /// Calculate user's personal share of household expenses
   ///
   /// This method is ONLY used for the "Spent by You" card to show what the current user
@@ -192,6 +195,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 )
               : households.first;
 
+          // Ensure recurring templates are loaded once per household so
+          // dashboard widgets can project occurrences (without counting templates).
+          final recurringState = ref.watch(
+            recurringTransactionsProvider(household.id),
+          );
+          final shouldScheduleRecurringLoad =
+              _recurringLoadScheduledForHouseholdId != household.id &&
+                  !recurringState.hasLoadedOnce &&
+                  !recurringState.data.isLoading;
+          if (shouldScheduleRecurringLoad) {
+            _recurringLoadScheduledForHouseholdId = household.id;
+            Future.microtask(() {
+              if (!mounted) return;
+              ref
+                  .read(recurringTransactionsProvider(household.id).notifier)
+                  .loadRecurringTransactions(userId);
+            });
+          }
+
           // Filters
           final filterState = ref.watch(homeFilterProvider);
           final analyticsState = ref.watch(analyticsProvider);
@@ -280,8 +302,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             HouseholdSplitsParams(householdId: household.id),
                           ));
 
+                          final recurringState = ref.watch(
+                            recurringTransactionsProvider(household.id),
+                          );
+
                           final transactions = expensesAsync.valueOrNull;
                           final splits = splitsAsync.valueOrNull;
+                          final recurringTransactions =
+                              recurringState.data.valueOrNull ?? const [];
 
                           // Show loading skeleton only if we have no data and are loading
                           if ((expensesAsync.isLoading ||
@@ -321,11 +349,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return const SizedBox.shrink();
                           }
 
+                          final projected =
+                              projectRecurringTransactionsAsExpenseEntries(
+                            recurringTransactions: recurringTransactions,
+                            rangeStart: from,
+                            rangeEnd: to,
+                            selectedCurrency: selectedCurrency,
+                          );
+
+                          final allTransactions = <ExpenseEntry>[
+                            ...transactions,
+                            ...projected,
+                          ];
+
                           // Logic copied from original _personalShareExpenses / inline logic
                           int myTotalCents = 0;
                           final byGroupId = {for (final g in splits) g.id: g};
 
-                          for (final t in transactions) {
+                          for (final t in allTransactions) {
+                            if (t.isRecurring) continue;
                             final tdate =
                                 DateTime(t.date.year, t.date.month, t.date.day);
                             final code =
@@ -464,7 +506,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: FinancialCalendarWidget(
-                              transactions: expensesAsync.asData?.value ?? [],
+                              transactions: (expensesAsync.asData?.value ?? [])
+                                  .where((e) => !e.isRecurring)
+                                  .toList(growable: false),
                               recurringTransactions:
                                   recurringAsync.data.asData?.value ?? [],
                               currency: selectedCurrency,
@@ -685,13 +729,27 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return const SizedBox.shrink();
                           }
 
+                          // Settlement suggestions should be based on actual recorded splits,
+                          // never on recurring templates.
+                          final templateExpenseIds = <String>{
+                            for (final e
+                                in (transactions ?? const <ExpenseEntry>[]))
+                              if (e.isRecurring) e.id,
+                          };
+                          final splitsWithoutTemplates = (splits == null)
+                              ? null
+                              : splits
+                                  .where((g) =>
+                                      !templateExpenseIds.contains(g.expenseId))
+                                  .toList(growable: false);
+
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: SettlementSuggestionsCard(
                               summary: summary,
                               transactions: transactions ?? const [],
-                              splits: splits,
+                              splits: splitsWithoutTemplates,
                               currency: selectedCurrency,
                               members: members,
                               currentUserId: userId,
@@ -714,6 +772,10 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           final membersAsync =
                               ref.watch(householdMembersProvider(household.id));
 
+                          final recurringState = ref.watch(
+                            recurringTransactionsProvider(household.id),
+                          );
+
                           // Get summary for current date range
                           final range = getDateRangeFromFilter(config.dateRange,
                               config.customStartDate, config.customEndDate);
@@ -733,6 +795,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
                           final summary = summaryAsync.valueOrNull;
+
+                          final recurringTransactions =
+                              recurringState.data.valueOrNull ?? const [];
+                          final projected =
+                              projectRecurringTransactionsAsExpenseEntries(
+                            recurringTransactions: recurringTransactions,
+                            rangeStart: from,
+                            rangeEnd: to,
+                            selectedCurrency: selectedCurrency,
+                          );
+                          final baseTransactions = (expensesAsync.valueOrNull ??
+                                  const <ExpenseEntry>[])
+                              .where((e) => !e.isRecurring)
+                              .toList(growable: false);
+                          final transactionsWithRecurring = <ExpenseEntry>[
+                            ...baseTransactions,
+                            ...projected,
+                          ];
 
                           return Padding(
                             padding:
@@ -771,8 +851,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                     summary,
                                     members: membersAsync.valueOrNull,
                                     householdId: household.id,
-                                    transactions:
-                                        expensesAsync.valueOrNull ?? [],
+                                    transactions: transactionsWithRecurring,
                                     splits: splitsAsync.valueOrNull,
                                     from: from,
                                     to: to,
@@ -846,6 +925,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               const <ExpenseEntry>[];
                           final currencyFilteredExpenses =
                               allExpenses.where((e) {
+                            if (e.isRecurring) return false;
                             final code =
                                 (e.currency ?? '').trim().toUpperCase();
                             return code.isEmpty || code == selectedCurrency;
@@ -892,6 +972,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             ),
                           ));
 
+                          final recurringState = ref.watch(
+                            recurringTransactionsProvider(household.id),
+                          );
+                          final recurringTransactions =
+                              recurringState.data.valueOrNull ?? const [];
+
                           // Gracefully handle loading/errors from the provider
                           if (expensesAsync.isLoading &&
                               !expensesAsync.hasValue) {
@@ -930,6 +1016,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
+                            if (e.isRecurring) return false;
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
                             final dateOk = !d.isBefore(from) && !d.isAfter(to);
@@ -939,6 +1026,19 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                 code.isEmpty || code == selectedCurrency;
                             return dateOk && currencyOk;
                           }).toList();
+
+                          final projected =
+                              projectRecurringTransactionsAsExpenseEntries(
+                            recurringTransactions: recurringTransactions,
+                            rangeStart: from,
+                            rangeEnd: to,
+                            selectedCurrency: selectedCurrency,
+                          );
+
+                          final expensesWithRecurring = [
+                            ...filteredExpenses,
+                            ...projected,
+                          ];
 
                           return Padding(
                             padding:
@@ -956,7 +1056,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               child: buildSpendingBreakdownChart(
                                 context,
                                 colorScheme,
-                                filteredExpenses,
+                                expensesWithRecurring,
                                 const <DailyBudgetEntry>[],
                                 null,
                                 config.dateRange,
@@ -980,6 +1080,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               householdId: household.id,
                             ),
                           ));
+
+                          final recurringState = ref.watch(
+                            recurringTransactionsProvider(household.id),
+                          );
+                          final recurringTransactions =
+                              recurringState.data.valueOrNull ?? const [];
 
                           // Gracefully handle loading/errors from the provider so
                           // timeouts don't crash the UI.
@@ -1020,6 +1126,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               const <ExpenseEntry>[];
                           // Filter by date AND currency
                           final filteredExpenses = allExpenses.where((e) {
+                            if (e.isRecurring) return false;
                             final d =
                                 DateTime(e.date.year, e.date.month, e.date.day);
                             final dateOk = !d.isBefore(from) && !d.isAfter(to);
@@ -1030,11 +1137,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return dateOk && currencyOk;
                           }).toList();
 
+                          final projected =
+                              projectRecurringTransactionsAsExpenseEntries(
+                            recurringTransactions: recurringTransactions,
+                            rangeStart: from,
+                            rangeEnd: to,
+                            selectedCurrency: selectedCurrency,
+                          );
+
+                          final expensesWithRecurring = [
+                            ...filteredExpenses,
+                            ...projected,
+                          ];
+
                           return Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
                             child: WhereTheMoneyWentWidget(
-                              expenses: filteredExpenses,
+                              expenses: expensesWithRecurring,
                               currency: selectedCurrency,
                               onHelpTap: () =>
                                   showCategoryGuide(context, colorScheme),

@@ -12,6 +12,7 @@ void _debugLog(String message) {
 
 class RecurringTransaction {
   final String id;
+  final String? userId;
   final DateTime date;
   final String category;
   final String? description;
@@ -22,6 +23,7 @@ class RecurringTransaction {
   final String privacyScope; // 'private', 'balances_only', 'full'
   final String? householdId;
   final String? payerUserId; // Who paid (household sharing)
+  final String? splitGroupId;
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -30,6 +32,7 @@ class RecurringTransaction {
 
   RecurringTransaction({
     required this.id,
+    this.userId,
     required this.date,
     required this.category,
     this.description,
@@ -40,6 +43,7 @@ class RecurringTransaction {
     required this.privacyScope,
     this.householdId,
     this.payerUserId,
+    this.splitGroupId,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -99,6 +103,7 @@ class RecurringTransaction {
 
     return RecurringTransaction(
       id: json['id'] as String,
+      userId: json['userId'] as String? ?? json['user_id'] as String?,
       date: DateTime.parse(json['date'] as String),
       category: json['category'] as String,
       description:
@@ -115,6 +120,8 @@ class RecurringTransaction {
           json['householdId'] as String? ?? json['household_id'] as String?,
       payerUserId:
           json['payerUserId'] as String? ?? json['payer_user_id'] as String?,
+      splitGroupId:
+          json['splitGroupId'] as String? ?? json['split_group_id'] as String?,
       recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
@@ -178,6 +185,7 @@ class RecurringTransaction {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'date': date.toIso8601String(),
       'category': category,
       'description': description,
@@ -188,6 +196,7 @@ class RecurringTransaction {
       'privacyScope': privacyScope,
       'householdId': householdId,
       'payerUserId': payerUserId,
+      'splitGroupId': splitGroupId,
       if (recurrenceRule != null)
         'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
@@ -199,6 +208,7 @@ class RecurringTransaction {
 
   RecurringTransaction copyWith({
     String? id,
+    String? userId,
     DateTime? date,
     String? category,
     String? description,
@@ -209,6 +219,7 @@ class RecurringTransaction {
     String? privacyScope,
     String? householdId,
     String? payerUserId,
+    String? splitGroupId,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -217,6 +228,7 @@ class RecurringTransaction {
   }) {
     return RecurringTransaction(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       date: date ?? this.date,
       category: category ?? this.category,
       description: description ?? this.description,
@@ -227,6 +239,7 @@ class RecurringTransaction {
       privacyScope: privacyScope ?? this.privacyScope,
       householdId: householdId ?? this.householdId,
       payerUserId: payerUserId ?? this.payerUserId,
+      splitGroupId: splitGroupId ?? this.splitGroupId,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,
@@ -245,6 +258,8 @@ class RecurringTransaction {
     final rule = recurrenceRule!; // Safe after null check
     final reference = from ?? DateTime.now();
     final anchor = rule.anchorDate;
+
+    DateTime dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
     int clampDayOfMonth(
         {required int year, required int month, required int day}) {
@@ -282,21 +297,44 @@ class RecurringTransaction {
     // Calculate next occurrence based on frequency
     switch (rule.frequency) {
       case 'daily':
-        final interval = rule.interval ?? 1;
-        final daysDiff = reference.difference(anchor).inDays;
-        final nextDays = ((daysDiff / interval).ceil() * interval).toInt();
-        return anchor.add(Duration(days: nextDays));
+        final intervalDays = rule.interval ?? 1;
+        final anchorDay = dateOnly(anchor);
+        final referenceDay = dateOnly(reference);
+
+        final daysBetween = referenceDay.difference(anchorDay).inDays;
+        final alignedDays = (daysBetween ~/ intervalDays) * intervalDays;
+        var candidate = anchor.add(Duration(days: alignedDays));
+        if (!candidate.isAfter(reference)) {
+          candidate = candidate.add(Duration(days: intervalDays));
+        }
+        return candidate;
 
       case 'weekly':
-        final interval = rule.interval ?? 1;
-        final weeksDiff = reference.difference(anchor).inDays ~/ 7;
-        final nextWeeks = ((weeksDiff / interval).ceil() * interval).toInt();
-        return anchor.add(Duration(days: nextWeeks * 7));
+        final intervalWeeks = rule.interval ?? 1;
+        final intervalDays = intervalWeeks * 7;
+        final anchorDay = dateOnly(anchor);
+        final referenceDay = dateOnly(reference);
+
+        final daysBetween = referenceDay.difference(anchorDay).inDays;
+        final alignedDays = (daysBetween ~/ intervalDays) * intervalDays;
+        var candidate = anchor.add(Duration(days: alignedDays));
+        if (!candidate.isAfter(reference)) {
+          candidate = candidate.add(Duration(days: intervalDays));
+        }
+        return candidate;
 
       case 'biweekly':
-        final weeksDiff = reference.difference(anchor).inDays ~/ 7;
-        final nextWeeks = ((weeksDiff / 2).ceil() * 2).toInt();
-        return anchor.add(Duration(days: nextWeeks * 7));
+        const intervalDays = 14;
+        final anchorDay = dateOnly(anchor);
+        final referenceDay = dateOnly(reference);
+
+        final daysBetween = referenceDay.difference(anchorDay).inDays;
+        final alignedDays = (daysBetween ~/ intervalDays) * intervalDays;
+        var candidate = anchor.add(Duration(days: alignedDays));
+        if (!candidate.isAfter(reference)) {
+          candidate = candidate.add(const Duration(days: intervalDays));
+        }
+        return candidate;
 
       case 'monthly':
         final interval = rule.interval ?? 1;

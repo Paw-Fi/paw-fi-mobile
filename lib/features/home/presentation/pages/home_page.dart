@@ -10,7 +10,6 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
-import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -37,6 +36,7 @@ import 'package:moneko/features/home/presentation/state/home_spotlight_providers
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
@@ -789,6 +789,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     // - Portfolio account: household_id == selected portfolio household id
     // Household-group mode uses a separate UI path (HouseholdHomeContent).
     final personalExpensesAll = analyticsData.allExpenses.where((e) {
+      if (e.isRecurring) return false;
       final hid = e.householdId;
       final activeOk = switch (householdScope.activeAccountType) {
         ActiveAccountType.personal => hid == null || hid.isEmpty,
@@ -853,7 +854,8 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final scrollView = CustomScrollView(
       slivers: [
-         SliverToBoxAdapter(child: SizedBox(height: Platform.isAndroid ? 0 : 16)),
+        SliverToBoxAdapter(
+            child: SizedBox(height: Platform.isAndroid ? 0 : 16)),
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
           const SliverToBoxAdapter(child: EditDashboardButton()),
@@ -914,22 +916,61 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   end: end);
                         },
                         widgetBuilders: {
-                          DashboardWidgetType.spendingSummary:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: buildSpendingCard(
+                          DashboardWidgetType.spendingSummary: (context,
+                                  config) =>
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final range = getDateRangeFromFilter(
+                                      config.dateRange,
+                                      config.customStartDate,
+                                      config.customEndDate,
+                                    );
+                                    final from = range['from']!;
+                                    final to = range['to']!;
+
+                                    final recurringHouseholdId =
+                                        householdScope.activeAccountHouseholdId;
+                                    final recurringState = ref.watch(
+                                      recurringTransactionsProvider(
+                                        recurringHouseholdId,
+                                      ),
+                                    );
+                                    final recurringTransactions =
+                                        recurringState.data.valueOrNull ??
+                                            const [];
+
+                                    final projected =
+                                        projectRecurringTransactionsAsExpenseEntries(
+                                      recurringTransactions:
+                                          recurringTransactions,
+                                      rangeStart: from,
+                                      rangeEnd: to,
+                                      selectedCurrency:
+                                          filterState.selectedCurrency,
+                                    );
+
+                                    final expensesWithRecurring = [
+                                      ...personalExpensesAll,
+                                      ...projected,
+                                    ];
+
+                                    return buildSpendingCard(
                                       context,
                                       colorScheme,
-                                      personalExpensesAll,
+                                      expensesWithRecurring,
                                       analyticsData.contact,
                                       config.dateRange,
                                       selectedCurrency:
                                           filterState.selectedCurrency,
                                       customStartDate: config.customStartDate,
                                       customEndDate: config.customEndDate,
-                                    ),
-                                  ),
+                                    );
+                                  },
+                                ),
+                              ),
                           DashboardWidgetType.netCashflow: (context, config) =>
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -1010,14 +1051,51 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       },
                                     ),
                                   ),
-                          DashboardWidgetType.spendingBreakdownChart:
-                              (context, config) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0),
-                                    child: buildSpendingBreakdownChart(
+                          DashboardWidgetType.spendingBreakdownChart: (context,
+                                  config) =>
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: Consumer(
+                                  builder: (context, ref, _) {
+                                    final range = getDateRangeFromFilter(
+                                      config.dateRange,
+                                      config.customStartDate,
+                                      config.customEndDate,
+                                    );
+                                    final from = range['from']!;
+                                    final to = range['to']!;
+
+                                    final recurringHouseholdId =
+                                        householdScope.activeAccountHouseholdId;
+                                    final recurringState = ref.watch(
+                                      recurringTransactionsProvider(
+                                        recurringHouseholdId,
+                                      ),
+                                    );
+                                    final recurringTransactions =
+                                        recurringState.data.valueOrNull ??
+                                            const [];
+
+                                    final projected =
+                                        projectRecurringTransactionsAsExpenseEntries(
+                                      recurringTransactions:
+                                          recurringTransactions,
+                                      rangeStart: from,
+                                      rangeEnd: to,
+                                      selectedCurrency:
+                                          filterState.selectedCurrency,
+                                    );
+
+                                    final expensesWithRecurring = [
+                                      ...personalExpensesAll,
+                                      ...projected,
+                                    ];
+
+                                    return buildSpendingBreakdownChart(
                                       context,
                                       colorScheme,
-                                      personalExpensesAll,
+                                      expensesWithRecurring,
                                       analyticsData.allBudgets,
                                       analyticsData.contact,
                                       config.dateRange,
@@ -1025,8 +1103,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                                           filterState.selectedCurrency,
                                       customStartDate: config.customStartDate,
                                       customEndDate: config.customEndDate,
-                                    ),
-                                  ),
+                                    );
+                                  },
+                                ),
+                              ),
                           DashboardWidgetType.whereTheMoneyWent:
                               (context, config) {
                             final range = getDateRangeFromFilter(
@@ -1037,22 +1117,49 @@ class _HomePageState extends ConsumerState<HomePage> {
                             final from = range['from']!;
                             final to = range['to']!;
 
-                            final dateFilteredExpenses =
-                                personalExpensesAll.where((e) {
-                              final d = DateTime(
-                                  e.date.year, e.date.month, e.date.day);
-                              return !d.isBefore(from) && !d.isAfter(to);
-                            }).toList();
-
                             return Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: WhereTheMoneyWentWidget(
-                                expenses: dateFilteredExpenses,
-                                currency: filterState.selectedCurrency,
-                                onHelpTap: () =>
-                                    showCategoryGuide(context, colorScheme),
-                                dateRange: config.dateRange,
+                              child: Consumer(
+                                builder: (context, ref, _) {
+                                  final recurringHouseholdId =
+                                      householdScope.activeAccountHouseholdId;
+                                  final recurringState = ref.watch(
+                                    recurringTransactionsProvider(
+                                      recurringHouseholdId,
+                                    ),
+                                  );
+                                  final recurringTransactions =
+                                      recurringState.data.valueOrNull ??
+                                          const [];
+
+                                  final projected =
+                                      projectRecurringTransactionsAsExpenseEntries(
+                                    recurringTransactions:
+                                        recurringTransactions,
+                                    rangeStart: from,
+                                    rangeEnd: to,
+                                    selectedCurrency:
+                                        filterState.selectedCurrency,
+                                  );
+
+                                  final dateFilteredExpenses = [
+                                    ...personalExpensesAll,
+                                    ...projected,
+                                  ].where((e) {
+                                    final d = DateTime(
+                                        e.date.year, e.date.month, e.date.day);
+                                    return !d.isBefore(from) && !d.isAfter(to);
+                                  }).toList(growable: false);
+
+                                  return WhereTheMoneyWentWidget(
+                                    expenses: dateFilteredExpenses,
+                                    currency: filterState.selectedCurrency,
+                                    onHelpTap: () =>
+                                        showCategoryGuide(context, colorScheme),
+                                    dateRange: config.dateRange,
+                                  );
+                                },
                               ),
                             );
                           },

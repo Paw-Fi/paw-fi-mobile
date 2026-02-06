@@ -12,6 +12,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/home/presentation/utils/recurrence_counting.dart';
 
 Widget buildNetCashflowCard(
   BuildContext context,
@@ -40,6 +41,7 @@ Widget buildNetCashflowCard(
     // - Personal account: household_id == null
     // - Portfolio account: household_id == selected portfolio household id
     final scopedTransactions = allTransactions.where((t) {
+      if (t.isRecurring) return false;
       final hid = t.householdId;
       return switch (householdScope.activeAccountType) {
         ActiveAccountType.personal => hid == null || hid.isEmpty,
@@ -469,14 +471,26 @@ int _countOccurrencesInPeriod(
 
   switch (freq) {
     case 'daily':
-      return _countOccurrencesByStep(
-          anchor, start, effectiveEnd, Duration(days: interval));
+      return countOccurrencesByDayStep(
+        anchor: anchor,
+        rangeStart: start,
+        rangeEnd: effectiveEnd,
+        stepDays: interval,
+      );
     case 'weekly':
-      return _countOccurrencesByStep(
-          anchor, start, effectiveEnd, Duration(days: 7 * interval));
+      return countOccurrencesByDayStep(
+        anchor: anchor,
+        rangeStart: start,
+        rangeEnd: effectiveEnd,
+        stepDays: 7 * interval,
+      );
     case 'biweekly':
-      return _countOccurrencesByStep(
-          anchor, start, effectiveEnd, const Duration(days: 14));
+      return countOccurrencesByDayStep(
+        anchor: anchor,
+        rangeStart: start,
+        rangeEnd: effectiveEnd,
+        stepDays: 14,
+      );
     case 'monthly':
       return _countOccurrencesMonthly(anchor, interval, start, effectiveEnd);
     case 'yearly':
@@ -484,31 +498,6 @@ int _countOccurrencesInPeriod(
     default:
       return (!anchor.isBefore(start) && !anchor.isAfter(effectiveEnd)) ? 1 : 0;
   }
-}
-
-int _countOccurrencesByStep(
-  DateTime anchor,
-  DateTime rangeStart,
-  DateTime rangeEnd,
-  Duration step,
-) {
-  if (anchor.isAfter(rangeEnd)) return 0;
-  final first = _firstOnOrAfter(anchor, rangeStart, step);
-  if (first.isAfter(rangeEnd)) return 0;
-  final totalDays = rangeEnd.difference(first).inDays;
-  final stepDays = step.inDays;
-  if (stepDays <= 0) return 0;
-  return 1 + (totalDays ~/ stepDays);
-}
-
-DateTime _firstOnOrAfter(DateTime anchor, DateTime start, Duration step) {
-  if (!start.isAfter(anchor)) return anchor;
-  final diffDays = start.difference(anchor).inDays;
-  final stepDays = step.inDays;
-  final remainder = diffDays % stepDays;
-  return remainder == 0
-      ? start
-      : start.add(Duration(days: stepDays - remainder));
 }
 
 int _countOccurrencesMonthly(

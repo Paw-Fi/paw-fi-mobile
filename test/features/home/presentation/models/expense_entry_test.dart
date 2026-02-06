@@ -88,6 +88,7 @@ void main() {
         'shared_member_ids': ['user_1', 'user_2'],
         'split_group_id': 'split_1',
         'type': 'expense',
+        'is_recurring': true,
       };
 
       final entry = ExpenseEntry.fromJson(json);
@@ -105,6 +106,7 @@ void main() {
       expect(entry.rawText, 'Lunch');
       expect(entry.sharedMemberIds, ['user_1', 'user_2']);
       expect(entry.type, 'expense');
+      expect(entry.isRecurring, true);
     });
 
     test('fromJson parses nested users object', () {

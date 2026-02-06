@@ -77,7 +77,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
-    var expenses = _baseExpenses;
+    // Always exclude recurring templates from the transactions list.
+    // Also copy to avoid mutating the base list when sorting.
+    var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
 
     // Filter by the currently selected account (personal vs private space vs shared space)
     // unless this page was explicitly opened for a specific householdId.
@@ -145,6 +147,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<String> get categories {
     final cats = _baseExpenses
+        .where((e) => !e.isRecurring)
         .map((e) => (e.category ?? 'uncategorized').toLowerCase())
         .toSet()
         .toList()

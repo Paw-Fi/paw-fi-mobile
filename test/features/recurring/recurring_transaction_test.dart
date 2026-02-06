@@ -32,6 +32,35 @@ RecurringTransaction _tx({
 
 void main() {
   group('RecurringTransaction.getNextOccurrence', () {
+    test('daily ignores time-of-day when reference is midnight', () {
+      final tx = _tx(
+        anchor: DateTime(2026, 2, 1, 14, 0),
+        frequency: 'daily',
+      );
+
+      final next = tx.getNextOccurrence(DateTime(2026, 2, 2));
+      expect(next.year, 2026);
+      expect(next.month, 2);
+      expect(next.day, 2);
+      // Preserve time-of-day from anchor
+      expect(next.hour, 14);
+      expect(next.minute, 0);
+    });
+
+    test('weekly ignores time-of-day when reference is midnight', () {
+      final tx = _tx(
+        anchor: DateTime(2026, 2, 1, 14, 0),
+        frequency: 'weekly',
+      );
+
+      final next = tx.getNextOccurrence(DateTime(2026, 2, 8));
+      expect(next.year, 2026);
+      expect(next.month, 2);
+      expect(next.day, 8);
+      expect(next.hour, 14);
+      expect(next.minute, 0);
+    });
+
     test('clamps monthly 31st into February', () {
       final tx = _tx(
         anchor: DateTime(2026, 1, 31, 9, 30),
