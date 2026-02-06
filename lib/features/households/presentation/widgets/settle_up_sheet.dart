@@ -8,11 +8,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import '../../../../../core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/features/households/presentation/pages/settlement_calculation_breakdown_page.dart';
 import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -79,7 +81,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         (widget.currency ?? (homeFilter.selectedCurrency ?? 'USD'))
             .trim()
             .toUpperCase();
-    final groups = widget.splits ?? const <ExpenseSplitGroup>[];
+    final providerSplits = ref
+        .read(cachedHouseholdSplitsProvider(
+          HouseholdSplitsParams(householdId: widget.householdId),
+        ))
+        .valueOrNull;
+    final groups =
+        widget.splits ?? providerSplits ?? const <ExpenseSplitGroup>[];
 
     int youOwe = 0;
     int youAreOwed = 0;
@@ -177,6 +185,32 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     });
   }
 
+  void _openCalculationBreakdownPage(
+    BuildContext context, {
+    required String currentUserId,
+    required HouseholdMember member,
+    required List<ExpenseSplitGroup> splits,
+    required List<ExpenseEntry> transactions,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SettlementCalculationBreakdownPage(
+          currentUserId: currentUserId,
+          memberUserId: member.userId,
+          memberDisplayName: (member.userName?.trim().isNotEmpty ?? false)
+              ? member.userName!.trim()
+              : (member.userEmail ?? context.l10n.member),
+          currencyCode: _settlementCurrencyCode,
+          transactions: transactions,
+          splits: splits,
+          paidToCents: _paidToCents,
+          paidFromCents: _paidFromCents,
+          finalSettleAmountCents: _maxSettleCents,
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _noteController.dispose();
@@ -194,7 +228,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
+    final expensesAsync = ref.watch(cachedHouseholdExpensesProvider(
+      HouseholdExpensesParams(householdId: widget.householdId),
+    ));
+    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(
+      HouseholdSplitsParams(householdId: widget.householdId),
+    ));
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+    final effectiveSplits =
+        widget.splits ?? splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
@@ -240,11 +283,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       constraints: BoxConstraints(maxHeight: maxSheetHeight),
       child: Container(
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: colorScheme.appleGroupedBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: colorScheme.shadow.withValues(alpha: 0.08),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),
@@ -404,6 +447,36 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                       settleTheyOweYou: widget.settleTheyOweYou,
                       scheme: colorScheme,
                       l10n: context.l10n,
+                      onShowBreakdown: hasSelectedMember && userId != null
+                          ? () {
+                              final targetMemberId =
+                                  widget.specificMemberId ?? _selectedMemberId;
+                              if (targetMemberId == null) return;
+
+                              final members = membersAsync.valueOrNull ??
+                                  const <HouseholdMember>[];
+                              final member = members.firstWhere(
+                                (m) => m.userId == targetMemberId,
+                                orElse: () => HouseholdMember(
+                                  id: 'member',
+                                  householdId: widget.householdId,
+                                  userId: targetMemberId,
+                                  role: HouseholdRole.member,
+                                  joinedAt: DateTime.now(),
+                                  createdAt: DateTime.now(),
+                                  updatedAt: DateTime.now(),
+                                ),
+                              );
+
+                              _openCalculationBreakdownPage(
+                                context,
+                                currentUserId: userId,
+                                member: member,
+                                splits: effectiveSplits,
+                                transactions: transactions,
+                              );
+                            }
+                          : null,
                     ),
                   ],
                 ),
@@ -694,8 +767,9 @@ class _ModernMemberSelector extends StatelessWidget {
         itemBuilder: (context, index) {
           final m = members[index];
           final isSelected = m.userId == selectedId;
-          final name = m.userName ?? m.userEmail ?? 'Member';
-          final initial = name.trim().characters.first.toUpperCase();
+          final rawName = (m.userName ?? m.userEmail ?? '').trim();
+          final name = rawName.isEmpty ? 'Member' : rawName;
+          final initial = name.characters.first.toUpperCase();
 
           return GestureDetector(
             onTap: () => onSelect(m.userId),
@@ -709,7 +783,7 @@ class _ModernMemberSelector extends StatelessWidget {
                     : scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: isSelected ? scheme.primary : Colors.transparent,
+                  color: isSelected ? scheme.primary : scheme.surfaceBorder,
                   width: 2,
                 ),
               ),
@@ -922,6 +996,7 @@ class _AmountDisplayCard extends StatelessWidget {
   final bool settleTheyOweYou;
   final ColorScheme scheme;
   final AppLocalizations l10n;
+  final VoidCallback? onShowBreakdown;
 
   const _AmountDisplayCard({
     required this.nothingToSettle,
@@ -935,6 +1010,7 @@ class _AmountDisplayCard extends StatelessWidget {
     required this.settleTheyOweYou,
     required this.scheme,
     required this.l10n,
+    this.onShowBreakdown,
   });
 
   @override
@@ -943,7 +1019,7 @@ class _AmountDisplayCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainer, // M3 distinctive surface
+        color: scheme.sheetBackground, // M3 distinctive surface
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
       ),
@@ -958,6 +1034,44 @@ class _AmountDisplayCard extends StatelessWidget {
               color: scheme.mutedForeground,
             ),
           ),
+          if (onShowBreakdown != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: GestureDetector(
+                onTap: onShowBreakdown,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: scheme.onSurface.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: scheme.outlineVariant.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'How it’s calculated',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: scheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        Icons.help_outline_rounded,
+                        size: 14,
+                        color: scheme.mutedForeground,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           if (!hasSelectedMember)
             Text(

@@ -100,35 +100,18 @@ class LoginScreen extends HookConsumerWidget {
     }
 
     Future<void> handleResetPassword() async {
-      await AdaptiveAlertDialog.show(
-        context: context,
-        title: context.l10n.resetYourPassword,
-        message: context.l10n.resetPasswordDiscordMessage,
-        icon: 'lock.fill',
-        actions: [
-          AlertAction(
-            title: context.l10n.cancel,
-            style: AlertActionStyle.cancel,
-            onPressed: () {},
-          ),
-          AlertAction(
-            title: context.l10n.openDiscord,
-            style: AlertActionStyle.primary,
-            onPressed: () async {
-              try {
-                await launchUrl(
-                  Uri.parse(Links.discordSupport),
-                  mode: LaunchMode.externalApplication,
-                );
-              } catch (_) {}
-            },
-          ),
-        ],
-      );
+      final email = emailController.text.trim();
+      final Uri forgotPasswordUrl = email.isNotEmpty && email.contains('@')
+          ? Uri.parse(Links.forgotPassword)
+              .replace(queryParameters: {'email': email})
+          : Uri.parse(Links.forgotPassword);
 
-      // Early return for now so we keep the legacy reset flow below
-      // without executing it. This allows us to re-enable email-based
-      // password reset in the future without losing the implementation.
+      try {
+        await launchUrl(
+          forgotPasswordUrl,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (_) {}
     }
 
     return Scaffold(

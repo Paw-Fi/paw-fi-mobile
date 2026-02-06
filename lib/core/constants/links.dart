@@ -7,4 +7,7 @@ abstract class Links {
 
   /// Discord support / community server
   static const String discordSupport = 'https://discord.gg/M2Dgujvtze';
+
+  /// Web forgot password flow
+  static const String forgotPassword = 'https://moneko.io/forgot-password';
 }

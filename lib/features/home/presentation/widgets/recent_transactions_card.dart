@@ -189,10 +189,10 @@ Widget buildRecentTransactionsCard(
               ],
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                  24,
-                  upcoming != null ? 0 : 24,
-                  24,
-                  24,
+                  0,
+                  upcoming != null ? 0 : 16,
+                  0,
+                  16,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
