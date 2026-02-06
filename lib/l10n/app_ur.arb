@@ -1917,5 +1917,17 @@
   "transactionsCount": "لین دین",
   "noTransactionsRecorded": "اس ماہ کوئی لین دین ریکارڈ نہیں کیا گیا",
   "noExpensesDisplay": "دکھانے کے لیے کوئی اخراجات نہیں ہیں",
-  "importInto": "میں امپورٹ کریں"
+  "importInto": "میں امپورٹ کریں",
+  "noSplitTransactionsFound": "کوئی تقسیم شدہ لین دین نہیں ملا",
+  "netSplitPosition": "خالص تقسیم کی صورتحال",
+  "howThisIsCalculated": "یہ کیسے کیلکولیٹ کیا جاتا ہے",
+  "ofTotalAmount": "میں سے {totalAmount}",
+  "expenseTitle": "خرچہ",
+  "amountPlaceholder": "رقم",
+  "noteOptional": "نوٹ (اختیاری)",
+  "memberName": "ممبر",
+  "youLabel": "آپ",
+  "unknownLabel": "؟",
+  "selectEllipsis": "منتخب کریں...",
+  "howItSCalculated": "اس کا حساب کیسے لگایا جاتا ہے"
 }

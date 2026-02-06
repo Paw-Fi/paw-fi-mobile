@@ -1990,5 +1990,17 @@
   "transactionsCount": "transactions",
   "noTransactionsRecorded": "No transactions recorded this month",
   "noExpensesDisplay": "No expenses to display",
-  "importInto": "Import into"
+  "importInto": "Import into",
+  "noSplitTransactionsFound": "No split transactions found",
+  "netSplitPosition": "Net split balance",
+  "howThisIsCalculated": "How this is calculated",
+  "ofTotalAmount": "of {totalAmount}",
+  "expenseTitle": "Expense",
+  "amountPlaceholder": "Amount",
+  "noteOptional": "Note (optional)",
+  "memberName": "Member",
+  "youLabel": "You",
+  "unknownLabel": "?",
+  "selectEllipsis": "Select...",
+  "howItSCalculated": "How it's calculated"
 }

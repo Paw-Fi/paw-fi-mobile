@@ -1971,5 +1971,17 @@
   "transactionsCount": "件の取引",
   "noTransactionsRecorded": "今月の取引はありません",
   "noExpensesDisplay": "表示する支出はありません",
-  "importInto": "インポート先"
+  "importInto": "インポート先",
+  "noSplitTransactionsFound": "分割取引が見つかりません",
+  "netSplitPosition": "精算バランス",
+  "howThisIsCalculated": "計算方法",
+  "ofTotalAmount": "/ {totalAmount}",
+  "expenseTitle": "支出",
+  "amountPlaceholder": "金額",
+  "noteOptional": "メモ（任意）",
+  "memberName": "メンバー",
+  "youLabel": "あなた",
+  "unknownLabel": "不明",
+  "selectEllipsis": "選択...",
+  "howItSCalculated": "計算の仕組み"
 }

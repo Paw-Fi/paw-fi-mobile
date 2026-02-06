@@ -1970,5 +1970,17 @@
   "transactionsCount": "giao dịch",
   "noTransactionsRecorded": "Không có giao dịch nào được ghi lại trong tháng này",
   "noExpensesDisplay": "Không có chi phí để hiển thị",
-  "importInto": "Nhập vào"
+  "importInto": "Nhập vào",
+  "noSplitTransactionsFound": "Không tìm thấy giao dịch chia tách",
+  "netSplitPosition": "Số dư chia tách",
+  "howThisIsCalculated": "Cách tính toán",
+  "ofTotalAmount": "trên {totalAmount}",
+  "expenseTitle": "Chi phí",
+  "amountPlaceholder": "Số tiền",
+  "noteOptional": "Ghi chú (tùy chọn)",
+  "memberName": "Thành viên",
+  "youLabel": "Bạn",
+  "unknownLabel": "Không xác định",
+  "selectEllipsis": "Chọn...",
+  "howItSCalculated": "Cách tính"
 }

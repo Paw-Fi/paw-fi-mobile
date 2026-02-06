@@ -1971,5 +1971,17 @@
   "transactionsCount": "Transaktionen",
   "noTransactionsRecorded": "Diesen Monat keine Transaktionen erfasst",
   "noExpensesDisplay": "Keine Ausgaben zum Anzeigen",
-  "importInto": "Import in"
+  "importInto": "Import in",
+  "noSplitTransactionsFound": "Keine Split-Transaktionen gefunden",
+  "netSplitPosition": "Netto-Split-Saldo",
+  "howThisIsCalculated": "So wird gerechnet",
+  "ofTotalAmount": "von {totalAmount}",
+  "expenseTitle": "Ausgabe",
+  "amountPlaceholder": "Betrag",
+  "noteOptional": "Notiz (optional)",
+  "memberName": "Mitglied",
+  "youLabel": "Du",
+  "unknownLabel": "?",
+  "selectEllipsis": "Auswählen...",
+  "howItSCalculated": "Berechnungsgrundlage"
 }

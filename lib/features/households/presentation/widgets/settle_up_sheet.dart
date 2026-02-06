@@ -567,13 +567,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       barrierDismissible: true,
       inputConfig: MonekoAlertDialogInputConfig(
         initialValue: formatAmount(maxCents / 100.0),
-        placeholder: 'Amount',
+        placeholder: context.l10n.amountPlaceholder,
         isRequired: false,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
       ),
       secondaryInputConfig: MonekoAlertDialogInputConfig(
         initialValue: _noteController.text,
-        placeholder: 'Note (optional)',
+        placeholder: context.l10n.noteOptional,
         isRequired: false,
         keyboardType: TextInputType.text,
       ),
@@ -768,7 +768,7 @@ class _ModernMemberSelector extends StatelessWidget {
           final m = members[index];
           final isSelected = m.userId == selectedId;
           final rawName = (m.userName ?? m.userEmail ?? '').trim();
-          final name = rawName.isEmpty ? 'Member' : rawName;
+          final name = rawName.isEmpty ? context.l10n.memberName : rawName;
           final initial = name.characters.first.toUpperCase();
 
           return GestureDetector(
@@ -928,9 +928,12 @@ class _AvatarNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = isMe ? 'You' : (member.userName ?? member.userEmail ?? '?');
-    final fallbackName =
-        member.userName ?? member.userEmail ?? (isMe ? 'You' : '?');
+    final label = isMe
+        ? context.l10n.you
+        : (member.userName ?? member.userEmail ?? context.l10n.unknownLabel);
+    final fallbackName = member.userName ??
+        member.userEmail ??
+        (isMe ? context.l10n.you : context.l10n.unknownLabel);
 
     return Column(
       children: [
@@ -973,7 +976,7 @@ class _AvatarNodePlaceholder extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Select...',
+          context.l10n.selectEllipsis,
           style: TextStyle(
             fontSize: 12,
             color: scheme.outline,
@@ -1054,7 +1057,7 @@ class _AmountDisplayCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'How it’s calculated',
+                        context.l10n.howItSCalculated,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,

@@ -84,14 +84,21 @@ class SettlementCalculationBreakdownPage extends StatelessWidget {
             title: '${context.l10n.youOwe} $memberDisplayName',
             currencyCode: currencyCode,
             rows: youOweRows,
-            emptyLabel: 'No split transactions found.',
+            emptyLabel: context.l10n.noSplitTransactionsFound,
           ),
           const SizedBox(height: 16),
           _BreakdownSection(
             title: '$memberDisplayName ${context.l10n.owesYou}',
             currencyCode: currencyCode,
             rows: theyOweRows,
-            emptyLabel: 'No split transactions found.',
+            emptyLabel: context.l10n.noSplitTransactionsFound,
+          ),
+          const SizedBox(height: 16),
+          _BreakdownSection(
+            title: '$memberDisplayName ${context.l10n.owesYou}',
+            currencyCode: currencyCode,
+            rows: theyOweRows,
+            emptyLabel: context.l10n.noSplitTransactionsFound,
           ),
         ],
       ),
@@ -198,7 +205,7 @@ class _SummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Net split position',
+            context.l10n.netSplitPosition,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -225,7 +232,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'How this is calculated',
+            context.l10n.howThisIsCalculated,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -234,7 +241,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${formatCurrency(youOweTotal / 100.0, currencyCode)} - ${formatCurrency(theyOweTotal / 100.0, currencyCode)} $settlementSign ${formatCurrency(settlementAdjustment.abs() / 100.0, currencyCode)} settlements = ${formatCurrency(finalSettleAmountCents / 100.0, currencyCode)}',
+            '${formatCurrency(youOweTotal / 100.0, currencyCode)} - ${formatCurrency(theyOweTotal / 100.0, currencyCode)} $settlementSign ${formatCurrency(settlementAdjustment.abs() / 100.0, currencyCode)} ${context.l10n.settlements} = ${formatCurrency(finalSettleAmountCents / 100.0, currencyCode)}',
             style: TextStyle(
               fontSize: 12,
               color: scheme.mutedForeground,
@@ -321,9 +328,10 @@ class _BreakdownSection extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: TransactionListTile(
-                  category: transaction.category ?? 'other',
-                  title:
-                      transaction.rawText ?? transaction.category ?? 'Expense',
+                  category: transaction.category ?? context.l10n.other,
+                  title: transaction.rawText ??
+                      transaction.category ??
+                      context.l10n.expense,
                   description: transaction.rawText,
                   date: transaction.date,
                   amount: row.splitAmountCents / 100.0,
@@ -334,7 +342,7 @@ class _BreakdownSection extends StatelessWidget {
                     existingExpense: transaction,
                   ),
                   trailingWidget: Text(
-                    'of $totalAmount',
+                    context.l10n.ofTotalAmount(totalAmount),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,

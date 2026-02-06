@@ -1918,5 +1918,17 @@
   "transactionsCount": "transacties",
   "noTransactionsRecorded": "Geen transacties geregistreerd deze maand",
   "noExpensesDisplay": "Geen uitgaven om weer te geven",
-  "importInto": "Importeren in"
+  "importInto": "Importeren in",
+  "noSplitTransactionsFound": "Geen gesplitste transacties gevonden",
+  "netSplitPosition": "Netto split-saldo",
+  "howThisIsCalculated": "Hoe dit wordt berekend",
+  "ofTotalAmount": "van {totalAmount}",
+  "expenseTitle": "Uitgave",
+  "amountPlaceholder": "Bedrag",
+  "noteOptional": "Notitie (optioneel)",
+  "memberName": "Lid",
+  "youLabel": "Jij",
+  "unknownLabel": "?",
+  "selectEllipsis": "Selecteer...",
+  "howItSCalculated": "Hoe het wordt berekend"
 }

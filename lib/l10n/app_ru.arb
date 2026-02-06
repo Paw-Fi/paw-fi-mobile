@@ -1921,5 +1921,17 @@
   "transactionsCount": "транзакций",
   "noTransactionsRecorded": "В этом месяце транзакций не зафиксировано",
   "noExpensesDisplay": "Нет расходов для отображения",
-  "importInto": "Импорт в"
+  "importInto": "Импорт в",
+  "noSplitTransactionsFound": "Сплит-транзакции не найдены",
+  "netSplitPosition": "Чистый баланс сплита",
+  "howThisIsCalculated": "Как это рассчитывается",
+  "ofTotalAmount": "из {totalAmount}",
+  "expenseTitle": "Расход",
+  "amountPlaceholder": "Сумма",
+  "noteOptional": "Заметка (необязательно)",
+  "memberName": "Участник",
+  "youLabel": "Вы",
+  "unknownLabel": "?",
+  "selectEllipsis": "Выбрать...",
+  "howItSCalculated": "Как это считается"
 }

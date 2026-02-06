@@ -1967,5 +1967,17 @@
   "transactionsCount": "笔交易",
   "noTransactionsRecorded": "本月无交易记录",
   "noExpensesDisplay": "无支出可显示",
-  "importInto": "导入至"
+  "importInto": "导入至",
+  "noSplitTransactionsFound": "未发现拆分交易",
+  "netSplitPosition": "拆分净额",
+  "howThisIsCalculated": "计算说明",
+  "ofTotalAmount": "共 {totalAmount}",
+  "expenseTitle": "支出",
+  "amountPlaceholder": "金额",
+  "noteOptional": "备注（选填）",
+  "memberName": "成员",
+  "youLabel": "你",
+  "unknownLabel": "未知",
+  "selectEllipsis": "请选择...",
+  "howItSCalculated": "计算方式"
 }

@@ -1918,5 +1918,17 @@
   "transactionsCount": "transazioni",
   "noTransactionsRecorded": "Nessuna transazione registrata questo mese",
   "noExpensesDisplay": "Nessuna spesa da visualizzare",
-  "importInto": "Importa in"
+  "importInto": "Importa in",
+  "noSplitTransactionsFound": "Nessuna transazione suddivisa trovata",
+  "netSplitPosition": "Saldo netto divisione",
+  "howThisIsCalculated": "Come viene calcolato",
+  "ofTotalAmount": "di {totalAmount}",
+  "expenseTitle": "Spesa",
+  "amountPlaceholder": "Importo",
+  "noteOptional": "Nota (opzionale)",
+  "memberName": "Membro",
+  "youLabel": "Tu",
+  "unknownLabel": "?",
+  "selectEllipsis": "Seleziona...",
+  "howItSCalculated": "Metodo di calcolo"
 }

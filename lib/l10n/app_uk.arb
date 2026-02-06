@@ -1963,5 +1963,17 @@
   "transactionsCount": "транзакцій",
   "noTransactionsRecorded": "Цього місяця транзакцій не зафіксовано",
   "noExpensesDisplay": "Немає витрат для відображення",
-  "importInto": "Імпорт в"
+  "importInto": "Імпорт в",
+  "noSplitTransactionsFound": "Розділених транзакцій не знайдено",
+  "netSplitPosition": "Підсумкова частка",
+  "howThisIsCalculated": "Як це розраховується",
+  "ofTotalAmount": "з {totalAmount}",
+  "expenseTitle": "Витрати",
+  "amountPlaceholder": "Сума",
+  "noteOptional": "Примітка (необов'язково)",
+  "memberName": "Учасник",
+  "youLabel": "Ви",
+  "unknownLabel": "?",
+  "selectEllipsis": "Вибрати...",
+  "howItSCalculated": "Як це рахується"
 }

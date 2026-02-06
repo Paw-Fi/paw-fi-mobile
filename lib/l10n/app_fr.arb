@@ -1971,5 +1971,17 @@
   "transactionsCount": "transactions",
   "noTransactionsRecorded": "Aucune transaction enregistrée ce mois-ci",
   "noExpensesDisplay": "Aucune dépense à afficher",
-  "importInto": "Importer dans"
+  "importInto": "Importer dans",
+  "noSplitTransactionsFound": "Aucune transaction fractionnée trouvée",
+  "netSplitPosition": "Solde net du partage",
+  "howThisIsCalculated": "Méthode de calcul",
+  "ofTotalAmount": "sur {totalAmount}",
+  "expenseTitle": "Dépense",
+  "amountPlaceholder": "Montant",
+  "noteOptional": "Note (optionnelle)",
+  "memberName": "Membre",
+  "youLabel": "Vous",
+  "unknownLabel": "?",
+  "selectEllipsis": "Sélectionner...",
+  "howItSCalculated": "Méthode de calcul"
 }
