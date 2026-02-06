@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -594,7 +596,7 @@ class HomeHeaderSliver extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding:  EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

@@ -853,7 +853,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final scrollView = CustomScrollView(
       slivers: [
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+         SliverToBoxAdapter(child: SizedBox(height: Platform.isAndroid ? 0 : 16)),
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
           const SliverToBoxAdapter(child: EditDashboardButton()),

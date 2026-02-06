@@ -87,8 +87,8 @@ class PlanOption {
   });
 
   String get periodDisplay {
-    if (billingInterval == 'monthly') return '/mo';
-    if (billingInterval == 'yearly') return '/yr';
+    if (billingInterval == 'monthly') return '/month';
+    if (billingInterval == 'yearly') return '/year';
     return 'once';
   }
 
@@ -1434,6 +1434,7 @@ class _AppleStylePlanCard extends StatelessWidget {
                           letterSpacing: -0.5,
                         ),
                       ),
+                      const SizedBox(width: 2),
                       Text(
                         plan.periodDisplay,
                         style: TextStyle(
