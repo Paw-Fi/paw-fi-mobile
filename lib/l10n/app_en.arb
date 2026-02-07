@@ -2044,5 +2044,11 @@
   "pocketsIntroBenefitTrack": "Track by category",
   "pocketsIntroBenefitLimit": "Never overspend",
   "pocketsIntroBenefitVisual": "Visual progress",
-  "pocketsIntroOrCustom": "or create a custom pocket"
+  "pocketsIntroOrCustom": "or create a custom pocket",
+  "orbitBubbleExpense1": "Lunch $12 at cafe",
+  "orbitBubbleExpense2": "Groceries $45",
+  "orbitBubbleExpense3": "Coffee $4.50",
+  "orbitBubbleInsight1": "Can I travel to Japan before June?",
+  "orbitBubbleInsight2": "On budget this month?",
+  "orbitBubbleInsight3": "How much on dining?"
 }

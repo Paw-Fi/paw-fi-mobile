@@ -2017,5 +2017,11 @@
   "pocketsIntroBenefitTrack": "Облік за категоріями",
   "pocketsIntroBenefitLimit": "Жодних зайвих витрат",
   "pocketsIntroBenefitVisual": "Наочний прогрес",
-  "pocketsIntroOrCustom": "або створіть власну кишеню"
+  "pocketsIntroOrCustom": "або створіть власну кишеню",
+  "orbitBubbleExpense1": "Обід 300 грн у кафе",
+  "orbitBubbleExpense2": "Продукти 1200 грн",
+  "orbitBubbleExpense3": "Кава 80 грн",
+  "orbitBubbleInsight1": "Чи можу я поїхати до Японії до червня?",
+  "orbitBubbleInsight2": "Я вписуюсь у бюджет цього місяця?",
+  "orbitBubbleInsight3": "Скільки витрачено на ресторани?"
 }

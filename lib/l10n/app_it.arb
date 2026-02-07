@@ -1972,5 +1972,11 @@
   "pocketsIntroBenefitTrack": "Monitora per categoria",
   "pocketsIntroBenefitLimit": "Controlla le spese",
   "pocketsIntroBenefitVisual": "Progressi visivi",
-  "pocketsIntroOrCustom": "o crea un pocket personalizzato"
+  "pocketsIntroOrCustom": "o crea un pocket personalizzato",
+  "orbitBubbleExpense1": "Pranzo 12 € al bar",
+  "orbitBubbleExpense2": "Spesa 45 €",
+  "orbitBubbleExpense3": "Caffè 4,50 €",
+  "orbitBubbleInsight1": "Posso viaggiare in Giappone prima di giugno?",
+  "orbitBubbleInsight2": "Sono nel budget questo mese?",
+  "orbitBubbleInsight3": "Quanto ho speso per mangiare fuori?"
 }

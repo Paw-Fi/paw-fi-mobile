@@ -1838,5 +1838,11 @@
   "pocketsIntroBenefitTrack": "카테고리별 관리",
   "pocketsIntroBenefitLimit": "과소비 방지",
   "pocketsIntroBenefitVisual": "한눈에 보이는 진행 상황",
-  "pocketsIntroOrCustom": "또는 직접 포켓 만들기"
+  "pocketsIntroOrCustom": "또는 직접 포켓 만들기",
+  "orbitBubbleExpense1": "카페에서 점심 12,000원",
+  "orbitBubbleExpense2": "식료품 45,000원",
+  "orbitBubbleExpense3": "커피 4,500원",
+  "orbitBubbleInsight1": "6월 전에 일본 여행 갈 수 있을까?",
+  "orbitBubbleInsight2": "이번 달 예산 괜찮아?",
+  "orbitBubbleInsight3": "외식비로 얼마나 썼어?"
 }

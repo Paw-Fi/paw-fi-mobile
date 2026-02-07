@@ -1975,5 +1975,11 @@
   "pocketsIntroBenefitTrack": "Учет по категориям",
   "pocketsIntroBenefitLimit": "Никаких лишних трат",
   "pocketsIntroBenefitVisual": "Наглядный прогресс",
-  "pocketsIntroOrCustom": "или создайте свой вариант"
+  "pocketsIntroOrCustom": "или создайте свой вариант",
+  "orbitBubbleExpense1": "Обед 800 ₽ в кафе",
+  "orbitBubbleExpense2": "Продукты 3500 ₽",
+  "orbitBubbleExpense3": "Кофе 350 ₽",
+  "orbitBubbleInsight1": "Я могу поехать в Японию до июня?",
+  "orbitBubbleInsight2": "Вписываюсь в бюджет?",
+  "orbitBubbleInsight3": "Сколько ушло на рестораны?"
 }

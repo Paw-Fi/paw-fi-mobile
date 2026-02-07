@@ -1969,5 +1969,11 @@
   "pocketsIntroBenefitTrack": "按分類追蹤",
   "pocketsIntroBenefitLimit": "防止過度消費",
   "pocketsIntroBenefitVisual": "進度一目了然",
-  "pocketsIntroOrCustom": "或者建立一個自定義口袋"
+  "pocketsIntroOrCustom": "或者建立一個自定義口袋",
+  "orbitBubbleExpense1": "午餐 12 元",
+  "orbitBubbleExpense2": "買菜 45 元",
+  "orbitBubbleExpense3": "買咖啡 4.50 元",
+  "orbitBubbleInsight1": "6月前我能去日本旅遊嗎？",
+  "orbitBubbleInsight2": "本月預算還夠嗎？",
+  "orbitBubbleInsight3": "外食花了多少錢？"
 }

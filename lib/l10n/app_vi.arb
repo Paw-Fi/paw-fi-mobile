@@ -2024,5 +2024,11 @@
   "pocketsIntroBenefitTrack": "Theo dõi theo danh mục",
   "pocketsIntroBenefitLimit": "Không bao giờ chi tiêu quá mức",
   "pocketsIntroBenefitVisual": "Tiến độ trực quan",
-  "pocketsIntroOrCustom": "hoặc tạo túi tùy chỉnh"
+  "pocketsIntroOrCustom": "hoặc tạo túi tùy chỉnh",
+  "orbitBubbleExpense1": "Ăn trưa 12$ ở quán cà phê",
+  "orbitBubbleExpense2": "Đi siêu thị 45$",
+  "orbitBubbleExpense3": "Cà phê 4.50$",
+  "orbitBubbleInsight1": "Có thể đi du lịch Nhật Bản trước tháng 6 không?",
+  "orbitBubbleInsight2": "Tháng này có chi đúng ngân sách không?",
+  "orbitBubbleInsight3": "Đã chi bao nhiêu cho ăn uống rồi?"
 }

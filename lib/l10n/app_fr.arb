@@ -2025,5 +2025,11 @@
   "pocketsIntroBenefitTrack": "Suivi par catégorie",
   "pocketsIntroBenefitLimit": "Ne dépassez plus votre budget",
   "pocketsIntroBenefitVisual": "Progression visuelle",
-  "pocketsIntroOrCustom": "ou créez une poche personnalisée"
+  "pocketsIntroOrCustom": "ou créez une poche personnalisée",
+  "orbitBubbleExpense1": "Déjeuner 12 € au café",
+  "orbitBubbleExpense2": "Courses 45 €",
+  "orbitBubbleExpense3": "Café 4,50 €",
+  "orbitBubbleInsight1": "Puis-je voyager au Japon avant juin ?",
+  "orbitBubbleInsight2": "Suis-je dans le budget ?",
+  "orbitBubbleInsight3": "Budget restaurant ?"
 }

@@ -2025,5 +2025,11 @@
   "pocketsIntroBenefitTrack": "Nach Kategorien tracken",
   "pocketsIntroBenefitLimit": "Nie mehr zu viel ausgeben",
   "pocketsIntroBenefitVisual": "Visueller Fortschritt",
-  "pocketsIntroOrCustom": "oder ein eigenes Pocket erstellen"
+  "pocketsIntroOrCustom": "oder ein eigenes Pocket erstellen",
+  "orbitBubbleExpense1": "Mittagessen 12 € im Café",
+  "orbitBubbleExpense2": "Lebensmittel 45 €",
+  "orbitBubbleExpense3": "Kaffee 4,50 €",
+  "orbitBubbleInsight1": "Kann ich vor Juni nach Japan reisen?",
+  "orbitBubbleInsight2": "Noch im Budget diesen Monat?",
+  "orbitBubbleInsight3": "Wie viel für Restaurantbesuche?"
 }

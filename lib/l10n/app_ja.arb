@@ -2025,5 +2025,11 @@
   "pocketsIntroBenefitTrack": "カテゴリー別に管理",
   "pocketsIntroBenefitLimit": "使いすぎを防止",
   "pocketsIntroBenefitVisual": "進捗をグラフで確認",
-  "pocketsIntroOrCustom": "または自分専用のポケットを作る"
+  "pocketsIntroOrCustom": "または自分専用のポケットを作る",
+  "orbitBubbleExpense1": "カフェでランチ 1200円",
+  "orbitBubbleExpense2": "食料品 4500円",
+  "orbitBubbleExpense3": "コーヒー 450円",
+  "orbitBubbleInsight1": "6月までに日本旅行に行けるかな？",
+  "orbitBubbleInsight2": "今月は予算内に収まってる？",
+  "orbitBubbleInsight3": "外食にいくら使った？"
 }

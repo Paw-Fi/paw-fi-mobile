@@ -2021,5 +2021,11 @@
   "pocketsIntroBenefitTrack": "按分类追踪",
   "pocketsIntroBenefitLimit": "防止过度消费",
   "pocketsIntroBenefitVisual": "进度一目了然",
-  "pocketsIntroOrCustom": "或者创建一个自定义口袋"
+  "pocketsIntroOrCustom": "或者创建一个自定义口袋",
+  "orbitBubbleExpense1": "午餐 12 元",
+  "orbitBubbleExpense2": "买菜 45 元",
+  "orbitBubbleExpense3": "买咖啡 4.50 元",
+  "orbitBubbleInsight1": "6月前我能去日本旅游吗？",
+  "orbitBubbleInsight2": "本月预算还够吗？",
+  "orbitBubbleInsight3": "外食花了多少钱？"
 }

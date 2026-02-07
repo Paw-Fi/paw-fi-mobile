@@ -2027,5 +2027,11 @@
   "pocketsIntroBenefitTrack": "Control por categoría",
   "pocketsIntroBenefitLimit": "No gastes de más",
   "pocketsIntroBenefitVisual": "Progreso visual",
-  "pocketsIntroOrCustom": "o crea un bolsillo personalizado"
+  "pocketsIntroOrCustom": "o crea un bolsillo personalizado",
+  "orbitBubbleExpense1": "Almuerzo $12 en la cafetería",
+  "orbitBubbleExpense2": "Mercado $45",
+  "orbitBubbleExpense3": "Café $4.50",
+  "orbitBubbleInsight1": "¿Puedo viajar a Japón antes de junio?",
+  "orbitBubbleInsight2": "¿Sigo en presupuesto?",
+  "orbitBubbleInsight3": "¿Cuánto gasté en restaurantes?"
 }

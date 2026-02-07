@@ -1972,5 +1972,11 @@
   "pocketsIntroBenefitTrack": "Volg per categorie",
   "pocketsIntroBenefitLimit": "Nooit meer te veel uitgeven",
   "pocketsIntroBenefitVisual": "Visuele voortgang",
-  "pocketsIntroOrCustom": "of maak een eigen pocket"
+  "pocketsIntroOrCustom": "of maak een eigen pocket",
+  "orbitBubbleExpense1": "Lunch €12 bij het café",
+  "orbitBubbleExpense2": "Boodschappen €45",
+  "orbitBubbleExpense3": "Koffie €4,50",
+  "orbitBubbleInsight1": "Kan ik voor juni naar Japan reizen?",
+  "orbitBubbleInsight2": "Blijf ik binnen mijn budget?",
+  "orbitBubbleInsight3": "Hoeveel aan uit eten uitgegeven?"
 }
