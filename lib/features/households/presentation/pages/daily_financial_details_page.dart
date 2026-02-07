@@ -153,22 +153,45 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...dailyTransactions.map((t) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: TransactionListTile(
-                            category: t.category ?? 'Uncategorized',
-                            title: t.rawText ?? t.category ?? 'Transaction',
-                            amount: t.amountCents.abs() / 100.0,
-                            currency: t.currency ?? currency,
-                            isIncome:
-                                (t.type ?? 'expense').toLowerCase() == 'income',
-                            date: t.date,
-                            onTap: () {
-                              showUnifiedTransactionSheet(
-                                context,
-                                existingExpense: t,
-                              );
-                            },
+                    ...dailyTransactions.map((t) => Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: colorScheme.homeCardSurface,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: colorScheme.homeCardBorder,
+                              width: 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 32,
+                                offset: const Offset(0, 8),
+                                spreadRadius: -4,
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: colorScheme.surface.withValues(alpha: 0.0),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 3),
+                              child: TransactionListTile(
+                                category: t.category ?? 'Uncategorized',
+                                title: t.rawText ?? t.category ?? 'Transaction',
+                                amount: t.amountCents.abs() / 100.0,
+                                currency: t.currency ?? currency,
+                                isIncome: (t.type ?? 'expense').toLowerCase() ==
+                                    'income',
+                                date: t.date,
+                                onTap: () {
+                                  showUnifiedTransactionSheet(
+                                    context,
+                                    existingExpense: t,
+                                  );
+                                },
+                              ),
+                            ),
                           ),
                         )),
                     const SizedBox(height: 24),

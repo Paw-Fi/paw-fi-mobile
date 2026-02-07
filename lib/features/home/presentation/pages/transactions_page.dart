@@ -682,8 +682,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required bool isLast,
   }) {
     final radius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(10) : Radius.zero,
-      bottom: isLast ? const Radius.circular(10) : Radius.zero,
+      top: isFirst ? const Radius.circular(24) : Radius.zero,
+      bottom: isLast ? const Radius.circular(24) : Radius.zero,
     );
     final shouldShadow = isFirst || isLast;
 
@@ -691,16 +691,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       margin: EdgeInsets.fromLTRB(16, 0, 16, isLast ? 16 : 0),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.homeCardSurface,
         borderRadius: radius,
         boxShadow:
             Theme.of(context).brightness == Brightness.dark || !shouldShadow
                 ? null
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+                      color: colorScheme.homeCardShadow,
+                      blurRadius: 32,
+                      offset: const Offset(0, 8),
+                      spreadRadius: -4,
                     )
                   ],
       ),
@@ -751,8 +752,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         failCount = payload?['failedCount'] as int? ?? _selectedIds.length;
         successCount = payload?['deletedCount'] as int? ?? 0;
       } else {
-        successCount = payload?['deletedCount'] as int? ?? _selectedIds.length;
-        failCount = payload?['failedCount'] as int? ?? 0;
+        successCount = payload['deletedCount'] as int? ?? _selectedIds.length;
+        failCount = payload['failedCount'] as int? ?? 0;
       }
     } catch (e) {
       debugPrint('Error deleting transactions: $e');
@@ -838,8 +839,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       }
     } catch (e) {
       if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
-      if (mounted)
+      if (mounted) {
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
+      }
     }
   }
 

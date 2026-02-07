@@ -41,7 +41,7 @@ class DashboardTransactionsList extends StatelessWidget {
       return DashboardSectionCard(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Text(
             context.l10n.noTransactionsYet,
             style: TextStyle(
@@ -74,7 +74,7 @@ class DashboardTransactionsList extends StatelessWidget {
             : accountLabel.trim().isNotEmpty && accountLabel != 'Personal';
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
           child: TransactionListTile(
             category: categoryId,
             title: tx.entry.rawText ?? categoryName,

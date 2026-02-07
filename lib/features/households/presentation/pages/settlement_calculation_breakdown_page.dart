@@ -195,11 +195,19 @@ class _SummaryCard extends StatelessWidget {
             : context.l10n.nothingToSettle;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: scheme.cardSurface,
-        borderRadius: BorderRadius.circular(18),
+        color: scheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: scheme.homeCardBorder, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

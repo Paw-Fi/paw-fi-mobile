@@ -33,71 +33,75 @@ class DashboardSpaceCard extends StatelessWidget {
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: colorScheme.surfaceBorder,
-          width: 0.5,
+          color: colorScheme.homeCardBorder,
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: colorScheme.homeCardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
         ],
       ),
       child: Material(
         color: colorScheme.surface.withValues(alpha: 0.0),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(20,12,20,0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: coverImageUrl != null
-                          ? MonekoAvatar.network(
-                              size: 32,
-                              fallbackIcon: Icons.workspaces_rounded,
-                              imageUrl: coverImageUrl!,
-                            )
-                          : Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color:
-                                    colorScheme.primary.withValues(alpha: 0.1),
-                                shape: BoxShape.circle,
+               Transform.translate(
+                   offset: const Offset(-8, 0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: coverImageUrl != null
+                            ? MonekoAvatar.network(
+                                size: 32,
+                                fallbackIcon: Icons.workspaces_rounded,
+                                imageUrl: coverImageUrl!,
+                              )
+                            : Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color:
+                                      colorScheme.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.workspaces_rounded,
+                                  size: 20,
+                                  color: colorScheme.primary,
+                                ),
                               ),
-                              child: Icon(
-                                Icons.workspaces_rounded,
-                                size: 20,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        spaceName,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          spaceName,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildRow(context, context.l10n.income, income,

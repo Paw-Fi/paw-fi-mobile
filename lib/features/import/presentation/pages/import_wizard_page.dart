@@ -16,7 +16,6 @@ import 'package:moneko/features/import/presentation/state/import_wizard_state.da
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/main_page_top_padding.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -786,7 +785,7 @@ class _PreviewStep extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
-              constraints: BoxConstraints(
+              constraints: const BoxConstraints(
                 maxWidth: 150,
               ),
               child: Text(
@@ -937,17 +936,22 @@ class _TransactionPreviewTile extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: scheme.card,
+        color: scheme.homeCardSurface,
         borderRadius: BorderRadius.vertical(
-          top: isFirst ? const Radius.circular(10) : Radius.zero,
-          bottom: isLast ? const Radius.circular(10) : Radius.zero,
+          top: isFirst ? const Radius.circular(24) : Radius.zero,
+          bottom: isLast ? const Radius.circular(24) : Radius.zero,
+        ),
+        border: Border.all(
+          color: scheme.homeCardBorder,
+          width: 1,
         ),
         boxShadow: isLight
             ? [
                 BoxShadow(
-                  color: scheme.shadow.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+                  color: scheme.homeCardShadow,
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -4,
                 ),
               ]
             : null,
@@ -956,7 +960,7 @@ class _TransactionPreviewTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
             child: TransactionListTile(
               category: row.category ?? 'uncategorized',
               title: row.description?.isNotEmpty == true

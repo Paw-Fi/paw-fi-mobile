@@ -699,8 +699,8 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color: colorScheme.cardSurface,
-            borderRadius: BorderRadius.circular(20),
+            color: colorScheme.homeCardSurface,
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: colorScheme.homeCardBorder,
               width: 1,
@@ -708,14 +708,14 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
             boxShadow: [
               BoxShadow(
                 color: colorScheme.homeCardShadow,
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-                spreadRadius: -2,
+                blurRadius: 32,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Column(
               children: expenses.mapIndexed((index, expense) {
                 final isLast = index == expenses.length - 1;

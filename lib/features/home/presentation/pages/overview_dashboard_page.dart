@@ -570,7 +570,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                           title: context.l10n.spendingBreakdown,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(24),
                               child: DashboardPieChart(
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
@@ -594,7 +594,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               ),
                             ),
                             child: Padding(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(24),
                               child: DashboardTrendChart(
                                 transactions: myExpenseTransactions,
                                 amountResolver: resolveCachedExpenseAmount,
@@ -788,27 +788,32 @@ class _DashboardGroup extends StatelessWidget {
       children: [
         if (title.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            padding: const EdgeInsets.only(left: 24, bottom: 8),
             child: Text(
               title.toUpperCase(),
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: colorScheme.mutedForeground,
-                letterSpacing: -0.2,
+                letterSpacing: 1.0,
               ),
             ),
           ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: colorScheme.card,
-            borderRadius: BorderRadius.circular(10),
+            color: colorScheme.homeCardSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: colorScheme.homeCardBorder,
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: colorScheme.homeCardShadow,
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+                blurRadius: 32,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
               ),
             ],
           ),
@@ -857,7 +862,7 @@ class _DashboardTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
             children: [
               if (icon != null || customIcon != null) ...[
@@ -933,7 +938,7 @@ class _DashboardTile extends StatelessWidget {
 
 class _Divider extends StatelessWidget {
   final double indent;
-  const _Divider({this.indent = 56});
+  const _Divider({this.indent = 76});
 
   @override
   Widget build(BuildContext context) {

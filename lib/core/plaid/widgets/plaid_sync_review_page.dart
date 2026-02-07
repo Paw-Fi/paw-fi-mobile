@@ -167,55 +167,76 @@ class _MonthSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
-      color: colorScheme.card,
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: AdaptiveExpansionTile(
-        iconColor: colorScheme.mutedForeground,
-        collapsedIconColor: colorScheme.mutedForeground,
-        initiallyExpanded: true,
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: colorScheme.foreground,
-          ),
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
         ),
-        children: [
-          for (final tx in transactions)
-            Slidable(
-              key: ValueKey(tx.expense.id),
-              endActionPane: ActionPane(
-                motion: const ScrollMotion(),
-                extentRatio: 0.22,
-                children: [
-                  SlidableAction(
-                    onPressed: (_) => onDelete(tx),
-                    backgroundColor: colorScheme.destructive,
-                    foregroundColor: colorScheme.onError,
-                    icon: Icons.delete,
-                    label: context.l10n.delete,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ],
-              ),
-              child: TransactionListTile(
-                onTap: () => onEdit(tx),
-                category: tx.expense.category ?? 'other',
-                title: getCategoryTranslation(
-                    context, tx.expense.category ?? 'other'),
-                description: tx.expense.rawText,
-                date: tx.expense.date,
-                amount: tx.expense.amount,
-                currency: tx.expense.currency ?? 'USD',
-                isIncome:
-                    (tx.expense.type ?? 'expense').toLowerCase() == 'income',
-              ),
-            ),
-          const SizedBox(height: 8),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
         ],
+      ),
+      child: Material(
+        color: colorScheme.surface.withValues(alpha: 0.0),
+        borderRadius: BorderRadius.circular(24),
+        clipBehavior: Clip.antiAlias,
+        child: AdaptiveExpansionTile(
+          iconColor: colorScheme.mutedForeground,
+          collapsedIconColor: colorScheme.mutedForeground,
+          initiallyExpanded: true,
+          title: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          children: [
+            for (final tx in transactions)
+              Slidable(
+                key: ValueKey(tx.expense.id),
+                endActionPane: ActionPane(
+                  motion: const ScrollMotion(),
+                  extentRatio: 0.22,
+                  children: [
+                    SlidableAction(
+                      onPressed: (_) => onDelete(tx),
+                      backgroundColor: colorScheme.destructive,
+                      foregroundColor: colorScheme.onError,
+                      icon: Icons.delete,
+                      label: context.l10n.delete,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TransactionListTile(
+                    onTap: () => onEdit(tx),
+                    category: tx.expense.category ?? 'other',
+                    title: getCategoryTranslation(
+                        context, tx.expense.category ?? 'other'),
+                    description: tx.expense.rawText,
+                    date: tx.expense.date,
+                    amount: tx.expense.amount,
+                    currency: tx.expense.currency ?? 'USD',
+                    isIncome:
+                        (tx.expense.type ?? 'expense').toLowerCase() == 'income',
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

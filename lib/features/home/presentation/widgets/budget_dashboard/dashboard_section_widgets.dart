@@ -17,7 +17,7 @@ class DashboardSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -28,9 +28,9 @@ class DashboardSectionHeader extends StatelessWidget {
                 Text(
                   title.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
+                    letterSpacing: 1.0,
                     color: colorScheme.mutedForeground,
                   ),
                 ),
@@ -84,29 +84,30 @@ class DashboardSectionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: colorScheme.homeCardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
           ),
         ],
       ),
       child: Material(
-        color: colorScheme.card,
+        color: colorScheme.homeCardSurface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(
-            color: colorScheme.surfaceBorder,
-            width: 0.5,
+            color: colorScheme.homeCardBorder,
+            width: 1,
           ),
         ),
         clipBehavior: Clip.antiAlias,
         elevation: 0,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(24),
           child: content,
         ),
       ),
@@ -118,7 +119,7 @@ class DashboardSectionCard extends StatelessWidget {
     final divider = Divider(
       height: 1,
       thickness: 0.5,
-      indent: 56,
+      indent: 76,
       color: colorScheme.border.withValues(alpha: 0.2),
     );
 
@@ -202,7 +203,7 @@ class DashboardListTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
