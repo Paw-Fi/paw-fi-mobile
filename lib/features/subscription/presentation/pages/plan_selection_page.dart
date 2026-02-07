@@ -118,7 +118,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // View State
-    final selectedPlanId = useState<String>('lifetime');
+    final selectedPlanId = useState<String>('plus_monthly');
     final hasAcknowledgedAutoRenew = useState(false);
     final isStripeProcessing = useState(false);
     final processingDialogOpen = useState(false);
@@ -431,7 +431,17 @@ class PlanSelectionPage extends HookConsumerWidget {
           isPopular: p.isPopular,
           badgeText: p.badgeText,
         );
-      }).toList();
+      }).toList()
+        ..sort((a, b) {
+          const order = {'monthly': 0, 'yearly': 1};
+          final aOrder = a.billingInterval != null
+              ? (order[a.billingInterval] ?? 2)
+              : 2;
+          final bOrder = b.billingInterval != null
+              ? (order[b.billingInterval] ?? 2)
+              : 2;
+          return aOrder.compareTo(bOrder);
+        });
     } else {
       // Android remains Stripe checkout (web) for now.
       plans = const [
@@ -474,26 +484,6 @@ class PlanSelectionPage extends HookConsumerWidget {
         selectedPlanId.value = plans.first.id;
       }
 
-      if (mode == PlanSelectionMode.trial && currentPlanId == 'free') {
-        final monthly = plans
-            .where((p) =>
-                p.serverPlanId == 'plus' && p.billingInterval == 'monthly')
-            .toList();
-        final yearly = plans
-            .where((p) =>
-                p.serverPlanId == 'plus' && p.billingInterval == 'yearly')
-            .toList();
-        final firstRecurring = (monthly.isNotEmpty
-                ? monthly.first
-                : yearly.isNotEmpty
-                    ? yearly.first
-                    : null) ??
-            plans.first;
-
-        selectedPlanId.value = firstRecurring.id;
-        return null;
-      }
-
       if (currentPlanId == 'lifetime') {
         selectedPlanId.value = 'lifetime';
       } else if (currentPlanId == 'plus') {
@@ -501,6 +491,15 @@ class PlanSelectionPage extends HookConsumerWidget {
           selectedPlanId.value = 'plus_monthly';
         } else {
           selectedPlanId.value = 'plus_yearly';
+        }
+      } else {
+        // Free user (both trial and resubscribe): default to monthly
+        final monthly = plans
+            .where((p) =>
+                p.serverPlanId == 'plus' && p.billingInterval == 'monthly')
+            .toList();
+        if (monthly.isNotEmpty) {
+          selectedPlanId.value = monthly.first.id;
         }
       }
       return null;
@@ -998,35 +997,16 @@ class PlanSelectionPage extends HookConsumerWidget {
                         title: Text(
                           mode == PlanSelectionMode.trial
                               ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                              : 'Payment will be charged to your Apple ID account at confirmation of purchase. Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
+                              : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
                           style: TextStyle(
                             color: colorScheme.mutedForeground,
                             fontSize: 13,
                             height: 1.35,
                           ),
                         ),
-                        subtitle: Text(
-                          'You can cancel anytime in Settings.',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground
-                                .withValues(alpha: 0.85),
-                            fontSize: 12,
-                          ),
-                        ),
+          
                       ),
-                      if (!canConfirmAutoRenew) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Please check the box above to continue.',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
+                   
                       const SizedBox(height: 12),
                     ],
                     PrimaryAdaptiveButton(

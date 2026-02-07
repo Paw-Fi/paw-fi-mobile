@@ -57,11 +57,13 @@ class SubscriptionProductsNotifier
 
     final data = response.data as Map<String, dynamic>?;
     final list = (data?['products'] as List?) ?? const [];
-    return list
+    final products = list
         .map((e) => SubscriptionProduct.fromJson(
               Map<String, dynamic>.from(e as Map),
             ))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    return products;
   }
 
   Future<void> refresh() async {
@@ -86,17 +88,17 @@ class SubscriptionProductsNotifier
 
 const _fallbackIosProducts = <SubscriptionProduct>[
   SubscriptionProduct(
-    id: 'fallback_lifetime_ios',
+    id: 'fallback_plus_monthly_ios',
     platform: 'ios',
-    plan: 'lifetime',
-    billingInterval: null,
-    storeProductId: 'lifetime_earlybird',
-    displayName: 'Lifetime',
-    tagline: 'Pay once, own it forever.',
-    badgeText: 'LIMITED',
+    plan: 'plus',
+    billingInterval: 'monthly',
+    storeProductId: 'monthly',
+    displayName: 'Monthly',
+    tagline: 'Flexible. Cancel anytime.',
+    badgeText: null,
     isPopular: false,
-    displayPriceUsd: 39.99,
-    originalPriceUsd: null,
+    displayPriceUsd: 5.99,
+    originalPriceUsd: 7.99,
     sortOrder: 0,
   ),
   SubscriptionProduct(
@@ -114,17 +116,17 @@ const _fallbackIosProducts = <SubscriptionProduct>[
     sortOrder: 10,
   ),
   SubscriptionProduct(
-    id: 'fallback_plus_monthly_ios',
+    id: 'fallback_lifetime_ios',
     platform: 'ios',
-    plan: 'plus',
-    billingInterval: 'monthly',
-    storeProductId: 'monthly',
-    displayName: 'Monthly',
-    tagline: 'Flexible. Cancel anytime.',
-    badgeText: null,
+    plan: 'lifetime',
+    billingInterval: null,
+    storeProductId: 'lifetime_earlybird',
+    displayName: 'Lifetime',
+    tagline: 'Pay once, own it forever.',
+    badgeText: 'LIMITED',
     isPopular: false,
-    displayPriceUsd: 5.99,
-    originalPriceUsd: 7.99,
+    displayPriceUsd: 39.99,
+    originalPriceUsd: null,
     sortOrder: 20,
   ),
 ];
