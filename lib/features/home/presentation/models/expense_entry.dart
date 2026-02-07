@@ -1,4 +1,8 @@
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
+
+String? _sanitizeNullable(String? value) =>
+    value == null ? null : sanitizeUtf16(value);
 
 /// Represents a single transaction from expenses table (type = 'expense' or 'income')
 class ExpenseEntry {
@@ -77,19 +81,21 @@ class ExpenseEntry {
       id: stringOrEmpty(json['id']),
       contactId: json['contact_id'] as String?,
       userId: json['user_id'] as String?,
-      userName: userData?['full_name'] as String?,
+      userName: _sanitizeNullable(userData?['full_name'] as String?),
       userAvatarUrl: userData?['avatar_url'] as String?,
       householdId: json['household_id'] as String?,
       date: parseDate(json['date']),
       amountCents: parseAmountCents(json['amount_cents']),
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
-      category: json['category'] as String?,
+      category: _sanitizeNullable(json['category'] as String?),
       createdAt: parseDate(json['created_at']),
       updatedAt:
           json['updated_at'] != null ? parseDate(json['updated_at']) : null,
-      rawText: json['raw_text'] as String?,
+      rawText: _sanitizeNullable(json['raw_text'] as String?),
       breakdown: json['breakdown'] != null
-          ? List<String>.from(json['breakdown'] as List)
+          ? (json['breakdown'] as List)
+              .map((e) => sanitizeUtf16(e.toString()))
+              .toList()
           : null,
       receiptImageUrl: json['receipt_image_url'] as String?,
       sharedMemberIds: json['shared_member_ids'] != null

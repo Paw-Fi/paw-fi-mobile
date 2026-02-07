@@ -1948,5 +1948,10 @@
   "aiPromptExample1": "Pranzo 15,00€ oggi in Trattoria",
   "aiPromptExample2": "Spesa 42,10€ ieri al Conad",
   "aiPromptExample3": "Taxi 12€ diviso tra corsa e mancia",
-  "aiCapabilitiesHint": "Compiliamo automaticamente data, categoria, valuta e persino i dettagli quando disponibili."
+  "aiCapabilitiesHint": "Compiliamo automaticamente data, categoria, valuta e persino i dettagli quando disponibili.",
+  "deleteEntireSeries": "Elimina intera serie",
+  "skipNextOccurrence": "Salta il prossimo pagamento",
+  "deleteRecurringChoiceDescription": "Vuoi saltare solo la prossima scadenza o eliminare l'intera serie ricorrente?",
+  "occurrenceSkipped": "Prossimo pagamento saltato",
+  "last7Days": "Ultimi 7 giorni"
 }

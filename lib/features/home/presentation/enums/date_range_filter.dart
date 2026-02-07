@@ -29,7 +29,7 @@ extension DateRangeFilterExtension on DateRangeFilter {
       case DateRangeFilter.lastWeek:
         return l10n.lastWeek;
       case DateRangeFilter.last7Days:
-        return "Last 7 days";
+        return l10n.last7Days;
       case DateRangeFilter.thisMonth:
         return l10n.thisMonth;
       case DateRangeFilter.lastMonth:
@@ -57,7 +57,7 @@ extension DateRangeFilterExtension on DateRangeFilter {
       case DateRangeFilter.lastWeek:
         return l10n.spentLastWeek;
       case DateRangeFilter.last7Days:
-        return 'Spent (Last 7 days)';
+        return '${l10n.spent} (${l10n.last7Days})';
       case DateRangeFilter.thisMonth:
         return l10n.spentThisMonth;
       case DateRangeFilter.lastMonth:

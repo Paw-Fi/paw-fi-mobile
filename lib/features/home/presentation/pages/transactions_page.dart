@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -28,6 +29,9 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -57,6 +61,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
 
+  // Date Filter State
+  DateRangeFilter _selectedDateFilter = DateRangeFilter.last7Days;
+  DateTime? _customStart;
+  DateTime? _customEnd;
+
   // Selection Mode State
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
@@ -77,9 +86,25 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
-    // Always exclude recurring templates from the transactions list.
+    // Exclude recurring templates from the transactions list.
     // Also copy to avoid mutating the base list when sorting.
     var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
+
+    // Merge projected recurring entries
+    final recurringState = ref.watch(
+      recurringTransactionsProvider(widget.householdId),
+    );
+    recurringState.data.whenData((recurringTxs) {
+      if (recurringTxs.isNotEmpty) {
+        final projected = projectRecurringTransactionsAsExpenseEntries(
+          recurringTransactions: recurringTxs,
+          rangeStart: DateTime(2000),
+          rangeEnd: DateTime.now(),
+          selectedCurrency: filterState.selectedCurrency,
+        );
+        expenses = [...expenses, ...projected];
+      }
+    });
 
     // Filter by the currently selected account (personal vs private space vs shared space)
     // unless this page was explicitly opened for a specific householdId.
@@ -136,6 +161,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       expenses = expenses.where((e) {
         final t = (e.type ?? 'expense').toLowerCase();
         return t == selectedType;
+      }).toList();
+    }
+
+    // Filter by date range
+    if (_selectedDateFilter != DateRangeFilter.allTime) {
+      final range = getDateRangeFromFilter(
+        _selectedDateFilter,
+        _customStart,
+        _customEnd,
+      );
+      final from = range['from']!;
+      final to = range['to']!;
+      final toEndOfDay = DateTime(to.year, to.month, to.day, 23, 59, 59);
+      expenses = expenses.where((e) {
+        final d = DateTime(e.date.year, e.date.month, e.date.day);
+        return !d.isBefore(from) && !d.isAfter(toEndOfDay);
       }).toList();
     }
 
@@ -216,19 +257,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ColorScheme colorScheme, UserContact? contact) {
     final expensesToExport = filteredExpenses;
 
-    final groups = groupTransactionsByMonth(expensesToExport);
-    final listItems = <_MonthListItem>[];
-    for (final group in groups) {
-      listItems.add(_MonthListItem.header(group));
-      for (var i = 0; i < group.expenses.length; i++) {
-        listItems.add(
-          _MonthListItem.entry(
-            group: group,
-            expense: group.expenses[i],
-            isFirst: i == 0,
-            isLast: i == group.expenses.length - 1,
-          ),
-        );
+    final monthGroups = groupTransactionsByMonth(expensesToExport);
+    final listItems = <_TransactionListItem>[];
+    for (final month in monthGroups) {
+      listItems.add(_TransactionListItem.monthHeader(month));
+      final dayGroups = groupTransactionsByDay(month.expenses);
+      for (final day in dayGroups) {
+        listItems.add(_TransactionListItem.dayHeader(day));
+        for (var i = 0; i < day.expenses.length; i++) {
+          listItems.add(
+            _TransactionListItem.entry(
+              expense: day.expenses[i],
+              isFirst: i == 0,
+              isLast: i == day.expenses.length - 1,
+            ),
+          );
+        }
       }
     }
 
@@ -388,6 +432,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
               ),
 
+              // Date Filter Chips
+              SliverToBoxAdapter(
+                child: _buildDateFilterChips(colorScheme),
+              ),
+
               // Chart Display
               SliverToBoxAdapter(
                 child: Padding(
@@ -431,10 +480,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final item = listItems[index];
-                          if (item.isHeader) {
+                          if (item.isMonthHeader) {
                             return _buildMonthHeader(
                               context,
-                              item.group,
+                              item.monthGroup!,
+                              colorScheme,
+                            );
+                          }
+                          if (item.isDayHeader) {
+                            return _buildDayHeader(
+                              context,
+                              item.dayGroup!,
                               colorScheme,
                             );
                           }
@@ -531,6 +587,87 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 letterSpacing: -0.2,
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayHeader(
+    BuildContext context,
+    DayTransactionGroup group,
+    ColorScheme colorScheme,
+  ) {
+    final now = DateTime.now();
+    final date = group.date;
+    String dateLabel;
+
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      dateLabel = context.l10n.today;
+    } else if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day - 1) {
+      dateLabel = context.l10n.yesterday;
+    } else {
+      final locale = Localizations.localeOf(context).toString();
+      dateLabel = DateFormat('MMM d', locale).format(date);
+    }
+
+    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final currencies = group.expenses
+        .map((e) => e.currency?.toUpperCase())
+        .where((c) => c != null && c.isNotEmpty)
+        .cast<String>()
+        .toSet();
+
+    String? totalString;
+    if (selectedCurrency != null) {
+      final totalFormatted =
+          formatLocalizedNumber(context, group.total.abs());
+      final symbol = resolveCurrencySymbol(selectedCurrency);
+      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    } else if (currencies.length == 1) {
+      final currency = currencies.first;
+      final totalFormatted =
+          formatLocalizedNumber(context, group.total.abs());
+      final symbol = resolveCurrencySymbol(currency);
+      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+    } else if (currencies.length > 1) {
+      totalString = context.l10n.multipleCurrencies;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+      child: Row(
+        children: [
+          Text(
+            dateLabel,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colorScheme.outline.withValues(alpha: 0.15),
+            ),
+          ),
+          if (totalString != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              totalString,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -704,6 +841,99 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       if (mounted)
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
     }
+  }
+
+  Widget _buildDateFilterChips(ColorScheme colorScheme) {
+    const filters = [
+      DateRangeFilter.last7Days,
+      DateRangeFilter.today,
+      DateRangeFilter.yesterday,
+      DateRangeFilter.thisWeek,
+      DateRangeFilter.lastWeek,
+      DateRangeFilter.thisMonth,
+      DateRangeFilter.last30Days,
+      DateRangeFilter.thisYear,
+      DateRangeFilter.allTime,
+      DateRangeFilter.custom,
+    ];
+
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = _selectedDateFilter == filter;
+
+          String label;
+          if (filter == DateRangeFilter.custom &&
+              _customStart != null &&
+              _customEnd != null &&
+              isSelected) {
+            final fmt = DateFormat('MMM d');
+            label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+          } else {
+            label = filter.getLabel(context);
+          }
+
+          return GestureDetector(
+            onTap: () async {
+              if (filter == DateRangeFilter.custom) {
+                final result = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                  initialDateRange: _customStart != null && _customEnd != null
+                      ? DateTimeRange(start: _customStart!, end: _customEnd!)
+                      : null,
+                );
+                if (result != null) {
+                  setState(() {
+                    _selectedDateFilter = DateRangeFilter.custom;
+                    _customStart = result.start;
+                    _customEnd = result.end;
+                  });
+                }
+              } else {
+                setState(() {
+                  _selectedDateFilter = filter;
+                  _customStart = null;
+                  _customEnd = null;
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.border.withValues(alpha: 0.4),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected
+                      ? colorScheme.primaryForeground
+                      : colorScheme.foreground,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildChart(
@@ -1137,10 +1367,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         expense.userId == currentUserId;
 
     final isSelected = _selectedIds.contains(expense.id);
+    final isProjectedRecurring = expense.id.startsWith('recurring_');
 
     return Slidable(
       key: ValueKey(expense.id),
-      enabled: !_isSelectionMode,
+      enabled: !_isSelectionMode && !isProjectedRecurring,
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
         extentRatio: 0.22,
@@ -1162,6 +1393,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         child: InkWell(
           onTap: () {
             if (_isSelectionMode) {
+              if (isProjectedRecurring) return;
               setState(() {
                 if (isSelected) {
                   _selectedIds.remove(expense.id);
@@ -1170,11 +1402,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 }
               });
             } else {
-              showUnifiedTransactionSheet(context,
-                  existingExpense: expense, contact: contact);
+              if (!isProjectedRecurring) {
+                showUnifiedTransactionSheet(context,
+                    existingExpense: expense, contact: contact);
+              }
             }
           },
           onLongPress: () {
+            if (isProjectedRecurring) return;
             if (_isSelectionMode) {
               setState(() {
                 if (isSelected) {
@@ -1247,6 +1482,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,
                           showYouLabel: isYou,
+                          showRecurringChip: expense.id.startsWith('recurring_'),
                         ),
                       ),
                     ],
@@ -1364,7 +1600,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               selectedCategory = 'all';
                               searchQuery = '';
                               _searchController.clear();
-                              // Keep period selection as user-configured
+                              _selectedDateFilter = DateRangeFilter.last7Days;
+                              _customStart = null;
+                              _customEnd = null;
                             });
                             Navigator.pop(context);
                           },
@@ -1390,47 +1628,56 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 }
 
-class _MonthListItem {
-  final MonthTransactionGroup group;
+class _TransactionListItem {
+  final MonthTransactionGroup? monthGroup;
+  final DayTransactionGroup? dayGroup;
   final ExpenseEntry? expense;
-  final bool isHeader;
+  final bool isMonthHeader;
+  final bool isDayHeader;
   final bool isFirst;
   final bool isLast;
 
-  const _MonthListItem._({
-    required this.group,
-    required this.expense,
-    required this.isHeader,
+  const _TransactionListItem._({
+    this.monthGroup,
+    this.dayGroup,
+    this.expense,
+    required this.isMonthHeader,
+    required this.isDayHeader,
     required this.isFirst,
     required this.isLast,
   });
 
-  factory _MonthListItem.header(MonthTransactionGroup group) {
-    return _MonthListItem._(
-      group: group,
-      expense: null,
-      isHeader: true,
+  factory _TransactionListItem.monthHeader(MonthTransactionGroup group) {
+    return _TransactionListItem._(
+      monthGroup: group,
+      isMonthHeader: true,
+      isDayHeader: false,
       isFirst: false,
       isLast: false,
     );
   }
 
-  factory _MonthListItem.entry({
-    required MonthTransactionGroup group,
+  factory _TransactionListItem.dayHeader(DayTransactionGroup group) {
+    return _TransactionListItem._(
+      dayGroup: group,
+      isMonthHeader: false,
+      isDayHeader: true,
+      isFirst: false,
+      isLast: false,
+    );
+  }
+
+  factory _TransactionListItem.entry({
     required ExpenseEntry expense,
     required bool isFirst,
     required bool isLast,
   }) {
-    return _MonthListItem._(
-      group: group,
+    return _TransactionListItem._(
       expense: expense,
-      isHeader: false,
+      isMonthHeader: false,
+      isDayHeader: false,
       isFirst: isFirst,
       isLast: isLast,
     );
   }
 }
-
-// Keep DateHeader logic if needed or ensure it's not duplicated.
-// The previous step might have added it partially or failed.
-// I will ensure it's here.

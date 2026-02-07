@@ -518,14 +518,16 @@ class _RecurringTransactionsPageState
     final result = await MonekoAlertDialog.show(
       context: context,
       title: context.l10n.deleteRecurringTransaction,
-      description:
-          context.l10n.areYouSureYouWantToDeleteThisRecurringTransaction,
-      confirmLabel: context.l10n.delete,
+      description: context.l10n.deleteRecurringChoiceDescription,
+      confirmLabel: context.l10n.deleteEntireSeries,
+      secondaryLabel: context.l10n.skipNextOccurrence,
       cancelLabel: context.l10n.cancel,
+      isDestructive: true,
       barrierDismissible: true,
     );
 
-    if (result == null || !result.confirmed) {
+    if (result == null ||
+        result.action == MonekoAlertDialogAction.cancel) {
       debugPrint('⏭️  [RecurringPage] Delete cancelled');
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
@@ -552,28 +554,51 @@ class _RecurringTransactionsPageState
       dialogOpen = false;
     }
 
+    final isSkipOccurrence =
+        result.action == MonekoAlertDialogAction.secondary;
+
     // Show loading dialog
     showBlockingProcessingDialog(
       context: toastContext,
-      message: '${l10n.delete}...',
+      message: isSkipOccurrence ? '${l10n.skipNextOccurrence}...' : '${l10n.delete}...',
     );
     dialogOpen = true;
 
     try {
-      final deleteResult = await ref
-          .read(recurringTransactionsProvider(householdId).notifier)
-          .deleteRecurring(user.uid, transaction.id);
+      final notifier =
+          ref.read(recurringTransactionsProvider(householdId).notifier);
+
+      DeleteRecurringResult operationResult;
+
+      if (isSkipOccurrence) {
+        // Compute the next occurrence date to skip
+        final nextDate = transaction.getNextOccurrence();
+        operationResult = await notifier.skipOccurrence(
+          user.uid,
+          transaction.id,
+          nextDate,
+        );
+      } else {
+        // Delete entire series
+        operationResult =
+            await notifier.deleteRecurring(user.uid, transaction.id);
+      }
 
       if (!mounted) return;
 
       closeDialog();
 
-      if (deleteResult.success) {
-        AppToast.success(toastContext, l10n.recurringTransactionDeleted);
+      if (operationResult.success) {
+        AppToast.success(
+          toastContext,
+          isSkipOccurrence
+              ? l10n.occurrenceSkipped
+              : l10n.recurringTransactionDeleted,
+        );
       } else {
-        final message = (deleteResult.error != null &&
-                deleteResult.error!.trim().isNotEmpty)
-            ? deleteResult.error!
+        final message = (operationResult.error != null &&
+                operationResult.error!.trim().isNotEmpty)
+            ? operationResult.error!
             : l10n.failedToDeleteRecurringTransaction;
         AppToast.error(toastContext, message);
       }

@@ -2001,5 +2001,10 @@
   "aiPromptExample1": "Déjeuner 14,50€ aujourd'hui chez Paul",
   "aiPromptExample2": "Courses 42,10€ hier chez Monoprix",
   "aiPromptExample3": "Uber 12€ divisé en trajet et pourboire",
-  "aiCapabilitiesHint": "Moneko remplit automatiquement la date, la catégorie, la devise et même les détails disponibles."
+  "aiCapabilitiesHint": "Moneko remplit automatiquement la date, la catégorie, la devise et même les détails disponibles.",
+  "deleteEntireSeries": "Supprimer toute la série",
+  "skipNextOccurrence": "Passer la prochaine échéance",
+  "deleteRecurringChoiceDescription": "Souhaitez-vous passer seulement la prochaine échéance ou supprimer toute la série récurrente ?",
+  "occurrenceSkipped": "Prochaine échéance ignorée",
+  "last7Days": "7 derniers jours"
 }

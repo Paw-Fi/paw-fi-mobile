@@ -13,6 +13,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -41,7 +42,7 @@ const int _reviewMaxInterval = 5;
 const String _reviewExpenseCountKey = 'review_expense_count';
 const String _reviewLastPromptKey = 'review_last_prompt_count';
 const String _reviewLastIntervalKey = 'review_last_prompt_interval';
-const int _maxBatchSize = 500;
+const int _maxBatchSize = 400;
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -583,6 +584,10 @@ bool shouldFallbackForBatchError(Object error) {
   if (message.contains('bad file descriptor')) {
     return true;
   }
+  // Backend rejected the batch size — fall back to individual saves.
+  if (message.contains('batch size exceeds')) {
+    return true;
+  }
   return false;
 }
 
@@ -1099,9 +1104,13 @@ Future<void> _processExpense(
               currency: item['currency'] as String,
               currencySymbol: item['currencySymbol'] as String? ?? '\$',
               date: DateTime.parse(item['date'] as String),
-              description: item['description'] as String?,
+              description: item['description'] is String
+                  ? sanitizeUtf16(item['description'] as String)
+                  : null,
               breakdown: item['breakdown'] is List
-                  ? List<String>.from(item['breakdown'] as List)
+                  ? (item['breakdown'] as List)
+                      .map((e) => sanitizeUtf16(e.toString()))
+                      .toList()
                   : null,
               localImagePath: imagePath,
               payerUserId: (item['payerUserId'] is String)

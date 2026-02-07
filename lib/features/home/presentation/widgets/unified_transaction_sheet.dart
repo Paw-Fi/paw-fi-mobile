@@ -1873,31 +1873,56 @@ class _UnifiedTransactionSheetState
       return null;
     }
 
+    // For recently created expenses, the split group may not be available yet
+    // because _persistAiTransactions runs asynchronously. Retry a few times.
+    final isRecentlyCreated = DateTime.now()
+            .difference(expense.createdAt.toLocal())
+            .inSeconds <
+        15;
+    final maxAttempts = isRecentlyCreated ? 5 : 1;
+
     try {
-      final splits = await ref.read(householdSplitsProvider(
-        HouseholdSplitsParams(householdId: householdId),
-      ).future);
+      for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (!mounted) return null;
 
-      household_split.ExpenseSplitGroup? match;
-      for (final group in splits) {
-        if (group.expenseId == expense.id) {
-          match = group;
-          break;
+        if (attempt > 1) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (!mounted) return null;
+          ref.invalidate(householdSplitsProvider(
+            HouseholdSplitsParams(householdId: householdId),
+          ));
         }
-      }
 
-      if (match != null) {
-        debugPrint(
-            '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id}');
-        _markSplitCheck(resolvedId: match.id);
-        if (loadSplitConfig) {
-          await _loadExistingSplitConfiguration(match.id);
+        final splits = await ref.read(householdSplitsProvider(
+          HouseholdSplitsParams(householdId: householdId),
+        ).future);
+
+        household_split.ExpenseSplitGroup? match;
+        for (final group in splits) {
+          if (group.expenseId == expense.id) {
+            match = group;
+            break;
+          }
         }
-        return match.id;
+
+        if (match != null) {
+          debugPrint(
+              '🔎 [RESOLVE SPLIT] Found split group ${match.id} for expense ${expense.id} (attempt $attempt)');
+          _markSplitCheck(resolvedId: match.id);
+          if (loadSplitConfig) {
+            await _loadExistingSplitConfiguration(match.id);
+          }
+          return match.id;
+        }
+
+        if (attempt < maxAttempts) {
+          debugPrint(
+              '🔎 [RESOLVE SPLIT] No split group yet for expense ${expense.id}, retrying ($attempt/$maxAttempts)...');
+        }
       }
 
       debugPrint(
-          '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id}');
+          '🔎 [RESOLVE SPLIT] No split group found for expense ${expense.id} after $maxAttempts attempt(s)');
       _markSplitCheck();
       return null;
     } catch (error) {

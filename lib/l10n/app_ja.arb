@@ -2001,5 +2001,10 @@
   "aiPromptExample1": "今日のランチ 1,200円 𠮷野家にて",
   "aiPromptExample2": "昨日、イオンで食料品 4,210円",
   "aiPromptExample3": "タクシー代 1,500円、乗車代とチップに分割",
-  "aiCapabilitiesHint": "日付、カテゴリー、通貨、そして詳細な内訳まで自動で入力します。"
+  "aiCapabilitiesHint": "日付、カテゴリー、通貨、そして詳細な内訳まで自動で入力します。",
+  "deleteEntireSeries": "シリーズ全体を削除",
+  "skipNextOccurrence": "次の予定をスキップ",
+  "deleteRecurringChoiceDescription": "次の一回だけをスキップしますか？それとも定期的なシリーズ全体を削除しますか？",
+  "occurrenceSkipped": "次の予定をスキップしました",
+  "last7Days": "過去7日間"
 }

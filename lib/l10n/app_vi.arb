@@ -2000,5 +2000,10 @@
   "aiPromptExample1": "Trưa nay ăn Phở hết 50.000đ",
   "aiPromptExample2": "Đi Bách Hóa Xanh hôm qua hết 250.000đ",
   "aiPromptExample3": "Grab 50.000đ chia thành tiền xe và tiền tip",
-  "aiCapabilitiesHint": "Chúng tôi tự động điền ngày tháng, danh mục, tiền tệ và thậm chí cả chi tiết khi có sẵn."
+  "aiCapabilitiesHint": "Chúng tôi tự động điền ngày tháng, danh mục, tiền tệ và thậm chí cả chi tiết khi có sẵn.",
+  "deleteEntireSeries": "Xóa toàn bộ chuỗi",
+  "skipNextOccurrence": "Bỏ qua kỳ tới",
+  "deleteRecurringChoiceDescription": "Bạn muốn chỉ bỏ qua lần tới hay xóa luôn cả chuỗi định kỳ này?",
+  "occurrenceSkipped": "Đã bỏ qua kỳ tới",
+  "last7Days": "7 ngày vừa qua"
 }

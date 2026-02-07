@@ -21,6 +21,7 @@ class TransactionListTile extends StatelessWidget {
   final Widget? trailingWidget;
   final bool dense;
   final bool showYouLabel;
+  final bool showRecurringChip;
 
   const TransactionListTile({
     super.key,
@@ -37,6 +38,7 @@ class TransactionListTile extends StatelessWidget {
     this.trailingWidget,
     this.dense = true,
     this.showYouLabel = false,
+    this.showRecurringChip = false,
   });
 
   String? _formatDate(BuildContext context, DateTime date) {
@@ -75,13 +77,63 @@ class TransactionListTile extends StatelessWidget {
         ? trimmedDescription
         : (trimmedTitle.isNotEmpty ? trimmedTitle : category);
 
+    // Build badge chips
+    final chips = <Widget>[];
+    if (showYouLabel) {
+      chips.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'You',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+      );
+    }
+    if (showRecurringChip) {
+      chips.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: colorScheme.tertiary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
+              const SizedBox(width: 3),
+              Text(
+                context.l10n.recurring,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.tertiary,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     Widget? subtitleNode;
     if (subtitleWidget != null) {
       subtitleNode = subtitleWidget;
     } else if (date != null) {
       final base = _formatDate(context, date!);
       if (base != null && base.isNotEmpty) {
-        if (showYouLabel) {
+        if (chips.isNotEmpty) {
           subtitleNode = Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -97,22 +149,7 @@ class TransactionListTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'You',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.primary,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
+              ...chips.expand((chip) => [chip, const SizedBox(width: 4)]).toList()..removeLast(),
             ],
           );
         } else {

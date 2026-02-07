@@ -15,13 +15,23 @@ Future<T> runStartupStep<T>({
     );
     onError?.call(timeoutError, stackTrace);
     if (fallback != null) {
-      return await fallback();
+      try {
+        return await fallback().timeout(timeout);
+      } catch (fallbackError, fallbackStack) {
+        onError?.call(fallbackError, fallbackStack);
+        throw timeoutError;
+      }
     }
     throw timeoutError;
   } catch (error, stackTrace) {
     onError?.call(error, stackTrace);
     if (fallback != null) {
-      return await fallback();
+      try {
+        return await fallback().timeout(timeout);
+      } catch (fallbackError, fallbackStack) {
+        onError?.call(fallbackError, fallbackStack);
+        rethrow;
+      }
     }
     rethrow;
   }

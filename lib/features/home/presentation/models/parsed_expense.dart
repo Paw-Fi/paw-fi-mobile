@@ -1,6 +1,7 @@
 // Data model for parsed (but not yet saved) transaction from AI analysis
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 
 class ParsedExpense {
   // true = income, false = expense
@@ -40,9 +41,13 @@ class ParsedExpense {
       currency: json['currency'] as String,
       currencySymbol: json['currencySymbol'] as String? ?? '\$',
       date: DateTime.parse(json['date'] as String),
-      description: json['description'] as String?,
+      description: json['description'] is String
+          ? sanitizeUtf16(json['description'] as String)
+          : null,
       breakdown: json['breakdown'] != null
-          ? List<String>.from(json['breakdown'] as List)
+          ? (json['breakdown'] as List)
+              .map((e) => sanitizeUtf16(e.toString()))
+              .toList()
           : null,
       localImagePath: json['localImagePath'] as String?,
       payerUserId: (json['payerUserId'] as String?) ??

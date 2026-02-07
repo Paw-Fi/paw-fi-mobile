@@ -1997,5 +1997,10 @@
   "aiPromptExample1": "今天午餐在瑞幸花了 18.50 元",
   "aiPromptExample2": "昨天在盒马买菜 42.10 元",
   "aiPromptExample3": "滴滴打车 25 元，拆分为车费和小费",
-  "aiCapabilitiesHint": "我们会自动帮你填写日期、分类、货币，甚至是具体的明细详情哦。"
+  "aiCapabilitiesHint": "我们会自动帮你填写日期、分类、货币，甚至是具体的明细详情哦。",
+  "deleteEntireSeries": "删除所有项",
+  "skipNextOccurrence": "跳过下一次",
+  "deleteRecurringChoiceDescription": "你是想仅跳过下一次，还是删除整个循环系列呢？",
+  "occurrenceSkipped": "已跳过下一次",
+  "last7Days": "最近7天"
 }

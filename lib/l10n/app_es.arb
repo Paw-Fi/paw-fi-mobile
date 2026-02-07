@@ -2003,5 +2003,10 @@
   "aiPromptExample1": "Almuerzo 15,50€ hoy en Vips",
   "aiPromptExample2": "Súper 42,10€ ayer en Mercadona",
   "aiPromptExample3": "Cabify de 12€ dividido en viaje y propina",
-  "aiCapabilitiesHint": "Rellenamos automáticamente la fecha, la categoría, la moneda e incluso los detalles del desglose."
+  "aiCapabilitiesHint": "Rellenamos automáticamente la fecha, la categoría, la moneda e incluso los detalles del desglose.",
+  "deleteEntireSeries": "Eliminar serie completa",
+  "skipNextOccurrence": "Omitir próximo pago",
+  "deleteRecurringChoiceDescription": "¿Quieres omitir solo el próximo pago o eliminar toda la serie recurrente?",
+  "occurrenceSkipped": "Próximo pago omitido",
+  "last7Days": "Últimos 7 días"
 }

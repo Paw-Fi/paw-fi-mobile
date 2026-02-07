@@ -2001,5 +2001,10 @@
   "aiPromptExample1": "Mittagessen 12,50€ heute bei Vapiano",
   "aiPromptExample2": "Lebensmittel 42,10€ gestern bei REWE",
   "aiPromptExample3": "Taxi 12€ aufgeteilt in Fahrt und Trinkgeld",
-  "aiCapabilitiesHint": "Wir füllen Datum, Kategorie, Währung und sogar Details automatisch aus."
+  "aiCapabilitiesHint": "Wir füllen Datum, Kategorie, Währung und sogar Details automatisch aus.",
+  "deleteEntireSeries": "Ganze Serie löschen",
+  "skipNextOccurrence": "Nächsten Termin überspringen",
+  "deleteRecurringChoiceDescription": "Möchtest du nur den nächsten Termin überspringen oder die komplette Serie löschen?",
+  "occurrenceSkipped": "Nächster Termin übersprungen",
+  "last7Days": "Letzte 7 Tage"
 }

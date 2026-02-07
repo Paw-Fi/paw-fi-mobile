@@ -445,6 +445,7 @@ class RecurrenceRule {
   final bool? reminderEnabled;
   final int? reminderValue;
   final String? reminderUnit;
+  final List<DateTime> excludedDates; // Dates to skip (for "delete this occurrence")
 
   RecurrenceRule({
     required this.frequency,
@@ -454,10 +455,12 @@ class RecurrenceRule {
     this.reminderEnabled,
     this.reminderValue,
     this.reminderUnit,
+    this.excludedDates = const [],
   });
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> json) {
     final reminder = json['reminder'] as Map<String, dynamic>?;
+    final excludedRaw = json['excluded_dates'] as List<dynamic>?;
     return RecurrenceRule(
       frequency: json['frequency'] as String,
       anchorDate: DateTime.parse(json['anchor_date'] as String),
@@ -468,6 +471,10 @@ class RecurrenceRule {
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
       reminderUnit: reminder?['unit'] as String?,
+      excludedDates: excludedRaw
+              ?.map((e) => DateTime.parse(e as String))
+              .toList() ??
+          const [],
     );
   }
 
@@ -485,6 +492,9 @@ class RecurrenceRule {
           if (reminderValue != null) 'value': reminderValue,
           if (reminderUnit != null) 'unit': reminderUnit,
         },
+      if (excludedDates.isNotEmpty)
+        'excluded_dates':
+            excludedDates.map((d) => d.toIso8601String()).toList(),
     };
   }
 
@@ -496,6 +506,7 @@ class RecurrenceRule {
     bool? reminderEnabled,
     int? reminderValue,
     String? reminderUnit,
+    List<DateTime>? excludedDates,
   }) {
     return RecurrenceRule(
       frequency: frequency ?? this.frequency,
@@ -505,6 +516,7 @@ class RecurrenceRule {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderValue: reminderValue ?? this.reminderValue,
       reminderUnit: reminderUnit ?? this.reminderUnit,
+      excludedDates: excludedDates ?? this.excludedDates,
     );
   }
 }

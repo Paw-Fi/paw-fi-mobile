@@ -300,6 +300,94 @@ class RecurringTransactionsNotifier
     }
   }
 
+  /// Skip a single occurrence by adding its date to excluded_dates
+  Future<DeleteRecurringResult> skipOccurrence(
+    String userId,
+    String transactionId,
+    DateTime dateToSkip,
+  ) async {
+    try {
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
+      debugPrint(
+          '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
+      debugPrint('   UserId: $userId');
+      debugPrint('   TransactionId: $transactionId');
+      debugPrint('   DateToSkip: $dateToSkip');
+
+      if (!mounted) {
+        return const DeleteRecurringResult.failure('Provider unmounted');
+      }
+
+      // Find the transaction to get its current recurrence_rule
+      RecurringTransaction? target;
+      state.data.whenData((transactions) {
+        target = transactions.where((t) => t.id == transactionId).firstOrNull;
+      });
+
+      if (target == null) {
+        debugPrint('❌ [RecurringTx] SKIP FAILED: Transaction not found');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return const DeleteRecurringResult.failure('Transaction not found');
+      }
+
+      final rule = target!.recurrenceRule;
+      if (rule == null) {
+        debugPrint('❌ [RecurringTx] SKIP FAILED: No recurrence rule');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return const DeleteRecurringResult.failure('No recurrence rule');
+      }
+
+      // Build updated rule with the new excluded date
+      final updatedExcluded = [...rule.excludedDates, dateToSkip];
+      final updatedRule = rule.copyWith(excludedDates: updatedExcluded);
+
+      // Optimistic update
+      final updatedTransaction =
+          target!.copyWith(recurrenceRule: updatedRule);
+      updateRecurring(updatedTransaction);
+
+      // Backend call - update the recurrence_rule via update-expense
+      final response = await supabase.functions.invoke(
+        'update-expense',
+        body: {
+          'userId': userId,
+          'expenseId': transactionId,
+          'updates': {
+            'recurrence_rule': updatedRule.toJson(),
+          },
+        },
+      );
+
+      debugPrint(
+          '✅ [RecurringTx] update-expense response: status=${response.status} data=${response.data}');
+
+      if (response.data is Map<String, dynamic> &&
+          (response.data as Map<String, dynamic>)['success'] == true) {
+        debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        return const DeleteRecurringResult.success();
+      }
+
+      final payload = response.data;
+      final errorMessage = _extractFunctionError(payload) ??
+          (response.status >= 400
+              ? 'Request failed (${response.status})'
+              : null);
+
+      debugPrint('❌ [RecurringTx] SKIP FAILED: $errorMessage');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await refresh(userId);
+      return DeleteRecurringResult.failure(errorMessage);
+    } catch (e) {
+      debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await refresh(userId);
+      return DeleteRecurringResult.failure(
+          ErrorHandler.getUserFriendlyMessage(e));
+    }
+  }
+
   String? _extractFunctionError(dynamic payload) {
     if (payload is Map<String, dynamic>) {
       final error = payload['error'];
@@ -468,11 +556,7 @@ class RecurringTransactionSaveNotifier
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
-      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      final formattedAccountingDate = dateFormatter.format(startDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
@@ -598,11 +682,7 @@ class RecurringTransactionSaveNotifier
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
-      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      final formattedAccountingDate = dateFormatter.format(startDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,

@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
@@ -469,7 +470,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 currency: item['currency'] as String,
                 currencySymbol: item['currencySymbol'] as String? ?? '\$',
                 date: DateTime.parse(item['date'] as String),
-                description: item['description'] as String?,
+                description: item['description'] is String
+                    ? sanitizeUtf16(item['description'] as String)
+                    : null,
                 localImagePath: imagePath,
                 payerUserId: (item['payerUserId'] is String)
                     ? (item['payerUserId'] as String)
@@ -513,8 +516,10 @@ class _HomePageState extends ConsumerState<HomePage> {
               _formatAiLoggedToastMessage(parsed),
             );
 
+            final container = ProviderScope.containerOf(context, listen: false);
             unawaited(
               _persistAiTransactions(
+                container: container,
                 userId: user.uid,
                 householdId: householdId,
                 isPortfolio: isPortfolio,
@@ -575,6 +580,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Future<void> _persistAiTransactions({
+    required ProviderContainer container,
     required String userId,
     required String? householdId,
     required bool isPortfolio,
@@ -602,8 +608,8 @@ class _HomePageState extends ConsumerState<HomePage> {
       final toBucket = normalizeBucketId(savedEntry.householdId);
 
       if (fromBucket == toBucket) {
-        replaceOptimisticTransaction(
-          ref: ref,
+        replaceOptimisticTransactionWithContainer(
+          container: container,
           optimisticId: optimisticId,
           savedEntry: savedEntry,
           householdId: fromBucket,
@@ -611,13 +617,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         return;
       }
 
-      removeOptimisticTransaction(
-        ref: ref,
+      removeOptimisticTransactionWithContainer(
+        container: container,
         optimisticId: optimisticId,
         householdId: fromBucket,
       );
-      addOptimisticTransaction(
-        ref: ref,
+      addOptimisticTransactionWithContainer(
+        container: container,
         entry: savedEntry,
         householdId: toBucket,
       );
@@ -625,7 +631,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     String? receiptUrl;
     if (localImagePath != null && localImagePath.isNotEmpty) {
-      receiptUrl = await ref
+      receiptUrl = await container
           .read(expenseSaveNotifierProvider.notifier)
           .uploadReceiptImage(File(localImagePath), userId);
     }
@@ -720,20 +726,17 @@ class _HomePageState extends ConsumerState<HomePage> {
         );
         didPersistAny = true;
       } catch (error) {
-        removeOptimisticTransaction(
-          ref: ref,
+        removeOptimisticTransactionWithContainer(
+          container: container,
           optimisticId: item.optimisticId,
           householdId: householdId,
         );
         debugPrint('❌ Failed to persist AI transaction: $error');
-        if (mounted) {
-          AppToast.error(context, context.l10n.failedToSave(error.toString()));
-        }
       }
     }
 
     if (didPersistAny) {
-      await ref.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+      await container.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
           );

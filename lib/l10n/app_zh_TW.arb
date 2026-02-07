@@ -1945,5 +1945,10 @@
   "aiPromptExample1": "今天午餐在星巴克花了 185 元",
   "aiPromptExample2": "昨天在全聯買菜 421 元",
   "aiPromptExample3": "Uber 120 元，拆分為車資和小費",
-  "aiCapabilitiesHint": "我們會自動幫您填寫日期、分類、貨幣，甚至是具體的明細詳情喔。"
+  "aiCapabilitiesHint": "我們會自動幫您填寫日期、分類、貨幣，甚至是具體的明細詳情喔。",
+  "deleteEntireSeries": "刪除整個系列",
+  "skipNextOccurrence": "跳過下一次",
+  "deleteRecurringChoiceDescription": "您是想僅跳過下一次，還是刪除整個循環系列呢？",
+  "occurrenceSkipped": "已跳過下一次",
+  "last7Days": "最近7天"
 }

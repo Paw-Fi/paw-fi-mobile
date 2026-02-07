@@ -222,7 +222,14 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
     final amountCents = (r.amount * 100).round();
     if (amountCents == 0) continue;
 
+    // Build excluded date keys set for fast lookup
+    final excludedKeys = rule != null
+        ? rule.excludedDates.map((d) => _dateKey(_dateOnly(d))).toSet()
+        : <String>{};
+
     for (final day in occurrences()) {
+      // Skip excluded dates
+      if (excludedKeys.contains(_dateKey(day))) continue;
       final ownerUserId = (r.payerUserId != null && r.payerUserId!.isNotEmpty)
           ? r.payerUserId
           : r.userId;

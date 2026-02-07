@@ -1948,5 +1948,10 @@
   "aiPromptExample1": "Lunch €12,50 vandaag bij de La Place",
   "aiPromptExample2": "Boodschappen 42,10 gisteren bij de Jumbo",
   "aiPromptExample3": "Uber 12 gesplitst in rit en fooi",
-  "aiCapabilitiesHint": "We vullen automatisch de datum, categorie, valuta en zelfs details in."
+  "aiCapabilitiesHint": "We vullen automatisch de datum, categorie, valuta en zelfs details in.",
+  "deleteEntireSeries": "Hele reeks verwijderen",
+  "skipNextOccurrence": "Volgende keer overslaan",
+  "deleteRecurringChoiceDescription": "Wil je alleen de volgende keer overslaan of de hele reeks verwijderen?",
+  "occurrenceSkipped": "Volgende keer overgeslagen",
+  "last7Days": "Afgelopen 7 dagen"
 }

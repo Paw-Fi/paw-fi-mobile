@@ -289,6 +289,7 @@
   "thisWeek": "This week",
   "lastWeek": "Last week",
   "thisMonth": "This month",
+  "last7Days": "Last 7 days",
   "last30Days": "Last 30 days",
   "customRange": "Custom range",
   "spentToday": "Your Spending Today",
@@ -847,6 +848,10 @@
   "transactionDeleted": "Transaction deleted",
   "recentTransactions": "Recent transactions",
   "failedToDeleteRecurringTransaction": "Failed to delete recurring transaction",
+  "deleteEntireSeries": "Delete Entire Series",
+  "skipNextOccurrence": "Skip Next Payment",
+  "deleteRecurringChoiceDescription": "Would you like to skip just the next occurrence, or delete the entire recurring series?",
+  "occurrenceSkipped": "Next payment skipped",
   "currencyIsManagedByHousehold": "Currency is managed by the group and cannot be changed",
   "@expenseSavedAndShared": {
     "placeholders": {

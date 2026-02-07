@@ -433,6 +433,12 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     );
   }
 
+  void updatePreferredTimezone(String timezone) {
+    state = state.copyWith(
+      contact: state.contact?.copyWith(preferredTimezone: timezone),
+    );
+  }
+
   void addOptimisticTransaction(ExpenseEntry entry) {
     final updatedExpenses = <ExpenseEntry>[entry, ...state.expenses]
         .where((e) => e.id.isNotEmpty)

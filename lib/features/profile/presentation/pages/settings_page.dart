@@ -161,7 +161,7 @@ class SettingsPage extends HookConsumerWidget {
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
-    final timezoneValue = selectedTimezone.value ?? 'UTC';
+    final timezoneValue = selectedTimezone.value ?? deviceTimezone;
     final timezoneDisplay = _formatTimezoneLabel(
       _resolveTimezoneOption(
         timezone: timezoneValue,
@@ -192,7 +192,14 @@ class SettingsPage extends HookConsumerWidget {
             'timezone': timezone,
           },
         );
-        ref.invalidate(analyticsProvider);
+        // Update the contact in-place so the useEffect doesn't reset
+        // selectedTimezone to null during the transient empty state that
+        // ref.invalidate would cause.
+        ref
+            .read(analyticsProvider.notifier)
+            .updatePreferredTimezone(timezone);
+        // Background-refresh to sync the full dataset from the server.
+        ref.read(analyticsProvider.notifier).refresh(authState.uid);
         if (context.mounted) {
           AppToast.success(context, context.l10n.timezoneUpdated);
         }

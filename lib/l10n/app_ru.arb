@@ -1951,5 +1951,10 @@
   "aiPromptExample1": "Обед 600р сегодня в Теремке",
   "aiPromptExample2": "Продукты вчера 1200р в Пятёрочке",
   "aiPromptExample3": "Яндекс Go 500р, разбить на поездку и чаевые",
-  "aiCapabilitiesHint": "Мы сами заполним дату, категорию, валюту и даже детали чека."
+  "aiCapabilitiesHint": "Мы сами заполним дату, категорию, валюту и даже детали чека.",
+  "deleteEntireSeries": "Удалить все повторы",
+  "skipNextOccurrence": "Пропустить следующий раз",
+  "deleteRecurringChoiceDescription": "Хотите пропустить только следующий раз или удалить всю серию целиком?",
+  "occurrenceSkipped": "Следующий раз пропущен",
+  "last7Days": "Последние 7 дней"
 }

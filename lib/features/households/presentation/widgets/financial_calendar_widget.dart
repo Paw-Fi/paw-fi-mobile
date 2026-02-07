@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/households/presentation/pages/daily_financial_details_page.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+
+String _safeCompactFormat(num value, BuildContext context) {
+  try {
+    final locale = Localizations.localeOf(context);
+    final safe = intlSafeLocaleName(locale);
+    return NumberFormat.compact(locale: safe).format(value);
+  } catch (_) {
+    return NumberFormat.compact(locale: 'en_US').format(value);
+  }
+}
 
 class FinancialCalendarWidget extends StatefulWidget {
   final List<ExpenseEntry> transactions;
@@ -411,7 +422,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '+${NumberFormat.compact().format(totals['income'])}',
+                  '+${_safeCompactFormat(totals['income'] ?? 0, context)}',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
@@ -424,7 +435,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '-${NumberFormat.compact().format(totals['expense'])}',
+                  '-${_safeCompactFormat(totals['expense'] ?? 0, context)}',
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w600,

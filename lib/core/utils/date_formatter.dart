@@ -145,6 +145,8 @@ String _normalizeLanguageCode(String languageCode) {
   switch (languageCode) {
     case 'pks':
       return 'ur';
+    case 'kr':
+      return 'ko';
     default:
       return languageCode;
   }
