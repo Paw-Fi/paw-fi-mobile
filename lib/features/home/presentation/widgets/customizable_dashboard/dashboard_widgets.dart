@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'dashboard_config.dart';
 import 'dashboard_state.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 
 // ============================================================================
 // EDIT BUTTON
@@ -224,7 +225,7 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
                     if (widget.config.isVisible && hasConfigOptions) ...[
                       _buildCircleButton(
                         context,
-                        icon: Icons.edit,
+                        icon: Icons.edit_calendar,
                         color: colorScheme.primary,
                         onTap: widget.onEdit,
                       ),
@@ -353,6 +354,7 @@ class DraggableDashboardList extends ConsumerWidget {
     }
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor:
           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => WidgetConfigurationSheet(
@@ -395,45 +397,54 @@ class WidgetConfigurationSheet extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  context.l10n.configureWidget,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              if (supportsViewMode) ...[
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Text(
-                    context.l10n.viewMode,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.primary,
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.appleGroupedBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color:
+                          colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(2.5),
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
+                const SizedBox(height: 24),
+                if (supportsViewMode) ...[
+                  // View Mode Section Header
+                  Text(
+                    context.l10n.viewMode,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  // View Mode Segmented Control
+                  Container(
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
@@ -474,73 +485,97 @@ class WidgetConfigurationSheet extends StatelessWidget {
                       ],
                     ),
                   ),
-                ),
-                if (supportsDateRange) ...[
-                  const SizedBox(height: 16),
-                  Divider(height: 1, color: colorScheme.outlineVariant),
+                  if (supportsDateRange) ...[
+                    const SizedBox(height: 24),
+                    Divider(
+                        height: 1,
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.2)),
+                  ],
                 ],
-              ],
-              if (!supportsViewMode && supportsDateRange)
-                const SizedBox(height: 8),
-              if (supportsDateRange) ...[
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Text(
+                if (!supportsViewMode && supportsDateRange)
+                  const SizedBox(height: 8),
+                if (supportsDateRange) ...[
+                  // Date Range Section Header
+                  Text(
                     context.l10n.dateRange,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.primary,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colorScheme.mutedForeground,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  MonekoInput(
+                    child: Column(
+                      children: [
+                        ...DateRangeFilter.values.map((range) {
+                          final isSelected = range == config.dateRange;
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(32),
+                              onTap: () async {
+                                if (range == DateRangeFilter.custom) {
+                                  final picked = await showDateRangePicker(
+                                    context: context,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime.now(),
+                                    builder: (context, child) {
+                                      return Theme(
+                                        data: Theme.of(context).copyWith(
+                                          colorScheme: colorScheme,
+                                        ),
+                                        child: child!,
+                                      );
+                                    },
+                                  );
+                                  if (picked != null) {
+                                    onUpdate(
+                                        dateRange: range,
+                                        start: picked.start,
+                                        end: picked.end);
+                                  }
+                                } else {
+                                  onUpdate(dateRange: range);
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      range.getLabel(context),
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? colorScheme.primary
+                                            : colorScheme.onSurface,
+                                        fontWeight: isSelected
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check_rounded,
+                                        color: colorScheme.primary,
+                                        size: 20,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
                     ),
                   ),
-                ),
-                ...DateRangeFilter.values.map((range) {
-                  final isSelected = range == config.dateRange;
-                  return ListTile(
-                    title: Text(
-                      range.getLabel(context),
-                      style: TextStyle(
-                        color: isSelected
-                            ? colorScheme.primary
-                            : colorScheme.onSurface,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? Icon(Icons.check, color: colorScheme.primary)
-                        : null,
-                    onTap: () async {
-                      if (range == DateRangeFilter.custom) {
-                        final picked = await showDateRangePicker(
-                          context: context,
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime.now(),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: colorScheme,
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (picked != null) {
-                          onUpdate(
-                              dateRange: range,
-                              start: picked.start,
-                              end: picked.end);
-                        }
-                      } else {
-                        onUpdate(dateRange: range);
-                      }
-                    },
-                  );
-                }),
+                ],
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
         ),
       ),
@@ -558,11 +593,9 @@ class WidgetConfigurationSheet extends StatelessWidget {
         onTap: isSupported ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected
-                ? colorScheme.surface
-                : colorScheme.surface.withValues(alpha: 0.0),
+            color: isSelected ? colorScheme.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             boxShadow: isSelected
                 ? [
@@ -583,7 +616,7 @@ class WidgetConfigurationSheet extends StatelessWidget {
                       ? colorScheme.primary
                       : colorScheme.onSurfaceVariant)
                   : colorScheme.outline.withValues(alpha: 0.5),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               fontSize: 13,
             ),
           ),

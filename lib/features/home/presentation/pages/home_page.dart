@@ -736,7 +736,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     if (didPersistAny) {
-      await container.read(expenseSaveNotifierProvider.notifier).invalidateAfterBatch(
+      await container
+          .read(expenseSaveNotifierProvider.notifier)
+          .invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
           );
@@ -861,7 +863,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             child: SizedBox(height: Platform.isAndroid ? 0 : 16)),
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
-          const SliverToBoxAdapter(child: EditDashboardButton()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ] else ...[
           // Personal mode - show customizable dashboard
@@ -1175,7 +1176,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             },
           ),
           // Edit Button
-          const SliverToBoxAdapter(child: EditDashboardButton()),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ], // end of else block for Personal mode
       ],

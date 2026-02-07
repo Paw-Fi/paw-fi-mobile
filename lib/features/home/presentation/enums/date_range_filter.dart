@@ -33,7 +33,7 @@ extension DateRangeFilterExtension on DateRangeFilter {
       case DateRangeFilter.thisMonth:
         return l10n.thisMonth;
       case DateRangeFilter.lastMonth:
-        return "Last month";
+        return l10n.lastMonth;
       case DateRangeFilter.last30Days:
         return l10n.last30Days;
       case DateRangeFilter.thisYear:

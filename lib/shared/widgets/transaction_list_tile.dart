@@ -195,7 +195,7 @@ class TransactionListTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w600,
           color: colorScheme.foreground,
         ),
       ),

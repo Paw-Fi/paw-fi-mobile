@@ -15,6 +15,7 @@ import 'package:moneko/features/home/presentation/state/home_spotlight_providers
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
+import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -168,6 +169,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     // Move currency state reading here
     final currencyCode =
         ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
+    final isEditMode = ref.watch(isEditModeProvider);
 
     Future<void> handleBankSyncResult(BankSyncResult next) async {
       if (user.uid.isEmpty) return;
@@ -354,6 +356,13 @@ class HomeHeaderSliver extends ConsumerWidget {
       ),
       items: [
         AdaptivePopupMenuItem(
+          label: context.l10n.accountOverview,
+          icon: PlatformInfo.isIOS26OrHigher()
+              ? 'chart.pie.fill'
+              : Icons.pie_chart,
+          value: 'overview',
+        ),
+        AdaptivePopupMenuItem(
           label: personalLabel,
           icon: PlatformInfo.isIOS26OrHigher()
               ? 'person.crop.circle.fill'
@@ -376,11 +385,27 @@ class HomeHeaderSliver extends ConsumerWidget {
                 ),
               )
               .toList(),
-          loading: () => <AdaptivePopupMenuItem>[],
-          error: (_, __) => <AdaptivePopupMenuItem>[],
+          loading: () => <AdaptivePopupMenuItem>[
+            AdaptivePopupMenuItem(
+              label: context.l10n.loading,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'arrow.clockwise'
+                  : Icons.sync,
+              value: 'loading',
+            ),
+          ],
+          error: (_, __) => <AdaptivePopupMenuItem>[
+            AdaptivePopupMenuItem(
+              label: context.l10n.errorTitle,
+              icon: PlatformInfo.isIOS26OrHigher()
+                  ? 'exclamationmark.triangle.fill'
+                  : Icons.error,
+              value: 'error',
+            ),
+          ],
         ),
         AdaptivePopupMenuItem(
-          label: context.l10n.createSpace, // TODO: Localize
+          label: context.l10n.createSpace,
           icon: PlatformInfo.isIOS26OrHigher() ? 'plus' : Icons.add,
           value: 'create_space',
         ),
@@ -388,6 +413,15 @@ class HomeHeaderSliver extends ConsumerWidget {
       onSelected: (index, item) async {
         HapticFeedback.selectionClick();
         SystemSound.play(SystemSoundType.click);
+
+        if (item.value == 'overview') {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const OverviewDashboardPage(),
+            ),
+          );
+          return;
+        }
 
         if (item.value == 'personal') {
           if (viewMode.mode != ViewMode.personal) {
@@ -483,29 +517,12 @@ class HomeHeaderSliver extends ConsumerWidget {
       ),
     );
 
-    // Build menu items dynamically
-    final menuItems = <AdaptivePopupMenuItem>[
-      AdaptivePopupMenuItem(
-        label: context.l10n.accountOverview,
-        icon:
-            PlatformInfo.isIOS26OrHigher() ? 'chart.pie.fill' : Icons.pie_chart,
-        value: 'overview',
-      ),
-      AdaptivePopupMenuItem(
-        label: context.l10n.settings,
-        icon: PlatformInfo.isIOS26OrHigher()
-            ? 'gearshape'
-            : Icons.settings_outlined,
-        value: 'settings',
-      ),
-      AdaptivePopupMenuItem(
-        label: context.l10n.exportTransactions,
-        icon: PlatformInfo.isIOS26OrHigher()
-            ? 'square.and.arrow.up'
-            : Icons.file_download_rounded,
-        value: 'export_all',
-      ),
-    ];
+    // Build menu items dynamically - ordered by frequency/context priority
+    // 1. Shared Space & Members (most relevant, household context)
+    // 2. Customize Widgets (high frequency)
+    // 3. Export Transactions (low frequency, grouped separately)
+    // 4. Settings (system, always at bottom)
+    final menuItems = <AdaptivePopupMenuItem>[];
 
     if (selectedHouseholdIdForSettings != null) {
       final currentHousehold = householdsAsync.when(
@@ -541,57 +558,31 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
     }
 
-    // Menu Button (Right)
-    final menuButton = AdaptivePopupMenuButton.widget(
-      child: Container(
-        height: 40,
-        width: 40,
-        alignment: Alignment.center,
-        child: Icon(
-          Icons.more_horiz_rounded,
-          color: colorScheme.foreground,
-          size: 24,
-        ),
-      ),
-      items: menuItems,
-      onSelected: (index, item) async {
-        if (item.value == 'overview') {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const OverviewDashboardPage(),
-            ),
-          );
-          return;
-        }
+    menuItems.add(AdaptivePopupMenuItem(
+      label: context.l10n.editWidgets,
+      icon: PlatformInfo.isIOS26OrHigher()
+          ? 'square.grid.2x2'
+          : Icons.dashboard_customize_outlined,
+      value: 'edit_widgets',
+    ));
 
-        if (item.value == 'settings') {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const SettingsPage(),
-            ),
-          );
-          return;
-        }
+    menuItems.add(AdaptivePopupMenuItem(
+      label: context.l10n.exportTransactions,
+      icon: PlatformInfo.isIOS26OrHigher()
+          ? 'square.and.arrow.up'
+          : Icons.file_download_rounded,
+      value: 'export_all',
+    ));
 
-        if (item.value == 'export_all') {
-          await exportAllTransactions();
-          return;
-        }
+    menuItems.add(AdaptivePopupMenuItem(
+      label: context.l10n.settings,
+      icon: PlatformInfo.isIOS26OrHigher()
+          ? 'gearshape'
+          : Icons.settings_outlined,
+      value: 'settings',
+    ));
 
-        if (item.value == 'manage_household' &&
-            selectedHouseholdIdForSettings != null) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => HouseholdSettingsPage(
-                householdId: selectedHouseholdIdForSettings,
-              ),
-            ),
-          );
-          return;
-        }
-      },
-    );
-
+    // Animated switcher swaps between check button (edit mode) and menu button (normal mode)
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -614,13 +605,121 @@ class HomeHeaderSliver extends ConsumerWidget {
                 child: profilePill,
               ),
 
-              // Right side: Currency + Menu
+// Right side: Currency + AnimatedSwitcher (Menu/Check button)
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  currencyPill,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: isEditMode
+                        ? const SizedBox.shrink(key: ValueKey('currencyHidden'))
+                        : SizedBox(
+                            key: const ValueKey('currencyVisible'),
+                            child: currencyPill,
+                          ),
+                  ),
                   const SizedBox(width: 8),
-                  menuButton,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: isEditMode
+                        ? GestureDetector(
+                            key: const ValueKey('doneButton'),
+                            onTap: () {
+                              ref.read(isEditModeProvider.notifier).state =
+                                  false;
+                            },
+                            child: Container(
+                              height: 40,
+                              width: 40,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Icon(
+                                Icons.check_rounded,
+                                size: 24,
+                                color: colorScheme.onPrimary,
+                              ),
+                            ),
+                          )
+                        : AdaptivePopupMenuButton.widget(
+                            key: const ValueKey('menuButton'),
+                            child: Container(
+                              height: 40,
+                              width: 40,
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.more_horiz_rounded,
+                                color: colorScheme.foreground,
+                                size: 24,
+                              ),
+                            ),
+                            items: menuItems,
+                            onSelected: (index, item) async {
+                              if (item.value == 'manage_household' &&
+                                  selectedHouseholdIdForSettings != null) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => HouseholdSettingsPage(
+                                      householdId:
+                                          selectedHouseholdIdForSettings,
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              if (item.value == 'edit_widgets') {
+                                ref.read(isEditModeProvider.notifier).state =
+                                    true;
+                                return;
+                              }
+
+                              if (item.value == 'export_all') {
+                                await exportAllTransactions();
+                                return;
+                              }
+
+                              if (item.value == 'settings') {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const SettingsPage(),
+                                  ),
+                                );
+                                return;
+                              }
+                            },
+                          ),
+                  ),
                   if (kDebugMode) ...[
                     const SizedBox(width: 8),
                     IconButton(
