@@ -122,7 +122,7 @@ class RecurringTransactionsNotifier
           .select(
             'id, date, category, raw_text, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
-            'user_id, payer_user_id, split_group_id, '
+            'user_id, split_group_id, '
             'recurrence_rule, type, attachments, created_at, updated_at',
           )
           .eq('is_recurring', true);
