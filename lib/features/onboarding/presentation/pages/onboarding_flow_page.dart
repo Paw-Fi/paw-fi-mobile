@@ -21,7 +21,10 @@ import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
+import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
+import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:intl/intl.dart';
@@ -47,7 +50,11 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final aiLogSuccess = useState<AiLogSuccess?>(null);
     // Step 4: editable group name captured here so footer CTA can pass it
     final groupName = useState<String>('');
-    const totalSteps = 5;
+    // Track whether user created a space in Step 3
+    final didCreateSpace = useState(false);
+    // Track whether user created a pocket in Step 4
+    final pocketCreated = useState(false);
+    const totalSteps = 6;
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -216,12 +223,55 @@ class OnboardingFlowPage extends HookConsumerWidget {
         );
         // Always return to onboarding after space creation
         if (result == true) {
+          didCreateSpace.value = true;
           next();
         }
         return;
       }
 
       if (currentPage.value == 4) {
+        // Pockets intro step
+        if (pocketCreated.value) {
+          next();
+          return;
+        }
+        // Resolve scope based on whether user created a space
+        final selectedHousehold = ref.read(selectedHouseholdProvider);
+        final now = DateTime.now();
+        final monthStart = DateTime(now.year, now.month, 1);
+        final scopeParams = didCreateSpace.value &&
+                selectedHousehold.householdId != null
+            ? PocketsScopeParams(
+                scope: PocketsScopeType.household,
+                householdId: selectedHousehold.householdId,
+                periodMonth: monthStart,
+              )
+            : PocketsScopeParams(
+                scope: PocketsScopeType.personal,
+                periodMonth: monthStart,
+              );
+
+        // Open template sheet for pocket creation (it handles budget input too)
+        if (!context.mounted) return;
+        await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          isDismissible: false,
+          enableDrag: false,
+          backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+          builder: (context) => CreateBudgetFromTemplateSheet(
+            scopeParams: scopeParams,
+          ),
+        );
+        // After sheet closes, check if pockets were created
+        final updatedState = ref.read(pocketsProvider(scopeParams));
+        if (updatedState.editing.isNotEmpty) {
+          pocketCreated.value = true;
+        }
+        return;
+      }
+
+      if (currentPage.value == 5) {
         if (aiLogSuccess.value != null) {
           unawaited(showFinishPage());
           return;
@@ -279,6 +329,12 @@ class OnboardingFlowPage extends HookConsumerWidget {
                           )
                         : const SizedBox.shrink(),
                     currentPage.value == 4
+                        ? _PocketsIntroStep(
+                            didCreateSpace: didCreateSpace.value,
+                            pocketCreated: pocketCreated.value,
+                          )
+                        : const SizedBox.shrink(),
+                    currentPage.value == 5
                         ? _AiLogStep(
                             onSuccess: (success) =>
                                 aiLogSuccess.value = success,
@@ -331,16 +387,22 @@ class OnboardingFlowPage extends HookConsumerWidget {
                                       ? context.l10n.turnOnNotifications
                                       : currentPage.value == 3
                                           ? context.l10n.createSpace
-                                          : (aiLogSuccess.value != null
-                                              ? context.l10n.continueAction
-                                              : context.l10n.tryNow),
+                                          : currentPage.value == 4
+                                              ? (pocketCreated.value
+                                                  ? context.l10n.continueAction
+                                                  : context.l10n
+                                                      .pocketsIntroUseTemplate)
+                                              : (aiLogSuccess.value != null
+                                                  ? context
+                                                      .l10n.continueAction
+                                                  : context.l10n.tryNow),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     PlainAdaptiveButton(
                       onPressed:
-                          (currentPage.value == 4 && aiLogSuccess.value != null)
+                          (currentPage.value == 5 && aiLogSuccess.value != null)
                               ? null
                               : skip,
                       child: Text(
@@ -686,91 +748,357 @@ class _HouseholdStep extends HookConsumerWidget {
     }, [controller]);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.inviteOthersToShareBudget,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              context.l10n.inviteOthersToShareBudget,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/onboarding4.svg',
-              width: 160,
-              height: 160,
-              fit: BoxFit.contain,
+            const SizedBox(height: 16),
+            Center(
+              child: SvgPicture.asset(
+                'lib/assets/images/onboarding/onboarding4.svg',
+                width: 160,
+                height: 160,
+                fit: BoxFit.contain,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          // Visual create-a-group card with editable name
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-            decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                  color: colorScheme.border.withValues(alpha: 0.06), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  context.l10n.createSpace,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: colorScheme.mutedForeground),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  textInputAction: TextInputAction.done,
-                  style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.householdNameHint,
-                    hintStyle: TextStyle(
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.6)),
-                    filled: true,
-                    fillColor: colorScheme.cardSurface,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.12),
-                          width: 1),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.12),
-                          width: 1),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide:
-                          BorderSide(color: colorScheme.primary, width: 2),
+            const SizedBox(height: 24),
+            // Visual create-a-group card with editable name
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              decoration: BoxDecoration(
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: colorScheme.border.withValues(alpha: 0.06), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.shadow.withValues(alpha: 0.08),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.l10n.createSpace,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: colorScheme.mutedForeground),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    textInputAction: TextInputAction.done,
+                    style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontWeight: FontWeight.w500),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.householdNameHint,
+                      hintStyle: TextStyle(
+                          color:
+                              colorScheme.mutedForeground.withValues(alpha: 0.6)),
+                      filled: true,
+                      fillColor: colorScheme.cardSurface,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.12),
+                            width: 1),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                            color: colorScheme.border.withValues(alpha: 0.12),
+                            width: 1),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: colorScheme.primary, width: 2),
+                      ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PocketsIntroStep extends HookConsumerWidget {
+  const _PocketsIntroStep({
+    required this.didCreateSpace,
+    required this.pocketCreated,
+  });
+
+  final bool didCreateSpace;
+  final bool pocketCreated;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final currency =
+        (ref.watch(homeFilterProvider).selectedCurrency ?? 'USD').toUpperCase();
+
+    // Watch pockets state for success detection
+    final selectedHousehold = ref.watch(selectedHouseholdProvider);
+    final monthStart = DateTime(now.year, now.month, 1);
+    final scopeParams = didCreateSpace &&
+            selectedHousehold.householdId != null
+        ? PocketsScopeParams(
+            scope: PocketsScopeType.household,
+            householdId: selectedHousehold.householdId,
+            periodMonth: monthStart,
+          )
+        : PocketsScopeParams(
+            scope: PocketsScopeType.personal,
+            periodMonth: monthStart,
+          );
+    final pocketsState = ref.watch(pocketsProvider(scopeParams));
+
+    // Staggered animation for mock cards
+    final animController = useAnimationController(
+      duration: const Duration(milliseconds: 1200),
+    );
+    useEffect(() {
+      animController.forward();
+      return null;
+    }, []);
+
+    // Mock pocket data using user's currency
+    final mockPockets = useMemoized(
+      () => [
+        PocketEnvelope(
+          id: 'mock-1',
+          name: 'Groceries',
+          budgetAmountCents: 50000,
+          spent: 325,
+          currency: currency,
+          icon: 'shopping_bag',
+          color: '#c77199',
+          budgetId: null,
+          householdId: null,
+          lastUpdated: now,
+        ),
+        PocketEnvelope(
+          id: 'mock-2',
+          name: 'Dining Out',
+          budgetAmountCents: 30000,
+          spent: 120,
+          currency: currency,
+          icon: 'restaurant',
+          color: '#7059f6',
+          budgetId: null,
+          householdId: null,
+          lastUpdated: now,
+        ),
+        PocketEnvelope(
+          id: 'mock-3',
+          name: 'Transport',
+          budgetAmountCents: 20000,
+          spent: 160,
+          currency: currency,
+          icon: 'directions_car',
+          color: '#66a586',
+          budgetId: null,
+          householdId: null,
+          lastUpdated: now,
+        ),
+        PocketEnvelope(
+          id: 'mock-4',
+          name: 'Fun',
+          budgetAmountCents: 20000,
+          spent: 50,
+          currency: currency,
+          icon: 'celebration',
+          color: '#5a8eb3',
+          budgetId: null,
+          householdId: null,
+          lastUpdated: now,
+        ),
+      ],
+      [currency],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Title
+            Text(
+              context.l10n.pocketsIntroTitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Subtitle
+            Text(
+              context.l10n.pocketsIntroSubtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Benefit chips
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _BenefitChip(
+                  icon: Icons.category_rounded,
+                  label: context.l10n.pocketsIntroBenefitTrack,
+                  colorScheme: colorScheme,
+                ),
+                const SizedBox(width: 8),
+                _BenefitChip(
+                  icon: Icons.shield_rounded,
+                  label: context.l10n.pocketsIntroBenefitLimit,
+                  colorScheme: colorScheme,
+                ),
+                const SizedBox(width: 8),
+                _BenefitChip(
+                  icon: Icons.bar_chart_rounded,
+                  label: context.l10n.pocketsIntroBenefitVisual,
+                  colorScheme: colorScheme,
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+
+            // Mock pocket grid with staggered animation
+            if (!pocketCreated)
+              GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: List.generate(mockPockets.length, (index) {
+                  final interval = Interval(
+                    index * 0.15,
+                    (index * 0.15 + 0.5).clamp(0.0, 1.0),
+                    curve: Curves.easeOutCubic,
+                  );
+                  return AnimatedBuilder(
+                    animation: animController,
+                    builder: (context, child) {
+                      final value = interval.transform(animController.value);
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.translate(
+                          offset: Offset(0, 20 * (1 - value)),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: IgnorePointer(
+                      child: PocketCard(
+                        pocket: mockPockets[index],
+                        colorScheme: colorScheme,
+                        totalBudget: 1200,
+                        envelopeMode: true,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+            // Success state: show real pockets
+            if (pocketCreated && pocketsState.editing.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.successSurface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colorScheme.successBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded,
+                        color: colorScheme.success, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${pocketsState.editing.length} pocket${pocketsState.editing.length > 1 ? 's' : ''} created!',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BenefitChip extends StatelessWidget {
+  const _BenefitChip({
+    required this.icon,
+    required this.label,
+    required this.colorScheme,
+  });
+
+  final IconData icon;
+  final String label;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.primary,
+            ),
           ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -838,20 +1166,20 @@ class _AiLogStep extends HookConsumerWidget {
                         ),
                         const SizedBox(height: 20),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 16),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: colorScheme.card,
-                            borderRadius: BorderRadius.circular(16),
+                            color: colorScheme.homeCardSurface,
+                            borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                                color:
-                                    colorScheme.border.withValues(alpha: 0.08)),
+                              color: colorScheme.homeCardBorder,
+                              width: 1,
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    colorScheme.shadow.withValues(alpha: 0.08),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 32,
+                                offset: const Offset(0, 8),
+                                spreadRadius: -4,
                               ),
                             ],
                           ),
@@ -924,13 +1252,22 @@ class _AiLogStep extends HookConsumerWidget {
                         ),
                         const SizedBox(height: 10),
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: colorScheme.cardSurface,
-                            borderRadius: BorderRadius.circular(14),
+                            color: colorScheme.homeCardSurface,
+                            borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: colorScheme.border.withValues(alpha: 0.08),
+                              color: colorScheme.homeCardBorder,
+                              width: 1,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 32,
+                                offset: const Offset(0, 8),
+                                spreadRadius: -4,
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -969,10 +1306,10 @@ class _AiLogStep extends HookConsumerWidget {
           if (success != null) ...[
             const SizedBox(height: 20),
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
               decoration: BoxDecoration(
                 color: colorScheme.successSurface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: colorScheme.successBorder),
               ),
               child: Column(
@@ -1048,10 +1385,10 @@ class _AiLogStep extends HookConsumerWidget {
               ),
             const SizedBox(height: 18),
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: colorScheme.infoSurface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: colorScheme.infoBorder),
               ),
               child: Row(
@@ -1097,11 +1434,22 @@ class _AiLoggedTransactionCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.border.withValues(alpha: 0.08)),
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

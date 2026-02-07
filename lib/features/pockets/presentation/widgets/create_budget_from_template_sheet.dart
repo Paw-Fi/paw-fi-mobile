@@ -615,6 +615,7 @@ Map<String, String> _templateDescriptionMap(AppLocalizations l10n) => {
 
 IconData _getIconData(String name) {
   switch (name) {
+    // Original mappings
     case 'home':
       return Icons.home;
     case 'home_work':
@@ -663,6 +664,75 @@ IconData _getIconData(String name) {
       return Icons.fitness_center;
     case 'sports_esports':
       return Icons.sports_esports;
+    
+    // Missing mappings from templates
+    case 'house':
+      return Icons.home;
+    case 'local_bar':
+      return Icons.local_bar;
+    case 'trending_up':
+      return Icons.trending_up;
+    case 'coffee':
+      return Icons.coffee;
+    case 'delete_outline':
+      return Icons.delete_outline;
+    case 'shield':
+      return Icons.shield;
+    case 'self_improvement':
+      return Icons.self_improvement;
+    case 'kitchen':
+      return Icons.kitchen;
+    case 'house_siding':
+      return Icons.home;
+    case 'build_circle':
+      return Icons.build;
+    case 'flight_takeoff':
+      return Icons.flight_takeoff;
+    case 'backpack':
+      return Icons.backpack;
+    case 'child_care':
+      return Icons.child_care;
+    case 'weekend':
+      return Icons.weekend;
+    case 'priority_high':
+      return Icons.priority_high;
+    case 'child_friendly':
+      return Icons.child_friendly;
+    case 'favorite':
+      return Icons.favorite;
+    case 'shopping_bag':
+      return Icons.shopping_bag;
+    case 'healing':
+      return Icons.healing;
+    case 'account_balance':
+      return Icons.account_balance;
+    case 'people':
+      return Icons.people;
+    case 'cleaning_services':
+      return Icons.cleaning_services;
+    case 'fastfood':
+      return Icons.fastfood;
+    case 'hotel':
+      return Icons.hotel;
+    case 'local_grocery_store':
+      return Icons.local_grocery_store;
+    case 'map':
+      return Icons.map;
+    case 'apartment':
+      return Icons.apartment;
+    case 'ramen_dining':
+      return Icons.ramen_dining;
+    case 'soap':
+      return Icons.soap;
+    case 'inventory_2':
+      return Icons.inventory_2;
+    case 'bolt':
+      return Icons.bolt;
+    case 'policy':
+      return Icons.policy;
+    case 'spa':
+      return Icons.spa;
+      
     default:
       return Icons.help_outline;
   }
