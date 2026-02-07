@@ -16,10 +16,15 @@ import 'package:moneko/features/home/presentation/widgets/currency_selector_moda
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -39,9 +44,10 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
+    final aiLogSuccess = useState<AiLogSuccess?>(null);
     // Step 4: editable group name captured here so footer CTA can pass it
     final groupName = useState<String>('');
-    const totalSteps = 4;
+    const totalSteps = 5;
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -215,6 +221,20 @@ class OnboardingFlowPage extends HookConsumerWidget {
         return;
       }
 
+      if (currentPage.value == 4) {
+        if (aiLogSuccess.value != null) {
+          unawaited(showFinishPage());
+          return;
+        }
+        // Last step: show AI input modal instead of finishing
+        await handleAiFreeFormText(
+          context,
+          ref,
+          onSuccess: (success) => aiLogSuccess.value = success,
+        );
+        return;
+      }
+
       // Default: advance to next step
       next();
     }
@@ -256,6 +276,13 @@ class OnboardingFlowPage extends HookConsumerWidget {
                         ? _HouseholdStep(
                             name: groupName.value,
                             onNameChanged: (v) => groupName.value = v,
+                          )
+                        : const SizedBox.shrink(),
+                    currentPage.value == 4
+                        ? _AiLogStep(
+                            onSuccess: (success) =>
+                                aiLogSuccess.value = success,
+                            lastSuccess: aiLogSuccess.value,
                           )
                         : const SizedBox.shrink(),
                   ],
@@ -304,13 +331,18 @@ class OnboardingFlowPage extends HookConsumerWidget {
                                       ? context.l10n.turnOnNotifications
                                       : currentPage.value == 3
                                           ? context.l10n.createSpace
-                                          : 'Finish',
+                                          : (aiLogSuccess.value != null
+                                              ? context.l10n.continueAction
+                                              : context.l10n.tryNow),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     PlainAdaptiveButton(
-                      onPressed: skip,
+                      onPressed:
+                          (currentPage.value == 4 && aiLogSuccess.value != null)
+                              ? null
+                              : skip,
                       child: Text(
                         context.l10n.skipNow,
                         style: TextStyle(color: colorScheme.mutedForeground),
@@ -740,6 +772,594 @@ class _HouseholdStep extends HookConsumerWidget {
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+}
+
+class _AiLogStep extends HookConsumerWidget {
+  const _AiLogStep({required this.onSuccess, required this.lastSuccess});
+
+  final ValueChanged<AiLogSuccess> onSuccess;
+  final AiLogSuccess? lastSuccess;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final success = lastSuccess;
+    final items = success?.items ?? const <ParsedExpense>[];
+    final hasSuccess = success != null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnimatedSize(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.08),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: hasSuccess
+                  ? const SizedBox.shrink()
+                  : Column(
+                      key: const ValueKey('ai-log-intro'),
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.l10n.tryAiLoggingTitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          context.l10n.tryAiLoggingSubtitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: colorScheme.card,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color:
+                                    colorScheme.border.withValues(alpha: 0.08)),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    colorScheme.shadow.withValues(alpha: 0.08),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  _AiActionChip(
+                                    icon: Icons.edit_rounded,
+                                    label: context.l10n.freeFormText,
+                                    onTap: () async {
+                                      await handleAiFreeFormText(
+                                        context,
+                                        ref,
+                                        onSuccess: onSuccess,
+                                      );
+                                    },
+                                  ),
+                                  _AiActionChip(
+                                    icon: Icons.camera_alt_rounded,
+                                    label: context.l10n.takePhoto,
+                                    onTap: () async {
+                                      await handleAiCameraCapture(
+                                        context,
+                                        ref,
+                                        onSuccess: onSuccess,
+                                      );
+                                    },
+                                  ),
+                                  _AiActionChip(
+                                    icon: Icons.mic_rounded,
+                                    label: context.l10n.textAudio,
+                                    onTap: () async {
+                                      await handleAiFreeFormText(
+                                        context,
+                                        ref,
+                                        onSuccess: onSuccess,
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _AiActionRow(
+                                icon: Icons.attach_file_rounded,
+                                label: context.l10n.files,
+                                subtitle: context.l10n.tryAiLoggingFilesHint,
+                                onTap: () async {
+                                  await handleAiFileOrGallery(
+                                    context,
+                                    ref,
+                                    onSuccess: onSuccess,
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          context.l10n.aiPromptExamplesTitle,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: colorScheme.cardSurface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: colorScheme.border.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.aiPromptExamplesDescription,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _AiPromptChip(
+                                    text: context.l10n.aiPromptExample1,
+                                  ),
+                                  _AiPromptChip(
+                                    text: context.l10n.aiPromptExample2,
+                                  ),
+                                  _AiPromptChip(
+                                    text: context.l10n.aiPromptExample3,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          if (success != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              decoration: BoxDecoration(
+                color: colorScheme.successSurface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colorScheme.successBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: colorScheme.success.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.celebration_rounded,
+                          color: colorScheme.success,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          context.l10n.aiFirstLogCongratsTitle,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    context.l10n.aiFirstLogCongratsBody(
+                      success.count,
+                      success.targetLabel,
+                    ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.aiLogSummaryTitle,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...items
+                .take(3)
+                .map((item) => _AiLoggedTransactionCard(transaction: item))
+                .toList(),
+            if (items.length > 3)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  context.l10n.aiLogSummaryMore(items.length - 3),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colorScheme.infoSurface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: colorScheme.infoBorder),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.auto_awesome_rounded,
+                      color: colorScheme.info, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.l10n.aiCapabilitiesHint,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.mutedForeground,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AiLoggedTransactionCard extends StatelessWidget {
+  const _AiLoggedTransactionCard({required this.transaction});
+
+  final ParsedExpense transaction;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final amount = formatLocalizedNumber(context, transaction.amount);
+    final categoryIcon = getCategoryIcon(transaction.category);
+    final categoryColor = getCategoryColor(transaction.category);
+    final dateLabel = DateFormat.yMMMd(
+      Localizations.localeOf(context).toString(),
+    ).format(transaction.date);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.border.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: categoryColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  categoryIcon,
+                  color: categoryColor,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.description?.isNotEmpty == true
+                          ? transaction.description!
+                          : context.l10n.aiLogSummaryFallback,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      dateLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${transaction.isIncome ? '+' : '-'}${transaction.currencySymbol}$amount',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: transaction.isIncome
+                      ? colorScheme.success
+                      : colorScheme.foreground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _AiMetaChip(
+                label: context.l10n.category,
+                value: getCategoryTranslation(context, transaction.category),
+              ),
+              _AiMetaChip(
+                label: context.l10n.date,
+                value: dateLabel,
+              ),
+              _AiMetaChip(
+                label: context.l10n.currency,
+                value: transaction.currency.toUpperCase(),
+              ),
+              if (transaction.breakdown?.isNotEmpty == true)
+                _AiMetaChip(
+                  label: context.l10n.aiLogMetaBreakdown,
+                  value: transaction.breakdown!.length.toString(),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiMetaChip extends StatelessWidget {
+  const _AiMetaChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colorScheme.border.withValues(alpha: 0.08)),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          fontSize: 11,
+          color: colorScheme.mutedForeground,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _AiPromptChip extends StatelessWidget {
+  const _AiPromptChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.selectedStateBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.controlBorder),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.foreground,
+        ),
+      ),
+    );
+  }
+}
+
+class _AiActionChip extends StatelessWidget {
+  const _AiActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.selectedStateBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.controlBorder),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: colorScheme.primary, size: 20),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiActionRow extends StatelessWidget {
+  const _AiActionRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: colorScheme.cardSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.border.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: colorScheme.primary, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.foreground,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: colorScheme.mutedForeground,
+            ),
+          ],
+        ),
       ),
     );
   }

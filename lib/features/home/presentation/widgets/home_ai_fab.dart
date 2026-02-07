@@ -57,6 +57,18 @@ class _AiParsedItem {
   });
 }
 
+class AiLogSuccess {
+  final int count;
+  final String targetLabel;
+  final List<ParsedExpense> items;
+
+  const AiLogSuccess({
+    required this.count,
+    required this.targetLabel,
+    required this.items,
+  });
+}
+
 String? _resolveHouseholdIdForAi(WidgetRef ref) {
   final scope = ref.read(householdScopeProvider);
   return scope.activeAccountHouseholdId;
@@ -584,7 +596,11 @@ List<List<T>> chunkList<T>(List<T> items, int maxSize) {
   return chunks;
 }
 
-Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
+Future<void> handleAiCameraCapture(
+  BuildContext context,
+  WidgetRef ref, {
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
   debugPrint('🎥 Starting camera capture...');
 
   try {
@@ -598,7 +614,12 @@ Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
 
     if (photo != null) {
       if (context.mounted) {
-        await _processExpense(context, ref, imagePath: photo.path);
+        await _processExpense(
+          context,
+          ref,
+          imagePath: photo.path,
+          onSuccess: onSuccess,
+        );
       }
     } else {
       debugPrint('🎥 User cancelled or permission denied');
@@ -613,7 +634,11 @@ Future<void> handleAiCameraCapture(BuildContext context, WidgetRef ref) async {
   }
 }
 
-Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
+Future<void> handleAiFreeFormText(
+  BuildContext context,
+  WidgetRef ref, {
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
   final controller = TextEditingController();
 
   showTextInputDrawer(
@@ -621,7 +646,12 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
     controller,
     (text) async {
       if (!context.mounted) return;
-      await _processExpense(context, ref, text: text);
+      await _processExpense(
+        context,
+        ref,
+        text: text,
+        onSuccess: onSuccess,
+      );
     },
     onSubmitAudio: (audioBytes, contentType) async {
       if (!context.mounted) return;
@@ -630,6 +660,7 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
         ref,
         audioBytes: audioBytes,
         audioContentType: contentType,
+        onSuccess: onSuccess,
       );
     },
   );
@@ -637,8 +668,9 @@ Future<void> handleAiFreeFormText(BuildContext context, WidgetRef ref) async {
 
 Future<void> handleAiFileUpload(
   BuildContext context,
-  WidgetRef ref,
-) async {
+  WidgetRef ref, {
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
   try {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -689,6 +721,7 @@ Future<void> handleAiFileUpload(
         context,
         ref,
         attachments: attachments,
+        onSuccess: onSuccess,
       );
     }
   } catch (e) {
@@ -703,8 +736,9 @@ Future<void> handleAiFileUpload(
 
 Future<void> handleAiFileOrGallery(
   BuildContext context,
-  WidgetRef ref,
-) async {
+  WidgetRef ref, {
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
   await AdaptiveAlertDialog.show(
     context: context,
     title: context.l10n.appTitle,
@@ -714,7 +748,7 @@ Future<void> handleAiFileOrGallery(
         title: context.l10n.files,
         style: AlertActionStyle.primary,
         onPressed: () async {
-          await handleAiFileUpload(context, ref);
+          await handleAiFileUpload(context, ref, onSuccess: onSuccess);
         },
       ),
       AlertAction(
@@ -730,7 +764,12 @@ Future<void> handleAiFileOrGallery(
 
             if (image != null) {
               if (context.mounted) {
-                await _processExpense(context, ref, imagePath: image.path);
+                await _processExpense(
+                  context,
+                  ref,
+                  imagePath: image.path,
+                  onSuccess: onSuccess,
+                );
               }
             }
           } catch (e) {
@@ -814,6 +853,7 @@ Future<void> _processExpense(
   List<Map<String, dynamic>>? attachments,
   Uint8List? audioBytes,
   String? audioContentType,
+  void Function(AiLogSuccess success)? onSuccess,
 }) async {
   final user = ref.read(authProvider);
   final contact = ref.read(analyticsProvider).contact;
@@ -1107,6 +1147,18 @@ Future<void> _processExpense(
                 context,
                 ref,
                 items: parsed,
+              ),
+            );
+          }
+
+          if (context.mounted && onSuccess != null) {
+            onSuccess(
+              AiLogSuccess(
+                count: parsed.length,
+                targetLabel: _resolveLogTargetLabel(context, ref),
+                items: parsed
+                    .map((entry) => entry.transaction)
+                    .toList(growable: false),
               ),
             );
           }

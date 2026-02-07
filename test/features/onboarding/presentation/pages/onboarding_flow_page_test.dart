@@ -191,7 +191,27 @@ void main() {
     // Allow the finish page route transition to complete.
     await tester.pump(const Duration(milliseconds: 400));
 
-    // Last skip opens the finish page; complete it.
+    // Last step now shows "Try Now" and opens AI modal instead of finish page
+    // Tap the Try Now button to open AI modal, then close it to proceed
+    final tryNowButton = find.widgetWithText(
+      PrimaryAdaptiveButton,
+      'Try Now',
+    );
+    expect(tryNowButton, findsOneWidget);
+    await tester.tap(tryNowButton);
+    await tester.pumpAndSettle();
+    
+    // Close the AI modal by tapping the close button
+    final closeButton = find.byIcon(Icons.close);
+    expect(closeButton, findsOneWidget);
+    await tester.tap(closeButton);
+    await tester.pumpAndSettle();
+    
+    // Now tap skip to go to finish page
+    await _tapSkip(tester);
+    await tester.pump(const Duration(milliseconds: 400));
+    
+    // Complete onboarding from finish page
     final startButton = find.widgetWithText(
       PrimaryAdaptiveButton,
       'Start',
