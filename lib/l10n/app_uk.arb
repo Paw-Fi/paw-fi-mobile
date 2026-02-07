@@ -2024,5 +2024,12 @@
   "orbitBubbleInsight1": "Чи можу я поїхати до Японії до червня?",
   "orbitBubbleInsight2": "Я вписуюсь у бюджет цього місяця?",
   "orbitBubbleInsight3": "Скільки витрачено на ресторани?",
-  "lastMonth": "Минулий місяць"
+  "lastMonth": "Минулий місяць",
+  "onboardingFinishHighlightSharedExpenses": "Зручні спільні витрати з Moneko",
+  "onboardingFinishHighlightFreeTrial": "Спробуйте Moneko безкоштовно протягом 30 днів",
+  "onboardingFinishHighlightLogExpenses": "Записуйте витрати голосом, текстом, за фото або в повідомленнях",
+  "onboardingFinishHighlightWhatsApp": "Додавайте витрати прямо з WhatsApp",
+  "onboardingFinishHighlightSharedBudgets": "Спільний бюджет для пар та сімей",
+  "onboardingFinishHighlightOnePlan": "Один тариф для всієї родини",
+  "onboardingFinishHighlightEnvelopeBudgeting": "Простий метод конвертів"
 }

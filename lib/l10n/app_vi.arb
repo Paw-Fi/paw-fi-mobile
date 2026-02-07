@@ -2031,5 +2031,12 @@
   "orbitBubbleInsight1": "Có thể đi du lịch Nhật Bản trước tháng 6 không?",
   "orbitBubbleInsight2": "Tháng này có chi đúng ngân sách không?",
   "orbitBubbleInsight3": "Đã chi bao nhiêu cho ăn uống rồi?",
-  "lastMonth": "Tháng trước"
+  "lastMonth": "Tháng trước",
+  "onboardingFinishHighlightSharedExpenses": "Chia sẻ chi tiêu dễ dàng cùng Moneko",
+  "onboardingFinishHighlightFreeTrial": "Dùng thử Moneko miễn phí trong 30 ngày",
+  "onboardingFinishHighlightLogExpenses": "Ghi chép chi tiêu bằng giọng nói, văn bản, hình ảnh hoặc tin nhắn",
+  "onboardingFinishHighlightWhatsApp": "Thêm chi tiêu trực tiếp từ WhatsApp",
+  "onboardingFinishHighlightSharedBudgets": "Ngân sách chia sẻ cho cặp đôi và gia đình",
+  "onboardingFinishHighlightOnePlan": "Một gói cước cho cả gia đình bạn",
+  "onboardingFinishHighlightEnvelopeBudgeting": "Phương pháp quản lý chi tiêu theo từng túi"
 }

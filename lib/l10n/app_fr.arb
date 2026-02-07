@@ -2032,5 +2032,12 @@
   "orbitBubbleInsight1": "Puis-je voyager au Japon avant juin ?",
   "orbitBubbleInsight2": "Suis-je dans le budget ?",
   "orbitBubbleInsight3": "Budget restaurant ?",
-  "lastMonth": "Le mois dernier"
+  "lastMonth": "Le mois dernier",
+  "onboardingFinishHighlightSharedExpenses": "Partagez vos dépenses facilement avec Moneko",
+  "onboardingFinishHighlightFreeTrial": "Essayez Moneko gratuitement pendant 30 jours",
+  "onboardingFinishHighlightLogExpenses": "Enregistrez vos dépenses par voix, texte, photo ou message",
+  "onboardingFinishHighlightWhatsApp": "Ajoutez des dépenses directement depuis WhatsApp",
+  "onboardingFinishHighlightSharedBudgets": "Budgets partagés pour couples et familles",
+  "onboardingFinishHighlightOnePlan": "Un seul abonnement pour toute la famille",
+  "onboardingFinishHighlightEnvelopeBudgeting": "Budgétisation par enveloppes simple"
 }

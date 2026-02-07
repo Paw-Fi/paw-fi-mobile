@@ -1978,5 +1978,12 @@
   "orbitBubbleInsight1": "کیا میں جون سے پہلے جاپان کا سفر کر سکتا ہوں؟",
   "orbitBubbleInsight2": "کیا اس ماہ بجٹ ٹھیک ہے؟",
   "orbitBubbleInsight3": "کھانے پینے پر کتنا خرچ ہوا؟",
-  "lastMonth": "گزشتہ ماہ"
+  "lastMonth": "گزشتہ ماہ",
+  "onboardingFinishHighlightSharedExpenses": "Moneko کے ساتھ مشترکہ اخراجات اب بالکل آسان",
+  "onboardingFinishHighlightFreeTrial": "Moneko کو 30 دن کے لیے مفت آزمائیں",
+  "onboardingFinishHighlightLogExpenses": "آواز، ٹیکسٹ، تصویر یا میسج کے ذریعے اخراجات درج کریں",
+  "onboardingFinishHighlightWhatsApp": "براہ راست واٹس ایپ سے اخراجات شامل کریں",
+  "onboardingFinishHighlightSharedBudgets": "جوڑوں اور خاندانوں کے لیے مشترکہ بجٹ",
+  "onboardingFinishHighlightOnePlan": "آپ کے پورے خاندان کے لیے ایک ہی پلان",
+  "onboardingFinishHighlightEnvelopeBudgeting": "لفافہ بجٹ کا سادہ طریقہ"
 }

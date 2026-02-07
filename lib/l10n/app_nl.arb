@@ -1979,5 +1979,12 @@
   "orbitBubbleInsight1": "Kan ik voor juni naar Japan reizen?",
   "orbitBubbleInsight2": "Blijf ik binnen mijn budget?",
   "orbitBubbleInsight3": "Hoeveel aan uit eten uitgegeven?",
-  "lastMonth": "Vorige maand"
+  "lastMonth": "Vorige maand",
+  "onboardingFinishHighlightSharedExpenses": "Eenvoudig gedeelde uitgaven met Moneko",
+  "onboardingFinishHighlightFreeTrial": "Probeer Moneko 30 dagen gratis",
+  "onboardingFinishHighlightLogExpenses": "Log uitgaven via spraak, tekst, foto of bericht",
+  "onboardingFinishHighlightWhatsApp": "Voeg uitgaven rechtstreeks toe vanuit WhatsApp",
+  "onboardingFinishHighlightSharedBudgets": "Gedeelde budgetten voor koppels en gezinnen",
+  "onboardingFinishHighlightOnePlan": "Eén abonnement voor het hele gezin",
+  "onboardingFinishHighlightEnvelopeBudgeting": "Eenvoudig budgetteren met enveloppen"
 }

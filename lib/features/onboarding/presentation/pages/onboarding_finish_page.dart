@@ -20,24 +20,24 @@ class _OnboardingFinishPageState extends State<OnboardingFinishPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final highlights = <_HighlightItemData>[
       _HighlightItemData(
-        icon: Icons.auto_awesome_rounded,
-        title: context.l10n.onboardingFinishHighlightCaptureTitle,
-        body: context.l10n.onboardingFinishHighlightCaptureBody,
+        icon: Icons.mic_rounded,
+        title: context.l10n.onboardingFinishHighlightLogExpenses,
       ),
       _HighlightItemData(
-        icon: Icons.inbox_rounded,
-        title: context.l10n.onboardingFinishHighlightPocketsTitle,
-        body: context.l10n.onboardingFinishHighlightPocketsBody,
+        icon: Icons.chat_rounded,
+        title: context.l10n.onboardingFinishHighlightWhatsApp,
       ),
       _HighlightItemData(
-        icon: Icons.people_alt_rounded,
-        title: context.l10n.onboardingFinishHighlightHouseholdTitle,
-        body: context.l10n.onboardingFinishHighlightHouseholdBody,
+        icon: Icons.account_balance_wallet_rounded,
+        title: context.l10n.onboardingFinishHighlightSharedBudgets,
       ),
       _HighlightItemData(
-        icon: Icons.query_stats_rounded,
-        title: context.l10n.onboardingFinishHighlightInsightsTitle,
-        body: context.l10n.onboardingFinishHighlightInsightsBody,
+        icon: Icons.family_restroom_rounded,
+        title: context.l10n.onboardingFinishHighlightOnePlan,
+      ),
+      _HighlightItemData(
+        icon: Icons.dashboard_rounded,
+        title: context.l10n.onboardingFinishHighlightEnvelopeBudgeting,
       ),
     ];
 
@@ -52,7 +52,7 @@ class _OnboardingFinishPageState extends State<OnboardingFinishPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  context.l10n.startLoggingExpenses,
+                  context.l10n.onboardingFinishHighlightSharedExpenses,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 22,
@@ -63,7 +63,7 @@ class _OnboardingFinishPageState extends State<OnboardingFinishPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  context.l10n.startLoggingExpensesToSeeCategories,
+                  context.l10n.onboardingFinishHighlightFreeTrial,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -197,8 +197,7 @@ class _OrbitShowcaseState extends State<_OrbitShowcase>
                         painter: _OrbitRingsPainter(
                           innerRadius: innerRadius,
                           outerRadius: outerRadius,
-                          ringColor:
-                              colorScheme.border.withValues(alpha: 0.15),
+                          ringColor: colorScheme.border.withValues(alpha: 0.15),
                         ),
                       ),
                     ),
@@ -225,12 +224,9 @@ class _OrbitShowcaseState extends State<_OrbitShowcase>
 
                     // Inner orbit bubbles
                     ...innerBubbles.map((bubble) {
-                      final angle =
-                          bubble.baseAngle + innerAngleOffset;
-                      final x =
-                          center.dx + innerRadius * math.cos(angle);
-                      final y =
-                          center.dy + innerRadius * math.sin(angle);
+                      final angle = bubble.baseAngle + innerAngleOffset;
+                      final x = center.dx + innerRadius * math.cos(angle);
+                      final y = center.dy + innerRadius * math.sin(angle);
                       return _buildBubble(
                         x: x,
                         y: y,
@@ -242,12 +238,9 @@ class _OrbitShowcaseState extends State<_OrbitShowcase>
 
                     // Outer orbit bubbles
                     ...outerBubbles.map((bubble) {
-                      final angle =
-                          bubble.baseAngle + outerAngleOffset;
-                      final x =
-                          center.dx + outerRadius * math.cos(angle);
-                      final y =
-                          center.dy + outerRadius * math.sin(angle);
+                      final angle = bubble.baseAngle + outerAngleOffset;
+                      final x = center.dx + outerRadius * math.cos(angle);
+                      final y = center.dy + outerRadius * math.sin(angle);
                       return _buildBubble(
                         x: x,
                         y: y,
@@ -269,8 +262,7 @@ class _OrbitShowcaseState extends State<_OrbitShowcase>
                           color: colorScheme.card,
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.shadow
-                                  .withValues(alpha: 0.12),
+                              color: colorScheme.shadow.withValues(alpha: 0.12),
                               blurRadius: 16,
                               spreadRadius: 2,
                             ),
@@ -449,16 +441,6 @@ class _HighlightsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          header.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.2,
-            color: colorScheme.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             color: colorScheme.card,
@@ -519,15 +501,6 @@ class _HighlightTile extends StatelessWidget {
                     color: colorScheme.foreground,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  item.body,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
-                    height: 1.4,
-                  ),
-                ),
               ],
             ),
           ),
@@ -541,10 +514,8 @@ class _HighlightItemData {
   const _HighlightItemData({
     required this.icon,
     required this.title,
-    required this.body,
   });
 
   final IconData icon;
   final String title;
-  final String body;
 }

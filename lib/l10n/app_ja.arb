@@ -2032,5 +2032,12 @@
   "orbitBubbleInsight1": "6月までに日本旅行に行けるかな？",
   "orbitBubbleInsight2": "今月は予算内に収まってる？",
   "orbitBubbleInsight3": "外食にいくら使った？",
-  "lastMonth": "先月"
+  "lastMonth": "先月",
+  "onboardingFinishHighlightSharedExpenses": "Monekoで共有支出もラクラク！",
+  "onboardingFinishHighlightFreeTrial": "Monekoを30日間無料で試してみよう！",
+  "onboardingFinishHighlightLogExpenses": "音声、テキスト、写真、メッセージで支出を記録",
+  "onboardingFinishHighlightWhatsApp": "WhatsAppから直接支出を追加",
+  "onboardingFinishHighlightSharedBudgets": "カップルや家族のための共有予算",
+  "onboardingFinishHighlightOnePlan": "家族全員で使えるひとつのプラン",
+  "onboardingFinishHighlightEnvelopeBudgeting": "シンプルな封筒貯金スタイル"
 }

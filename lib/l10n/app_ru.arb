@@ -1982,5 +1982,12 @@
   "orbitBubbleInsight1": "Я могу поехать в Японию до июня?",
   "orbitBubbleInsight2": "Вписываюсь в бюджет?",
   "orbitBubbleInsight3": "Сколько ушло на рестораны?",
-  "lastMonth": "Прошлый месяц"
+  "lastMonth": "Прошлый месяц",
+  "onboardingFinishHighlightSharedExpenses": "Удобные совместные расходы с Moneko",
+  "onboardingFinishHighlightFreeTrial": "Попробуйте Moneko бесплатно в течение 30 дней",
+  "onboardingFinishHighlightLogExpenses": "Записывайте расходы голосом, текстом, по фото или в сообщениях",
+  "onboardingFinishHighlightWhatsApp": "Добавляйте расходы прямо из WhatsApp",
+  "onboardingFinishHighlightSharedBudgets": "Общий бюджет для пар и семей",
+  "onboardingFinishHighlightOnePlan": "Один тариф для всей семьи",
+  "onboardingFinishHighlightEnvelopeBudgeting": "Простой метод конвертов"
 }

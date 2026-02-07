@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/core.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -26,7 +27,7 @@ void showTextInputDrawer(
   showModalBottomSheet(
     context: parentContext,
     isScrollControlled: true,
-    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+    backgroundColor: colorScheme.sheetBackground,
     builder: (modalContext) => _TextInputContent(
       parentContext: parentContext,
       textController: textController,

@@ -2028,5 +2028,12 @@
   "orbitBubbleInsight1": "6月前我能去日本旅游吗？",
   "orbitBubbleInsight2": "本月预算还够吗？",
   "orbitBubbleInsight3": "外食花了多少钱？",
-  "lastMonth": "上个月"
+  "lastMonth": "上个月",
+  "onboardingFinishHighlightSharedExpenses": "用 Moneko 轻松管理共同支出",
+  "onboardingFinishHighlightFreeTrial": "免费试用 Moneko 30 天",
+  "onboardingFinishHighlightLogExpenses": "通过语音、文字、照片或消息记录支出",
+  "onboardingFinishHighlightWhatsApp": "直接从 WhatsApp 添加支出",
+  "onboardingFinishHighlightSharedBudgets": "适合伴侣和家庭的共享预算",
+  "onboardingFinishHighlightOnePlan": "全家共享一个方案",
+  "onboardingFinishHighlightEnvelopeBudgeting": "简单的信封预算法"
 }

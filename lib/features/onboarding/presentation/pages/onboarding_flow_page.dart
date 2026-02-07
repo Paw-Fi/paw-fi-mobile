@@ -885,14 +885,14 @@ class _PocketsIntroStep extends HookConsumerWidget {
     // Mock pocket data using user's currency
     final mockPockets = useMemoized(
       () => [
-        PocketEnvelope(
+      PocketEnvelope(
           id: 'mock-1',
           name: 'Groceries',
           budgetAmountCents: 50000,
           spent: 325,
           currency: currency,
           icon: 'shopping_bag',
-          color: '#c77199',
+          color: '#FF2D55', // iOS System Pink (High energy, appetizing)
           budgetId: null,
           householdId: null,
           lastUpdated: now,
@@ -904,7 +904,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
           spent: 120,
           currency: currency,
           icon: 'restaurant',
-          color: '#7059f6',
+          color: '#AF52DE', // iOS System Purple (Premium, social)
           budgetId: null,
           householdId: null,
           lastUpdated: now,
@@ -916,7 +916,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
           spent: 160,
           currency: currency,
           icon: 'directions_car',
-          color: '#66a586',
+          color: '#FF9500', // iOS System Orange (Warning/Action, fits travel)
           budgetId: null,
           householdId: null,
           lastUpdated: now,
@@ -928,7 +928,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
           spent: 50,
           currency: currency,
           icon: 'celebration',
-          color: '#5a8eb3',
+          color: '#007AFF', // iOS System Blue (Trustworthy, clean)
           budgetId: null,
           householdId: null,
           lastUpdated: now,
@@ -967,27 +967,30 @@ class _PocketsIntroStep extends HookConsumerWidget {
             const SizedBox(height: 20),
 
             // Benefit chips
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _BenefitChip(
-                  icon: Icons.category_rounded,
-                  label: context.l10n.pocketsIntroBenefitTrack,
-                  colorScheme: colorScheme,
-                ),
-                const SizedBox(width: 8),
-                _BenefitChip(
-                  icon: Icons.shield_rounded,
-                  label: context.l10n.pocketsIntroBenefitLimit,
-                  colorScheme: colorScheme,
-                ),
-                const SizedBox(width: 8),
-                _BenefitChip(
-                  icon: Icons.bar_chart_rounded,
-                  label: context.l10n.pocketsIntroBenefitVisual,
-                  colorScheme: colorScheme,
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _BenefitChip(
+                    icon: Icons.category_rounded,
+                    label: context.l10n.pocketsIntroBenefitTrack,
+                    colorScheme: colorScheme,
+                  ),
+                  const SizedBox(width: 8),
+                  _BenefitChip(
+                    icon: Icons.shield_rounded,
+                    label: context.l10n.pocketsIntroBenefitLimit,
+                    colorScheme: colorScheme,
+                  ),
+                  const SizedBox(width: 8),
+                  _BenefitChip(
+                    icon: Icons.bar_chart_rounded,
+                    label: context.l10n.pocketsIntroBenefitVisual,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
 
@@ -1155,7 +1158,6 @@ class _AiLogStep extends HookConsumerWidget {
                             color: colorScheme.foreground,
                           ),
                         ),
-                        const SizedBox(height: 12),
                         Text(
                           context.l10n.tryAiLoggingSubtitle,
                           textAlign: TextAlign.center,
@@ -1574,14 +1576,9 @@ class _AiPromptChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.selectedStateBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.controlBorder),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Text(
-        text,
+        '"'+text+'"',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -1614,7 +1611,7 @@ class _AiActionChip extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: colorScheme.selectedStateBackground,
+            color: colorScheme.sheetBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: colorScheme.controlBorder),
           ),

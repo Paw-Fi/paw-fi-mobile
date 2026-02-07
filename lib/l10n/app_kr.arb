@@ -1845,5 +1845,12 @@
   "orbitBubbleInsight1": "6월 전에 일본 여행 갈 수 있을까?",
   "orbitBubbleInsight2": "이번 달 예산 괜찮아?",
   "orbitBubbleInsight3": "외식비로 얼마나 썼어?",
-  "lastMonth": "지난달"
+  "lastMonth": "지난달",
+  "onboardingFinishHighlightSharedExpenses": "모네코와 함께하는 간편한 공동 지출 관리",
+  "onboardingFinishHighlightFreeTrial": "30일 동안 모네코를 무료로 이용해보세요",
+  "onboardingFinishHighlightLogExpenses": "음성, 텍스트, 사진, 메시지로 지출을 기록하세요",
+  "onboardingFinishHighlightWhatsApp": "왓츠앱(WhatsApp)에서 바로 지출 추가",
+  "onboardingFinishHighlightSharedBudgets": "커플과 가족을 위한 공유 예산",
+  "onboardingFinishHighlightOnePlan": "가족 모두를 위한 하나의 플랜",
+  "onboardingFinishHighlightEnvelopeBudgeting": "간편한 봉투 예산 관리"
 }
