@@ -589,7 +589,7 @@ class HomeHeaderSliver extends ConsumerWidget {
       children: [
         Padding(
           padding:
-              EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 0),
+              EdgeInsets.fromLTRB(12.0, Platform.isAndroid ? 12 : 0, 12, 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

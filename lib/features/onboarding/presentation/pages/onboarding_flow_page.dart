@@ -18,8 +18,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -28,6 +26,9 @@ import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -1108,6 +1109,42 @@ class _BenefitChip extends StatelessWidget {
   }
 }
 
+/// Expands [ParsedExpense] items so that each breakdown line becomes its own
+/// display entry. Items without a breakdown are kept as-is.
+List<ParsedExpense> _expandBreakdownItems(List<ParsedExpense> items) {
+  final result = <ParsedExpense>[];
+  final amountRe = RegExp(r'[\d]+[.,]?\d*');
+
+  for (final item in items) {
+    final breakdown = item.breakdown;
+    if (breakdown == null || breakdown.length < 2) {
+      result.add(item);
+      continue;
+    }
+
+    for (final line in breakdown) {
+      // Try to extract amount from the breakdown string (e.g. "burger €5.00")
+      final match = amountRe.allMatches(line).lastOrNull;
+      final amount = match != null
+          ? double.tryParse(match.group(0)!.replaceAll(',', '.'))
+          : null;
+
+      // Description is everything before the amount match, stripped of
+      // currency symbols and whitespace.
+      final desc = match != null
+          ? line.substring(0, match.start).replaceAll(RegExp(r'[€\$£¥₹]'), '').trim()
+          : line.trim();
+
+      result.add(item.copyWith(
+        description: desc.isNotEmpty ? desc : item.description,
+        amount: amount ?? item.amount / breakdown.length,
+        breakdown: null,
+      ));
+    }
+  }
+  return result;
+}
+
 class _AiLogStep extends HookConsumerWidget {
   const _AiLogStep({required this.onSuccess, required this.lastSuccess});
 
@@ -1118,7 +1155,9 @@ class _AiLogStep extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final success = lastSuccess;
-    final items = success?.items ?? const <ParsedExpense>[];
+    final items = success != null
+        ? _expandBreakdownItems(success.items)
+        : const <ParsedExpense>[];
     final hasSuccess = success != null;
 
     return Padding(
@@ -1348,7 +1387,7 @@ class _AiLogStep extends HookConsumerWidget {
                   const SizedBox(height: 10),
                   Text(
                     context.l10n.aiFirstLogCongratsBody(
-                      success.count,
+                      items.length,
                       success.targetLabel,
                     ),
                     style: TextStyle(
@@ -1370,15 +1409,56 @@ class _AiLogStep extends HookConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...items
-                .take(3)
-                .map((item) => _AiLoggedTransactionCard(transaction: item))
-                .toList(),
-            if (items.length > 3)
+            Container(
+              decoration: BoxDecoration(
+                color: colorScheme.homeCardSurface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: colorScheme.homeCardBorder,
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.homeCardShadow,
+                    blurRadius: 32,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -4,
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                children: [
+                  for (int i = 0; i < items.take(5).length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        indent: 56,
+                        color: colorScheme.border.withValues(alpha: 0.08),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: TransactionListTile(
+                        category: items[i].category,
+                        title: getCategoryTranslation(context, items[i].category),
+                        description: items[i].description,
+                        subtitle: DateFormat.yMMMd(
+                          intlSafeLocaleName(Localizations.localeOf(context)),
+                        ).format(items[i].date),
+                        amount: items[i].amount,
+                        currency: items[i].currency,
+                        isIncome: items[i].isIncome,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (items.length > 5)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  context.l10n.aiLogSummaryMore(items.length - 3),
+                  context.l10n.aiLogSummaryMore(items.length - 5),
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.mutedForeground,
@@ -1386,13 +1466,8 @@ class _AiLogStep extends HookConsumerWidget {
                 ),
               ),
             const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: colorScheme.infoSurface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: colorScheme.infoBorder),
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0,vertical: 4.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1419,153 +1494,6 @@ class _AiLogStep extends HookConsumerWidget {
   }
 }
 
-class _AiLoggedTransactionCard extends StatelessWidget {
-  const _AiLoggedTransactionCard({required this.transaction});
-
-  final ParsedExpense transaction;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final amount = formatLocalizedNumber(context, transaction.amount);
-    final categoryIcon = getCategoryIcon(transaction.category);
-    final categoryColor = getCategoryColor(transaction.category);
-    final dateLabel = DateFormat.yMMMd(
-      Localizations.localeOf(context).toString(),
-    ).format(transaction.date);
-
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  categoryIcon,
-                  color: categoryColor,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      transaction.description?.isNotEmpty == true
-                          ? transaction.description!
-                          : context.l10n.aiLogSummaryFallback,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      dateLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${transaction.isIncome ? '+' : '-'}${transaction.currencySymbol}$amount',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: transaction.isIncome
-                      ? colorScheme.success
-                      : colorScheme.foreground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _AiMetaChip(
-                label: context.l10n.category,
-                value: getCategoryTranslation(context, transaction.category),
-              ),
-              _AiMetaChip(
-                label: context.l10n.date,
-                value: dateLabel,
-              ),
-              _AiMetaChip(
-                label: context.l10n.currency,
-                value: transaction.currency.toUpperCase(),
-              ),
-              if (transaction.breakdown?.isNotEmpty == true)
-                _AiMetaChip(
-                  label: context.l10n.aiLogMetaBreakdown,
-                  value: transaction.breakdown!.length.toString(),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AiMetaChip extends StatelessWidget {
-  const _AiMetaChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.border.withValues(alpha: 0.08)),
-      ),
-      child: Text(
-        '$label: $value',
-        style: TextStyle(
-          fontSize: 11,
-          color: colorScheme.mutedForeground,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
 
 class _AiPromptChip extends StatelessWidget {
   const _AiPromptChip({required this.text});
@@ -1610,11 +1538,7 @@ class _AiActionChip extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: colorScheme.sheetBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.controlBorder),
-          ),
+          
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
