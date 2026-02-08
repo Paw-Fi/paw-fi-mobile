@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
+import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 /// Settlement suggestions card with toggle for express netting mode
-class SettlementSuggestionsCard extends StatefulWidget {
+class SettlementSuggestionsCard extends ConsumerStatefulWidget {
   final HouseholdSummary summary;
   final List<ExpenseEntry>? transactions;
   final List<ExpenseSplitGroup>? splits;
@@ -32,73 +34,12 @@ class SettlementSuggestionsCard extends StatefulWidget {
   });
 
   @override
-  State<SettlementSuggestionsCard> createState() =>
+  ConsumerState<SettlementSuggestionsCard> createState() =>
       _SettlementSuggestionsCardState();
 }
 
-class _SettlementPayment {
-  final String payerUserId;
-  final String participantUserId;
-  final int amountCents;
-  const _SettlementPayment({
-    required this.payerUserId,
-    required this.participantUserId,
-    required this.amountCents,
-  });
-}
-
-String _settlementDataSignature({
-  required List<ExpenseEntry>? transactions,
-  required List<ExpenseSplitGroup>? splits,
-}) {
-  final txs = transactions ?? const <ExpenseEntry>[];
-  final spl = splits;
-
-  ExpenseEntry? latestTx;
-  if (txs.isNotEmpty) {
-    var latest = txs.first;
-    for (final e in txs.skip(1)) {
-      if (e.createdAt.isAfter(latest.createdAt)) latest = e;
-    }
-    latestTx = latest;
-  }
-
-  ExpenseSplitGroup? latestSplit;
-  if (spl != null && spl.isNotEmpty) {
-    var latest = spl.first;
-    for (final g in spl.skip(1)) {
-      if (g.updatedAt.isAfter(latest.updatedAt)) latest = g;
-    }
-    latestSplit = latest;
-  }
-
-  final txSig = latestTx == null
-      ? 'tx:0'
-      : 'tx:${txs.length}:${latestTx.id}:${latestTx.createdAt.millisecondsSinceEpoch}:${latestTx.amountCents}';
-  final splitSig = spl == null
-      ? 'sp:null'
-      : latestSplit == null
-          ? 'sp:0'
-          : 'sp:${spl.length}:${latestSplit.id}:${latestSplit.updatedAt.millisecondsSinceEpoch}:${latestSplit.totalAmountCents}';
-
-  return '$txSig|$splitSig';
-}
-
-class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
-  Future<List<_SettlementPayment>>? _settlementPaymentsFuture;
-  String? _settlementPaymentsFutureKey;
-
-  @override
-  void didUpdateWidget(covariant SettlementSuggestionsCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.summary.householdId != widget.summary.householdId ||
-        oldWidget.currency != widget.currency ||
-        oldWidget.currentUserId != widget.currentUserId) {
-      _settlementPaymentsFuture = null;
-      _settlementPaymentsFutureKey = null;
-    }
-  }
-
+class _SettlementSuggestionsCardState
+    extends ConsumerState<SettlementSuggestionsCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -108,33 +49,20 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
       return const SizedBox.shrink();
     }
 
-    final currencyCode = (widget.currency ?? '').trim().toUpperCase();
-    final dataSignature = _settlementDataSignature(
-      transactions: widget.transactions,
-      splits: widget.splits,
+    // Watch the combined settlement overview provider — single source of
+    // truth for both splits and settlement payments. Keyed by householdId
+    // only. Both underlying providers are invalidated after settlement by
+    // SettleUpSheet._confirmAndSettle().
+    final overviewAsync = ref.watch(
+      settlementOverviewProvider(widget.summary.householdId),
     );
-    final settlementKey =
-        '${widget.summary.householdId}|$currentUserId|$currencyCode|$dataSignature';
-    if (_settlementPaymentsFuture == null ||
-        _settlementPaymentsFutureKey != settlementKey) {
-      _settlementPaymentsFutureKey = settlementKey;
-      _settlementPaymentsFuture = _fetchSettlementPayments(
-        householdId: widget.summary.householdId,
-        currentUserId: currentUserId,
-        currencyCode: currencyCode,
-      );
-    }
 
-    return FutureBuilder<List<_SettlementPayment>>(
-      future: _settlementPaymentsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return _buildLoadingCard(context, colorScheme);
-        }
-
-        final settlementPayments =
-            snapshot.data ?? const <_SettlementPayment>[];
+    return overviewAsync.when(
+      loading: () => _buildLoadingCard(context, colorScheme),
+      error: (_, __) => _buildLoadingCard(context, colorScheme),
+      data: (overview) {
+        final providerSplits = overview.splits;
+        final settlementPayments = overview.payments;
 
         // 1. Calculate Data
         String nameFor(String userId) {
@@ -171,7 +99,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
         }
 
         final mySuggestions = _buildNetSuggestions(
-          widget.splits,
+          providerSplits,
           widget.currency,
           currentUserId,
           nameFor,
@@ -267,7 +195,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                             child: _StatCard(
                               label: context.l10n.youOwe,
                               amountCents: youOweTotal,
-                              color: colorScheme.destructive, // Apple Red
+                              color: colorScheme.destructive,
                               currency: widget.currency,
                               onTap: youOweTotal > 0
                                   ? () => _openSettleUpSheet(
@@ -275,7 +203,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                                         householdId: widget.summary.householdId,
                                         isExpress: true,
                                         amountHintCents: youOweTotal,
-                                        splits: widget.splits,
+                                        splits: providerSplits,
                                         targetUserId: null,
                                         currency: widget.currency,
                                       )
@@ -287,7 +215,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                             child: _StatCard(
                               label: context.l10n.youAreOwed,
                               amountCents: owedToYouTotal,
-                              color: colorScheme.success, // Apple Green
+                              color: colorScheme.success,
                               currency: widget.currency,
                               onTap: null,
                             ),
@@ -339,7 +267,7 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
                               householdId: widget.summary.householdId,
                               isExpress: true,
                               amountHintCents: s.amountCents,
-                              splits: widget.splits,
+                              splits: providerSplits,
                               targetUserId: isPayer ? s.toUserId : s.fromUserId,
                               currency: widget.currency,
                             ),
@@ -377,46 +305,6 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     );
   }
 
-  Future<List<_SettlementPayment>> _fetchSettlementPayments({
-    required String householdId,
-    required String currentUserId,
-    required String currencyCode,
-  }) async {
-    try {
-      final supabase = Supabase.instance.client;
-      var query = supabase
-          .from('household_settlement_events')
-          .select('payer_user_id, participant_user_id, amount_cents, currency')
-          .eq('household_id', householdId)
-          .or('payer_user_id.eq.$currentUserId,participant_user_id.eq.$currentUserId');
-
-      if (currencyCode.isNotEmpty) {
-        query = query.eq('currency', currencyCode);
-      }
-
-      final response = await query;
-      final rows = (response as List).cast<Map<String, dynamic>>();
-      final out = <_SettlementPayment>[];
-      for (final row in rows) {
-        final payer = row['payer_user_id'] as String?;
-        final participant = row['participant_user_id'] as String?;
-        if (payer == null || payer.isEmpty) continue;
-        if (participant == null || participant.isEmpty) continue;
-        if (payer == participant) continue;
-        final amount = (row['amount_cents'] as int? ?? 0).abs();
-        if (amount <= 0) continue;
-        out.add(_SettlementPayment(
-          payerUserId: payer,
-          participantUserId: participant,
-          amountCents: amount,
-        ));
-      }
-      return out;
-    } catch (e) {
-      debugPrint('Error loading settlement events for suggestions: $e');
-      return const <_SettlementPayment>[];
-    }
-  }
 
   Widget _buildAllSettledState(BuildContext context, ColorScheme colorScheme) {
     return Center(
@@ -465,78 +353,37 @@ class _SettlementSuggestionsCardState extends State<SettlementSuggestionsCard> {
     String? currency,
     String currentUserId,
     String Function(String) nameFor, {
-    List<_SettlementPayment> settlementPayments = const <_SettlementPayment>[],
+    List<SettlementPaymentRecord> settlementPayments =
+        const <SettlementPaymentRecord>[],
   }) {
     if (splits == null || splits.isEmpty) return const <_Suggestion>[];
 
-    final splitTo = <String, int>{};
-    final splitFrom = <String, int>{};
-
-    for (final g in splits) {
-      if (currency != null && currency.isNotEmpty) {
-        final groupCode = (g.currency).trim().toUpperCase();
-        final selectedCode = currency.trim().toUpperCase();
-        if (groupCode != selectedCode) continue;
-      }
-
-      final payer = g.payerUserId;
-      final lines = g.splitLines ?? const <ExpenseSplitLine>[];
-
-      for (final line in lines) {
-        if (line.isSettled) continue;
-        final amount = (line.amountCents ?? 0).abs();
-        if (amount <= 0) continue;
-
-        if (line.userId == currentUserId && payer != currentUserId) {
-          // You owe the payer.
-          splitTo[payer] = (splitTo[payer] ?? 0) + amount;
-        } else if (payer == currentUserId && line.userId != currentUserId) {
-          // The participant owes you.
-          splitFrom[line.userId] = (splitFrom[line.userId] ?? 0) + amount;
-        }
-      }
-    }
-
-    final paidTo = <String, int>{};
-    final paidFrom = <String, int>{};
-    for (final p in settlementPayments) {
-      if (p.participantUserId == currentUserId) {
-        paidTo[p.payerUserId] = (paidTo[p.payerUserId] ?? 0) + p.amountCents;
-      } else if (p.payerUserId == currentUserId) {
-        paidFrom[p.participantUserId] =
-            (paidFrom[p.participantUserId] ?? 0) + p.amountCents;
-      }
-    }
+    final nets = computeSettlementNets(
+      splits: splits,
+      currentUserId: currentUserId,
+      currencyFilter: currency,
+      settlementPayments: settlementPayments,
+    );
 
     final out = <_Suggestion>[];
-    final otherUsers = <String>{
-      ...splitTo.keys,
-      ...splitFrom.keys,
-      ...paidTo.keys,
-      ...paidFrom.keys,
-    };
-    for (final otherUserId in otherUsers) {
-      if (otherUserId.isEmpty || otherUserId == currentUserId) continue;
-      final netAmount = (splitTo[otherUserId] ?? 0) -
-          (splitFrom[otherUserId] ?? 0) -
-          ((paidTo[otherUserId] ?? 0) - (paidFrom[otherUserId] ?? 0));
-      if (netAmount > 0) {
-        // You Owe Them
+    for (final entry in nets.entries) {
+      final otherUserId = entry.key;
+      final result = entry.value;
+      if (result.netCents > 0) {
         out.add(_Suggestion(
           fromUserId: currentUserId,
           toUserId: otherUserId,
           fromName: nameFor(currentUserId),
           toName: nameFor(otherUserId),
-          amountCents: netAmount,
+          amountCents: result.netCents,
         ));
-      } else if (netAmount < 0) {
-        // They Owe You
+      } else if (result.netCents < 0) {
         out.add(_Suggestion(
           fromUserId: otherUserId,
           toUserId: currentUserId,
           fromName: nameFor(otherUserId),
           toName: nameFor(currentUserId),
-          amountCents: netAmount.abs(),
+          amountCents: result.netCents.abs(),
         ));
       }
     }

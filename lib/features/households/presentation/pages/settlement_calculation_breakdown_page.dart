@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
+import 'package:moneko/shared/widgets/user_avatar.dart';
 
 class SettlementCalculationBreakdownPage extends StatelessWidget {
   final String currentUserId;
@@ -71,6 +72,8 @@ class SettlementCalculationBreakdownPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
           _SummaryCard(
+            currentUserId: currentUserId,
+            memberUserId: memberUserId,
             memberDisplayName: memberDisplayName,
             youOweTotal: youOweTotal,
             theyOweTotal: theyOweTotal,
@@ -161,6 +164,8 @@ class _BreakdownRowData {
 }
 
 class _SummaryCard extends StatelessWidget {
+  final String currentUserId;
+  final String memberUserId;
   final String memberDisplayName;
   final int youOweTotal;
   final int theyOweTotal;
@@ -170,6 +175,8 @@ class _SummaryCard extends StatelessWidget {
   final String currencyCode;
 
   const _SummaryCard({
+    required this.currentUserId,
+    required this.memberUserId,
     required this.memberDisplayName,
     required this.youOweTotal,
     required this.theyOweTotal,
@@ -187,76 +194,179 @@ class _SummaryCard extends StatelessWidget {
     final netAfterSettlements = netBeforeSettlements + settlementAdjustment;
     final netAmount =
         formatCurrency(netAfterSettlements.abs() / 100.0, currencyCode);
-    final settlementSign = settlementAdjustment >= 0 ? '+' : '-';
-    final netLabel = netAfterSettlements > 0
-        ? '${context.l10n.youOwe} $memberDisplayName'
+    final isNetPayer = netAfterSettlements > 0;
+    final nothingToSettle = netAfterSettlements == 0;
+    final netLabel = isNetPayer
+        ? context.l10n.youOwe
         : netAfterSettlements < 0
-            ? '$memberDisplayName ${context.l10n.owesYou}'
+            ? context.l10n.theyOweYou
             : context.l10n.nothingToSettle;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: scheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: scheme.homeCardBorder, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+    return Column(
+      children: [
+        // Connection visual: You <--> Them
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _AvatarNode(
+                userId: currentUserId,
+                label: context.l10n.you,
+                scheme: scheme,
+                borderColor: scheme.tertiaryContainer,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: nothingToSettle
+                      ? Container(height: 2, color: scheme.outlineVariant)
+                      : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              height: 2,
+                              color: scheme.primary.withValues(alpha: 0.3),
+                            ),
+                            Icon(
+                              isNetPayer
+                                  ? Icons.arrow_forward
+                                  : Icons.arrow_back,
+                              color: scheme.primary,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+              _AvatarNode(
+                userId: memberUserId,
+                label: memberDisplayName,
+                scheme: scheme,
+                borderColor: scheme.secondaryContainer,
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.l10n.netSplitPosition,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.mutedForeground,
+        ),
+
+        const SizedBox(height: 16),
+
+        // Amount display card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          decoration: BoxDecoration(
+            color: scheme.sheetBackground,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.3),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            netAmount,
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w700,
-              color: scheme.foreground,
-            ),
+          child: Column(
+            children: [
+              Text(
+                context.l10n.amountToSettle.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: scheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (nothingToSettle)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_outline, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.l10n.nothingToSettle,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  children: [
+                    Text(
+                      netAmount,
+                      style: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.foreground,
+                        height: 1.0,
+                        letterSpacing: -1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.onSurface.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        netLabel,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            netLabel,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: scheme.mutedForeground,
-            ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AvatarNode extends StatelessWidget {
+  final String userId;
+  final String label;
+  final ColorScheme scheme;
+  final Color borderColor;
+
+  const _AvatarNode({
+    required this.userId,
+    required this.label,
+    required this.scheme,
+    required this.borderColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        UserAvatar(
+          name: label,
+          userId: userId,
+          size: 56,
+          borderWidth: 2,
+          borderColor: borderColor,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
           ),
-          const SizedBox(height: 12),
-          Text(
-            context.l10n.howThisIsCalculated,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: scheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${formatCurrency(youOweTotal / 100.0, currencyCode)} - ${formatCurrency(theyOweTotal / 100.0, currencyCode)} $settlementSign ${formatCurrency(settlementAdjustment.abs() / 100.0, currencyCode)} ${context.l10n.settlements} = ${formatCurrency(finalSettleAmountCents / 100.0, currencyCode)}',
-            style: TextStyle(
-              fontSize: 12,
-              color: scheme.mutedForeground,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

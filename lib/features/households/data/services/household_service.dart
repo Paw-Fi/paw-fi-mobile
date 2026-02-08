@@ -333,10 +333,15 @@ class HouseholdService {
     // This ensures all splits for household expenses are available regardless of when
     // the split was created
 
+    // CRITICAL: The server-side settlement RPC queries ALL unsettled split
+    // lines with no limit. The client must also fetch all split groups to
+    // ensure the settlement net calculation matches the server. A low limit
+    // (e.g. 300) causes the client to miss older splits, leading to
+    // settlement amount mismatches.
     final response = await query
         .order('created_at', ascending: false)
-        .limit(300)
-        .timeout(const Duration(seconds: 15));
+        .limit(10000)
+        .timeout(const Duration(seconds: 30));
 
     return (response as List).cast<Map<String, dynamic>>();
   }

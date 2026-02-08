@@ -13,6 +13,7 @@ import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -81,86 +82,73 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         (widget.currency ?? (homeFilter.selectedCurrency ?? 'USD'))
             .trim()
             .toUpperCase();
-    final providerSplits = ref
-        .read(cachedHouseholdSplitsProvider(
-          HouseholdSplitsParams(householdId: widget.householdId),
-        ))
-        .valueOrNull;
-    final groups =
-        widget.splits ?? providerSplits ?? const <ExpenseSplitGroup>[];
 
-    int youOwe = 0;
-    int youAreOwed = 0;
-    int groupsMatched = 0;
-    int linesConsidered = 0;
-    int linesSkippedSettled = 0;
+    // Await both providers to ensure we have fresh data — a synchronous
+    // ref.read().valueOrNull would return null if the provider hasn't
+    // finished loading, causing _maxSettleCents to be computed without
+    // settlement events (leading to over-settlement).
+    //
+    // Capture the futures before any async gap to avoid using ref after
+    // the widget is disposed.
+    final splitsFuture = ref.read(
+      cachedHouseholdSplitsProvider(
+        HouseholdSplitsParams(householdId: widget.householdId),
+      ).future,
+    );
+    final paymentsFuture = ref.read(
+      householdSettlementPaymentsProvider(widget.householdId).future,
+    );
 
-    for (final g in groups) {
-      final groupCode = (g.currency).trim().toUpperCase();
-      if (groupCode != currencyCode) continue;
-      groupsMatched += 1;
-
-      final lines = g.splitLines ?? const <ExpenseSplitLine>[];
-      for (final l in lines) {
-        final amount = (l.amountCents ?? 0).abs();
-        if (amount <= 0) continue;
-        linesConsidered += 1;
-        if (l.isSettled) {
-          linesSkippedSettled += 1;
-          continue;
-        }
-
-        if (g.payerUserId == memberId && l.userId == currentUserId) {
-          youOwe += amount;
-        }
-        if (g.payerUserId == currentUserId && l.userId == memberId) {
-          youAreOwed += amount;
-        }
-      }
+    late final List<ExpenseSplitGroup> providerSplits;
+    late final List<SettlementPaymentRecord> allPayments;
+    try {
+      providerSplits = await splitsFuture;
+      if (!mounted) return;
+      allPayments = await paymentsFuture;
+    } on StateError {
+      return;
     }
+
+    if (!mounted) return;
+
+    // Prefer canonical provider splits (full, unfiltered) over caller-
+    // provided splits which may have been filtered (e.g. recurring
+    // templates removed). This aligns with the server-side RPC which
+    // includes ALL unsettled split lines.
+    final groups =
+        providerSplits.isNotEmpty ? providerSplits : (widget.splits ?? const <ExpenseSplitGroup>[]);
 
     if (kDebugMode) {
       debugPrint(
         '[SettleUpSheet] recompute start household=${widget.householdId} member=$memberId current=$currentUserId currency=$currencyCode isExpress=${widget.isExpressNetting} settleTheyOweYou=${widget.settleTheyOweYou}',
       );
       debugPrint(
-        '[SettleUpSheet] splits: groups=${groups.length} groupsMatched=$groupsMatched linesConsidered=$linesConsidered linesSkippedSettled=$linesSkippedSettled rawYouOwe=$youOwe rawYouAreOwed=$youAreOwed',
+        '[SettleUpSheet] splits: groups=${groups.length} payments: ${allPayments.length}',
       );
     }
 
-    int paidTo = 0;
-    int paidFrom = 0;
-    try {
-      final supabase = Supabase.instance.client;
-      final responsePaidTo = await supabase
-          .from('household_settlement_events')
-          .select('amount_cents')
-          .eq('household_id', widget.householdId)
-          .eq('currency', currencyCode)
-          .eq('payer_user_id', memberId)
-          .eq('participant_user_id', currentUserId);
-      for (final row in (responsePaidTo as List).cast<Map<String, dynamic>>()) {
-        paidTo += (row['amount_cents'] as int? ?? 0).abs();
-      }
+    // Reuse the canonical settlement payments provider (same source as the
+    // card). Filter in-memory to just this pair for performance.
+    final settlementPayments = allPayments.where((p) {
+      final isPair = (p.payerUserId == memberId &&
+              p.participantUserId == currentUserId) ||
+          (p.payerUserId == currentUserId &&
+              p.participantUserId == memberId);
+      return isPair;
+    }).toList();
 
-      final responsePaidFrom = await supabase
-          .from('household_settlement_events')
-          .select('amount_cents')
-          .eq('household_id', widget.householdId)
-          .eq('currency', currencyCode)
-          .eq('payer_user_id', currentUserId)
-          .eq('participant_user_id', memberId);
-      for (final row
-          in (responsePaidFrom as List).cast<Map<String, dynamic>>()) {
-        paidFrom += (row['amount_cents'] as int? ?? 0).abs();
-      }
-    } catch (e) {
-      debugPrint('Error loading settlement events for SettleUpSheet: $e');
-    }
+    // Use the centralized calculator (same formula as the card and
+    // the server-side RPC).
+    final result = computePairwiseNet(
+      splits: groups,
+      currentUserId: currentUserId,
+      otherUserId: memberId,
+      currencyFilter: currencyCode,
+      settlementPayments: settlementPayments,
+    );
 
-    final netBefore = (youOwe - youAreOwed) - (paidTo - paidFrom);
-    final netYouOwe = netBefore > 0 ? netBefore : 0;
-    final netYouAreOwed = netBefore < 0 ? -netBefore : 0;
+    final netYouOwe = result.youOweCents;
+    final netYouAreOwed = result.youAreOwedCents;
 
     final maxSettleCents = widget.isExpressNetting
         ? (netYouOwe - netYouAreOwed).abs()
@@ -170,7 +158,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
     if (kDebugMode) {
       debugPrint(
-        '[SettleUpSheet] paidTo=$paidTo paidFrom=$paidFrom netBefore=$netBefore netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
+        '[SettleUpSheet] paidTo=${result.paidToCents} paidFrom=${result.paidFromCents} net=${result.netCents} netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
       );
     }
 
@@ -178,8 +166,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     setState(() {
       _youOweCents = netYouOwe;
       _youAreOwedCents = netYouAreOwed;
-      _paidToCents = paidTo;
-      _paidFromCents = paidFrom;
+      _paidToCents = result.paidToCents;
+      _paidFromCents = result.paidFromCents;
       _maxSettleCents = maxSettleCents;
       _settlementCurrencyCode = currencyCode;
     });
@@ -236,8 +224,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     ));
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+    // Prefer canonical provider splits (full, unfiltered) over caller-
+    // provided splits which may have been filtered. Mirrors the same
+    // rule used in _recomputeFromSplits().
     final effectiveSplits =
-        widget.splits ?? splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
+        splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[];
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
@@ -684,6 +675,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         ref.invalidate(householdMembersProvider(widget.householdId));
         ref.invalidate(householdSettlementHistoryProvider(
             SettlementHistoryParams(householdId: widget.householdId)));
+        ref.invalidate(
+            householdSettlementPaymentsProvider(widget.householdId));
       } catch (_) {}
 
       if (mounted) {

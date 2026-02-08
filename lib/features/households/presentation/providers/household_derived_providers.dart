@@ -6,10 +6,73 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
+import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+
+// ============================================================================
+// SETTLEMENT OVERVIEW (combined splits + payments for settlement UI)
+// ============================================================================
+
+class SettlementOverviewData {
+  final List<ExpenseSplitGroup> splits;
+  final List<SettlementPaymentRecord> payments;
+
+  const SettlementOverviewData({
+    required this.splits,
+    required this.payments,
+  });
+}
+
+/// Combined provider that watches both canonical splits and settlement
+/// payments for a household. This is the single source of truth for
+/// settlement UI (card + sheet). Keyed by householdId only.
+///
+/// - Loading: when either input is loading with no cached value.
+/// - Error: when either input errors with no cached value.
+/// - Data: when both have usable values.
+final settlementOverviewProvider =
+    Provider.autoDispose.family<AsyncValue<SettlementOverviewData>, String>(
+  (ref, householdId) {
+    final splitsAsync = ref.watch(
+      cachedHouseholdSplitsProvider(
+        HouseholdSplitsParams(householdId: householdId),
+      ),
+    );
+    final paymentsAsync = ref.watch(
+      householdSettlementPaymentsProvider(householdId),
+    );
+
+    final splits = splitsAsync.valueOrNull;
+    final payments = paymentsAsync.valueOrNull;
+
+    // If either has errored and has no usable cached value, propagate error.
+    if (splits == null && splitsAsync.hasError) {
+      return AsyncValue.error(
+        splitsAsync.error!,
+        splitsAsync.stackTrace ?? StackTrace.current,
+      );
+    }
+    if (payments == null && paymentsAsync.hasError) {
+      return AsyncValue.error(
+        paymentsAsync.error!,
+        paymentsAsync.stackTrace ?? StackTrace.current,
+      );
+    }
+
+    // If either is still loading with no cached value, show loading.
+    if (splits == null || payments == null) {
+      return const AsyncValue.loading();
+    }
+
+    return AsyncValue.data(SettlementOverviewData(
+      splits: splits,
+      payments: payments,
+    ));
+  },
+);
 
 final householdDerivedSummaryProvider =
     Provider.family<AsyncValue<HouseholdSummary?>, HouseholdSummaryParams>(

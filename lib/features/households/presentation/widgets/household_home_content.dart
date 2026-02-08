@@ -729,19 +729,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             return const SizedBox.shrink();
                           }
 
-                          // Settlement suggestions should be based on actual recorded splits,
-                          // never on recurring templates.
-                          final templateExpenseIds = <String>{
-                            for (final e
-                                in (transactions ?? const <ExpenseEntry>[]))
-                              if (e.isRecurring) e.id,
-                          };
-                          final splitsWithoutTemplates = (splits == null)
-                              ? null
-                              : splits
-                                  .where((g) =>
-                                      !templateExpenseIds.contains(g.expenseId))
-                                  .toList(growable: false);
+                          // Settlement uses the full split universe (including
+                          // recurring-template splits) to match the server-side
+                          // RPC which counts ALL unsettled split lines.
 
                           return Padding(
                             padding:
@@ -749,7 +739,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                             child: SettlementSuggestionsCard(
                               summary: summary,
                               transactions: transactions ?? const [],
-                              splits: splitsWithoutTemplates,
+                              splits: splits,
                               currency: selectedCurrency,
                               members: members,
                               currentUserId: userId,

@@ -336,21 +336,24 @@ class OverviewDashboardPage extends ConsumerWidget {
 
               // Calculate household totals for space cards
               final householdTotals = <String, Map<String, dynamic>>{};
+              // Add personal space first
+              householdTotals['personal'] = {
+                'income': 0.0,
+                'expense': 0.0,
+                'name': context.l10n.personal,
+                'currency': displayCurrency,
+                'coverImageUrl': user.photoUrl,
+              };
+              // Then add households
               for (final h in data.households) {
                 householdTotals[h.id] = {
                   'income': 0.0,
                   'expense': 0.0,
                   'name': h.name,
                   'currency': displayCurrency,
+                  'coverImageUrl': h.coverImageUrl,
                 };
               }
-              // Add personal space
-              householdTotals['personal'] = {
-                'income': 0.0,
-                'expense': 0.0,
-                'name': context.l10n.personal,
-                'currency': displayCurrency,
-              };
 
               for (final tx in myAllTransactions) {
                 final spaceId = resolveSpaceId(tx);
@@ -433,6 +436,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               income: stats['income'] as double,
                               expense: stats['expense'] as double,
                               currency: stats['currency'] as String,
+                              coverImageUrl: stats['coverImageUrl'] as String?,
                               onTap: () => openDetail(
                                 '${stats['name']} Overview',
                                 _SpaceDetail(

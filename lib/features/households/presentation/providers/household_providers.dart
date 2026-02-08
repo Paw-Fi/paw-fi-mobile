@@ -10,6 +10,7 @@ import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
 import '../../domain/entities/expense_split.dart';
 import '../../domain/entities/shared_budget.dart';
+import '../../domain/utils/settlement_net_calculator.dart';
 import '../../domain/repositories/household_repository.dart';
 import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
@@ -670,6 +671,56 @@ final householdProvider =
     FutureProvider.family<Household?, String>((ref, householdId) async {
   final repository = ref.watch(householdRepositoryProvider);
   return repository.getHousehold(householdId);
+});
+
+// ============================================================================
+// HOUSEHOLD SETTLEMENT PAYMENTS (for settlement suggestions card)
+// ============================================================================
+
+/// Settlement payment records provider — watched by SettlementSuggestionsCard
+/// for reactive updates. Invalidated after settlement via
+/// cacheInvalidatorProvider or explicit ref.invalidate().
+///
+/// Keyed by householdId only (no currency). This ensures exactly one cache
+/// entry per household so invalidation after settlement always hits the
+/// correct instance regardless of which currency the UI is displaying.
+/// Currency filtering is done client-side by the net calculator.
+final householdSettlementPaymentsProvider = FutureProvider.autoDispose
+    .family<List<SettlementPaymentRecord>, String>(
+        (ref, householdId) async {
+  final supabase = ref.watch(supabaseClientProvider);
+  final currentUserId = supabase.auth.currentUser?.id;
+  if (currentUserId == null) return const <SettlementPaymentRecord>[];
+
+  try {
+    final response = await supabase
+        .from('household_settlement_events')
+        .select('payer_user_id, participant_user_id, amount_cents, currency')
+        .eq('household_id', householdId)
+        .or('payer_user_id.eq.$currentUserId,participant_user_id.eq.$currentUserId');
+
+    final rows = (response as List).cast<Map<String, dynamic>>();
+    final out = <SettlementPaymentRecord>[];
+    for (final row in rows) {
+      final payer = row['payer_user_id'] as String?;
+      final participant = row['participant_user_id'] as String?;
+      if (payer == null || payer.isEmpty) continue;
+      if (participant == null || participant.isEmpty) continue;
+      if (payer == participant) continue;
+      final amount = (row['amount_cents'] as int? ?? 0).abs();
+      if (amount <= 0) continue;
+      final currency = row['currency'] as String?;
+      out.add(SettlementPaymentRecord(
+        payerUserId: payer,
+        participantUserId: participant,
+        amountCents: amount,
+        currency: currency,
+      ));
+    }
+    return out;
+  } catch (e) {
+    return const <SettlementPaymentRecord>[];
+  }
 });
 
 // ============================================================================
