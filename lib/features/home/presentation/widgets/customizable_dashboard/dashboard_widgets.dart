@@ -4,6 +4,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'dart:math' as math;
 import 'dashboard_config.dart';
 import 'dashboard_state.dart';
 
@@ -144,20 +145,24 @@ class DashboardWidgetWrapper extends ConsumerStatefulWidget {
 
 class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
     with SingleTickerProviderStateMixin {
-  late AnimationController _shakeController;
+  late AnimationController _jiggleController;
+  late Animation<double> _jiggleAnimation;
 
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(
+    _jiggleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 600),
+    );
+    _jiggleAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _jiggleController, curve: Curves.easeInOut),
     );
   }
 
   @override
   void dispose() {
-    _shakeController.dispose();
+    _jiggleController.dispose();
     super.dispose();
   }
 
@@ -168,11 +173,11 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
     final hasConfigOptions = widget.config.type.hasEditableOptions;
 
     if (isEditMode) {
-      if (!_shakeController.isAnimating) {
-        _shakeController.repeat(reverse: true);
+      if (!_jiggleController.isAnimating) {
+        _jiggleController.repeat();
       }
     } else {
-      _shakeController.reset();
+      _jiggleController.reset();
     }
 
     // If hidden and NOT in edit mode, show nothing
@@ -181,9 +186,14 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
     }
 
     return AnimatedBuilder(
-      animation: _shakeController,
+      animation: _jiggleAnimation,
       builder: (context, child) {
-        return child!;
+        final angle =
+            isEditMode ? _calculateJiggleAngle(_jiggleAnimation.value) : 0.0;
+        return Transform.rotate(
+          angle: angle,
+          child: child,
+        );
       },
       child: Stack(
         children: [
@@ -223,11 +233,42 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
                   children: [
                     // Edit Settings (Date Range)
                     if (widget.config.isVisible && hasConfigOptions) ...[
-                      _buildCircleButton(
-                        context,
-                        icon: Icons.edit_calendar,
-                        color: colorScheme.primary,
+                      GestureDetector(
                         onTap: widget.onEdit,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .shadow
+                                    .withValues(alpha: 0.12),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.edit_calendar,
+                                  size: 18, color: colorScheme.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                widget.config.dateRange.getLabel(context),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -249,6 +290,12 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
         ],
       ),
     );
+  }
+
+  double _calculateJiggleAngle(double t) {
+    const period = 0.6;
+    final cycle = (t / period) % 1.0;
+    return math.sin(cycle * 2 * math.pi) * 0.01;
   }
 
   Widget _buildCircleButton(BuildContext context,
@@ -519,7 +566,8 @@ class WidgetConfigurationSheet extends StatelessWidget {
                                   final picked = await showDateRangePicker(
                                     context: context,
                                     firstDate: DateTime(2000),
-                                    lastDate: DateTime.now(),
+                                    lastDate: DateTime.now()
+                                        .add(const Duration(days: 365)),
                                     builder: (context, child) {
                                       return Theme(
                                         data: Theme.of(context).copyWith(
