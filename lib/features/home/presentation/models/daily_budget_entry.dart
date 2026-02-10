@@ -1,4 +1,5 @@
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 /// Represents a daily budget entry from daily_budgets table
 class DailyBudgetEntry {
@@ -35,10 +36,17 @@ class DailyBudgetEntry {
   }
 
   factory DailyBudgetEntry.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['date']?.toString();
+    final dateOnly = tryParseDateOnlyYmd(rawDate);
+    final parsed = DateTime.tryParse(rawDate ?? '');
     return DailyBudgetEntry(
       id: json['id'] as String,
       contactId: json['contact_id'] as String?,
-      date: DateTime.parse(json['date'] as String),
+      date: dateOnly != null
+          ? DateTime(dateOnly.year, dateOnly.month, dateOnly.day)
+          : (parsed != null
+              ? DateTime(parsed.year, parsed.month, parsed.day)
+              : DateTime.fromMillisecondsSinceEpoch(0)),
       amountCents: json['amount_cents'] as int,
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 // import 'package:moneko/core/theme/theme.dart'; // Unnecessary (covered by core.dart)
@@ -46,6 +47,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/mounted_guard.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -64,6 +66,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   late final SpotlightTourController _fabTourController;
   String? _lastHomeDebugSignature;
+
+  static const bool _enableDebugLogs =
+      bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+  void _debugPrint(String? message, {int? wrapWidth}) {
+    if (foundation.kDebugMode && _enableDebugLogs) {
+      foundation.debugPrint(message, wrapWidth: wrapWidth);
+    }
+  }
 
   @override
   void initState() {
@@ -92,6 +103,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     required String? selectedCurrency,
     required List<ExpenseEntry> personalExpensesAll,
   }) {
+    if (!_enableDebugLogs) return;
     final selected = ref.read(selectedHouseholdProvider);
     final selectedHouseholdId =
         selected.householdId ?? selected.household?.id ?? 'null';
@@ -127,34 +139,27 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (_lastHomeDebugSignature == signature) return;
     _lastHomeDebugSignature = signature;
 
-    debugPrint('🧭 [HomePageDebug] ===== Snapshot =====');
-    debugPrint('🧭 [HomePageDebug] viewMode=${householdScope.viewMode}');
-    debugPrint(
+    _debugPrint('🧭 [HomePageDebug] ===== Snapshot =====');
+    _debugPrint('🧭 [HomePageDebug] viewMode=${householdScope.viewMode}');
+    _debugPrint(
         '🧭 [HomePageDebug] selectedHouseholdId=$selectedHouseholdId name=$selectedHouseholdName');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] isPortfolioSelected=${householdScope.isPortfolioSelected}');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] isHouseholdView=${householdScope.isHouseholdView}');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] portfolioHouseholdIds(${portfolioHouseholdIds.length})=$portfolioHouseholdIds');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] selectedCurrency=${selectedCurrency ?? "null"}');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] analytics: isLoading=${analyticsData.isLoading} hasLoadedOnce=${analyticsData.hasLoadedOnce} error=${analyticsData.error ?? "null"}');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] analytics counts: allExpenses=${all.length} allBudgets=${analyticsData.allBudgets.length}');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] expense breakdown: householdId=null=$nullHouseholdCount portfolio=$portfolioCount nonPortfolioHousehold=$nonPortfolioHouseholdCount');
-    debugPrint(
+    _debugPrint(
         '🧭 [HomePageDebug] derived personalExpensesAll=${personalExpensesAll.length}');
-
-    final sample = all.take(3).toList(growable: false);
-    for (var i = 0; i < sample.length; i++) {
-      final e = sample[i];
-      debugPrint(
-          '🧭 [HomePageDebug] sample[$i] id=${e.id} date=${e.date.toIso8601String()} cents=${e.amountCents} cur=${e.currency} type=${e.type} hid=${e.householdId} cat=${e.category}');
-    }
-    debugPrint('🧭 [HomePageDebug] ====================');
+    _debugPrint('🧭 [HomePageDebug] ====================');
   }
 
   Future<void> _initializeCurrencyFilter() async {
@@ -181,7 +186,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         selectedCurrency = storedCurrency;
       }
     } catch (e) {
-      debugPrint('Error loading currency from storage: $e');
+      _debugPrint('Error loading currency from storage: $e');
     }
 
     // 2. If no stored currency, use preferred currency if available
@@ -275,7 +280,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   // ignore: unused_element
   Future<void> _handleCameraCapture() async {
-    debugPrint('🎥 Starting camera capture...');
+    _debugPrint('🎥 Starting camera capture...');
 
     try {
       // On iOS, image_picker handles permissions internally
@@ -286,12 +291,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         imageQuality: 85,
       );
 
-      debugPrint('🎥 Photo captured: ${photo != null}');
+      _debugPrint('🎥 Photo captured: ${photo != null}');
 
       if (photo != null && mounted) {
         await _processExpense(imagePath: photo.path);
       } else if (photo == null) {
-        debugPrint('🎥 User cancelled or permission denied');
+        _debugPrint('🎥 User cancelled or permission denied');
       }
     } catch (e) {
       if (mounted) {
@@ -324,6 +329,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     try {
+      final timezoneOffsetMinutes =
+          resolveUserTimezoneOffsetMinutes(contact?.preferredTimezone);
+      final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
       final locale = Localizations.localeOf(context);
       final languageTag =
           locale.countryCode != null && locale.countryCode!.isNotEmpty
@@ -332,7 +340,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
       Map<String, dynamic> body = {
         'userId': user.uid,
-        'date': DateTime.now().toIso8601String().split('T')[0],
+        'date': formatDateOnlyYmd(userNow),
         'language': languageTag,
       };
 
@@ -411,9 +419,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      debugPrint('=== ANALYSIS RESPONSE ===');
-      debugPrint('response.data: ${response.data}');
-      debugPrint('========================');
+      _debugPrint('Analysis response received');
 
       if (response.data != null && response.data['success'] == true) {
         final responseData = response.data['data'];
@@ -452,64 +458,98 @@ class _HomePageState extends ConsumerState<HomePage> {
             final analyticsContactId = ref.read(analyticsProvider).contact?.id;
 
             // Parse ALL items and optimistic-log them immediately.
-            final parsed = items.map((rawItem) {
-              final item = rawItem is Map
-                  ? Map<String, dynamic>.from(rawItem)
-                  : <String, dynamic>{};
-              final isIncome =
-                  (item['type']?.toString().toLowerCase() == 'income');
-              final transaction = ParsedExpense(
-                isIncome: isIncome,
-                amount: (item['amount'] as num).toDouble(),
-                // Normalize income categories to at least 'income' umbrella if model returns a granular one
-                category: (item['category'] as String?)?.isNotEmpty == true
-                    ? (isIncome
-                        ? (item['category'] as String)
-                        : item['category'] as String)
-                    : (isIncome ? 'income' : 'other'),
-                currency: item['currency'] as String,
-                currencySymbol: item['currencySymbol'] as String? ?? '\$',
-                date: DateTime.parse(item['date'] as String),
-                description: item['description'] is String
-                    ? sanitizeUtf16(item['description'] as String)
-                    : null,
-                localImagePath: imagePath,
-                payerUserId: (item['payerUserId'] is String)
-                    ? (item['payerUserId'] as String)
-                    : null,
-                payerHint: (item['payerHint'] is String)
-                    ? (item['payerHint'] as String)
-                    : (item['payerName'] is String)
-                        ? (item['payerName'] as String)
-                        : (item['paidBy'] is String)
-                            ? (item['paidBy'] as String)
-                            : (item['payerEmail'] is String)
-                                ? (item['payerEmail'] as String)
-                                : null,
-              );
+            final parsed = items
+                .map((rawItem) {
+                  final item = rawItem is Map
+                      ? Map<String, dynamic>.from(rawItem)
+                      : <String, dynamic>{};
+                  final rawDate = item['date']?.toString();
+                  final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
+                  DateTime? accountingDate;
+                  if (parsedDateOnly != null) {
+                    accountingDate = parsedDateOnly;
+                  } else {
+                    final parsedInstant = DateTime.tryParse(rawDate ?? '');
+                    if (parsedInstant != null) {
+                      final effective = toEffectiveWallTime(
+                        utcOrLocalInstant: parsedInstant,
+                        preferredTimezone: contact?.preferredTimezone,
+                      );
+                      accountingDate = DateTime(
+                          effective.year, effective.month, effective.day);
+                    }
+                  }
+                  if (accountingDate == null) {
+                    _debugPrint('Skipping AI item with invalid date');
+                    return null;
+                  }
+                  final isIncome =
+                      (item['type']?.toString().toLowerCase() == 'income');
+                  final transaction = ParsedExpense(
+                    isIncome: isIncome,
+                    amount: (item['amount'] as num).toDouble(),
+                    // Normalize income categories to at least 'income' umbrella if model returns a granular one
+                    category: (item['category'] as String?)?.isNotEmpty == true
+                        ? (isIncome
+                            ? (item['category'] as String)
+                            : item['category'] as String)
+                        : (isIncome ? 'income' : 'other'),
+                    currency: item['currency'] as String,
+                    currencySymbol: item['currencySymbol'] as String? ?? '\$',
+                    date: accountingDate,
+                    description: item['description'] is String
+                        ? sanitizeUtf16(item['description'] as String)
+                        : null,
+                    localImagePath: imagePath,
+                    payerUserId: (item['payerUserId'] is String)
+                        ? (item['payerUserId'] as String)
+                        : null,
+                    payerHint: (item['payerHint'] is String)
+                        ? (item['payerHint'] as String)
+                        : (item['payerName'] is String)
+                            ? (item['payerName'] as String)
+                            : (item['paidBy'] is String)
+                                ? (item['paidBy'] as String)
+                                : (item['payerEmail'] is String)
+                                    ? (item['payerEmail'] as String)
+                                    : null,
+                  );
 
-              final optimisticId = makeOptimisticTransactionId();
-              final entry = buildOptimisticEntry(
-                transaction: transaction,
-                optimisticId: optimisticId,
-                userId: user.uid,
-                contactId: analyticsContactId,
-                householdId: householdId,
-                type: isIncome ? 'income' : 'expense',
-              );
+                  final optimisticId = makeOptimisticTransactionId();
+                  final entry = buildOptimisticEntry(
+                    transaction: transaction,
+                    optimisticId: optimisticId,
+                    userId: user.uid,
+                    contactId: analyticsContactId,
+                    householdId: householdId,
+                    type: isIncome ? 'income' : 'expense',
+                  );
 
-              addOptimisticTransaction(
-                ref: ref,
-                entry: entry,
-                householdId: householdId,
-              );
+                  addOptimisticTransaction(
+                    ref: ref,
+                    entry: entry,
+                    householdId: householdId,
+                  );
 
-              return (
-                transaction: transaction,
-                optimisticId: optimisticId,
-                raw: item
-              );
-            }).toList();
+                  return (
+                    transaction: transaction,
+                    optimisticId: optimisticId,
+                    raw: item
+                  );
+                })
+                .whereType<
+                    ({
+                      ParsedExpense transaction,
+                      String optimisticId,
+                      Map<String, dynamic> raw
+                    })>()
+                .toList();
+
+            if (parsed.isEmpty) {
+              AppToast.info(
+                  context, context.l10n.noExpenseInformationExtracted);
+              return;
+            }
 
             AppToast.success(
               context,
@@ -525,6 +565,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 isPortfolio: isPortfolio,
                 transactions: parsed,
                 localImagePath: imagePath,
+                preferredTimezone: contact?.preferredTimezone,
               ),
             );
           } else {
@@ -538,7 +579,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
       }
     } catch (e) {
-      debugPrint('=== ERROR IN ANALYSIS: $e ===');
+      _debugPrint('Error in analysis: $e');
       if (!mounted) return;
 
       // Close processing modal
@@ -592,6 +633,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             })>
         transactions,
     String? localImagePath,
+    String? preferredTimezone,
   }) async {
     var didPersistAny = false;
 
@@ -636,8 +678,18 @@ class _HomePageState extends ConsumerState<HomePage> {
           .uploadReceiptImage(File(localImagePath), userId);
     }
 
+    final timezoneOffsetMinutes =
+        resolveUserTimezoneOffsetMinutes(preferredTimezone);
+    final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+    final clientCreatedAtIso = utcInstantForUserLocalDateTime(
+      localDateTime: userNow,
+      offsetMinutes: timezoneOffsetMinutes,
+    ).toIso8601String();
+
     for (final item in transactions) {
       try {
+        final transactionDateYmd = formatDateOnlyYmd(item.transaction.date);
+
         if (item.transaction.isIncome) {
           final response = await supabase.functions.invoke(
             'save-income',
@@ -646,8 +698,8 @@ class _HomePageState extends ConsumerState<HomePage> {
               'amount': item.transaction.amount,
               'category': item.transaction.category,
               'currency': item.transaction.currency,
-              'date': item.transaction.date.toIso8601String(),
-              'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+              'date': transactionDateYmd,
+              'clientCreatedAt': clientCreatedAtIso,
               if (item.transaction.description?.isNotEmpty == true)
                 'description': item.transaction.description,
               if (householdId != null && householdId.isNotEmpty)
@@ -693,8 +745,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             'amount': item.transaction.amount,
             'category': item.transaction.category,
             'currency': item.transaction.currency,
-            'date': item.transaction.date.toIso8601String(),
-            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            'date': transactionDateYmd,
+            'clientCreatedAt': clientCreatedAtIso,
             if (item.transaction.description?.isNotEmpty == true)
               'description': item.transaction.description,
             if (receiptUrl != null) 'receiptImageUrl': receiptUrl,
@@ -731,7 +783,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           optimisticId: item.optimisticId,
           householdId: householdId,
         );
-        debugPrint('❌ Failed to persist AI transaction: $error');
+        _debugPrint('❌ Failed to persist AI transaction: $error');
       }
     }
 
@@ -784,6 +836,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
+    final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
+      analyticsData.contact?.preferredTimezone,
+    );
+    final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
@@ -832,6 +888,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       netFilterState.dateRangeFilter,
       netFilterState.customStartDate,
       netFilterState.customEndDate,
+      now: userNow,
     );
     final netFrom = netRange['from']!;
     final netTo = netRange['to']!;
@@ -929,6 +986,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       config.dateRange,
                                       config.customStartDate,
                                       config.customEndDate,
+                                      now: userNow,
                                     );
                                     final from = range['from']!;
                                     final to = range['to']!;
@@ -1064,6 +1122,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       config.dateRange,
                                       config.customStartDate,
                                       config.customEndDate,
+                                      now: userNow,
                                     );
                                     final from = range['from']!;
                                     final to = range['to']!;
@@ -1115,6 +1174,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               config.dateRange,
                               config.customStartDate,
                               config.customEndDate,
+                              now: userNow,
                             );
                             final from = range['from']!;
                             final to = range['to']!;
@@ -1201,7 +1261,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {
                 // In household mode: invalidate ALL household-related providers
-                debugPrint('🔄 Pull-to-refresh: Refreshing household data');
+                _debugPrint('🔄 Pull-to-refresh: Refreshing household data');
                 ref.read(cacheInvalidatorProvider).invalidateAll();
                 ref.invalidate(userHouseholdsProvider(user.uid));
                 ref.invalidate(householdExpensesProvider);
@@ -1210,7 +1270,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 ref.invalidate(cachedHouseholdSplitsProvider);
                 ref.invalidate(householdBudgetsProvider);
                 ref.invalidate(householdMembersProvider);
-                debugPrint(
+                _debugPrint(
                     '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, members');
               } else {
                 // In personal mode: refresh analytics with current date filters

@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -9,6 +10,15 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_state.d
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Manages transaction editing with optimistic UI updates and automatic rollback on error
 class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
@@ -24,7 +34,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     Map<String, dynamic>? extraBody,
   }) async {
     if (state.isLoading) {
-      debugPrint('⚠️ Update already in progress, ignoring');
+      _debugPrint('⚠️ Update already in progress, ignoring');
       return false;
     }
 
@@ -59,13 +69,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         // 2. Create optimistic update (what the UI will show immediately)
         final optimisticExpense = _applyUpdates(originalExpense, updates);
 
-        if (kDebugMode) {
-          debugPrint('💾 Applying optimistic update for expense $expenseId');
-          debugPrint(
-              '   Original: ${originalExpense.amount} ${originalExpense.currency}');
-          debugPrint(
-              '   Updated:  ${optimisticExpense.amount} ${optimisticExpense.currency}');
-        }
+        _debugPrint('💾 Applying optimistic update');
 
         // 3. Update UI immediately (optimistic)
         state = state.copyWith(optimisticUpdate: optimisticExpense);
@@ -73,10 +77,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       } else {
         // Expense not in cache - likely a household expense
         // This is NOT an error, just skip optimistic update
-        if (kDebugMode) {
-          debugPrint(
-              '💾 Expense not in local cache (household expense), skipping optimistic update');
-        }
+        _debugPrint(
+            '💾 Expense not in local cache; skipping optimistic update');
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -86,9 +88,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // We continue regardless of whether optimistic update was applied.
       // ═══════════════════════════════════════════════════════════════
       final user = ref.read(authProvider);
-      if (kDebugMode) {
-        debugPrint('🌐 Calling update-expense API...');
-      }
+      _debugPrint('🌐 Calling update-expense API...');
 
       final requestBody = <String, dynamic>{
         'userId': user.uid,
@@ -122,9 +122,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         throw Exception('$errorCode: $errorMessage');
       }
 
-      if (kDebugMode) {
-        debugPrint('✅ Backend update successful');
-      }
+      _debugPrint('✅ Backend update successful');
 
       // ═══════════════════════════════════════════════════════════════
       // STEP 3: Reload data from backend to sync all providers
@@ -145,7 +143,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // This was a bug fix: Previously, household expenses failed to update
       // because they weren't in analyticsProvider and household providers
       // weren't being refreshed.
-      debugPrint('🔄 Invalidating household providers after expense update');
+      _debugPrint('🔄 Invalidating household providers after expense update');
       ref.invalidate(userHouseholdsProvider(user.uid));
       ref.invalidate(householdExpensesProvider);
       ref.invalidate(householdSplitsProvider);
@@ -154,7 +152,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       ref.invalidate(cachedHouseholdExpensesProvider);
       ref.invalidate(cachedHouseholdSplitsProvider);
       ref.read(cacheInvalidatorProvider).invalidateAll();
-      debugPrint('✅ Invalidated household providers');
+      _debugPrint('✅ Invalidated household providers');
 
       // Keep other tabs in sync (pockets + currency counts).
       ref.invalidate(pocketsProvider);
@@ -169,7 +167,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return true;
     } catch (e) {
       // 6. Error: Rollback optimistic update
-      debugPrint('❌ Update failed: $e');
+      _debugPrint('❌ Update failed');
 
       try {
         final analyticsData = ref.read(analyticsProvider);
@@ -183,12 +181,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           final user = ref.read(authProvider);
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
 
-          if (kDebugMode) {
-            debugPrint('🔄 Rolled back optimistic update');
-          }
+          _debugPrint('🔄 Rolled back optimistic update');
         }
       } catch (rollbackError) {
-        debugPrint('⚠️ Failed to rollback: $rollbackError');
+        _debugPrint('⚠️ Failed to rollback');
       }
 
       state = state.copyWith(
@@ -215,7 +211,18 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           ? (updates['raw_text'] as String?)
           : expense.rawText,
       date: updates['date'] != null
-          ? DateTime.parse(updates['date'] as String)
+          ? (() {
+              final value = updates['date']?.toString();
+              final dateOnly = tryParseDateOnlyYmd(value);
+              if (dateOnly != null) {
+                return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+              }
+              final parsed = DateTime.tryParse(value ?? '');
+              if (parsed != null) {
+                return DateTime(parsed.year, parsed.month, parsed.day);
+              }
+              return expense.date;
+            })()
           : expense.date,
       currency: updates['currency'] as String? ?? expense.currency,
     );

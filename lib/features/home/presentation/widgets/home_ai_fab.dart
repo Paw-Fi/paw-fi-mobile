@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,6 +19,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
@@ -45,6 +47,15 @@ const String _reviewLastIntervalKey = 'review_last_prompt_interval';
 const int _maxBatchSize = 400;
 
 final ImagePicker _imagePicker = ImagePicker();
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 class _AiParsedItem {
   final ParsedExpense transaction;
@@ -177,7 +188,7 @@ Future<void> _maybeRequestReviewAfterExpenseSave({
 
     await inAppReview.requestReview();
   } catch (error) {
-    debugPrint('[REVIEW] Failed to request review: $error');
+    _debugPrint('[REVIEW] Failed to request review: $error');
   }
 }
 
@@ -187,9 +198,18 @@ Future<void> _persistAiTransactions(
   required String? householdId,
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
+  String? preferredTimezone,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
+
+  final timezoneOffsetMinutes =
+      resolveUserTimezoneOffsetMinutes(preferredTimezone);
+  final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+  final clientCreatedAtIso = utcInstantForUserLocalDateTime(
+    localDateTime: userNow,
+    offsetMinutes: timezoneOffsetMinutes,
+  ).toIso8601String();
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -283,7 +303,7 @@ Future<void> _persistAiTransactions(
         }
       }
     } catch (error) {
-      debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
+      _debugPrint('❌ [AI Batch Save] Failed to attach split groups: $error');
     }
   }
 
@@ -321,8 +341,8 @@ Future<void> _persistAiTransactions(
       'amount': tx.amount,
       'category': tx.category,
       'currency': tx.currency,
-      'date': tx.date.toIso8601String().split('T')[0],
-      'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+      'date': formatDateOnlyYmd(tx.date),
+      'clientCreatedAt': clientCreatedAtIso,
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
@@ -335,10 +355,9 @@ Future<void> _persistAiTransactions(
   }).toList(growable: false);
 
   try {
-    debugPrint(
+    _debugPrint(
         '[AI Batch Save] Saving ${batchTransactions.length} transactions in single request');
-    debugPrint('[AI Batch Save] Supabase URL: ${Constants.supabaseUrl}');
-    debugPrint('[AI Batch Save] Function: save-transactions-batch');
+    _debugPrint('[AI Batch Save] Function: save-transactions-batch');
 
     final batches = chunkList(batchTransactions, _maxBatchSize);
     var batchOffset = 0;
@@ -349,7 +368,7 @@ Future<void> _persistAiTransactions(
 
     for (var batchIndex = 0; batchIndex < batches.length; batchIndex++) {
       final batch = batches[batchIndex];
-      debugPrint(
+      _debugPrint(
           '[AI Batch Save] Batch ${batchIndex + 1}/${batches.length} size=${batch.length}');
 
       final response = await supabase.functions.invoke(
@@ -372,7 +391,7 @@ Future<void> _persistAiTransactions(
       final results = responseData['results'] as List?;
       final summary = responseData['summary'] as Map<String, dynamic>?;
 
-      debugPrint(
+      _debugPrint(
           '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
 
       if (results != null && results.isNotEmpty) {
@@ -408,7 +427,7 @@ Future<void> _persistAiTransactions(
               optimisticId: originalItem.optimisticId,
               householdId: householdId,
             );
-            debugPrint(
+            _debugPrint(
                 '❌ Failed to persist transaction at index $originalIndex: ${result['error']}');
           }
         }
@@ -440,12 +459,12 @@ Future<void> _persistAiTransactions(
       ));
     }
   } catch (error) {
-    debugPrint('❌ Batch save failed: $error');
+    _debugPrint('❌ Batch save failed: $error');
 
     final shouldFallback = shouldFallbackForBatchError(error);
 
     if (shouldFallback) {
-      debugPrint(
+      _debugPrint(
           '⚠️ Batch endpoint not available, falling back to individual saves');
 
       // Save transactions individually using existing endpoints
@@ -464,8 +483,8 @@ Future<void> _persistAiTransactions(
             'amount': tx.amount,
             'category': tx.category,
             'currency': tx.currency,
-            'date': tx.date.toIso8601String().split('T')[0],
-            'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+            'date': formatDateOnlyYmd(tx.date),
+            'clientCreatedAt': clientCreatedAtIso,
             if (tx.description?.isNotEmpty == true)
               'description': tx.description,
             if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
@@ -523,7 +542,7 @@ Future<void> _persistAiTransactions(
             );
           }
         } catch (itemError) {
-          debugPrint('❌ Failed to save individual transaction: $itemError');
+          _debugPrint('❌ Failed to save individual transaction: $itemError');
           removeOptimisticTransactionWithContainer(
             container: container,
             optimisticId: item.optimisticId,
@@ -532,7 +551,7 @@ Future<void> _persistAiTransactions(
         }
       }
 
-      debugPrint(
+      _debugPrint(
           '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
       if (savedCount > 0) {
@@ -606,7 +625,7 @@ Future<void> handleAiCameraCapture(
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
-  debugPrint('🎥 Starting camera capture...');
+  _debugPrint('🎥 Starting camera capture...');
 
   try {
     final XFile? photo = await pickImageWithGuard(
@@ -615,7 +634,7 @@ Future<void> handleAiCameraCapture(
       imageQuality: 85,
     );
 
-    debugPrint('🎥 Photo captured: ${photo != null}');
+    _debugPrint('🎥 Photo captured: ${photo != null}');
 
     if (photo != null) {
       if (context.mounted) {
@@ -627,7 +646,7 @@ Future<void> handleAiCameraCapture(
         );
       }
     } else {
-      debugPrint('🎥 User cancelled or permission denied');
+      _debugPrint('🎥 User cancelled or permission denied');
     }
   } catch (e) {
     if (context.mounted) {
@@ -813,7 +832,7 @@ Future<Map<String, dynamic>?> _processWithSSE({
   final sseUrl =
       Uri.parse('$supabaseUrl/functions/v1/analyze-expense?stream=true');
 
-  debugPrint('[SSE] Starting streaming request to $sseUrl');
+  _debugPrint('[SSE] Starting streaming request');
 
   Map<String, dynamic>? result;
 
@@ -827,11 +846,11 @@ Future<Map<String, dynamic>?> _processWithSSE({
   )) {
     // Check for cancellation
     if (onCancelCheck()) {
-      debugPrint('[SSE] Cancelled by user');
+      _debugPrint('[SSE] Cancelled by user');
       throw Exception('Cancelled');
     }
 
-    debugPrint('[SSE] Received event: ${event.event} - ${event.data}');
+    _debugPrint('[SSE] Received event: ${event.event}');
 
     switch (event.event) {
       case 'progress':
@@ -915,7 +934,11 @@ Future<void> _processExpense(
 
     final Map<String, dynamic> body = {
       'userId': user.uid,
-      'date': DateTime.now().toIso8601String().split('T')[0],
+      'date': formatDateOnlyYmd(
+        userNowFromOffsetMinutes(
+          resolveUserTimezoneOffsetMinutes(contact?.preferredTimezone),
+        ),
+      ),
       'language': languageTag,
       'typeHint': 'mixed',
     };
@@ -1004,7 +1027,7 @@ Future<void> _processExpense(
           onCancelCheck: () => dialogController?.isCancelled ?? false,
         );
       } catch (e) {
-        debugPrint('[SSE] Failed, falling back to regular request: $e');
+        _debugPrint('[SSE] Failed, falling back to regular request: $e');
         // Fall through to regular request
         responseData = null;
       }
@@ -1045,9 +1068,7 @@ Future<void> _processExpense(
       return;
     }
 
-    debugPrint('=== ANALYSIS RESPONSE ===');
-    debugPrint('response data: $responseData');
-    debugPrint('========================');
+    _debugPrint('Analysis response received');
 
     if (responseData != null && responseData['success'] == true) {
       final innerData = responseData['data'];
@@ -1086,68 +1107,99 @@ Future<void> _processExpense(
           final analyticsContactId = ref.read(analyticsProvider).contact?.id;
 
           // Parse ALL items and immediately optimistic-log them.
-          final parsed = items.map((rawItem) {
-            final item = rawItem is Map
-                ? Map<String, dynamic>.from(rawItem)
-                : <String, dynamic>{};
-            final isIncome =
-                (item['type']?.toString().toLowerCase() == 'income');
-            final transaction = ParsedExpense(
-              isIncome: isIncome,
-              amount: (item['amount'] as num).toDouble(),
-              // Normalize income categories to at least 'income' umbrella if model returns a granular one
-              category: (item['category'] as String?)?.isNotEmpty == true
-                  ? (isIncome
-                      ? (item['category'] as String)
-                      : item['category'] as String)
-                  : (isIncome ? 'income' : 'other'),
-              currency: item['currency'] as String,
-              currencySymbol: item['currencySymbol'] as String? ?? '\$',
-              date: DateTime.parse(item['date'] as String),
-              description: item['description'] is String
-                  ? sanitizeUtf16(item['description'] as String)
-                  : null,
-              breakdown: item['breakdown'] is List
-                  ? (item['breakdown'] as List)
-                      .map((e) => sanitizeUtf16(e.toString()))
-                      .toList()
-                  : null,
-              localImagePath: imagePath,
-              payerUserId: (item['payerUserId'] is String)
-                  ? (item['payerUserId'] as String)
-                  : null,
-              payerHint: (item['payerHint'] is String)
-                  ? (item['payerHint'] as String)
-                  : (item['payerName'] is String)
-                      ? (item['payerName'] as String)
-                      : (item['paidBy'] is String)
-                          ? (item['paidBy'] as String)
-                          : (item['payerEmail'] is String)
-                              ? (item['payerEmail'] as String)
-                              : null,
-            );
+          final parsed = items
+              .map((rawItem) {
+                final item = rawItem is Map
+                    ? Map<String, dynamic>.from(rawItem)
+                    : <String, dynamic>{};
+                final rawDate = item['date']?.toString();
+                final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
+                DateTime? accountingDate;
+                if (parsedDateOnly != null) {
+                  accountingDate = parsedDateOnly;
+                } else {
+                  final parsedInstant = DateTime.tryParse(rawDate ?? '');
+                  if (parsedInstant != null) {
+                    final effective = toEffectiveWallTime(
+                      utcOrLocalInstant: parsedInstant,
+                      preferredTimezone: contact?.preferredTimezone,
+                    );
+                    accountingDate = DateTime(
+                        effective.year, effective.month, effective.day);
+                  }
+                }
+                if (accountingDate == null) {
+                  _debugPrint('Skipping AI item with invalid date');
+                  return null;
+                }
+                final isIncome =
+                    (item['type']?.toString().toLowerCase() == 'income');
+                final transaction = ParsedExpense(
+                  isIncome: isIncome,
+                  amount: (item['amount'] as num).toDouble(),
+                  // Normalize income categories to at least 'income' umbrella if model returns a granular one
+                  category: (item['category'] as String?)?.isNotEmpty == true
+                      ? (isIncome
+                          ? (item['category'] as String)
+                          : item['category'] as String)
+                      : (isIncome ? 'income' : 'other'),
+                  currency: item['currency'] as String,
+                  currencySymbol: item['currencySymbol'] as String? ?? '\$',
+                  date: accountingDate,
+                  description: item['description'] is String
+                      ? sanitizeUtf16(item['description'] as String)
+                      : null,
+                  breakdown: item['breakdown'] is List
+                      ? (item['breakdown'] as List)
+                          .map((e) => sanitizeUtf16(e.toString()))
+                          .toList()
+                      : null,
+                  localImagePath: imagePath,
+                  payerUserId: (item['payerUserId'] is String)
+                      ? (item['payerUserId'] as String)
+                      : null,
+                  payerHint: (item['payerHint'] is String)
+                      ? (item['payerHint'] as String)
+                      : (item['payerName'] is String)
+                          ? (item['payerName'] as String)
+                          : (item['paidBy'] is String)
+                              ? (item['paidBy'] as String)
+                              : (item['payerEmail'] is String)
+                                  ? (item['payerEmail'] as String)
+                                  : null,
+                );
 
-            final optimisticId = makeOptimisticTransactionId();
-            final entry = buildOptimisticEntry(
-              transaction: transaction,
-              optimisticId: optimisticId,
-              userId: user.uid,
-              contactId: analyticsContactId,
-              householdId: householdId,
-              type: isIncome ? 'income' : 'expense',
-            );
-            addOptimisticTransaction(
-              ref: ref,
-              entry: entry,
-              householdId: householdId,
-            );
+                final optimisticId = makeOptimisticTransactionId();
+                final entry = buildOptimisticEntry(
+                  transaction: transaction,
+                  optimisticId: optimisticId,
+                  userId: user.uid,
+                  contactId: analyticsContactId,
+                  householdId: householdId,
+                  type: isIncome ? 'income' : 'expense',
+                );
+                addOptimisticTransaction(
+                  ref: ref,
+                  entry: entry,
+                  householdId: householdId,
+                );
 
-            return _AiParsedItem(
-              transaction: transaction,
-              optimisticId: optimisticId,
-              raw: item,
-            );
-          }).toList();
+                return _AiParsedItem(
+                  transaction: transaction,
+                  optimisticId: optimisticId,
+                  raw: item,
+                );
+              })
+              .whereType<_AiParsedItem>()
+              .toList();
+
+          if (parsed.isEmpty) {
+            if (context.mounted) {
+              AppToast.info(
+                  context, context.l10n.noExpenseInformationExtracted);
+            }
+            return;
+          }
 
           if (context.mounted) {
             AppToast.success(
@@ -1180,6 +1232,7 @@ Future<void> _processExpense(
               householdId: householdId,
               isPortfolio: isPortfolio,
               transactions: parsed,
+              preferredTimezone: contact?.preferredTimezone,
               localImagePath: imagePath,
             ),
           );
@@ -1206,7 +1259,7 @@ Future<void> _processExpense(
       }
     }
   } catch (e) {
-    debugPrint('=== ERROR IN ANALYSIS: $e ===');
+    _debugPrint('Error in analysis: $e');
 
     // Close processing modal
     if (context.mounted) {

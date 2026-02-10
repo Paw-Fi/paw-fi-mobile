@@ -1,7 +1,7 @@
 // State providers for expense save flow
 
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
@@ -17,6 +17,16 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 // ============================================================================
 // PENDING EXPENSE PROVIDER
@@ -60,26 +70,30 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       final user = ref.read(authProvider);
 
-      debugPrint(
-          '💾 Saving expense: ${expense.formattedAmount} ${expense.category}');
+      _debugPrint('💾 Saving expense request');
       if (householdId != null) {
-        debugPrint('👥 Sharing with household: $householdId');
+        _debugPrint('👥 Sharing with household: $householdId');
         if (customSplitType != null && customSplits != null) {
-          debugPrint(
-              '📊 Custom split type: $customSplitType with ${customSplits.length} members');
+          _debugPrint('📊 Custom split configuration provided');
         }
       }
 
       // Prepare request body
+      final accountingDate = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
+
       final Map<String, dynamic> requestBody = {
         'userId': user.uid,
         'amount': expense.amount,
         'category': expense.category,
         'currency': expense.currency,
-        // Date is used by BE for the calendar day; includes time here but DB stores DATE
-        'date': expense.date.toIso8601String(),
-        // Preserve client timezone by sending an explicit UTC timestamp for created_at
-        'clientCreatedAt': expense.date.toUtc().toIso8601String(),
+        // Date is accounting date semantics (calendar day).
+        'date': formatDateOnlyYmd(accountingDate),
+        // UTC instant for audit/ordering only.
+        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
         // Explicitly set type for new expenses
         'type': 'expense',
       };
@@ -115,9 +129,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           customSplits != null) {
         final splitTypeStr = customSplitType.toString().split('.').last;
 
-        debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits:');
-        debugPrint('  - Split type: $splitTypeStr');
-        debugPrint('  - Number of members: ${customSplits.length}');
+        _debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits');
+        _debugPrint('  - Split type: $splitTypeStr');
+        _debugPrint('  - Members count: ${customSplits.length}');
 
         requestBody['customSplits'] = {
           'splitType': splitTypeStr,
@@ -130,22 +144,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
             switch (customSplitType) {
               case SplitType.amount:
                 memberData['amount'] = split.amount;
-                debugPrint(
-                    '  - Member ${split.member.userName ?? split.member.userEmail}: amount=${split.amount}');
+                _debugPrint('  - Amount split row prepared');
                 break;
               case SplitType.percentage:
                 memberData['percentage'] = split.percentage;
-                debugPrint(
-                    '  - Member ${split.member.userName ?? split.member.userEmail}: percentage=${split.percentage}');
+                _debugPrint('  - Percentage split row prepared');
                 break;
               case SplitType.shares:
                 memberData['shares'] = split.shares;
-                debugPrint(
-                    '  - Member ${split.member.userName ?? split.member.userEmail}: shares=${split.shares}');
+                _debugPrint('  - Shares split row prepared');
                 break;
               case SplitType.equal:
-                debugPrint(
-                    '  - Member ${split.member.userName ?? split.member.userEmail}: equal (no data)');
+                _debugPrint('  - Equal split row prepared');
                 // No additional data needed for equal splits
                 break;
             }
@@ -154,12 +164,12 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
           }).toList(),
         };
 
-        debugPrint('📊 Custom splits payload: ${requestBody['customSplits']}');
+        _debugPrint('📊 Custom splits payload attached');
       } else if (householdId != null) {
-        debugPrint(
+        _debugPrint(
             '⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
-        debugPrint('  - customSplitType: $customSplitType');
-        debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
+        _debugPrint('  - customSplitType: $customSplitType');
+        _debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
       }
 
       if (!isPortfolio &&
@@ -179,7 +189,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         throw Exception(response.data?['error'] ?? 'Failed to save expense');
       }
 
-      debugPrint('✅ Expense saved successfully');
+      _debugPrint('✅ Expense saved successfully');
       final responseMap = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : null;
@@ -201,7 +211,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       state = const AsyncValue.data(null);
     } catch (error, stackTrace) {
-      debugPrint('❌ Error saving expense: $error');
+      _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);
       rethrow;
     }
@@ -458,7 +468,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
   /// Invalidate appropriate providers based on sharing preference
   Future<void> _invalidateProviders(String userId, String? householdId) async {
-    debugPrint('🔄 Invalidating providers...');
+    _debugPrint('🔄 Invalidating providers...');
 
     // Always refresh personal analytics (expense is in user's expenses table)
     // Avoid a full reload on household-mode saves to keep the home dashboard
@@ -473,7 +483,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
     if (householdId != null) {
       // Shared expense: refresh household data
-      debugPrint(
+      _debugPrint(
           '🔄 Invalidating household providers for household: $householdId');
 
       // Clear RequestDeduplicator cache so cached providers don't serve stale data.
@@ -490,13 +500,13 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       ref.invalidate(cachedHouseholdExpensesProvider);
       ref.invalidate(cachedHouseholdSplitsProvider);
 
-      debugPrint('✅ Invalidated families: expenses, splits, budgets');
+      _debugPrint('✅ Invalidated families: expenses, splits, budgets');
     }
 
     // Small delay to ensure backend has propagated changes
     await Future.delayed(const Duration(milliseconds: 300));
 
-    debugPrint('✅ Providers invalidated and ready for refresh');
+    _debugPrint('✅ Providers invalidated and ready for refresh');
   }
 
   /// Allows batch save callers to skip invalidations per item and refresh once.
@@ -510,7 +520,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   /// Upload receipt image to storage (if needed)
   Future<String?> uploadReceiptImage(File imageFile, String userId) async {
     try {
-      debugPrint('📤 Uploading receipt image...');
+      _debugPrint('📤 Uploading receipt image...');
 
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
 
@@ -528,10 +538,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final publicUrl =
           supabase.storage.from('expense-receipts').getPublicUrl(path);
 
-      debugPrint('✅ Receipt uploaded: $publicUrl');
+      _debugPrint('✅ Receipt uploaded successfully');
       return publicUrl;
     } catch (error) {
-      debugPrint('❌ Receipt upload failed: $error');
+      _debugPrint('❌ Receipt upload failed: $error');
       return null; // Continue without receipt image
     }
   }

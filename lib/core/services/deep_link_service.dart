@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/constants/deep_links.dart';
@@ -24,6 +25,15 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
+
 /// Deep link service that handles app links
 class DeepLinkService {
   final AppLinks _appLinks = AppLinks();
@@ -31,29 +41,29 @@ class DeepLinkService {
 
   /// Initialize the deep link listener
   Future<void> initialize(WidgetRef ref, BuildContext context) async {
-    debugPrint('Initializing deep link service...');
+    _debugPrint('Initializing deep link service...');
 
     // Handle the initial link if the app was opened from a deep link
     try {
       final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null) {
-        debugPrint('🔗 Initial deep link received: $initialLink');
+        _debugPrint('🔗 Initial deep link received');
         // ignore: unawaited_futures
         _handleDeepLink(initialLink, ref);
       }
     } catch (e) {
-      debugPrint('❌ Error getting initial link: $e');
+      _debugPrint('❌ Error getting initial link');
     }
 
     // Subscribe to further deep link events
     _linkSubscription = _appLinks.uriLinkStream.listen(
       (uri) {
-        debugPrint('🔗 Deep link received: $uri');
+        _debugPrint('🔗 Deep link received');
         // ignore: unawaited_futures
         _handleDeepLink(uri, ref);
       },
       onError: (err) {
-        debugPrint('❌ Deep link error: $err');
+        _debugPrint('❌ Deep link error');
       },
     );
   }
@@ -67,15 +77,15 @@ class DeepLinkService {
   /// Handle deep link navigation
   Future<void> _handleDeepLink(Uri uri, WidgetRef ref) async {
     // Only log deep link type, not sensitive parameters
-    debugPrint('🔗 Handling deep link: ${uri.scheme}://${uri.host}${uri.path}');
+    _debugPrint('🔗 Handling deep link');
     if (kDebugMode) {
-      // Only log query parameters in debug mode
-      debugPrint('🔗 Query parameters: ${uri.queryParameters}');
+      _debugPrint(
+          '🔗 Query parameters present: ${uri.queryParameters.isNotEmpty}');
     }
 
     // Handle Supabase OAuth callback: io.supabase.moneko://login-callback
     if (DeepLinks.isOAuthCallback(uri)) {
-      debugPrint('🔐 Supabase OAuth callback received');
+      _debugPrint('🔐 Supabase OAuth callback received');
       // Don't log token presence - could leak info about auth state
 
       // Supabase auth tokens are in the URL fragment (#access_token=...)
@@ -92,7 +102,7 @@ class DeepLinkService {
 
     // Legacy OAuth callback support: moneko://auth/callback (kept for backward compatibility)
     if (DeepLinks.isLegacyOAuthCallback(uri)) {
-      debugPrint('🔐 Legacy OAuth callback received');
+      _debugPrint('🔐 Legacy OAuth callback received');
       final navCtx = rootNavigatorKey.currentContext;
       if (navCtx?.mounted ?? false) {
         navCtx!.go('/auth/callback');
@@ -101,18 +111,15 @@ class DeepLinkService {
     }
 
     if (DeepLinks.isPlaidCallback(uri)) {
-      debugPrint('🏦 Plaid deep link received');
+      _debugPrint('🏦 Plaid deep link received');
 
       final params = uri.queryParameters;
-      final status = params['status'];
       final errorCode = params['error_code'];
-      final errorMessage = params['error_message'];
 
       // Only log non-sensitive status info
-      debugPrint('🏦 Plaid status: $status');
+      _debugPrint('🏦 Plaid callback status received');
       if (errorCode != null) {
-        debugPrint('🏦 Plaid error_code: $errorCode');
-        debugPrint('🏦 Plaid error_message: $errorMessage');
+        _debugPrint('🏦 Plaid callback contains error details');
       }
 
       return;
@@ -121,7 +128,7 @@ class DeepLinkService {
     // Tink callback: moneko://tink?credentialsId=xxx&credentials_id=yyy&state=zzz
     // Note: Tink Link returns credentialsId (not code) after successful connection
     if (DeepLinks.isTinkCallback(uri)) {
-      debugPrint('🏦 Tink deep link received');
+      _debugPrint('🏦 Tink deep link received');
 
       final params = uri.queryParameters;
       // Tink returns both 'credentialsId' (camelCase) and 'credentials_id' (snake_case)
@@ -130,7 +137,7 @@ class DeepLinkService {
       final error = params['error'];
 
       if (error != null && error.isNotEmpty) {
-        debugPrint('❌ Tink error: $error');
+        _debugPrint('❌ Tink callback error');
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx?.mounted ?? false) {
           AppToast.error(navCtx!, 'Bank connection failed: $error');
@@ -139,12 +146,12 @@ class DeepLinkService {
       }
 
       if (credentialsId == null || credentialsId.isEmpty) {
-        debugPrint('❌ Tink callback missing credentialsId');
+        _debugPrint('❌ Tink callback missing credentials identifier');
         return;
       }
 
       if (state == null || state.isEmpty) {
-        debugPrint('❌ Tink callback missing state - CSRF validation will fail');
+        _debugPrint('❌ Tink callback missing security state');
         final navCtx = rootNavigatorKey.currentContext;
         if (navCtx?.mounted ?? false) {
           AppToast.error(
@@ -154,7 +161,7 @@ class DeepLinkService {
       }
 
       // Don't log sensitive credentials - only log that we received them
-      debugPrint('🏦 Tink credentialsId and state received');
+      _debugPrint('🏦 Tink credentials and state received');
 
       // Handle the Tink callback - sync transactions using credentialsId
       _handleTinkCallback(credentialsId, state, ref);
@@ -163,25 +170,25 @@ class DeepLinkService {
 
     // Widget quick actions: moneko://text, moneko://camera, moneko://pockets
     if (DeepLinks.isWidgetTextLink(uri)) {
-      debugPrint('🧭 Widget deep link: text');
+      _debugPrint('🧭 Widget deep link: text');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.textInput);
       return;
     }
     if (DeepLinks.isWidgetCameraLink(uri)) {
-      debugPrint('🧭 Widget deep link: camera');
+      _debugPrint('🧭 Widget deep link: camera');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.cameraInput);
       return;
     }
     if (DeepLinks.isWidgetPocketsLink(uri)) {
-      debugPrint('🧭 Widget deep link: pockets');
+      _debugPrint('🧭 Widget deep link: pockets');
       ref.read(widgetLaunchProvider.notifier).state =
           const WidgetLaunchEvent(type: WidgetLaunchActionType.openPockets);
       return;
     }
     if (DeepLinks.isWidgetConfigureLink(uri)) {
-      debugPrint('🧭 Widget deep link: configure');
+      _debugPrint('🧭 Widget deep link: configure');
       final widgetId = uri.queryParameters['widgetId'];
       if (widgetId != null) {
         ref.read(widgetLaunchProvider.notifier).state = WidgetLaunchEvent(
@@ -195,7 +202,7 @@ class DeepLinkService {
     // Handle payment callback: moneko://payment?status=success/failed/canceled
     if (DeepLinks.isPaymentCallback(uri)) {
       final status = uri.queryParameters['status'];
-      debugPrint('💳 Payment callback received with status: $status');
+      _debugPrint('💳 Payment callback received');
 
       final sessionId = uri.queryParameters['session_id'];
 
@@ -221,7 +228,7 @@ class DeepLinkService {
                 },
               );
             } catch (e) {
-              debugPrint('⚠️ verify-payment failed (best-effort): $e');
+              _debugPrint('⚠️ verify-payment failed (best-effort)');
             }
           }
 
@@ -263,22 +270,22 @@ class DeepLinkService {
     if (DeepLinks.isWhatsAppVerification(uri)) {
       final otp = uri.queryParameters['otp'];
       // Don't log OTP - it's a secret
-      debugPrint('📱 WhatsApp verification callback received');
+      _debugPrint('📱 WhatsApp verification callback received');
 
       // Use global navigator key to get a valid context
       // This ensures the modal can be shown even when app comes from background
       final navigatorContext = rootNavigatorKey.currentContext;
 
       if (navigatorContext == null) {
-        debugPrint('⚠️ Navigator context is null, waiting...');
+        _debugPrint('⚠️ Navigator context is null, waiting...');
         // Wait a bit longer and try again
         Future.delayed(const Duration(milliseconds: 1000), () {
           final retryContext = rootNavigatorKey.currentContext;
           if (retryContext != null && retryContext.mounted) {
-            debugPrint('📱 Got context on retry, showing modal...');
+            _debugPrint('📱 Got context on retry, showing modal...');
             _showVerificationModal(retryContext, otp, ref);
           } else {
-            debugPrint('❌ Still no context after retry');
+            _debugPrint('❌ Still no context after retry');
           }
         });
         return;
@@ -288,11 +295,11 @@ class DeepLinkService {
       Future.delayed(const Duration(milliseconds: 500), () {
         final delayedContext = rootNavigatorKey.currentContext;
         if (delayedContext == null || !delayedContext.mounted) {
-          debugPrint('⚠️ Context lost after delay');
+          _debugPrint('⚠️ Context lost after delay');
           return;
         }
 
-        debugPrint('📱 Showing verification modal...');
+        _debugPrint('📱 Showing verification modal...');
         _showVerificationModal(delayedContext, otp, ref);
       });
       return;
@@ -319,10 +326,10 @@ class DeepLinkService {
         }
       }
 
-      debugPrint('🏠 Household invitation link received');
+      _debugPrint('🏠 Household invitation link received');
 
       if (token == null || token.isEmpty) {
-        debugPrint('❌ No invitation token provided');
+        _debugPrint('❌ No invitation token provided');
         return;
       }
 
@@ -336,14 +343,14 @@ class DeepLinkService {
       Future.delayed(const Duration(milliseconds: 500), () {
         final navigatorContext = rootNavigatorKey.currentContext;
         if (navigatorContext == null) {
-          debugPrint('⚠️ Navigator context is null for household invitation');
+          _debugPrint('⚠️ Navigator context is null for household invitation');
           return;
         }
 
         // Show invitation as a bottom sheet (like WhatsApp verification)
         // This allows users to dismiss it and continue using the app
         if (navigatorContext.mounted) {
-          debugPrint('🏠 Showing household invitation bottom sheet');
+          _debugPrint('🏠 Showing household invitation bottom sheet');
           showHouseholdInvitationSheet(navigatorContext, token: inviteToken);
         }
       });
@@ -353,7 +360,7 @@ class DeepLinkService {
     // Handle expense deep link: moneko://expense/{expense_id}
     if (DeepLinks.isExpenseLink(uri)) {
       final expenseId = uri.pathSegments.first;
-      debugPrint('💸 Expense deep link received: $expenseId');
+      _debugPrint('💸 Expense deep link received');
 
       _handleExpenseDeepLink(expenseId, ref);
       return;
@@ -365,8 +372,7 @@ class DeepLinkService {
       final householdId = uri.pathSegments.first;
       final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
       final queryParams = uri.queryParameters;
-      debugPrint(
-          '🏠 Household deep link received: $householdId (sub: $subRoute, params: $queryParams)');
+      _debugPrint('🏠 Household deep link received');
 
       _handleHouseholdDeepLink(householdId, ref,
           subRoute: subRoute, queryParams: queryParams);
@@ -375,23 +381,21 @@ class DeepLinkService {
 
     // Handle budget deep link: moneko://budget/{budget_id}
     if (DeepLinks.isBudgetLink(uri)) {
-      final budgetId = uri.pathSegments.first;
-      debugPrint('💰 Budget deep link received: $budgetId');
+      _debugPrint('💰 Budget deep link received');
       // TODO: Implement budget navigation when budget detail page is ready
       return;
     }
 
     // Handle split deep link: moneko://split/{split_id}
     if (DeepLinks.isSplitLink(uri)) {
-      final splitId = uri.pathSegments.first;
-      debugPrint('🧮 Split deep link received: $splitId');
+      _debugPrint('🧮 Split deep link received');
       // TODO: Implement split navigation when split detail page is ready
       return;
     }
 
     // Handle home deep link: moneko://home
     if (DeepLinks.isHomeLink(uri)) {
-      debugPrint('🏠 Home deep link received');
+      _debugPrint('🏠 Home deep link received');
       final navCtx = rootNavigatorKey.currentContext;
       if (navCtx?.mounted ?? false) {
         navCtx!.go('/dashboard');
@@ -403,7 +407,7 @@ class DeepLinkService {
   /// Handle Tink callback - sync transactions using credentialsId
   Future<void> _handleTinkCallback(
       String credentialsId, String state, WidgetRef ref) async {
-    debugPrint('🏦 Handling Tink callback...');
+    _debugPrint('🏦 Handling Tink callback...');
 
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
@@ -414,7 +418,7 @@ class DeepLinkService {
     try {
       final user = ref.read(authProvider);
       if (user.uid.isEmpty) {
-        debugPrint('❌ User not authenticated for Tink callback');
+        _debugPrint('❌ User not authenticated for Tink callback');
         return;
       }
 
@@ -467,7 +471,7 @@ class DeepLinkService {
         }
       }
 
-      debugPrint('✅ Tink transactions synced successfully');
+      _debugPrint('✅ Tink transactions synced successfully');
 
       // Refresh data
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
@@ -482,7 +486,7 @@ class DeepLinkService {
         navigatorContext.go('/dashboard');
       }
     } catch (e) {
-      debugPrint('❌ Error handling Tink callback: $e');
+      _debugPrint('❌ Error handling Tink callback');
       if (navigatorContext?.mounted ?? false) {
         AppToast.error(
             navigatorContext!, 'Failed to connect bank: ${e.toString()}');
@@ -505,7 +509,7 @@ class DeepLinkService {
 
     final navigatorContext = rootNavigatorKey.currentContext;
     if (navigatorContext == null) {
-      debugPrint('⚠️ Navigator context is null for expense deep link');
+      _debugPrint('⚠️ Navigator context is null for expense deep link');
       return;
     }
 
@@ -521,7 +525,7 @@ class DeepLinkService {
           );
 
       if (expense == null) {
-        debugPrint('⚠️ Expense not found: $expenseId');
+        _debugPrint('⚠️ Expense not found');
         if (navigatorContext.mounted) {
           AppToast.info(
               navigatorContext, navigatorContext.l10n.expenseNotFoundOrDeleted);
@@ -529,7 +533,7 @@ class DeepLinkService {
         return;
       }
 
-      debugPrint('✅ Found expense, showing detail sheet');
+      _debugPrint('✅ Found expense, showing detail sheet');
 
       // Show expense detail sheet
       if (navigatorContext.mounted) {
@@ -539,22 +543,22 @@ class DeepLinkService {
         );
       }
     } catch (e) {
-      debugPrint('❌ Error handling expense deep link: $e');
+      _debugPrint('❌ Error handling expense deep link');
     }
   }
 
   /// Handle household deep link - switch to household mode and select household
   void _handleHouseholdDeepLink(String householdId, WidgetRef ref,
       {String? subRoute, Map<String, String>? queryParams}) async {
-    debugPrint('🏠 Switching to household mode for: $householdId');
-    debugPrint('📍 Sub-route: $subRoute, Query params: $queryParams');
+    _debugPrint('🏠 Switching to household mode');
+    _debugPrint('📍 Household sub-route requested');
 
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
 
     final navigatorContext = rootNavigatorKey.currentContext;
     if (navigatorContext == null) {
-      debugPrint('⚠️ Navigator context is null for household deep link');
+      _debugPrint('⚠️ Navigator context is null for household deep link');
       return;
     }
 
@@ -567,7 +571,7 @@ class DeepLinkService {
 
       // Handle sub-routes if any
       if (subRoute == 'settings' && queryParams != null) {
-        debugPrint('📍 Settings sub-route with params: $queryParams');
+        _debugPrint('📍 Settings sub-route requested');
 
         // Navigate to household settings page
         // Tab parameter is ignored as we use a single page layout now
@@ -586,16 +590,16 @@ class DeepLinkService {
           navigatorContext.go('/dashboard');
         }
 
-        debugPrint('✅ Switched to household: $householdId');
+        _debugPrint('✅ Switched to household');
 
         // Handle other sub-routes if any
         if (subRoute != null) {
-          debugPrint('📍 Other sub-route requested: $subRoute');
+          _debugPrint('📍 Other sub-route requested');
           // TODO: Handle sub-routes like /splits when implemented
         }
       }
     } catch (e) {
-      debugPrint('❌ Error handling household deep link: $e');
+      _debugPrint('❌ Error handling household deep link');
     }
   }
 
@@ -606,7 +610,7 @@ class DeepLinkService {
       context,
       otpFromUrl: otp,
       onVerificationSuccess: () {
-        debugPrint('✅ Verification success callback triggered');
+        _debugPrint('✅ Verification success callback triggered');
 
         // Update WhatsApp binding status immediately without fetching from DB
         ref.read(whatsAppBindingProvider.notifier).setVerified();

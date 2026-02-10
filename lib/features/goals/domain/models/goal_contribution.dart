@@ -1,3 +1,5 @@
+import 'package:moneko/core/utils/user_timezone.dart';
+
 class GoalContribution {
   final String id;
   final String goalId;
@@ -76,7 +78,18 @@ class GoalContribution {
       attachmentUrls: (json['attachment_urls'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
-      contributionDate: DateTime.parse(json['contribution_date'] as String),
+      contributionDate: (() {
+        final raw = json['contribution_date']?.toString();
+        final dateOnly = tryParseDateOnlyYmd(raw);
+        if (dateOnly != null) {
+          return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+        }
+        final parsed = DateTime.tryParse(raw ?? '');
+        if (parsed != null) {
+          return DateTime(parsed.year, parsed.month, parsed.day);
+        }
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      })(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       isOwner: json['isOwner'] as bool? ?? false,
@@ -104,7 +117,7 @@ class GoalContribution {
       'source': source,
       'note': note,
       'attachment_urls': attachmentUrls,
-      'contribution_date': contributionDate.toIso8601String().split('T')[0],
+      'contribution_date': formatDateOnlyYmd(contributionDate),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'isOwner': isOwner,

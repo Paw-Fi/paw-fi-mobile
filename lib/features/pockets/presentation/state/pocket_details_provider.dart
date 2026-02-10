@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -160,7 +161,18 @@ final pocketDetailsProvider =
   for (final tx in transactions) {
     final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
     final cat = tx['category'] as String;
-    final date = DateTime.parse(tx['date']);
+    final rawDate = tx['date']?.toString();
+    final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
+    final parsedDate = DateTime.tryParse(rawDate ?? '');
+    final date = parsedDateOnly != null
+        ? DateTime(
+            parsedDateOnly.year,
+            parsedDateOnly.month,
+            parsedDateOnly.day,
+          )
+        : (parsedDate != null
+            ? DateTime(parsedDate.year, parsedDate.month, parsedDate.day)
+            : DateTime.fromMillisecondsSinceEpoch(0));
 
     totalSpent += amount;
     categoryMap.update(cat, (v) => v + amount, ifAbsent: () => amount);

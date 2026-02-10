@@ -45,9 +45,11 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 
 bool _isAvatarCropInProgress = false;
+bool _isAvatarUploadInProgress = false;
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -161,18 +163,29 @@ class SettingsPage extends HookConsumerWidget {
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
-    final timezoneValue = selectedTimezone.value ?? deviceTimezone;
-    final timezoneDisplay = _formatTimezoneLabel(
-      _resolveTimezoneOption(
-        timezone: timezoneValue,
-        fallbackOffsetMinutes: deviceOffsetMinutes,
-        preferFallback: timezoneValue == deviceTimezone,
-      ),
-    );
+    final canonicalSelectedTimezone =
+        _canonicalTimezoneValue(selectedTimezone.value);
+    final isLegacyTimezone =
+        _isLegacyTimezoneValue(selectedTimezone.value ?? '');
+    final timezoneValue = isLegacyTimezone
+        ? _deviceTimezoneSentinel
+        : (canonicalSelectedTimezone ?? _deviceTimezoneSentinel);
+    final timezoneDisplay = isLegacyTimezone
+        ? '(GMT ${_formatOffsetMinutes(deviceOffsetMinutes)}) ${context.l10n.deviceLabel} (legacy setting detected)'
+        : (timezoneValue == _deviceTimezoneSentinel
+            ? '${_formatTimezoneLabel(_resolveTimezoneOption(timezone: deviceTimezone, fallbackOffsetMinutes: deviceOffsetMinutes, preferFallback: true))} (Current timezone)'
+            : _formatTimezoneLabel(
+                _resolveTimezoneOption(
+                  timezone: timezoneValue,
+                  fallbackOffsetMinutes: deviceOffsetMinutes,
+                  preferFallback: false,
+                ),
+              ));
     final timezoneOptions = _buildTimezoneOptionsList(
       deviceTimezone: deviceTimezone,
-      currentTimezone: selectedTimezone.value,
+      currentTimezone: canonicalSelectedTimezone,
       deviceOffsetMinutes: deviceOffsetMinutes,
+      hideMatchingDeviceOffsetOption: timezoneValue == _deviceTimezoneSentinel,
     );
     final packageInfo =
         useFuture(useMemoized(() => PackageInfo.fromPlatform()));
@@ -183,13 +196,16 @@ class SettingsPage extends HookConsumerWidget {
 
     Future<void> handleTimezoneChange(String timezone) async {
       final previous = selectedTimezone.value;
-      selectedTimezone.value = timezone;
+      final isDeviceMode = timezone == _deviceTimezoneSentinel;
+      final timezoneToPersist =
+          isDeviceMode ? null : _canonicalTimezoneValue(timezone);
+      selectedTimezone.value = timezoneToPersist;
       try {
         await Supabase.instance.client.functions.invoke(
           'update-preferred-timezone',
           body: {
             'userId': authState.uid,
-            'timezone': timezone,
+            'timezone': timezoneToPersist,
           },
         );
         // Update the contact in-place so the useEffect doesn't reset
@@ -197,7 +213,7 @@ class SettingsPage extends HookConsumerWidget {
         // ref.invalidate would cause.
         ref
             .read(analyticsProvider.notifier)
-            .updatePreferredTimezone(timezone);
+            .updatePreferredTimezone(timezoneToPersist);
         // Background-refresh to sync the full dataset from the server.
         ref.read(analyticsProvider.notifier).refresh(authState.uid);
         if (context.mounted) {
@@ -269,16 +285,27 @@ class SettingsPage extends HookConsumerWidget {
                 _ProfileHeader(
                   authState: authState,
                   nameReloadKey: nameReloadKey.value,
-                  onAvatarTap: () => _showAvatarSourceSheet(
-                    context,
-                    ref,
-                    () {
-                      nameReloadKey.value++;
-                      if (authState.uid.isNotEmpty) {
-                        ref.invalidate(userProfileProvider(authState.uid));
+                  onAvatarTap: () async {
+                    try {
+                      await _showAvatarSourceSheet(
+                        context,
+                        () {
+                          nameReloadKey.value++;
+                          if (authState.uid.isNotEmpty) {
+                            ref.invalidate(userProfileProvider(authState.uid));
+                          }
+                        },
+                      );
+                    } catch (e, st) {
+                      debugPrint(
+                        'Unexpected avatar update error: $e\n$st',
+                      );
+                      if (context.mounted) {
+                        AppToast.error(
+                            context, context.l10n.failedToSaveAvatar);
                       }
-                    },
-                  ),
+                    }
+                  },
                 ),
 
                 const SizedBox(height: 32),
@@ -417,14 +444,24 @@ class SettingsPage extends HookConsumerWidget {
                           items: timezoneOptions,
                           initial: currentTimezoneOption,
                           title: context.l10n.chooseTimezone,
-                          labelBuilder: (option) =>
-                              _formatTimezoneLabel(option) +
-                              (option.value == deviceTimezone
-                                  ? ' (${context.l10n.deviceLabel})'
-                                  : ''),
+                          labelBuilder: (option) {
+                            if (option.value == _deviceTimezoneSentinel) {
+                              final deviceOption = _resolveTimezoneOption(
+                                timezone: deviceTimezone,
+                                fallbackOffsetMinutes: deviceOffsetMinutes,
+                                preferFallback: true,
+                              );
+                              return '${_formatTimezoneLabel(deviceOption)} (Current timezone)';
+                            }
+                            return _formatTimezoneLabel(option);
+                          },
                         );
+                        final normalizedSelection =
+                            selection?.value == _deviceTimezoneSentinel
+                                ? null
+                                : _canonicalTimezoneValue(selection?.value);
                         if (selection != null &&
-                            selection.value != selectedTimezone.value) {
+                            normalizedSelection != selectedTimezone.value) {
                           await handleTimezoneChange(selection.value);
                         }
                       },
@@ -525,9 +562,10 @@ class SettingsPage extends HookConsumerWidget {
                             await launchUrl(url, mode: LaunchMode.inAppWebView);
                           }
                         } catch (_) {
-                          if (context.mounted)
+                          if (context.mounted) {
                             AppToast.error(
                                 context, 'Could not launch WhatsApp');
+                          }
                         }
                       } else {
                         final result = await showDialog<bool>(
@@ -671,48 +709,61 @@ class SettingsPage extends HookConsumerWidget {
 
 Future<void> _showAvatarSourceSheet(
   BuildContext context,
-  WidgetRef ref,
   VoidCallback onUpdated,
 ) async {
-  final result = await MonekoActionSheet.show<String>(
-    context: context,
-    title: context.l10n.changeAvatar,
-    actions: [
-      MonekoActionSheetAction<String>(
-        label: context.l10n.takePhoto,
-        value: 'camera',
+  try {
+    if (_isAvatarUploadInProgress) {
+      if (context.mounted) {
+        AppToast.info(context, context.l10n.updatingAvatar);
+      }
+      return;
+    }
+
+    final result = await MonekoActionSheet.show<String>(
+      context: context,
+      title: context.l10n.changeAvatar,
+      actions: [
+        MonekoActionSheetAction<String>(
+          label: context.l10n.takePhoto,
+          value: 'camera',
+        ),
+        MonekoActionSheetAction<String>(
+          label: context.l10n.chooseFromGallery,
+          value: 'gallery',
+        ),
+      ],
+      cancelAction: MonekoActionSheetAction<String>(
+        label: context.l10n.cancel,
+        value: 'cancel',
       ),
-      MonekoActionSheetAction<String>(
-        label: context.l10n.chooseFromGallery,
-        value: 'gallery',
-      ),
-    ],
-    cancelAction: MonekoActionSheetAction<String>(
-      label: context.l10n.cancel,
-      value: 'cancel',
-    ),
-  );
+    );
 
-  ImageSource? source;
-  if (result == 'camera') {
-    source = ImageSource.camera;
-  } else if (result == 'gallery') {
-    source = ImageSource.gallery;
-  }
+    ImageSource? source;
+    if (result == 'camera') {
+      source = ImageSource.camera;
+    } else if (result == 'gallery') {
+      source = ImageSource.gallery;
+    }
 
-  if (source == null) {
-    return;
-  }
+    if (source == null) {
+      return;
+    }
 
-  if (!context.mounted) return;
+    if (!context.mounted) return;
 
-  final file = await _pickAndCropAvatarImage(context, source);
-  if (file == null || !context.mounted) {
-    return;
-  }
+    final file = await _pickAndCropAvatarImage(context, source);
+    if (file == null || !context.mounted) {
+      return;
+    }
 
-  if (context.mounted) {
-    await _uploadAndSaveAvatar(context, ref, file, onUpdated);
+    if (context.mounted) {
+      await _uploadAndSaveAvatar(context, file, onUpdated);
+    }
+  } catch (e, st) {
+    debugPrint('Avatar flow failed: $e\n$st');
+    if (context.mounted) {
+      AppToast.error(context, context.l10n.failedToSaveAvatar);
+    }
   }
 }
 
@@ -739,16 +790,6 @@ Future<File?> _pickAndCropAvatarImage(
           context,
           '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
           '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
-      }
-      return null;
-    }
-
-    if (!StorageConfig.isAllowedFormat(image.path)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          context.l10n.unsupportedFileFormat,
         );
       }
       return null;
@@ -793,7 +834,27 @@ Future<File?> _pickAndCropAvatarImage(
       return null;
     }
 
-    return File(croppedFile.path);
+    final outputFile = File(croppedFile.path);
+    if (!await outputFile.exists()) {
+      if (context.mounted) {
+        AppToast.error(context, context.l10n.failedToSaveAvatar);
+      }
+      return null;
+    }
+
+    final outputFileSize = await outputFile.length();
+    if (!StorageConfig.isValidFileSize(outputFileSize)) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(outputFileSize)}). '
+          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
+        );
+      }
+      return null;
+    }
+
+    return outputFile;
   } catch (e) {
     if (context.mounted) {
       AppToast.error(
@@ -807,38 +868,71 @@ Future<File?> _pickAndCropAvatarImage(
 
 Future<void> _uploadAndSaveAvatar(
   BuildContext context,
-  WidgetRef ref,
   File imageFile,
   VoidCallback onUpdated,
 ) async {
+  final l10n = context.l10n;
+
+  if (_isAvatarUploadInProgress) {
+    return;
+  }
+
+  _isAvatarUploadInProgress = true;
   final client = Supabase.instance.client;
   final user = client.auth.currentUser;
-  if (user == null) return;
+  if (user == null) {
+    _isAvatarUploadInProgress = false;
+    return;
+  }
 
-  showBlockingProcessingDialog(
-    context: context,
-    message: context.l10n.updatingAvatar,
-  );
+  NavigatorState? rootNavigator;
+  if (context.mounted) {
+    try {
+      rootNavigator = Navigator.of(context, rootNavigator: true);
+    } catch (e, st) {
+      debugPrint('Failed to get root navigator: $e\n$st');
+    }
+  }
+
+  var dialogShown = false;
+  var showSuccessToast = false;
+  String? errorToastMessage;
 
   try {
-    final bytes = await imageFile.readAsBytes();
-
-    if (!StorageConfig.isValidFileSize(bytes.length)) {
-      if (context.mounted) {
-        AppToast.error(
-          context,
-          '${context.l10n.imageTooLarge} (${StorageConfig.getFileSizeString(bytes.length)}). '
-          '${context.l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.',
-        );
-      }
+    if (!await imageFile.exists()) {
+      errorToastMessage = l10n.failedToSaveAvatar;
       return;
+    }
+
+    final fileSize = await imageFile.length();
+
+    if (!StorageConfig.isValidFileSize(fileSize)) {
+      errorToastMessage =
+          '${l10n.imageTooLarge} (${StorageConfig.getFileSizeString(fileSize)}). '
+          '${l10n.maxIs} ${StorageConfig.getFileSizeString(StorageConfig.maxFileSizeBytes)}.';
+      return;
+    }
+
+    if (context.mounted) {
+      try {
+        await Future<void>.delayed(Duration.zero);
+        if (context.mounted) {
+          showBlockingProcessingDialog(
+            context: context,
+            message: l10n.updatingAvatar,
+          );
+          dialogShown = true;
+        }
+      } catch (e, st) {
+        debugPrint('Failed to show avatar dialog: $e\n$st');
+      }
     }
 
     final path = '${user.id}/avatar.png';
 
-    await client.storage.from('avatars').uploadBinary(
+    await client.storage.from('avatars').upload(
           path,
-          bytes,
+          imageFile,
           fileOptions: const FileOptions(
             upsert: true,
             contentType: 'image/png',
@@ -857,21 +951,24 @@ Future<void> _uploadAndSaveAvatar(
 
     onUpdated();
 
-    ref.invalidate(userProfileProvider(user.id));
-
-    if (context.mounted) {
-      AppToast.success(context, context.l10n.avatarUpdated);
-    }
-  } catch (e) {
-    if (context.mounted) {
-      AppToast.error(
-        context,
-        context.l10n.failedToSaveAvatar,
-      );
-    }
+    showSuccessToast = true;
+  } catch (e, st) {
+    debugPrint('Failed to upload/save avatar: $e\n$st');
+    errorToastMessage = l10n.failedToSaveAvatar;
   } finally {
-    if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
+    _isAvatarUploadInProgress = false;
+    if (dialogShown && rootNavigator != null && rootNavigator.mounted) {
+      try {
+        rootNavigator.pop();
+      } catch (e, st) {
+        debugPrint('Failed to dismiss avatar dialog: $e\n$st');
+      }
+    }
+
+    if (context.mounted && errorToastMessage != null) {
+      AppToast.error(context, errorToastMessage);
+    } else if (context.mounted && showSuccessToast) {
+      AppToast.success(context, l10n.avatarUpdated);
     }
   }
 }
@@ -885,7 +982,7 @@ class _ProfileHeader extends ConsumerWidget {
 
   final AppUser authState;
   final int nameReloadKey;
-  final VoidCallback onAvatarTap;
+  final Future<void> Function() onAvatarTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -932,7 +1029,9 @@ class _ProfileHeader extends ConsumerWidget {
                       : null);
 
               return GestureDetector(
-                onTap: onAvatarTap,
+                onTap: () async {
+                  await onAvatarTap();
+                },
                 child: Stack(
                   children: [
                     Container(
@@ -1181,10 +1280,8 @@ class _SettingsTile extends StatelessWidget {
 String _currentDeviceTimezone() {
   try {
     final now = DateTime.now();
-    final name = now.timeZoneName;
-    if (name.contains('/')) return name;
-
     final offset = now.timeZoneOffset;
+    if (offset.inMinutes == 0) return 'UTC';
     final sign = offset.isNegative ? '-' : '+';
     final hours = offset.inHours.abs().toString().padLeft(2, '0');
     final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
@@ -1192,19 +1289,6 @@ String _currentDeviceTimezone() {
   } catch (_) {
     return 'UTC';
   }
-}
-
-int? _parseOffsetMinutes(String timezone) {
-  if (timezone == 'UTC' || timezone == 'GMT') return 0;
-
-  final match =
-      RegExp(r'^(?:UTC|GMT)?([+-])(\d{2}):(\d{2})$').firstMatch(timezone);
-  if (match == null) return null;
-
-  final sign = match.group(1) == '-' ? -1 : 1;
-  final hours = int.parse(match.group(2)!);
-  final minutes = int.parse(match.group(3)!);
-  return sign * (hours * 60 + minutes);
 }
 
 String _formatOffsetMinutes(int offsetMinutes) {
@@ -1227,43 +1311,47 @@ class _TimezoneOption {
   final String? label;
 }
 
+const String _deviceTimezoneSentinel = '__DEVICE__';
+
 const List<_TimezoneOption> _timezoneOptions = [
-  _TimezoneOption(value: 'America/Los_Angeles', offsetMinutes: -480),
+  _TimezoneOption(value: 'UTC-12:00', offsetMinutes: -720),
+  _TimezoneOption(value: 'UTC-11:00', offsetMinutes: -660),
+  _TimezoneOption(value: 'UTC-10:00', offsetMinutes: -600),
+  _TimezoneOption(value: 'UTC-09:30', offsetMinutes: -570),
+  _TimezoneOption(value: 'UTC-09:00', offsetMinutes: -540),
   _TimezoneOption(value: 'UTC-08:00', offsetMinutes: -480),
-  _TimezoneOption(value: 'America/Denver', offsetMinutes: -420),
-  _TimezoneOption(value: 'America/Chicago', offsetMinutes: -360),
-  _TimezoneOption(value: 'America/Mexico_City', offsetMinutes: -360),
+  _TimezoneOption(value: 'UTC-07:00', offsetMinutes: -420),
   _TimezoneOption(value: 'UTC-06:00', offsetMinutes: -360),
-  _TimezoneOption(value: 'America/New_York', offsetMinutes: -300),
-  _TimezoneOption(value: 'America/Toronto', offsetMinutes: -300),
   _TimezoneOption(value: 'UTC-05:00', offsetMinutes: -300),
-  _TimezoneOption(value: 'America/Sao_Paulo', offsetMinutes: -180),
+  _TimezoneOption(value: 'UTC-04:00', offsetMinutes: -240),
+  _TimezoneOption(value: 'UTC-03:30', offsetMinutes: -210),
   _TimezoneOption(value: 'UTC-03:00', offsetMinutes: -180),
+  _TimezoneOption(value: 'UTC-02:00', offsetMinutes: -120),
+  _TimezoneOption(value: 'UTC-01:00', offsetMinutes: -60),
   _TimezoneOption(value: 'UTC', offsetMinutes: 0),
-  _TimezoneOption(value: 'Europe/London', offsetMinutes: 0),
   _TimezoneOption(value: 'UTC+01:00', offsetMinutes: 60),
-  _TimezoneOption(value: 'Europe/Berlin', offsetMinutes: 60),
-  _TimezoneOption(value: 'Europe/Paris', offsetMinutes: 60),
-  _TimezoneOption(value: 'Europe/Madrid', offsetMinutes: 60),
   _TimezoneOption(value: 'UTC+02:00', offsetMinutes: 120),
-  _TimezoneOption(value: 'Europe/Moscow', offsetMinutes: 180),
   _TimezoneOption(value: 'UTC+03:00', offsetMinutes: 180),
-  _TimezoneOption(value: 'Asia/Dubai', offsetMinutes: 240),
+  _TimezoneOption(value: 'UTC+03:30', offsetMinutes: 210),
+  _TimezoneOption(value: 'UTC+04:00', offsetMinutes: 240),
+  _TimezoneOption(value: 'UTC+04:30', offsetMinutes: 270),
+  _TimezoneOption(value: 'UTC+05:00', offsetMinutes: 300),
   _TimezoneOption(value: 'UTC+05:30', offsetMinutes: 330),
-  _TimezoneOption(value: 'Asia/Jakarta', offsetMinutes: 420),
-  _TimezoneOption(value: 'Asia/Bangkok', offsetMinutes: 420),
+  _TimezoneOption(value: 'UTC+05:45', offsetMinutes: 345),
+  _TimezoneOption(value: 'UTC+06:00', offsetMinutes: 360),
+  _TimezoneOption(value: 'UTC+06:30', offsetMinutes: 390),
   _TimezoneOption(value: 'UTC+07:00', offsetMinutes: 420),
-  _TimezoneOption(value: 'Asia/Singapore', offsetMinutes: 480),
-  _TimezoneOption(value: 'Asia/Hong_Kong', offsetMinutes: 480),
-  _TimezoneOption(value: 'Asia/Shanghai', offsetMinutes: 480),
-  _TimezoneOption(value: 'Asia/Kuala_Lumpur', offsetMinutes: 480),
   _TimezoneOption(value: 'UTC+08:00', offsetMinutes: 480),
-  _TimezoneOption(value: 'Asia/Tokyo', offsetMinutes: 540),
+  _TimezoneOption(value: 'UTC+08:45', offsetMinutes: 525),
   _TimezoneOption(value: 'UTC+09:00', offsetMinutes: 540),
-  _TimezoneOption(value: 'Australia/Sydney', offsetMinutes: 600),
-  _TimezoneOption(value: 'Australia/Melbourne', offsetMinutes: 600),
+  _TimezoneOption(value: 'UTC+09:30', offsetMinutes: 570),
   _TimezoneOption(value: 'UTC+10:00', offsetMinutes: 600),
-  _TimezoneOption(value: 'Pacific/Auckland', offsetMinutes: 720),
+  _TimezoneOption(value: 'UTC+10:30', offsetMinutes: 630),
+  _TimezoneOption(value: 'UTC+11:00', offsetMinutes: 660),
+  _TimezoneOption(value: 'UTC+12:00', offsetMinutes: 720),
+  _TimezoneOption(value: 'UTC+12:45', offsetMinutes: 765),
+  _TimezoneOption(value: 'UTC+13:00', offsetMinutes: 780),
+  _TimezoneOption(value: 'UTC+14:00', offsetMinutes: 840),
 ];
 
 final Map<String, _TimezoneOption> _timezoneOptionsMap = {
@@ -1281,11 +1369,15 @@ _TimezoneOption _resolveTimezoneOption({
   bool preferFallback = false,
 }) {
   final known = _timezoneOptionsMap[timezone];
-  final parsedOffset = _parseOffsetMinutes(timezone);
-  final offsetMinutes = parsedOffset ??
-      (preferFallback ? fallbackOffsetMinutes : null) ??
-      known?.offsetMinutes ??
-      fallbackOffsetMinutes;
+  final offsetMinutes = known?.offsetMinutes ??
+      tryParseTimezoneOffsetMinutes(timezone) ??
+      (preferFallback
+          ? fallbackOffsetMinutes
+          : resolveUserTimezoneOffsetMinutes(
+              timezone,
+              fallbackOffsetMinutes: fallbackOffsetMinutes,
+              at: DateTime.now(),
+            ));
   return _TimezoneOption(
     value: timezone,
     offsetMinutes: offsetMinutes,
@@ -1297,10 +1389,16 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
   required String deviceTimezone,
   required String? currentTimezone,
   required int deviceOffsetMinutes,
+  bool hideMatchingDeviceOffsetOption = false,
 }) {
   final options = <String, _TimezoneOption>{
     for (final option in _timezoneOptions) option.value: option,
   };
+  options[_deviceTimezoneSentinel] = _TimezoneOption(
+    value: _deviceTimezoneSentinel,
+    offsetMinutes: deviceOffsetMinutes,
+    label: 'Device timezone',
+  );
 
   void addIfMissing(
     String? timezone, {
@@ -1317,8 +1415,16 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
     }
   }
 
-  addIfMissing(deviceTimezone, preferFallback: true, force: true);
-  addIfMissing(currentTimezone);
+  if (_isValidFixedOffsetTimezone(currentTimezone)) {
+    addIfMissing(currentTimezone);
+  }
+
+  if (hideMatchingDeviceOffsetOption) {
+    final canonicalDeviceTimezone = _canonicalTimezoneValue(deviceTimezone);
+    if (canonicalDeviceTimezone != null) {
+      options.remove(canonicalDeviceTimezone);
+    }
+  }
 
   final sorted = options.values.toList()
     ..sort((a, b) {
@@ -1328,6 +1434,27 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
     });
 
   return sorted;
+}
+
+bool _isValidFixedOffsetTimezone(String? timezone) {
+  final trimmed = timezone?.trim();
+  if (trimmed == null || trimmed.isEmpty) return false;
+  return tryParseTimezoneOffsetMinutes(trimmed) != null;
+}
+
+bool _isLegacyTimezoneValue(String timezone) {
+  final trimmed = timezone.trim();
+  if (trimmed.isEmpty) return false;
+  return !_isValidFixedOffsetTimezone(trimmed);
+}
+
+String? _canonicalTimezoneValue(String? timezone) {
+  final trimmed = timezone?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  final offset = tryParseTimezoneOffsetMinutes(trimmed);
+  if (offset == null) return trimmed;
+  if (offset == 0) return 'UTC';
+  return 'UTC${_formatOffsetMinutes(offset)}';
 }
 
 Future<void> _showEditNameSheet({

@@ -19,8 +19,12 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
 ) {
   final Map<DateTime, List<ExpenseEntry>> grouped = {};
 
+  DateTime normalize(ExpenseEntry expense) {
+    return DateTime(expense.date.year, expense.date.month, expense.date.day);
+  }
+
   for (final expense in expenses) {
-    final localDate = expense.date.toLocal();
+    final localDate = normalize(expense);
     final monthKey = DateTime(localDate.year, localDate.month, 1);
     grouped.putIfAbsent(monthKey, () => []).add(expense);
   }
@@ -29,7 +33,7 @@ List<MonthTransactionGroup> groupTransactionsByMonth(
 
   return sortedMonths.map((monthStart) {
     final items = grouped[monthStart]!
-      ..sort((a, b) => b.date.toLocal().compareTo(a.date.toLocal()));
+      ..sort((a, b) => normalize(b).compareTo(normalize(a)));
     double total = 0;
     for (final e in items) {
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';
@@ -60,8 +64,12 @@ List<DayTransactionGroup> groupTransactionsByDay(
 ) {
   final Map<DateTime, List<ExpenseEntry>> grouped = {};
 
+  DateTime normalize(ExpenseEntry expense) {
+    return DateTime(expense.date.year, expense.date.month, expense.date.day);
+  }
+
   for (final expense in expenses) {
-    final localDate = expense.date.toLocal();
+    final localDate = normalize(expense);
     final dayKey = DateTime(localDate.year, localDate.month, localDate.day);
     grouped.putIfAbsent(dayKey, () => []).add(expense);
   }
@@ -70,7 +78,7 @@ List<DayTransactionGroup> groupTransactionsByDay(
 
   return sortedDays.map((day) {
     final items = grouped[day]!
-      ..sort((a, b) => b.date.toLocal().compareTo(a.date.toLocal()));
+      ..sort((a, b) => normalize(b).compareTo(normalize(a)));
     double total = 0;
     for (final e in items) {
       final isIncome = (e.type ?? 'expense').toLowerCase() == 'income';

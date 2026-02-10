@@ -35,6 +35,9 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/home/presentation/state/state.dart'
+    show analyticsProvider;
 
 // Prevent accidental PII/financial logging.
 // Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
@@ -97,9 +100,21 @@ class AddRecurringSheet extends HookConsumerWidget {
     final selectedCurrency = useState<String>(
       existingTransaction?.currency ?? defaultCurrencyForNew,
     );
-    final startDate = useState<DateTime>(
-      existingTransaction?.recurrenceRule?.anchorDate ?? DateTime.now(),
-    );
+    // For edit mode, prefer the row's `date` column (date-only) as the source
+    // of truth for the user-selected calendar day. `recurrence_rule.anchor_date`
+    // has historically been susceptible to timezone drift depending on backend
+    // serialization.
+    final startDate = useState<DateTime>(() {
+      final existing = existingTransaction;
+      if (existing == null) {
+        final preferredTimezone =
+            ref.read(analyticsProvider).contact?.preferredTimezone;
+        final today = effectiveToday(preferredTimezone: preferredTimezone);
+        return DateTime(today.year, today.month, today.day);
+      }
+      final d = existing.date;
+      return DateTime(d.year, d.month, d.day);
+    }());
     final hasEndDate = useState<bool>(
       existingTransaction?.recurrenceRule?.endDate != null,
     );
@@ -488,7 +503,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       final splits = customSplits.value;
       if (splits == null || splits.isEmpty) return null;
 
-      final currentTotal = parsedAmount!;
+      final currentTotal = parsedAmount;
       final previousTotal = previousAmountRef.value;
       previousAmountRef.value = currentTotal;
       if (previousTotal == null ||

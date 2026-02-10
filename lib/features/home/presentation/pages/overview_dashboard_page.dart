@@ -19,7 +19,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/utils/datetime.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 class OverviewDashboardPage extends ConsumerWidget {
   const OverviewDashboardPage({super.key});
@@ -42,9 +42,12 @@ class OverviewDashboardPage extends ConsumerWidget {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              final now = DateTime.now();
               final user = ref.watch(authProvider);
               final analytics = ref.watch(analyticsProvider);
+              final preferredTimezone = analytics.contact?.preferredTimezone;
+              final timezoneOffsetMinutes =
+                  resolveUserTimezoneOffsetMinutes(preferredTimezone);
+              final now = userNowFromOffsetMinutes(timezoneOffsetMinutes);
               final displayCurrency =
                   ref.watch(homeFilterProvider).selectedCurrency ??
                       analytics.contact?.preferredCurrency ??
@@ -190,11 +193,14 @@ class OverviewDashboardPage extends ConsumerWidget {
               DateTime? allTimeStart;
               DateTime? allTimeEnd;
               for (final tx in myExpenseTransactions) {
-                final date = tx.entry.date;
-                if (allTimeStart == null || date.isBefore(allTimeStart!)) {
+                final date = DateTime(
+                    tx.entry.date.year, tx.entry.date.month, tx.entry.date.day);
+                final start = allTimeStart;
+                if (start == null || date.isBefore(start)) {
                   allTimeStart = date;
                 }
-                if (allTimeEnd == null || date.isAfter(allTimeEnd!)) {
+                final end = allTimeEnd;
+                if (end == null || date.isAfter(end)) {
                   allTimeEnd = date;
                 }
               }
@@ -711,9 +717,10 @@ class OverviewDashboardPage extends ConsumerWidget {
                                       'income';
                               final amount = resolveCachedAmount(tx);
                               final displayDateTime =
-                                  combineLocalDateWithLocalTime(
+                                  combineUserDateWithUserTime(
                                 date: tx.entry.date,
                                 timeSource: tx.entry.createdAt,
+                                offsetMinutes: timezoneOffsetMinutes,
                               );
                               final currency = displayCurrency;
                               final categoryId =
@@ -1454,12 +1461,17 @@ List<AccountChartData> _buildAccountChartData({
   required List<ConsolidatedTransaction> transactions,
   required double Function(ConsolidatedTransaction tx) amountResolver,
 }) {
+  DateTime transactionUserDate(ConsolidatedTransaction tx) {
+    return DateTime(tx.entry.date.year, tx.entry.date.month, tx.entry.date.day);
+  }
+
   DateTime resolveStartMonth(List<ConsolidatedTransaction> txs) {
     if (txs.isEmpty) return DateTime(now.year, now.month, 1);
-    DateTime minDate = txs.first.entry.date;
+    DateTime minDate = transactionUserDate(txs.first);
     for (final tx in txs) {
-      if (tx.entry.date.isBefore(minDate)) {
-        minDate = tx.entry.date;
+      final txDate = transactionUserDate(tx);
+      if (txDate.isBefore(minDate)) {
+        minDate = txDate;
       }
     }
     return DateTime(minDate.year, minDate.month, 1);
@@ -1467,10 +1479,11 @@ List<AccountChartData> _buildAccountChartData({
 
   DateTime resolveEndMonth(List<ConsolidatedTransaction> txs) {
     if (txs.isEmpty) return DateTime(now.year, now.month, 1);
-    DateTime maxDate = txs.first.entry.date;
+    DateTime maxDate = transactionUserDate(txs.first);
     for (final tx in txs) {
-      if (tx.entry.date.isAfter(maxDate)) {
-        maxDate = tx.entry.date;
+      final txDate = transactionUserDate(tx);
+      if (txDate.isAfter(maxDate)) {
+        maxDate = txDate;
       }
     }
     return DateTime(maxDate.year, maxDate.month, 1);
@@ -1515,9 +1528,9 @@ List<AccountChartData> _buildAccountChartData({
     final key = tx.accountId ?? 'personal';
     final account = accounts[key];
     if (account == null) continue;
-    final monthIndex = (tx.entry.date.year - startMonth.year) * 12 +
-        tx.entry.date.month -
-        startMonth.month;
+    final txDate = transactionUserDate(tx);
+    final monthIndex =
+        (txDate.year - startMonth.year) * 12 + txDate.month - startMonth.month;
     if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
     if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {

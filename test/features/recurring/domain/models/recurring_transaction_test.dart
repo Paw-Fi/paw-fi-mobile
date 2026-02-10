@@ -387,6 +387,72 @@ void main() {
       expect(next.isAfter(reference), true);
     });
 
+    test(
+        'uses later of row date and anchor_date to avoid timezone drift (monthly)',
+        () {
+      // Simulate a row where the date-only `date` column reflects the user's
+      // intended schedule day (14th), but the recurrence_rule.anchor_date
+      // drifted earlier (12th) due to timezone serialization/parsing.
+      final rowDate = DateTime(2026, 2, 14);
+      final driftedAnchor = DateTime(2026, 2, 12);
+
+      final transaction = RecurringTransaction(
+        id: 'rec_drift_1',
+        date: rowDate,
+        category: 'rent',
+        amount: 1200.0,
+        currency: 'USD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        type: 'expense',
+        attachments: [],
+        createdAt: rowDate,
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: driftedAnchor,
+        ),
+      );
+
+      final reference = DateTime(2026, 2, 10);
+      final next = transaction.getNextOccurrence(reference);
+
+      expect(next.year, 2026);
+      expect(next.month, 2);
+      expect(next.day, 14);
+    });
+
+    test('future anchor_date still wins over backfilled row date', () {
+      // updateRecurringExpense may backfill the row `date` with today even when
+      // the recurrence anchor is in the future. Next occurrence should follow
+      // the recurrence anchor, not the backfilled row date.
+      final backfilledRowDate = DateTime(2026, 2, 10);
+      final futureAnchor = DateTime(2026, 2, 14);
+
+      final transaction = RecurringTransaction(
+        id: 'rec_future_anchor',
+        date: backfilledRowDate,
+        category: 'rent',
+        amount: 1200.0,
+        currency: 'USD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        type: 'expense',
+        attachments: [],
+        createdAt: backfilledRowDate,
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: futureAnchor,
+        ),
+      );
+
+      final reference = DateTime(2026, 2, 10);
+      final next = transaction.getNextOccurrence(reference);
+
+      expect(next.year, 2026);
+      expect(next.month, 2);
+      expect(next.day, 14);
+    });
+
     test('yearly frequency calculates next occurrence', () {
       final anchor = DateTime(2024, 1, 1);
       final transaction = RecurringTransaction(

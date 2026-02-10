@@ -1,14 +1,50 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
+import 'package:flutter/foundation.dart' show immutable;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart'
+    show analyticsProvider;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
+
+DateTime _buildAnchorDateUtc(Ref ref, DateTime startDate) {
+  final preferredTimezone =
+      ref.read(analyticsProvider).contact?.preferredTimezone;
+  return utcInstantFromEffectiveLocalDateTime(
+    localDateTimeWall: DateTime(startDate.year, startDate.month, startDate.day),
+    preferredTimezone: preferredTimezone,
+  );
+}
+
+String _buildClientCreatedAtIso(Ref ref) {
+  return DateTime.now().toUtc().toIso8601String();
+}
+
+DateTime? _buildEndDateUtc(Ref ref, DateTime? endDate) {
+  if (endDate == null) return null;
+  final preferredTimezone =
+      ref.read(analyticsProvider).contact?.preferredTimezone;
+  return utcInstantFromEffectiveLocalDateTime(
+    localDateTimeWall: DateTime(endDate.year, endDate.month, endDate.day),
+    preferredTimezone: preferredTimezone,
+  );
+}
 
 // ============================================================================
 // STATE CLASSES WITH CACHING SUPPORT - SINGLE SOURCE OF TRUTH
@@ -87,27 +123,27 @@ class RecurringTransactionsNotifier
     if (!mounted) return;
 
     // Log current state
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    debugPrint('🔄 [RecurringTx] LOAD REQUESTED');
-    debugPrint(
+    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    _debugPrint('🔄 [RecurringTx] LOAD REQUESTED');
+    _debugPrint(
         '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-    debugPrint('   UserId: $userId');
-    debugPrint('   ForceRefresh: $forceRefresh');
-    debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
-    debugPrint('   IsLoading: ${state.data.isLoading}');
+    _debugPrint('   User context present');
+    _debugPrint('   ForceRefresh: $forceRefresh');
+    _debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
+    _debugPrint('   IsLoading: ${state.data.isLoading}');
 
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) {
-      debugPrint('   ⏭️  SKIPPING: Already loaded');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('   ⏭️  SKIPPING: Already loaded');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
-    debugPrint('   ✅ PROCEEDING with load');
+    _debugPrint('   ✅ PROCEEDING with load');
     state = state.copyWith(data: const AsyncValue.loading());
 
     try {
-      debugPrint(
+      _debugPrint(
           '🌐 [RecurringTx] Loading recurring transactions from expenses table...');
 
       // For recurring transactions we only need rows from the `expenses`
@@ -156,25 +192,25 @@ class RecurringTransactionsNotifier
       final allTransactions = <RecurringTransaction>[];
       final typedRows = (rows as List).cast<Map<String, dynamic>>();
 
-      debugPrint('   📊 Raw recurring rows count: ${typedRows.length}');
+      _debugPrint('   📊 Raw recurring rows count: ${typedRows.length}');
 
       for (final item in typedRows) {
         try {
           final transaction = RecurringTransaction.fromJson(item);
           allTransactions.add(transaction);
-          debugPrint(
+          _debugPrint(
               '      ✅ Tx: ${transaction.id} | ${transaction.type} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
         } catch (parseError) {
-          debugPrint('      ❌ Error parsing recurring row: $parseError');
-          debugPrint('      Raw data: $item');
+          _debugPrint('      ❌ Error parsing recurring row: $parseError');
+          _debugPrint('      Raw row omitted for privacy');
         }
       }
 
-      debugPrint(
+      _debugPrint(
           '   📦 Total recurring transactions after scoping: ${allTransactions.length}');
 
       if (!mounted) {
-        debugPrint('   ⚠️  Provider unmounted, aborting');
+        _debugPrint('   ⚠️  Provider unmounted, aborting');
         return;
       }
 
@@ -183,17 +219,17 @@ class RecurringTransactionsNotifier
         hasLoadedOnce: true,
       );
 
-      debugPrint('   ✅ State updated successfully');
-      debugPrint('   📊 Final transaction list:');
+      _debugPrint('   ✅ State updated successfully');
+      _debugPrint('   📊 Final transaction list:');
       for (var t in allTransactions) {
-        debugPrint(
+        _debugPrint(
             '      - ${t.type}: ${t.category} | ${t.amount} ${t.currency} | ${t.recurrenceRule?.frequency ?? "one-time"}');
       }
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e, st) {
-      debugPrint('❌ [RecurringTx] Exception: $e');
-      debugPrint('   Stack trace: $st');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('❌ [RecurringTx] Exception: $e');
+      _debugPrint('   Stack trace captured');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (!mounted) return;
       // Mark hasLoadedOnce=true even on error so the RecurringPage does
       // not keep auto-retrying in a loop. The error state will be
@@ -208,7 +244,7 @@ class RecurringTransactionsNotifier
   /// Refresh recurring transactions list
   Future<void> refresh(String userId) async {
     if (!mounted) return;
-    debugPrint('🔄 Refresh requested for $householdId');
+    _debugPrint('🔄 Refresh requested for $householdId');
     await loadRecurringTransactions(
       userId,
       forceRefresh: true,
@@ -241,12 +277,12 @@ class RecurringTransactionsNotifier
     String transactionId,
   ) async {
     try {
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      debugPrint('🗑️ [RecurringTx] DELETE REQUESTED');
-      debugPrint(
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('🗑️ [RecurringTx] DELETE REQUESTED');
+      _debugPrint(
           '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-      debugPrint('   UserId: $userId');
-      debugPrint('   TransactionId: $transactionId');
+      _debugPrint('   User context present');
+      _debugPrint('   TransactionId: $transactionId');
 
       // Optimistic update
       if (!mounted) {
@@ -266,8 +302,8 @@ class RecurringTransactionsNotifier
         body: {'userId': userId, 'expenseIds': transactionId},
       );
 
-      debugPrint(
-          '✅ [RecurringTx] delete-expense response: status=${response.status} data=${response.data}');
+      _debugPrint(
+          '✅ [RecurringTx] delete-expense response status=${response.status}');
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
@@ -276,8 +312,8 @@ class RecurringTransactionsNotifier
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
 
-        debugPrint('✅ [RecurringTx] DELETE SUCCEEDED');
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        _debugPrint('✅ [RecurringTx] DELETE SUCCEEDED');
+        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
       }
 
@@ -287,13 +323,13 @@ class RecurringTransactionsNotifier
               ? 'Request failed (${response.status})'
               : null);
 
-      debugPrint('❌ [RecurringTx] DELETE FAILED: $errorMessage');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('❌ [RecurringTx] DELETE FAILED: $errorMessage');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
-      debugPrint('❌ [RecurringTx] DELETE EXCEPTION: $e');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('❌ [RecurringTx] DELETE EXCEPTION: $e');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));
@@ -307,13 +343,13 @@ class RecurringTransactionsNotifier
     DateTime dateToSkip,
   ) async {
     try {
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
-      debugPrint(
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
+      _debugPrint(
           '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-      debugPrint('   UserId: $userId');
-      debugPrint('   TransactionId: $transactionId');
-      debugPrint('   DateToSkip: $dateToSkip');
+      _debugPrint('   User context present');
+      _debugPrint('   TransactionId: $transactionId');
+      _debugPrint('   DateToSkip: $dateToSkip');
 
       if (!mounted) {
         return const DeleteRecurringResult.failure('Provider unmounted');
@@ -326,15 +362,15 @@ class RecurringTransactionsNotifier
       });
 
       if (target == null) {
-        debugPrint('❌ [RecurringTx] SKIP FAILED: Transaction not found');
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        _debugPrint('❌ [RecurringTx] SKIP FAILED: Transaction not found');
+        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.failure('Transaction not found');
       }
 
       final rule = target!.recurrenceRule;
       if (rule == null) {
-        debugPrint('❌ [RecurringTx] SKIP FAILED: No recurrence rule');
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        _debugPrint('❌ [RecurringTx] SKIP FAILED: No recurrence rule');
+        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.failure('No recurrence rule');
       }
 
@@ -343,8 +379,7 @@ class RecurringTransactionsNotifier
       final updatedRule = rule.copyWith(excludedDates: updatedExcluded);
 
       // Optimistic update
-      final updatedTransaction =
-          target!.copyWith(recurrenceRule: updatedRule);
+      final updatedTransaction = target!.copyWith(recurrenceRule: updatedRule);
       updateRecurring(updatedTransaction);
 
       // Backend call - update the recurrence_rule via update-expense
@@ -359,13 +394,13 @@ class RecurringTransactionsNotifier
         },
       );
 
-      debugPrint(
-          '✅ [RecurringTx] update-expense response: status=${response.status} data=${response.data}');
+      _debugPrint(
+          '✅ [RecurringTx] update-expense response status=${response.status}');
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
-        debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
-        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
+        _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
       }
 
@@ -375,13 +410,13 @@ class RecurringTransactionsNotifier
               ? 'Request failed (${response.status})'
               : null);
 
-      debugPrint('❌ [RecurringTx] SKIP FAILED: $errorMessage');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('❌ [RecurringTx] SKIP FAILED: $errorMessage');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
-      debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));
@@ -475,8 +510,9 @@ final upcomingRecurringTransactionProvider =
 
   return allTransactions.data.when(
     data: (transactions) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
+      final preferredTimezone = ref
+          .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+      final today = effectiveToday(preferredTimezone: preferredTimezone);
       UpcomingRecurringTransaction? best;
 
       for (final transaction in transactions) {
@@ -557,11 +593,14 @@ class RecurringTransactionSaveNotifier
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final formattedAccountingDate = dateFormatter.format(startDate);
+      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
+      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(),
-        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        'anchor_date': anchorDateUtc.toIso8601String(),
+        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -579,7 +618,7 @@ class RecurringTransactionSaveNotifier
         'category': category,
         'currency': currency,
         'date': formattedAccountingDate,
-        'clientCreatedAt': DateTime.now().toIso8601String(),
+        'clientCreatedAt': clientCreatedAtIso,
         if (description != null && description.isNotEmpty)
           'description': description,
         'ownerType': ownerType,
@@ -642,7 +681,7 @@ class RecurringTransactionSaveNotifier
 
         // Force refresh the list provider to show the new transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        debugPrint(
+        _debugPrint(
             '🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
 
         return expense;
@@ -683,11 +722,14 @@ class RecurringTransactionSaveNotifier
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final formattedAccountingDate = dateFormatter.format(startDate);
+      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
+      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(),
-        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        'anchor_date': anchorDateUtc.toIso8601String(),
+        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -707,7 +749,7 @@ class RecurringTransactionSaveNotifier
           'category': category,
           'currency': currency,
           'date': formattedAccountingDate,
-          'clientCreatedAt': DateTime.now().toIso8601String(),
+          'clientCreatedAt': clientCreatedAtIso,
           if (description != null && description.isNotEmpty)
             'description': description,
           if (source != null && source.isNotEmpty) 'source': source,
@@ -729,7 +771,7 @@ class RecurringTransactionSaveNotifier
 
         // Force refresh the list provider to show the new transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        debugPrint(
+        _debugPrint(
             '🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
 
         return income;
@@ -773,16 +815,16 @@ class RecurringTransactionSaveNotifier
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
-      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      // Keep the row's `date` aligned with the user-selected schedule day.
+      // This value is date-only and is used across the UI for calendar semantics.
+      final formattedAccountingDate = dateFormatter.format(startDate);
+      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
+      final endDateUtc = _buildEndDateUtc(ref, endDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(),
-        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        'anchor_date': anchorDateUtc.toIso8601String(),
+        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -807,10 +849,10 @@ class RecurringTransactionSaveNotifier
         updates['raw_text'] = description.trim();
       }
 
-      debugPrint('📝 [UpdateRecurring] Building update-expense request body');
-      debugPrint('   userId: $userId');
-      debugPrint('   expenseId: $expenseId');
-      debugPrint('   updates: $updates');
+      _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
+      _debugPrint('   userId: $userId');
+      _debugPrint('   expenseId: $expenseId');
+      _debugPrint('   updates prepared');
 
       // Build base request body
       final requestBody = <String, dynamic>{
@@ -872,22 +914,22 @@ class RecurringTransactionSaveNotifier
       // DEBUG: log outgoing update payload for recurring expense, including
       // splitUpdate/customSplits and payerUserId so we can confirm that
       // split edits are actually being sent to the backend.
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      debugPrint(
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint(
           '💾 [UpdateRecurring] Sending update-expense for recurring expense');
-      debugPrint('   expenseId: $expenseId');
-      debugPrint('   userId: $userId');
-      debugPrint('   householdId (target): $householdId');
-      debugPrint('   previousHouseholdId: $previousHouseholdId');
-      debugPrint('   payerUserId: $payerUserId');
-      debugPrint('   updates: $updates');
+      _debugPrint('   expenseId: $expenseId');
+      _debugPrint('   userId: $userId');
+      _debugPrint('   householdId (target): $householdId');
+      _debugPrint('   previousHouseholdId: $previousHouseholdId');
+      _debugPrint('   payer update present: ${payerUserId != null}');
+      _debugPrint('   updates prepared');
       if (requestBody.containsKey('customSplits')) {
-        debugPrint('   customSplits payload: ${requestBody['customSplits']}');
+        _debugPrint('   customSplits payload included');
       }
       if (requestBody.containsKey('splitUpdate')) {
-        debugPrint('   splitUpdate payload: ${requestBody['splitUpdate']}');
+        _debugPrint('   splitUpdate payload included');
       }
-      debugPrint('   Full request body keys: ${requestBody.keys.toList()}');
+      _debugPrint('   Request key count: ${requestBody.length}');
 
       final response = await supabase.functions.invoke(
         'update-expense',
@@ -898,13 +940,13 @@ class RecurringTransactionSaveNotifier
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
         state = AsyncValue.data(updatedExpense);
-        debugPrint(
+        _debugPrint(
             '✅ [UpdateRecurring] update-expense succeeded for $expenseId');
-        debugPrint(
+        _debugPrint(
             '   Updated expense householdId: ${updatedExpense.householdId}');
-        debugPrint(
+        _debugPrint(
             '   Updated amount: ${updatedExpense.amount} ${updatedExpense.currency}');
-        debugPrint('   Updated category: ${updatedExpense.category}');
+        _debugPrint('   Updated category: ${updatedExpense.category}');
 
         // Optimistically update the unified recurring transactions list so
         // the Recurring page reflects the edited values immediately without
@@ -916,14 +958,14 @@ class RecurringTransactionSaveNotifier
               .read(recurringTransactionsProvider(scopeKey).notifier)
               .updateRecurring(updatedExpense);
         } catch (e, st) {
-          debugPrint(
+          _debugPrint(
               '⚠️ [UpdateRecurring] Failed to optimistically update list: $e');
-          debugPrint('   Stack: $st');
+          _debugPrint('   Stack: $st');
         }
 
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        debugPrint(
+        _debugPrint(
             '🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
 
         return updatedExpense;
@@ -964,16 +1006,15 @@ class RecurringTransactionSaveNotifier
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      final accountingDate = startDate.isAfter(today) ? today : startDate;
-      final formattedAccountingDate = dateFormatter.format(accountingDate);
+      // Keep the row's `date` aligned with the user-selected schedule day.
+      final formattedAccountingDate = dateFormatter.format(startDate);
+      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
+      final endDateUtc = _buildEndDateUtc(ref, endDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': startDate.toIso8601String(),
-        if (endDate != null) 'end_date': endDate.toIso8601String(),
+        'anchor_date': anchorDateUtc.toIso8601String(),
+        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -1016,7 +1057,7 @@ class RecurringTransactionSaveNotifier
 
         // Force refresh the list provider to show the updated transaction
         // Don't use optimistic update as we'll invalidate in the sheet
-        debugPrint(
+        _debugPrint(
             '🔄 [UpdateRecurring] Updated successfully, transaction will be reloaded by invalidation');
 
         return updatedIncome;

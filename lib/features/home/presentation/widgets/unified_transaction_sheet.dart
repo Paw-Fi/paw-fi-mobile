@@ -5,6 +5,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,13 +25,13 @@ import 'package:moneko/features/home/presentation/widgets/category_picker_bottom
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
-import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -48,13 +49,19 @@ import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
 /// Format date with relative terms
-String _formatRelativeDate(DateTime date, BuildContext context) {
-  final now = DateTime.now();
-  final localDate = toLocalTime(date);
+String _formatRelativeDate(
+  DateTime date,
+  BuildContext context, {
+  required String? preferredTimezone,
+}) {
+  final now = effectiveNow(preferredTimezone: preferredTimezone);
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = today.subtract(const Duration(days: 1));
-  final dateOnly = DateTime(localDate.year, localDate.month, localDate.day);
+  final dateOnly = DateTime(date.year, date.month, date.day);
   final localeName = intlSafeLocaleName(Localizations.localeOf(context));
 
   if (dateOnly == today) {
@@ -63,10 +70,10 @@ String _formatRelativeDate(DateTime date, BuildContext context) {
     return context.l10n.yesterday;
   } else if (dateOnly.isAfter(today.subtract(const Duration(days: 7)))) {
     // Use localized date formatter for day names
-    return DateFormat.EEEE(localeName).format(localDate);
+    return DateFormat.EEEE(localeName).format(dateOnly);
   } else {
     // Use localized date formatter for full date
-    return DateFormat.yMMMMd(localeName).format(localDate);
+    return DateFormat.yMMMMd(localeName).format(dateOnly);
   }
 }
 
@@ -143,6 +150,18 @@ class _UnifiedTransactionSheetState
   DateTime? _editedDate;
   String? _editedDescription;
 
+  void debugPrint(String? message, {int? wrapWidth}) {
+    if (foundation.kDebugMode && _enableDebugLogs) {
+      foundation.debugPrint(message, wrapWidth: wrapWidth);
+    }
+  }
+
+  String? get _preferredTimezone =>
+      ref.read(analyticsProvider).contact?.preferredTimezone;
+
+  DateTime get _effectiveNow =>
+      effectiveNow(preferredTimezone: _preferredTimezone);
+
   /// Get localized category name
   String _getLocalizedCategory(String category) =>
       getCategoryTranslation(context, category);
@@ -157,26 +176,22 @@ class _UnifiedTransactionSheetState
         ? widget.existingExpense!.userId
         : currentUserId;
 
-    // DEBUG: Log expense ID for deep link testing
+    // Debug diagnostics (redacted)
     if (widget.existingExpense != null) {
-      debugPrint(
-          '💸 [DEEP LINK TEST] Expense sheet opened for: ${widget.existingExpense!.id}');
-      debugPrint(
-          '🔗 [DEEP LINK TEST] Test with: moneko://expense/${widget.existingExpense!.id}');
+      debugPrint('💸 [DEEP LINK TEST] Expense sheet opened');
+      debugPrint('🔗 [DEEP LINK TEST] Deep link path available');
     }
 
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
-      final dateTime = toLocalTime(widget.existingExpense!.createdAt);
+      final dateTime = toEffectiveWallTime(
+        utcOrLocalInstant: widget.existingExpense!.createdAt,
+        preferredTimezone: _preferredTimezone,
+      );
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
 
       // DEBUG: Log expense details for household sharing
-      debugPrint(
-          '🏠 [HOUSEHOLD SHARE] Expense ID: ${widget.existingExpense!.id}');
-      debugPrint(
-          '🏠 [HOUSEHOLD SHARE] householdId: ${widget.existingExpense!.householdId}');
-      debugPrint(
-          '🏠 [HOUSEHOLD SHARE] splitGroupId: ${widget.existingExpense!.splitGroupId}');
+      debugPrint('🏠 [HOUSEHOLD SHARE] Existing expense context loaded');
 
       final scope = ref.read(householdScopeProvider);
       final isPortfolio =
@@ -201,18 +216,15 @@ class _UnifiedTransactionSheetState
       // If expense is shared with a household, initialize the household selection and load members
       if (_isSharedWithHousehold &&
           widget.existingExpense!.householdId != null) {
-        debugPrint(
-            '🏠 [HOUSEHOLD SHARE] Initializing household selection: ${widget.existingExpense!.householdId}');
+        debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             debugPrint('🏠 [EDIT EXPENSE] postFrameCallback executing');
             final householdId = widget.existingExpense!.householdId!;
-            debugPrint(
-                '🏠 [EDIT EXPENSE] Setting selectedHouseholdForSharingProvider to: $householdId');
+            debugPrint('🏠 [EDIT EXPENSE] Setting selected household state');
             ref.read(selectedHouseholdForSharingProvider.notifier).state =
                 householdId;
-            debugPrint(
-                '🏠 [EDIT EXPENSE] Calling _loadMembers for household: $householdId');
+            debugPrint('🏠 [EDIT EXPENSE] Loading household members');
             _loadMembers(householdId);
 
             _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
@@ -233,7 +245,7 @@ class _UnifiedTransactionSheetState
       }
       // Auto-enable household sharing when in household view mode
       final scope = ref.read(householdScopeProvider);
-      debugPrint('🆕 [ADD EXPENSE] View mode: ${scope.viewMode}');
+      debugPrint('🆕 [ADD EXPENSE] Initialized add flow');
       if (scope.isHouseholdView) {
         _isSharedWithHousehold = true; // safe to set local field in initState
         debugPrint('🆕 [ADD EXPENSE] Auto-enabling household sharing');
@@ -244,7 +256,7 @@ class _UnifiedTransactionSheetState
       final selectedState = ref.read(selectedHouseholdProvider);
       final selected = selectedState.householdId ?? selectedState.household?.id;
       debugPrint(
-          '🆕 [ADD EXPENSE] Selected household from provider: $selected');
+          '🆕 [ADD EXPENSE] Selected household present: ${selected != null}');
 
       // Defer provider state modification to after widget tree is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -255,8 +267,7 @@ class _UnifiedTransactionSheetState
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
           if (_isSharedWithHousehold) {
-            debugPrint(
-                '🆕 [ADD EXPENSE] Sharing enabled; loading members for $selected');
+            debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members');
             _loadMembers(selected);
           }
         } else {
@@ -324,7 +335,7 @@ class _UnifiedTransactionSheetState
 
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
-    debugPrint('🖼️ Receipt image URL from expense: $url');
+    debugPrint('🖼️ Receipt image detected on expense');
     return url;
   }
 
@@ -368,7 +379,7 @@ class _UnifiedTransactionSheetState
       );
 
       if (photo != null) {
-        debugPrint('📷 Photo captured: ${photo.path}');
+        debugPrint('📷 Photo captured');
         setState(() {
           _localImagePath = photo.path;
         });
@@ -554,7 +565,7 @@ class _UnifiedTransactionSheetState
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${_formatRelativeDate(displayDate, context)} • ${_selectedTime.format(context)}',
+                              '${_formatRelativeDate(displayDate, context, preferredTimezone: _preferredTimezone)} • ${_selectedTime.format(context)}',
                               style: TextStyle(
                                 fontSize: 15,
                                 color: colorScheme.onSurface
@@ -615,7 +626,11 @@ class _UnifiedTransactionSheetState
                               value: DateFormat.yMMMMd(
                                 intlSafeLocaleName(
                                     Localizations.localeOf(context)),
-                              ).format(toLocalTime(displayDate)),
+                              ).format(DateTime(
+                                displayDate.year,
+                                displayDate.month,
+                                displayDate.day,
+                              )),
                               onTap: () => _handleEditDate(displayDate),
                             ),
                             _buildDivider(colorScheme),
@@ -1443,7 +1458,7 @@ class _UnifiedTransactionSheetState
                     mode: CupertinoDatePickerMode.date,
                     initialDateTime: currentDate,
                     minimumDate: DateTime(2020),
-                    maximumDate: DateTime.now(),
+                    maximumDate: _effectiveNow,
                     onDateTimeChanged: (DateTime value) {
                       tempDate = value;
                     },
@@ -1460,7 +1475,7 @@ class _UnifiedTransactionSheetState
         context: context,
         initialDate: currentDate,
         firstDate: DateTime(2020),
-        lastDate: DateTime.now(),
+        lastDate: _effectiveNow,
       );
     }
 
@@ -1485,7 +1500,7 @@ class _UnifiedTransactionSheetState
     if (Platform.isIOS) {
       final colorScheme = Theme.of(context).colorScheme;
       // Use Cupertino time picker for iOS
-      final now = DateTime.now();
+      final now = _effectiveNow;
       final initialDateTime = DateTime(
         now.year,
         now.month,
@@ -1746,10 +1761,9 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _loadMembers(String householdId) async {
+    debugPrint('👥 [LOAD MEMBERS] Starting member load');
     debugPrint(
-        '👥 [LOAD MEMBERS] Starting to load members for household: $householdId');
-    debugPrint(
-        '👥 [LOAD MEMBERS] Current _selectedPayerUserId: $_selectedPayerUserId');
+        '👥 [LOAD MEMBERS] Existing payer selection present: ${_selectedPayerUserId != null}');
 
     setState(() {
       _isLoadingMembers = true;
@@ -1794,7 +1808,7 @@ class _UnifiedTransactionSheetState
         final currentPayerId = _selectedPayerUserId;
         final payerExists = members.any((m) => m.userId == currentPayerId);
 
-        debugPrint('👥 [LOAD MEMBERS] Current payer ID: $currentPayerId');
+        debugPrint('👥 [LOAD MEMBERS] Current payer selection present');
         debugPrint('👥 [LOAD MEMBERS] Payer exists in members: $payerExists');
 
         String? validPayerId = currentPayerId;
@@ -1806,7 +1820,7 @@ class _UnifiedTransactionSheetState
           if (members.isNotEmpty) {
             validPayerId = members.first.userId;
             debugPrint(
-                '⚠️ [LOAD MEMBERS] Payer not found in members! Defaulting to first member: ${members.first.userName ?? members.first.userEmail}');
+                '⚠️ [LOAD MEMBERS] Payer not found; defaulting to first member');
           } else {
             validPayerId = null;
             debugPrint(
@@ -1823,8 +1837,7 @@ class _UnifiedTransactionSheetState
 
         debugPrint(
             '✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
-        debugPrint(
-            '✅ [LOAD MEMBERS] Final _selectedPayerUserId: $_selectedPayerUserId');
+        debugPrint('✅ [LOAD MEMBERS] Final payer selection set');
       } else {
         debugPrint('⚠️ [LOAD MEMBERS] Widget unmounted, skipping state update');
       }
@@ -1875,10 +1888,9 @@ class _UnifiedTransactionSheetState
 
     // For recently created expenses, the split group may not be available yet
     // because _persistAiTransactions runs asynchronously. Retry a few times.
-    final isRecentlyCreated = DateTime.now()
-            .difference(expense.createdAt.toLocal())
-            .inSeconds <
-        15;
+    final isRecentlyCreated =
+        DateTime.now().toUtc().difference(expense.createdAt.toUtc()).inSeconds <
+            15;
     final maxAttempts = isRecentlyCreated ? 5 : 1;
 
     try {
@@ -2001,8 +2013,7 @@ class _UnifiedTransactionSheetState
 
   /// Load existing split configuration from database
   Future<void> _loadExistingSplitConfiguration(String splitGroupId) async {
-    debugPrint(
-        '🔄 [LOAD SPLIT] Loading existing split configuration for: $splitGroupId');
+    debugPrint('🔄 [LOAD SPLIT] Loading existing split configuration');
 
     try {
       final householdId = widget.existingExpense!.householdId;
@@ -2106,19 +2117,17 @@ class _UnifiedTransactionSheetState
           ),
         );
 
-        debugPrint(
-          '🔄 [LOAD SPLIT] Member ${member.userName ?? member.userEmail}: amountCents=$amountCents pct=$percentage shares=$shares included=$included',
-        );
+        debugPrint('🔄 [LOAD SPLIT] Split line mapped for member');
       }
 
       if (!mounted) return;
 
       final signature = _buildSplitSignature(uiSplitType, memberSplits);
       debugPrint(
-        '✅ [LOAD SPLIT] About to setState with: type=$uiSplitType, splits=${memberSplits.length}, signature=$signature',
+        '✅ [LOAD SPLIT] Applying split state: type=$uiSplitType count=${memberSplits.length}',
       );
       debugPrint(
-        '✅ [LOAD SPLIT] Current state before setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
+        '✅ [LOAD SPLIT] Existing split state present: ${_customSplits != null}',
       );
       setState(() {
         _customSplitType = uiSplitType;
@@ -2128,10 +2137,10 @@ class _UnifiedTransactionSheetState
       });
 
       debugPrint(
-        '✅ [LOAD SPLIT] Initialized split editor with existing configuration: $uiSplitType signature=$signature',
+        '✅ [LOAD SPLIT] Initialized split editor with existing configuration',
       );
       debugPrint(
-        '✅ [LOAD SPLIT] State after setState: _customSplitType=$_customSplitType, _customSplits=${_customSplits?.length}',
+        '✅ [LOAD SPLIT] Split state updated',
       );
     } catch (error) {
       debugPrint('❌ [LOAD SPLIT] Error loading split configuration: $error');
@@ -2139,8 +2148,7 @@ class _UnifiedTransactionSheetState
   }
 
   void _refreshHouseholdUiAfterExpenseChange(String householdId) {
-    debugPrint(
-        '🔄 [REFRESH] Starting household UI refresh for household: $householdId');
+    debugPrint('🔄 [REFRESH] Starting household UI refresh');
 
     // CRITICAL: Invalidate RequestDeduplicator cache FIRST
     // This ensures fresh data is fetched, not the 30-second cached data
@@ -2226,7 +2234,11 @@ class _UnifiedTransactionSheetState
         }
 
         // Combine extracted date (calendar day) with the selected time in local timezone.
-        final expenseLocalDate = toLocalTime(expense.date);
+        final expenseLocalDate = DateTime(
+          expense.date.year,
+          expense.date.month,
+          expense.date.day,
+        );
         final expenseDateTime = DateTime(
           expenseLocalDate.year,
           expenseLocalDate.month,
@@ -2271,16 +2283,15 @@ class _UnifiedTransactionSheetState
           ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
           // Upload receipt image if available
           // Priority: 1) expense.localImagePath (from ParsedExpense), 2) widget.localImagePath (fallback)
-          String? receiptUrl;
           final imagePathToUpload =
               expense.localImagePath ?? widget.localImagePath;
 
           if (imagePathToUpload != null) {
-            debugPrint(' Uploading receipt image: $imagePathToUpload');
-            receiptUrl = await ref
+            debugPrint(' Uploading receipt image');
+            await ref
                 .read(expenseSaveNotifierProvider.notifier)
                 .uploadReceiptImage(File(imagePathToUpload), user.uid);
-            debugPrint(' Receipt upload result: $receiptUrl');
+            debugPrint(' Receipt upload completed');
           } else {
             debugPrint(' No local image path to upload');
           }
@@ -2290,7 +2301,7 @@ class _UnifiedTransactionSheetState
 
           // Refresh the household where income was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(' Refreshing saved household UI: $effectiveHouseholdId');
+            debugPrint(' Refreshing saved household UI');
             _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -2299,8 +2310,7 @@ class _UnifiedTransactionSheetState
           final currentHouseholdId = currentScope.selectedHouseholdId;
 
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
-            debugPrint(
-                ' Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != effectiveHouseholdId) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
@@ -2345,8 +2355,7 @@ class _UnifiedTransactionSheetState
           // After fix: Only pass selectedHousehold when _isSharedWithHousehold is true
           //
           // Save expense with time and custom splits (if configured)
-          debugPrint(
-              ' Saving expense - household: $effectiveHouseholdId, viewMode: ${viewMode.mode}');
+          debugPrint(' Saving expense with current view mode');
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: effectiveHouseholdId,
@@ -2382,16 +2391,17 @@ class _UnifiedTransactionSheetState
 
           debugPrint(' Triggering comprehensive UI refresh...');
           debugPrint('    Expense shared: $_isSharedWithHousehold');
-          debugPrint('    Household ID: $effectiveHouseholdId');
+          debugPrint('    Household selected: ${effectiveHouseholdId != null}');
           debugPrint('    Current view mode: ${viewMode.mode}');
-          debugPrint('    Payer user id: $_selectedPayerUserId');
+          debugPrint(
+              '    Payer selection present: ${_selectedPayerUserId != null}');
           debugPrint('    Custom split type: $_customSplitType');
           debugPrint(
               '    Custom splits count: ${_customSplits?.length ?? 0} (null means default equal)');
 
           // Step 1: Refresh the household where expense was saved (if shared)
           if (effectiveHouseholdId != null) {
-            debugPrint(' Refreshing saved household UI: $effectiveHouseholdId');
+            debugPrint(' Refreshing saved household UI');
             _refreshHouseholdUiAfterExpenseChange(effectiveHouseholdId);
           }
 
@@ -2402,8 +2412,7 @@ class _UnifiedTransactionSheetState
 
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
             // Currently viewing household mode - refresh it
-            debugPrint(
-                ' Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != effectiveHouseholdId) {
               // Different household than where we saved - need to refresh it too
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
@@ -2446,7 +2455,11 @@ class _UnifiedTransactionSheetState
 
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;
-        final finalLocalDate = toLocalTime(finalDate);
+        final finalLocalDate = DateTime(
+          finalDate.year,
+          finalDate.month,
+          finalDate.day,
+        );
         final finalDateOnly = DateTime(
           finalLocalDate.year,
           finalLocalDate.month,
@@ -2463,8 +2476,12 @@ class _UnifiedTransactionSheetState
         // Backend expects date in YYYY-MM-DD format (local date)
         updates['date'] = DateFormat('yyyy-MM-dd').format(finalDateOnly);
 
-        // Send full datetime as created_at in UTC to preserve timezone consistency
-        updates['created_at'] = expenseDateTime.toUtc().toIso8601String();
+        // Send created_at as UTC instant derived from the user's selected local
+        // date/time, not the device timezone.
+        updates['created_at'] = utcInstantFromEffectiveLocalDateTime(
+          localDateTimeWall: expenseDateTime,
+          preferredTimezone: _preferredTimezone,
+        ).toIso8601String();
 
         // For existing household expenses without a split group, we may need to
         // create the first split group using the inline CustomSplitEditor.
@@ -2495,12 +2512,11 @@ class _UnifiedTransactionSheetState
 
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
-          debugPrint(
-              ' Uploading new receipt image for existing expense: $_localImagePath');
+          debugPrint(' Uploading new receipt image for existing expense');
           final receiptUrl = await ref
               .read(expenseSaveNotifierProvider.notifier)
               .uploadReceiptImage(File(_localImagePath!), user.uid);
-          debugPrint(' New receipt upload result: $receiptUrl');
+          debugPrint(' New receipt upload completed');
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
@@ -2621,9 +2637,15 @@ class _UnifiedTransactionSheetState
 
         // Only update if there are actual changes or we need to create a split
         final originalDate = widget.existingExpense!.date;
-        final originalLocalDate = toLocalTime(originalDate);
-        final originalCreatedAtLocal =
-            toLocalTime(widget.existingExpense!.createdAt);
+        final originalLocalDate = DateTime(
+          originalDate.year,
+          originalDate.month,
+          originalDate.day,
+        );
+        final originalCreatedAtLocal = toEffectiveWallTime(
+          utcOrLocalInstant: widget.existingExpense!.createdAt,
+          preferredTimezone: _preferredTimezone,
+        );
         final originalTime = TimeOfDay(
           hour: originalCreatedAtLocal.hour,
           minute: originalCreatedAtLocal.minute,
@@ -2650,7 +2672,8 @@ class _UnifiedTransactionSheetState
           return;
         }
 
-        debugPrint(' Updating expense with: $updates extraBody=$extraBody');
+        debugPrint(
+            ' Updating expense with changed fields=${updates.keys.toList()} hasExtraBody=${extraBody != null}');
 
         // Call update API (this already handles provider refresh internally)
         final success =
@@ -2674,7 +2697,7 @@ class _UnifiedTransactionSheetState
 
           // Refresh the household where expense exists (if it's shared)
           if (editedHouseholdId != null) {
-            debugPrint(' Refreshing expense household UI: $editedHouseholdId');
+            debugPrint(' Refreshing expense household UI');
             _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
           }
 
@@ -2683,8 +2706,7 @@ class _UnifiedTransactionSheetState
           final currentHouseholdId = currentScope.selectedHouseholdId;
 
           if (currentScope.isHouseholdView && currentHouseholdId != null) {
-            debugPrint(
-                ' Also refreshing CURRENT household view: $currentHouseholdId');
+            debugPrint(' Also refreshing CURRENT household view');
             if (currentHouseholdId != editedHouseholdId) {
               _refreshHouseholdUiAfterExpenseChange(currentHouseholdId);
             }
@@ -2759,7 +2781,7 @@ class _UnifiedTransactionSheetState
     try {
       final user = ref.read(authProvider);
 
-      debugPrint(' Deleting expense: ${widget.existingExpense!.id}');
+      debugPrint(' Deleting expense');
 
       // Capture l10n before async call
       final failedToDeleteExpenseMsg = context.l10n.failedToDeleteExpense;
@@ -2791,8 +2813,7 @@ class _UnifiedTransactionSheetState
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
       if (householdId != null) {
-        debugPrint(
-            ' Invalidating household providers for household: $householdId');
+        debugPrint(' Invalidating household providers for selected household');
 
         // Clear cached data first
         ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);

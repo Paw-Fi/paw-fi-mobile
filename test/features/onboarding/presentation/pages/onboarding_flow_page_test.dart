@@ -182,35 +182,31 @@ void main() {
       deviceRegistrationService: deviceService,
     );
 
-    // Skip now advances to the next step, not exit.
-    // Tap through all onboarding steps via Skip.
+    // Skip advances through onboarding steps (0 -> 4).
     for (var i = 0; i < 4; i++) {
       await _tapSkip(tester);
     }
 
-    // Allow the finish page route transition to complete.
+    // Step 4 is pockets intro; skip once more to reach AI step (step 5).
+    await _tapSkip(tester);
+
+    // Allow transition to settle.
     await tester.pump(const Duration(milliseconds: 400));
 
-    // Last step now shows "Try Now" and opens AI modal instead of finish page
-    // Tap the Try Now button to open AI modal, then close it to proceed
-    final tryNowButton = find.widgetWithText(
-      PrimaryAdaptiveButton,
-      'Try Now',
-    );
-    expect(tryNowButton, findsOneWidget);
-    await tester.tap(tryNowButton);
+    // On AI step, primary CTA opens AI modal; keep this robust to text changes.
+    await _tapPrimary(tester);
     await tester.pumpAndSettle();
-    
+
     // Close the AI modal by tapping the close button
     final closeButton = find.byIcon(Icons.close);
     expect(closeButton, findsOneWidget);
     await tester.tap(closeButton);
     await tester.pumpAndSettle();
-    
+
     // Now tap skip to go to finish page
     await _tapSkip(tester);
     await tester.pump(const Duration(milliseconds: 400));
-    
+
     // Complete onboarding from finish page
     final startButton = find.widgetWithText(
       PrimaryAdaptiveButton,

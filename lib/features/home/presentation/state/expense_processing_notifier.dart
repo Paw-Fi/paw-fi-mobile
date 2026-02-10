@@ -1,14 +1,43 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/processing_state.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Expense processing notifier
 class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
-  ExpenseProcessingNotifier() : super(ProcessingState());
+  final Ref ref;
+
+  ExpenseProcessingNotifier(this.ref) : super(ProcessingState());
+
+  String _userTodayYmd() {
+    final preferredTimezone =
+        ref.read(analyticsProvider).contact?.preferredTimezone;
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+    return formatDateOnlyYmd(userNow);
+  }
+
+  DateTime _parseExpenseDate(dynamic raw, DateTime fallback) {
+    final value = raw?.toString();
+    final dateOnly = tryParseDateOnlyYmd(value);
+    if (dateOnly != null) {
+      return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+    }
+    return DateTime.tryParse(value ?? '') ?? fallback;
+  }
 
   Future<void> processText(String text, String phone) async {
     state = state.copyWith(
@@ -23,7 +52,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
         body: {
           'phone': phone,
           'text': text,
-          'date': DateTime.now().toIso8601String().split('T')[0],
+          'date': _userTodayYmd(),
         },
       );
 
@@ -44,8 +73,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               contactId: expenseData['contact_id'] ?? '',
               amountCents: expenseData['amount_cents'] ?? 0,
               category: expenseData['category'],
-              date: DateTime.parse(
-                  expenseData['date'] ?? DateTime.now().toIso8601String()),
+              date: _parseExpenseDate(expenseData['date'], DateTime.now()),
               createdAt: DateTime.parse(expenseData['created_at'] ??
                   DateTime.now().toIso8601String()),
               rawText: expenseData['raw_text'],
@@ -53,7 +81,7 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               receiptImageUrl: expenseData['receipt_image_url'],
             );
           } catch (parseError) {
-            debugPrint('Error parsing expense data: $parseError');
+            _debugPrint('Error parsing expense data: $parseError');
           }
         } else if (responseData != null &&
             responseData['items'] != null &&
@@ -67,15 +95,14 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
               contactId: '',
               amountCents: amountCents,
               category: item['category'] ?? 'uncategorized',
-              date: DateTime.parse(item['date'] ??
-                  DateTime.now().toIso8601String().split('T')[0]),
+              date: _parseExpenseDate(item['date'], DateTime.now()),
               createdAt: DateTime.now(),
               rawText: text,
               currency: item['currency'] ?? 'USD',
               receiptImageUrl: null,
             );
           } catch (parseError) {
-            debugPrint('Error parsing items data: $parseError');
+            _debugPrint('Error parsing items data: $parseError');
           }
         }
 
@@ -130,19 +157,13 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
             'data': base64Image,
             'contentType': contentType,
           },
-          'date': DateTime.now().toIso8601String().split('T')[0],
+          'date': _userTodayYmd(),
         },
       );
 
       if (response.data != null && response.data['success'] == true) {
-        // DEBUG: Log the full response structure
-        debugPrint('=== FULL RESPONSE ===');
-        debugPrint(response.data);
-
         // Parse expense data from response - it's nested in data.expenses array
         final responseData = response.data['data'];
-        debugPrint('=== RESPONSE DATA ===');
-        debugPrint(responseData);
 
         ExpenseEntry? createdExpense;
 
@@ -150,38 +171,27 @@ class ExpenseProcessingNotifier extends StateNotifier<ProcessingState> {
             responseData['expenses'] != null &&
             responseData['expenses'].isNotEmpty) {
           try {
-            debugPrint('=== EXPENSES ARRAY ===');
-            debugPrint(responseData['expenses']);
-
             final expenseData =
                 responseData['expenses'][0]; // Get first expense
-            debugPrint('=== FIRST EXPENSE ===');
-            debugPrint(expenseData);
 
             createdExpense = ExpenseEntry(
               id: expenseData['id'] ?? '',
               contactId: expenseData['contact_id'] ?? '',
               amountCents: expenseData['amount_cents'] ?? 0,
               category: expenseData['category'],
-              date: DateTime.parse(
-                  expenseData['date'] ?? DateTime.now().toIso8601String()),
+              date: _parseExpenseDate(expenseData['date'], DateTime.now()),
               createdAt: DateTime.parse(expenseData['created_at'] ??
                   DateTime.now().toIso8601String()),
               rawText: expenseData['raw_text'],
               currency: expenseData['currency'],
               receiptImageUrl: expenseData['receipt_image_url'],
             );
-            debugPrint('=== CREATED EXPENSE ENTRY ===');
-            debugPrint(
-                'Category: ${createdExpense.category}, Amount: ${createdExpense.amount}');
+            _debugPrint('Expense entry parsed successfully');
           } catch (parseError) {
-            debugPrint('Error parsing expense data: $parseError');
+            _debugPrint('Error parsing expense data: $parseError');
           }
         } else {
-          debugPrint('=== NO EXPENSES FOUND ===');
-          debugPrint('responseData is null: ${responseData == null}');
-          debugPrint('expenses is null: ${responseData?['expenses'] == null}');
-          debugPrint('expenses isEmpty: ${responseData?['expenses']?.isEmpty}');
+          _debugPrint('No expense rows returned from processing response');
         }
 
         // Mark as complete

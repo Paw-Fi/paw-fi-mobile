@@ -1,3 +1,5 @@
+import 'package:moneko/core/utils/user_timezone.dart';
+
 /// Income summary model
 /// Aggregated income statistics with privacy-aware breakdown
 
@@ -117,16 +119,29 @@ class Period {
   });
 
   factory Period.fromJson(Map<String, dynamic> json) {
+    DateTime parseDateOnly(dynamic value) {
+      final raw = value?.toString();
+      final dateOnly = tryParseDateOnlyYmd(raw);
+      if (dateOnly != null) {
+        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+      }
+      final parsed = DateTime.tryParse(raw ?? '');
+      if (parsed != null) {
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
     return Period(
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
+      startDate: parseDateOnly(json['startDate']),
+      endDate: parseDateOnly(json['endDate']),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'startDate': startDate.toIso8601String().split('T')[0],
-      'endDate': endDate.toIso8601String().split('T')[0],
+      'startDate': formatDateOnlyYmd(startDate),
+      'endDate': formatDateOnlyYmd(endDate),
     };
   }
 }

@@ -97,7 +97,7 @@ void main() {
       expect(entry.contactId, 'contact_1');
       expect(entry.userId, 'user_1');
       expect(entry.householdId, 'hh_1');
-      expect(entry.date, DateTime.utc(2024, 1, 1));
+      expect(entry.date, DateTime(2024, 1, 1));
       expect(entry.amountCents, 10000);
       expect(entry.currency, 'USD');
       expect(entry.category, 'Food');

@@ -3,6 +3,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/domain/models/income_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 /// Income list state provider
 final incomeListProvider =
@@ -33,10 +34,8 @@ class IncomeListNotifier extends StateNotifier<AsyncValue<List<IncomeEntry>>> {
         body: {
           'userId': userId,
           'limit': limit,
-          if (startDate != null)
-            'startDate': startDate.toIso8601String().split('T')[0],
-          if (endDate != null)
-            'endDate': endDate.toIso8601String().split('T')[0],
+          if (startDate != null) 'startDate': formatDateOnlyYmd(startDate),
+          if (endDate != null) 'endDate': formatDateOnlyYmd(endDate),
           if (currency != null) 'currency': currency,
           if (householdId != null) 'householdId': householdId,
         },
@@ -105,10 +104,8 @@ class IncomeSummaryNotifier extends StateNotifier<AsyncValue<IncomeSummary>> {
         body: {
           'userId': userId,
           if (householdId != null) 'householdId': householdId,
-          if (startDate != null)
-            'startDate': startDate.toIso8601String().split('T')[0],
-          if (endDate != null)
-            'endDate': endDate.toIso8601String().split('T')[0],
+          if (startDate != null) 'startDate': formatDateOnlyYmd(startDate),
+          if (endDate != null) 'endDate': formatDateOnlyYmd(endDate),
           if (currency != null) 'currency': currency,
         },
       );
@@ -180,6 +177,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     try {
       final isPortfolio = householdId != null &&
           ref.read(householdScopeProvider).isPortfolioId(householdId);
+      final accountingDate = DateTime(date.year, date.month, date.day);
 
       final response = await supabase.functions.invoke(
         'save-income',
@@ -188,7 +186,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           'amount': amount,
           'category': category,
           'currency': currency,
-          'date': date.toIso8601String(),
+          'date': formatDateOnlyYmd(accountingDate),
           'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
           if (description != null && description.isNotEmpty)
             'description': description,

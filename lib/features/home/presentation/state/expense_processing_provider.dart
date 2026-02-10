@@ -4,5 +4,5 @@ import 'package:moneko/features/home/presentation/state/expense_processing_notif
 
 final expenseProcessingProvider =
     StateNotifierProvider<ExpenseProcessingNotifier, ProcessingState>((ref) {
-  return ExpenseProcessingNotifier();
+  return ExpenseProcessingNotifier(ref);
 });

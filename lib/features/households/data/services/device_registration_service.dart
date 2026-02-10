@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Global container for deep link handling from FCM
 class DeepLinkContainer {
@@ -41,10 +50,10 @@ class DeviceRegistrationService {
   /// Initialize push notifications
   Future<void> initialize() async {
     if (_initialized) {
-      debugPrint('🔔 Device registration service already initialized');
+      _debugPrint('🔔 Device registration service already initialized');
       return;
     }
-    debugPrint('🔔 Initializing device registration service...');
+    _debugPrint('🔔 Initializing device registration service...');
 
     try {
       // Avoid prompting users multiple times: Only allow permission prompts
@@ -56,26 +65,26 @@ class DeviceRegistrationService {
           final prompted =
               prefs.getBool('notifications_prompted:$userId') ?? false;
           if (!prompted) {
-            debugPrint(
+            _debugPrint(
                 '⏭️ Skipping notification permission prompt until onboarding page triggers it');
             return;
           }
         }
       } catch (e) {
-        debugPrint('⚠️ Failed to check notifications_prompted flag: $e');
+        _debugPrint('⚠️ Failed to check notifications_prompted flag');
       }
 
       // Wrap entire initialization in a timeout to prevent hanging
       await _performInitialization().timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          debugPrint(
+          _debugPrint(
               '⚠️ Device registration initialization timed out after 10s');
           throw TimeoutException('Device registration timed out');
         },
       );
     } catch (e) {
-      debugPrint('❌ Device registration initialization failed: $e');
+      _debugPrint('❌ Device registration initialization failed');
       // Mark as initialized anyway to prevent blocking app startup
       _initialized = true;
       return;
@@ -90,16 +99,16 @@ class DeviceRegistrationService {
         final status = await Permission.notification.request().timeout(
           const Duration(seconds: 5),
           onTimeout: () {
-            debugPrint('⚠️ Android notification permission request timed out');
+            _debugPrint('⚠️ Android notification permission request timed out');
             return PermissionStatus.denied;
           },
         );
         if (status.isDenied) {
-          debugPrint(
+          _debugPrint(
               '⚠️ Notification permission denied on Android (continuing to obtain FCM token)');
         }
       } catch (e) {
-        debugPrint('⚠️ Android notification permission request failed: $e');
+        _debugPrint('⚠️ Android notification permission request failed');
       }
     }
 
@@ -114,7 +123,7 @@ class DeviceRegistrationService {
         .timeout(
       const Duration(seconds: 5),
       onTimeout: () {
-        debugPrint('⚠️ FCM permission request timed out');
+        _debugPrint('⚠️ FCM permission request timed out');
         return const NotificationSettings(
           authorizationStatus: AuthorizationStatus.notDetermined,
           alert: AppleNotificationSetting.notSupported,
@@ -147,7 +156,7 @@ class DeviceRegistrationService {
             settings.authorizationStatus == AuthorizationStatus.provisional;
 
     if (authorized) {
-      debugPrint('✅ Push notification permission granted');
+      _debugPrint('✅ Push notification permission granted');
 
       // Initialize local notifications
       await _initializeLocalNotifications();
@@ -156,14 +165,14 @@ class DeviceRegistrationService {
 
       // Listen for token refresh first so we don't miss an early emission
       _messaging.onTokenRefresh.listen((newToken) {
-        debugPrint('🔄 FCM Token refreshed');
+        _debugPrint('🔄 FCM Token refreshed');
         registerDevice(newToken);
       });
 
       // iOS: wait briefly for APNs token to be assigned before requesting FCM token
       if (Platform.isIOS) {
         final apns = await _waitForApnsToken(timeoutMs: 10000);
-        debugPrint(
+        _debugPrint(
             '🍎 APNs Token ${apns != null ? "obtained" : "unavailable"}');
       }
 
@@ -172,7 +181,7 @@ class DeviceRegistrationService {
         String? token = await _messaging.getToken().timeout(
           const Duration(seconds: 5),
           onTimeout: () {
-            debugPrint('⚠️ FCM getToken timed out');
+            _debugPrint('⚠️ FCM getToken timed out');
             return null;
           },
         );
@@ -181,20 +190,20 @@ class DeviceRegistrationService {
           token = await _messaging.getToken().timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              debugPrint('⚠️ FCM getToken retry timed out');
+              _debugPrint('⚠️ FCM getToken retry timed out');
               return null;
             },
           );
         }
 
         if (token != null) {
-          debugPrint('📱 FCM Token obtained');
+          _debugPrint('📱 FCM Token obtained');
           await registerDevice(token);
         } else {
-          debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
+          _debugPrint('⚠️ FCM token is null; waiting for onTokenRefresh');
         }
       } catch (e) {
-        debugPrint('⚠️ getToken failed: $e');
+        _debugPrint('⚠️ getToken failed');
         // Rely on onTokenRefresh later
       }
 
@@ -212,10 +221,10 @@ class DeviceRegistrationService {
 
       _initialized = true;
     } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('❌ Push notification permission denied');
+      _debugPrint('❌ Push notification permission denied');
       _initialized = true; // Mark as initialized even if denied
     } else {
-      debugPrint('⚠️ Push notification permission not determined');
+      _debugPrint('⚠️ Push notification permission not determined');
       _initialized = true; // Mark as initialized even if not determined
     }
   }
@@ -306,12 +315,12 @@ class DeviceRegistrationService {
       if (lastToken == pushToken &&
           lastAt != null &&
           now.difference(lastAt) < const Duration(hours: 24)) {
-        debugPrint(
+        _debugPrint(
             '⏭️ Skipping device registration (cached, <24h, token unchanged)');
         return;
       }
 
-      debugPrint('📤 Registering device with backend...');
+      _debugPrint('📤 Registering device with backend...');
 
       final response = await _supabase.functions.invoke(
         'households-register-device',
@@ -324,17 +333,17 @@ class DeviceRegistrationService {
       );
 
       if (response.status == 200) {
-        debugPrint('✅ Device registered successfully');
+        _debugPrint('✅ Device registered successfully');
         await prefs.setString('${cachePrefix}token', pushToken);
         await prefs.setString(
             '${cachePrefix}registered_at', now.toIso8601String());
       } else {
-        debugPrint('❌ Device registration failed: ${response.status}');
+        _debugPrint('❌ Device registration failed');
       }
     } catch (e) {
       // Treat 409 "Device already registered" as a non-fatal, idempotent success
       if (e is FunctionException && e.status == 409) {
-        debugPrint(
+        _debugPrint(
             'ℹ️ Device already registered on backend (409), treating as success');
 
         try {
@@ -353,16 +362,13 @@ class DeviceRegistrationService {
         return;
       }
 
-      debugPrint('❌ Error registering device: $e');
+      _debugPrint('❌ Error registering device');
     }
   }
 
   /// Handle foreground messages (app is open)
   void _handleForegroundMessage(RemoteMessage message) {
-    debugPrint('📬 Foreground message received: ${message.messageId}');
-    debugPrint('📬 Title: ${message.notification?.title}');
-    debugPrint('📬 Body: ${message.notification?.body}');
-    debugPrint('📬 Data: ${message.data}');
+    _debugPrint('📬 Foreground message received');
 
     // Android: show local notification when app is in foreground
     // iOS already shows system banner via foreground presentation options
@@ -373,20 +379,19 @@ class DeviceRegistrationService {
 
   /// Handle background message opened (user tapped notification)
   void _handleBackgroundMessage(RemoteMessage message) {
-    debugPrint('🔔 Background message opened: ${message.messageId}');
-    debugPrint('🔔 Data: ${message.data}');
+    _debugPrint('🔔 Background message opened');
 
     // Handle navigation using deep link if provided
     final deepLink = message.data['deep_link'];
     if (deepLink != null && deepLink.isNotEmpty) {
-      debugPrint('🔗 Deep link found: $deepLink');
+      _debugPrint('🔗 Deep link found');
 
       // Wait a bit for app to be ready, then trigger deep link directly
       Future.delayed(const Duration(milliseconds: 500), () {
         if (DeepLinkContainer.deepLinkService != null &&
             DeepLinkContainer.ref != null) {
           final uri = Uri.parse(deepLink);
-          debugPrint('🚀 Triggering deep link directly: $deepLink');
+          _debugPrint('🚀 Triggering deep link directly');
           DeepLinkContainer.deepLinkService!
               .handleDeepLinkUri(uri, DeepLinkContainer.ref!);
         }
@@ -394,15 +399,14 @@ class DeviceRegistrationService {
     } else {
       // Fallback to legacy navigation
       final type = message.data['type'];
-      final householdId = message.data['household_id'];
 
       if (type == 'budget_warn' || type == 'budget_alert') {
         // Navigate to household overview
-        debugPrint('📊 Navigating to household: $householdId');
+        _debugPrint('📊 Navigating to household');
         // TODO: Implement navigation to household overview
       } else if (type == 'invite_accepted') {
         // Navigate to household members
-        debugPrint('👥 Navigating to household members: $householdId');
+        _debugPrint('👥 Navigating to household members');
         // TODO: Implement navigation to members page
       }
     }
@@ -478,7 +482,7 @@ class DeviceRegistrationService {
 
   /// Handle notification tap (for local notifications shown in foreground)
   void _onNotificationTapped(NotificationResponse response) {
-    debugPrint('🔔 Notification tapped: ${response.payload}');
+    _debugPrint('🔔 Notification tapped');
 
     // The payload contains the deep_link if available
     if (response.payload != null && response.payload!.isNotEmpty) {
@@ -486,10 +490,10 @@ class DeviceRegistrationService {
         // The payload is the message.data.toString(), we need to parse it
         // For now, we'll just log it - in production, you'd parse the map
         // and extract the deep_link field
-        debugPrint('📦 Payload: ${response.payload}');
+        _debugPrint('📦 Notification payload present');
         // TODO: Parse payload map and extract deep_link, then call _triggerDeepLink
       } catch (e) {
-        debugPrint('⚠️ Failed to parse notification payload: $e');
+        _debugPrint('⚠️ Failed to parse notification payload');
       }
     }
   }
@@ -511,16 +515,16 @@ class DeviceRegistrationService {
           final lastAt = DateTime.tryParse(lastAtIso);
           if (lastAt != null &&
               DateTime.now().difference(lastAt) < const Duration(days: 7)) {
-            debugPrint('✅ Device registration found in cache');
+            _debugPrint('✅ Device registration found in cache');
             return true;
           }
         }
       }
 
-      debugPrint('⚠️ No valid device registration found in cache');
+      _debugPrint('⚠️ No valid device registration found in cache');
       return false;
     } catch (e) {
-      debugPrint('❌ Error checking registration status: $e');
+      _debugPrint('❌ Error checking registration status');
       return false;
     }
   }
@@ -540,7 +544,7 @@ class DeviceRegistrationService {
     try {
       // If there's no session, just clear local cache and exit silently
       if (_supabase.auth.currentSession == null) {
-        debugPrint(
+        _debugPrint(
             '⚠️ No active session during unregister; skipping backend call');
       }
       // Get user ID before it's cleared by logout
@@ -557,7 +561,7 @@ class DeviceRegistrationService {
       }
 
       if (token != null && token.isNotEmpty) {
-        debugPrint('🗑️ Deleting device from backend...');
+        _debugPrint('🗑️ Deleting device from backend...');
 
         // Call Edge Function to DELETE device row (not just mark inactive)
         if (_supabase.auth.currentSession != null) {
@@ -571,15 +575,15 @@ class DeviceRegistrationService {
           );
 
           if (response.status == 200) {
-            debugPrint('✅ Device deleted from backend successfully');
+            _debugPrint('✅ Device deleted from backend successfully');
           } else {
-            debugPrint('⚠️ Device deletion failed: ${response.status}');
+            _debugPrint('⚠️ Device deletion failed');
           }
         } else {
-          debugPrint('⚠️ Skipping backend delete - session missing');
+          _debugPrint('⚠️ Skipping backend delete - session missing');
         }
       } else {
-        debugPrint('⚠️ No push token found to delete');
+        _debugPrint('⚠️ No push token found to delete');
       }
 
       // Always clear local cache, even if backend deletion fails
@@ -593,27 +597,27 @@ class DeviceRegistrationService {
         for (final k in keys.where((k) => k.startsWith('device_reg:'))) {
           await prefs.remove(k);
         }
-        debugPrint('✅ Local device cache cleared (all prefixes)');
+        _debugPrint('✅ Local device cache cleared (all prefixes)');
       } catch (e) {
-        debugPrint('⚠️ Failed to clear local device cache: $e');
+        _debugPrint('⚠️ Failed to clear local device cache');
       }
 
       // Force FCM to drop the current token so next login fetches a fresh one
       try {
         await _messaging.deleteToken();
-        debugPrint('🗑️ FCM token deleted locally');
+        _debugPrint('🗑️ FCM token deleted locally');
       } catch (e) {
-        debugPrint('⚠️ Failed to delete FCM token locally: $e');
+        _debugPrint('⚠️ Failed to delete FCM token locally');
       }
 
       // Ensure service can re-initialize cleanly on next login
       _initialized = false;
     } catch (e) {
       if (e is FunctionException && e.status == 401) {
-        debugPrint(
+        _debugPrint(
             '⚠️ Unregister skipped: session unauthorized (likely logged out)');
       } else {
-        debugPrint('❌ Error unregistering device: $e');
+        _debugPrint('❌ Error unregistering device');
       }
 
       // Still try to clear cache even if deletion failed
@@ -636,9 +640,9 @@ class DeviceRegistrationService {
   Future<void> clearAllNotifications() async {
     try {
       await _localNotifications.cancelAll();
-      debugPrint('🧹 Cleared all local notifications');
+      _debugPrint('🧹 Cleared all local notifications');
     } catch (e) {
-      debugPrint('⚠️ Failed to clear local notifications: $e');
+      _debugPrint('⚠️ Failed to clear local notifications');
     }
   }
 }

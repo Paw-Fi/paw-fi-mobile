@@ -19,6 +19,7 @@ import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -85,6 +86,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
+    final preferredTimezone = ref
+        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final householdScope = ref.watch(householdScopeProvider);
     // Exclude recurring templates from the transactions list.
     // Also copy to avoid mutating the base list when sorting.
@@ -99,7 +103,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         final projected = projectRecurringTransactionsAsExpenseEntries(
           recurringTransactions: recurringTxs,
           rangeStart: DateTime(2000),
-          rangeEnd: DateTime.now(),
+          rangeEnd: userNow,
           selectedCurrency: filterState.selectedCurrency,
         );
         expenses = [...expenses, ...projected];
@@ -170,6 +174,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         _selectedDateFilter,
         _customStart,
         _customEnd,
+        now: userNow,
       );
       final from = range['from']!;
       final to = range['to']!;
@@ -597,7 +602,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     DayTransactionGroup group,
     ColorScheme colorScheme,
   ) {
-    final now = DateTime.now();
+    final preferredTimezone = ref
+        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final now = effectiveNow(preferredTimezone: preferredTimezone);
     final date = group.date;
     String dateLabel;
 
@@ -624,14 +631,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     String? totalString;
     if (selectedCurrency != null) {
-      final totalFormatted =
-          formatLocalizedNumber(context, group.total.abs());
+      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
       final symbol = resolveCurrencySymbol(selectedCurrency);
       totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length == 1) {
       final currency = currencies.first;
-      final totalFormatted =
-          formatLocalizedNumber(context, group.total.abs());
+      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
       final symbol = resolveCurrencySymbol(currency);
       totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length > 1) {
@@ -756,7 +761,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         failCount = payload['failedCount'] as int? ?? 0;
       }
     } catch (e) {
-      debugPrint('Error deleting transactions: $e');
       failCount = _selectedIds.length;
     }
 
@@ -887,7 +891,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 final result = await showDateRangePicker(
                   context: context,
                   firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
+                  lastDate: effectiveNow(
+                    preferredTimezone:
+                        ref.read(analyticsProvider).contact?.preferredTimezone,
+                  ),
                   initialDateRange: _customStart != null && _customEnd != null
                       ? DateTimeRange(start: _customStart!, end: _customEnd!)
                       : null,
@@ -910,9 +917,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.card,
+                color: isSelected ? colorScheme.primary : colorScheme.card,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
@@ -1484,7 +1489,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,
                           showYouLabel: isYou,
-                          showRecurringChip: expense.id.startsWith('recurring_'),
+                          showRecurringChip:
+                              expense.id.startsWith('recurring_'),
                         ),
                       ),
                     ],

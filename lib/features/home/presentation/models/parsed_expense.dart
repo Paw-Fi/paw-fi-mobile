@@ -2,6 +2,7 @@
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 class ParsedExpense {
   // true = income, false = expense
@@ -33,6 +34,18 @@ class ParsedExpense {
   });
 
   factory ParsedExpense.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['date']?.toString();
+    final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
+    final parsedDateTime = DateTime.tryParse(rawDate ?? '');
+    final date = parsedDateOnly ??
+        (parsedDateTime != null
+            ? DateTime(
+                parsedDateTime.year,
+                parsedDateTime.month,
+                parsedDateTime.day,
+              )
+            : DateTime.now());
+
     return ParsedExpense(
       isIncome: (json['type']?.toString().toLowerCase() == 'income') ||
           (json['isIncome'] == true),
@@ -40,7 +53,7 @@ class ParsedExpense {
       category: normalizeCategory(json['category'] as String),
       currency: json['currency'] as String,
       currencySymbol: json['currencySymbol'] as String? ?? '\$',
-      date: DateTime.parse(json['date'] as String),
+      date: date,
       description: json['description'] is String
           ? sanitizeUtf16(json['description'] as String)
           : null,
@@ -66,7 +79,7 @@ class ParsedExpense {
       'category': category,
       'currency': currency,
       'currencySymbol': currencySymbol,
-      'date': date.toIso8601String().split('T')[0],
+      'date': formatDateOnlyYmd(date),
       'description': description,
       'breakdown': breakdown,
       'localImagePath': localImagePath,

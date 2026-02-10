@@ -433,9 +433,19 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     );
   }
 
-  void updatePreferredTimezone(String timezone) {
+  void updatePreferredTimezone(String? timezone) {
+    final contact = state.contact;
+    if (contact == null) return;
+
     state = state.copyWith(
-      contact: state.contact?.copyWith(preferredTimezone: timezone),
+      contact: UserContact(
+        id: contact.id,
+        userId: contact.userId,
+        phoneE164: contact.phoneE164,
+        verified: contact.verified,
+        preferredCurrency: contact.preferredCurrency,
+        preferredTimezone: timezone,
+      ),
     );
   }
 

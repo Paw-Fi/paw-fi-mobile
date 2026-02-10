@@ -9,6 +9,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 import 'package:intl/intl.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
@@ -661,7 +662,22 @@ class _TransactionsListCard extends StatelessWidget {
                 final index = entry.key;
                 final tx = entry.value;
                 final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
-                final date = DateTime.parse(tx['date']);
+                final rawDate = tx['date']?.toString();
+                final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
+                final parsedDate = DateTime.tryParse(rawDate ?? '');
+                final date = parsedDateOnly != null
+                    ? DateTime(
+                        parsedDateOnly.year,
+                        parsedDateOnly.month,
+                        parsedDateOnly.day,
+                      )
+                    : (parsedDate != null
+                        ? DateTime(
+                            parsedDate.year,
+                            parsedDate.month,
+                            parsedDate.day,
+                          )
+                        : DateTime.fromMillisecondsSinceEpoch(0));
                 final category = tx['category'] as String?;
                 final description = tx['description'] ?? context.l10n.expense;
                 final amountDisplay =

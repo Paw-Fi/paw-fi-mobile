@@ -2,11 +2,15 @@
 /// Represents a recurring income or expense transaction
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' as foundation;
+import 'package:moneko/core/utils/user_timezone.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
 
 void _debugLog(String message) {
-  if (kDebugMode) {
-    debugPrint(message);
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message);
   }
 }
 
@@ -52,8 +56,6 @@ class RecurringTransaction {
   });
 
   factory RecurringTransaction.fromJson(Map<String, dynamic> json) {
-    _debugLog('🔍 Parsing RecurringTransaction keys: ${json.keys.toList()}');
-
     // Infer type from source field (income) or default to expense
     // Backend doesn't always return 'type' field, so we need to infer it
     String inferredType;
@@ -67,29 +69,24 @@ class RecurringTransaction {
       inferredType = 'expense';
     }
 
-    _debugLog('🔍 Inferred type: $inferredType');
-
     // Parse recurrence_rule - handle both string and Map formats
     dynamic recurrenceRuleData =
         json['recurrenceRule'] ?? json['recurrence_rule'];
-    _debugLog('🔍 recurrenceRuleData type: ${recurrenceRuleData.runtimeType}');
 
     RecurrenceRule? parsedRecurrenceRule;
     if (recurrenceRuleData != null) {
       if (recurrenceRuleData is String) {
         // Backend returned JSONB as string - parse it first
-        _debugLog('🔍 Parsing recurrence_rule from string');
         try {
           final parsed = jsonDecode(recurrenceRuleData);
           if (parsed is Map<String, dynamic>) {
             parsedRecurrenceRule = RecurrenceRule.fromJson(parsed);
           }
         } catch (e) {
-          _debugLog('❌ Failed to parse recurrence_rule string');
+          _debugLog('Failed to parse recurrence rule string');
         }
       } else if (recurrenceRuleData is Map<String, dynamic>) {
         // Already a map, parse directly
-        _debugLog('🔍 Parsing recurrence_rule from Map');
         parsedRecurrenceRule = RecurrenceRule.fromJson(recurrenceRuleData);
       }
     }
@@ -101,10 +98,23 @@ class RecurringTransaction {
         amountCentsNum != null ? amountCentsNum.toDouble() / 100 : null;
     final amountLegacy = (json['amount'] as num?)?.toDouble();
 
+    DateTime parseDateOnly(dynamic value) {
+      final s = value?.toString();
+      final dateOnly = tryParseDateOnlyYmd(s);
+      if (dateOnly != null) {
+        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+      }
+      final parsed = DateTime.tryParse(s ?? '');
+      if (parsed != null) {
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
     return RecurringTransaction(
       id: json['id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String?,
-      date: DateTime.parse(json['date'] as String),
+      date: parseDateOnly(json['date']),
       category: json['category'] as String,
       description:
           json['description'] as String? ?? json['raw_text'] as String?,
@@ -137,48 +147,40 @@ class RecurringTransaction {
 
   /// Parse attachments from various formats (List, String, null)
   static List<Attachment> _parseAttachments(dynamic value) {
-    _debugLog('🔍 _parseAttachments type: ${value.runtimeType}');
-
     if (value == null) {
-      _debugLog('🔍 Attachments is null, returning empty list');
       return [];
     }
 
     if (value is String) {
-      _debugLog('🔍 Attachments is String');
       // Backend might return JSON string, parse it
       if (value.isEmpty || value == '[]') {
-        _debugLog('🔍 Empty string or "[]", returning empty list');
         return [];
       }
       try {
         final parsed = jsonDecode(value);
-        _debugLog('🔍 Parsed string to: ${parsed.runtimeType}');
         if (parsed is List) {
           return parsed
               .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
               .toList();
         }
       } catch (e) {
-        _debugLog('❌ Error parsing attachments string');
+        _debugLog('Error parsing attachments string');
         return [];
       }
       return [];
     }
 
     if (value is List) {
-      _debugLog('🔍 Attachments is List with ${value.length} items');
       try {
         return value
             .map((e) => Attachment.fromJson(e as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        _debugLog('❌ Error parsing attachments list');
+        _debugLog('Error parsing attachments list');
         return [];
       }
     }
 
-    _debugLog('⚠️ Attachments is unexpected type: ${value.runtimeType}');
     return [];
   }
 
@@ -257,7 +259,19 @@ class RecurringTransaction {
 
     final rule = recurrenceRule!; // Safe after null check
     final reference = from ?? DateTime.now();
-    final anchor = rule.anchorDate;
+
+    // Recurring schedules are calendar-based. In practice we've seen cases where
+    // `recurrence_rule.anchor_date` drifts from the intended calendar date due to
+    // timezone serialization/parsing differences (e.g. an ISO string with `Z`).
+    // The `expenses.date` field is a date-only value and often reflects the
+    // intended day more reliably.
+    //
+    // To prevent showing the next occurrence a day (or more) early, we pick the
+    // later of:
+    // - the date-only value from `recurrence_rule.anchor_date`
+    // - the date-only value from the row's `date` column
+    // while preserving the time-of-day from the recurrence anchor.
+    final ruleAnchor = rule.anchorDate;
 
     DateTime dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
@@ -276,13 +290,24 @@ class RecurringTransaction {
         year,
         month,
         day,
-        anchor.hour,
-        anchor.minute,
-        anchor.second,
-        anchor.millisecond,
-        anchor.microsecond,
+        ruleAnchor.hour,
+        ruleAnchor.minute,
+        ruleAnchor.second,
+        ruleAnchor.millisecond,
+        ruleAnchor.microsecond,
       );
     }
+
+    final anchorDayFromRule = dateOnly(ruleAnchor);
+    final anchorDayFromRowDate = dateOnly(date);
+    final pickedAnchorDay = anchorDayFromRowDate.isAfter(anchorDayFromRule)
+        ? anchorDayFromRowDate
+        : anchorDayFromRule;
+    final anchor = buildDatePreservingTime(
+      year: pickedAnchorDay.year,
+      month: pickedAnchorDay.month,
+      day: pickedAnchorDay.day,
+    );
 
     // If reference is before anchor, return anchor
     if (reference.isBefore(anchor)) {
@@ -445,7 +470,8 @@ class RecurrenceRule {
   final bool? reminderEnabled;
   final int? reminderValue;
   final String? reminderUnit;
-  final List<DateTime> excludedDates; // Dates to skip (for "delete this occurrence")
+  final List<DateTime>
+      excludedDates; // Dates to skip (for "delete this occurrence")
 
   RecurrenceRule({
     required this.frequency,
@@ -471,10 +497,9 @@ class RecurrenceRule {
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
       reminderUnit: reminder?['unit'] as String?,
-      excludedDates: excludedRaw
-              ?.map((e) => DateTime.parse(e as String))
-              .toList() ??
-          const [],
+      excludedDates:
+          excludedRaw?.map((e) => DateTime.parse(e as String)).toList() ??
+              const [],
     );
   }
 

@@ -4,7 +4,10 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/state.dart'
+    show analyticsProvider;
 import 'package:moneko/core/utils/date_formatter.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
@@ -64,6 +67,11 @@ class RecurringTransactionCard extends ConsumerWidget {
     final hasDescription = description != null && description.isNotEmpty;
     final localizedCategory =
         getCategoryTranslation(context, transaction.category);
+
+    final preferredTimezone = ref
+        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+    final nextOccurrence = transaction.getNextOccurrence(userNow);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -147,8 +155,7 @@ class RecurringTransactionCard extends ConsumerWidget {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        formatLocalizedDate(
-                            context, transaction.getNextOccurrence()),
+                        formatLocalizedDate(context, nextOccurrence),
                         style: TextStyle(
                           color: colorScheme.mutedForeground,
                           fontSize: 12,

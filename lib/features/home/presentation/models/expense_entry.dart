@@ -1,5 +1,6 @@
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 String? _sanitizeNullable(String? value) =>
     value == null ? null : sanitizeUtf16(value);
@@ -59,12 +60,28 @@ class ExpenseEntry {
     String stringOrEmpty(dynamic value) =>
         value == null ? '' : value.toString();
 
-    DateTime parseDate(dynamic value) {
+    DateTime parseDateOnly(dynamic value) {
       final s = value?.toString();
       if (s == null || s.isEmpty) {
         return DateTime.fromMillisecondsSinceEpoch(0);
       }
-      return DateTime.parse(s);
+      final dateOnly = tryParseDateOnlyYmd(s);
+      if (dateOnly != null) {
+        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
+      }
+      final parsed = DateTime.tryParse(s);
+      if (parsed != null) {
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    DateTime parseInstant(dynamic value) {
+      final s = value?.toString();
+      if (s == null || s.isEmpty) {
+        return DateTime.fromMillisecondsSinceEpoch(0);
+      }
+      return DateTime.tryParse(s) ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     int parseAmountCents(dynamic value) {
@@ -84,13 +101,13 @@ class ExpenseEntry {
       userName: _sanitizeNullable(userData?['full_name'] as String?),
       userAvatarUrl: userData?['avatar_url'] as String?,
       householdId: json['household_id'] as String?,
-      date: parseDate(json['date']),
+      date: parseDateOnly(json['date']),
       amountCents: parseAmountCents(json['amount_cents']),
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
       category: _sanitizeNullable(json['category'] as String?),
-      createdAt: parseDate(json['created_at']),
+      createdAt: parseInstant(json['created_at']),
       updatedAt:
-          json['updated_at'] != null ? parseDate(json['updated_at']) : null,
+          json['updated_at'] != null ? parseInstant(json['updated_at']) : null,
       rawText: _sanitizeNullable(json['raw_text'] as String?),
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)

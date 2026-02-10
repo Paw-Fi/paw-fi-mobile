@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter/foundation.dart' as foundation;
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -8,7 +9,6 @@ import 'package:moneko/features/recurring/presentation/widgets/recurring_transac
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -21,6 +21,16 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Modern recurring transactions page with Apple-inspired design
 /// Features tabbed interface for expenses and income
@@ -107,35 +117,36 @@ class _RecurringTransactionsPageState
       ActiveAccountType.household => householdScope.selectedHouseholdId,
     };
 
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    debugPrint('🏠 [RecurringPage] BUILD');
-    debugPrint('   IsHouseholdView: ${householdScope.isHouseholdView}');
-    debugPrint('   IsPersonalView: ${householdScope.isPersonalView}');
-    debugPrint('   IsPortfolioSelected: ${householdScope.isPortfolioSelected}');
-    debugPrint('   HouseholdId: $householdId');
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    _debugPrint('🏠 [RecurringPage] BUILD');
+    _debugPrint('   IsHouseholdView: ${householdScope.isHouseholdView}');
+    _debugPrint('   IsPersonalView: ${householdScope.isPersonalView}');
+    _debugPrint(
+        '   IsPortfolioSelected: ${householdScope.isPortfolioSelected}');
+    _debugPrint('   HouseholdId: $householdId');
+    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Ensure data is loaded for this scope
     final state = ref.watch(recurringTransactionsProvider(householdId));
 
-    debugPrint('📊 [RecurringPage] Provider State:');
-    debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
-    debugPrint('   IsLoading: ${state.data.isLoading}');
-    debugPrint('   HasValue: ${state.data.hasValue}');
-    debugPrint('   HasError: ${state.data.hasError}');
+    _debugPrint('📊 [RecurringPage] Provider State:');
+    _debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
+    _debugPrint('   IsLoading: ${state.data.isLoading}');
+    _debugPrint('   HasValue: ${state.data.hasValue}');
+    _debugPrint('   HasError: ${state.data.hasError}');
     if (state.data.hasValue) {
-      debugPrint('   Data count: ${state.data.value?.length ?? 0}');
+      _debugPrint('   Data count: ${state.data.value?.length ?? 0}');
     }
 
     if (user != null && !state.hasLoadedOnce && !state.data.isLoading) {
-      debugPrint('🚀 [RecurringPage] Triggering initial load...');
+      _debugPrint('🚀 [RecurringPage] Triggering initial load...');
       Future.microtask(() {
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .loadRecurringTransactions(user.id);
       });
     } else {
-      debugPrint(
+      _debugPrint(
           '⏭️  [RecurringPage] Not triggering load (hasLoadedOnce=${state.hasLoadedOnce}, isLoading=${state.data.isLoading})');
     }
 
@@ -144,6 +155,9 @@ class _RecurringTransactionsPageState
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
+    final preferredTimezone = ref
+        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
     if (currentTabIndex == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -170,6 +184,7 @@ class _RecurringTransactionsPageState
                     colorScheme,
                     selectedCurrency,
                     householdId,
+                    userNow,
                   ),
                   householdId,
                   recurringExpenses.isLoading,
@@ -181,6 +196,7 @@ class _RecurringTransactionsPageState
                     colorScheme,
                     selectedCurrency,
                     householdId,
+                    userNow,
                   ),
                   householdId,
                   recurringIncomes.isLoading,
@@ -235,6 +251,7 @@ class _RecurringTransactionsPageState
     ColorScheme colorScheme,
     String? selectedCurrency,
     String? householdId,
+    DateTime userNow,
   ) {
     return recurringExpenses.when(
       data: (expenses) {
@@ -260,6 +277,7 @@ class _RecurringTransactionsPageState
         final fakeExpenses = _buildFakeRecurringTransactions(
           isIncome: false,
           currency: currency,
+          now: userNow,
         );
 
         return _buildTransactionsListSliver(
@@ -280,6 +298,7 @@ class _RecurringTransactionsPageState
     ColorScheme colorScheme,
     String? selectedCurrency,
     String? householdId,
+    DateTime userNow,
   ) {
     return recurringIncomes.when(
       data: (incomes) {
@@ -305,6 +324,7 @@ class _RecurringTransactionsPageState
         final fakeIncomes = _buildFakeRecurringTransactions(
           isIncome: true,
           currency: currency,
+          now: userNow,
         );
 
         return _buildTransactionsListSliver(
@@ -431,9 +451,8 @@ class _RecurringTransactionsPageState
   List<RecurringTransaction> _buildFakeRecurringTransactions({
     required bool isIncome,
     required String currency,
+    required DateTime now,
   }) {
-    final now = DateTime.now();
-
     return [
       RecurringTransaction(
         id: isIncome ? 'fake-income-1' : 'fake-expense-1',
@@ -510,9 +529,9 @@ class _RecurringTransactionsPageState
 
   Future<void> _deleteTransaction(
       RecurringTransaction transaction, String? householdId) async {
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    debugPrint('🗑️ [RecurringPage] Delete tapped');
-    debugPrint(
+    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    _debugPrint('🗑️ [RecurringPage] Delete tapped');
+    _debugPrint(
         '   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
 
     final result = await MonekoAlertDialog.show(
@@ -526,21 +545,20 @@ class _RecurringTransactionsPageState
       barrierDismissible: true,
     );
 
-    if (result == null ||
-        result.action == MonekoAlertDialogAction.cancel) {
-      debugPrint('⏭️  [RecurringPage] Delete cancelled');
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    if (result == null || result.action == MonekoAlertDialogAction.cancel) {
+      _debugPrint('⏭️  [RecurringPage] Delete cancelled');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) {
-      debugPrint('⚠️  [RecurringPage] Delete aborted: user is empty');
+      _debugPrint('⚠️  [RecurringPage] Delete aborted: user is empty');
       if (mounted) {
         final l10n = context.l10n;
         AppToast.error(context, l10n.userNotAuthenticated);
       }
-      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
@@ -554,13 +572,14 @@ class _RecurringTransactionsPageState
       dialogOpen = false;
     }
 
-    final isSkipOccurrence =
-        result.action == MonekoAlertDialogAction.secondary;
+    final isSkipOccurrence = result.action == MonekoAlertDialogAction.secondary;
 
     // Show loading dialog
     showBlockingProcessingDialog(
       context: toastContext,
-      message: isSkipOccurrence ? '${l10n.skipNextOccurrence}...' : '${l10n.delete}...',
+      message: isSkipOccurrence
+          ? '${l10n.skipNextOccurrence}...'
+          : '${l10n.delete}...',
     );
     dialogOpen = true;
 
@@ -572,7 +591,10 @@ class _RecurringTransactionsPageState
 
       if (isSkipOccurrence) {
         // Compute the next occurrence date to skip
-        final nextDate = transaction.getNextOccurrence();
+        final preferredTimezone =
+            ref.read(analyticsProvider).contact?.preferredTimezone;
+        final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+        final nextDate = transaction.getNextOccurrence(userNow);
         operationResult = await notifier.skipOccurrence(
           user.uid,
           transaction.id,
@@ -614,7 +636,7 @@ class _RecurringTransactionsPageState
       closeDialog();
     }
 
-    debugPrint('✅ [RecurringPage] Delete operation completed');
-    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    _debugPrint('✅ [RecurringPage] Delete operation completed');
+    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 }

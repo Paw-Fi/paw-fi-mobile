@@ -1,5 +1,6 @@
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 /// Lightweight view model for newly synced transactions coming from Plaid sync.
 class SyncedTransaction {
@@ -25,6 +26,9 @@ List<SyncedTransaction> parseSyncedTransactions(dynamic payload) {
 
   return rawList.map((item) {
     final map = item as Map<String, dynamic>;
+    final rawDate = map['date']?.toString();
+    final dateOnly = tryParseDateOnlyYmd(rawDate);
+    final parsedDate = DateTime.tryParse(rawDate ?? '');
     final expense = ExpenseEntry(
       id: map['id'] as String,
       contactId: map['contact_id'] as String?,
@@ -32,7 +36,11 @@ List<SyncedTransaction> parseSyncedTransactions(dynamic payload) {
       userName: null,
       userAvatarUrl: null,
       householdId: map['household_id'] as String?,
-      date: DateTime.parse(map['date'] as String),
+      date: dateOnly != null
+          ? DateTime(dateOnly.year, dateOnly.month, dateOnly.day)
+          : (parsedDate != null
+              ? DateTime(parsedDate.year, parsedDate.month, parsedDate.day)
+              : DateTime.fromMillisecondsSinceEpoch(0)),
       amountCents: (map['amount_cents'] as num).toInt(),
       currency: canonicalizeCurrencyCode(map['currency'] as String?),
       category: map['category'] as String?,

@@ -16,18 +16,25 @@ import 'package:moneko/firebase_options.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/app/startup_guard.dart';
 import 'package:moneko/core/app/flutter_error_reporter.dart';
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message, {int? wrapWidth}) {
+  if (foundation.kDebugMode && _enableDebugLogs) {
+    foundation.debugPrint(message, wrapWidth: wrapWidth);
+  }
+}
 
 /// Top-level background message handler for Firebase Cloud Messaging
 /// Must be a top-level function for iOS background execution
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('[FCM] Background message received: ${message.messageId}');
-  debugPrint('[FCM] Title: ${message.notification?.title}');
-  debugPrint('[FCM] Body: ${message.notification?.body}');
-  debugPrint('[FCM] Data: ${message.data}');
+  _debugPrint('[FCM] Background message received');
 
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -206,8 +213,7 @@ void main() {
         FirebaseCrashlytics.instance.log('startup: supabase_initialized');
       }
     } catch (e, s) {
-      debugPrint('[ERR] initApp failed: $e');
-      debugPrint(s.toString());
+      _debugPrint('[ERR] initApp failed');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance
             .recordError(e, s, reason: 'initApp failed', fatal: false);
@@ -222,7 +228,7 @@ void main() {
       intl.Intl.defaultLocale = localeName;
       await initializeDateFormatting(localeName, null);
     } catch (e, s) {
-      debugPrint('[ERR] initializeDateFormatting failed for $localeName: $e');
+      _debugPrint('[ERR] initializeDateFormatting failed');
       if (!kIsWeb) {
         FirebaseCrashlytics.instance.recordError(
           e,
@@ -247,7 +253,7 @@ void main() {
         return SharedPreferences.getInstance();
       },
       onError: (error, stack) {
-        debugPrint('[ERR] SharedPreferences init failed: $error');
+        _debugPrint('[ERR] SharedPreferences init failed');
         if (!kIsWeb) {
           try {
             FirebaseCrashlytics.instance.recordError(
