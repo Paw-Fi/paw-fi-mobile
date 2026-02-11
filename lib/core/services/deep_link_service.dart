@@ -9,6 +9,8 @@ import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
+import 'package:moneko/features/settings/presentation/widgets/telegram_verification_modal.dart';
+import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
@@ -301,6 +303,40 @@ class DeepLinkService {
 
         _debugPrint('📱 Showing verification modal...');
         _showVerificationModal(delayedContext, otp, ref);
+      });
+      return;
+    }
+
+    // Handle Telegram verification: moneko://verify-telegram?otp=123456
+    if (DeepLinks.isTelegramVerification(uri)) {
+      final otp = uri.queryParameters['otp'];
+      debugPrint('📱 Telegram verification callback received');
+
+      final navigatorContext = rootNavigatorKey.currentContext;
+
+      if (navigatorContext == null) {
+        debugPrint('⚠️ Navigator context is null, waiting...');
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          final retryContext = rootNavigatorKey.currentContext;
+          if (retryContext != null && retryContext.mounted) {
+            debugPrint('📱 Got context on retry, showing Telegram modal...');
+            _showTelegramVerificationModal(retryContext, otp, ref);
+          } else {
+            debugPrint('❌ Still no context after retry');
+          }
+        });
+        return;
+      }
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final delayedContext = rootNavigatorKey.currentContext;
+        if (delayedContext == null || !delayedContext.mounted) {
+          debugPrint('⚠️ Context lost after delay');
+          return;
+        }
+
+        debugPrint('📱 Showing Telegram verification modal...');
+        _showTelegramVerificationModal(delayedContext, otp, ref);
       });
       return;
     }
@@ -617,6 +653,19 @@ class DeepLinkService {
 
         // Show success message
         AppToast.success(context, context.l10n.whatsappVerifiedSuccessfully);
+      },
+    );
+  }
+
+  void _showTelegramVerificationModal(
+      BuildContext context, String? otp, WidgetRef ref) {
+    showTelegramVerificationModal(
+      context,
+      otpFromUrl: otp,
+      onVerificationSuccess: () {
+        debugPrint('✅ Telegram verification success callback triggered');
+        ref.read(telegramBindingProvider.notifier).setVerified();
+        AppToast.success(context, context.l10n.telegramVerifiedSuccessfully);
       },
     );
   }
