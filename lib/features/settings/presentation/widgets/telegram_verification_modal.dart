@@ -23,6 +23,7 @@ class TelegramVerificationModal extends StatefulWidget {
 class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
   String _code = '';
   bool _isLoading = false;
+  bool _isAutoVerifying = false;
   bool _isVerified = false;
   String? _errorMessage;
 
@@ -33,12 +34,12 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
     if (widget.otpFromUrl != null && widget.otpFromUrl!.length == 6) {
       _code = widget.otpFromUrl!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _verifyCode();
+        _verifyCode(isAuto: true);
       });
     }
   }
 
-  Future<void> _verifyCode() async {
+  Future<void> _verifyCode({bool isAuto = false}) async {
     if (_code.trim().isEmpty || _code.length != 6) {
       setState(() {
         _errorMessage = context.l10n.pleaseEnterThe6DigitVerificationCode;
@@ -48,6 +49,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
 
     setState(() {
       _isLoading = true;
+      _isAutoVerifying = isAuto;
       _errorMessage = null;
     });
 
@@ -67,6 +69,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
         setState(() {
           _errorMessage = errorMessage;
           _isLoading = false;
+          _isAutoVerifying = false;
         });
         return;
       }
@@ -76,6 +79,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
           _isVerified = true;
           _errorMessage = null;
           _isLoading = false;
+          _isAutoVerifying = false;
         });
         widget.onVerificationSuccess?.call();
       } else {
@@ -83,6 +87,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
           _errorMessage =
               data['error'] as String? ?? context.l10n.invalidVerificationCode;
           _isLoading = false;
+          _isAutoVerifying = false;
         });
       }
     } catch (e) {
@@ -92,6 +97,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
       setState(() {
         _errorMessage = context.l10n.failedToVerifyCodePleaseTryAgain;
         _isLoading = false;
+        _isAutoVerifying = false;
       });
     }
   }
@@ -158,7 +164,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
             )
           else
             Text(
-              widget.otpFromUrl != null
+              _isAutoVerifying
                   ? context.l10n.verifyingYourTelegram
                   : context.l10n.enterThe6DigitCodeFromTelegram,
               style: TextStyle(
@@ -170,7 +176,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
           if (!_isVerified) ...[
             Center(
               child: AbsorbPointer(
-                absorbing: _isLoading || widget.otpFromUrl != null,
+                absorbing: _isLoading,
                 child: OtpInput(
                   length: 6,
                   initialValue: _code,
@@ -237,7 +243,7 @@ class _TelegramVerificationModalState extends State<TelegramVerificationModal> {
             const SizedBox(height: 24),
             if (!_isLoading)
               PrimaryAdaptiveButton(
-                onPressed: _code.length == 6 ? _verifyCode : null,
+                onPressed: _code.length == 6 ? () => _verifyCode() : null,
                 child: Text(context.l10n.verify),
               )
             else

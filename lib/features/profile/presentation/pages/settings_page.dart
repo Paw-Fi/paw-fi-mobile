@@ -737,7 +737,7 @@ class SettingsPage extends HookConsumerWidget {
                         BlendMode.srcIn,
                       ),
                     ),
-                    label: 'Connect Telegram',
+                    label: context.l10n.connectTelegram,
                     value:
                         ref.watch(telegramBindingProvider).asData?.value == true
                             ? context.l10n.activeStatus
