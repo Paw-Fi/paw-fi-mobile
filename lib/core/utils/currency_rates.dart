@@ -58,6 +58,7 @@ class CurrencyRates {
     'ZAR': 16.069211,
     'MMK': 2104.444036,
     'JOD': 0.709,
+    'SYP': 13000.0,
   };
 
   /// Converts an [amount] from [fromCurrency] to [toCurrency].

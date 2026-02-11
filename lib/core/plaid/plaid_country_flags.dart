@@ -82,6 +82,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'TW': 'TWD',
     'MM': 'MMK',
     'JO': 'JOD',
+    'SY': 'SYP',
 
     // Africa & Middle East
     'NG': 'NGN',

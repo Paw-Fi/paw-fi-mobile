@@ -53,6 +53,7 @@ const Map<String, String> currencyOptions = {
   'ZAR': 'R',
   'MMK': 'Ks',
   'JOD': 'د.أ',
+  'SYP': '£S',
 };
 
 const String _defaultCurrencySymbol = r'$';
@@ -88,6 +89,7 @@ String? canonicalizeCurrencyCode(String? code) {
     'J\$': 'JMD',
     // Malawi Kwacha
     'MK': 'MWK',
+    '£S': 'SYP',
   };
 
   if (aliases.containsKey(raw)) {

@@ -57,6 +57,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'HUF': 'hungary',
     'MMK': 'myanmar',
     'JOD': 'jordan',
+    'SYP': 'syria',
   };
 
   final flagName = flagMap[code];
