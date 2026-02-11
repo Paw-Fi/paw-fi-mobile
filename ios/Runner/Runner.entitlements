@@ -17,5 +17,9 @@
 	<array>
 		<string>group.moneko.mobile</string>
 	</array>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)group.moneko.mobile</string>
+	</array>
 </dict>
 </plist>

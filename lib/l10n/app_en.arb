@@ -2088,5 +2088,14 @@
   "unableToProcessRecording": "Unable to process recording: {error}",
   "releaseToCancel": "Release to cancel",
   "slideRightToCancel": "Slide right to cancel",
-  "telegramConnected": "Telegram Connected"
+  "telegramConnected": "Telegram Connected",
+  "siriShortcuts": "Siri Shortcuts",
+  "siriShortcutsDescription": "Use Siri to log expenses without opening the app. Example: \"Log expense with Moneko, 12 dollars lunch.\"",
+  "siriShortcutsOpenShortcuts": "Open Shortcuts",
+  "siriShortcutsReady": "Ready",
+  "siriShortcutsNeedsRefresh": "Needs refresh",
+  "siriShortcutsSetupRequired": "Setup required",
+  "siriShortcutsChecking": "Checking...",
+  "siriShortcutsSyncFailed": "Failed to sync Siri setup",
+  "siriShortcutsOpenFailed": "Could not open Shortcuts app"
 }

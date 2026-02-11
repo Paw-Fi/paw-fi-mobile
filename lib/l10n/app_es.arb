@@ -2071,5 +2071,14 @@
   "unableToProcessRecording": "No se pudo procesar la grabación: {error}",
   "releaseToCancel": "Suelta para cancelar",
   "slideRightToCancel": "Desliza a la derecha para cancelar",
-  "telegramConnected": "Telegram conectado"
+  "telegramConnected": "Telegram conectado",
+  "siriShortcuts": "Atajos de Siri",
+  "siriShortcutsDescription": "Usa Siri para registrar gastos sin abrir la app. Ejemplo: \"Registra un gasto con Moneko, 12 dólares almuerzo\".",
+  "siriShortcutsOpenShortcuts": "Abrir Atajos",
+  "siriShortcutsReady": "Listo",
+  "siriShortcutsNeedsRefresh": "Actualización necesaria",
+  "siriShortcutsSetupRequired": "Configuración necesaria",
+  "siriShortcutsChecking": "Comprobando...",
+  "siriShortcutsSyncFailed": "Error al sincronizar la configuración de Siri",
+  "siriShortcutsOpenFailed": "No se pudo abrir la app Atajos"
 }

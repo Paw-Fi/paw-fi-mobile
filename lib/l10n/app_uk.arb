@@ -2061,5 +2061,14 @@
   "unableToProcessRecording": "Не вдалося обробити запис: {error}",
   "releaseToCancel": "Відпустіть, щоб скасувати",
   "slideRightToCancel": "Проведіть праворуч, щоб скасувати",
-  "telegramConnected": "Telegram підключено"
+  "telegramConnected": "Telegram підключено",
+  "siriShortcuts": "Швидкі команди Siri",
+  "siriShortcutsDescription": "Використовуйте Siri, щоб записувати витрати, не відкриваючи додаток. Приклад: «Запиши витрату в Moneko: обід 200 гривень».",
+  "siriShortcutsOpenShortcuts": "Відкрити Команди",
+  "siriShortcutsReady": "Готово",
+  "siriShortcutsNeedsRefresh": "Потрібно оновити",
+  "siriShortcutsSetupRequired": "Потрібне налаштування",
+  "siriShortcutsChecking": "Перевірка...",
+  "siriShortcutsSyncFailed": "Не вдалося синхронізувати налаштування Siri",
+  "siriShortcutsOpenFailed": "Не вдалося відкрити додаток «Команди»"
 }

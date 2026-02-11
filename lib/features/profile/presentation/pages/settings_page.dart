@@ -50,6 +50,8 @@ import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
+import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/util/constants.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
@@ -84,6 +86,13 @@ class SettingsPage extends HookConsumerWidget {
     final holdQuickAction =
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
+    final siriStatusReloadKey = useState(0);
+    final siriShortcutStatus = useFuture(
+      useMemoized(
+        () => SiriShortcutAuthService.instance.getStatus(),
+        [authState.uid, siriStatusReloadKey.value],
+      ),
+    );
     final nameReloadKey = useState(0);
     final deviceTimezone = _currentDeviceTimezone();
     final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
@@ -175,6 +184,98 @@ class SettingsPage extends HookConsumerWidget {
           AppToast.error(context, context.l10n.appIconBadgeClearFailed);
         }
       }
+    }
+
+    Future<void> syncSiriShortcutAuthContextNow() async {
+      final session = Supabase.instance.client.auth.currentSession;
+      try {
+        await SiriShortcutAuthService.instance.syncAuthContext(
+          supabaseUrl: Constants.supabaseUrl,
+          supabaseAnonKey: Constants.supabaseAnon,
+          accessToken: session?.accessToken,
+          refreshToken: session?.refreshToken,
+          userId: session?.user.id,
+          expiresAt: session?.expiresAt,
+        );
+        siriStatusReloadKey.value++;
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(
+              context, '${context.l10n.siriShortcutsSyncFailed}: $error');
+        }
+      }
+    }
+
+    Future<void> handleSiriIntegrationDebugTest() async {
+      try {
+        await syncSiriShortcutAuthContextNow();
+        final status = await SiriShortcutAuthService.instance.getStatus();
+        if (!context.mounted) return;
+
+        final isReady = status['isReady'] == true;
+        if (isReady) {
+          AppToast.success(context, 'Siri integration test passed');
+        } else {
+          AppToast.info(context, 'Siri integration test failed');
+        }
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, 'Siri integration test failed: $error');
+        }
+      }
+    }
+
+    Future<void> handleSiriShortcutSetup() async {
+      await syncSiriShortcutAuthContextNow();
+      if (!context.mounted) return;
+
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: context.l10n.siriShortcuts,
+        description: context.l10n.siriShortcutsDescription,
+        confirmLabel: context.l10n.siriShortcutsOpenShortcuts,
+        cancelLabel: context.l10n.cancel,
+      );
+
+      if (result?.confirmed != true || !context.mounted) {
+        return;
+      }
+
+      try {
+        final launched = await launchUrl(
+          Uri.parse('shortcuts://'),
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched && context.mounted) {
+          AppToast.error(context, context.l10n.siriShortcutsOpenFailed);
+        }
+      } catch (_) {
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.siriShortcutsOpenFailed);
+        }
+      }
+    }
+
+    String resolveSiriShortcutStatusText() {
+      final status = siriShortcutStatus.data;
+      if (status == null) {
+        return siriShortcutStatus.hasError
+            ? context.l10n.siriShortcutsSetupRequired
+            : context.l10n.siriShortcutsChecking;
+      }
+
+      final isReady = status['isReady'] == true;
+      final hasCredentials = status['hasCredentials'] == true;
+      final hasSupabaseConfig = status['hasSupabaseConfig'] == true;
+
+      if (isReady) return context.l10n.siriShortcutsReady;
+      if (hasSupabaseConfig && hasCredentials) {
+        return context.l10n.siriShortcutsReady;
+      }
+      if (hasSupabaseConfig || hasCredentials) {
+        return context.l10n.siriShortcutsNeedsRefresh;
+      }
+      return context.l10n.siriShortcutsSetupRequired;
     }
 
     Future<void> launchIntegrationUrl(
@@ -280,8 +381,7 @@ class SettingsPage extends HookConsumerWidget {
       final confirmation = await MonekoAlertDialog.show(
         context: context,
         title: l10n.settingsDeleteAccountTitle,
-        description:
-           l10n.settingsDeleteAccountDescription ,
+        description: l10n.settingsDeleteAccountDescription,
         confirmLabel: l10n.settingsDeleteAccountButton,
         cancelLabel: l10n.cancel,
         isDestructive: true,
@@ -747,6 +847,18 @@ class SettingsPage extends HookConsumerWidget {
 
                 // Integrations
                 _SettingsGroup(title: context.l10n.integrations, children: [
+                  _SettingsTile(
+                    icon: Icons.mic_rounded,
+                    label: context.l10n.siriShortcuts,
+                    value: resolveSiriShortcutStatusText(),
+                    onTap: Platform.isIOS ? handleSiriShortcutSetup : null,
+                  ),
+                  if (kDebugMode && Platform.isIOS)
+                    _SettingsTile(
+                      icon: Icons.bug_report_rounded,
+                      label: 'Test Siri Integration',
+                      onTap: handleSiriIntegrationDebugTest,
+                    ),
                   _SettingsTile(
                     icon: Icons.upload_file_rounded,
                     label: context.l10n.importData,

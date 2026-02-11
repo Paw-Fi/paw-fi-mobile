@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:async';
 import 'dart:io';
 
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 
 part 'auth.g.dart';
 
@@ -20,6 +21,7 @@ class Auth extends _$Auth {
   AppUser build() {
     initListener();
     final user = AppUser.fromSession(supabase.auth.currentSession);
+    unawaited(_syncSiriShortcutAuthContext(supabase.auth.currentSession));
     // Set Crashlytics user identifier for initial state as well
     try {
       final uid = user.uid;
@@ -42,6 +44,8 @@ class Auth extends _$Auth {
 
       final event = data.event;
       final session = data.session;
+
+      unawaited(_syncSiriShortcutAuthContext(session));
 
       // Set Crashlytics user identifier for better correlation
       try {
@@ -92,6 +96,35 @@ class Auth extends _$Auth {
         } catch (_) {}
       }
     });
+  }
+
+  Future<void> _syncSiriShortcutAuthContext(Session? session) async {
+    try {
+      if (Constants.supabaseUrl.isEmpty || Constants.supabaseAnon.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+      }
+
+      if (Constants.supabaseUrl.isEmpty || Constants.supabaseAnon.isEmpty) {
+        return;
+      }
+
+      await SiriShortcutAuthService.instance.syncAuthContext(
+        supabaseUrl: Constants.supabaseUrl,
+        supabaseAnonKey: Constants.supabaseAnon,
+        accessToken: session?.accessToken,
+        refreshToken: session?.refreshToken,
+        userId: session?.user.id,
+        expiresAt: session?.expiresAt,
+      );
+    } on MissingPluginException {
+      return;
+    } catch (error) {
+      appLog(
+        'Failed to sync Siri shortcut auth context: $error',
+        name: 'Auth',
+        error: error,
+      );
+    }
   }
 
   bool _isRefreshTokenNotFound(Object error) {
@@ -154,8 +187,9 @@ class Auth extends _$Auth {
       walletAddress ??= user.userMetadata?['wallet_address']?.toString();
       chain ??= user.userMetadata?['chain']?.toString();
 
-      if (walletAddress == null || walletAddress.isEmpty)
+      if (walletAddress == null || walletAddress.isEmpty) {
         return; // Not a Web3 login
+      }
 
       // If no name set, use wallet address as display name
       final hasName = (user.userMetadata?['full_name']
@@ -318,6 +352,7 @@ class Auth extends _$Auth {
       } catch (_) {}
 
       await supabase.auth.signOut();
+      await SiriShortcutAuthService.instance.clearAuthContext();
     } on AuthException catch (error, stackTrace) {
       appLog('Sign out error: ${error.message}',
           name: 'Auth', error: error, stackTrace: stackTrace);

@@ -2015,5 +2015,14 @@
   "unableToProcessRecording": "ریکارڈنگ پروسیس کرنے میں ناکام: {error}",
   "releaseToCancel": "منسوخ کرنے کے لیے چھوڑ دیں",
   "slideRightToCancel": "منسوخ کرنے کے لیے دائیں سلائیڈ کریں",
-  "telegramConnected": "ٹیلی گرام منسلک"
+  "telegramConnected": "ٹیلی گرام منسلک",
+  "siriShortcuts": "Siri شارٹ کٹس",
+  "siriShortcutsDescription": "ایپ کھولے بغیر اخراجات درج کرنے کے لیے Siri کا استعمال کریں۔ مثال: \"Moneko کے ساتھ خرچہ لاگ کریں، 12 ڈالر لنچ۔\"",
+  "siriShortcutsOpenShortcuts": "شارٹ کٹس کھولیں",
+  "siriShortcutsReady": "تیار",
+  "siriShortcutsNeedsRefresh": "ریفریش کی ضرورت ہے",
+  "siriShortcutsSetupRequired": "سیٹ اپ ضروری ہے",
+  "siriShortcutsChecking": "چیک کیا جا رہا ہے...",
+  "siriShortcutsSyncFailed": "Siri سیٹ اپ سنک کرنے میں ناکام",
+  "siriShortcutsOpenFailed": "شارٹ کٹس ایپ نہیں کھل سکی"
 }

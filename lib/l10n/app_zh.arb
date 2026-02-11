@@ -2065,5 +2065,14 @@
   "unableToProcessRecording": "无法处理录音：{error}",
   "releaseToCancel": "松开取消",
   "slideRightToCancel": "向右滑动取消",
-  "telegramConnected": "Telegram 已连接"
+  "telegramConnected": "Telegram 已连接",
+  "siriShortcuts": "Siri 快捷指令",
+  "siriShortcutsDescription": "无需打开 App，直接用 Siri 记账。例如：“用 Moneko 记录，午餐 12 元。”",
+  "siriShortcutsOpenShortcuts": "打开快捷指令",
+  "siriShortcutsReady": "已就绪",
+  "siriShortcutsNeedsRefresh": "需要刷新",
+  "siriShortcutsSetupRequired": "需要设置",
+  "siriShortcutsChecking": "正在检查...",
+  "siriShortcutsSyncFailed": "无法同步 Siri 设置",
+  "siriShortcutsOpenFailed": "无法打开快捷指令 App"
 }

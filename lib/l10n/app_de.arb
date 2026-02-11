@@ -2069,5 +2069,14 @@
   "unableToProcessRecording": "Aufnahme konnte nicht verarbeitet werden: {error}",
   "releaseToCancel": "Zum Abbrechen loslassen",
   "slideRightToCancel": "Nach rechts wischen zum Abbrechen",
-  "telegramConnected": "Telegram verknüpft"
+  "telegramConnected": "Telegram verknüpft",
+  "siriShortcuts": "Siri-Kurzbefehle",
+  "siriShortcutsDescription": "Nutze Siri, um Ausgaben zu erfassen, ohne die App zu öffnen. Beispiel: „Ausgabe mit Moneko erfassen, 12 Euro Mittagessen.“",
+  "siriShortcutsOpenShortcuts": "Kurzbefehle öffnen",
+  "siriShortcutsReady": "Bereit",
+  "siriShortcutsNeedsRefresh": "Aktualisierung erforderlich",
+  "siriShortcutsSetupRequired": "Einrichtung erforderlich",
+  "siriShortcutsChecking": "Prüfen...",
+  "siriShortcutsSyncFailed": "Siri-Einrichtung konnte nicht synchronisiert werden",
+  "siriShortcutsOpenFailed": "Kurzbefehle-App konnte nicht geöffnet werden"
 }

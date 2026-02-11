@@ -2016,5 +2016,14 @@
   "unableToProcessRecording": "Kan opname niet verwerken: {error}",
   "releaseToCancel": "Laat los om te annuleren",
   "slideRightToCancel": "Sleep naar rechts om te annuleren",
-  "telegramConnected": "Telegram verbonden"
+  "telegramConnected": "Telegram verbonden",
+  "siriShortcuts": "Siri-opdrachten",
+  "siriShortcutsDescription": "Gebruik Siri om uitgaven te loggen zonder de app te openen. Voorbeeld: \"Log uitgave met Moneko, 12 euro lunch.\"",
+  "siriShortcutsOpenShortcuts": "Opdrachten openen",
+  "siriShortcutsReady": "Gereed",
+  "siriShortcutsNeedsRefresh": "Vernieuwen nodig",
+  "siriShortcutsSetupRequired": "Configuratie vereist",
+  "siriShortcutsChecking": "Controleren...",
+  "siriShortcutsSyncFailed": "Synchroniseren Siri-configuratie mislukt",
+  "siriShortcutsOpenFailed": "Kon de Opdrachten-app niet openen"
 }

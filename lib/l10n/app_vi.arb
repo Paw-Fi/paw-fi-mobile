@@ -2068,5 +2068,14 @@
   "unableToProcessRecording": "Không thể xử lý bản ghi âm: {error}",
   "releaseToCancel": "Thả tay để hủy",
   "slideRightToCancel": "Vuốt sang phải để hủy",
-  "telegramConnected": "Đã kết nối Telegram"
+  "telegramConnected": "Đã kết nối Telegram",
+  "siriShortcuts": "Phím tắt Siri",
+  "siriShortcutsDescription": "Sử dụng Siri để ghi chép chi tiêu mà không cần mở ứng dụng. Ví dụ: \"Ghi chi tiêu với Moneko, 12 đô ăn trưa.\"",
+  "siriShortcutsOpenShortcuts": "Mở Phím tắt",
+  "siriShortcutsReady": "Sẵn sàng",
+  "siriShortcutsNeedsRefresh": "Cần làm mới",
+  "siriShortcutsSetupRequired": "Cần thiết lập",
+  "siriShortcutsChecking": "Đang kiểm tra...",
+  "siriShortcutsSyncFailed": "Lỗi đồng bộ thiết lập Siri",
+  "siriShortcutsOpenFailed": "Không thể mở ứng dụng Phím tắt"
 }

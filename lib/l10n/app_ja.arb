@@ -2069,5 +2069,14 @@
   "unableToProcessRecording": "録音を処理できません：{error}",
   "releaseToCancel": "指を離してキャンセル",
   "slideRightToCancel": "右にスライドしてキャンセル",
-  "telegramConnected": "Telegram連携済み"
+  "telegramConnected": "Telegram連携済み",
+  "siriShortcuts": "Siriショートカット",
+  "siriShortcutsDescription": "アプリを開かずにSiriで支出を記録できます。例：「Monekoで支出を記録、ランチに1200円」",
+  "siriShortcutsOpenShortcuts": "ショートカットを開く",
+  "siriShortcutsReady": "準備完了",
+  "siriShortcutsNeedsRefresh": "更新が必要",
+  "siriShortcutsSetupRequired": "設定が必要",
+  "siriShortcutsChecking": "確認中...",
+  "siriShortcutsSyncFailed": "Siri設定の同期に失敗しました",
+  "siriShortcutsOpenFailed": "ショートカットアプリを開けませんでした"
 }

@@ -1882,5 +1882,14 @@
   "unableToProcessRecording": "녹음을 처리할 수 없습니다: {error}",
   "releaseToCancel": "취소하려면 손을 떼세요",
   "slideRightToCancel": "오른쪽으로 밀어서 취소",
-  "telegramConnected": "텔레그램 연결됨"
+  "telegramConnected": "텔레그램 연결됨",
+  "siriShortcuts": "Siri 단축어",
+  "siriShortcutsDescription": "앱을 열지 않고 Siri로 지출을 기록해 보세요. 예: \"모네코로 점심 12,000원 기록해줘.\"",
+  "siriShortcutsOpenShortcuts": "단축어 열기",
+  "siriShortcutsReady": "준비됨",
+  "siriShortcutsNeedsRefresh": "새로고침 필요",
+  "siriShortcutsSetupRequired": "설정 필요",
+  "siriShortcutsChecking": "확인 중...",
+  "siriShortcutsSyncFailed": "Siri 설정 동기화 실패",
+  "siriShortcutsOpenFailed": "단축어 앱을 열 수 없습니다"
 }

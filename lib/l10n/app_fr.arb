@@ -2069,5 +2069,14 @@
   "unableToProcessRecording": "Impossible de traiter l'enregistrement : {error}",
   "releaseToCancel": "Relâchez pour annuler",
   "slideRightToCancel": "Glissez vers la droite pour annuler",
-  "telegramConnected": "Telegram connecté"
+  "telegramConnected": "Telegram connecté",
+  "siriShortcuts": "Raccourcis Siri",
+  "siriShortcutsDescription": "Utilisez Siri pour enregistrer vos dépenses sans ouvrir l'application. Exemple : « Enregistre une dépense avec Moneko, 12 euros pour le déjeuner. »",
+  "siriShortcutsOpenShortcuts": "Ouvrir les Raccourcis",
+  "siriShortcutsReady": "Prêt",
+  "siriShortcutsNeedsRefresh": "Actualisation nécessaire",
+  "siriShortcutsSetupRequired": "Configuration requise",
+  "siriShortcutsChecking": "Vérification...",
+  "siriShortcutsSyncFailed": "Échec de la synchronisation de Siri",
+  "siriShortcutsOpenFailed": "Impossible d'ouvrir l'application Raccourcis"
 }
