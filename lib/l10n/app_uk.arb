@@ -2038,5 +2038,12 @@
   "settingsDeleteAccountConfirmValidation": "Введіть DELETE для підтвердження видалення акаунту",
   "settingsDeleteAccountInProgress": "Видалення акаунту...",
   "settingsDeleteAccountSuccess": "Акаунт успішно видалено",
-  "settingsDeleteAccountTileBusy": "Видалення..."
+  "settingsDeleteAccountTileBusy": "Видалення...",
+  "connectTelegram": "Підключити Telegram",
+  "telegramVerification": "Верифікація в Telegram",
+  "telegramVerified": "Telegram підтверджено",
+  "yourTelegramIsSuccessfullyLinked": "Ваш акаунт Telegram успішно прив'язано",
+  "verifyingYourTelegram": "Перевірка вашого акаунта Telegram...",
+  "enterThe6DigitCodeFromTelegram": "Введіть 6-значний код із Telegram",
+  "telegramVerifiedSuccessfully": "Telegram успішно підтверджено"
 }

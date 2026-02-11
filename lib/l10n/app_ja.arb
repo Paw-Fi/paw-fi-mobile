@@ -2046,5 +2046,12 @@
   "settingsDeleteAccountConfirmValidation": "削除を確認するには「DELETE」と入力してください",
   "settingsDeleteAccountInProgress": "アカウントを削除中...",
   "settingsDeleteAccountSuccess": "アカウントが正常に削除されました",
-  "settingsDeleteAccountTileBusy": "削除中..."
+  "settingsDeleteAccountTileBusy": "削除中...",
+  "connectTelegram": "Telegramと連携する",
+  "telegramVerification": "Telegram認証",
+  "telegramVerified": "Telegram認証済み",
+  "yourTelegramIsSuccessfullyLinked": "Telegramアカウントの連携が完了しました！",
+  "verifyingYourTelegram": "Telegramアカウントを認証中...",
+  "enterThe6DigitCodeFromTelegram": "Telegramに届いた6桁のコードを入力してください",
+  "telegramVerifiedSuccessfully": "Telegramの認証に成功しました！"
 }

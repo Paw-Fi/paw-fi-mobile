@@ -2045,5 +2045,12 @@
   "settingsDeleteAccountConfirmValidation": "Nhập DELETE để xác nhận việc xóa tài khoản",
   "settingsDeleteAccountInProgress": "Đang xóa tài khoản...",
   "settingsDeleteAccountSuccess": "Đã xóa tài khoản thành công",
-  "settingsDeleteAccountTileBusy": "Đang xóa..."
+  "settingsDeleteAccountTileBusy": "Đang xóa...",
+  "connectTelegram": "Kết nối Telegram",
+  "telegramVerification": "Xác minh Telegram",
+  "telegramVerified": "Telegram đã xác minh",
+  "yourTelegramIsSuccessfullyLinked": "Tài khoản Telegram của bạn đã được liên kết thành công",
+  "verifyingYourTelegram": "Đang xác minh tài khoản Telegram của bạn...",
+  "enterThe6DigitCodeFromTelegram": "Nhập mã 6 chữ số từ Telegram",
+  "telegramVerifiedSuccessfully": "Xác minh Telegram thành công"
 }

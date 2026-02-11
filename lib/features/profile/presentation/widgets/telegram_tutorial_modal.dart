@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class TelegramTutorialModal extends HookWidget {
   const TelegramTutorialModal({super.key});
@@ -20,12 +20,12 @@ class TelegramTutorialModal extends HookWidget {
       _TutorialStep(
         title: context.l10n.naturalLanguage,
         description: context.l10n.describeExpenseAutomatically,
-        icon: Icons.chat_bubble_outline,
+        imagePath: 'lib/assets/images/whatsapp/text.png',
       ),
       _TutorialStep(
         title: context.l10n.snapReceipt,
         description: context.l10n.snapReceiptDescription,
-        icon: Icons.receipt_long,
+        imagePath: 'lib/assets/images/whatsapp/receipt.png',
       ),
     ];
 
@@ -90,7 +90,7 @@ class TelegramTutorialModal extends HookWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Connect Telegram',
+                    context.l10n.connectTelegram,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -136,76 +136,20 @@ class TelegramTutorialModal extends HookWidget {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Row(
-                children: [
-                  if (currentPage.value > 0)
-                    Expanded(
-                      child: AdaptiveButton(
-                        onPressed: () {
-                          pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        label: context.l10n.previous,
-                        style: AdaptiveButtonStyle.bordered,
-                      ),
+              child: currentPage.value < tutorialSteps.length - 1
+                  ? PrimaryAdaptiveButton(
+                      onPressed: () {
+                        pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Text(context.l10n.next),
+                    )
+                  : PrimaryAdaptiveButton(
+                      onPressed: handleBindTelegram,
+                      child: Text(context.l10n.connectTelegram),
                     ),
-                  if (currentPage.value > 0) const SizedBox(width: 12),
-                  Expanded(
-                    child: currentPage.value < tutorialSteps.length - 1
-                        ? AdaptiveButton(
-                            onPressed: () {
-                              pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            label: context.l10n.next,
-                            style: AdaptiveButtonStyle.filled,
-                          )
-                        : Container(
-                            height: 54,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppTheme.monekoPrimary,
-                                  AppTheme.monekoSecondary,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.monekoPrimary
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: colorScheme.surface.withValues(alpha: 0.0),
-                              child: InkWell(
-                                onTap: handleBindTelegram,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Center(
-                                  child: Text(
-                                    'Connect Telegram',
-                                    style: TextStyle(
-                                      color: colorScheme.primaryForeground,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -226,12 +170,8 @@ class TelegramTutorialModal extends HookWidget {
           Container(
             width: 250,
             height: 300,
-            alignment: Alignment.center,
-            child: Icon(
-              step.icon,
-              size: 120,
-              color: colorScheme.primary,
-            ),
+            decoration: const BoxDecoration(),
+            child: Image.asset(step.imagePath, fit: BoxFit.contain),
           ),
           const SizedBox(height: 15),
           Text(
@@ -262,11 +202,11 @@ class TelegramTutorialModal extends HookWidget {
 class _TutorialStep {
   final String title;
   final String description;
-  final IconData icon;
+  final String imagePath;
 
   _TutorialStep({
     required this.title,
     required this.description,
-    required this.icon,
+    required this.imagePath,
   });
 }

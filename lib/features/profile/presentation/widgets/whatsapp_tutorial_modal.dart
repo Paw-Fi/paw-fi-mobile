@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class WhatsAppTutorialModal extends HookWidget {
   const WhatsAppTutorialModal({super.key});
@@ -147,76 +147,20 @@ class WhatsAppTutorialModal extends HookWidget {
             // Navigation buttons
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Row(
-                children: [
-                  if (currentPage.value > 0)
-                    Expanded(
-                      child: AdaptiveButton(
-                        onPressed: () {
-                          pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        label: context.l10n.previous,
-                        style: AdaptiveButtonStyle.bordered,
-                      ),
+              child: currentPage.value < tutorialSteps.length - 1
+                  ? PrimaryAdaptiveButton(
+                      onPressed: () {
+                        pageController.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Text(context.l10n.next),
+                    )
+                  : PrimaryAdaptiveButton(
+                      onPressed: handleBindWhatsApp,
+                      child: Text(context.l10n.connectWhatsApp),
                     ),
-                  if (currentPage.value > 0) const SizedBox(width: 12),
-                  Expanded(
-                    child: currentPage.value < tutorialSteps.length - 1
-                        ? AdaptiveButton(
-                            onPressed: () {
-                              pageController.nextPage(
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            label: context.l10n.next,
-                            style: AdaptiveButtonStyle.filled,
-                          )
-                        : Container(
-                            height: 54,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppTheme.whatsappGreen,
-                                  AppTheme.whatsappDarkGreen,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.whatsappGreen
-                                      .withValues(alpha: 0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Material(
-                              color: colorScheme.surface.withValues(alpha: 0.0),
-                              child: InkWell(
-                                onTap: handleBindWhatsApp,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Center(
-                                  child: Text(
-                                    context.l10n.connectWhatsApp,
-                                    style: TextStyle(
-                                      color: colorScheme.primaryForeground,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),

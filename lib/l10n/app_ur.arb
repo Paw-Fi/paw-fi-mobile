@@ -1992,5 +1992,12 @@
   "settingsDeleteAccountConfirmValidation": "حذف کرنے کی تصدیق کے لیے DELETE ٹائپ کریں",
   "settingsDeleteAccountInProgress": "اکاؤنٹ حذف کیا جا رہا ہے...",
   "settingsDeleteAccountSuccess": "اکاؤنٹ کامیابی سے حذف ہو گیا",
-  "settingsDeleteAccountTileBusy": "حذف ہو رہا ہے..."
+  "settingsDeleteAccountTileBusy": "حذف ہو رہا ہے...",
+  "connectTelegram": "ٹیلی گرام لنک کریں",
+  "telegramVerification": "ٹیلی گرام تصدیق",
+  "telegramVerified": "ٹیلی گرام تصدیق شدہ",
+  "yourTelegramIsSuccessfullyLinked": "ٹیلی گرام اکاؤنٹ کامیابی سے لنک ہو گیا",
+  "verifyingYourTelegram": "ٹیلی گرام اکاؤنٹ کی تصدیق ہو رہی ہے...",
+  "enterThe6DigitCodeFromTelegram": "ٹیلی گرام سے موصولہ 6 ہندسوں کا کوڈ درج کریں",
+  "telegramVerifiedSuccessfully": "ٹیلی گرام کی تصدیق کامیابی سے ہو گئی"
 }

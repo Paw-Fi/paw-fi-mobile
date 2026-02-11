@@ -1993,5 +1993,12 @@
   "settingsDeleteAccountConfirmValidation": "Typ DELETE om de accountverwijdering te bevestigen",
   "settingsDeleteAccountInProgress": "Account verwijderen...",
   "settingsDeleteAccountSuccess": "Account succesvol verwijderd",
-  "settingsDeleteAccountTileBusy": "Verwijderen..."
+  "settingsDeleteAccountTileBusy": "Verwijderen...",
+  "connectTelegram": "Verbind Telegram",
+  "telegramVerification": "Telegram verificatie",
+  "telegramVerified": "Telegram geverifieerd",
+  "yourTelegramIsSuccessfullyLinked": "Je Telegram-account is succesvol gekoppeld",
+  "verifyingYourTelegram": "Je Telegram-account verifiëren...",
+  "enterThe6DigitCodeFromTelegram": "Voer de 6-cijferige code van Telegram in",
+  "telegramVerifiedSuccessfully": "Telegram succesvol geverifieerd"
 }

@@ -1990,5 +1990,12 @@
   "settingsDeleteAccountConfirmValidation": "輸入「DELETE」以確認刪除帳戶",
   "settingsDeleteAccountInProgress": "正在刪除帳戶...",
   "settingsDeleteAccountSuccess": "帳戶已成功刪除",
-  "settingsDeleteAccountTileBusy": "正在刪除..."
+  "settingsDeleteAccountTileBusy": "正在刪除...",
+  "connectTelegram": "連接 Telegram",
+  "telegramVerification": "Telegram 驗證",
+  "telegramVerified": "Telegram 已驗證",
+  "yourTelegramIsSuccessfullyLinked": "您的 Telegram 帳號已成功關聯",
+  "verifyingYourTelegram": "正在驗證您的 Telegram 帳號...",
+  "enterThe6DigitCodeFromTelegram": "請輸入 Telegram 發送的 6 位驗證碼",
+  "telegramVerifiedSuccessfully": "Telegram 驗證成功"
 }

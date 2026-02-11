@@ -2042,5 +2042,12 @@
   "settingsDeleteAccountConfirmValidation": "输入“DELETE”以确认删除账户",
   "settingsDeleteAccountInProgress": "正在删除账户...",
   "settingsDeleteAccountSuccess": "账户已成功删除",
-  "settingsDeleteAccountTileBusy": "正在删除..."
+  "settingsDeleteAccountTileBusy": "正在删除...",
+  "connectTelegram": "连接 Telegram",
+  "telegramVerification": "Telegram 验证",
+  "telegramVerified": "Telegram 已验证",
+  "yourTelegramIsSuccessfullyLinked": "你的 Telegram 账号已成功关联",
+  "verifyingYourTelegram": "正在验证你的 Telegram 账号...",
+  "enterThe6DigitCodeFromTelegram": "请输入 Telegram 发送的 6 位验证码",
+  "telegramVerifiedSuccessfully": "Telegram 验证成功"
 }

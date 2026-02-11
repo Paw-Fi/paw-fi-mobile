@@ -1996,5 +1996,12 @@
   "settingsDeleteAccountConfirmValidation": "Введите DELETE для подтверждения удаления аккаунта",
   "settingsDeleteAccountInProgress": "Удаление аккаунта...",
   "settingsDeleteAccountSuccess": "Аккаунт успешно удален",
-  "settingsDeleteAccountTileBusy": "Удаление..."
+  "settingsDeleteAccountTileBusy": "Удаление...",
+  "connectTelegram": "Подключить Telegram",
+  "telegramVerification": "Верификация в Telegram",
+  "telegramVerified": "Telegram подтвержден",
+  "yourTelegramIsSuccessfullyLinked": "Ваш аккаунт Telegram успешно привязан",
+  "verifyingYourTelegram": "Проверка вашего аккаунта Telegram...",
+  "enterThe6DigitCodeFromTelegram": "Введите 6-значный код из Telegram",
+  "telegramVerifiedSuccessfully": "Telegram успешно подтвержден"
 }
