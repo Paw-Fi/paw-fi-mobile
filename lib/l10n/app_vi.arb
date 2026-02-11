@@ -2052,5 +2052,21 @@
   "yourTelegramIsSuccessfullyLinked": "Tài khoản Telegram của bạn đã được liên kết thành công",
   "verifyingYourTelegram": "Đang xác minh tài khoản Telegram của bạn...",
   "enterThe6DigitCodeFromTelegram": "Nhập mã 6 chữ số từ Telegram",
-  "telegramVerifiedSuccessfully": "Xác minh Telegram thành công"
+  "telegramVerifiedSuccessfully": "Xác minh Telegram thành công",
+  "fasterLoggingTipTitle": "Mẹo ghi chép nhanh",
+  "fasterLoggingTipDescription": "Bạn có thể thiết lập hành động nhanh khi nhấn giữ trong Cài đặt để ghi chép chi tiêu nhanh hơn nữa.",
+  "pressAndHoldQuickAction": "Phím tắt nhấn giữ",
+  "takePhotoWithCamera": "Chụp ảnh bằng camera",
+  "choosePhotoFromLibrary": "Chọn ảnh từ thư viện",
+  "recordWithAudio": "Ghi âm",
+  "showTextInputDrawer": "Hiển thị khung nhập văn bản",
+  "notSet": "Chưa thiết lập",
+  "quickActionUpdated": "Hành động nhanh đã cập nhật: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "Cần cấp quyền truy cập micro để ghi âm nhanh",
+  "unableToStartRecording": "Không thể bắt đầu ghi âm: {error}",
+  "recordingTooShort": "Bản ghi âm quá ngắn",
+  "unableToProcessRecording": "Không thể xử lý bản ghi âm: {error}",
+  "releaseToCancel": "Thả tay để hủy",
+  "slideRightToCancel": "Vuốt sang phải để hủy",
+  "telegramConnected": "Đã kết nối Telegram"
 }

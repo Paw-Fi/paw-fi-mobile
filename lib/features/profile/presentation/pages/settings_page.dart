@@ -49,9 +49,20 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
+
+String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
+  return switch (action) {
+    AiHoldQuickAction.camera => context.l10n.takePhotoWithCamera,
+    AiHoldQuickAction.photoLibrary => context.l10n.choosePhotoFromLibrary,
+    AiHoldQuickAction.recordAudio => context.l10n.recordWithAudio,
+    AiHoldQuickAction.textInputDrawer => context.l10n.showTextInputDrawer,
+    null => context.l10n.notSet,
+  };
+}
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -69,6 +80,9 @@ class SettingsPage extends HookConsumerWidget {
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final selectedTimezone = useState<String?>(contact?.preferredTimezone);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final holdQuickAction =
+        useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
     final nameReloadKey = useState(0);
     final deviceTimezone = _currentDeviceTimezone();
@@ -265,17 +279,17 @@ class SettingsPage extends HookConsumerWidget {
 
       final confirmation = await MonekoAlertDialog.show(
         context: context,
-        title: 'Delete account?',
+        title: l10n.settingsDeleteAccountTitle,
         description:
-            'This will permanently delete your account and all your data. This action cannot be undone. Type DELETE to confirm.',
-        confirmLabel: 'Delete Account',
+           l10n.settingsDeleteAccountDescription ,
+        confirmLabel: l10n.settingsDeleteAccountButton,
         cancelLabel: l10n.cancel,
         isDestructive: true,
         inputConfig: MonekoAlertDialogInputConfig(
           placeholder: 'DELETE',
           isRequired: true,
           validationPattern: RegExp(r'^DELETE$'),
-          validationMessage: 'Type DELETE to confirm account deletion',
+          validationMessage: l10n.settingsDeleteAccountConfirmValidation,
         ),
       );
 
@@ -285,7 +299,7 @@ class SettingsPage extends HookConsumerWidget {
 
       if ((confirmation.text ?? '').trim() != 'DELETE') {
         if (context.mounted) {
-          AppToast.info(context, 'Type DELETE to confirm account deletion');
+          AppToast.info(context, l10n.settingsDeleteAccountConfirmValidation);
         }
         return;
       }
@@ -308,7 +322,7 @@ class SettingsPage extends HookConsumerWidget {
           }
           showBlockingProcessingDialog(
             context: context,
-            message: 'Deleting account...',
+            message: l10n.settingsDeleteAccountInProgress,
           );
           dialogShown = true;
         }
@@ -368,7 +382,7 @@ class SettingsPage extends HookConsumerWidget {
         }
 
         if (context.mounted) {
-          AppToast.success(context, 'Account deleted successfully');
+          AppToast.success(context, l10n.settingsDeleteAccountSuccess);
         }
       } catch (e, st) {
         debugPrint('Account deletion failed: $e\n$st');
@@ -390,6 +404,67 @@ class SettingsPage extends HookConsumerWidget {
           isAccountDeletionInProgress.value = false;
         }
       }
+    }
+
+    Future<void> handleHoldQuickActionChange() async {
+      final result = await MonekoActionSheet.show<String>(
+        context: context,
+        title: context.l10n.pressAndHoldQuickAction,
+        actions: [
+          MonekoActionSheetAction<String>(
+            label: context.l10n.takePhotoWithCamera,
+            value: 'camera',
+          ),
+          MonekoActionSheetAction<String>(
+            label: context.l10n.choosePhotoFromLibrary,
+            value: 'photoLibrary',
+          ),
+          MonekoActionSheetAction<String>(
+            label: context.l10n.recordWithAudio,
+            value: 'recordAudio',
+          ),
+          MonekoActionSheetAction<String>(
+            label: context.l10n.showTextInputDrawer,
+            value: 'textInputDrawer',
+          ),
+          MonekoActionSheetAction<String>(
+            label: context.l10n.notSet,
+            value: 'unset',
+          ),
+        ],
+        cancelAction: MonekoActionSheetAction<String>(
+          label: context.l10n.cancel,
+          value: 'cancel',
+        ),
+      );
+
+      if (result == null || result == 'cancel') {
+        return;
+      }
+
+      final nextAction = switch (result) {
+        'camera' => AiHoldQuickAction.camera,
+        'photoLibrary' => AiHoldQuickAction.photoLibrary,
+        'recordAudio' => AiHoldQuickAction.recordAudio,
+        'textInputDrawer' => AiHoldQuickAction.textInputDrawer,
+        'unset' => null,
+        _ => holdQuickAction.value,
+      };
+
+      if (nextAction == holdQuickAction.value) {
+        return;
+      }
+
+      await writeAiHoldQuickActionPreference(prefs, nextAction);
+      holdQuickAction.value = nextAction;
+
+      if (!context.mounted) return;
+      AppToast.success(
+        context,
+        context.l10n.quickActionUpdated(
+          _holdQuickActionLabel(context, nextAction),
+        ),
+      );
     }
 
     return AdaptiveScaffold(
@@ -673,23 +748,48 @@ class SettingsPage extends HookConsumerWidget {
                 // Integrations
                 _SettingsGroup(title: context.l10n.integrations, children: [
                   _SettingsTile(
-                    icon: Icons.account_balance_rounded,
-                    label: context.l10n.syncBankAccountsTitle,
-                    value: context.l10n.comingSoon,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) =>
-                              const PlaidSyncWalkthroughPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  _SettingsTile(
                     icon: Icons.upload_file_rounded,
                     label: context.l10n.importData,
                     onTap: () {
                       context.push('/import');
+                    },
+                  ),
+                  _SettingsTile(
+                    customIcon: SvgPicture.string(
+                      _telegramSvg,
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    label:
+                        ref.watch(telegramBindingProvider).asData?.value == true
+                            ? context.l10n.telegramConnected
+                            : context.l10n.connectTelegram,
+                    value:
+                        ref.watch(telegramBindingProvider).asData?.value == true
+                            ? context.l10n.activeStatus
+                            : context.l10n.tapToSet,
+                    onTap: () async {
+                      final isBound =
+                          ref.read(telegramBindingProvider).valueOrNull ??
+                              false;
+                      if (isBound) {
+                        await launchIntegrationUrl(
+                          Uri.parse('https://t.me/moneko_ai_bot'),
+                          errorMessage: 'Could not launch Telegram',
+                        );
+                      } else {
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => const TelegramTutorialModal(),
+                        );
+                        if (result == true) {
+                          ref.invalidate(telegramBindingProvider);
+                        }
+                      }
                     },
                   ),
                   _SettingsTile(
@@ -728,38 +828,16 @@ class SettingsPage extends HookConsumerWidget {
                     },
                   ),
                   _SettingsTile(
-                    customIcon: SvgPicture.string(
-                      _telegramSvg,
-                      width: 20,
-                      height: 20,
-                      colorFilter: ColorFilter.mode(
-                        colorScheme.onSurface,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                    label: context.l10n.connectTelegram,
-                    value:
-                        ref.watch(telegramBindingProvider).asData?.value == true
-                            ? context.l10n.activeStatus
-                            : context.l10n.tapToSet,
-                    onTap: () async {
-                      final isBound =
-                          ref.read(telegramBindingProvider).valueOrNull ??
-                              false;
-                      if (isBound) {
-                        await launchIntegrationUrl(
-                          Uri.parse('https://t.me/moneko_ai_bot'),
-                          errorMessage: 'Could not launch Telegram',
-                        );
-                      } else {
-                        final result = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => const TelegramTutorialModal(),
-                        );
-                        if (result == true) {
-                          ref.invalidate(telegramBindingProvider);
-                        }
-                      }
+                    icon: Icons.account_balance_rounded,
+                    label: context.l10n.syncBankAccountsTitle,
+                    value: context.l10n.comingSoon,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) =>
+                              const PlaidSyncWalkthroughPage(),
+                        ),
+                      );
                     },
                   ),
                 ]),
@@ -795,6 +873,15 @@ class SettingsPage extends HookConsumerWidget {
                   title: context.l10n.appExperience,
                   children: [
                     _SettingsTile(
+                      icon: Icons.touch_app_rounded,
+                      label: context.l10n.pressAndHoldQuickAction,
+                      value: _holdQuickActionLabel(
+                        context,
+                        holdQuickAction.value,
+                      ),
+                      onTap: handleHoldQuickActionChange,
+                    ),
+                    _SettingsTile(
                       icon: Icons.play_circle_rounded,
                       label: context.l10n.restartOnboarding,
                       onTap: () {
@@ -815,10 +902,10 @@ class SettingsPage extends HookConsumerWidget {
                     _SettingsTile(
                       icon: Icons.delete_forever_rounded,
                       iconColor: colorScheme.destructive,
-                      label: 'Delete Account',
+                      label: context.l10n.settingsDeleteAccountButton,
                       labelColor: colorScheme.destructive,
                       value: isAccountDeletionInProgress.value
-                          ? 'Deleting...'
+                          ? context.l10n.settingsDeleteAccountInProgress
                           : null,
                       onTap: isAccountDeletionInProgress.value
                           ? null

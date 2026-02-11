@@ -2053,5 +2053,21 @@
   "yourTelegramIsSuccessfullyLinked": "Votre compte Telegram est lié avec succès",
   "verifyingYourTelegram": "Vérification de votre compte Telegram...",
   "enterThe6DigitCodeFromTelegram": "Saisissez le code à 6 chiffres de Telegram",
-  "telegramVerifiedSuccessfully": "Telegram vérifié avec succès"
+  "telegramVerifiedSuccessfully": "Telegram vérifié avec succès",
+  "fasterLoggingTipTitle": "Astuce pour saisie rapide",
+  "fasterLoggingTipDescription": "Configurez une action rapide par appui long dans les Paramètres pour saisir vos dépenses encore plus vite.",
+  "pressAndHoldQuickAction": "Action rapide (appui long)",
+  "takePhotoWithCamera": "Prendre une photo",
+  "choosePhotoFromLibrary": "Choisir dans la bibliothèque",
+  "recordWithAudio": "Enregistrer un mémo vocal",
+  "showTextInputDrawer": "Afficher la saisie de texte",
+  "notSet": "Non défini",
+  "quickActionUpdated": "Action rapide mise à jour : {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "L'accès au micro est requis pour la saisie vocale",
+  "unableToStartRecording": "Impossible de lancer l'enregistrement : {error}",
+  "recordingTooShort": "L'enregistrement est trop court",
+  "unableToProcessRecording": "Impossible de traiter l'enregistrement : {error}",
+  "releaseToCancel": "Relâchez pour annuler",
+  "slideRightToCancel": "Glissez vers la droite pour annuler",
+  "telegramConnected": "Telegram connecté"
 }

@@ -16,12 +16,15 @@ class ExpandableFab extends StatefulWidget {
     required this.distance,
     required this.children,
     this.onToggle,
+    this.openButtonBuilder,
   });
 
   final bool? initialOpen;
   final double distance;
   final List<Widget> children;
   final ValueChanged<bool>? onToggle;
+  final Widget Function(BuildContext context, Widget defaultButton)?
+      openButtonBuilder;
 
   @override
   State<ExpandableFab> createState() => ExpandableFabState();
@@ -118,6 +121,18 @@ class ExpandableFabState extends State<ExpandableFab>
 
   Widget _buildTapToOpenFab() {
     final colorScheme = Theme.of(context).colorScheme;
+    final defaultOpenButton = AdaptiveFloatingActionButton(
+      onPressed: _toggle,
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.primaryForeground,
+      child: const Icon(Icons.add),
+    );
+    final openButton = widget.openButtonBuilder?.call(
+          context,
+          defaultOpenButton,
+        ) ??
+        defaultOpenButton;
+
     return IgnorePointer(
       ignoring: _open,
       child: AnimatedContainer(
@@ -133,12 +148,7 @@ class ExpandableFabState extends State<ExpandableFab>
           opacity: _open ? 0.0 : 1.0,
           curve: const Interval(0.25, 1.0, curve: Curves.easeInOut),
           duration: const Duration(milliseconds: 250),
-          child: AdaptiveFloatingActionButton(
-            onPressed: _toggle,
-            backgroundColor: colorScheme.primary,
-            foregroundColor: colorScheme.primaryForeground,
-            child: const Icon(Icons.add),
-          ),
+          child: openButton,
         ),
       ),
     );

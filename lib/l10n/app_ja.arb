@@ -2053,5 +2053,21 @@
   "yourTelegramIsSuccessfullyLinked": "Telegramアカウントの連携が完了しました！",
   "verifyingYourTelegram": "Telegramアカウントを認証中...",
   "enterThe6DigitCodeFromTelegram": "Telegramに届いた6桁のコードを入力してください",
-  "telegramVerifiedSuccessfully": "Telegramの認証に成功しました！"
+  "telegramVerifiedSuccessfully": "Telegramの認証に成功しました！",
+  "fasterLoggingTipTitle": "入力をスピードアップ",
+  "fasterLoggingTipDescription": "設定で「長押しクイックアクション」を有効にすると、支出をさらに素早く記録できます。",
+  "pressAndHoldQuickAction": "長押しクイックアクション",
+  "takePhotoWithCamera": "カメラで写真を撮る",
+  "choosePhotoFromLibrary": "ライブラリから写真を選択",
+  "recordWithAudio": "音声で記録",
+  "showTextInputDrawer": "テキスト入力画面を表示",
+  "notSet": "未設定",
+  "quickActionUpdated": "アクションを更新しました：{action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "音声入力にはマイクの使用許可が必要です",
+  "unableToStartRecording": "録音を開始できません：{error}",
+  "recordingTooShort": "録音時間が短すぎます",
+  "unableToProcessRecording": "録音を処理できません：{error}",
+  "releaseToCancel": "指を離してキャンセル",
+  "slideRightToCancel": "右にスライドしてキャンセル",
+  "telegramConnected": "Telegram連携済み"
 }

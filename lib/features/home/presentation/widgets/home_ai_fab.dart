@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/core.dart';
@@ -23,6 +26,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -33,6 +37,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
@@ -44,7 +49,11 @@ const int _reviewMaxInterval = 5;
 const String _reviewExpenseCountKey = 'review_expense_count';
 const String _reviewLastPromptKey = 'review_last_prompt_count';
 const String _reviewLastIntervalKey = 'review_last_prompt_interval';
+const String _holdQuickActionReminderShownKey =
+    'hold_quick_action_reminder_shown';
 const int _maxBatchSize = 400;
+const double _recordCancelDragThreshold = 90;
+const int _minimumHoldRecordingMs = 1000;
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -514,8 +523,9 @@ Future<void> _persistAiTransactions(
                 : customSplits;
 
             if (payerUserId != null) requestBody['payerUserId'] = payerUserId;
-            if (safeCustomSplits != null)
+            if (safeCustomSplits != null) {
               requestBody['customSplits'] = safeCustomSplits;
+            }
           }
 
           final response =
@@ -658,6 +668,55 @@ Future<void> handleAiCameraCapture(
   }
 }
 
+Future<void> handleAiLibraryCapture(
+  BuildContext context,
+  WidgetRef ref, {
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
+  try {
+    final XFile? image = await pickImageWithGuard(
+      picker: _imagePicker,
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+
+    if (image == null || !context.mounted) {
+      return;
+    }
+
+    await _processExpense(
+      context,
+      ref,
+      imagePath: image.path,
+      onSuccess: onSuccess,
+    );
+  } catch (e) {
+    if (context.mounted) {
+      AppToast.error(
+        context,
+        '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+      );
+    }
+  }
+}
+
+Future<void> handleAiAudioBytes(
+  BuildContext context,
+  WidgetRef ref, {
+  required Uint8List audioBytes,
+  String contentType = 'audio/aac',
+  void Function(AiLogSuccess success)? onSuccess,
+}) async {
+  if (!context.mounted) return;
+  await _processExpense(
+    context,
+    ref,
+    audioBytes: audioBytes,
+    audioContentType: contentType,
+    onSuccess: onSuccess,
+  );
+}
+
 Future<void> handleAiFreeFormText(
   BuildContext context,
   WidgetRef ref, {
@@ -779,31 +838,7 @@ Future<void> handleAiFileOrGallery(
         title: context.l10n.gallery,
         style: AlertActionStyle.primary,
         onPressed: () async {
-          try {
-            final XFile? image = await pickImageWithGuard(
-              picker: _imagePicker,
-              source: ImageSource.gallery,
-              imageQuality: 85,
-            );
-
-            if (image != null) {
-              if (context.mounted) {
-                await _processExpense(
-                  context,
-                  ref,
-                  imagePath: image.path,
-                  onSuccess: onSuccess,
-                );
-              }
-            }
-          } catch (e) {
-            if (context.mounted) {
-              AppToast.error(
-                context,
-                '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
-              );
-            }
-          }
+          await handleAiLibraryCapture(context, ref, onSuccess: onSuccess);
         },
       ),
       AlertAction(
@@ -867,6 +902,29 @@ Future<Map<String, dynamic>?> _processWithSSE({
   }
 
   return result;
+}
+
+Future<void> _maybeShowUnsetHoldQuickActionReminder(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  if (!context.mounted) return;
+
+  final prefs = ref.read(sharedPreferencesProvider);
+  final quickAction = readAiHoldQuickActionPreference(prefs);
+  if (quickAction != null) return;
+
+  final alreadyShown = prefs.getBool(_holdQuickActionReminderShownKey) ?? false;
+  if (alreadyShown) return;
+
+  await MonekoAlertDialog.show(
+    context: context,
+    title: context.l10n.fasterLoggingTipTitle,
+    description: context.l10n.fasterLoggingTipDescription,
+    confirmLabel: context.l10n.gotIt,
+    cancelLabel: null,
+  );
+  await prefs.setBool(_holdQuickActionReminderShownKey, true);
 }
 
 Future<void> _processExpense(
@@ -1224,6 +1282,11 @@ Future<void> _processExpense(
             );
           }
 
+          final hasExpense = parsed.any((entry) => !entry.transaction.isIncome);
+          if (context.mounted && hasExpense) {
+            unawaited(_maybeShowUnsetHoldQuickActionReminder(context, ref));
+          }
+
           final container = ProviderScope.containerOf(context, listen: false);
           unawaited(
             _persistAiTransactions(
@@ -1330,16 +1393,390 @@ bool shouldShowHomeFab(
   );
 }
 
-class HomeAiExpandableFab extends ConsumerWidget {
+class HomeAiExpandableFab extends ConsumerStatefulWidget {
   const HomeAiExpandableFab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeAiExpandableFab> createState() =>
+      _HomeAiExpandableFabState();
+}
+
+class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
+  final AudioRecorder _holdRecorder = AudioRecorder();
+
+  bool _isHoldRecording = false;
+  bool _isHoldCancelled = false;
+  bool _didCrossCancelThreshold = false;
+  double _holdDragDeltaX = 0;
+  DateTime? _holdRecordingStartedAt;
+  double? _holdStartGlobalX;
+
+  @override
+  void dispose() {
+    _holdRecorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _playQuickActionDualNudge() async {
+    HapticFeedback.mediumImpact();
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    HapticFeedback.lightImpact();
+  }
+
+  Future<void> _runHoldAction() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final holdAction = readAiHoldQuickActionPreference(prefs);
+    final selectedAction = holdAction ?? AiHoldQuickAction.textInputDrawer;
+
+    switch (selectedAction) {
+      case AiHoldQuickAction.camera:
+        await _playQuickActionDualNudge();
+        if (!mounted) return;
+        await handleAiCameraCapture(context, ref);
+        return;
+      case AiHoldQuickAction.photoLibrary:
+        await _playQuickActionDualNudge();
+        if (!mounted) return;
+        await handleAiLibraryCapture(context, ref);
+        return;
+      case AiHoldQuickAction.textInputDrawer:
+        await _playQuickActionDualNudge();
+        if (!mounted) return;
+        await handleAiFreeFormText(context, ref);
+        return;
+      case AiHoldQuickAction.recordAudio:
+        await _startHoldRecording();
+        return;
+    }
+  }
+
+  Future<void> _startHoldRecording() async {
+    if (_isHoldRecording) return;
+
+    try {
+      final hasPermission = await _holdRecorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          AppToast.info(
+            context,
+            context.l10n.microphonePermissionRequiredForQuickAudioLogging,
+          );
+        }
+        return;
+      }
+
+      HapticFeedback.lightImpact();
+
+      if (mounted) {
+        setState(() {
+          _isHoldRecording = true;
+          _isHoldCancelled = false;
+          _didCrossCancelThreshold = false;
+          _holdDragDeltaX = 0;
+          _holdRecordingStartedAt = DateTime.now();
+        });
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final filePath =
+          '${tempDir.path}/moneko_hold_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      await _holdRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: filePath,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isHoldRecording = false;
+          _isHoldCancelled = false;
+          _didCrossCancelThreshold = false;
+          _holdDragDeltaX = 0;
+        });
+        AppToast.error(
+          context,
+          context.l10n.unableToStartRecording(error.toString()),
+        );
+      }
+    }
+  }
+
+  void _applyHoldDragDelta(double deltaX) {
+    if (!_isHoldRecording) return;
+
+    final shouldCancel = deltaX.abs() >= _recordCancelDragThreshold;
+    final crossedIntoCancelArea = shouldCancel && !_didCrossCancelThreshold;
+    final movedOutOfCancelArea = !shouldCancel && _didCrossCancelThreshold;
+
+    if (crossedIntoCancelArea) {
+      HapticFeedback.mediumImpact();
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _holdDragDeltaX = deltaX;
+      _isHoldCancelled = shouldCancel;
+      if (crossedIntoCancelArea) {
+        _didCrossCancelThreshold = true;
+      } else if (movedOutOfCancelArea) {
+        _didCrossCancelThreshold = false;
+      }
+    });
+  }
+
+  void _updateHoldRecordingDrag(LongPressMoveUpdateDetails details) {
+    _applyHoldDragDelta(details.offsetFromOrigin.dx);
+  }
+
+  void _onHoldPointerMove(PointerMoveEvent event) {
+    final startX = _holdStartGlobalX;
+    if (startX == null || !_isHoldRecording) {
+      return;
+    }
+    _applyHoldDragDelta(event.position.dx - startX);
+  }
+
+  Future<void> _finishHoldRecording() async {
+    if (!_isHoldRecording) return;
+
+    final wasCancelled = _isHoldCancelled;
+    final startedAt = _holdRecordingStartedAt;
+
+    if (mounted) {
+      setState(() {
+        _isHoldRecording = false;
+        _isHoldCancelled = false;
+        _didCrossCancelThreshold = false;
+        _holdDragDeltaX = 0;
+        _holdStartGlobalX = null;
+      });
+    }
+
+    File? audioFile;
+    try {
+      final path = await _holdRecorder.stop();
+      if (path == null) return;
+      audioFile = File(path);
+
+      if (wasCancelled) {
+        HapticFeedback.selectionClick();
+        return;
+      }
+
+      if (startedAt != null &&
+          DateTime.now().difference(startedAt).inMilliseconds <
+              _minimumHoldRecordingMs) {
+        if (mounted) {
+          AppToast.error(context, context.l10n.recordingTooShort);
+        }
+        return;
+      }
+
+      if (!await audioFile.exists()) {
+        if (mounted) {
+          AppToast.error(context, context.l10n.recordingFileMissing);
+        }
+        return;
+      }
+
+      final bytes = await audioFile.readAsBytes();
+      if (bytes.isEmpty) {
+        if (mounted) {
+          AppToast.error(context, context.l10n.recordingIsEmpty);
+        }
+        return;
+      }
+
+      HapticFeedback.lightImpact();
+      if (!mounted) return;
+      await handleAiAudioBytes(
+        context,
+        ref,
+        audioBytes: bytes,
+        contentType: 'audio/aac',
+      );
+    } catch (error) {
+      if (mounted) {
+        AppToast.error(
+          context,
+          context.l10n.unableToProcessRecording(error.toString()),
+        );
+      }
+    } finally {
+      if (audioFile != null) {
+        try {
+          if (await audioFile.exists()) {
+            await audioFile.delete();
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  Widget _buildHoldRecordingIndicator(ColorScheme colorScheme) {
+    final dragProgress = (_holdDragDeltaX.abs() / _recordCancelDragThreshold)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final indicatorBackground = _isHoldCancelled
+        ? colorScheme.errorContainer
+        : colorScheme.surfaceContainerHigh;
+
+    return IgnorePointer(
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 120),
+        offset: _isHoldRecording ? Offset.zero : const Offset(0.25, 0),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 120),
+          opacity: _isHoldRecording ? 1 : 0,
+          child: Container(
+            width: 240,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: indicatorBackground,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _isHoldCancelled
+                    ? colorScheme.error
+                    : colorScheme.outlineVariant,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.15),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _isHoldRecording
+                      ? _FabAudioWave(colorScheme: colorScheme)
+                      : _FabAudioWavePlaceholder(colorScheme: colorScheme),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _isHoldCancelled
+                        ? context.l10n.releaseToCancel
+                        : context.l10n.slideRightToCancel,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _isHoldCancelled
+                          ? colorScheme.error
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 110),
+                  scale: _isHoldCancelled ? 1.14 : 1.0,
+                  child: AnimatedRotation(
+                    duration: const Duration(milliseconds: 110),
+                    turns: _isHoldCancelled ? 0.03 : 0,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 110),
+                      transform: Matrix4.translationValues(
+                        (_holdDragDeltaX.sign * (dragProgress * 8)),
+                        0,
+                        0,
+                      ),
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.error.withValues(
+                          alpha: 0.08 + (dragProgress * 0.22),
+                        ),
+                        border: Border.all(
+                          color: colorScheme.error.withValues(
+                            alpha: 0.15 + (dragProgress * 0.55),
+                          ),
+                        ),
+                        boxShadow: _isHoldCancelled
+                            ? [
+                                BoxShadow(
+                                  color:
+                                      colorScheme.error.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        size: 17,
+                        color: colorScheme.error.withValues(
+                          alpha: 0.45 + (dragProgress * 0.55),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final fabKey = GlobalKey<ExpandableFabState>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ExpandableFab(
       key: fabKey,
       distance: 120,
+      openButtonBuilder: (context, defaultButton) {
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerMove: _onHoldPointerMove,
+          onPointerUp: (_) {
+            if (_isHoldRecording) {
+              unawaited(_finishHoldRecording());
+            }
+          },
+          onPointerCancel: (_) {
+            if (_isHoldRecording) {
+              unawaited(_finishHoldRecording());
+            }
+          },
+          child: GestureDetector(
+            onLongPressStart: (details) async {
+              _holdStartGlobalX = details.globalPosition.dx;
+              await _runHoldAction();
+            },
+            onLongPressMoveUpdate: _updateHoldRecordingDrag,
+            onLongPressEnd: (_) async {
+              await _finishHoldRecording();
+            },
+            onLongPressUp: () async {
+              await _finishHoldRecording();
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.centerRight,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 150),
+                  scale: _isHoldRecording ? 1.08 : 1.0,
+                  child: defaultButton,
+                ),
+                Positioned(
+                  right: 66,
+                  child: _buildHoldRecordingIndicator(colorScheme),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
       children: [
         ActionButton(
           onPressed: () async {
@@ -1370,6 +1807,94 @@ class HomeAiExpandableFab extends ConsumerWidget {
           label: context.l10n.files,
         ),
       ],
+    );
+  }
+}
+
+class _FabAudioWave extends StatefulWidget {
+  const _FabAudioWave({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  State<_FabAudioWave> createState() => _FabAudioWaveState();
+}
+
+class _FabAudioWaveState extends State<_FabAudioWave> {
+  late final List<double> _bars;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _bars = List<double>.filled(10, 0.25);
+    _timer = Timer.periodic(const Duration(milliseconds: 110), (_) {
+      if (!mounted) return;
+      setState(() {
+        for (var i = 0; i < _bars.length; i++) {
+          final phase = DateTime.now().millisecondsSinceEpoch / 150 + i;
+          final value = 0.15 + (sin(phase).abs() * 0.85);
+          _bars[i] = value.clamp(0.12, 1.0);
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 18,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List<Widget>.generate(_bars.length, (index) {
+          final barHeight = 4 + (_bars[index] * 13);
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            margin: const EdgeInsets.symmetric(horizontal: 1.2),
+            width: 2.4,
+            height: barHeight,
+            decoration: BoxDecoration(
+              color: widget.colorScheme.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _FabAudioWavePlaceholder extends StatelessWidget {
+  const _FabAudioWavePlaceholder({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 18,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List<Widget>.generate(10, (index) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1.2),
+            width: 2.4,
+            height: 7,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }),
+      ),
     );
   }
 }

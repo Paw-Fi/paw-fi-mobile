@@ -1999,5 +1999,21 @@
   "yourTelegramIsSuccessfullyLinked": "ٹیلی گرام اکاؤنٹ کامیابی سے لنک ہو گیا",
   "verifyingYourTelegram": "ٹیلی گرام اکاؤنٹ کی تصدیق ہو رہی ہے...",
   "enterThe6DigitCodeFromTelegram": "ٹیلی گرام سے موصولہ 6 ہندسوں کا کوڈ درج کریں",
-  "telegramVerifiedSuccessfully": "ٹیلی گرام کی تصدیق کامیابی سے ہو گئی"
+  "telegramVerifiedSuccessfully": "ٹیلی گرام کی تصدیق کامیابی سے ہو گئی",
+  "fasterLoggingTipTitle": "تیزی سے ریکارڈ کرنے کا طریقہ",
+  "fasterLoggingTipDescription": "آپ اخراجات کے تیزی سے اندراج کے لیے ترتیبات میں 'دبا کر رکھیں' والا کوئیک ایکشن سیٹ کر سکتے ہیں۔",
+  "pressAndHoldQuickAction": "دبا کر رکھنے والا کوئیک ایکشن",
+  "takePhotoWithCamera": "کیمرے سے تصویر لیں",
+  "choosePhotoFromLibrary": "لائبریری سے تصویر منتخب کریں",
+  "recordWithAudio": "آڈیو کے ساتھ ریکارڈ کریں",
+  "showTextInputDrawer": "ٹیکسٹ ان پٹ پینل دکھائیں",
+  "notSet": "سیٹ نہیں ہے",
+  "quickActionUpdated": "کوئیک ایکشن اپ ڈیٹ ہو گیا: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "فوری آڈیو لاگنگ کے لیے مائیکروفون کی اجازت درکار ہے",
+  "unableToStartRecording": "ریکارڈنگ شروع کرنے میں ناکام: {error}",
+  "recordingTooShort": "ریکارڈنگ بہت مختصر ہے",
+  "unableToProcessRecording": "ریکارڈنگ پروسیس کرنے میں ناکام: {error}",
+  "releaseToCancel": "منسوخ کرنے کے لیے چھوڑ دیں",
+  "slideRightToCancel": "منسوخ کرنے کے لیے دائیں سلائیڈ کریں",
+  "telegramConnected": "ٹیلی گرام منسلک"
 }

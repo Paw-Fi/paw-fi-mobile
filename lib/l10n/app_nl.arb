@@ -2000,5 +2000,21 @@
   "yourTelegramIsSuccessfullyLinked": "Je Telegram-account is succesvol gekoppeld",
   "verifyingYourTelegram": "Je Telegram-account verifiëren...",
   "enterThe6DigitCodeFromTelegram": "Voer de 6-cijferige code van Telegram in",
-  "telegramVerifiedSuccessfully": "Telegram succesvol geverifieerd"
+  "telegramVerifiedSuccessfully": "Telegram succesvol geverifieerd",
+  "fasterLoggingTipTitle": "Tip voor sneller invoeren",
+  "fasterLoggingTipDescription": "Je kunt in de Instellingen een sneltoets voor lang indrukken instellen om uitgaven nog sneller te registreren.",
+  "pressAndHoldQuickAction": "Snelactie voor lang indrukken",
+  "takePhotoWithCamera": "Foto maken met camera",
+  "choosePhotoFromLibrary": "Kies foto uit bibliotheek",
+  "recordWithAudio": "Opnemen met audio",
+  "showTextInputDrawer": "Tekstinvoerveld tonen",
+  "notSet": "Niet ingesteld",
+  "quickActionUpdated": "Sneltoets bijgewerkt: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "Microfoontoegang is vereist voor snelle audio-opname",
+  "unableToStartRecording": "Kan opname niet starten: {error}",
+  "recordingTooShort": "Opname is te kort",
+  "unableToProcessRecording": "Kan opname niet verwerken: {error}",
+  "releaseToCancel": "Laat los om te annuleren",
+  "slideRightToCancel": "Sleep naar rechts om te annuleren",
+  "telegramConnected": "Telegram verbonden"
 }

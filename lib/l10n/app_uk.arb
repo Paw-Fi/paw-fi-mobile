@@ -2045,5 +2045,21 @@
   "yourTelegramIsSuccessfullyLinked": "Ваш акаунт Telegram успішно прив'язано",
   "verifyingYourTelegram": "Перевірка вашого акаунта Telegram...",
   "enterThe6DigitCodeFromTelegram": "Введіть 6-значний код із Telegram",
-  "telegramVerifiedSuccessfully": "Telegram успішно підтверджено"
+  "telegramVerifiedSuccessfully": "Telegram успішно підтверджено",
+  "fasterLoggingTipTitle": "Порада для швидкого запису",
+  "fasterLoggingTipDescription": "Ви можете налаштувати швидку дію за довгим натисканням у Налаштуваннях для ще швидшого запису витрат.",
+  "pressAndHoldQuickAction": "Швидка дія довгим натисканням",
+  "takePhotoWithCamera": "Зробити фото",
+  "choosePhotoFromLibrary": "Обрати фото з галереї",
+  "recordWithAudio": "Записати голос",
+  "showTextInputDrawer": "Показати поле вводу тексту",
+  "notSet": "Не встановлено",
+  "quickActionUpdated": "Швидку дію оновлено: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "Для швидкого запису голосу потрібен доступ до мікрофона",
+  "unableToStartRecording": "Не вдалося розпочати запис: {error}",
+  "recordingTooShort": "Запис занадто короткий",
+  "unableToProcessRecording": "Не вдалося обробити запис: {error}",
+  "releaseToCancel": "Відпустіть, щоб скасувати",
+  "slideRightToCancel": "Проведіть праворуч, щоб скасувати",
+  "telegramConnected": "Telegram підключено"
 }

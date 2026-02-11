@@ -2049,5 +2049,21 @@
   "yourTelegramIsSuccessfullyLinked": "你的 Telegram 账号已成功关联",
   "verifyingYourTelegram": "正在验证你的 Telegram 账号...",
   "enterThe6DigitCodeFromTelegram": "请输入 Telegram 发送的 6 位验证码",
-  "telegramVerifiedSuccessfully": "Telegram 验证成功"
+  "telegramVerifiedSuccessfully": "Telegram 验证成功",
+  "fasterLoggingTipTitle": "快速记录技巧",
+  "fasterLoggingTipDescription": "您可以在“设置”中配置长按快捷操作，更快速地记录支出。",
+  "pressAndHoldQuickAction": "长按快捷操作",
+  "takePhotoWithCamera": "使用相机拍照",
+  "choosePhotoFromLibrary": "从相册选择照片",
+  "recordWithAudio": "语音记录",
+  "showTextInputDrawer": "显示文本输入框",
+  "notSet": "未设置",
+  "quickActionUpdated": "快捷操作已更新：{action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "语音记录需要麦克风权限",
+  "unableToStartRecording": "无法开始录音：{error}",
+  "recordingTooShort": "录音时间太短",
+  "unableToProcessRecording": "无法处理录音：{error}",
+  "releaseToCancel": "松开取消",
+  "slideRightToCancel": "向右滑动取消",
+  "telegramConnected": "Telegram 已连接"
 }

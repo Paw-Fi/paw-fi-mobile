@@ -1866,5 +1866,21 @@
   "yourTelegramIsSuccessfullyLinked": "텔레그램 계정이 성공적으로 연결되었습니다",
   "verifyingYourTelegram": "텔레그램 계정을 인증하는 중...",
   "enterThe6DigitCodeFromTelegram": "텔레그램으로 받은 6자리 코드를 입력하세요",
-  "telegramVerifiedSuccessfully": "텔레그램 인증에 성공했습니다"
+  "telegramVerifiedSuccessfully": "텔레그램 인증에 성공했습니다",
+  "fasterLoggingTipTitle": "빠른 기록 팁",
+  "fasterLoggingTipDescription": "설정에서 '길게 누르기 단축 작업'을 설정하면 지출을 더 빠르게 기록할 수 있습니다.",
+  "pressAndHoldQuickAction": "길게 누르기 단축 작업",
+  "takePhotoWithCamera": "카메라로 사진 찍기",
+  "choosePhotoFromLibrary": "라이브러리에서 사진 선택",
+  "recordWithAudio": "음성으로 기록",
+  "showTextInputDrawer": "텍스트 입력창 표시",
+  "notSet": "설정 안 됨",
+  "quickActionUpdated": "단축 작업 업데이트됨: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "음성 기록을 위해 마이크 권한이 필요합니다",
+  "unableToStartRecording": "녹음을 시작할 수 없습니다: {error}",
+  "recordingTooShort": "녹음 시간이 너무 짧습니다",
+  "unableToProcessRecording": "녹음을 처리할 수 없습니다: {error}",
+  "releaseToCancel": "취소하려면 손을 떼세요",
+  "slideRightToCancel": "오른쪽으로 밀어서 취소",
+  "telegramConnected": "텔레그램 연결됨"
 }

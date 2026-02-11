@@ -2072,5 +2072,21 @@
   "yourTelegramIsSuccessfullyLinked": "Your Telegram account is successfully linked",
   "verifyingYourTelegram": "Verifying your Telegram account...",
   "enterThe6DigitCodeFromTelegram": "Enter the 6-digit code from Telegram",
-  "telegramVerifiedSuccessfully": "Telegram verified successfully"
+  "telegramVerifiedSuccessfully": "Telegram verified successfully",
+  "fasterLoggingTipTitle": "Faster logging tip",
+  "fasterLoggingTipDescription": "You can set a press-and-hold quick action in Settings for even faster expense logging.",
+  "pressAndHoldQuickAction": "Press and hold quick action",
+  "takePhotoWithCamera": "Take photo with camera",
+  "choosePhotoFromLibrary": "Choose photo from library",
+  "recordWithAudio": "Record with audio",
+  "showTextInputDrawer": "Show text input drawer",
+  "notSet": "Not set",
+  "quickActionUpdated": "Quick action updated: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "Microphone permission is required for quick audio logging",
+  "unableToStartRecording": "Unable to start recording: {error}",
+  "recordingTooShort": "Recording is too short",
+  "unableToProcessRecording": "Unable to process recording: {error}",
+  "releaseToCancel": "Release to cancel",
+  "slideRightToCancel": "Slide right to cancel",
+  "telegramConnected": "Telegram Connected"
 }

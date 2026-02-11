@@ -2003,5 +2003,21 @@
   "yourTelegramIsSuccessfullyLinked": "Ваш аккаунт Telegram успешно привязан",
   "verifyingYourTelegram": "Проверка вашего аккаунта Telegram...",
   "enterThe6DigitCodeFromTelegram": "Введите 6-значный код из Telegram",
-  "telegramVerifiedSuccessfully": "Telegram успешно подтвержден"
+  "telegramVerifiedSuccessfully": "Telegram успешно подтвержден",
+  "fasterLoggingTipTitle": "Быстрая запись: совет",
+  "fasterLoggingTipDescription": "В настройках можно назначить действие по долгому нажатию, чтобы записывать расходы еще быстрее.",
+  "pressAndHoldQuickAction": "Действие при долгом нажатии",
+  "takePhotoWithCamera": "Сделать фото",
+  "choosePhotoFromLibrary": "Выбрать из галереи",
+  "recordWithAudio": "Голосовая запись",
+  "showTextInputDrawer": "Открыть ввод текста",
+  "notSet": "Не задано",
+  "quickActionUpdated": "Действие обновлено: {action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "Для голосовой записи нужен доступ к микрофону",
+  "unableToStartRecording": "Не удалось начать запись: {error}",
+  "recordingTooShort": "Запись слишком короткая",
+  "unableToProcessRecording": "Не удалось обработать запись: {error}",
+  "releaseToCancel": "Отпустите для отмены",
+  "slideRightToCancel": "Сдвиньте вправо для отмены",
+  "telegramConnected": "Telegram подключен"
 }

@@ -1997,5 +1997,21 @@
   "yourTelegramIsSuccessfullyLinked": "您的 Telegram 帳號已成功關聯",
   "verifyingYourTelegram": "正在驗證您的 Telegram 帳號...",
   "enterThe6DigitCodeFromTelegram": "請輸入 Telegram 發送的 6 位驗證碼",
-  "telegramVerifiedSuccessfully": "Telegram 驗證成功"
+  "telegramVerifiedSuccessfully": "Telegram 驗證成功",
+  "fasterLoggingTipTitle": "快速記錄技巧",
+  "fasterLoggingTipDescription": "您可以在「設定」中配置長按快捷操作，更快速地記錄支出。",
+  "pressAndHoldQuickAction": "長按快捷操作",
+  "takePhotoWithCamera": "使用相機拍照",
+  "choosePhotoFromLibrary": "從相簿選取照片",
+  "recordWithAudio": "語音記錄",
+  "showTextInputDrawer": "顯示文字輸入框",
+  "notSet": "未設定",
+  "quickActionUpdated": "快捷操作已更新：{action}",
+  "microphonePermissionRequiredForQuickAudioLogging": "語音記錄需要麥克風權限",
+  "unableToStartRecording": "無法開始錄音：{error}",
+  "recordingTooShort": "錄音時間太短",
+  "unableToProcessRecording": "無法處理錄音：{error}",
+  "releaseToCancel": "放開以取消",
+  "slideRightToCancel": "向右滑動取消",
+  "telegramConnected": "Telegram 已連接"
 }
