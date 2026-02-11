@@ -23,6 +23,10 @@ void main() {
       expect(DeepLinks.whatsappVerification, 'moneko://verify-whatsapp');
     });
 
+    test('telegram verification URL is correct', () {
+      expect(DeepLinks.telegramVerification, 'moneko://verify-telegram');
+    });
+
     test('household invitation URL is correct', () {
       expect(DeepLinks.householdInvitation, 'moneko://households/join');
     });
@@ -119,6 +123,23 @@ void main() {
     test('rejects WhatsApp verification with wrong host', () {
       final uri = Uri.parse('moneko://verify-phone');
       expect(DeepLinks.isWhatsAppVerification(uri), false);
+    });
+  });
+
+  group('DeepLinks - Telegram Verification Detection', () {
+    test('detects Telegram verification link', () {
+      final uri = Uri.parse('moneko://verify-telegram');
+      expect(DeepLinks.isTelegramVerification(uri), true);
+    });
+
+    test('detects Telegram verification with OTP parameter', () {
+      final uri = Uri.parse('moneko://verify-telegram?otp=654321');
+      expect(DeepLinks.isTelegramVerification(uri), true);
+    });
+
+    test('rejects Telegram verification with wrong host', () {
+      final uri = Uri.parse('moneko://verify-chat');
+      expect(DeepLinks.isTelegramVerification(uri), false);
     });
   });
 

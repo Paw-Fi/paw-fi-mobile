@@ -90,7 +90,7 @@ class TelegramTutorialModal extends HookWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    context.l10n.connectTelegram,
+                    'Connect Telegram',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -192,7 +192,7 @@ class TelegramTutorialModal extends HookWidget {
                                 borderRadius: BorderRadius.circular(12),
                                 child: Center(
                                   child: Text(
-                                    context.l10n.connectTelegram,
+                                    'Connect Telegram',
                                     style: TextStyle(
                                       color: colorScheme.primaryForeground,
                                       fontSize: 16,

@@ -163,6 +163,29 @@ class SettingsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> launchIntegrationUrl(
+      Uri url, {
+      required String errorMessage,
+    }) async {
+      try {
+        var launched =
+            await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          launched = await launchUrl(url, mode: LaunchMode.inAppBrowserView);
+        }
+        if (!launched) {
+          launched = await launchUrl(url, mode: LaunchMode.inAppWebView);
+        }
+        if (!launched && context.mounted) {
+          AppToast.error(context, errorMessage);
+        }
+      } catch (_) {
+        if (context.mounted) {
+          AppToast.error(context, errorMessage);
+        }
+      }
+    }
+
     final selectedLocale = ref.watch(localeProvider);
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
@@ -689,23 +712,10 @@ class SettingsPage extends HookConsumerWidget {
                           ref.read(whatsAppBindingProvider).valueOrNull ??
                               false;
                       if (isBound) {
-                        final url = Uri.parse('https://wa.link/zxwtld');
-                        try {
-                          bool launched = await launchUrl(url,
-                              mode: LaunchMode.externalApplication);
-                          if (!launched) {
-                            launched = await launchUrl(url,
-                                mode: LaunchMode.inAppBrowserView);
-                          }
-                          if (!launched) {
-                            await launchUrl(url, mode: LaunchMode.inAppWebView);
-                          }
-                        } catch (_) {
-                          if (context.mounted) {
-                            AppToast.error(
-                                context, 'Could not launch WhatsApp');
-                          }
-                        }
+                        await launchIntegrationUrl(
+                          Uri.parse('https://wa.link/zxwtld'),
+                          errorMessage: 'Could not launch WhatsApp',
+                        );
                       } else {
                         final result = await showDialog<bool>(
                           context: context,
@@ -727,7 +737,7 @@ class SettingsPage extends HookConsumerWidget {
                         BlendMode.srcIn,
                       ),
                     ),
-                    label: context.l10n.connectTelegram,
+                    label: 'Connect Telegram',
                     value:
                         ref.watch(telegramBindingProvider).asData?.value == true
                             ? context.l10n.activeStatus
@@ -737,22 +747,10 @@ class SettingsPage extends HookConsumerWidget {
                           ref.read(telegramBindingProvider).valueOrNull ??
                               false;
                       if (isBound) {
-                        final url = Uri.parse('https://t.me/moneko_ai_bot');
-                        try {
-                          bool launched = await launchUrl(url,
-                              mode: LaunchMode.externalApplication);
-                          if (!launched) {
-                            launched = await launchUrl(url,
-                                mode: LaunchMode.inAppBrowserView);
-                          }
-                          if (!launched) {
-                            await launchUrl(url, mode: LaunchMode.inAppWebView);
-                          }
-                        } catch (_) {
-                          if (context.mounted)
-                            AppToast.error(
-                                context, 'Could not launch Telegram');
-                        }
+                        await launchIntegrationUrl(
+                          Uri.parse('https://t.me/moneko_ai_bot'),
+                          errorMessage: 'Could not launch Telegram',
+                        );
                       } else {
                         final result = await showDialog<bool>(
                           context: context,
