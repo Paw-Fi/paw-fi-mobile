@@ -2035,5 +2035,12 @@
   "onboardingFinishHighlightWhatsApp": "直接从 WhatsApp 添加支出",
   "onboardingFinishHighlightSharedBudgets": "适合伴侣和家庭的共享预算",
   "onboardingFinishHighlightOnePlan": "全家共享一个方案",
-  "onboardingFinishHighlightEnvelopeBudgeting": "简单的信封预算法"
+  "onboardingFinishHighlightEnvelopeBudgeting": "简单的信封预算法",
+  "settingsDeleteAccountTitle": "删除账户？",
+  "settingsDeleteAccountDescription": "这将永久删除您的账户及所有数据。此操作无法撤销。请输入“DELETE”以确认。",
+  "settingsDeleteAccountButton": "删除账户",
+  "settingsDeleteAccountConfirmValidation": "输入“DELETE”以确认删除账户",
+  "settingsDeleteAccountInProgress": "正在删除账户...",
+  "settingsDeleteAccountSuccess": "账户已成功删除",
+  "settingsDeleteAccountTileBusy": "正在删除..."
 }

@@ -2031,5 +2031,12 @@
   "onboardingFinishHighlightWhatsApp": "Додавайте витрати прямо з WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Спільний бюджет для пар та сімей",
   "onboardingFinishHighlightOnePlan": "Один тариф для всієї родини",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Простий метод конвертів"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Простий метод конвертів",
+  "settingsDeleteAccountTitle": "Видалити акаунт?",
+  "settingsDeleteAccountDescription": "Це назавжди видалить ваш акаунт і всі ваші дані. Цю дію неможливо скасувати. Введіть DELETE для підтвердження.",
+  "settingsDeleteAccountButton": "Видалити акаунт",
+  "settingsDeleteAccountConfirmValidation": "Введіть DELETE для підтвердження видалення акаунту",
+  "settingsDeleteAccountInProgress": "Видалення акаунту...",
+  "settingsDeleteAccountSuccess": "Акаунт успішно видалено",
+  "settingsDeleteAccountTileBusy": "Видалення..."
 }

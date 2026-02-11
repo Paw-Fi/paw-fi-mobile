@@ -2058,5 +2058,12 @@
   "onboardingFinishHighlightWhatsApp": "Add expenses directly from WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Shared budgets for couples and families",
   "onboardingFinishHighlightOnePlan": "One plan for your whole family",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Simple envelope budgeting"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Simple envelope budgeting",
+  "settingsDeleteAccountTitle": "Delete account?",
+  "settingsDeleteAccountDescription": "This will permanently delete your account and all your data. This action cannot be undone. Type DELETE to confirm.",
+  "settingsDeleteAccountButton": "Delete Account",
+  "settingsDeleteAccountConfirmValidation": "Type DELETE to confirm account deletion",
+  "settingsDeleteAccountInProgress": "Deleting account...",
+  "settingsDeleteAccountSuccess": "Account deleted successfully",
+  "settingsDeleteAccountTileBusy": "Deleting..."
 }

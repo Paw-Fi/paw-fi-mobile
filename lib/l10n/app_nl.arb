@@ -1986,5 +1986,12 @@
   "onboardingFinishHighlightWhatsApp": "Voeg uitgaven rechtstreeks toe vanuit WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Gedeelde budgetten voor koppels en gezinnen",
   "onboardingFinishHighlightOnePlan": "Eén abonnement voor het hele gezin",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Eenvoudig budgetteren met enveloppen"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Eenvoudig budgetteren met enveloppen",
+  "settingsDeleteAccountTitle": "Account verwijderen?",
+  "settingsDeleteAccountDescription": "Hiermee worden je account en alle gegevens definitief verwijderd. Deze actie kan niet ongedaan worden gemaakt. Typ DELETE om te bevestigen.",
+  "settingsDeleteAccountButton": "Account verwijderen",
+  "settingsDeleteAccountConfirmValidation": "Typ DELETE om de accountverwijdering te bevestigen",
+  "settingsDeleteAccountInProgress": "Account verwijderen...",
+  "settingsDeleteAccountSuccess": "Account succesvol verwijderd",
+  "settingsDeleteAccountTileBusy": "Verwijderen..."
 }

@@ -1986,5 +1986,12 @@
   "onboardingFinishHighlightWhatsApp": "Aggiungi le spese direttamente da WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Budget condivisi per coppie e famiglie",
   "onboardingFinishHighlightOnePlan": "Un unico piano per tutta la famiglia",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Semplice gestione del budget a buste"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Semplice gestione del budget a buste",
+  "settingsDeleteAccountTitle": "Eliminare l'account?",
+  "settingsDeleteAccountDescription": "Questa azione eliminerà permanentemente il tuo account e tutti i tuoi dati. L'azione non può essere annullata. Digita DELETE per confermare.",
+  "settingsDeleteAccountButton": "Elimina account",
+  "settingsDeleteAccountConfirmValidation": "Digita DELETE per confermare l'eliminazione dell'account",
+  "settingsDeleteAccountInProgress": "Eliminazione account...",
+  "settingsDeleteAccountSuccess": "Account eliminato con successo",
+  "settingsDeleteAccountTileBusy": "Eliminazione..."
 }

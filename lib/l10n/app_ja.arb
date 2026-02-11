@@ -2039,5 +2039,12 @@
   "onboardingFinishHighlightWhatsApp": "WhatsAppから直接支出を追加",
   "onboardingFinishHighlightSharedBudgets": "カップルや家族のための共有予算",
   "onboardingFinishHighlightOnePlan": "家族全員で使えるひとつのプラン",
-  "onboardingFinishHighlightEnvelopeBudgeting": "シンプルな封筒貯金スタイル"
+  "onboardingFinishHighlightEnvelopeBudgeting": "シンプルな封筒貯金スタイル",
+  "settingsDeleteAccountTitle": "アカウントを削除しますか？",
+  "settingsDeleteAccountDescription": "アカウントとすべてのデータが完全に削除されます。この操作は取り消せません。確認のため「DELETE」と入力してください。",
+  "settingsDeleteAccountButton": "アカウントを削除",
+  "settingsDeleteAccountConfirmValidation": "削除を確認するには「DELETE」と入力してください",
+  "settingsDeleteAccountInProgress": "アカウントを削除中...",
+  "settingsDeleteAccountSuccess": "アカウントが正常に削除されました",
+  "settingsDeleteAccountTileBusy": "削除中..."
 }

@@ -1989,5 +1989,12 @@
   "onboardingFinishHighlightWhatsApp": "Добавляйте расходы прямо из WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Общий бюджет для пар и семей",
   "onboardingFinishHighlightOnePlan": "Один тариф для всей семьи",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Простой метод конвертов"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Простой метод конвертов",
+  "settingsDeleteAccountTitle": "Удалить аккаунт?",
+  "settingsDeleteAccountDescription": "Это навсегда удалит ваш аккаунт и все ваши данные. Это действие нельзя отменить. Введите DELETE для подтверждения.",
+  "settingsDeleteAccountButton": "Удалить аккаунт",
+  "settingsDeleteAccountConfirmValidation": "Введите DELETE для подтверждения удаления аккаунта",
+  "settingsDeleteAccountInProgress": "Удаление аккаунта...",
+  "settingsDeleteAccountSuccess": "Аккаунт успешно удален",
+  "settingsDeleteAccountTileBusy": "Удаление..."
 }

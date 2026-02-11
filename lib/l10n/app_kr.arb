@@ -1852,5 +1852,12 @@
   "onboardingFinishHighlightWhatsApp": "왓츠앱(WhatsApp)에서 바로 지출 추가",
   "onboardingFinishHighlightSharedBudgets": "커플과 가족을 위한 공유 예산",
   "onboardingFinishHighlightOnePlan": "가족 모두를 위한 하나의 플랜",
-  "onboardingFinishHighlightEnvelopeBudgeting": "간편한 봉투 예산 관리"
+  "onboardingFinishHighlightEnvelopeBudgeting": "간편한 봉투 예산 관리",
+  "settingsDeleteAccountTitle": "계정을 삭제하시겠습니까?",
+  "settingsDeleteAccountDescription": "계정과 모든 데이터가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다. 확인을 위해 'DELETE'를 입력해주세요.",
+  "settingsDeleteAccountButton": "계정 삭제",
+  "settingsDeleteAccountConfirmValidation": "계정 삭제를 확인하려면 'DELETE'를 입력하세요",
+  "settingsDeleteAccountInProgress": "계정 삭제 중...",
+  "settingsDeleteAccountSuccess": "계정이 성공적으로 삭제되었습니다",
+  "settingsDeleteAccountTileBusy": "삭제 중..."
 }

@@ -67,6 +67,7 @@ class SettingsPage extends HookConsumerWidget {
     final selectedCurrency =
         useState<String?>(contact?.preferredCurrency?.toUpperCase());
     final selectedTimezone = useState<String?>(contact?.preferredTimezone);
+    final isAccountDeletionInProgress = useState(false);
     final nameReloadKey = useState(0);
     final deviceTimezone = _currentDeviceTimezone();
     final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
@@ -226,6 +227,142 @@ class SettingsPage extends HookConsumerWidget {
             context,
             context.l10n.timezoneUpdateFailed(e.toString()),
           );
+        }
+      }
+    }
+
+    Future<void> handleDeleteAccount() async {
+      final l10n = context.l10n;
+
+      if (isAccountDeletionInProgress.value) {
+        return;
+      }
+
+      final confirmation = await MonekoAlertDialog.show(
+        context: context,
+        title: 'Delete account?',
+        description:
+            'This will permanently delete your account and all your data. This action cannot be undone. Type DELETE to confirm.',
+        confirmLabel: 'Delete Account',
+        cancelLabel: l10n.cancel,
+        isDestructive: true,
+        inputConfig: MonekoAlertDialogInputConfig(
+          placeholder: 'DELETE',
+          isRequired: true,
+          validationPattern: RegExp(r'^DELETE$'),
+          validationMessage: 'Type DELETE to confirm account deletion',
+        ),
+      );
+
+      if (confirmation == null || !confirmation.confirmed || !context.mounted) {
+        return;
+      }
+
+      if ((confirmation.text ?? '').trim() != 'DELETE') {
+        if (context.mounted) {
+          AppToast.info(context, 'Type DELETE to confirm account deletion');
+        }
+        return;
+      }
+
+      isAccountDeletionInProgress.value = true;
+
+      NavigatorState? rootNavigator;
+      var dialogShown = false;
+      try {
+        rootNavigator = Navigator.of(context, rootNavigator: true);
+      } catch (e) {
+        debugPrint('Unable to capture root navigator for deletion flow: $e');
+      }
+
+      try {
+        if (context.mounted) {
+          await Future<void>.delayed(Duration.zero);
+          if (!context.mounted) {
+            return;
+          }
+          showBlockingProcessingDialog(
+            context: context,
+            message: 'Deleting account...',
+          );
+          dialogShown = true;
+        }
+
+        final deleteResult = await Supabase.instance.client.rpc(
+          'delete_user_account',
+        );
+
+        final wasDeleted = switch (deleteResult) {
+          Map _ => deleteResult['success'] == true,
+          bool _ => deleteResult,
+          null => true,
+          _ => false,
+        };
+        if (!wasDeleted) {
+          final errorMessage = deleteResult is Map
+              ? (deleteResult['message']?.toString() ?? l10n.failedToDelete)
+              : l10n.failedToDelete;
+          if (context.mounted) {
+            AppToast.error(context, errorMessage);
+          }
+          return;
+        }
+
+        try {
+          await ref.read(deviceRegistrationServiceProvider).unregisterDevice();
+        } catch (_) {}
+
+        try {
+          await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+        } catch (_) {}
+
+        if (authState.uid.isNotEmpty) {
+          ref.invalidate(userHouseholdsProvider(authState.uid));
+          ref.invalidate(userProfileProvider(authState.uid));
+        }
+
+        ref.read(appInitializationV2Provider.notifier).clearCacheAndReset();
+        ref.invalidate(incomeSummaryProvider);
+        ref.invalidate(incomeListProvider);
+        ref.invalidate(goalsListProvider);
+        ref.invalidate(goalSummaryProvider);
+        ref.invalidate(subscriptionManagementProvider);
+
+        try {
+          await ref.read(authProvider.notifier).signOut();
+        } catch (_) {}
+
+        if (dialogShown &&
+            rootNavigator != null &&
+            rootNavigator.mounted &&
+            rootNavigator.canPop()) {
+          try {
+            rootNavigator.pop();
+            dialogShown = false;
+          } catch (_) {}
+        }
+
+        if (context.mounted) {
+          AppToast.success(context, 'Account deleted successfully');
+        }
+      } catch (e, st) {
+        debugPrint('Account deletion failed: $e\n$st');
+        if (context.mounted) {
+          AppToast.error(context, '${l10n.failedToDelete}: $e');
+        }
+      } finally {
+        if (dialogShown &&
+            rootNavigator != null &&
+            rootNavigator.mounted &&
+            rootNavigator.canPop()) {
+          try {
+            rootNavigator.pop();
+          } catch (e) {
+            debugPrint('Failed to dismiss delete account dialog: $e');
+          }
+        }
+        if (context.mounted) {
+          isAccountDeletionInProgress.value = false;
         }
       }
     }
@@ -621,6 +758,24 @@ class SettingsPage extends HookConsumerWidget {
                           ),
                         );
                       },
+                    ),
+                  ],
+                ),
+
+                _SettingsGroup(
+                  title: context.l10n.dangerZone,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.delete_forever_rounded,
+                      iconColor: colorScheme.destructive,
+                      label: 'Delete Account',
+                      labelColor: colorScheme.destructive,
+                      value: isAccountDeletionInProgress.value
+                          ? 'Deleting...'
+                          : null,
+                      onTap: isAccountDeletionInProgress.value
+                          ? null
+                          : () => handleDeleteAccount(),
                     ),
                   ],
                 ),
@@ -1187,9 +1342,11 @@ class _SettingsTile extends StatelessWidget {
     this.icon,
     this.customIcon,
     required this.label,
+    this.labelColor,
     this.value,
     this.valueWidget,
     this.trailing,
+    this.iconColor,
     this.onTap,
     this.showChevron = true,
   });
@@ -1197,9 +1354,11 @@ class _SettingsTile extends StatelessWidget {
   final IconData? icon;
   final Widget? customIcon;
   final String label;
+  final Color? labelColor;
   final String? value;
   final Widget? valueWidget;
   final Widget? trailing;
+  final Color? iconColor;
   final VoidCallback? onTap;
   final bool showChevron;
 
@@ -1226,7 +1385,7 @@ class _SettingsTile extends StatelessWidget {
                     Icon(
                       icon,
                       size: 20,
-                      color: colorScheme.onSurface,
+                      color: iconColor ?? colorScheme.onSurface,
                     ),
               ),
               const SizedBox(width: 16),
@@ -1237,7 +1396,7 @@ class _SettingsTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
-                    color: colorScheme.onSurface,
+                    color: labelColor ?? colorScheme.onSurface,
                   ),
                 ),
               ),

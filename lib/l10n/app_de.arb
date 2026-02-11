@@ -2039,5 +2039,12 @@
   "onboardingFinishHighlightWhatsApp": "Ausgaben direkt über WhatsApp hinzufügen",
   "onboardingFinishHighlightSharedBudgets": "Gemeinsame Budgets für Paare und Familien",
   "onboardingFinishHighlightOnePlan": "Ein Abo für die ganze Familie",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Einfaches Umschlag-Budgeting"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Einfaches Umschlag-Budgeting",
+  "settingsDeleteAccountTitle": "Konto löschen?",
+  "settingsDeleteAccountDescription": "Dies wird Ihr Konto und alle Ihre Daten dauerhaft löschen. Diese Aktion kann nicht rückgängig gemacht werden. Geben Sie zur Bestätigung DELETE ein.",
+  "settingsDeleteAccountButton": "Konto löschen",
+  "settingsDeleteAccountConfirmValidation": "Geben Sie DELETE ein, um die Löschung zu bestätigen",
+  "settingsDeleteAccountInProgress": "Konto wird gelöscht...",
+  "settingsDeleteAccountSuccess": "Konto erfolgreich gelöscht",
+  "settingsDeleteAccountTileBusy": "Wird gelöscht..."
 }

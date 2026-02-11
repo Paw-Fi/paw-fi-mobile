@@ -2038,5 +2038,12 @@
   "onboardingFinishHighlightWhatsApp": "Thêm chi tiêu trực tiếp từ WhatsApp",
   "onboardingFinishHighlightSharedBudgets": "Ngân sách chia sẻ cho cặp đôi và gia đình",
   "onboardingFinishHighlightOnePlan": "Một gói cước cho cả gia đình bạn",
-  "onboardingFinishHighlightEnvelopeBudgeting": "Phương pháp quản lý chi tiêu theo từng túi"
+  "onboardingFinishHighlightEnvelopeBudgeting": "Phương pháp quản lý chi tiêu theo từng túi",
+  "settingsDeleteAccountTitle": "Xóa tài khoản?",
+  "settingsDeleteAccountDescription": "Thao tác này sẽ xóa vĩnh viễn tài khoản và tất cả dữ liệu của bạn. Không thể hoàn tác hành động này. Nhập DELETE để xác nhận.",
+  "settingsDeleteAccountButton": "Xóa tài khoản",
+  "settingsDeleteAccountConfirmValidation": "Nhập DELETE để xác nhận việc xóa tài khoản",
+  "settingsDeleteAccountInProgress": "Đang xóa tài khoản...",
+  "settingsDeleteAccountSuccess": "Đã xóa tài khoản thành công",
+  "settingsDeleteAccountTileBusy": "Đang xóa..."
 }

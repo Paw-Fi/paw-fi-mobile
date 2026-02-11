@@ -1983,5 +1983,12 @@
   "onboardingFinishHighlightWhatsApp": "直接從 WhatsApp 添加支出",
   "onboardingFinishHighlightSharedBudgets": "適合伴侶和家庭的共享預算",
   "onboardingFinishHighlightOnePlan": "全家共享一個方案",
-  "onboardingFinishHighlightEnvelopeBudgeting": "簡單的信封預算法"
+  "onboardingFinishHighlightEnvelopeBudgeting": "簡單的信封預算法",
+  "settingsDeleteAccountTitle": "刪除帳戶？",
+  "settingsDeleteAccountDescription": "這將永久刪除您的帳戶及所有數據。此操作無法撤銷。請輸入「DELETE」以確認。",
+  "settingsDeleteAccountButton": "刪除帳戶",
+  "settingsDeleteAccountConfirmValidation": "輸入「DELETE」以確認刪除帳戶",
+  "settingsDeleteAccountInProgress": "正在刪除帳戶...",
+  "settingsDeleteAccountSuccess": "帳戶已成功刪除",
+  "settingsDeleteAccountTileBusy": "正在刪除..."
 }
