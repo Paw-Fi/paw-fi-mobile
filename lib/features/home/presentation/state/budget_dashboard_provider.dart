@@ -62,6 +62,8 @@ final budgetDashboardProvider =
         final List<ConsolidatedTransaction> merged = [];
         final Set<String> seenIds = {};
         final Map<String, List<SharedBudget>> householdBudgetsMap = {};
+        Object? firstHouseholdError;
+        StackTrace? firstHouseholdErrorStack;
 
         // Helper to add unique
         void add(ConsolidatedTransaction tx) {
@@ -85,8 +87,17 @@ final budgetDashboardProvider =
         // Add Households
         bool anyHouseholdLoading = false;
         for (final h in households) {
-          final params = HouseholdExpensesParams(householdId: h.id);
+          final params = HouseholdExpensesParams(
+            householdId: h.id,
+            limit: 0,
+          );
           final expensesAsync = ref.watch(householdExpensesProvider(params));
+
+          if (firstHouseholdError == null && expensesAsync.hasError) {
+            firstHouseholdError = expensesAsync.error;
+            firstHouseholdErrorStack =
+                expensesAsync.asError?.stackTrace ?? StackTrace.current;
+          }
 
           // Fetch budgets
           final budgetsAsync = ref.watch(householdBudgetsProvider(h.id));
@@ -109,6 +120,13 @@ final budgetDashboardProvider =
               householdName: h.name,
             ));
           }
+        }
+
+        if (firstHouseholdError != null) {
+          return AsyncValue.error(
+            firstHouseholdError,
+            firstHouseholdErrorStack ?? StackTrace.current,
+          );
         }
 
         // Sort by Date DESC, CreatedAt DESC

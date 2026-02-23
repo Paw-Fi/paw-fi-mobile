@@ -1025,6 +1025,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
+                  child: _buildPieChart(colorScheme, expenses),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
                   child: _buildLineChart(colorScheme, expenses),
                 ),
                 Padding(
@@ -1038,7 +1042,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           // Carousel indicators
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(2, (index) {
+            children: List.generate(3, (index) {
               return GestureDetector(
                 onTap: () {
                   _chartPageController.animateToPage(
@@ -1062,6 +1066,71 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             }),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPieChart(
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+  ) {
+    final spendOnly = expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
+
+    final totalsByCategory = <String, double>{};
+    for (final expense in spendOnly) {
+      final category = (expense.category ?? 'uncategorized').toLowerCase();
+      totalsByCategory[category] =
+          (totalsByCategory[category] ?? 0) + expense.amount.abs();
+    }
+
+    if (totalsByCategory.isEmpty) {
+      return Center(
+        child: Text(
+          context.l10n.noData,
+          style: TextStyle(color: colorScheme.mutedForeground),
+        ),
+      );
+    }
+
+    final sortedEntries = totalsByCategory.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final topEntries = sortedEntries.take(6).toList();
+    final totalValue = topEntries.fold(0.0, (sum, item) => sum + item.value);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      child: PieChart(
+        PieChartData(
+          centerSpaceRadius: 48,
+          sectionsSpace: 3,
+          borderData: FlBorderData(show: false),
+          sections: topEntries.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            final value = item.value;
+            final percentage = totalValue == 0 ? 0 : (value / totalValue) * 100;
+
+            return PieChartSectionData(
+              value: value,
+              color: AppTheme.pocketChartPalette[
+                  index % AppTheme.pocketChartPalette.length],
+              radius: 62,
+              showTitle: percentage >= 8,
+              title: '${percentage.toStringAsFixed(0)}%',
+              titleStyle: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+              borderSide: BorderSide(
+                color: colorScheme.card,
+                width: 2,
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

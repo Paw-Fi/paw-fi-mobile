@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/state/budget_dashboard_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -12,6 +13,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/utils/currency_rates.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/utils/overview_share_resolver.dart';
 import 'package:moneko/features/utils/main_page_top_padding.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -20,6 +22,11 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+
+final overviewPeriodSelectionProvider =
+    StateProvider.autoDispose<PeriodSelection>(
+  (ref) => PeriodSelection.preset(DateRangeFilter.allTime),
+);
 
 class OverviewDashboardPage extends ConsumerWidget {
   const OverviewDashboardPage({super.key});
@@ -53,15 +60,69 @@ class OverviewDashboardPage extends ConsumerWidget {
                       analytics.contact?.preferredCurrency ??
                       'USD';
               final allTransactions = data.allTransactions;
+              final selectedPeriod = ref.watch(overviewPeriodSelectionProvider);
+              final periodDateRange = resolvePeriodDateRange(
+                selectedPeriod,
+                now: now,
+              );
+              final selectedFrom = DateTime(
+                periodDateRange.start.year,
+                periodDateRange.start.month,
+                periodDateRange.start.day,
+              );
+              final selectedTo = DateTime(
+                periodDateRange.end.year,
+                periodDateRange.end.month,
+                periodDateRange.end.day,
+              );
+
+              String selectedPeriodLabel() {
+                switch (selectedPeriod.kind) {
+                  case PeriodSelectionKind.preset:
+                    return (selectedPeriod.preset ?? DateRangeFilter.allTime)
+                        .getLabel(context);
+                  case PeriodSelectionKind.month:
+                    final month = selectedPeriod.month ?? now;
+                    return DateFormat('MMMM yyyy').format(month);
+                  case PeriodSelectionKind.custom:
+                    final start = selectedPeriod.customStart;
+                    final end = selectedPeriod.customEnd;
+                    if (start == null || end == null) {
+                      return context.l10n.customRange;
+                    }
+                    final sameYear = start.year == end.year;
+                    final formatter = sameYear
+                        ? DateFormat('MMM d')
+                        : DateFormat('MMM d, yyyy');
+                    return '${formatter.format(start)} - ${formatter.format(end)}';
+                }
+              }
+
+              bool isInSelectedDateRange(ConsolidatedTransaction tx) {
+                final txDate = DateTime(
+                  tx.entry.date.year,
+                  tx.entry.date.month,
+                  tx.entry.date.day,
+                );
+                return !txDate.isBefore(selectedFrom) &&
+                    !txDate.isAfter(selectedTo);
+              }
+
+              final currentPeriodLabel = selectedPeriodLabel();
 
               final splitGroupsByExpenseId = <String, ExpenseSplitGroup>{};
               final splitGroupsById = <String, ExpenseSplitGroup>{};
+              final householdsWithPendingSplits = <String>{};
               for (final household in data.households) {
                 final splitsAsync = ref.watch(
                   householdSplitsProvider(
                     HouseholdSplitsParams(householdId: household.id),
                   ),
                 );
+                if ((splitsAsync.isLoading || splitsAsync.hasError) &&
+                    !splitsAsync.hasValue) {
+                  householdsWithPendingSplits.add(household.id);
+                }
                 final splits =
                     splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
                 for (final split in splits) {
@@ -70,65 +131,30 @@ class OverviewDashboardPage extends ConsumerWidget {
                 }
               }
 
-              double resolveSplitLineAmount(ExpenseSplitGroup group) {
-                final lines = group.splitLines;
-                if (lines == null || lines.isEmpty) return 0.0;
-                ExpenseSplitLine? line;
-                for (final l in lines) {
-                  if (l.userId == user.uid) {
-                    line = l;
-                    break;
-                  }
-                }
-                if (line == null) return 0.0;
-
-                switch (group.splitType) {
-                  case SplitType.amount:
-                    return (line.amountCents ?? 0) / 100.0;
-                  case SplitType.percentage:
-                    return ((line.percentage ?? 0) / 100) *
-                        (group.totalAmountCents / 100.0);
-                  case SplitType.shares:
-                    final totalShares = lines.fold<int>(
-                      0,
-                      (sum, l) => sum + (l.shares ?? 0),
-                    );
-                    if (totalShares <= 0 || line.shares == null) return 0.0;
-                    return (group.totalAmountCents / 100.0) *
-                        (line.shares! / totalShares);
-                  case SplitType.equal:
-                    return (group.totalAmountCents / 100.0) / lines.length;
-                }
-              }
+              bool isIncomeTransaction(ConsolidatedTransaction tx) =>
+                  isIncomeTransactionType(tx.entry.type);
 
               double resolveMyShareRawAmount(ConsolidatedTransaction tx) {
-                final fullAmount = tx.entry.amountCents / 100.0;
-                if (user.uid.isEmpty) return fullAmount;
-
-                final householdId = tx.entry.householdId;
-                if (householdId == null || householdId.isEmpty) {
-                  return fullAmount;
-                }
-
+                final householdId = tx.entry.householdId?.trim();
                 final splitGroupId = tx.entry.splitGroupId?.trim();
                 final hasSplitGroupId =
                     splitGroupId != null && splitGroupId.isNotEmpty;
-                final splitGroup = splitGroupsByExpenseId[tx.entry.id] ??
-                    (hasSplitGroupId ? splitGroupsById[splitGroupId] : null);
-
-                if (splitGroup != null) {
-                  return resolveSplitLineAmount(splitGroup);
+                final isHouseholdSplitPending = householdId != null &&
+                    householdId.isNotEmpty &&
+                    hasSplitGroupId &&
+                    householdsWithPendingSplits.contains(householdId) &&
+                    splitGroupsByExpenseId[tx.entry.id] == null &&
+                    splitGroupsById[splitGroupId] == null;
+                if (isHouseholdSplitPending) {
+                  return 0.0;
                 }
 
-                if (hasSplitGroupId) return 0.0;
-
-                final sharedMembers = tx.entry.sharedMemberIds;
-                if (sharedMembers != null && sharedMembers.isNotEmpty) {
-                  if (!sharedMembers.contains(user.uid)) return 0.0;
-                  return fullAmount / sharedMembers.length;
-                }
-
-                return 0.0;
+                return resolveUserShareRawAmountForOverview(
+                  entry: tx.entry,
+                  currentUserId: user.uid,
+                  splitGroupsByExpenseId: splitGroupsByExpenseId,
+                  splitGroupsById: splitGroupsById,
+                );
               }
 
               double resolveExpenseAmount(ConsolidatedTransaction tx) {
@@ -139,7 +165,7 @@ class OverviewDashboardPage extends ConsumerWidget {
               }
 
               double resolveAmount(ConsolidatedTransaction tx) {
-                if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
+                if (isIncomeTransaction(tx)) {
                   final currency = tx.entry.currency ?? 'USD';
                   final raw = resolveMyShareRawAmount(tx);
                   return CurrencyRates.convert(raw, currency, displayCurrency);
@@ -172,14 +198,13 @@ class OverviewDashboardPage extends ConsumerWidget {
 
               final myAllTransactions = allTransactions
                   .where((tx) => resolveMyShareAmount(tx).abs() > shareEpsilon)
+                  .where(isInSelectedDateRange)
                   .toList(growable: false);
               final myIncomeTransactions = myAllTransactions
-                  .where((tx) =>
-                      (tx.entry.type ?? 'expense').toLowerCase() == 'income')
+                  .where(isIncomeTransaction)
                   .toList(growable: false);
               final myExpenseTransactions = myAllTransactions
-                  .where((tx) =>
-                      (tx.entry.type ?? 'expense').toLowerCase() != 'income')
+                  .where((tx) => !isIncomeTransaction(tx))
                   .toList(growable: false);
               final recentTransactions = myAllTransactions.take(10).toList();
 
@@ -308,6 +333,100 @@ class OverviewDashboardPage extends ConsumerWidget {
                 ref.invalidate(pocketsProvider);
               }
 
+              Future<void> handleDateRangeChange() async {
+                const dateRangeOptions = [
+                  DateRangeFilter.today,
+                  DateRangeFilter.yesterday,
+                  DateRangeFilter.thisWeek,
+                  DateRangeFilter.lastWeek,
+                  DateRangeFilter.last7Days,
+                  DateRangeFilter.thisMonth,
+                  DateRangeFilter.lastMonth,
+                  DateRangeFilter.last30Days,
+                  DateRangeFilter.thisYear,
+                  DateRangeFilter.allTime,
+                  DateRangeFilter.custom,
+                ];
+
+                final selectedFilter =
+                    await showModalBottomSheet<DateRangeFilter>(
+                  context: context,
+                  backgroundColor: colorScheme.sheetBackground,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (sheetContext) {
+                    return SafeArea(
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                            child: Text(
+                              context.l10n.selectDateRange,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          ...dateRangeOptions.map((filter) {
+                            final isSelected = selectedPeriod.kind ==
+                                    PeriodSelectionKind.preset &&
+                                selectedPeriod.preset == filter;
+                            final isCustomSelected =
+                                filter == DateRangeFilter.custom &&
+                                    selectedPeriod.kind ==
+                                        PeriodSelectionKind.custom;
+                            return ListTile(
+                              title: Text(filter.getLabel(context)),
+                              trailing: (isSelected || isCustomSelected)
+                                  ? Icon(
+                                      Icons.check,
+                                      color: colorScheme.primary,
+                                      size: 18,
+                                    )
+                                  : null,
+                              onTap: () =>
+                                  Navigator.of(sheetContext).pop(filter),
+                            );
+                          }),
+                        ],
+                      ),
+                    );
+                  },
+                );
+
+                if (selectedFilter == null) return;
+                if (!context.mounted) return;
+
+                if (selectedFilter == DateRangeFilter.custom) {
+                  final initialRange = DateTimeRange(
+                    start: selectedPeriod.customStart ?? selectedFrom,
+                    end: selectedPeriod.customEnd ?? selectedTo,
+                  );
+                  final pickedRange = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2000, 1, 1),
+                    lastDate: DateTime(now.year, now.month, now.day),
+                    initialDateRange: initialRange,
+                  );
+                  if (pickedRange == null) return;
+
+                  ref.read(overviewPeriodSelectionProvider.notifier).state =
+                      PeriodSelection.custom(
+                    pickedRange.start,
+                    pickedRange.end,
+                  );
+                  return;
+                }
+
+                ref.read(overviewPeriodSelectionProvider.notifier).state =
+                    PeriodSelection.preset(selectedFilter);
+              }
+
               final currencyPill = GestureDetector(
                 onTap: handleCurrencyChange,
                 child: Container(
@@ -323,6 +442,40 @@ class OverviewDashboardPage extends ConsumerWidget {
                     children: [
                       Text(
                         displayCurrency,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
+              final dateRangePill = GestureDetector(
+                onTap: handleDateRangeChange,
+                child: Container(
+                  height: 36,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.cardSurface,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentPeriodLabel,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -365,7 +518,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                 final spaceId = resolveSpaceId(tx);
                 final stats = householdTotals[spaceId];
                 if (stats != null) {
-                  if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
+                  if (isIncomeTransaction(tx)) {
                     stats['income'] =
                         (stats['income'] as double) + resolveCachedAmount(tx);
                   } else {
@@ -373,6 +526,14 @@ class OverviewDashboardPage extends ConsumerWidget {
                         resolveCachedExpenseAmount(tx);
                   }
                 }
+              }
+
+              final transactionsBySpace =
+                  <String, List<ConsolidatedTransaction>>{};
+              for (final tx in myAllTransactions) {
+                final spaceId = resolveSpaceId(tx);
+                (transactionsBySpace[spaceId] ??= <ConsolidatedTransaction>[])
+                    .add(tx);
               }
 
               return RefreshIndicator(
@@ -422,6 +583,24 @@ class OverviewDashboardPage extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              context.l10n.selectDateRange,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            Flexible(child: dateRangePill),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 16),
 
                       // Spaces Carousel (Accounts)
@@ -434,9 +613,9 @@ class OverviewDashboardPage extends ConsumerWidget {
                           itemBuilder: (context, index) {
                             final key = householdTotals.keys.elementAt(index);
                             final stats = householdTotals[key]!;
-                            final spaceTransactions = myAllTransactions
-                                .where((tx) => resolveSpaceId(tx) == key)
-                                .toList();
+                            final spaceTransactions =
+                                transactionsBySpace[key] ??
+                                    const <ConsolidatedTransaction>[];
                             return DashboardSpaceCard(
                               spaceName: stats['name'] as String,
                               income: stats['income'] as double,
@@ -461,7 +640,7 @@ class OverviewDashboardPage extends ConsumerWidget {
 
                       // Summary Group
                       _DashboardGroup(
-                        title: context.l10n.allTime,
+                        title: currentPeriodLabel,
                         children: [
                           _DashboardTile(
                             icon: Icons.grid_view_rounded,
@@ -508,7 +687,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               _MetricDetail(
                                 title: context.l10n.totalIncome,
                                 value: allTimeTotalIncome,
-                                subtitle: context.l10n.allTime,
+                                subtitle: currentPeriodLabel,
                                 transactions: myIncomeTransactions,
                                 showCategories: false,
                                 amountResolver: resolveCachedAmount,
@@ -528,7 +707,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                               _MetricDetail(
                                 title: context.l10n.totalSpent,
                                 value: allTimeTotalExpense,
-                                subtitle: context.l10n.allTime,
+                                subtitle: currentPeriodLabel,
                                 transactions: myExpenseTransactions,
                                 showCategories: true,
                                 amountResolver: resolveCachedExpenseAmount,
@@ -712,9 +891,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                             const _Divider(),
                             // Show first 3 transactions as simplified list items
                             ...recentTransactions.take(3).map((tx) {
-                              final isIncome =
-                                  (tx.entry.type ?? 'expense').toLowerCase() ==
-                                      'income';
+                              final isIncome = isIncomeTransaction(tx);
                               final amount = resolveCachedAmount(tx);
                               final displayDateTime =
                                   combineUserDateWithUserTime(
@@ -1533,7 +1710,7 @@ List<AccountChartData> _buildAccountChartData({
         (txDate.year - startMonth.year) * 12 + txDate.month - startMonth.month;
     if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
-    if ((tx.entry.type ?? 'expense').toLowerCase() == 'income') {
+    if (normalizeTransactionType(tx.entry.type) == 'income') {
       account.income += amountResolver(tx);
     } else {
       final expenseAmount = amountResolver(tx).abs();
@@ -1591,9 +1768,9 @@ class _SpaceDetail extends StatelessWidget {
         NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
 
     final incomeTx = transactions
-        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() == 'income');
+        .where((tx) => normalizeTransactionType(tx.entry.type) == 'income');
     final expenseTx = transactions
-        .where((tx) => (tx.entry.type ?? 'expense').toLowerCase() != 'income');
+        .where((tx) => normalizeTransactionType(tx.entry.type) != 'income');
 
     final totalIncome = incomeTx.fold<double>(0.0, (sum, tx) {
       final amt = amountResolver?.call(tx) ?? (tx.entry.amountCents / 100.0);

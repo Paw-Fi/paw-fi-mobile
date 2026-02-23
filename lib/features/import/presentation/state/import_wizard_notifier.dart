@@ -14,7 +14,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
-import 'package:moneko/features/import/data/import_excel_parser.dart';
+import 'package:moneko/features/import/data/import_local_parser.dart';
 import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
@@ -53,7 +53,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.custom,
-        allowedExtensions: ['csv', 'pdf', 'xlsx', 'xls'],
+        allowedExtensions: ['csv', 'txt', 'pdf', 'xlsx', 'xls'],
         withData: true,
       );
 
@@ -79,9 +79,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       }
 
       ImportTable table;
-      if (extension == 'xlsx' || extension == 'xls') {
-        table = parseImportExcelTable(bytes);
-      } else if (extension == 'pdf') {
+      if (extension == 'pdf') {
         if (bytes.length > _maxPdfImportBytes) {
           throw Exception(
             'PDF is too large to import. Keep it under 20MB or split into smaller files.',
@@ -92,8 +90,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           filename: file.name,
         );
       } else {
-        final content = decodeImportTextFromBytes(bytes);
-        table = parseImportTable(content);
+        table = await parseLocalImportTable(
+          LocalImportParseRequest(bytes: bytes, extension: extension),
+        );
       }
 
       final mapping = autoMapFields(table.headers);

@@ -522,8 +522,8 @@ class HouseholdExpensesParams {
 /// 2. Needs to fetch and join with users table for display names
 /// 3. Backend endpoint is optimized for simple lists, not joined data
 /// Includes recurring rows so household dashboards match home totals
-final householdExpensesProvider =
-    FutureProvider.family<List<ExpenseEntry>, HouseholdExpensesParams>(
+final householdExpensesProvider = FutureProvider.autoDispose
+    .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
     // Reduce timeout so the UI can surface an error state quickly rather than
@@ -533,28 +533,72 @@ final householdExpensesProvider =
       // Fetch expenses (RLS allows: own or any with same household membership)
       // Include ALL expenses with this household_id, regardless of split_group_id.
       // Expenses logged via WhatsApp AI bot may not have a split group yet.
-      var expensesQuery = supabase
-          .from('expenses')
-          .select(
-              'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring')
-          .eq('household_id', params.householdId);
+      const expenseSelectFields =
+          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring';
 
-      // Apply date filters if provided
-      if (params.startDate != null) {
-        expensesQuery =
-            expensesQuery.gte('date', params.startDate!.toIso8601String());
+      dynamic buildExpensesQuery() {
+        var query = supabase
+            .from('expenses')
+            .select(expenseSelectFields)
+            .eq('household_id', params.householdId);
+
+        if (params.startDate != null) {
+          query = query.gte('date', params.startDate!.toIso8601String());
+        }
+        if (params.endDate != null) {
+          query = query.lte('date', params.endDate!.toIso8601String());
+        }
+
+        return query;
       }
-      if (params.endDate != null) {
-        expensesQuery =
-            expensesQuery.lte('date', params.endDate!.toIso8601String());
+
+      List<Map<String, dynamic>> expensesList;
+      if (params.limit <= 0) {
+        const pageSize = 1000;
+        const maxPages = 200;
+        final allRows = <Map<String, dynamic>>[];
+        var offset = 0;
+        var reachedMaxPages = true;
+
+        for (var page = 0; page < maxPages; page++) {
+          final response = await buildExpensesQuery()
+              .order('date', ascending: false)
+              .order('created_at', ascending: false)
+              .order('id', ascending: false)
+              .range(offset, offset + pageSize - 1)
+              .timeout(timeout);
+          final batch = (response as List).cast<Map<String, dynamic>>();
+          if (batch.isEmpty) {
+            reachedMaxPages = false;
+            break;
+          }
+
+          allRows.addAll(batch);
+          if (batch.length < pageSize) {
+            reachedMaxPages = false;
+            break;
+          }
+          offset += pageSize;
+        }
+
+        if (reachedMaxPages && allRows.isNotEmpty) {
+          FirebaseCrashlytics.instance.log(
+            '⚠️ householdExpensesProvider reached max pages '
+            '(household=${params.householdId}, pages=$maxPages, pageSize=$pageSize)',
+          );
+        }
+
+        expensesList = allRows;
+      } else {
+        final response = await buildExpensesQuery()
+            .order('date', ascending: false)
+            .order('created_at', ascending: false)
+            .order('id', ascending: false)
+            .limit(params.limit)
+            .timeout(timeout);
+        expensesList = (response as List).cast<Map<String, dynamic>>();
       }
 
-      final expenses = await expensesQuery
-          .order('date', ascending: false)
-          .limit(params.limit)
-          .timeout(timeout);
-
-      final expensesList = (expenses as List).cast<Map<String, dynamic>>();
       if (expensesList.isEmpty) return [];
 
       // Collect userIds to enrich display (optional)
@@ -570,20 +614,27 @@ final householdExpensesProvider =
       Map<String, Map<String, dynamic>> usersMap = {};
       if (userIds.isNotEmpty) {
         try {
-          final usersData = await supabase
-              .from('users')
-              .select('id, full_name, email, avatar_url')
-              .inFilter('id', userIds);
-          for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
-            String? displayName = user['full_name'] as String?;
-            final email = user['email'] as String?;
-            if (displayName == null || displayName.isEmpty) {
-              displayName = (email != null && email.isNotEmpty)
-                  ? email.split('@').first
-                  : 'User';
+          const chunkSize = 200;
+          for (var i = 0; i < userIds.length; i += chunkSize) {
+            final end = (i + chunkSize < userIds.length)
+                ? i + chunkSize
+                : userIds.length;
+            final chunk = userIds.sublist(i, end);
+            final usersData = await supabase
+                .from('users')
+                .select('id, full_name, email, avatar_url')
+                .inFilter('id', chunk);
+            for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
+              String? displayName = user['full_name'] as String?;
+              final email = user['email'] as String?;
+              if (displayName == null || displayName.isEmpty) {
+                displayName = (email != null && email.isNotEmpty)
+                    ? email.split('@').first
+                    : 'User';
+              }
+              user['full_name'] = displayName;
+              usersMap[user['id'] as String] = user;
             }
-            user['full_name'] = displayName;
-            usersMap[user['id'] as String] = user;
           }
         } catch (e) {
           appLog('Error fetching users: $e',
@@ -686,8 +737,7 @@ final householdProvider =
 /// correct instance regardless of which currency the UI is displaying.
 /// Currency filtering is done client-side by the net calculator.
 final householdSettlementPaymentsProvider = FutureProvider.autoDispose
-    .family<List<SettlementPaymentRecord>, String>(
-        (ref, householdId) async {
+    .family<List<SettlementPaymentRecord>, String>((ref, householdId) async {
   final supabase = ref.watch(supabaseClientProvider);
   final currentUserId = supabase.auth.currentUser?.id;
   if (currentUserId == null) return const <SettlementPaymentRecord>[];
