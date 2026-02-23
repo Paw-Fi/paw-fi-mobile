@@ -1,11 +1,41 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+enum BackendErrorContext {
+  generic,
+  analyzeExpense,
+  updateExpense,
+  deleteExpense,
+  saveRecurring,
+  recording,
+}
+
+class _NormalizedBackendError {
+  final String? code;
+  final int? status;
+  final String? message;
+
+  const _NormalizedBackendError({
+    this.code,
+    this.status,
+    this.message,
+  });
+}
+
 /// Centralized error handling utility for user-friendly error messages
 class ErrorHandler {
   /// Maps technical errors to user-friendly messages
-  static String getUserFriendlyMessage(dynamic error) {
+  static String getUserFriendlyMessage(
+    dynamic error, {
+    BackendErrorContext context = BackendErrorContext.generic,
+  }) {
     if (error == null) {
       return 'An unexpected error occurred. Please try again.';
+    }
+
+    final normalized = _normalizeBackendError(error);
+    final mappedBackend = _mapBackendError(normalized, context);
+    if (mappedBackend != null) {
+      return mappedBackend;
     }
 
     final errorString = error.toString().toLowerCase();
@@ -32,18 +62,6 @@ class ErrorHandler {
 
     // Supabase Edge Function errors
     if (error is FunctionException) {
-      // Prefer the structured `{ error: "..." }` payload returned by our Edge
-      // Functions, instead of the full `FunctionException(...)` string.
-      final details = error.details;
-      if (details is Map && details['error'] is String) {
-        final message = (details['error'] as String).trim();
-        if (message.isNotEmpty) return message;
-      }
-      if (details is String) {
-        final message = details.trim();
-        if (message.isNotEmpty) return message;
-      }
-      // Fall back to a generic permission message for common statuses.
       if (error.status == 401 || error.status == 403) {
         return 'You don\'t have permission to perform this action.';
       }
@@ -103,6 +121,160 @@ class ErrorHandler {
 
     // Default fallback
     return 'Something went wrong. Please try again.';
+  }
+
+  static _NormalizedBackendError _normalizeBackendError(dynamic error) {
+    String? code;
+    int? status;
+    String? message;
+
+    if (error is FunctionException) {
+      status = error.status;
+      final details = error.details;
+      if (details is Map) {
+        code = details['code']?.toString();
+        final rawMessage = details['error'] ?? details['message'];
+        if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+          message = rawMessage.trim();
+        }
+      } else if (details is String && details.trim().isNotEmpty) {
+        message = details.trim();
+      }
+    }
+
+    if (error is Map) {
+      code ??= error['code']?.toString();
+      final statusValue = error['status'];
+      if (statusValue is int) {
+        status ??= statusValue;
+      }
+      final rawMessage = error['error'] ?? error['message'];
+      if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+        message ??= rawMessage.trim();
+      }
+    }
+
+    final raw = error.toString();
+    if ((message == null || message.isEmpty) &&
+        raw.contains('details:') &&
+        raw.contains('{')) {
+      final detailsMatch = RegExp(r'details:\s*\{([^}]+)\}').firstMatch(raw);
+      final detailsText = detailsMatch?.group(1);
+      if (detailsText != null) {
+        final codeMatch = RegExp(r'code:\s*([^,}]+)').firstMatch(detailsText);
+        final messageMatch =
+            RegExp(r'error:\s*([^,}]+)').firstMatch(detailsText);
+        if (codeMatch != null && code == null) {
+          code = codeMatch.group(1)?.trim();
+        }
+        if (messageMatch != null && (message == null || message.isEmpty)) {
+          final extracted = messageMatch.group(1)?.replaceAll("'", '').trim();
+          if (extracted != null && extracted.isNotEmpty) {
+            message = extracted;
+          }
+        }
+      }
+    }
+
+    if (status == null) {
+      final statusMatch = RegExp(r'status:\s*(\d{3})').firstMatch(raw);
+      final statusText = statusMatch?.group(1);
+      if (statusText != null) {
+        status = int.tryParse(statusText);
+      }
+    }
+
+    return _NormalizedBackendError(
+      code: code?.toUpperCase(),
+      status: status,
+      message: message,
+    );
+  }
+
+  static String? _mapBackendError(
+    _NormalizedBackendError error,
+    BackendErrorContext context,
+  ) {
+    final message = error.message?.toLowerCase() ?? '';
+    final code = error.code ?? '';
+
+    if (message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('bad gateway') ||
+        message.contains('gateway timeout')) {
+      if (context == BackendErrorContext.analyzeExpense) {
+        return 'This took too long. Try a smaller file.';
+      }
+      return 'Request timed out. Please try again.';
+    }
+
+    if (context == BackendErrorContext.recording) {
+      return 'Could not process recording. Please try again.';
+    }
+
+    if (code == 'UNAUTHORIZED' || error.status == 401 || error.status == 403) {
+      return 'You don\'t have permission to do that.';
+    }
+
+    if (code == 'NOT_FOUND' || error.status == 404) {
+      if (context == BackendErrorContext.deleteExpense ||
+          context == BackendErrorContext.updateExpense) {
+        return 'This transaction is no longer available.';
+      }
+      return 'That item was not found.';
+    }
+
+    if (code == 'VALIDATION_ERROR' || error.status == 400) {
+      if (message.contains('amount_cents must be less than') ||
+          message.contains('amount must be less than')) {
+        return 'Amount is too large. Please enter a smaller value.';
+      }
+      if (context == BackendErrorContext.saveRecurring) {
+        return 'Please check the recurring details and try again.';
+      }
+      if (context == BackendErrorContext.updateExpense) {
+        return 'Please check your changes and try again.';
+      }
+      if (context == BackendErrorContext.analyzeExpense) {
+        return 'Could not analyze this input. Please try again.';
+      }
+      return 'Please check your input and try again.';
+    }
+
+    if (error.status == 409 || code == 'CONFLICT') {
+      return 'This item changed recently. Please refresh and try again.';
+    }
+
+    if (error.status == 429 || code == 'RATE_LIMIT') {
+      return 'Too many requests. Please try again in a moment.';
+    }
+
+    if (error.status != null && error.status! >= 500 ||
+        code == 'SERVER_ERROR') {
+      return 'Something went wrong on our side. Please try again.';
+    }
+
+    if (message.isNotEmpty && _isSafeUserMessage(message)) {
+      return _capitalizeFirst(message);
+    }
+
+    return null;
+  }
+
+  static bool _isSafeUserMessage(String message) {
+    final lowered = message.toLowerCase();
+    if (lowered.contains('functionexception') ||
+        lowered.contains('stack') ||
+        lowered.contains('status:') ||
+        lowered.contains('details:')) {
+      return false;
+    }
+    return !lowered.contains('{') && !lowered.contains('}');
+  }
+
+  static String _capitalizeFirst(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
   }
 
   static String _handleAuthException(AuthException error) {

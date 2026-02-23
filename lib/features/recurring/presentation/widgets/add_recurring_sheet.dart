@@ -4,6 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -878,22 +879,21 @@ class AddRecurringSheet extends HookConsumerWidget {
             AppToast.success(toastContext, successMsg);
           }
         } else {
-          // Surface raw backend/provider error message if available.
-          String? detailedError;
+          Object? saveError;
           final saveState = ref.read(recurringTransactionSaveProvider);
 
           saveState.when(
             data: (_) {},
             loading: () {},
             error: (err, _) {
-              detailedError = err.toString();
+              saveError = err;
             },
           );
 
-          final msg =
-              (detailedError != null && detailedError!.trim().isNotEmpty)
-                  ? detailedError!
-                  : 'Failed to save recurring transaction';
+          final msg = ErrorHandler.getUserFriendlyMessage(
+            saveError ?? 'Failed to save recurring transaction',
+            context: BackendErrorContext.saveRecurring,
+          );
 
           if (context.mounted) {
             closeDialog();
@@ -906,20 +906,21 @@ class AddRecurringSheet extends HookConsumerWidget {
           return;
         }
 
-        String? detailedError;
+        Object? saveError;
         final saveState = ref.read(recurringTransactionSaveProvider);
 
         saveState.when(
           data: (_) {},
           loading: () {},
           error: (err, _) {
-            detailedError = err.toString();
+            saveError = err;
           },
         );
 
-        final msg = (detailedError != null && detailedError!.trim().isNotEmpty)
-            ? detailedError!
-            : e.toString();
+        final msg = ErrorHandler.getUserFriendlyMessage(
+          saveError ?? e,
+          context: BackendErrorContext.saveRecurring,
+        );
 
         closeDialog();
         AppToast.error(toastContext, msg);

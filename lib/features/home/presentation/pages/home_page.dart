@@ -29,6 +29,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -575,8 +576,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           AppToast.info(context, context.l10n.failedToAnalyzeNoData);
         }
       } else {
-        final error = response.data?['error'] ?? context.l10n.failedToAnalyze;
-        AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
+        final message = ErrorHandler.getUserFriendlyMessage(
+          response.data,
+          context: BackendErrorContext.analyzeExpense,
+        );
+        AppToast.error(context, message);
       }
     } catch (e) {
       _debugPrint('Error in analysis: $e');
@@ -585,31 +589,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       // Close processing modal
       Navigator.of(context, rootNavigator: true).pop();
 
-      String errorMessage;
-      // Check if exception has a 'details' property with an 'error' field
-      if (e.runtimeType.toString().contains('Exception') &&
-          e.toString().contains('status: 400') &&
-          e.toString().contains('details:')) {
-        // Parse the error from the exception string representation
-        final detailsMatch =
-            RegExp(r'details: \{([^}]+)\}').firstMatch(e.toString());
-        if (detailsMatch != null) {
-          final detailsStr = detailsMatch.group(1) ?? '';
-          final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
-          if (errorMatch != null) {
-            errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ??
-                context.l10n.failedToAnalyze;
-          } else {
-            errorMessage = context.l10n.failedToAnalyze;
-          }
-        } else {
-          errorMessage = context.l10n.failedToAnalyze;
-        }
-      } else {
-        errorMessage = e.toString();
-      }
-
-      AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
+      AppToast.error(
+        context,
+        ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
+      );
     }
   }
 

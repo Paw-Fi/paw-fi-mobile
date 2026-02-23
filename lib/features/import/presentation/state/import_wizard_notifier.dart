@@ -121,6 +121,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final message = error.toString();
     final lower = message.toLowerCase();
 
+    if (lower.contains('unauthorized') || lower.contains('401')) {
+      return 'Your session has expired. Please sign in again and retry the import.';
+    }
+
+    if (lower.contains('server configuration error') ||
+        lower.contains('gemini_api_key')) {
+      return 'Import service is temporarily unavailable. Please try again shortly.';
+    }
+
     if (lower.contains('504') ||
         lower.contains('gateway timeout') ||
         lower.contains('timed out')) {
@@ -141,7 +150,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     if (lower.contains('unsupported or unreadable attachment format') ||
         lower.contains('no items extracted') ||
-        lower.contains('failed to analyze pdf')) {
+        lower.contains('failed to analyze pdf') ||
+        lower.contains('failed to analyze expense') ||
+        lower.contains('could not extract valid transactions') ||
+        lower.contains('no valid tool call found')) {
       return 'We could not extract transactions from this file. For PDF imports, use a digital statement or a clearer scan.';
     }
 

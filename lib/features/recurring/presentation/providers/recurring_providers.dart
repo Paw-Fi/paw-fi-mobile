@@ -686,8 +686,12 @@ class RecurringTransactionSaveNotifier
 
         return expense;
       } else {
+        final errorPayload = _buildFunctionErrorPayload(
+          response.data,
+          fallback: 'Failed to save recurring expense',
+        );
         state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to save',
+          errorPayload,
           StackTrace.current,
         );
         return null;
@@ -776,8 +780,12 @@ class RecurringTransactionSaveNotifier
 
         return income;
       } else {
+        final errorPayload = _buildFunctionErrorPayload(
+          response.data,
+          fallback: 'Failed to save recurring income',
+        );
         state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to save',
+          errorPayload,
           StackTrace.current,
         );
         return null;
@@ -970,8 +978,12 @@ class RecurringTransactionSaveNotifier
 
         return updatedExpense;
       } else {
+        final errorPayload = _buildFunctionErrorPayload(
+          response.data,
+          fallback: 'Failed to update recurring expense',
+        );
         state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to update',
+          errorPayload,
           StackTrace.current,
         );
         return null;
@@ -1062,8 +1074,12 @@ class RecurringTransactionSaveNotifier
 
         return updatedIncome;
       } else {
+        final errorPayload = _buildFunctionErrorPayload(
+          response.data,
+          fallback: 'Failed to update recurring income',
+        );
         state = AsyncValue.error(
-          response.data['error'] ?? 'Failed to update',
+          errorPayload,
           StackTrace.current,
         );
         return null;
@@ -1076,6 +1092,28 @@ class RecurringTransactionSaveNotifier
 
   void reset() {
     state = const AsyncValue.data(null);
+  }
+
+  Map<String, dynamic> _buildFunctionErrorPayload(
+    dynamic responseData, {
+    required String fallback,
+  }) {
+    if (responseData is Map<String, dynamic>) {
+      final rawError = responseData['error'] ?? responseData['message'];
+      final errorText = rawError is String && rawError.trim().isNotEmpty
+          ? rawError.trim()
+          : fallback;
+      return {
+        'error': errorText,
+        'code': responseData['code']?.toString(),
+        'status': responseData['status'],
+      };
+    }
+
+    return {
+      'error': fallback,
+      'code': 'SERVER_ERROR',
+    };
   }
 }
 

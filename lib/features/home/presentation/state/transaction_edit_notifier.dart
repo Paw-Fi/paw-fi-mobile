@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -255,41 +256,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   /// (e.g. "Cannot change splits after any lines have been settled").
   /// Otherwise, we fall back to the full exception string.
   String _formatErrorMessage(Object error) {
-    // Best-effort dynamic inspection to avoid hard dependency on
-    // the Supabase FunctionException type while still reading
-    // its `details` payload.
-    try {
-      final dynamic err = error;
-      final details = err.details;
-      if (details is Map) {
-        final code = details['code'];
-        if (code is String) {
-          switch (code) {
-            case 'NOT_FOUND':
-              return 'Expense not found';
-            case 'UNAUTHORIZED':
-              return 'You do not have permission to edit this expense';
-            case 'VALIDATION_ERROR':
-              return 'Invalid expense update';
-            case 'SERVER_ERROR':
-              return 'Failed to update expense';
-          }
-        }
-
-        final backendMessage = details['error'];
-        if (backendMessage is String) {
-          if (backendMessage.trim().toLowerCase() ==
-              'failed to fetch expense') {
-            return 'Failed to update expense';
-          }
-          return backendMessage;
-        }
-      }
-    } catch (_) {
-      // Ignore and fall through to default.
-    }
-
-    return error.toString();
+    return ErrorHandler.getUserFriendlyMessage(
+      error,
+      context: BackendErrorContext.updateExpense,
+    );
   }
 
   /// Clear any error state

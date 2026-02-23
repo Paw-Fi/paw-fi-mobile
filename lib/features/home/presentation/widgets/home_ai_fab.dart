@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart' as foundation;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -21,6 +22,7 @@ import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -758,7 +760,10 @@ Future<void> handleAiCameraCapture(
     if (context.mounted) {
       AppToast.error(
         context,
-        '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+        ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
       );
     }
   }
@@ -790,7 +795,10 @@ Future<void> handleAiLibraryCapture(
     if (context.mounted) {
       AppToast.error(
         context,
-        '${context.l10n.failedToCapturePhoto}: ${e.toString()}',
+        ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
       );
     }
   }
@@ -907,7 +915,10 @@ Future<void> handleAiFileUpload(
     if (context.mounted) {
       AppToast.error(
         context,
-        '${context.l10n.failedToAnalyze}: ${e.toString()}',
+        ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
       );
     }
   }
@@ -1406,15 +1417,20 @@ Future<void> _processExpense(
         }
       }
     } else {
-      String error;
+      final errorPayload = <String, dynamic>{
+        'error': responseData?['error'],
+        'message': responseData?['message'],
+        'code': responseData?['code'],
+        'status': responseData?['status'],
+      };
       if (context.mounted) {
-        error =
-            responseData?['error']?.toString() ?? context.l10n.failedToAnalyze;
-      } else {
-        error = responseData?['error']?.toString() ?? 'Failed to analyze';
-      }
-      if (context.mounted) {
-        AppToast.error(context, '${context.l10n.failedToAnalyze}: $error');
+        AppToast.error(
+          context,
+          ErrorHandler.getUserFriendlyMessage(
+            errorPayload,
+            context: BackendErrorContext.analyzeExpense,
+          ),
+        );
       }
     }
   } catch (e) {
@@ -1425,48 +1441,14 @@ Future<void> _processExpense(
       Navigator.of(context, rootNavigator: true).pop();
     }
 
-    String errorMessage;
-    final errorString = e.toString().toLowerCase();
-
-    // Check for gateway timeout errors (502, 504)
-    if (errorString.contains('502') ||
-        errorString.contains('504') ||
-        errorString.contains('bad gateway') ||
-        errorString.contains('gateway timeout') ||
-        errorString.contains('timeout')) {
-      errorMessage = context.mounted
-          ? 'Request timed out. Try with a smaller file or fewer pages.'
-          : 'Request timed out';
-    } else if (e.runtimeType.toString().contains('Exception') &&
-        e.toString().contains('status: 400') &&
-        e.toString().contains('details:')) {
-      // Parse the error from the exception string representation
-      final detailsMatch =
-          RegExp(r'details: \{([^}]+)\}').firstMatch(e.toString());
-      if (detailsMatch != null) {
-        final detailsStr = detailsMatch.group(1) ?? '';
-        final errorMatch = RegExp(r'error: ([^,]+)').firstMatch(detailsStr);
-        if (errorMatch != null) {
-          errorMessage = errorMatch.group(1)?.replaceAll("'", '').trim() ??
-              (context.mounted
-                  ? context.l10n.failedToAnalyze
-                  : 'Failed to analyze');
-        } else {
-          errorMessage = context.mounted
-              ? context.l10n.failedToAnalyze
-              : 'Failed to analyze';
-        }
-      } else {
-        errorMessage = context.mounted
-            ? context.l10n.failedToAnalyze
-            : 'Failed to analyze';
-      }
-    } else {
-      errorMessage = e.toString();
-    }
-
     if (context.mounted) {
-      AppToast.error(context, '${context.l10n.failedToAnalyze}: $errorMessage');
+      AppToast.error(
+        context,
+        ErrorHandler.getUserFriendlyMessage(
+          e,
+          context: BackendErrorContext.analyzeExpense,
+        ),
+      );
     }
   }
 }
@@ -1591,7 +1573,12 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         });
         AppToast.error(
           context,
-          context.l10n.unableToStartRecording(error.toString()),
+          context.l10n.unableToStartRecording(
+            ErrorHandler.getUserFriendlyMessage(
+              error,
+              context: BackendErrorContext.recording,
+            ),
+          ),
         );
       }
     }
@@ -1695,7 +1682,12 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       if (mounted) {
         AppToast.error(
           context,
-          context.l10n.unableToProcessRecording(error.toString()),
+          context.l10n.unableToProcessRecording(
+            ErrorHandler.getUserFriendlyMessage(
+              error,
+              context: BackendErrorContext.recording,
+            ),
+          ),
         );
       }
     } finally {
@@ -1843,17 +1835,28 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               unawaited(_finishHoldRecording());
             }
           },
-          child: GestureDetector(
-            onLongPressStart: (details) async {
-              _holdStartGlobalX = details.globalPosition.dx;
-              await _runHoldAction();
-            },
-            onLongPressMoveUpdate: _updateHoldRecordingDrag,
-            onLongPressEnd: (_) async {
-              await _finishHoldRecording();
-            },
-            onLongPressUp: () async {
-              await _finishHoldRecording();
+          child: RawGestureDetector(
+            gestures: {
+              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer>(
+                () => LongPressGestureRecognizer(
+                  duration: const Duration(milliseconds: 280),
+                ),
+                (instance) {
+                  instance
+                    ..onLongPressStart = (details) async {
+                      _holdStartGlobalX = details.globalPosition.dx;
+                      await _runHoldAction();
+                    }
+                    ..onLongPressMoveUpdate = _updateHoldRecordingDrag
+                    ..onLongPressEnd = (_) async {
+                      await _finishHoldRecording();
+                    }
+                    ..onLongPressUp = () async {
+                      await _finishHoldRecording();
+                    };
+                },
+              ),
             },
             child: Stack(
               clipBehavior: Clip.none,

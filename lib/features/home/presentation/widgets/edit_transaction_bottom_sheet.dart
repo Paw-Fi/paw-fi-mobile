@@ -16,6 +16,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 /// Generic bottom sheet for editing transaction fields
@@ -631,9 +632,13 @@ class _EditTransactionBottomSheetState
       AppToast.success(context, '${_getLabel()} updated successfully');
     } else {
       final error = ref.read(transactionEditProvider).error;
-      setState(() => _error = error);
+      final message = ErrorHandler.getUserFriendlyMessage(
+        error,
+        context: BackendErrorContext.updateExpense,
+      );
+      setState(() => _error = message);
 
-      AppToast.error(context, error ?? 'Failed to update');
+      AppToast.error(context, message);
     }
   }
 

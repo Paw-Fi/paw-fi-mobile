@@ -2727,10 +2727,10 @@ class _UnifiedTransactionSheetState
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
-          final message =
-              (editState.error != null && editState.error!.trim().isNotEmpty)
-                  ? editState.error!
-                  : context.l10n.failedToUpdateExpense;
+          final message = ErrorHandler.getUserFriendlyMessage(
+            editState.error ?? context.l10n.failedToUpdateExpense,
+            context: BackendErrorContext.updateExpense,
+          );
 
           closeDialog();
           AppToast.error(
@@ -2751,7 +2751,10 @@ class _UnifiedTransactionSheetState
       closeDialog();
       AppToast.error(
         toastContext,
-        ErrorHandler.getUserFriendlyMessage(error),
+        ErrorHandler.getUserFriendlyMessage(
+          error,
+          context: BackendErrorContext.updateExpense,
+        ),
         duration: const Duration(seconds: 5),
       );
     } finally {
@@ -2845,7 +2848,10 @@ class _UnifiedTransactionSheetState
       debugPrint(' Error deleting expense: $error');
       AppToast.error(
         toastContext,
-        ErrorHandler.getUserFriendlyMessage(error),
+        ErrorHandler.getUserFriendlyMessage(
+          error,
+          context: BackendErrorContext.deleteExpense,
+        ),
         duration: const Duration(seconds: 5),
       );
     } finally {
