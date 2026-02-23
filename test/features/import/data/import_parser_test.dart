@@ -1,9 +1,45 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 
 void main() {
+  test('decodeImportTextFromBytes supports UTF-8', () {
+    final bytes = Uint8List.fromList(
+      utf8.encode('date,description\n2026-02-01,Coffee shop'),
+    );
+
+    final decoded = decodeImportTextFromBytes(bytes);
+
+    expect(decoded, contains('Coffee shop'));
+  });
+
+  test('decodeImportTextFromBytes falls back to latin1', () {
+    final bytes = Uint8List.fromList(
+      latin1.encode('date,description\n2026-02-01,Café'),
+    );
+
+    final decoded = decodeImportTextFromBytes(bytes);
+
+    expect(decoded, contains('Café'));
+  });
+
+  test('decodeImportTextFromBytes handles UTF-16 LE BOM', () {
+    const text = 'date,description\n2026-02-01,Salary';
+    final codeUnits = text.codeUnits;
+    final bytes = <int>[0xFF, 0xFE];
+    for (final unit in codeUnits) {
+      bytes.add(unit & 0xFF);
+      bytes.add((unit >> 8) & 0xFF);
+    }
+
+    final decoded = decodeImportTextFromBytes(Uint8List.fromList(bytes));
+
+    expect(decoded, contains('Salary'));
+  });
+
   test('detectDelimiter prefers the most frequent delimiter', () {
     expect(detectDelimiter('date,amount,category'), ',');
     expect(detectDelimiter('date\tamount\tcategory'), '\t');
@@ -20,7 +56,7 @@ void main() {
   });
 
   test('parseRow maps required fields and validates', () {
-    final mapping = ImportMapping(
+    const mapping = ImportMapping(
       fieldToColumnIndex: {
         ImportField.date: 0,
         ImportField.amount: 1,

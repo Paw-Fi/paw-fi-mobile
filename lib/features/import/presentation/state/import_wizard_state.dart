@@ -14,6 +14,7 @@ class ImportWizardState {
   final List<ImportParsedRow> parsedRows;
   final bool skipDuplicates;
   final bool isParsing;
+  final String? parsingStatusMessage;
   final bool isImporting;
   final String? errorMessage;
   final int importedCount;
@@ -29,6 +30,7 @@ class ImportWizardState {
     this.parsedRows = const [],
     this.skipDuplicates = true,
     this.isParsing = false,
+    this.parsingStatusMessage,
     this.isImporting = false,
     this.errorMessage,
     this.importedCount = 0,
@@ -45,6 +47,8 @@ class ImportWizardState {
     List<ImportParsedRow>? parsedRows,
     bool? skipDuplicates,
     bool? isParsing,
+    String? parsingStatusMessage,
+    bool clearParsingStatusMessage = false,
     bool? isImporting,
     String? errorMessage,
     bool clearErrorMessage = false,
@@ -62,6 +66,9 @@ class ImportWizardState {
       parsedRows: parsedRows ?? this.parsedRows,
       skipDuplicates: skipDuplicates ?? this.skipDuplicates,
       isParsing: isParsing ?? this.isParsing,
+      parsingStatusMessage: clearParsingStatusMessage
+          ? null
+          : (parsingStatusMessage ?? this.parsingStatusMessage),
       isImporting: isImporting ?? this.isImporting,
       errorMessage:
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),

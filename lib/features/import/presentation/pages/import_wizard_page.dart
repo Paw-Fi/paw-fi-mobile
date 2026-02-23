@@ -55,6 +55,7 @@ class ImportWizardPage extends ConsumerStatefulWidget {
 
 class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   bool _isBlockingDialogVisible = false;
+  BlockingProcessingController? _blockingDialogController;
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
 
   @override
   void dispose() {
+    _blockingDialogController?.dispose();
     if (_isBlockingDialogVisible) {
       try {
         Navigator.of(context, rootNavigator: true).pop();
@@ -84,6 +86,12 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           previous?.isImporting == true && next.isImporting == false;
       if (importJustCompleted) {
         _handleImportCompleted(next);
+      }
+
+      final parseJustFailed =
+          previous?.isParsing == true && next.isParsing == false;
+      if (parseJustFailed && next.errorMessage != null && context.mounted) {
+        AppToast.error(context, next.errorMessage!);
       }
     });
 
@@ -143,14 +151,26 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         final message = next.isImporting
             ? context.l10n.importing
             : context.l10n.analyzingExpense;
-        showBlockingProcessingDialog(context: context, message: message);
+        _blockingDialogController = showEnhancedBlockingDialog(
+          context: context,
+          message: message,
+          subMessage: next.isParsing ? next.parsingStatusMessage : null,
+          showElapsedTime: true,
+          enableCancelAfterSeconds: 45,
+        );
         _isBlockingDialogVisible = true;
         return;
+      }
+
+      if (shouldBlockNow && _isBlockingDialogVisible && next.isParsing) {
+        _blockingDialogController?.updateSubMessage(next.parsingStatusMessage);
       }
 
       if (!shouldBlockNow && _isBlockingDialogVisible) {
         Navigator.of(context, rootNavigator: true).pop();
         _isBlockingDialogVisible = false;
+        _blockingDialogController?.dispose();
+        _blockingDialogController = null;
       }
     });
   }
@@ -162,6 +182,8 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       if (_isBlockingDialogVisible) {
         Navigator.of(context, rootNavigator: true).pop();
         _isBlockingDialogVisible = false;
+        _blockingDialogController?.dispose();
+        _blockingDialogController = null;
       }
 
       final authState = ref.read(authProvider);

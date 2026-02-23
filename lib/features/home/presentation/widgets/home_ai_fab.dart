@@ -225,6 +225,86 @@ Future<void> _persistAiTransactions(
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
 
+  bool resolveIsRecurring(Map<String, dynamic> raw) {
+    final dynamicValue = raw['is_recurring'] ?? raw['isRecurring'];
+    if (dynamicValue is bool) return dynamicValue;
+    if (dynamicValue is num) return dynamicValue != 0;
+    if (dynamicValue is String) {
+      final normalized = dynamicValue.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    }
+    return false;
+  }
+
+  Map<String, dynamic>? normalizeRecurrenceRule(
+    Map<String, dynamic> raw,
+    String fallbackAnchorDate,
+  ) {
+    final sourceRule = raw['recurrence_rule'] ?? raw['recurrenceRule'];
+    final sourceMap = sourceRule is Map
+        ? Map<String, dynamic>.from(sourceRule)
+        : <String, dynamic>{};
+
+    final rawFrequency = sourceMap['frequency'] ?? raw['frequency'];
+    final frequency =
+        rawFrequency is String ? rawFrequency.trim().toLowerCase() : '';
+    const allowedFrequencies = <String>{
+      'daily',
+      'weekly',
+      'biweekly',
+      'monthly',
+      'yearly',
+      'custom',
+    };
+    if (!allowedFrequencies.contains(frequency)) {
+      return null;
+    }
+
+    final rawAnchorDate = sourceMap['anchor_date'] ?? sourceMap['anchorDate'];
+    final anchorDate =
+        rawAnchorDate is String && rawAnchorDate.trim().isNotEmpty
+            ? rawAnchorDate.trim()
+            : fallbackAnchorDate;
+
+    final normalizedRule = <String, dynamic>{
+      'frequency': frequency,
+      'anchor_date': anchorDate,
+    };
+
+    final rawEndDate = sourceMap['end_date'] ?? sourceMap['endDate'];
+    if (rawEndDate is String && rawEndDate.trim().isNotEmpty) {
+      normalizedRule['end_date'] = rawEndDate.trim();
+    }
+
+    final rawInterval = sourceMap['interval'];
+    if (rawInterval is num && rawInterval > 0) {
+      normalizedRule['interval'] = rawInterval.toInt();
+    }
+
+    final rawReminder = sourceMap['reminder'];
+    if (rawReminder is Map) {
+      final reminder = Map<String, dynamic>.from(rawReminder);
+      final rawEnabled = reminder['enabled'];
+      final rawValue = reminder['value'];
+      final rawUnit = reminder['unit'];
+      if (rawEnabled is bool &&
+          rawValue is num &&
+          rawValue > 0 &&
+          rawUnit is String) {
+        final unit = rawUnit.trim().toLowerCase();
+        if (unit == 'days' || unit == 'hours') {
+          normalizedRule['reminder'] = <String, dynamic>{
+            'enabled': rawEnabled,
+            'value': rawValue,
+            'unit': unit,
+          };
+        }
+      }
+    }
+
+    return normalizedRule;
+  }
+
   void upsertSavedEntry({
     required String optimisticId,
     required ExpenseEntry savedEntry,
@@ -328,6 +408,11 @@ Future<void> _persistAiTransactions(
   final batchTransactions = transactions.map((item) {
     final tx = item.transaction;
     final isIncome = tx.isIncome;
+    final isRecurring = resolveIsRecurring(item.raw);
+    final recurrenceRule = normalizeRecurrenceRule(
+      item.raw,
+      formatDateOnlyYmd(tx.date),
+    );
 
     // Extract payer and splits for expenses
     final rawPayerUserId = item.raw['payerUserId'];
@@ -352,6 +437,9 @@ Future<void> _persistAiTransactions(
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
       'clientCreatedAt': clientCreatedAtIso,
+      if (isRecurring) 'isRecurring': true,
+      if (isRecurring && recurrenceRule != null)
+        'recurrence_rule': recurrenceRule,
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
@@ -485,6 +573,11 @@ Future<void> _persistAiTransactions(
         try {
           final tx = item.transaction;
           final isIncome = tx.isIncome;
+          final isRecurring = resolveIsRecurring(item.raw);
+          final recurrenceRule = normalizeRecurrenceRule(
+            item.raw,
+            formatDateOnlyYmd(tx.date),
+          );
           final endpoint = isIncome ? 'save-income' : 'save-expense';
 
           final requestBody = <String, dynamic>{
@@ -494,6 +587,9 @@ Future<void> _persistAiTransactions(
             'currency': tx.currency,
             'date': formatDateOnlyYmd(tx.date),
             'clientCreatedAt': clientCreatedAtIso,
+            if (isRecurring) 'isRecurring': true,
+            if (isRecurring && recurrenceRule != null)
+              'recurrence_rule': recurrenceRule,
             if (tx.description?.isNotEmpty == true)
               'description': tx.description,
             if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,

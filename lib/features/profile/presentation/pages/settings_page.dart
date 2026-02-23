@@ -847,12 +847,13 @@ class SettingsPage extends HookConsumerWidget {
 
                 // Integrations
                 _SettingsGroup(title: context.l10n.integrations, children: [
-                  _SettingsTile(
-                    icon: Icons.mic_rounded,
-                    label: context.l10n.siriShortcuts,
-                    value: resolveSiriShortcutStatusText(),
-                    onTap: Platform.isIOS ? handleSiriShortcutSetup : null,
-                  ),
+                  if (Platform.isIOS)
+                    _SettingsTile(
+                      icon: Icons.mic_rounded,
+                      label: context.l10n.siriShortcuts,
+                      value: resolveSiriShortcutStatusText(),
+                      onTap: handleSiriShortcutSetup,
+                    ),
                   if (kDebugMode && Platform.isIOS)
                     _SettingsTile(
                       icon: Icons.bug_report_rounded,

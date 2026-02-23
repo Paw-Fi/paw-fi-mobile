@@ -450,12 +450,14 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   }
 
   void addOptimisticTransaction(ExpenseEntry entry) {
-    final updatedExpenses = <ExpenseEntry>[entry, ...state.expenses]
-        .where((e) => e.id.isNotEmpty)
-        .toList();
-    final updatedAllExpenses = <ExpenseEntry>[entry, ...state.allExpenses]
-        .where((e) => e.id.isNotEmpty)
-        .toList();
+    final updatedExpenses = _prependDedupedById(
+      nextEntry: entry,
+      existing: state.expenses,
+    );
+    final updatedAllExpenses = _prependDedupedById(
+      nextEntry: entry,
+      existing: state.allExpenses,
+    );
 
     state = state.copyWith(
       expenses: updatedExpenses,
@@ -477,16 +479,50 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     if (entry.id.isNotEmpty) {
       _pendingServerExpenseIds.add(entry.id);
     }
+
+    if (optimisticId.isNotEmpty) {
+      _pendingServerExpenseIds.remove(optimisticId);
+    }
+
     state = state.copyWith(
-      expenses: <ExpenseEntry>[
-        entry,
-        ...state.expenses.where((e) => e.id != optimisticId),
-      ],
-      allExpenses: <ExpenseEntry>[
-        entry,
-        ...state.allExpenses.where((e) => e.id != optimisticId),
-      ],
+      expenses: _prependDedupedById(
+        nextEntry: entry,
+        existing: state.expenses,
+        dropId: optimisticId,
+      ),
+      allExpenses: _prependDedupedById(
+        nextEntry: entry,
+        existing: state.allExpenses,
+        dropId: optimisticId,
+      ),
     );
+  }
+
+  List<ExpenseEntry> _prependDedupedById({
+    required ExpenseEntry nextEntry,
+    required List<ExpenseEntry> existing,
+    String? dropId,
+  }) {
+    final merged = <ExpenseEntry>[];
+    final seen = <String>{};
+
+    void addIfUnique(ExpenseEntry candidate) {
+      if (candidate.id.isEmpty) return;
+      if (seen.add(candidate.id)) {
+        merged.add(candidate);
+      }
+    }
+
+    addIfUnique(nextEntry);
+
+    for (final item in existing) {
+      if (dropId != null && dropId.isNotEmpty && item.id == dropId) {
+        continue;
+      }
+      addIfUnique(item);
+    }
+
+    return merged;
   }
 
   List<ExpenseEntry> _mergeWithLocalExpenses({

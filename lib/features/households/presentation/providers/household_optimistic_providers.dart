@@ -72,8 +72,22 @@ class OptimisticHouseholdExpensesNotifier
   void replaceExpense(
       String householdId, String oldExpenseId, ExpenseEntry entry) {
     final existing = state[householdId] ?? const <ExpenseEntry>[];
-    final filtered = existing.where((e) => e.id != oldExpenseId).toList();
-    final updated = <ExpenseEntry>[entry, ...filtered];
+    final seen = <String>{};
+    final updated = <ExpenseEntry>[];
+
+    void addIfUnique(ExpenseEntry candidate) {
+      if (candidate.id.isEmpty) return;
+      if (seen.add(candidate.id)) {
+        updated.add(candidate);
+      }
+    }
+
+    addIfUnique(entry);
+    for (final candidate in existing) {
+      if (candidate.id == oldExpenseId) continue;
+      addIfUnique(candidate);
+    }
+
     state = {...state, householdId: updated};
   }
 

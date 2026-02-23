@@ -7,6 +7,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/services/sse_service.dart';
+import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -30,6 +32,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }
 
   final Ref _ref;
+  static const int _maxPdfImportBytes = 20 * 1024 * 1024;
 
   void _initializeTargetAccount() {
     final scope = _ref.read(householdScopeProvider);
@@ -42,7 +45,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }
 
   Future<void> pickFile() async {
-    state = state.copyWith(clearErrorMessage: true);
+    state = state.copyWith(
+      clearErrorMessage: true,
+      clearParsingStatusMessage: true,
+    );
     try {
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
@@ -55,7 +61,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         return;
       }
 
-      state = state.copyWith(isParsing: true);
+      state = state.copyWith(
+        isParsing: true,
+        parsingStatusMessage: 'Preparing file...',
+      );
 
       final file = result.files.single;
       final extension = file.extension?.toLowerCase();
@@ -63,6 +72,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       if (bytes == null) {
         state = state.copyWith(
           isParsing: false,
+          clearParsingStatusMessage: true,
           errorMessage: 'Failed to read file',
         );
         return;
@@ -72,12 +82,17 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       if (extension == 'xlsx' || extension == 'xls') {
         table = parseImportExcelTable(bytes);
       } else if (extension == 'pdf') {
+        if (bytes.length > _maxPdfImportBytes) {
+          throw Exception(
+            'PDF is too large to import. Keep it under 20MB or split into smaller files.',
+          );
+        }
         table = await _analyzePdfToImportTable(
           bytes: bytes,
           filename: file.name,
         );
       } else {
-        final content = utf8.decode(bytes);
+        final content = decodeImportTextFromBytes(bytes);
         table = parseImportTable(content);
       }
 
@@ -86,6 +101,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
       state = state.copyWith(
         isParsing: false,
+        clearParsingStatusMessage: true,
         fileName: file.name,
         table: table,
         mapping: mapping,
@@ -95,9 +111,51 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     } catch (e) {
       state = state.copyWith(
         isParsing: false,
-        errorMessage: e.toString(),
+        clearParsingStatusMessage: true,
+        errorMessage: _toImportErrorMessage(e),
       );
     }
+  }
+
+  String _toImportErrorMessage(Object error) {
+    final message = error.toString();
+    final lower = message.toLowerCase();
+
+    if (lower.contains('504') ||
+        lower.contains('gateway timeout') ||
+        lower.contains('timed out')) {
+      return 'This file is taking too long to process. Please split large PDFs into smaller parts (for example 1-5 pages each) and try again.';
+    }
+
+    if (lower.contains('payload too large') ||
+        lower.contains('http 413') ||
+        lower.contains('too large')) {
+      return 'File is too large to import. Please reduce the file size and try again.';
+    }
+
+    if ((lower.contains('pdf') && lower.contains('5 page')) ||
+        lower.contains('maximum number of pages') ||
+        lower.contains('document exceeds page limit')) {
+      return 'This PDF is too long for one pass. Please split it into smaller files (1-5 pages each) and import again.';
+    }
+
+    if (lower.contains('unsupported or unreadable attachment format') ||
+        lower.contains('no items extracted') ||
+        lower.contains('failed to analyze pdf')) {
+      return 'We could not extract transactions from this file. For PDF imports, use a digital statement or a clearer scan.';
+    }
+
+    if (lower.contains('formatexception') ||
+        lower.contains('unexpected extension byte') ||
+        lower.contains('malformed')) {
+      return 'Unable to read file text encoding. Please export your CSV as UTF-8 and try again.';
+    }
+
+    if (message.startsWith('Exception: ')) {
+      return message.substring('Exception: '.length);
+    }
+
+    return message;
   }
 
   Future<ImportTable> _analyzePdfToImportTable({
@@ -139,25 +197,74 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'currency': selectedCurrency.toUpperCase(),
     };
 
-    final response = await supabase.functions.invoke(
-      'analyze-expense',
-      body: body,
-      headers: <String, String>{
-        'Authorization': 'Bearer ${session.accessToken}',
-      },
-    );
+    Map<String, dynamic>? responseData;
 
-    final data = response.data;
-    if (data is! Map) {
-      throw Exception('Unexpected response from analyze-expense');
+    final supabaseUrl = Constants.supabaseUrl;
+    if (supabaseUrl.isNotEmpty) {
+      var streamReportedBackendError = false;
+      try {
+        final sseUrl =
+            Uri.parse('$supabaseUrl/functions/v1/analyze-expense?stream=true');
+        state = state.copyWith(parsingStatusMessage: 'Analyzing PDF...');
+        await for (final event in SSEService.streamRequest(
+          url: sseUrl,
+          body: body,
+          headers: <String, String>{
+            'Authorization': 'Bearer ${session.accessToken}',
+          },
+          timeout: const Duration(minutes: 4),
+        )) {
+          if (event.event == 'progress' && event.data is Map<String, dynamic>) {
+            final progress = AnalysisProgressEvent.fromJson(
+              event.data as Map<String, dynamic>,
+            );
+            state = state.copyWith(
+              parsingStatusMessage: progress.displayMessage,
+            );
+          }
+
+          if (event.event == 'complete' && event.data is Map<String, dynamic>) {
+            responseData = event.data as Map<String, dynamic>;
+          } else if (event.event == 'error') {
+            streamReportedBackendError = true;
+            final err = (event.data is Map<String, dynamic>)
+                ? (event.data['error']?.toString() ?? 'Failed to analyze PDF')
+                : event.data.toString();
+            throw Exception(err);
+          }
+        }
+      } catch (_) {
+        if (streamReportedBackendError) {
+          rethrow;
+        }
+        responseData = null;
+      }
     }
 
-    if (data['success'] != true) {
-      throw Exception(data['error'] ?? 'Failed to analyze PDF');
+    if (responseData == null) {
+      state = state.copyWith(
+        parsingStatusMessage: 'Finalizing PDF analysis...',
+      );
+      final response = await supabase.functions.invoke(
+        'analyze-expense',
+        body: body,
+        headers: <String, String>{
+          'Authorization': 'Bearer ${session.accessToken}',
+        },
+      );
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Unexpected response from analyze-expense');
+      }
+      responseData = data;
     }
 
-    final responseData = data['data'];
-    final items = responseData is Map ? responseData['items'] : null;
+    if (responseData['success'] != true) {
+      throw Exception(responseData['error'] ?? 'Failed to analyze PDF');
+    }
+
+    final resultData = responseData['data'];
+    final items = resultData is Map ? resultData['items'] : null;
     if (items is! List) {
       throw Exception('No items extracted');
     }

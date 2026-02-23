@@ -192,6 +192,35 @@ class HomeHeaderSliver extends ConsumerWidget {
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
     }
 
+    Future<void> refreshHomeDataForSelectedAccount({
+      bool refreshCurrenciesNow = false,
+    }) async {
+      if (user.uid.isEmpty) return;
+
+      ref.read(analyticsProvider.notifier).refresh(user.uid);
+
+      final currentViewMode = ref.read(viewModeProvider);
+      final currentSelectedHousehold = ref.read(selectedHouseholdProvider);
+      final householdId = currentViewMode.mode == ViewMode.household
+          ? currentSelectedHousehold.householdId
+          : null;
+
+      ref
+          .read(recurringTransactionsProvider(householdId).notifier)
+          .refresh(user.uid);
+      ref.invalidate(pocketsProvider);
+
+      if (refreshCurrenciesNow) {
+        ref.invalidate(currencySummariesProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
+        ref.read(currencySummariesProvider);
+        await ref.read(currencyTransactionCountsProvider.future);
+      } else {
+        ref.invalidate(currencySummariesProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
+      }
+    }
+
     ref.listen<BankSyncResult?>(bankSyncResultProvider, (previous, next) {
       if (next == null) return;
 
@@ -426,9 +455,9 @@ class HomeHeaderSliver extends ConsumerWidget {
         if (item.value == 'personal') {
           if (viewMode.mode != ViewMode.personal) {
             ref.read(viewModeProvider.notifier).setPersonalMode();
-
-            // Invalidate currency transaction counts after mode switch
-            ref.invalidate(currencyTransactionCountsProvider);
+            await refreshHomeDataForSelectedAccount(
+              refreshCurrenciesNow: true,
+            );
           }
           return;
         }
@@ -454,9 +483,9 @@ class HomeHeaderSliver extends ConsumerWidget {
           }
           ref.invalidate(userHouseholdsProvider(user.uid));
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-
-          // Invalidate currency transaction counts after household switch
-          ref.invalidate(currencyTransactionCountsProvider);
+          await refreshHomeDataForSelectedAccount(
+            refreshCurrenciesNow: true,
+          );
         }
       },
     );
@@ -465,20 +494,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final currencyPill = GestureDetector(
       onTap: () async {
         await showCurrencySelectorModal(context, ref);
-        // Logic from main_menu_screen.dart to refresh data after currency change
-        if (user.uid.isEmpty) return;
-        ref.read(analyticsProvider.notifier).refresh(user.uid);
-
-        final currentViewMode = ref.read(viewModeProvider);
-        final currentSelectedHousehold = ref.read(selectedHouseholdProvider);
-        final householdId = currentViewMode.mode == ViewMode.household
-            ? currentSelectedHousehold.householdId
-            : null;
-
-        ref
-            .read(recurringTransactionsProvider(householdId).notifier)
-            .refresh(user.uid);
-        ref.invalidate(pocketsProvider);
+        await refreshHomeDataForSelectedAccount(refreshCurrenciesNow: true);
       },
       child: SpotlightTarget(
         controller: spotlightController,

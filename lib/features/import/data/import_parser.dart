@@ -1,7 +1,56 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/features/import/domain/import_models.dart';
+
+String decodeImportTextFromBytes(Uint8List bytes) {
+  if (bytes.isEmpty) return '';
+
+  bool hasPrefix(List<int> prefix) {
+    if (bytes.length < prefix.length) return false;
+    for (var i = 0; i < prefix.length; i++) {
+      if (bytes[i] != prefix[i]) return false;
+    }
+    return true;
+  }
+
+  // UTF-8 BOM
+  if (hasPrefix(const [0xEF, 0xBB, 0xBF])) {
+    return utf8.decode(bytes.sublist(3), allowMalformed: true);
+  }
+
+  String decodeUtf16({required bool littleEndian, int offset = 0}) {
+    final codeUnits = <int>[];
+    for (var i = offset; i + 1 < bytes.length; i += 2) {
+      final first = bytes[i];
+      final second = bytes[i + 1];
+      final value =
+          littleEndian ? (first | (second << 8)) : ((first << 8) | second);
+      codeUnits.add(value);
+    }
+    return String.fromCharCodes(codeUnits);
+  }
+
+  // UTF-16 LE BOM
+  if (hasPrefix(const [0xFF, 0xFE])) {
+    return decodeUtf16(littleEndian: true, offset: 2);
+  }
+
+  // UTF-16 BE BOM
+  if (hasPrefix(const [0xFE, 0xFF])) {
+    return decodeUtf16(littleEndian: false, offset: 2);
+  }
+
+  try {
+    return utf8.decode(bytes);
+  } catch (_) {
+    // Fallback for common CSV exports that are not UTF-8.
+    return latin1.decode(bytes, allowInvalid: true);
+  }
+}
 
 String detectDelimiter(String line) {
   final candidates = [',', ';', '\t', '|'];
