@@ -1973,12 +1973,12 @@
   "noTransactionsRecorded": "Цього місяця транзакцій не зафіксовано",
   "noExpensesDisplay": "Немає витрат для відображення",
   "importColumnFormat": "Формат колонок",
-  "importSplitDebitCredit": "Окремі колонки дебету та кредиту",
+  "importSplitDebitCredit": "Окремі колонки витрат та надходжень",
   "importSplitDebitCreditHint": "Увімкніть, якщо витрати та надходження знаходяться в окремих колонках",
-  "importFieldDebit": "Колонка дебету",
-  "importFieldCredit": "Колонка кредиту",
+  "importFieldDebit": "Колонка витрат",
+  "importFieldCredit": "Колонка надходжень",
   "importFieldBalance": "Баланс",
-  "importFieldReference": "Референс/Опис",
+  "importFieldReference": "Опис платежу",
   "noSplitTransactionsFound": "Розділених транзакцій не знайдено",
   "netSplitPosition": "Підсумкова частка",
   "howThisIsCalculated": "Як це розраховується",
@@ -2076,5 +2076,6 @@
   "siriShortcutsSetupRequired": "Потрібне налаштування",
   "siriShortcutsChecking": "Перевірка...",
   "siriShortcutsSyncFailed": "Не вдалося синхронізувати налаштування Siri",
-  "siriShortcutsOpenFailed": "Не вдалося відкрити додаток «Команди»"
+  "siriShortcutsOpenFailed": "Не вдалося відкрити додаток «Команди»",
+  "importInto": "Імпорт в"
 }

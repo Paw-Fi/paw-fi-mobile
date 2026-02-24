@@ -2031,5 +2031,6 @@
   "siriShortcutsSetupRequired": "Configuratie vereist",
   "siriShortcutsChecking": "Controleren...",
   "siriShortcutsSyncFailed": "Synchroniseren Siri-configuratie mislukt",
-  "siriShortcutsOpenFailed": "Kon de Opdrachten-app niet openen"
+  "siriShortcutsOpenFailed": "Kon de Opdrachten-app niet openen",
+  "importInto": "Importeren in"
 }

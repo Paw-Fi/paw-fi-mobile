@@ -1981,12 +1981,12 @@
   "noTransactionsRecorded": "Diesen Monat keine Transaktionen erfasst",
   "noExpensesDisplay": "Keine Ausgaben zum Anzeigen",
   "importColumnFormat": "Spaltenformat",
-  "importSplitDebitCredit": "Getrennte Soll- / Haben-Spalten",
+  "importSplitDebitCredit": "Getrennte Spalten für Ausgaben / Einnahmen",
   "importSplitDebitCreditHint": "Aktivieren, wenn Ausgaben und Einnahmen in verschiedenen Spalten stehen",
-  "importFieldDebit": "Soll-Spalte (Ausgaben)",
-  "importFieldCredit": "Haben-Spalte (Einnahmen)",
+  "importFieldDebit": "Spalte Ausgaben (Soll)",
+  "importFieldCredit": "Spalte Einnahmen (Haben)",
   "importFieldBalance": "Saldo",
-  "importFieldReference": "Referenz",
+  "importFieldReference": "Verwendungszweck",
   "noSplitTransactionsFound": "Keine Split-Transaktionen gefunden",
   "netSplitPosition": "Netto-Split-Saldo",
   "howThisIsCalculated": "So wird gerechnet",
@@ -2084,5 +2084,6 @@
   "siriShortcutsSetupRequired": "Einrichtung erforderlich",
   "siriShortcutsChecking": "Prüfen...",
   "siriShortcutsSyncFailed": "Siri-Einrichtung konnte nicht synchronisiert werden",
-  "siriShortcutsOpenFailed": "Kurzbefehle-App konnte nicht geöffnet werden"
+  "siriShortcutsOpenFailed": "Kurzbefehle-App konnte nicht geöffnet werden",
+  "importInto": "Import in"
 }

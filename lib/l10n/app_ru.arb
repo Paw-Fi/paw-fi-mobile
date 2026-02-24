@@ -1931,12 +1931,12 @@
   "noTransactionsRecorded": "В этом месяце транзакций не зафиксировано",
   "noExpensesDisplay": "Нет расходов для отображения",
   "importColumnFormat": "Формат колонок",
-  "importSplitDebitCredit": "Раздельные колонки дебета и кредита",
+  "importSplitDebitCredit": "Раздельные колонки доходов и расходов",
   "importSplitDebitCreditHint": "Включите, если списания и поступления находятся в разных колонках",
-  "importFieldDebit": "Колонка дебета",
-  "importFieldCredit": "Колонка кредита",
+  "importFieldDebit": "Колонка расходов",
+  "importFieldCredit": "Колонка доходов",
   "importFieldBalance": "Баланс",
-  "importFieldReference": "Референс/Описание",
+  "importFieldReference": "Описание платежа",
   "noSplitTransactionsFound": "Сплит-транзакции не найдены",
   "netSplitPosition": "Чистый баланс сплита",
   "howThisIsCalculated": "Как это рассчитывается",
@@ -2034,5 +2034,6 @@
   "siriShortcutsSetupRequired": "Нужна настройка",
   "siriShortcutsChecking": "Проверка...",
   "siriShortcutsSyncFailed": "Не удалось синхронизировать настройки Siri",
-  "siriShortcutsOpenFailed": "Не удалось открыть приложение «Команды»"
+  "siriShortcutsOpenFailed": "Не удалось открыть приложение «Команды»",
+  "importInto": "Импорт в"
 }

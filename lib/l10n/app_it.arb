@@ -1928,12 +1928,12 @@
   "noTransactionsRecorded": "Nessuna transazione registrata questo mese",
   "noExpensesDisplay": "Nessuna spesa da visualizzare",
   "importColumnFormat": "Formato colonna",
-  "importSplitDebitCredit": "Colonne dare / avere separate",
-  "importSplitDebitCreditHint": "Attiva quando dare e avere sono in colonne separate",
-  "importFieldDebit": "Colonna dare",
-  "importFieldCredit": "Colonna avere",
+  "importSplitDebitCredit": "Colonne Entrate / Uscite separate",
+  "importSplitDebitCreditHint": "Attiva quando entrate e uscite sono in colonne separate",
+  "importFieldDebit": "Colonna Uscite (Dare)",
+  "importFieldCredit": "Colonna Entrate (Avere)",
   "importFieldBalance": "Saldo",
-  "importFieldReference": "Riferimento",
+  "importFieldReference": "Causale / Riferimento",
   "noSplitTransactionsFound": "Nessuna transazione suddivisa trovata",
   "netSplitPosition": "Saldo netto divisione",
   "howThisIsCalculated": "Come viene calcolato",
@@ -2031,5 +2031,6 @@
   "siriShortcutsSetupRequired": "Configurazione necessaria",
   "siriShortcutsChecking": "Verifica...",
   "siriShortcutsSyncFailed": "Sincronizzazione di Siri non riuscita",
-  "siriShortcutsOpenFailed": "Impossibile aprire l'app Comandi"
+  "siriShortcutsOpenFailed": "Impossibile aprire l'app Comandi",
+  "importInto": "Importa in"
 }

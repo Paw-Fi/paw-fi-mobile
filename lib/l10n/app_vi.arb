@@ -1980,10 +1980,10 @@
   "noTransactionsRecorded": "Không có giao dịch nào được ghi lại trong tháng này",
   "noExpensesDisplay": "Không có chi phí để hiển thị",
   "importColumnFormat": "Định dạng cột",
-  "importSplitDebitCredit": "Cột ghi nợ / ghi có riêng biệt",
-  "importSplitDebitCreditHint": "Bật khi các khoản nợ và có nằm ở các cột riêng biệt",
-  "importFieldDebit": "Cột ghi nợ",
-  "importFieldCredit": "Cột ghi có",
+  "importSplitDebitCredit": "Cột Chi / Thu riêng biệt",
+  "importSplitDebitCreditHint": "Bật khi các khoản chi và thu nằm ở các cột riêng biệt",
+  "importFieldDebit": "Cột chi (Nợ)",
+  "importFieldCredit": "Cột thu (Có)",
   "importFieldBalance": "Số dư",
   "importFieldReference": "Mã tham chiếu",
   "noSplitTransactionsFound": "Không tìm thấy giao dịch chia tách",
@@ -2083,5 +2083,6 @@
   "siriShortcutsSetupRequired": "Cần thiết lập",
   "siriShortcutsChecking": "Đang kiểm tra...",
   "siriShortcutsSyncFailed": "Lỗi đồng bộ thiết lập Siri",
-  "siriShortcutsOpenFailed": "Không thể mở ứng dụng Phím tắt"
+  "siriShortcutsOpenFailed": "Không thể mở ứng dụng Phím tắt",
+  "importInto": "Nhập vào"
 }

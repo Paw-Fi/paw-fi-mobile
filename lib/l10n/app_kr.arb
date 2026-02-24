@@ -1897,5 +1897,6 @@
   "siriShortcutsSetupRequired": "설정 필요",
   "siriShortcutsChecking": "확인 중...",
   "siriShortcutsSyncFailed": "Siri 설정 동기화 실패",
-  "siriShortcutsOpenFailed": "단축어 앱을 열 수 없습니다"
+  "siriShortcutsOpenFailed": "단축어 앱을 열 수 없습니다",
+  "importInto": "가져올 공간"
 }

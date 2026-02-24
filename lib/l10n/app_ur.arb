@@ -2030,5 +2030,6 @@
   "siriShortcutsSetupRequired": "سیٹ اپ ضروری ہے",
   "siriShortcutsChecking": "چیک کیا جا رہا ہے...",
   "siriShortcutsSyncFailed": "Siri سیٹ اپ سنک کرنے میں ناکام",
-  "siriShortcutsOpenFailed": "شارٹ کٹس ایپ نہیں کھل سکی"
+  "siriShortcutsOpenFailed": "شارٹ کٹس ایپ نہیں کھل سکی",
+  "importInto": "میں امپورٹ کریں"
 }

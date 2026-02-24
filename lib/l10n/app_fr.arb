@@ -2084,5 +2084,6 @@
   "siriShortcutsSetupRequired": "Configuration requise",
   "siriShortcutsChecking": "Vérification...",
   "siriShortcutsSyncFailed": "Échec de la synchronisation de Siri",
-  "siriShortcutsOpenFailed": "Impossible d'ouvrir l'application Raccourcis"
+  "siriShortcutsOpenFailed": "Impossible d'ouvrir l'application Raccourcis",
+  "importInto": "Importer dans"
 }

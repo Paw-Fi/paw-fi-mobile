@@ -1983,10 +1983,10 @@
   "noTransactionsRecorded": "No se registraron transacciones este mes",
   "noExpensesDisplay": "No hay gastos para mostrar",
   "importColumnFormat": "Formato de columna",
-  "importSplitDebitCredit": "Columnas de débito / crédito separadas",
-  "importSplitDebitCreditHint": "Activar cuando los débitos y créditos están en columnas separadas",
-  "importFieldDebit": "Columna de débito",
-  "importFieldCredit": "Columna de crédito",
+  "importSplitDebitCredit": "Columnas de gastos / ingresos separadas",
+  "importSplitDebitCreditHint": "Activar cuando los gastos e ingresos están en columnas separadas",
+  "importFieldDebit": "Columna de gastos (Débito)",
+  "importFieldCredit": "Columna de ingresos (Crédito)",
   "importFieldBalance": "Saldo",
   "importFieldReference": "Referencia",
   "noSplitTransactionsFound": "No se encontraron transacciones divididas",
@@ -2086,5 +2086,6 @@
   "siriShortcutsSetupRequired": "Configuración necesaria",
   "siriShortcutsChecking": "Comprobando...",
   "siriShortcutsSyncFailed": "Error al sincronizar la configuración de Siri",
-  "siriShortcutsOpenFailed": "No se pudo abrir la app Atajos"
+  "siriShortcutsOpenFailed": "No se pudo abrir la app Atajos",
+  "importInto": "Importar en"
 }
