@@ -18,6 +18,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/core/navigation/navigation_ready_provider.dart';
+import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -31,6 +33,10 @@ class MainShell extends HookConsumerWidget {
 
     // One-time native notification prompt logic
     useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(navigationReadyProvider.notifier).state = true;
+      });
+
       () async {
         final user = ref.read(authProvider);
         if (user.uid.isEmpty) return;
@@ -51,8 +57,19 @@ class MainShell extends HookConsumerWidget {
           }
         } catch (_) {}
       }();
-      return null;
+      // ignore: discarded_futures
+      ref.read(notificationDispatcherProvider).replayPendingIntents();
+      return () {
+        ref.read(navigationReadyProvider.notifier).state = false;
+      };
     }, const []);
+
+    ref.listen<AppUser>(authProvider, (previous, next) {
+      if (next.uid.isNotEmpty) {
+        // ignore: discarded_futures
+        ref.read(notificationDispatcherProvider).replayPendingIntents();
+      }
+    });
 
     final pages = [
       const HomePage(),

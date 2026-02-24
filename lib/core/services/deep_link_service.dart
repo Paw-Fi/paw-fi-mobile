@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/notifications/notification_intent_parser.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
 import 'package:moneko/features/settings/presentation/widgets/telegram_verification_modal.dart';
@@ -14,11 +16,6 @@ import 'package:moneko/features/profile/data/providers/telegram_binding_provider
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/households/presentation/widgets/household_invitation_sheet.dart';
-import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +36,7 @@ void _debugPrint(String? message, {int? wrapWidth}) {
 /// Deep link service that handles app links
 class DeepLinkService {
   final AppLinks _appLinks = AppLinks();
+  final NotificationIntentParser _intentParser = NotificationIntentParser();
   StreamSubscription<Uri>? _linkSubscription;
 
   /// Initialize the deep link listener
@@ -201,6 +199,14 @@ class DeepLinkService {
       return;
     }
 
+    final intent = _intentParser.fromUri(uri);
+    if (intent != null) {
+      await ref
+          .read(notificationDispatcherProvider)
+          .enqueueIntent(intent, source: 'deep_link');
+      return;
+    }
+
     // Handle payment callback: moneko://payment?status=success/failed/canceled
     if (DeepLinks.isPaymentCallback(uri)) {
       final status = uri.queryParameters['status'];
@@ -340,104 +346,6 @@ class DeepLinkService {
       });
       return;
     }
-
-    // Handle household invitation
-    // Supports both formats:
-    // - Deep link: moneko://households/join?token=abc123
-    // - Universal link: https://moneko.io/invites/abc123
-    // Note: Push notifications also use the deep link format above.
-    if (DeepLinks.isHouseholdInvitation(uri)) {
-      String? token;
-
-      // Extract token based on URL format
-      if (uri.scheme == 'moneko') {
-        // Deep link format: moneko://households/join?token=abc123
-        token = uri.queryParameters['token'];
-      } else if (uri.scheme == 'https' || uri.scheme == 'http') {
-        // Universal link format: https://moneko.io/invites/abc123
-        // Token is the second path segment after 'invites'
-        if (uri.pathSegments.length >= 2 &&
-            uri.pathSegments.first == 'invites') {
-          token = uri.pathSegments[1];
-        }
-      }
-
-      _debugPrint('🏠 Household invitation link received');
-
-      if (token == null || token.isEmpty) {
-        _debugPrint('❌ No invitation token provided');
-        return;
-      }
-
-      // Capture token in a final variable for the closure
-      final inviteToken = token;
-
-      // Wait a bit to ensure app is fully loaded and context is ready
-      // NOTE: This uses a fixed delay which is pragmatic but not ideal for all devices.
-      // Future improvement: Use a provider/state manager to signal when navigation is ready.
-      // This would be more reliable on slower devices or under heavy load.
-      Future.delayed(const Duration(milliseconds: 500), () {
-        final navigatorContext = rootNavigatorKey.currentContext;
-        if (navigatorContext == null) {
-          _debugPrint('⚠️ Navigator context is null for household invitation');
-          return;
-        }
-
-        // Show invitation as a bottom sheet (like WhatsApp verification)
-        // This allows users to dismiss it and continue using the app
-        if (navigatorContext.mounted) {
-          _debugPrint('🏠 Showing household invitation bottom sheet');
-          showHouseholdInvitationSheet(navigatorContext, token: inviteToken);
-        }
-      });
-      return;
-    }
-
-    // Handle expense deep link: moneko://expense/{expense_id}
-    if (DeepLinks.isExpenseLink(uri)) {
-      final expenseId = uri.pathSegments.first;
-      _debugPrint('💸 Expense deep link received');
-
-      _handleExpenseDeepLink(expenseId, ref);
-      return;
-    }
-
-    // Handle household deep link: moneko://household/{household_id}
-    // With optional sub-routes: moneko://household/{household_id}/settings?tab=2
-    if (DeepLinks.isHouseholdLink(uri)) {
-      final householdId = uri.pathSegments.first;
-      final subRoute = uri.pathSegments.length > 1 ? uri.pathSegments[1] : null;
-      final queryParams = uri.queryParameters;
-      _debugPrint('🏠 Household deep link received');
-
-      _handleHouseholdDeepLink(householdId, ref,
-          subRoute: subRoute, queryParams: queryParams);
-      return;
-    }
-
-    // Handle budget deep link: moneko://budget/{budget_id}
-    if (DeepLinks.isBudgetLink(uri)) {
-      _debugPrint('💰 Budget deep link received');
-      // TODO: Implement budget navigation when budget detail page is ready
-      return;
-    }
-
-    // Handle split deep link: moneko://split/{split_id}
-    if (DeepLinks.isSplitLink(uri)) {
-      _debugPrint('🧮 Split deep link received');
-      // TODO: Implement split navigation when split detail page is ready
-      return;
-    }
-
-    // Handle home deep link: moneko://home
-    if (DeepLinks.isHomeLink(uri)) {
-      _debugPrint('🏠 Home deep link received');
-      final navCtx = rootNavigatorKey.currentContext;
-      if (navCtx?.mounted ?? false) {
-        navCtx!.go('/dashboard');
-      }
-      return;
-    }
   }
 
   /// Handle Tink callback - sync transactions using credentialsId
@@ -535,107 +443,6 @@ class DeepLinkService {
           navigator!.pop();
         }
       }
-    }
-  }
-
-  /// Handle expense deep link - show expense detail sheet
-  void _handleExpenseDeepLink(String expenseId, WidgetRef ref) async {
-    // Wait a bit to ensure app is fully loaded
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    final navigatorContext = rootNavigatorKey.currentContext;
-    if (navigatorContext == null) {
-      _debugPrint('⚠️ Navigator context is null for expense deep link');
-      return;
-    }
-
-    try {
-      // Fetch the expense from analytics provider
-      final user = ref.read(authProvider);
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
-
-      final analytics = ref.read(analyticsProvider);
-      final expense = analytics.allExpenses.cast<dynamic>().firstWhere(
-            (e) => e.id == expenseId,
-            orElse: () => null,
-          );
-
-      if (expense == null) {
-        _debugPrint('⚠️ Expense not found');
-        if (navigatorContext.mounted) {
-          AppToast.info(
-              navigatorContext, navigatorContext.l10n.expenseNotFoundOrDeleted);
-        }
-        return;
-      }
-
-      _debugPrint('✅ Found expense, showing detail sheet');
-
-      // Show expense detail sheet
-      if (navigatorContext.mounted) {
-        showUnifiedTransactionSheet(
-          navigatorContext,
-          existingExpense: expense,
-        );
-      }
-    } catch (e) {
-      _debugPrint('❌ Error handling expense deep link');
-    }
-  }
-
-  /// Handle household deep link - switch to household mode and select household
-  void _handleHouseholdDeepLink(String householdId, WidgetRef ref,
-      {String? subRoute, Map<String, String>? queryParams}) async {
-    _debugPrint('🏠 Switching to household mode');
-    _debugPrint('📍 Household sub-route requested');
-
-    // Wait a bit to ensure app is fully loaded
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    final navigatorContext = rootNavigatorKey.currentContext;
-    if (navigatorContext == null) {
-      _debugPrint('⚠️ Navigator context is null for household deep link');
-      return;
-    }
-
-    try {
-      // Switch to household view mode
-      ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-      await ref
-          .read(selectedHouseholdProvider.notifier)
-          .selectHousehold(householdId);
-
-      // Handle sub-routes if any
-      if (subRoute == 'settings' && queryParams != null) {
-        _debugPrint('📍 Settings sub-route requested');
-
-        // Navigate to household settings page
-        // Tab parameter is ignored as we use a single page layout now
-        if (navigatorContext.mounted) {
-          Navigator.of(navigatorContext).push(
-            MaterialPageRoute(
-              builder: (_) => HouseholdSettingsPage(
-                householdId: householdId,
-              ),
-            ),
-          );
-        }
-      } else {
-        // Navigate to dashboard (which will show household content)
-        if (navigatorContext.mounted) {
-          navigatorContext.go('/dashboard');
-        }
-
-        _debugPrint('✅ Switched to household');
-
-        // Handle other sub-routes if any
-        if (subRoute != null) {
-          _debugPrint('📍 Other sub-route requested');
-          // TODO: Handle sub-routes like /splits when implemented
-        }
-      }
-    } catch (e) {
-      _debugPrint('❌ Error handling household deep link');
     }
   }
 

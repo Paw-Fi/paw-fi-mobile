@@ -166,6 +166,22 @@ class DeepLinks {
         uri.pathSegments.isNotEmpty;
   }
 
+  /// Check if a URI is a recurring deep link
+  /// Format: moneko://recurring/{expense_id}
+  static bool isRecurringLink(Uri uri) {
+    return uri.scheme == appScheme &&
+        uri.host == 'recurring' &&
+        uri.pathSegments.isNotEmpty;
+  }
+
+  /// Check if a URI is a log-expense deep link
+  /// Format: moneko://expenses/log
+  static bool isLogExpenseLink(Uri uri) {
+    return uri.scheme == appScheme &&
+        uri.host == 'expenses' &&
+        uri.path == '/log';
+  }
+
   /// Widget quick actions
   /// moneko://text
   static bool isWidgetTextLink(Uri uri) {

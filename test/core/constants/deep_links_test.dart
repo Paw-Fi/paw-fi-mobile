@@ -268,6 +268,30 @@ void main() {
     });
   });
 
+  group('DeepLinks - Recurring Link Detection', () {
+    test('detects recurring link', () {
+      final uri = Uri.parse('moneko://recurring/rec_123');
+      expect(DeepLinks.isRecurringLink(uri), true);
+    });
+
+    test('rejects recurring link without id', () {
+      final uri = Uri.parse('moneko://recurring');
+      expect(DeepLinks.isRecurringLink(uri), false);
+    });
+  });
+
+  group('DeepLinks - Log Expense Link Detection', () {
+    test('detects log expense link', () {
+      final uri = Uri.parse('moneko://expenses/log');
+      expect(DeepLinks.isLogExpenseLink(uri), true);
+    });
+
+    test('rejects non-log expense link', () {
+      final uri = Uri.parse('moneko://expenses/list');
+      expect(DeepLinks.isLogExpenseLink(uri), false);
+    });
+  });
+
   group('DeepLinks - Widget Quick Actions', () {
     test('detects widget text link', () {
       final uri = Uri.parse('moneko://text');

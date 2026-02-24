@@ -25,6 +25,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
@@ -826,6 +827,13 @@ class _HomePageState extends ConsumerState<HomePage> {
       analyticsData.contact?.preferredTimezone,
     );
     final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+    ref.listen<HomePageCommand?>(homePageCommandProvider, (previous, next) {
+      if (next == null) {
+        return;
+      }
+      _showTextInputDrawer();
+      ref.read(homePageCommandProvider.notifier).state = null;
+    });
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();

@@ -10,7 +10,6 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
-import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
@@ -47,10 +46,6 @@ class _AppState extends ConsumerState<App> {
           debugPrint(s.toString());
         }
         _deepLinkInitialized = true;
-
-        // Store in global container for FCM integration
-        DeepLinkContainer.deepLinkService = _deepLinkService;
-        DeepLinkContainer.ref = ref;
       }
     });
 

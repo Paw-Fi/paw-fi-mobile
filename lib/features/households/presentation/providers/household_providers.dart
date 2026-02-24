@@ -45,7 +45,12 @@ final deviceRegistrationServiceProvider =
   final supabase = ref.watch(supabaseClientProvider);
   final messaging = FirebaseMessaging.instance;
   final localNotifications = FlutterLocalNotificationsPlugin();
-  return DeviceRegistrationService(supabase, messaging, localNotifications);
+  return DeviceRegistrationService(
+    ref,
+    supabase,
+    messaging,
+    localNotifications,
+  );
 });
 
 // ============================================================================

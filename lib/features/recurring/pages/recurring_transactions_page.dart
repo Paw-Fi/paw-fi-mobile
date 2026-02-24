@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -153,6 +154,14 @@ class _RecurringTransactionsPageState
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
+    ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
+        (previous, next) {
+      if (next == null) {
+        return;
+      }
+
+      Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
+    });
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     final preferredTimezone = ref
@@ -217,6 +226,45 @@ class _RecurringTransactionsPageState
         child: _buildFAB(colorScheme),
       ),
     );
+  }
+
+  Future<void> _handleRecurringCommand(
+    RecurringPageCommand command,
+    String? householdId,
+  ) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final notifier =
+        ref.read(recurringTransactionsProvider(householdId).notifier);
+    var state = ref.read(recurringTransactionsProvider(householdId));
+    if (!state.hasLoadedOnce || state.data.isLoading) {
+      await notifier.loadRecurringTransactions(user.id, forceRefresh: true);
+      state = ref.read(recurringTransactionsProvider(householdId));
+    }
+
+    final transactions =
+        state.data.valueOrNull ?? const <RecurringTransaction>[];
+    RecurringTransaction? transaction;
+    for (final entry in transactions) {
+      if (entry.id == command.recurringId) {
+        transaction = entry;
+        break;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (transaction == null) {
+      AppToast.info(context, context.l10n.errorLoadingData);
+    } else {
+      _showTransactionDetails(transaction);
+    }
+    ref.read(recurringPageCommandProvider.notifier).state = null;
   }
 
   Widget _buildRecurringTabView(

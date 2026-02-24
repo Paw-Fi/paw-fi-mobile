@@ -17,6 +17,7 @@ import 'package:moneko/features/households/presentation/pages/household_members_
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
+import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 
@@ -168,6 +169,13 @@ GoRouter router(RouterRef ref) {
         builder: (context, state) {
           final householdId = state.pathParameters['householdId'] ?? '';
           return HouseholdSettingsPage(householdId: householdId);
+        },
+      ),
+      GoRoute(
+        path: '/households/:householdId/settlements',
+        builder: (context, state) {
+          final householdId = state.pathParameters['householdId'] ?? '';
+          return SettlementHistoryPage(householdId: householdId);
         },
       ),
 

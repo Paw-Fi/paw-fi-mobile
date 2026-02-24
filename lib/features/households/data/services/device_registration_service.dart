@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -7,8 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/notifications/notification_intent_parser.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 const bool _enableDebugLogs =
@@ -20,17 +22,13 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
-/// Global container for deep link handling from FCM
-class DeepLinkContainer {
-  static DeepLinkService? deepLinkService;
-  static WidgetRef? ref;
-}
-
 /// Service for managing push notification device registration
 class DeviceRegistrationService {
+  final Ref _ref;
   final SupabaseClient _supabase;
   final FirebaseMessaging _messaging;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final NotificationIntentParser _intentParser = NotificationIntentParser();
   bool _initialized = false;
 
   static const String _androidChannelId = 'high_importance_channel';
@@ -42,6 +40,7 @@ class DeviceRegistrationService {
   static const String _updatesChannelName = 'Household Updates';
 
   DeviceRegistrationService(
+    this._ref,
     this._supabase,
     this._messaging,
     this._localNotifications,
@@ -265,6 +264,16 @@ class DeviceRegistrationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
+    final launchDetails =
+        await _localNotifications.getNotificationAppLaunchDetails();
+    final launchResponse = launchDetails?.notificationResponse;
+    final launchPayload = launchResponse?.payload;
+    if ((launchDetails?.didNotificationLaunchApp ?? false) &&
+        launchPayload != null &&
+        launchPayload.isNotEmpty) {
+      _dispatchPayloadString(launchPayload, source: 'local_launch');
+    }
+
     // Create notification channel for Android
     if (Platform.isAndroid) {
       const channel = AndroidNotificationChannel(
@@ -381,35 +390,7 @@ class DeviceRegistrationService {
   void _handleBackgroundMessage(RemoteMessage message) {
     _debugPrint('🔔 Background message opened');
 
-    // Handle navigation using deep link if provided
-    final deepLink = message.data['deep_link'];
-    if (deepLink != null && deepLink.isNotEmpty) {
-      _debugPrint('🔗 Deep link found');
-
-      // Wait a bit for app to be ready, then trigger deep link directly
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (DeepLinkContainer.deepLinkService != null &&
-            DeepLinkContainer.ref != null) {
-          final uri = Uri.parse(deepLink);
-          _debugPrint('🚀 Triggering deep link directly');
-          DeepLinkContainer.deepLinkService!
-              .handleDeepLinkUri(uri, DeepLinkContainer.ref!);
-        }
-      });
-    } else {
-      // Fallback to legacy navigation
-      final type = message.data['type'];
-
-      if (type == 'budget_warn' || type == 'budget_alert') {
-        // Navigate to household overview
-        _debugPrint('📊 Navigating to household');
-        // TODO: Implement navigation to household overview
-      } else if (type == 'invite_accepted') {
-        // Navigate to household members
-        _debugPrint('👥 Navigating to household members');
-        // TODO: Implement navigation to members page
-      }
-    }
+    _dispatchDataMap(message.data, source: 'fcm_tap');
   }
 
   /// Show local notification
@@ -463,7 +444,7 @@ class DeviceRegistrationService {
         message.notification?.title ?? 'Moneko',
         message.notification?.body ?? '',
         notificationDetails,
-        payload: message.data.toString(),
+        payload: jsonEncode(message.data),
       );
     } on PlatformException catch (e) {
       if (e.code == 'invalid_large_icon') {
@@ -472,7 +453,7 @@ class DeviceRegistrationService {
           message.notification?.title ?? 'Moneko',
           message.notification?.body ?? '',
           fallbackDetails,
-          payload: message.data.toString(),
+          payload: jsonEncode(message.data),
         );
       } else {
         rethrow;
@@ -484,18 +465,28 @@ class DeviceRegistrationService {
   void _onNotificationTapped(NotificationResponse response) {
     _debugPrint('🔔 Notification tapped');
 
-    // The payload contains the deep_link if available
     if (response.payload != null && response.payload!.isNotEmpty) {
-      try {
-        // The payload is the message.data.toString(), we need to parse it
-        // For now, we'll just log it - in production, you'd parse the map
-        // and extract the deep_link field
-        _debugPrint('📦 Notification payload present');
-        // TODO: Parse payload map and extract deep_link, then call _triggerDeepLink
-      } catch (e) {
-        _debugPrint('⚠️ Failed to parse notification payload');
-      }
+      _dispatchPayloadString(response.payload!, source: 'local_tap');
     }
+  }
+
+  void _dispatchPayloadString(String payload, {required String source}) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        _dispatchDataMap(decoded, source: source);
+      }
+    } catch (_) {
+      _debugPrint('⚠️ Failed to decode local notification payload');
+    }
+  }
+
+  void _dispatchDataMap(Map<String, dynamic> data, {required String source}) {
+    final intent = _intentParser.fromData(data);
+    // ignore: discarded_futures
+    _ref
+        .read(notificationDispatcherProvider)
+        .enqueueIntent(intent, source: source);
   }
 
   /// Check if device is registered with backend (checks cache and token existence)
