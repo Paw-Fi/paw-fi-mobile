@@ -57,6 +57,24 @@ void main() {
       expect(tryParseDateOnlyYmd('2026-2-10'), isNull);
     });
 
+    test('parseCalendarDateFromFlexibleInput keeps calendar day stable', () {
+      final samples = <String>[
+        '2026-03-26',
+        '2026-03-26T00:00:00.000Z',
+        '2026-03-26T23:59:59.999Z',
+        '2026-03-26T00:00:00-07:00',
+        '2026-03-26T00:00:00+08:00',
+      ];
+
+      for (final raw in samples) {
+        final parsed = parseCalendarDateFromFlexibleInput(raw);
+        expect(parsed, isNotNull, reason: raw);
+        expect(parsed!.year, 2026, reason: raw);
+        expect(parsed.month, 3, reason: raw);
+        expect(parsed.day, 26, reason: raw);
+      }
+    });
+
     test('builds UTC instant for user local midnight', () {
       final utcMidnightForSg = utcInstantForUserLocalMidnight(
         localDate: DateTime(2026, 2, 10),

@@ -119,9 +119,15 @@ class AddRecurringSheet extends HookConsumerWidget {
     final hasEndDate = useState<bool>(
       existingTransaction?.recurrenceRule?.endDate != null,
     );
-    final endDate = useState<DateTime?>(
-      existingTransaction?.recurrenceRule?.endDate,
-    );
+    final endDate = useState<DateTime?>(() {
+      final existingEndDate = existingTransaction?.recurrenceRule?.endDate;
+      if (existingEndDate == null) return null;
+      return DateTime(
+        existingEndDate.year,
+        existingEndDate.month,
+        existingEndDate.day,
+      );
+    }());
     final customInterval = useState<int?>(
       existingTransaction?.recurrenceRule?.interval,
     );
@@ -1377,7 +1383,11 @@ class AddRecurringSheet extends HookConsumerWidget {
                                 lastDate: DateTime(2030),
                               );
                               if (result != null) {
-                                endDate.value = result;
+                                endDate.value = DateTime(
+                                  result.year,
+                                  result.month,
+                                  result.day,
+                                );
                               }
                             },
                           ),

@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async';
+import 'package:moneko/core/utils/user_timezone.dart';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
@@ -548,10 +549,10 @@ final householdExpensesProvider = FutureProvider.autoDispose
             .eq('household_id', params.householdId);
 
         if (params.startDate != null) {
-          query = query.gte('date', params.startDate!.toIso8601String());
+          query = query.gte('date', formatDateOnlyYmd(params.startDate!));
         }
         if (params.endDate != null) {
-          query = query.lte('date', params.endDate!.toIso8601String());
+          query = query.lte('date', formatDateOnlyYmd(params.endDate!));
         }
 
         return query;

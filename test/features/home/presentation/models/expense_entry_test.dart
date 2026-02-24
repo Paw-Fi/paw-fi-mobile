@@ -275,7 +275,7 @@ void main() {
       expect(json['user_name'], 'John Doe');
       expect(json['user_avatar_url'], 'https://example.com/avatar.jpg');
       expect(json['household_id'], 'hh_1');
-      expect(json['date'], '2024-01-01T00:00:00.000');
+      expect(json['date'], '2024-01-01');
       expect(json['amount_cents'], 10000);
       expect(json['currency'], 'USD');
       expect(json['category'], 'Food');

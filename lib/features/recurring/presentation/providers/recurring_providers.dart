@@ -23,12 +23,9 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
-DateTime _buildAnchorDateUtc(Ref ref, DateTime startDate) {
-  final preferredTimezone =
-      ref.read(analyticsProvider).contact?.preferredTimezone;
-  return utcInstantFromEffectiveLocalDateTime(
-    localDateTimeWall: DateTime(startDate.year, startDate.month, startDate.day),
-    preferredTimezone: preferredTimezone,
+String _buildAnchorDateYmd(DateTime startDate) {
+  return formatDateOnlyYmd(
+    DateTime(startDate.year, startDate.month, startDate.day),
   );
 }
 
@@ -36,14 +33,9 @@ String _buildClientCreatedAtIso(Ref ref) {
   return DateTime.now().toUtc().toIso8601String();
 }
 
-DateTime? _buildEndDateUtc(Ref ref, DateTime? endDate) {
+String? _buildEndDateYmd(DateTime? endDate) {
   if (endDate == null) return null;
-  final preferredTimezone =
-      ref.read(analyticsProvider).contact?.preferredTimezone;
-  return utcInstantFromEffectiveLocalDateTime(
-    localDateTimeWall: DateTime(endDate.year, endDate.month, endDate.day),
-    preferredTimezone: preferredTimezone,
-  );
+  return formatDateOnlyYmd(DateTime(endDate.year, endDate.month, endDate.day));
 }
 
 // ============================================================================
@@ -593,14 +585,14 @@ class RecurringTransactionSaveNotifier
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final formattedAccountingDate = dateFormatter.format(startDate);
-      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
-      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final anchorDateYmd = _buildAnchorDateYmd(startDate);
+      final endDateYmd = _buildEndDateYmd(endDate);
       final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': anchorDateUtc.toIso8601String(),
-        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
+        'anchor_date': anchorDateYmd,
+        if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -726,14 +718,14 @@ class RecurringTransactionSaveNotifier
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
       final formattedAccountingDate = dateFormatter.format(startDate);
-      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
-      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final anchorDateYmd = _buildAnchorDateYmd(startDate);
+      final endDateYmd = _buildEndDateYmd(endDate);
       final clientCreatedAtIso = _buildClientCreatedAtIso(ref);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': anchorDateUtc.toIso8601String(),
-        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
+        'anchor_date': anchorDateYmd,
+        if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -826,13 +818,13 @@ class RecurringTransactionSaveNotifier
       // Keep the row's `date` aligned with the user-selected schedule day.
       // This value is date-only and is used across the UI for calendar semantics.
       final formattedAccountingDate = dateFormatter.format(startDate);
-      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
-      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final anchorDateYmd = _buildAnchorDateYmd(startDate);
+      final endDateYmd = _buildEndDateYmd(endDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': anchorDateUtc.toIso8601String(),
-        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
+        'anchor_date': anchorDateYmd,
+        if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&
@@ -1023,13 +1015,13 @@ class RecurringTransactionSaveNotifier
       final dateFormatter = DateFormat('yyyy-MM-dd');
       // Keep the row's `date` aligned with the user-selected schedule day.
       final formattedAccountingDate = dateFormatter.format(startDate);
-      final anchorDateUtc = _buildAnchorDateUtc(ref, startDate);
-      final endDateUtc = _buildEndDateUtc(ref, endDate);
+      final anchorDateYmd = _buildAnchorDateYmd(startDate);
+      final endDateYmd = _buildEndDateYmd(endDate);
 
       final recurrenceRule = <String, dynamic>{
         'frequency': frequency,
-        'anchor_date': anchorDateUtc.toIso8601String(),
-        if (endDateUtc != null) 'end_date': endDateUtc.toIso8601String(),
+        'anchor_date': anchorDateYmd,
+        if (endDateYmd != null) 'end_date': endDateYmd,
         if (interval != null) 'interval': interval,
         if (hasReminder == true &&
             reminderValue != null &&

@@ -137,7 +137,9 @@ void main() {
       final entry = IncomeEntry.fromJson(json);
 
       expect(entry.id, 'inc_1');
-      expect(entry.date, DateTime.utc(2024, 1, 1));
+      expect(entry.date.year, 2024);
+      expect(entry.date.month, 1);
+      expect(entry.date.day, 1);
       expect(entry.category, 'Salary');
       expect(entry.description, 'Monthly salary');
       expect(entry.source, 'Company');
@@ -257,7 +259,7 @@ void main() {
       final json = entry.toJson();
 
       expect(json['id'], 'inc_1');
-      expect(json['date'], '2024-01-01T00:00:00.000');
+      expect(json['date'], '2024-01-01');
       expect(json['category'], 'Salary');
       expect(json['description'], 'Monthly salary');
       expect(json['source'], 'Company');
@@ -495,8 +497,13 @@ void main() {
       final rule = RecurrenceRule.fromJson(json);
 
       expect(rule.frequency, 'weekly');
-      expect(rule.anchorDate, DateTime.utc(2024, 1, 1));
-      expect(rule.endDate, DateTime.utc(2024, 12, 31));
+      expect(rule.anchorDate.year, 2024);
+      expect(rule.anchorDate.month, 1);
+      expect(rule.anchorDate.day, 1);
+      expect(rule.endDate, isNotNull);
+      expect(rule.endDate!.year, 2024);
+      expect(rule.endDate!.month, 12);
+      expect(rule.endDate!.day, 31);
       expect(rule.interval, 2);
     });
 
@@ -523,8 +530,8 @@ void main() {
       final json = rule.toJson();
 
       expect(json['frequency'], 'yearly');
-      expect(json['anchor_date'], '2024-01-01T00:00:00.000');
-      expect(json['end_date'], '2024-12-31T00:00:00.000');
+      expect(json['anchor_date'], '2024-01-01');
+      expect(json['end_date'], '2024-12-31');
       expect(json['interval'], 1);
     });
   });

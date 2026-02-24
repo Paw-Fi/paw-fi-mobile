@@ -61,19 +61,8 @@ class ExpenseEntry {
         value == null ? '' : value.toString();
 
     DateTime parseDateOnly(dynamic value) {
-      final s = value?.toString();
-      if (s == null || s.isEmpty) {
-        return DateTime.fromMillisecondsSinceEpoch(0);
-      }
-      final dateOnly = tryParseDateOnlyYmd(s);
-      if (dateOnly != null) {
-        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
-      }
-      final parsed = DateTime.tryParse(s);
-      if (parsed != null) {
-        return DateTime(parsed.year, parsed.month, parsed.day);
-      }
-      return DateTime.fromMillisecondsSinceEpoch(0);
+      final parsed = parseCalendarDateFromFlexibleInput(value?.toString());
+      return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     DateTime parseInstant(dynamic value) {
@@ -133,7 +122,7 @@ class ExpenseEntry {
       'user_name': userName,
       'user_avatar_url': userAvatarUrl,
       'household_id': householdId,
-      'date': date.toIso8601String(),
+      'date': formatDateOnlyYmd(date),
       'amount_cents': amountCents,
       'currency': currency,
       'category': category,

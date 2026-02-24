@@ -14,6 +14,10 @@ void _debugLog(String message) {
   }
 }
 
+DateTime? _parseRecurrenceCalendarDate(dynamic value) {
+  return parseCalendarDateFromFlexibleInput(value?.toString());
+}
+
 class RecurringTransaction {
   final String id;
   final String? userId;
@@ -99,16 +103,8 @@ class RecurringTransaction {
     final amountLegacy = (json['amount'] as num?)?.toDouble();
 
     DateTime parseDateOnly(dynamic value) {
-      final s = value?.toString();
-      final dateOnly = tryParseDateOnlyYmd(s);
-      if (dateOnly != null) {
-        return DateTime(dateOnly.year, dateOnly.month, dateOnly.day);
-      }
-      final parsed = DateTime.tryParse(s ?? '');
-      if (parsed != null) {
-        return DateTime(parsed.year, parsed.month, parsed.day);
-      }
-      return DateTime.fromMillisecondsSinceEpoch(0);
+      final parsed = parseCalendarDateFromFlexibleInput(value?.toString());
+      return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     return RecurringTransaction(
@@ -188,7 +184,7 @@ class RecurringTransaction {
     return {
       'id': id,
       'userId': userId,
-      'date': date.toIso8601String(),
+      'date': formatDateOnlyYmd(date),
       'category': category,
       'description': description,
       'source': source,
@@ -490,9 +486,7 @@ class RecurrenceRule {
     return RecurrenceRule(
       frequency: json['frequency'] as String,
       anchorDate: DateTime.parse(json['anchor_date'] as String),
-      endDate: json['end_date'] != null
-          ? DateTime.parse(json['end_date'] as String)
-          : null,
+      endDate: _parseRecurrenceCalendarDate(json['end_date']),
       interval: json['interval'] as int?,
       reminderEnabled: reminder?['enabled'] as bool?,
       reminderValue: reminder?['value'] as int?,
@@ -506,8 +500,8 @@ class RecurrenceRule {
   Map<String, dynamic> toJson() {
     return {
       'frequency': frequency,
-      'anchor_date': anchorDate.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
+      'anchor_date': formatDateOnlyYmd(anchorDate),
+      'end_date': endDate == null ? null : formatDateOnlyYmd(endDate!),
       'interval': interval,
       if (reminderEnabled != null ||
           reminderValue != null ||
@@ -518,8 +512,7 @@ class RecurrenceRule {
           if (reminderUnit != null) 'unit': reminderUnit,
         },
       if (excludedDates.isNotEmpty)
-        'excluded_dates':
-            excludedDates.map((d) => d.toIso8601String()).toList(),
+        'excluded_dates': excludedDates.map(formatDateOnlyYmd).toList(),
     };
   }
 

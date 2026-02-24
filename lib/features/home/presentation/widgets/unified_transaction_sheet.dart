@@ -55,10 +55,9 @@ const bool _enableDebugLogs =
 /// Format date with relative terms
 String _formatRelativeDate(
   DateTime date,
-  BuildContext context, {
-  required String? preferredTimezone,
-}) {
-  final now = effectiveNow(preferredTimezone: preferredTimezone);
+  BuildContext context,
+) {
+  final now = DateTime.now().toLocal();
   final today = DateTime(now.year, now.month, now.day);
   final yesterday = today.subtract(const Duration(days: 1));
   final dateOnly = DateTime(date.year, date.month, date.day);
@@ -156,11 +155,13 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  String? get _preferredTimezone =>
-      ref.read(analyticsProvider).contact?.preferredTimezone;
+  DateTime get _effectiveNow => DateTime.now().toLocal();
 
-  DateTime get _effectiveNow =>
-      effectiveNow(preferredTimezone: _preferredTimezone);
+  DateTime _toDeviceWallTime(DateTime utcOrLocalInstant) {
+    return utcOrLocalInstant.isUtc
+        ? utcOrLocalInstant.toLocal()
+        : utcOrLocalInstant;
+  }
 
   /// Get localized category name
   String _getLocalizedCategory(String category) =>
@@ -184,10 +185,7 @@ class _UnifiedTransactionSheetState
 
     // Initialize time from existing expense or now
     if (widget.existingExpense != null) {
-      final dateTime = toEffectiveWallTime(
-        utcOrLocalInstant: widget.existingExpense!.createdAt,
-        preferredTimezone: _preferredTimezone,
-      );
+      final dateTime = _toDeviceWallTime(widget.existingExpense!.createdAt);
       _selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
 
       // DEBUG: Log expense details for household sharing
@@ -565,7 +563,7 @@ class _UnifiedTransactionSheetState
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              '${_formatRelativeDate(displayDate, context, preferredTimezone: _preferredTimezone)} • ${_selectedTime.format(context)}',
+                              '${_formatRelativeDate(displayDate, context)} • ${_selectedTime.format(context)}',
                               style: TextStyle(
                                 fontSize: 15,
                                 color: colorScheme.onSurface
@@ -2212,6 +2210,8 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
       final householdScope = ref.read(householdScopeProvider);
+      final preferredTimezone =
+          ref.read(analyticsProvider).contact?.preferredTimezone;
 
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
@@ -2476,12 +2476,13 @@ class _UnifiedTransactionSheetState
         // Backend expects date in YYYY-MM-DD format (local date)
         updates['date'] = DateFormat('yyyy-MM-dd').format(finalDateOnly);
 
-        // Send created_at as UTC instant derived from the user's selected local
-        // date/time, not the device timezone.
-        updates['created_at'] = utcInstantFromEffectiveLocalDateTime(
+        // Persist created_at as the UTC instant represented by the selected
+        // device-local date/time.
+        final createdAtUtc = utcInstantFromEffectiveLocalDateTime(
           localDateTimeWall: expenseDateTime,
-          preferredTimezone: _preferredTimezone,
-        ).toIso8601String();
+          preferredTimezone: preferredTimezone,
+        );
+        updates['created_at'] = createdAtUtc.toUtc().toIso8601String();
 
         // For existing household expenses without a split group, we may need to
         // create the first split group using the inline CustomSplitEditor.
@@ -2642,10 +2643,8 @@ class _UnifiedTransactionSheetState
           originalDate.month,
           originalDate.day,
         );
-        final originalCreatedAtLocal = toEffectiveWallTime(
-          utcOrLocalInstant: widget.existingExpense!.createdAt,
-          preferredTimezone: _preferredTimezone,
-        );
+        final originalCreatedAtLocal =
+            _toDeviceWallTime(widget.existingExpense!.createdAt);
         final originalTime = TimeOfDay(
           hour: originalCreatedAtLocal.hour,
           minute: originalCreatedAtLocal.minute,

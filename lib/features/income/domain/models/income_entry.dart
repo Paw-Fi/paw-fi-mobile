@@ -3,6 +3,8 @@
 
 import 'dart:convert';
 
+import 'package:moneko/core/utils/user_timezone.dart';
+
 class IncomeEntry {
   final String id;
   final DateTime date;
@@ -94,7 +96,8 @@ class IncomeEntry {
     final dateStr = asNonEmptyString(json['date']) ??
         asNonEmptyString(json['created_at']) ??
         DateTime.now().toIso8601String();
-    final parsedDate = DateTime.parse(dateStr);
+    final parsedDate =
+        parseCalendarDateFromFlexibleInput(dateStr) ?? DateTime.parse(dateStr);
 
     final createdAt =
         parseDateTime(json['createdAt'] ?? json['created_at']) ?? parsedDate;
@@ -176,7 +179,7 @@ class IncomeEntry {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'date': date.toIso8601String(),
+      'date': formatDateOnlyYmd(date),
       'category': category,
       'description': description,
       'source': source,
@@ -268,10 +271,7 @@ class RecurrenceRule {
 
   factory RecurrenceRule.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(dynamic value) {
-      if (value is String && value.trim().isNotEmpty) {
-        return DateTime.parse(value);
-      }
-      return null;
+      return parseCalendarDateFromFlexibleInput(value?.toString());
     }
 
     int? parseInt(dynamic value) {
@@ -292,8 +292,8 @@ class RecurrenceRule {
   Map<String, dynamic> toJson() {
     return {
       'frequency': frequency,
-      'anchor_date': anchorDate.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
+      'anchor_date': formatDateOnlyYmd(anchorDate),
+      'end_date': endDate == null ? null : formatDateOnlyYmd(endDate!),
       'interval': interval,
     };
   }

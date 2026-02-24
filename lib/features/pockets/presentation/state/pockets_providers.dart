@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -581,8 +582,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .from('expenses')
           .select('amount_cents,category,type,household_id,currency,date')
           .eq('currency', selectedCurrency)
-          .gte('date', monthStart.toIso8601String())
-          .lt('date', monthEnd.toIso8601String());
+          .gte('date', formatDateOnlyYmd(monthStart))
+          .lt('date', formatDateOnlyYmd(monthEnd));
 
       if (isHousehold) {
         // In household mode, fetch ALL expenses for the household regardless of user

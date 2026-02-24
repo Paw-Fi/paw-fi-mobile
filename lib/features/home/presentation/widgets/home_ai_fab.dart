@@ -209,18 +209,11 @@ Future<void> _persistAiTransactions(
   required String? householdId,
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
-  String? preferredTimezone,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
 
-  final timezoneOffsetMinutes =
-      resolveUserTimezoneOffsetMinutes(preferredTimezone);
-  final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
-  final clientCreatedAtIso = utcInstantForUserLocalDateTime(
-    localDateTime: userNow,
-    offsetMinutes: timezoneOffsetMinutes,
-  ).toIso8601String();
+  final clientCreatedAtIso = DateTime.now().toUtc().toIso8601String();
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -242,6 +235,11 @@ Future<void> _persistAiTransactions(
     Map<String, dynamic> raw,
     String fallbackAnchorDate,
   ) {
+    String? normalizeCalendarDateString(dynamic value) {
+      final parsed = parseCalendarDateFromFlexibleInput(value?.toString());
+      return parsed == null ? null : formatDateOnlyYmd(parsed);
+    }
+
     final sourceRule = raw['recurrence_rule'] ?? raw['recurrenceRule'];
     final sourceMap = sourceRule is Map
         ? Map<String, dynamic>.from(sourceRule)
@@ -264,9 +262,7 @@ Future<void> _persistAiTransactions(
 
     final rawAnchorDate = sourceMap['anchor_date'] ?? sourceMap['anchorDate'];
     final anchorDate =
-        rawAnchorDate is String && rawAnchorDate.trim().isNotEmpty
-            ? rawAnchorDate.trim()
-            : fallbackAnchorDate;
+        normalizeCalendarDateString(rawAnchorDate) ?? fallbackAnchorDate;
 
     final normalizedRule = <String, dynamic>{
       'frequency': frequency,
@@ -274,8 +270,9 @@ Future<void> _persistAiTransactions(
     };
 
     final rawEndDate = sourceMap['end_date'] ?? sourceMap['endDate'];
-    if (rawEndDate is String && rawEndDate.trim().isNotEmpty) {
-      normalizedRule['end_date'] = rawEndDate.trim();
+    final normalizedEndDate = normalizeCalendarDateString(rawEndDate);
+    if (normalizedEndDate != null) {
+      normalizedRule['end_date'] = normalizedEndDate;
     }
 
     final rawInterval = sourceMap['interval'];
@@ -1097,13 +1094,11 @@ Future<void> _processExpense(
             ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
             : locale.languageCode;
 
+    final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
+
     final Map<String, dynamic> body = {
       'userId': user.uid,
-      'date': formatDateOnlyYmd(
-        userNowFromOffsetMinutes(
-          resolveUserTimezoneOffsetMinutes(contact?.preferredTimezone),
-        ),
-      ),
+      'date': formatDateOnlyYmd(today),
       'language': languageTag,
       'typeHint': 'mixed',
     };
@@ -1285,10 +1280,9 @@ Future<void> _processExpense(
                 } else {
                   final parsedInstant = DateTime.tryParse(rawDate ?? '');
                   if (parsedInstant != null) {
-                    final effective = toEffectiveWallTime(
-                      utcOrLocalInstant: parsedInstant,
-                      preferredTimezone: contact?.preferredTimezone,
-                    );
+                    final effective = parsedInstant.isUtc
+                        ? parsedInstant.toLocal()
+                        : parsedInstant;
                     accountingDate = DateTime(
                         effective.year, effective.month, effective.day);
                   }
@@ -1402,7 +1396,6 @@ Future<void> _processExpense(
               householdId: householdId,
               isPortfolio: isPortfolio,
               transactions: parsed,
-              preferredTimezone: contact?.preferredTimezone,
               localImagePath: imagePath,
             ),
           );

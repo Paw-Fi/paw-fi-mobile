@@ -28,6 +28,34 @@ DateTime? tryParseDateOnlyYmd(String? value) {
   return parsed;
 }
 
+DateTime? parseCalendarDateFromFlexibleInput(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+
+  // Calendar-day values are often serialized as full ISO timestamps (sometimes
+  // in UTC at midnight). For calendar semantics we must not apply timezone
+  // conversion (which can shift the day). Instead, prefer extracting the
+  // YYYY-MM-DD prefix when present.
+  final ymdPrefix =
+      RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(trimmed);
+  if (ymdPrefix != null) {
+    final year = int.parse(ymdPrefix.group(1)!);
+    final month = int.parse(ymdPrefix.group(2)!);
+    final day = int.parse(ymdPrefix.group(3)!);
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return parsed;
+  }
+
+  final parsed = DateTime.tryParse(trimmed);
+  if (parsed == null) return null;
+
+  // As a fallback, keep the calendar day as expressed by the parsed value
+  // without shifting it through `toLocal()`.
+  return DateTime(parsed.year, parsed.month, parsed.day);
+}
 int resolveUserTimezoneOffsetMinutes(
   String? preferredTimezone, {
   int? fallbackOffsetMinutes,

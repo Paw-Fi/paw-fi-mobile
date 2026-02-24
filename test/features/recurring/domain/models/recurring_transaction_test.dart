@@ -306,7 +306,9 @@ void main() {
       expect(json['category'], 'rent');
       expect(json['amountMajor'], 1200.0);
       expect(json['type'], 'expense');
+      expect(json['date'], '2024-01-01');
       expect(json['recurrenceRule']['frequency'], 'monthly');
+      expect(json['recurrenceRule']['anchor_date'], '2024-01-01');
     });
   });
 
@@ -841,6 +843,38 @@ void main() {
       expect(rule.reminderUnit, 'days');
     });
 
+    test('fromJson preserves date-only end_date without drift', () {
+      final json = {
+        'frequency': 'monthly',
+        'anchor_date': '2024-01-01T00:00:00.000Z',
+        'end_date': '2024-03-26',
+      };
+
+      final rule = RecurrenceRule.fromJson(json);
+
+      expect(rule.endDate, isNotNull);
+      expect(rule.endDate!.year, 2024);
+      expect(rule.endDate!.month, 3);
+      expect(rule.endDate!.day, 26);
+    });
+
+    test('fromJson normalizes UTC datetime end_date to local calendar day', () {
+      const endDateIso = '2024-03-25T16:00:00.000Z';
+      final json = {
+        'frequency': 'monthly',
+        'anchor_date': '2024-01-01T00:00:00.000Z',
+        'end_date': endDateIso,
+      };
+
+      final expectedLocal = DateTime.parse(endDateIso).toLocal();
+      final rule = RecurrenceRule.fromJson(json);
+
+      expect(rule.endDate, isNotNull);
+      expect(rule.endDate!.year, expectedLocal.year);
+      expect(rule.endDate!.month, expectedLocal.month);
+      expect(rule.endDate!.day, expectedLocal.day);
+    });
+
     test('toJson serializes recurrence rule', () {
       final anchor = DateTime.parse('2024-01-01T00:00:00.000Z');
       final rule = RecurrenceRule(
@@ -855,6 +889,7 @@ void main() {
       final json = rule.toJson();
 
       expect(json['frequency'], 'monthly');
+      expect(json['anchor_date'], '2024-01-01');
       expect(json['interval'], 1);
       expect(json['reminder']['enabled'], true);
       expect(json['reminder']['value'], 1);
