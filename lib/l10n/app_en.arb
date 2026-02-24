@@ -2097,7 +2097,7 @@
   "slideRightToCancel": "Slide right to cancel",
   "telegramConnected": "Telegram Connected",
   "siriShortcuts": "Siri Shortcuts",
-  "siriShortcutsDescription": "Use Siri to log expenses without opening the app. Example: \"Log expense with Moneko, 12 dollars lunch.\"",
+  "siriShortcutsDescription": "Use Siri to log expenses without even opening the app. Just say: “Log expense with Moneko.”",
   "siriShortcutsOpenShortcuts": "Open Shortcuts",
   "siriShortcutsReady": "Ready",
   "siriShortcutsNeedsRefresh": "Needs refresh",

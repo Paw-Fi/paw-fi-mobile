@@ -2077,7 +2077,7 @@
   "slideRightToCancel": "Glissez vers la droite pour annuler",
   "telegramConnected": "Telegram connecté",
   "siriShortcuts": "Raccourcis Siri",
-  "siriShortcutsDescription": "Utilisez Siri pour enregistrer vos dépenses sans ouvrir l'application. Exemple : « Enregistre une dépense avec Moneko, 12 euros pour le déjeuner. »",
+  "siriShortcutsDescription": "Enregistrez vos dépenses avec Siri sans même ouvrir l'app. Dites simplement : « Enregistrer une dépense avec Moneko ».",
   "siriShortcutsOpenShortcuts": "Ouvrir les Raccourcis",
   "siriShortcutsReady": "Prêt",
   "siriShortcutsNeedsRefresh": "Actualisation nécessaire",

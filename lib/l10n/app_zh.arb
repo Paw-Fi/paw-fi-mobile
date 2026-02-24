@@ -2073,7 +2073,7 @@
   "slideRightToCancel": "向右滑动取消",
   "telegramConnected": "Telegram 已连接",
   "siriShortcuts": "Siri 快捷指令",
-  "siriShortcutsDescription": "无需打开 App，直接用 Siri 记账。例如：“用 Moneko 记录，午餐 12 元。”",
+  "siriShortcutsDescription": "无需打开应用，直接用 Siri 记账。只需说：“用 Moneko 记账”。",
   "siriShortcutsOpenShortcuts": "打开快捷指令",
   "siriShortcutsReady": "已就绪",
   "siriShortcutsNeedsRefresh": "需要刷新",

@@ -2076,7 +2076,7 @@
   "slideRightToCancel": "Vuốt sang phải để hủy",
   "telegramConnected": "Đã kết nối Telegram",
   "siriShortcuts": "Phím tắt Siri",
-  "siriShortcutsDescription": "Sử dụng Siri để ghi chép chi tiêu mà không cần mở ứng dụng. Ví dụ: \"Ghi chi tiêu với Moneko, 12 đô ăn trưa.\"",
+  "siriShortcutsDescription": "Ghi chi tiêu bằng Siri mà không cần mở ứng dụng. Chỉ cần nói: “Ghi chi tiêu bằng Moneko”.",
   "siriShortcutsOpenShortcuts": "Mở Phím tắt",
   "siriShortcutsReady": "Sẵn sàng",
   "siriShortcutsNeedsRefresh": "Cần làm mới",

@@ -1890,7 +1890,7 @@
   "slideRightToCancel": "오른쪽으로 밀어서 취소",
   "telegramConnected": "텔레그램 연결됨",
   "siriShortcuts": "Siri 단축어",
-  "siriShortcutsDescription": "앱을 열지 않고 Siri로 지출을 기록해 보세요. 예: \"모네코로 점심 12,000원 기록해줘.\"",
+  "siriShortcutsDescription": "앱을 열지 않고도 Siri로 지출을 기록하세요. “Moneko로 지출 기록”이라고 말해보세요.",
   "siriShortcutsOpenShortcuts": "단축어 열기",
   "siriShortcutsReady": "준비됨",
   "siriShortcutsNeedsRefresh": "새로고침 필요",

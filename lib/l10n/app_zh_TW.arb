@@ -2021,7 +2021,7 @@
   "slideRightToCancel": "向右滑動取消",
   "telegramConnected": "Telegram 已連接",
   "siriShortcuts": "Siri 快捷指令",
-  "siriShortcutsDescription": "無需打開 App，直接用 Siri 記帳。例如：「用 Moneko 紀錄，午餐 12 元。」",
+  "siriShortcutsDescription": "無需打開 App，直接用 Siri 記帳。只需說：「用 Moneko 記帳」。",
   "siriShortcutsOpenShortcuts": "開啟快捷指令",
   "siriShortcutsReady": "已就緒",
   "siriShortcutsNeedsRefresh": "需要重新整理",

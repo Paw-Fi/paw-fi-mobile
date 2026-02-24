@@ -2079,7 +2079,7 @@
   "slideRightToCancel": "Desliza a la derecha para cancelar",
   "telegramConnected": "Telegram conectado",
   "siriShortcuts": "Atajos de Siri",
-  "siriShortcutsDescription": "Usa Siri para registrar gastos sin abrir la app. Ejemplo: \"Registra un gasto con Moneko, 12 dólares almuerzo\".",
+  "siriShortcutsDescription": "Registra gastos con Siri sin siquiera abrir la app. Solo di: “Registrar gasto con Moneko”.",
   "siriShortcutsOpenShortcuts": "Abrir Atajos",
   "siriShortcutsReady": "Listo",
   "siriShortcutsNeedsRefresh": "Actualización necesaria",

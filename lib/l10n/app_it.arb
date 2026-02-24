@@ -2024,7 +2024,7 @@
   "slideRightToCancel": "Scorri a destra per annullare",
   "telegramConnected": "Telegram collegato",
   "siriShortcuts": "Comandi rapidi di Siri",
-  "siriShortcutsDescription": "Usa Siri per registrare le spese senza aprire l'app. Esempio: \"Registra spesa con Moneko, 12 euro pranzo\".",
+  "siriShortcutsDescription": "Registra le spese con Siri senza nemmeno aprire l'app. Di' semplicemente: “Registra spesa con Moneko”.",
   "siriShortcutsOpenShortcuts": "Apri Comandi rapidi",
   "siriShortcutsReady": "Pronto",
   "siriShortcutsNeedsRefresh": "Da aggiornare",

@@ -187,7 +187,7 @@ private enum SiriShortcutIntentError: LocalizedError {
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct LogExpenseWithSiriIntent: AppIntent {
   static var title: LocalizedStringResource = "Log Expense"
   static var description = IntentDescription("Log an expense in Moneko using your voice.")
@@ -216,7 +216,7 @@ struct LogExpenseWithSiriIntent: AppIntent {
 
     let idempotencyKey = makeIdempotencyKey(userId: context.userId, text: normalizedText)
     if !reserveIdempotencySlot(idempotencyKey: idempotencyKey) {
-      throw SiriShortcutIntentError.duplicateRequest
+      return .result(dialog: IntentDialog(stringLiteral: "That expense was already logged in Moneko."))
     }
 
     var shouldKeepIdempotencySlot = false
@@ -244,12 +244,19 @@ struct LogExpenseWithSiriIntent: AppIntent {
       throw SiriShortcutIntentError.noExpenseDetected
     }
 
-    let savedCount = try await persistTransactions(
-      items: analyzedItems,
-      scope: scopeResolution,
-      context: context,
-      idempotencyKey: idempotencyKey
-    )
+    let savedCount: Int
+    do {
+      savedCount = try await persistTransactions(
+        items: analyzedItems,
+        scope: scopeResolution,
+        context: context,
+        idempotencyKey: idempotencyKey
+      )
+    } catch SiriShortcutIntentError.duplicateRequest {
+      shouldKeepIdempotencySlot = true
+      return .result(dialog: IntentDialog(stringLiteral: "That expense was already logged in Moneko."))
+    }
+
     guard savedCount > 0 else {
       throw SiriShortcutIntentError.saveFailed
     }
@@ -426,19 +433,157 @@ struct LogExpenseWithSiriIntent: AppIntent {
     guard let httpResponse = response as? HTTPURLResponse else {
       throw SiriShortcutIntentError.networkFailure
     }
-    guard (200...299).contains(httpResponse.statusCode) else {
+    if (200...299).contains(httpResponse.statusCode) {
+      do {
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let succeeded = extractSucceededCount(from: json),
+           succeeded > 0 {
+          return succeeded
+        }
+      } catch {
+        throw SiriShortcutIntentError.saveFailed
+      }
+
       throw SiriShortcutIntentError.saveFailed
     }
 
-    guard
-      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-      let summary = json["summary"] as? [String: Any],
-      let succeeded = summary["succeeded"] as? Int
-    else {
-      throw SiriShortcutIntentError.saveFailed
+    if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+      throw SiriShortcutIntentError.missingSession
     }
 
-    return succeeded
+    if httpResponse.statusCode == 409 {
+      throw SiriShortcutIntentError.duplicateRequest
+    }
+
+    if httpResponse.statusCode == 429 {
+      throw SiriShortcutIntentError.networkFailure
+    }
+
+    if httpResponse.statusCode == 404 {
+      let fallbackCount = try await persistTransactionsIndividually(
+        transactions: transactions,
+        scope: scope,
+        context: context,
+        idempotencyKey: idempotencyKey
+      )
+      if fallbackCount > 0 {
+        return fallbackCount
+      }
+    }
+    throw SiriShortcutIntentError.saveFailed
+  }
+
+  private func extractSucceededCount(from json: [String: Any]) -> Int? {
+    if let summary = json["summary"] as? [String: Any],
+       let succeeded = parseSucceededValue(summary["succeeded"]) {
+      return succeeded
+    }
+
+    if let dataObject = json["data"] as? [String: Any],
+       let summary = dataObject["summary"] as? [String: Any],
+       let succeeded = parseSucceededValue(summary["succeeded"]) {
+      return succeeded
+    }
+
+    if let results = json["results"] as? [[String: Any]] {
+      return results.reduce(into: 0) { count, item in
+        if (item["success"] as? Bool) == true {
+          count += 1
+        }
+      }
+    }
+
+    return nil
+  }
+
+  private func parseSucceededValue(_ value: Any?) -> Int? {
+    if let intValue = value as? Int {
+      return intValue
+    }
+    if let numberValue = value as? NSNumber {
+      return numberValue.intValue
+    }
+    if let stringValue = value as? String,
+       let intValue = Int(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
+      return intValue
+    }
+    return nil
+  }
+
+  private func persistTransactionsIndividually(
+    transactions: [[String: Any]],
+    scope: SiriShortcutScopeResolution,
+    context: SiriShortcutAuthContext,
+    idempotencyKey: String
+  ) async throws -> Int {
+    var savedCount = 0
+
+    for (index, transaction) in transactions.enumerated() {
+      let normalizedType = ((transaction["type"] as? String) ?? "expense").lowercased()
+      let endpoint = normalizedType == "income" ? "save-income" : "save-expense"
+
+      guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/\(endpoint)") else {
+        continue
+      }
+
+      var request = URLRequest(url: url)
+      request.httpMethod = "POST"
+      request.timeoutInterval = 25
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
+      request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
+      request.setValue("\(idempotencyKey)-\(index)", forHTTPHeaderField: "x-idempotency-key")
+
+      var body: [String: Any] = [
+        "userId": context.userId,
+      ]
+      for (key, value) in transaction {
+        if key == "type" {
+          continue
+        }
+        body[key] = value
+      }
+      if let householdId = scope.householdId {
+        body["householdId"] = householdId
+        body["isPortfolio"] = scope.isPortfolio
+      }
+
+      request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+      do {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+          continue
+        }
+
+        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+          throw SiriShortcutIntentError.missingSession
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+          continue
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+          continue
+        }
+
+        if json["id"] != nil {
+          savedCount += 1
+          continue
+        }
+
+        if let dataObject = json["data"] as? [String: Any], dataObject["id"] != nil {
+          savedCount += 1
+        }
+      } catch let intentError as SiriShortcutIntentError {
+        throw intentError
+      } catch {
+        continue
+      }
+    }
+
+    return savedCount
   }
 
   private func buildBatchTransactions(from items: [[String: Any]]) -> [[String: Any]] {
@@ -446,9 +591,18 @@ struct LogExpenseWithSiriIntent: AppIntent {
     var transactions: [[String: Any]] = []
 
     for item in items {
+      let amountValue: Double
+      if let numberValue = item["amount"] as? NSNumber {
+        amountValue = numberValue.doubleValue
+      } else if let stringValue = item["amount"] as? String,
+                let parsedValue = Double(stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        amountValue = parsedValue
+      } else {
+        amountValue = -1
+      }
+
       guard
-        let amountRaw = item["amount"] as? NSNumber,
-        amountRaw.doubleValue > 0,
+        amountValue > 0,
         let categoryRaw = item["category"] as? String,
         let currencyRaw = item["currency"] as? String,
         let dateRaw = item["date"] as? String
@@ -468,7 +622,7 @@ struct LogExpenseWithSiriIntent: AppIntent {
 
       var transaction: [String: Any] = [
         "type": normalizedType,
-        "amount": amountRaw.doubleValue,
+        "amount": amountValue,
         "category": category,
         "currency": currency,
         "date": date,
@@ -568,7 +722,7 @@ struct LogExpenseWithSiriIntent: AppIntent {
   }
 }
 
-@available(iOS 16.0, *)
+@available(iOS 16.0, watchOS 9.0, *)
 struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(

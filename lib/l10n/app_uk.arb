@@ -2069,7 +2069,7 @@
   "slideRightToCancel": "Проведіть праворуч, щоб скасувати",
   "telegramConnected": "Telegram підключено",
   "siriShortcuts": "Швидкі команди Siri",
-  "siriShortcutsDescription": "Використовуйте Siri, щоб записувати витрати, не відкриваючи додаток. Приклад: «Запиши витрату в Moneko: обід 200 гривень».",
+  "siriShortcutsDescription": "Записуйте витрати через Siri, навіть не відкриваючи додаток. Просто скажіть: «Запиши витрату в Moneko».",
   "siriShortcutsOpenShortcuts": "Відкрити Команди",
   "siriShortcutsReady": "Готово",
   "siriShortcutsNeedsRefresh": "Потрібно оновити",

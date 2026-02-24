@@ -85,11 +85,6 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
         .subtract(const Duration(days: 6));
   }
 
-  bool get _isCurrentMonth {
-    return _focusedMonth.year == _today.year &&
-        _focusedMonth.month == _today.month;
-  }
-
   DateTime get _todayDateOnly =>
       DateTime(_today.year, _today.month, _today.day);
 
@@ -105,7 +100,6 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   }
 
   void _nextMonth() {
-    if (_isCurrentMonth) return;
     setState(() {
       _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1);
     });
@@ -247,11 +241,9 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
                     ),
                   ),
                   IconButton(
-                    onPressed: _isCurrentMonth ? null : _nextMonth,
+                    onPressed: _nextMonth,
                     icon: Icon(Icons.chevron_right,
-                        color: _isCurrentMonth
-                            ? colorScheme.mutedForeground.withValues(alpha: 0.3)
-                            : colorScheme.foreground),
+                        color: colorScheme.foreground),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     visualDensity: VisualDensity.compact,

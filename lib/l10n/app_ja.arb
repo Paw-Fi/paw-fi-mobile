@@ -2077,7 +2077,7 @@
   "slideRightToCancel": "右にスライドしてキャンセル",
   "telegramConnected": "Telegram連携済み",
   "siriShortcuts": "Siriショートカット",
-  "siriShortcutsDescription": "アプリを開かずにSiriで支出を記録できます。例：「Monekoで支出を記録、ランチに1200円」",
+  "siriShortcutsDescription": "アプリを開かずに、Siriで支出を記録できます。「Monekoで支出を入力して」と言うだけです。",
   "siriShortcutsOpenShortcuts": "ショートカットを開く",
   "siriShortcutsReady": "準備完了",
   "siriShortcutsNeedsRefresh": "更新が必要",
