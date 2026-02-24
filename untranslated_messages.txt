@@ -1,1 +1,53 @@
-{}
+{
+  "de": [
+    "importInto"
+  ],
+
+  "es": [
+    "importInto"
+  ],
+
+  "fr": [
+    "importInto"
+  ],
+
+  "it": [
+    "importInto"
+  ],
+
+  "ja": [
+    "importInto"
+  ],
+
+  "kr": [
+    "importInto"
+  ],
+
+  "nl": [
+    "importInto"
+  ],
+
+  "ru": [
+    "importInto"
+  ],
+
+  "uk": [
+    "importInto"
+  ],
+
+  "ur": [
+    "importInto"
+  ],
+
+  "vi": [
+    "importInto"
+  ],
+
+  "zh": [
+    "importInto"
+  ],
+
+  "zh_TW": [
+    "importInto"
+  ]
+}

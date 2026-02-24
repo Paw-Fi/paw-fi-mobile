@@ -22,6 +22,12 @@ class ImportWizardState {
   final String? targetHouseholdId;
   final bool targetIsPortfolio;
 
+  /// All sheets detected from an Excel file. Empty for CSV files.
+  final List<ImportSheetResult> availableSheets;
+
+  /// The index into [availableSheets] currently selected. -1 means no sheet.
+  final int selectedSheetIndex;
+
   const ImportWizardState({
     this.step = ImportStep.selectFile,
     this.fileName,
@@ -37,6 +43,8 @@ class ImportWizardState {
     this.failedCount = 0,
     this.targetHouseholdId,
     this.targetIsPortfolio = false,
+    this.availableSheets = const [],
+    this.selectedSheetIndex = -1,
   });
 
   ImportWizardState copyWith({
@@ -57,6 +65,8 @@ class ImportWizardState {
     String? targetHouseholdId,
     bool? targetIsPortfolio,
     bool clearTargetHouseholdId = false,
+    List<ImportSheetResult>? availableSheets,
+    int? selectedSheetIndex,
   }) {
     return ImportWizardState(
       step: step ?? this.step,
@@ -78,8 +88,12 @@ class ImportWizardState {
           ? null
           : (targetHouseholdId ?? this.targetHouseholdId),
       targetIsPortfolio: targetIsPortfolio ?? this.targetIsPortfolio,
+      availableSheets: availableSheets ?? this.availableSheets,
+      selectedSheetIndex: selectedSheetIndex ?? this.selectedSheetIndex,
     );
   }
+
+  bool get hasMultipleSheets => availableSheets.length > 1;
 
   int get totalRows => parsedRows.length;
   int get errorRows => parsedRows.where((row) => row.errors.isNotEmpty).length;

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
+import 'package:moneko/features/import/data/import_excel_parser.dart';
 import 'package:moneko/features/import/data/import_local_parser.dart';
 import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
@@ -79,6 +81,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       }
 
       ImportTable table;
+      List<ImportSheetResult> availableSheets = const [];
+      int selectedSheetIndex = -1;
+
       if (extension == 'pdf') {
         if (bytes.length > _maxPdfImportBytes) {
           throw Exception(
@@ -89,6 +94,26 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           bytes: bytes,
           filename: file.name,
         );
+      } else if (extension == 'xlsx' || extension == 'xls') {
+        // Parse all sheets; let the user pick if there are multiple.
+        availableSheets = await compute(
+          _parseExcelSheetsSync,
+          bytes,
+        );
+        if (availableSheets.isEmpty) {
+          state = state.copyWith(
+            isParsing: false,
+            clearParsingStatusMessage: true,
+            errorMessage: 'No data found in Excel file.',
+          );
+          return;
+        }
+        // Default: sheet with the most rows.
+        availableSheets.sort(
+          (a, b) => b.table.rows.length.compareTo(a.table.rows.length),
+        );
+        selectedSheetIndex = 0;
+        table = availableSheets[selectedSheetIndex].table;
       } else {
         table = await parseLocalImportTable(
           LocalImportParseRequest(bytes: bytes, extension: extension),
@@ -106,6 +131,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         mapping: mapping,
         parsedRows: parsedRows,
         step: ImportStep.mapColumns,
+        availableSheets: availableSheets,
+        selectedSheetIndex: selectedSheetIndex,
       );
     } catch (e) {
       state = state.copyWith(
@@ -371,19 +398,36 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final table = state.table;
     if (current == null || table == null) return;
 
-    final updated = Map<ImportField, int>.from(current.fieldToColumnIndex);
-    if (columnIndex == null) {
-      updated.remove(field);
-    } else {
-      updated[field] = columnIndex;
-    }
-
-    final newMapping = ImportMapping(
-      fieldToColumnIndex: updated,
-      hasHeader: current.hasHeader,
-    );
+    final newMapping = current.copyWithField(field, columnIndex);
     final parsedRows = _parseAndDedupe(table, newMapping);
     state = state.copyWith(mapping: newMapping, parsedRows: parsedRows);
+  }
+
+  void toggleSplitDebitCredit(bool value) {
+    final current = state.mapping;
+    final table = state.table;
+    if (current == null || table == null) return;
+
+    final newMapping = current.copyWithSplitDebitCredit(value);
+    final parsedRows = _parseAndDedupe(table, newMapping);
+    state = state.copyWith(mapping: newMapping, parsedRows: parsedRows);
+  }
+
+  /// Switch to a different sheet in a multi-sheet Excel file.
+  void selectSheet(int sheetIndex) {
+    final sheets = state.availableSheets;
+    if (sheetIndex < 0 || sheetIndex >= sheets.length) return;
+
+    final table = sheets[sheetIndex].table;
+    final mapping = autoMapFields(table.headers);
+    final parsedRows = _parseAndDedupe(table, mapping);
+
+    state = state.copyWith(
+      selectedSheetIndex: sheetIndex,
+      table: table,
+      mapping: mapping,
+      parsedRows: parsedRows,
+    );
   }
 
   void setSkipDuplicates(bool value) {
@@ -563,4 +607,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (row.amountCents == null) errors.add('invalid_amount');
     return row.copyWith(errors: errors);
   }
+}
+
+/// Top-level function so [compute] can dispatch it to an isolate.
+List<ImportSheetResult> _parseExcelSheetsSync(Uint8List bytes) {
+  return parseImportExcelSheets(bytes);
 }

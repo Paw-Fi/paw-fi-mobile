@@ -447,12 +447,21 @@ class _MapColumnsStep extends ConsumerWidget {
     }
 
     final headers = table.headers;
-    final requiredFields = [ImportField.date, ImportField.amount];
+    final isSplit = mapping.hasSplitDebitCredit;
+
+    // Required fields change based on split debit/credit mode.
+    final requiredFields = isSplit
+        ? [ImportField.date, ImportField.debit, ImportField.credit]
+        : [ImportField.date, ImportField.amount];
+
     final optionalFields = [
+      if (!isSplit) ...[],
       ImportField.category,
       ImportField.description,
       ImportField.currency,
       ImportField.type,
+      ImportField.reference,
+      ImportField.balance,
     ];
 
     Future<void> pickColumn(ImportField field) async {
@@ -543,6 +552,33 @@ class _MapColumnsStep extends ConsumerWidget {
           title: context.l10n.importMapTitle,
           description: context.l10n.importMapHint,
         ),
+        // Format badge
+        if (table.formatHint != CsvFormatHint.unknown &&
+            table.formatHint != CsvFormatHint.generic) ...[
+          const SizedBox(height: 12),
+          _FormatHintBadge(hint: table.formatHint),
+        ],
+        // Sheet selector for multi-sheet Excel files
+        if (state.hasMultipleSheets) ...[
+          const SizedBox(height: 12),
+          _SheetSelector(state: state),
+        ],
+        const SizedBox(height: 24),
+        // Split debit/credit toggle
+        _GroupedSectionCard(
+          title: context.l10n.importColumnFormat.toUpperCase(),
+          children: [
+            _StandardTile(
+              leadingIcon: Icons.swap_horiz_rounded,
+              title: context.l10n.importSplitDebitCredit,
+              subtitle: context.l10n.importSplitDebitCreditHint,
+              trailing: AdaptiveSwitch(
+                value: isSplit,
+                onChanged: (value) => notifier.toggleSplitDebitCredit(value),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         _GroupedSectionCard(
           title: context.l10n.required.toUpperCase(),
@@ -592,6 +628,10 @@ class _MapColumnsStep extends ConsumerWidget {
         return '${context.l10n.date}$suffix';
       case ImportField.amount:
         return '${context.l10n.amount}$suffix';
+      case ImportField.debit:
+        return '${context.l10n.importFieldDebit}$suffix';
+      case ImportField.credit:
+        return '${context.l10n.importFieldCredit}$suffix';
       case ImportField.category:
         return context.l10n.category;
       case ImportField.description:
@@ -600,7 +640,103 @@ class _MapColumnsStep extends ConsumerWidget {
         return context.l10n.currency;
       case ImportField.type:
         return context.l10n.type;
+      case ImportField.balance:
+        return context.l10n.importFieldBalance;
+      case ImportField.reference:
+        return context.l10n.importFieldReference;
     }
+  }
+}
+
+/// A small badge that shows the detected bank/format name.
+class _FormatHintBadge extends StatelessWidget {
+  const _FormatHintBadge({required this.hint});
+
+  final CsvFormatHint hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 13, color: scheme.primary),
+              const SizedBox(width: 5),
+              Text(
+                hint.displayName,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tab-style sheet selector shown when an Excel file has multiple sheets.
+class _SheetSelector extends ConsumerWidget {
+  const _SheetSelector({required this.state});
+
+  final ImportWizardState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final scheme = Theme.of(context).colorScheme;
+    final sheets = state.availableSheets;
+    final selectedIndex = state.selectedSheetIndex;
+
+    return SizedBox(
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: sheets.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final isSelected = index == selectedIndex;
+          return GestureDetector(
+            onTap: () => notifier.selectSheet(index),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? scheme.primary : scheme.card,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected
+                      ? scheme.primary
+                      : scheme.border.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Text(
+                sheets[index].sheetName,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  color: isSelected ? scheme.onPrimary : scheme.mutedForeground,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

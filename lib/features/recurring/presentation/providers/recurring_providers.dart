@@ -867,6 +867,9 @@ class RecurringTransactionSaveNotifier
         'userId': userId,
         'expenseId': expenseId,
         'updates': updates,
+        // Keep update-expense date validation aligned with the caller's local
+        // calendar day (same behavior as non-recurring transaction edits).
+        'clientTimezoneOffsetMinutes': DateTime.now().timeZoneOffset.inMinutes,
       };
 
       // Attach household sharing + splits only for group expenses
@@ -1059,6 +1062,10 @@ class RecurringTransactionSaveNotifier
           'userId': userId,
           'expenseId': expenseId,
           'updates': updatesIncome,
+          // Keep update-expense date validation aligned with the caller's
+          // local calendar day.
+          'clientTimezoneOffsetMinutes':
+              DateTime.now().timeZoneOffset.inMinutes,
         },
       );
 
