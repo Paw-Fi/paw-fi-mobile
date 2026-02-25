@@ -89,6 +89,53 @@ class InitCacheManager {
     }
   }
 
+  /// Load cached initialization data with a best-effort strategy.
+  ///
+  /// Unlike [load], this does NOT invalidate the cache purely because the app
+  /// version changed. It still enforces expiry and JSON integrity.
+  ///
+  /// This is useful for reducing cold-start failures immediately after an app
+  /// update when the init payload schema is unchanged.
+  Map<String, dynamic>? loadBestEffort(String currentAppVersion) {
+    try {
+      // Check timestamp - invalidate if expired
+      final timestamp = _prefs.getInt(_timestampKey);
+      if (timestamp == null) {
+        debugPrint('🕒 [InitCache] (best-effort) No timestamp found');
+        return null;
+      }
+
+      final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
+      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
+
+      if (cacheAge > _cacheValidity.inMilliseconds) {
+        debugPrint(
+            '⏰ [InitCache] (best-effort) Cache expired (age: ${ageHours}h)');
+        return null;
+      }
+
+      final cached = _prefs.getString(_cacheKey);
+      if (cached == null) {
+        debugPrint('📭 [InitCache] (best-effort) No cached data found');
+        return null;
+      }
+
+      final cachedVersion = _prefs.getString(_versionKey);
+      if (cachedVersion != null && cachedVersion != currentAppVersion) {
+        debugPrint(
+            '📱 [InitCache] (best-effort) Using cache from previous app version ($cachedVersion → $currentAppVersion)');
+      }
+
+      final data = jsonDecode(cached) as Map<String, dynamic>;
+      debugPrint(
+          '✅ [InitCache] (best-effort) Loaded cache (age: ${ageHours}h, current version: $currentAppVersion)');
+      return data;
+    } catch (e) {
+      debugPrint('❌ [InitCache] (best-effort) Failed to load cache: $e');
+      return null;
+    }
+  }
+
   /// Clear all cached data
   ///
   /// Called on:

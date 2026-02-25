@@ -160,7 +160,7 @@ class RecurringTransactionsNotifier
       // Portfolio households have is_portfolio=true and should be treated as personal.
       // The non-null assertion is safe because we only enter the first branch when householdId != null.
       dynamic scopedQuery;
-      if (householdId != null) {
+      if (householdId != null && householdId!.trim().isNotEmpty) {
         final householdScope = ref.read(householdScopeProvider);
         if (householdScope.isPortfolioId(householdId)) {
           // Portfolio account: scoped to the selected portfolio household + current user.

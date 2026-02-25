@@ -26,8 +26,8 @@ final currencyTransactionCountsProvider =
 
   switch (scope.activeAccountType) {
     case ActiveAccountType.personal:
-      // Personal mode should include entries where household_id is null/empty.
-      query = query.or('household_id.is.null,household_id.eq.');
+      // Personal mode should include entries where household_id is null.
+      query = query.isFilter('household_id', null);
       break;
     case ActiveAccountType.household:
     case ActiveAccountType.portfolio:

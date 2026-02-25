@@ -190,6 +190,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   String? _appVersion;
   int _operationId = 0;
 
+  static const Duration _initRpcTimeout = Duration(seconds: 10);
+  static const int _initRpcMaxAttempts = 2;
+  static const Duration _initRpcBaseRetryDelay = Duration(milliseconds: 600);
+
   @override
   AppInitializationState build() {
     _initialize();
@@ -230,7 +234,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       }
 
       // STEP 1: Try to load from cache first (instant UI)
-      final cachedData = _cacheManager?.load(_appVersion!);
+      var cachedData = _cacheManager?.load(_appVersion!);
+      // Best-effort fallback: if app version changed, still try using a fresh
+      // cache to avoid hard failures on cold start right after updates.
+      cachedData ??= _cacheManager?.loadBestEffort(_appVersion!);
       if (cachedData != null && _operationId == operationId) {
         try {
           final initData = InitData.fromJson(cachedData).copyWith(
@@ -278,8 +285,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       final fetchStopwatch = Stopwatch()..start();
 
       // Single optimized RPC call for all init data
-      final response = await supabase.rpc('initialize_app_v2',
-          params: {'p_user_id': userId}).timeout(const Duration(seconds: 10));
+      final response = await _initializeRpcWithRetry(userId, operationId);
 
       fetchStopwatch.stop();
       debugPrint(
@@ -366,7 +372,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // No cached data - move to failed state but don't record as Crashlytics error
       // Timeouts are common on cold start; treat as non-fatal to avoid noise.
       _setFailedState(
-        Exception('Failed to load app data: Request timed out after 10s'),
+        Exception(
+            'Failed to load app data: Request timed out after ${_initRpcTimeout.inSeconds}s'),
         StackTrace.current,
         stopwatch.elapsed,
       );
@@ -397,6 +404,47 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
     }
+  }
+
+  Future<dynamic> _initializeRpcWithRetry(
+      String userId, int operationId) async {
+    Object? lastError;
+
+    for (var attempt = 1; attempt <= _initRpcMaxAttempts; attempt++) {
+      if (_operationId != operationId) {
+        throw Exception('Init operation superseded');
+      }
+
+      try {
+        if (attempt > 1) {
+          debugPrint(
+              '🔁 [InitV2] Retrying initialize_app_v2 (attempt $attempt/$_initRpcMaxAttempts)');
+        }
+
+        final response = await supabase.rpc('initialize_app_v2',
+            params: {'p_user_id': userId}).timeout(_initRpcTimeout);
+        return response;
+      } on TimeoutException catch (e) {
+        lastError = e;
+        if (attempt >= _initRpcMaxAttempts) rethrow;
+      } catch (e) {
+        lastError = e;
+        if (!_isNetworkError(e) || attempt >= _initRpcMaxAttempts) {
+          rethrow;
+        }
+      }
+
+      final jitterMs =
+          DateTime.now().microsecondsSinceEpoch.remainder(250); // 0..249
+      final backoff = _initRpcBaseRetryDelay * (1 << (attempt - 1));
+      final delay = backoff + Duration(milliseconds: jitterMs);
+      debugPrint(
+          '⏳ [InitV2] Waiting ${delay.inMilliseconds}ms before retry (last error: ${lastError.runtimeType})');
+      await Future.delayed(delay);
+    }
+
+    // Should be unreachable, but keep a safe fallback.
+    throw Exception('initialize_app_v2 failed: $lastError');
   }
 
   /// Parse backend response into InitData
@@ -540,6 +588,31 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           'exists': false,
           'error': 'Cache manager not initialized',
         };
+  }
+
+  /// Debug snapshot for support screenshots.
+  ///
+  /// Keep this free of secrets (no tokens/headers). OK to include userId.
+  Map<String, dynamic> getDebugSnapshot() {
+    final auth = ref.read(authProvider);
+    final userId = auth.isEmpty ? null : auth.uid;
+
+    return {
+      'provider': 'AppInitializationV2',
+      'operation_id': _operationId,
+      'user_id': userId,
+      'app_version': _appVersion,
+      'init_state': state.state.name,
+      'had_data': state.data != null,
+      'data_is_from_cache': state.data?.isFromCache,
+      'last_init_duration_ms': state.lastInitDuration?.inMilliseconds,
+      'rpc_timeout_s': _initRpcTimeout.inSeconds,
+      'rpc_max_attempts': _initRpcMaxAttempts,
+      'rpc_base_retry_delay_ms': _initRpcBaseRetryDelay.inMilliseconds,
+      'cache': getCacheMetadata(),
+      'error_type': state.error?.runtimeType.toString(),
+      'error_message': state.errorMessage,
+    };
   }
 
   /// Get the last initialization exception (for ErrorPage)
