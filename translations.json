@@ -1,18 +1,18 @@
 {
-  "siriShortcutsDescription": {
-    "en": "Use Siri to log expenses without even opening the app. Just say: “Log expense with Moneko.”",
-    "de": "Nutze Siri, um Ausgaben zu erfassen – ganz ohne die App zu öffnen. Sag einfach: „Ausgabe mit Moneko eintragen“.",
-    "es": "Registra gastos con Siri sin siquiera abrir la app. Solo di: “Registrar gasto con Moneko”.",
-    "fr": "Enregistrez vos dépenses avec Siri sans même ouvrir l'app. Dites simplement : « Enregistrer une dépense avec Moneko ».",
-    "it": "Registra le spese con Siri senza nemmeno aprire l'app. Di' semplicemente: “Registra spesa con Moneko”.",
-    "ja": "アプリを開かずに、Siriで支出を記録できます。「Monekoで支出を入力して」と言うだけです。",
-    "kr": "앱을 열지 않고도 Siri로 지출을 기록하세요. “Moneko로 지출 기록”이라고 말해보세요.",
-    "nl": "Leg uitgaven vast met Siri zonder de app te openen. Zeg simpelweg: “Noteer uitgave met Moneko”.",
-    "ur": "ایپ کھولے بغیر اخراجات درج کرنے کے لیے Siri کا استعمال کریں۔ بس کہیں: ”Moneko کے ساتھ خرچ درج کریں۔“",
-    "ru": "Записывайте расходы через Siri, даже не открывая приложение. Просто скажите: «Запиши расход в Moneko».",
-    "uk": "Записуйте витрати через Siri, навіть не відкриваючи додаток. Просто скажіть: «Запиши витрату в Moneko».",
-    "zh": "无需打开应用，直接用 Siri 记账。只需说：“用 Moneko 记账”。",
-    "zh_TW": "無需打開 App，直接用 Siri 記帳。只需說：「用 Moneko 記帳」。",
-    "vi": "Ghi chi tiêu bằng Siri mà không cần mở ứng dụng. Chỉ cần nói: “Ghi chi tiêu bằng Moneko”."
+  "accounts": {
+    "en": "Accounts",
+    "de": "Konten",
+    "es": "Cuentas",
+    "fr": "Comptes",
+    "it": "Conti",
+    "ja": "口座",
+    "kr": "계좌",
+    "nl": "Rekeningen",
+    "ur": "اکاؤنٹس",
+    "ru": "Счета",
+    "uk": "Рахунки",
+    "zh": "账户",
+    "zh_TW": "帳戶",
+    "vi": "Tài khoản"
   }
 }

@@ -85,54 +85,73 @@ class DashboardCategoryList extends StatelessWidget {
 
     return DashboardSectionCard(
       onTap: onTap,
-      children: topCategories.map((cat) {
-        final percent = maxAmount > 0 ? cat.amount / maxAmount : 0.0;
-        final color = getCategoryColor(cat.id);
+      children: [
+        const SizedBox(height: 12),
+        ...topCategories.map((cat) {
+          final percent = maxAmount > 0 ? cat.amount / maxAmount : 0.0;
+          final color = getCategoryColor(cat.id);
 
-        return DashboardListTile(
-          title: cat.name,
-          subtitleWidget: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${cat.transactionCount} ${context.l10n.transactionsCount}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Stack(
-                children: [
-                  Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurface.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: percent,
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(8),
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      cat.name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          icon: getCategoryIcon(cat.id),
-          iconColor: color,
-          value: amountFormatter.format(cat.amount),
-          showChevron: onCategoryTap != null,
-          onTap: onCategoryTap == null ? null : () => onCategoryTap!(cat.id),
-        );
-      }).toList(),
+                    Text(
+                      amountFormatter.format(cat.amount),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Stack(
+                  children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurface.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: percent,
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

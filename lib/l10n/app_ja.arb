@@ -2085,5 +2085,6 @@
   "siriShortcutsChecking": "確認中...",
   "siriShortcutsSyncFailed": "Siri設定の同期に失敗しました",
   "siriShortcutsOpenFailed": "ショートカットアプリを開けませんでした",
-  "importInto": "インポート先"
+  "importInto": "インポート先",
+  "accounts": "口座"
 }

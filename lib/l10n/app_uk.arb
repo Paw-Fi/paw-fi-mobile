@@ -2077,5 +2077,6 @@
   "siriShortcutsChecking": "Перевірка...",
   "siriShortcutsSyncFailed": "Не вдалося синхронізувати налаштування Siri",
   "siriShortcutsOpenFailed": "Не вдалося відкрити додаток «Команди»",
-  "importInto": "Імпорт в"
+  "importInto": "Імпорт в",
+  "accounts": "Рахунки"
 }

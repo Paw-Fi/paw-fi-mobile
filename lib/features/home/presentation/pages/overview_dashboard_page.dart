@@ -543,405 +543,323 @@ class OverviewDashboardPage extends ConsumerWidget {
                 },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding:
-                      EdgeInsets.only(bottom: 40, top: getTopPadding(context)),
+                  padding: EdgeInsets.only(
+                      bottom: 40, top: getTopPadding(context) + 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 16),
-
+                      // Top Controls
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  context.l10n.displayCurrency,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Tooltip(
-                                  message: context.l10n.displayCurrencyTooltip,
-                                  triggerMode: TooltipTriggerMode.tap,
-                                  waitDuration: Duration.zero,
-                                  child: Icon(
-                                    Icons.info_outline,
-                                    size: 16,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            Flexible(child: dateRangePill),
+                            const SizedBox(width: 16),
                             currencyPill,
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              context.l10n.selectDateRange,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            Flexible(child: dateRangePill),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Spaces Carousel (Accounts)
-                      SizedBox(
-                        height: 180,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: householdTotals.length,
-                          itemBuilder: (context, index) {
-                            final key = householdTotals.keys.elementAt(index);
-                            final stats = householdTotals[key]!;
-                            final spaceTransactions =
-                                transactionsBySpace[key] ??
-                                    const <ConsolidatedTransaction>[];
-                            return DashboardSpaceCard(
-                              spaceName: stats['name'] as String,
-                              income: stats['income'] as double,
-                              expense: stats['expense'] as double,
-                              currency: stats['currency'] as String,
-                              coverImageUrl: stats['coverImageUrl'] as String?,
-                              onTap: () => openDetail(
-                                '${stats['name']} Overview',
-                                _SpaceDetail(
-                                  spaceId: key,
-                                  spaceName: stats['name'] as String,
-                                  transactions: spaceTransactions,
-                                  amountResolver: resolveCachedAmount,
-                                  currencyCode: displayCurrency,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                       const SizedBox(height: 24),
 
-                      // Summary Group
-                      _DashboardGroup(
-                        title: currentPeriodLabel,
-                        children: [
-                          _DashboardTile(
-                            icon: Icons.grid_view_rounded,
-                            label: context.l10n.activeAccounts,
-                            value: '${activeSpaces.length}',
-                            onTap: () => openDetail(
-                              context.l10n.activity,
-                              _ActivityDetail(
-                                accounts: activeSpaces.length,
-                                currencies: activeCurrencies.length,
-                                transactions: myAllTransactions.length,
-                              ),
+                      // Hero Card
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _DashboardHeroCard(
+                          netFlow: allTimeNetFlow,
+                          income: allTimeTotalIncome,
+                          expense: allTimeTotalExpense,
+                          currencyCode: displayCurrency,
+                          onTap: () => openDetail(
+                            context.l10n.netFlow,
+                            _NetFlowDetail(
+                              income: allTimeTotalIncome,
+                              expense: allTimeTotalExpense,
+                              net: allTimeNetFlow,
+                              currencyCode: displayCurrency,
                             ),
                           ),
-                          const _Divider(),
-                          _DashboardTile(
-                            icon: Icons.receipt_long_rounded,
-                            label: context.l10n.transactions,
-                            value: '${myAllTransactions.length}',
-                            onTap: () => openDetail(
-                              context.l10n.activity,
-                              _ActivityDetail(
-                                accounts: activeSpaces.length,
-                                currencies: activeCurrencies.length,
-                                transactions: myAllTransactions.length,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // Financial Overview Group
-                      _DashboardGroup(
-                        title: context.l10n.financialOverview,
-                        children: [
-                          _DashboardTile(
-                            icon: Icons.arrow_downward_rounded,
-                            iconColor: colorScheme.success,
-                            label: context.l10n.totalIncome,
-                            value: formatMoney(allTimeTotalIncome),
-                            valueColor: colorScheme.success,
-                            onTap: () => openDetail(
-                              context.l10n.income,
-                              _MetricDetail(
-                                title: context.l10n.totalIncome,
-                                value: allTimeTotalIncome,
-                                subtitle: currentPeriodLabel,
-                                transactions: myIncomeTransactions,
-                                showCategories: false,
-                                amountResolver: resolveCachedAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                          const _Divider(),
-                          _DashboardTile(
-                            icon: Icons.arrow_upward_rounded,
-                            iconColor: colorScheme.error,
-                            label: context.l10n.totalSpent,
-                            value: formatMoney(allTimeTotalExpense),
-                            valueColor: colorScheme.error,
-                            onTap: () => openDetail(
-                              context.l10n.spent,
-                              _MetricDetail(
-                                title: context.l10n.totalSpent,
-                                value: allTimeTotalExpense,
-                                subtitle: currentPeriodLabel,
-                                transactions: myExpenseTransactions,
-                                showCategories: true,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                          const _Divider(),
-                          _DashboardTile(
-                            icon: Icons.account_balance_wallet_rounded,
-                            label: context.l10n.netFlow,
-                            value: formatMoney(allTimeNetFlow),
-                            valueColor: allTimeNetFlow >= 0
-                                ? colorScheme.success
-                                : colorScheme.error,
-                            onTap: () => openDetail(
-                              context.l10n.netFlow,
-                              _NetFlowDetail(
-                                income: allTimeTotalIncome,
-                                expense: allTimeTotalExpense,
-                                net: allTimeNetFlow,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                          const _Divider(),
-                          _DashboardTile(
-                            icon: Icons.calendar_today_rounded,
-                            label: context.l10n.dailyAverage,
-                            value: formatMoney(allTimeAvgDaily),
-                            onTap: () => openDetail(
-                              context.l10n.dailyAverage,
-                              _AverageDetail(
-                                avgDaily: allTimeAvgDaily,
-                                daysTracked: allTimeDaysInRange,
-                                totalExpense: allTimeTotalExpense,
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // Spending Breakdown Pie Chart
-                      if (hasExpenses)
-                        _DashboardGroup(
-                          title: context.l10n.spendingBreakdown,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: DashboardPieChart(
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ],
                         ),
-
-                      // Trends Chart Group
-                      _DashboardGroup(
-                        title: context.l10n.spendingTrend,
-                        children: [
-                          InkWell(
-                            onTap: () => openDetail(
-                              context.l10n.spendingTrend,
-                              _TrendDetail(
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: DashboardTrendChart(
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
+                      const SizedBox(height: 32),
 
-                      // Insights Group
-                      _DashboardGroup(
-                        title: context.l10n.topInsight,
-                        children: [
-                          _DashboardTile(
-                            customIcon: Icon(
-                              topCategory != null
-                                  ? getCategoryIcon(topCategory.key)
-                                  : Icons.lightbulb_outline_rounded,
-                              size: 20,
-                              color: colorScheme.primary,
-                            ),
-                            label: topCategoryName,
-                            value: hasExpenses
-                                ? formatMoney(topCategory?.value ?? 0)
-                                : '-',
-                            subtitle: hasExpenses
-                                ? '${topCategoryPercent.toStringAsFixed(0)}% ${context.l10n.percentOfSpend}'
-                                : null,
-                            onTap: () => openDetail(
-                              context.l10n.insight,
-                              _InsightDetail(
-                                categoryName: topCategoryName,
-                                categoryId: topCategory?.key,
-                                percent: topCategoryPercent,
-                                amount: topCategory?.value ?? 0,
-                                transactions: myExpenseTransactions,
-                                amountResolver: resolveCachedExpenseAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
+                      // Spaces / Accounts
+                      _SectionHeader(
+                        title: context.l10n.accounts,
+                        actionLabel: context.l10n.activity,
+                        onAction: () => openDetail(
+                          context.l10n.activity,
+                          _ActivityDetail(
+                            accounts: activeSpaces.length,
+                            currencies: activeCurrencies.length,
+                            transactions: myAllTransactions.length,
                           ),
-                        ],
+                        ),
                       ),
-
-                      // Accounts Charts Group
-                      _DashboardGroup(
-                        title: context.l10n.accountsAnalysis,
-                        children: [
-                          _DashboardTile(
-                            icon: Icons.pie_chart_rounded,
-                            label: context.l10n.spendByAccount,
-                            showChevron: true,
-                            onTap: () => openDetail(
-                              context.l10n.accountSpend,
-                              _AccountsDetail(
-                                households: data.households,
-                                transactions: myAllTransactions,
-                                chartData: accountChartData,
-                                amountResolver: resolveCachedAmount,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                          ),
-                          const _Divider(),
-                          if (accountChartData.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                context.l10n.noAccountActivity,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.mutedForeground,
+                      const SizedBox(height: 12),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 24),
+                        clipBehavior: Clip.none,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: List.generate(
+                            householdTotals.length,
+                            (index) {
+                              final key = householdTotals.keys.elementAt(index);
+                              final stats = householdTotals[key]!;
+                              final spaceTransactions =
+                                  transactionsBySpace[key] ??
+                                      const <ConsolidatedTransaction>[];
+                              return DashboardSpaceCard(
+                                spaceName: stats['name'] as String,
+                                income: stats['income'] as double,
+                                expense: stats['expense'] as double,
+                                currency: stats['currency'] as String,
+                                coverImageUrl:
+                                    stats['coverImageUrl'] as String?,
+                                onTap: () => openDetail(
+                                  '${stats['name']} Overview',
+                                  _SpaceDetail(
+                                    spaceId: key,
+                                    spaceName: stats['name'] as String,
+                                    transactions: spaceTransactions,
+                                    amountResolver: resolveCachedAmount,
+                                    currencyCode: displayCurrency,
+                                  ),
                                 ),
-                              ),
-                            )
-                          else
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: AccountSpendListChart(
-                                data: accountChartData,
-                                currencyCode: displayCurrency,
-                              ),
-                            ),
-                        ],
+                              );
+                            },
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 32),
 
-                      // Recent Transactions Group
-                      _DashboardGroup(
-                        title: context.l10n.recentActivity,
-                        children: [
-                          _DashboardTile(
-                            icon: Icons.list_rounded,
-                            label: context.l10n.viewAllTransactions,
-                            onTap: () => openDetail(
-                              context.l10n.transactions,
-                              _TransactionsDetail(
-                                transactions: myAllTransactions,
-                                amountResolver: resolveCachedAmount,
-                                currencyCode: displayCurrency,
-                              ),
+                      // Insights
+                      _SectionHeader(title: context.l10n.topInsight),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _InsightCard(
+                          categoryName: topCategoryName,
+                          categoryId: topCategory?.key,
+                          percent: topCategoryPercent,
+                          amount: topCategory?.value ?? 0,
+                          hasExpenses: hasExpenses,
+                          currencyCode: displayCurrency,
+                          onTap: () => openDetail(
+                            context.l10n.insight,
+                            _InsightDetail(
+                              categoryName: topCategoryName,
+                              categoryId: topCategory?.key,
+                              percent: topCategoryPercent,
+                              amount: topCategory?.value ?? 0,
+                              transactions: myExpenseTransactions,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
                             ),
                           ),
-                          if (recentTransactions.isNotEmpty) ...[
-                            const _Divider(),
-                            // Show first 3 transactions as simplified list items
-                            ...recentTransactions.take(3).map((tx) {
-                              final isIncome = isIncomeTransaction(tx);
-                              final amount = resolveCachedAmount(tx);
-                              final displayDateTime =
-                                  combineUserDateWithUserTime(
-                                date: tx.entry.date,
-                                timeSource: tx.entry.createdAt,
-                                offsetMinutes: timezoneOffsetMinutes,
-                              );
-                              final currency = displayCurrency;
-                              final categoryId =
-                                  normalizeCategoryId(tx.entry.category);
+                        ),
+                      ),
+                      const SizedBox(height: 32),
 
-                              return Column(
-                                children: [
-                                  buildExpenseTransactionTile(
-                                    context: context,
-                                    category: categoryId,
-                                    rawText: tx.entry.rawText,
-                                    date: displayDateTime,
-                                    amount: amount,
-                                    currency: currency,
-                                    isIncome: isIncome,
-                                    onTap: () {
-                                      // TODO: Navigate to transaction details
-                                    },
-                                    trailingWidget: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.primary
-                                            .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        tx.accountLabel,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
+                      // Spending Trend
+                      _SectionHeader(
+                        title: context.l10n.spendingTrend,
+                        actionLabel: context.l10n.dailyAverage,
+                        onAction: () => openDetail(
+                          context.l10n.dailyAverage,
+                          _AverageDetail(
+                            avgDaily: allTimeAvgDaily,
+                            daysTracked: allTimeDaysInRange,
+                            totalExpense: allTimeTotalExpense,
+                            transactions: myExpenseTransactions,
+                            amountResolver: resolveCachedExpenseAmount,
+                            currencyCode: displayCurrency,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: InkWell(
+                          onTap: () => openDetail(
+                            context.l10n.spendingTrend,
+                            _TrendDetail(
+                              transactions: myExpenseTransactions,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
+                            ),
+                          ),
+                          child: _ChartCard(
+                            child: DashboardTrendChart(
+                              transactions: myExpenseTransactions,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Spending Breakdown
+                      if (hasExpenses) ...[
+                        _SectionHeader(
+                          title: context.l10n.spendingBreakdown,
+                          actionLabel: context.l10n.spent,
+                          onAction: () => openDetail(
+                            context.l10n.spent,
+                            _MetricDetail(
+                              title: context.l10n.totalSpent,
+                              value: allTimeTotalExpense,
+                              subtitle: currentPeriodLabel,
+                              transactions: myExpenseTransactions,
+                              showCategories: true,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: _ChartCard(
+                            child: DashboardPieChart(
+                              transactions: myExpenseTransactions,
+                              amountResolver: resolveCachedExpenseAmount,
+                              currencyCode: displayCurrency,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+
+                      // Accounts Analysis
+                      _SectionHeader(
+                        title: context.l10n.accountsAnalysis,
+                        actionLabel: context.l10n.accountSpend,
+                        onAction: () => openDetail(
+                          context.l10n.accountSpend,
+                          _AccountsDetail(
+                            households: data.households,
+                            transactions: myAllTransactions,
+                            chartData: accountChartData,
+                            amountResolver: resolveCachedAmount,
+                            currencyCode: displayCurrency,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _ChartCard(
+                          child: accountChartData.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    context.l10n.noAccountActivity,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: colorScheme.mutedForeground,
                                     ),
                                   ),
-                                  if (tx != recentTransactions.take(3).last)
-                                    const _Divider(indent: 56),
-                                ],
-                              );
-                            }),
-                          ]
-                        ],
+                                )
+                              : SizedBox(
+                                  height: 200,
+                                  child: AccountSpendListChart(
+                                    data: accountChartData,
+                                    currencyCode: displayCurrency,
+                                  ),
+                                ),
+                        ),
                       ),
+                      const SizedBox(height: 32),
+
+                      // Recent Activity
+                      _SectionHeader(
+                        title: context.l10n.recentActivity,
+                        actionLabel: context.l10n.viewAllTransactions,
+                        onAction: () => openDetail(
+                          context.l10n.transactions,
+                          _TransactionsDetail(
+                            transactions: myAllTransactions,
+                            amountResolver: resolveCachedAmount,
+                            currencyCode: displayCurrency,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (recentTransactions.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surface,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 24,
+                                  offset: const Offset(0, 8),
+                                  spreadRadius: 0,
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                ...recentTransactions.take(3).map((tx) {
+                                  final isIncome = isIncomeTransaction(tx);
+                                  final amount = resolveCachedAmount(tx);
+                                  final displayDateTime =
+                                      combineUserDateWithUserTime(
+                                    date: tx.entry.date,
+                                    timeSource: tx.entry.createdAt,
+                                    offsetMinutes: timezoneOffsetMinutes,
+                                  );
+                                  final currency = displayCurrency;
+                                  final categoryId =
+                                      normalizeCategoryId(tx.entry.category);
+
+                                  return Column(
+                                    children: [
+                                      buildExpenseTransactionTile(
+                                        context: context,
+                                        category: categoryId,
+                                        rawText: tx.entry.rawText,
+                                        date: displayDateTime,
+                                        amount: amount,
+                                        currency: currency,
+                                        isIncome: isIncome,
+                                        onTap: () {},
+                                        trailingWidget: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primary
+                                                .withValues(alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            tx.accountLabel,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (tx != recentTransactions.take(3).last)
+                                        const SizedBox(height: 16),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -958,6 +876,399 @@ class OverviewDashboardPage extends ConsumerWidget {
 }
 
 // Mimics _SettingsGroup from SettingsPage
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _SectionHeader({
+    required this.title,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          if (actionLabel != null)
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.primary,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                actionLabel!,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartCard extends StatelessWidget {
+  final Widget child;
+
+  const _ChartCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DashboardHeroCard extends StatelessWidget {
+  final double netFlow;
+  final double income;
+  final double expense;
+  final String currencyCode;
+  final VoidCallback onTap;
+
+  const _DashboardHeroCard({
+    required this.netFlow,
+    required this.income,
+    required this.expense,
+    required this.currencyCode,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final formatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
+    final isPositive = netFlow >= 0;
+    final netColor = isPositive ? colorScheme.success : colorScheme.error;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.netFlow,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.mutedForeground,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatter.format(netFlow),
+                    style: TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1.0,
+                      color: netColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              IconButton(
+                style: IconButton.styleFrom(
+                  backgroundColor: colorScheme.surface,
+                  foregroundColor: colorScheme.primary,
+                  padding: const EdgeInsets.all(12),
+                ),
+                icon: const Icon(Icons.analytics_rounded, size: 24),
+                onPressed: onTap,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: _StatPill(
+                  icon: Icons.south_west_rounded,
+                  iconColor: colorScheme.success,
+                  label: context.l10n.income,
+                  amount: formatter.format(income),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatPill(
+                  icon: Icons.north_east_rounded,
+                  iconColor: colorScheme.error,
+                  label: context.l10n.expense,
+                  amount: formatter.format(expense),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String amount;
+
+  const _StatPill({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 14),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.mutedForeground,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  amount,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightCard extends StatelessWidget {
+  final String categoryName;
+  final String? categoryId;
+  final double percent;
+  final double amount;
+  final bool hasExpenses;
+  final String currencyCode;
+  final VoidCallback onTap;
+
+  const _InsightCard({
+    required this.categoryName,
+    required this.categoryId,
+    required this.percent,
+    required this.amount,
+    required this.hasExpenses,
+    required this.currencyCode,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final formatter =
+        NumberFormat.simpleCurrency(name: currencyCode, decimalDigits: 0);
+    final icon = categoryId != null
+        ? getCategoryIcon(categoryId!)
+        : Icons.lightbulb_outline_rounded;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withValues(alpha: 0.9),
+            colorScheme.primary,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.3),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(28),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
+            children: [
+              // Beautiful overlay graphic
+              Positioned(
+                right: -40,
+                bottom: -40,
+                child: Opacity(
+                  opacity: 0.15,
+                  child: Icon(
+                    icon,
+                    size: 180,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasExpenses
+                          ? '${context.l10n.topInsight.toUpperCase()} ON\n${categoryName.toUpperCase()}'
+                          : context.l10n.noExpensesYet.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 26,
+                        height: 1.0,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -1.0,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          )
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (hasExpenses)
+                      Text(
+                        '${(percent * 100).toStringAsFixed(1)}% of your expenses',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    const SizedBox(height: 36),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatter.format(amount),
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              )
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DashboardGroup extends StatelessWidget {
   const _DashboardGroup({
     required this.title,
@@ -990,18 +1301,14 @@ class _DashboardGroup extends StatelessWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: colorScheme.homeCardSurface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: colorScheme.homeCardBorder,
-              width: 1,
-            ),
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.homeCardShadow,
-                blurRadius: 32,
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 24,
                 offset: const Offset(0, 8),
-                spreadRadius: -4,
+                spreadRadius: 0,
               ),
             ],
           ),
@@ -1381,7 +1688,6 @@ class _TrendDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

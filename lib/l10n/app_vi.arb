@@ -2084,5 +2084,6 @@
   "siriShortcutsChecking": "Đang kiểm tra...",
   "siriShortcutsSyncFailed": "Lỗi đồng bộ thiết lập Siri",
   "siriShortcutsOpenFailed": "Không thể mở ứng dụng Phím tắt",
-  "importInto": "Nhập vào"
+  "importInto": "Nhập vào",
+  "accounts": "Tài khoản"
 }

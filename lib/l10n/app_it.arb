@@ -2032,5 +2032,6 @@
   "siriShortcutsChecking": "Verifica...",
   "siriShortcutsSyncFailed": "Sincronizzazione di Siri non riuscita",
   "siriShortcutsOpenFailed": "Impossibile aprire l'app Comandi",
-  "importInto": "Importa in"
+  "importInto": "Importa in",
+  "accounts": "Conti"
 }

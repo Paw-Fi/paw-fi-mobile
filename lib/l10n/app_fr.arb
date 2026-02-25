@@ -2085,5 +2085,6 @@
   "siriShortcutsChecking": "Vérification...",
   "siriShortcutsSyncFailed": "Échec de la synchronisation de Siri",
   "siriShortcutsOpenFailed": "Impossible d'ouvrir l'application Raccourcis",
-  "importInto": "Importer dans"
+  "importInto": "Importer dans",
+  "accounts": "Comptes"
 }

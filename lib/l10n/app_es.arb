@@ -2087,5 +2087,6 @@
   "siriShortcutsChecking": "Comprobando...",
   "siriShortcutsSyncFailed": "Error al sincronizar la configuración de Siri",
   "siriShortcutsOpenFailed": "No se pudo abrir la app Atajos",
-  "importInto": "Importar en"
+  "importInto": "Importar en",
+  "accounts": "Cuentas"
 }
