@@ -2104,6 +2104,5 @@
   "siriShortcutsSetupRequired": "Setup required",
   "siriShortcutsChecking": "Checking...",
   "siriShortcutsSyncFailed": "Failed to sync Siri setup",
-  "siriShortcutsOpenFailed": "Could not open Shortcuts app",
-  "accounts": "Accounts"
+  "siriShortcutsOpenFailed": "Could not open Shortcuts app"
 }

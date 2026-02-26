@@ -84,24 +84,30 @@ class DashboardSectionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 24,
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
             offset: const Offset(0, 8),
-            spreadRadius: 0,
+            spreadRadius: -4,
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(28),
+        color: colorScheme.homeCardSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: colorScheme.homeCardBorder,
+            width: 1,
+          ),
+        ),
         clipBehavior: Clip.antiAlias,
         elevation: 0,
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(24),
           child: content,
         ),
       ),

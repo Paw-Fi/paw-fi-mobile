@@ -102,94 +102,71 @@ class _DashboardPieChartState extends State<DashboardPieChart> {
     return Column(
       children: [
         SizedBox(
-          height: 220,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    context.l10n.totalSpent,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    currencyFormatter.format(totalExpense),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: colorScheme.onSurface,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
+          height: 200,
+          child: PieChart(
+            PieChartData(
+              pieTouchData: PieTouchData(
+                touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        pieTouchResponse == null ||
+                        pieTouchResponse.touchedSection == null) {
+                      touchedIndex = -1;
+                      return;
+                    }
+                    touchedIndex =
+                        pieTouchResponse.touchedSection!.touchedSectionIndex;
+                  });
+                },
               ),
-              PieChart(
-                PieChartData(
-                  pieTouchData: PieTouchData(
-                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                      setState(() {
-                        if (!event.isInterestedForInteractions ||
-                            pieTouchResponse == null ||
-                            pieTouchResponse.touchedSection == null) {
-                          touchedIndex = -1;
-                          return;
-                        }
-                        touchedIndex = pieTouchResponse
-                            .touchedSection!.touchedSectionIndex;
-                      });
-                    },
-                  ),
-                  borderData: FlBorderData(show: false),
-                  sectionsSpace: 4,
-                  centerSpaceRadius: 65,
-                  sections: List.generate(topData.length, (i) {
-                    final isTouched = i == touchedIndex;
-                    final radius = isTouched ? 35.0 : 30.0;
-                    final item = topData[i];
+              borderData: FlBorderData(show: false),
+              sectionsSpace: 2,
+              centerSpaceRadius: 40,
+              sections: List.generate(topData.length, (i) {
+                final isTouched = i == touchedIndex;
+                final fontSize = isTouched ? 16.0 : 12.0;
+                final radius = isTouched ? 60.0 : 50.0;
+                final item = topData[i];
+                final percent = (item.amount / totalExpense * 100).round();
 
-                    return PieChartSectionData(
-                      color: item.color,
-                      value: item.amount,
-                      title: '',
-                      radius: radius,
-                      badgeWidget: isTouched
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surface,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: colorScheme.onSurface
-                                        .withValues(alpha: 0.1),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: Text(
-                                currencyFormatter.format(item.amount),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                            )
-                          : null,
-                      badgePositionPercentageOffset: 1.1,
-                    );
-                  }),
-                ),
-              ),
-            ],
+                return PieChartSectionData(
+                  color: item.color,
+                  value: item.amount,
+                  title: '$percent%',
+                  radius: radius,
+                  titleStyle: TextStyle(
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onPrimary,
+                  ),
+                  badgeWidget: isTouched
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: colorScheme.card,
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.onSurface
+                                    .withValues(alpha: 0.1),
+                                blurRadius: 4,
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            currencyFormatter.format(item.amount),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        )
+                      : null,
+                  badgePositionPercentageOffset: .98,
+                );
+              }),
+            ),
           ),
         ),
         const SizedBox(height: 24),

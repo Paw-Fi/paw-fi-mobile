@@ -2081,6 +2081,5 @@
   "siriShortcutsChecking": "正在检查...",
   "siriShortcutsSyncFailed": "无法同步 Siri 设置",
   "siriShortcutsOpenFailed": "无法打开快捷指令 App",
-  "importInto": "导入至",
-  "accounts": "账户"
+  "importInto": "导入至"
 }

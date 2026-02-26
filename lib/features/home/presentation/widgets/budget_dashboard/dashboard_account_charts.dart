@@ -45,38 +45,41 @@ class AccountSpendListChart extends StatelessWidget {
       final color = palette[index % palette.length];
       final percent = (item.expense / denom).clamp(0.0, 1.0);
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+        padding: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  item.name,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
+                Expanded(
+                  child: Text(
+                    item.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   formatter.format(item.expense),
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: colorScheme.mutedForeground,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Stack(
               children: [
                 Container(
                   height: 6,
                   decoration: BoxDecoration(
-                    color: colorScheme.onSurface.withValues(alpha: 0.04),
+                    color: colorScheme.onSurface.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -87,13 +90,6 @@ class AccountSpendListChart extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
                     ),
                   ),
                 ),
@@ -141,13 +137,14 @@ class AccountIncomeExpenseChart extends StatelessWidget {
     final displayCurrency =
         currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
     final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
-      clipBehavior: Clip.none,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(data.length, (index) {
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: data.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
           final item = data[index];
           final net = item.income - item.expense;
           final netLabel = net >= 0
@@ -155,20 +152,17 @@ class AccountIncomeExpenseChart extends StatelessWidget {
               : '-${formatter.format(net.abs())}';
           final netColor = net >= 0 ? colorScheme.success : colorScheme.error;
 
-          final card = ConstrainedBox(
+          return ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 210, maxWidth: 240),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  )
-                ],
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colorScheme.border.withValues(alpha: 0.6),
+                  width: 0.5,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,13 +225,7 @@ class AccountIncomeExpenseChart extends StatelessWidget {
               ),
             ),
           );
-
-          if (index == data.length - 1) return card;
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: card,
-          );
-        }),
+        },
       ),
     );
   }

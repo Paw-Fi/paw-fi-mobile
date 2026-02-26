@@ -2035,6 +2035,5 @@
   "siriShortcutsChecking": "Проверка...",
   "siriShortcutsSyncFailed": "Не удалось синхронизировать настройки Siri",
   "siriShortcutsOpenFailed": "Не удалось открыть приложение «Команды»",
-  "importInto": "Импорт в",
-  "accounts": "Счета"
+  "importInto": "Импорт в"
 }

@@ -2085,6 +2085,5 @@
   "siriShortcutsChecking": "Prüfen...",
   "siriShortcutsSyncFailed": "Siri-Einrichtung konnte nicht synchronisiert werden",
   "siriShortcutsOpenFailed": "Kurzbefehle-App konnte nicht geöffnet werden",
-  "importInto": "Import in",
-  "accounts": "Konten"
+  "importInto": "Import in"
 }

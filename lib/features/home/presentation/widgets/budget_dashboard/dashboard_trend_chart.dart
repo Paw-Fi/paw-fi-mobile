@@ -156,25 +156,13 @@ class DashboardTrendChart extends StatelessWidget {
                 LineChartBarData(
                   spots: spots,
                   isCurved: true,
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.primary.withValues(alpha: 0.6),
-                    ],
-                  ),
+                  color: colorScheme.primary,
                   barWidth: 3,
                   isStrokeCapRound: true,
                   dotData: const FlDotData(show: false),
                   belowBarData: BarAreaData(
                     show: true,
-                    gradient: LinearGradient(
-                      colors: [
-                        colorScheme.primary.withValues(alpha: 0.2),
-                        colorScheme.primary.withValues(alpha: 0.0),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
                   ),
                 ),
               ],

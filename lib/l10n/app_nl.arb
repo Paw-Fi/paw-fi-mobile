@@ -2032,6 +2032,5 @@
   "siriShortcutsChecking": "Controleren...",
   "siriShortcutsSyncFailed": "Synchroniseren Siri-configuratie mislukt",
   "siriShortcutsOpenFailed": "Kon de Opdrachten-app niet openen",
-  "importInto": "Importeren in",
-  "accounts": "Rekeningen"
+  "importInto": "Importeren in"
 }

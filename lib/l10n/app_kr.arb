@@ -1898,6 +1898,5 @@
   "siriShortcutsChecking": "확인 중...",
   "siriShortcutsSyncFailed": "Siri 설정 동기화 실패",
   "siriShortcutsOpenFailed": "단축어 앱을 열 수 없습니다",
-  "importInto": "가져올 공간",
-  "accounts": "계좌"
+  "importInto": "가져올 공간"
 }
