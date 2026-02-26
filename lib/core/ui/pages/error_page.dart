@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -28,6 +31,7 @@ class ErrorPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final initNotifier = ref.read(appInitializationV2Provider.notifier);
+    final auth = ref.read(authProvider);
     final fallbackError = initNotifier.lastInitException;
     final displayError = error ?? fallbackError;
     final stack = stackTrace ?? initNotifier.lastErrorStackTrace;
@@ -37,6 +41,38 @@ class ErrorPage extends ConsumerWidget {
         context.l10n.unknownError;
     final hasInitFailure = initNotifier.lastInitException != null;
     final colorScheme = Theme.of(context).colorScheme;
+
+    final now = DateTime.now();
+    final platform = kIsWeb
+        ? 'web'
+        : switch (defaultTargetPlatform) {
+            TargetPlatform.android => 'android',
+            TargetPlatform.iOS => 'ios',
+            TargetPlatform.macOS => 'macos',
+            TargetPlatform.windows => 'windows',
+            TargetPlatform.linux => 'linux',
+            TargetPlatform.fuchsia => 'fuchsia',
+          };
+    final userId = auth.isEmpty ? null : auth.uid;
+    final tzOffset = DateTime.now().timeZoneOffset;
+    final tzSign = tzOffset.isNegative ? '-' : '+';
+    final tzHours = tzOffset.inHours.abs().toString().padLeft(2, '0');
+    final tzMinutes =
+        (tzOffset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+    final timezone =
+        '${DateTime.now().timeZoneName} ($tzSign$tzHours:$tzMinutes)';
+    final locale = Localizations.maybeLocaleOf(context)?.toLanguageTag();
+    final brightness = Theme.of(context).brightness.name;
+    final media = MediaQuery.of(context);
+    final screen =
+        '${media.size.width.toStringAsFixed(0)}x${media.size.height.toStringAsFixed(0)}@${media.devicePixelRatio.toStringAsFixed(2)}';
+    final stackPreview = stack?.toString().split('\n').take(6).join('\n');
+    final supportId =
+        '${now.toIso8601String()}|$platform|${userId ?? 'no_user'}'
+            .hashCode
+            .toUnsigned(32)
+            .toRadixString(16)
+            .padLeft(8, '0');
 
     return Scaffold(
       appBar: AppBar(
@@ -93,6 +129,60 @@ class ErrorPage extends ConsumerWidget {
                           message,
                           style: const TextStyle(fontSize: 16),
                           textAlign: TextAlign.start,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Support snapshot (send screenshot)',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(color: colorScheme.errorAccent),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<PackageInfo>(
+                          future: PackageInfo.fromPlatform(),
+                          builder: (context, snapshot) {
+                            final pkg = snapshot.data;
+                            final appVersion = pkg == null
+                                ? 'unknown'
+                                : '${pkg.version}+${pkg.buildNumber}';
+
+                            final debug = <String, dynamic>{
+                              'support_id': supportId,
+                              'time_local': now.toIso8601String(),
+                              'timezone': timezone,
+                              'platform': platform,
+                              'mode': kReleaseMode
+                                  ? 'release'
+                                  : (kProfileMode ? 'profile' : 'debug'),
+                              'brightness': brightness,
+                              'locale': locale,
+                              'screen': screen,
+                              'app_version': appVersion,
+                              'route':
+                                  GoRouterState.of(context).matchedLocation,
+                              'user_id': userId,
+                              'error_type':
+                                  displayError?.runtimeType.toString(),
+                              'error': displayError?.toString(),
+                              'details_param': details,
+                              'init_has_failure': hasInitFailure,
+                              'init_message': message,
+                              'stack_present': stack != null,
+                              'stack_preview': stackPreview,
+                              'init_debug': initNotifier.getDebugSnapshot(),
+                            };
+
+                            return SelectableText(
+                              debug.entries
+                                  .map((e) => '${e.key}: ${e.value}')
+                                  .join('\n'),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colorScheme.errorAccent),
+                            );
+                          },
                         ),
                         if (stack != null) ...[
                           const SizedBox(height: 12),

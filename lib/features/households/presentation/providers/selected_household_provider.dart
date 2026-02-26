@@ -68,7 +68,8 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     final perUser = prefs.getString(_selectedHouseholdIdKeyForUser(userId));
     final legacy = prefs.getString(_kLegacySelectedHouseholdIdKey);
 
-    final initialId = perUser ?? legacy;
+    final raw = perUser ?? legacy;
+    final initialId = (raw != null && raw.trim().isNotEmpty) ? raw : null;
     return SelectedHouseholdState(
       householdId: initialId,
       household: null,
@@ -195,6 +196,11 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
   Future<void> selectHousehold(String householdId) async {
     if (_userId.isEmpty) {
       state = state.copyWith(error: 'User not authenticated');
+      return;
+    }
+
+    if (householdId.trim().isEmpty) {
+      debugPrint('⚠️ selectHousehold called with empty ID, ignoring');
       return;
     }
 

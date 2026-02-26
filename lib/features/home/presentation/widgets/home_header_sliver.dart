@@ -201,9 +201,13 @@ class HomeHeaderSliver extends ConsumerWidget {
 
       final currentViewMode = ref.read(viewModeProvider);
       final currentSelectedHousehold = ref.read(selectedHouseholdProvider);
-      final householdId = currentViewMode.mode == ViewMode.household
+      final rawHouseholdId = currentViewMode.mode == ViewMode.household
           ? currentSelectedHousehold.householdId
           : null;
+      final householdId =
+          (rawHouseholdId != null && rawHouseholdId.trim().isNotEmpty)
+              ? rawHouseholdId
+              : null;
 
       ref
           .read(recurringTransactionsProvider(householdId).notifier)

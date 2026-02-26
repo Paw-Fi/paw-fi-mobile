@@ -24,8 +24,10 @@ class HouseholdScope {
     required this.portfolioHouseholdIds,
   });
 
-  String? get selectedHouseholdId =>
-      selected.householdId ?? selected.household?.id;
+  String? get selectedHouseholdId {
+    final raw = selected.householdId ?? selected.household?.id;
+    return (raw != null && raw.trim().isNotEmpty) ? raw : null;
+  }
 
   bool get hasSelectedHousehold => selectedHouseholdId != null;
 

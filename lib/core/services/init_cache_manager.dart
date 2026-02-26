@@ -16,6 +16,7 @@ class InitCacheManager {
   static const String _timestampKey = 'app_init_cache_timestamp_v2';
   static const String _versionKey = 'app_init_cache_version';
   static const Duration _cacheValidity = Duration(hours: 24);
+  static const Duration _staleCacheMaxAgeDefault = Duration(days: 14);
 
   final SharedPreferences _prefs;
 
@@ -85,6 +86,99 @@ class InitCacheManager {
       return data;
     } catch (e) {
       debugPrint('❌ [InitCache] Failed to load cache: $e');
+      return null;
+    }
+  }
+
+  /// Load cached initialization data with a best-effort strategy.
+  ///
+  /// Unlike [load], this does NOT invalidate the cache purely because the app
+  /// version changed. It still enforces expiry and JSON integrity.
+  ///
+  /// This is useful for reducing cold-start failures immediately after an app
+  /// update when the init payload schema is unchanged.
+  Map<String, dynamic>? loadBestEffort(String currentAppVersion) {
+    try {
+      // Check timestamp - invalidate if expired
+      final timestamp = _prefs.getInt(_timestampKey);
+      if (timestamp == null) {
+        debugPrint('🕒 [InitCache] (best-effort) No timestamp found');
+        return null;
+      }
+
+      final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
+      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
+
+      if (cacheAge > _cacheValidity.inMilliseconds) {
+        debugPrint(
+            '⏰ [InitCache] (best-effort) Cache expired (age: ${ageHours}h)');
+        return null;
+      }
+
+      final cached = _prefs.getString(_cacheKey);
+      if (cached == null) {
+        debugPrint('📭 [InitCache] (best-effort) No cached data found');
+        return null;
+      }
+
+      final cachedVersion = _prefs.getString(_versionKey);
+      if (cachedVersion != null && cachedVersion != currentAppVersion) {
+        debugPrint(
+            '📱 [InitCache] (best-effort) Using cache from previous app version ($cachedVersion → $currentAppVersion)');
+      }
+
+      final data = jsonDecode(cached) as Map<String, dynamic>;
+      debugPrint(
+          '✅ [InitCache] (best-effort) Loaded cache (age: ${ageHours}h, current version: $currentAppVersion)');
+      return data;
+    } catch (e) {
+      debugPrint('❌ [InitCache] (best-effort) Failed to load cache: $e');
+      return null;
+    }
+  }
+
+  /// Load cached initialization data even if it is stale.
+  ///
+  /// This is a last-resort fallback for users with unreliable connectivity.
+  /// It still validates JSON integrity, but relaxes both version matching and
+  /// the 24h freshness requirement.
+  Map<String, dynamic>? loadStaleBestEffort(
+    String currentAppVersion, {
+    Duration maxAge = _staleCacheMaxAgeDefault,
+  }) {
+    try {
+      final timestamp = _prefs.getInt(_timestampKey);
+      if (timestamp == null) {
+        debugPrint('🕒 [InitCache] (stale) No timestamp found');
+        return null;
+      }
+
+      final cacheAge = DateTime.now().millisecondsSinceEpoch - timestamp;
+      final ageHours = (cacheAge / 1000 / 3600).toStringAsFixed(1);
+      if (cacheAge > maxAge.inMilliseconds) {
+        debugPrint(
+            '⏰ [InitCache] (stale) Cache too old for fallback (age: ${ageHours}h, max: ${maxAge.inHours}h)');
+        return null;
+      }
+
+      final cached = _prefs.getString(_cacheKey);
+      if (cached == null) {
+        debugPrint('📭 [InitCache] (stale) No cached data found');
+        return null;
+      }
+
+      final cachedVersion = _prefs.getString(_versionKey);
+      if (cachedVersion != null && cachedVersion != currentAppVersion) {
+        debugPrint(
+            '📱 [InitCache] (stale) Using cache from previous app version ($cachedVersion → $currentAppVersion)');
+      }
+
+      final data = jsonDecode(cached) as Map<String, dynamic>;
+      debugPrint(
+          '✅ [InitCache] (stale) Loaded cache (age: ${ageHours}h, current version: $currentAppVersion)');
+      return data;
+    } catch (e) {
+      debugPrint('❌ [InitCache] (stale) Failed to load cache: $e');
       return null;
     }
   }
