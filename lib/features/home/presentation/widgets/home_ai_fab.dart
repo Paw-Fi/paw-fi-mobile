@@ -26,6 +26,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
@@ -830,22 +832,29 @@ Future<void> handleAiFreeFormText(
     controller,
     (text) async {
       if (!context.mounted) return;
-      await _processExpense(
-        context,
-        ref,
-        text: text,
-        onSuccess: onSuccess,
-      );
+      // Defer to next frame to ensure drawer closes before processing
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+        await _processExpense(
+          context,
+          ref,
+          text: text,
+          onSuccess: onSuccess,
+        );
+      });
     },
     onSubmitAudio: (audioBytes, contentType) async {
       if (!context.mounted) return;
-      await _processExpense(
-        context,
-        ref,
-        audioBytes: audioBytes,
-        audioContentType: contentType,
-        onSuccess: onSuccess,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!context.mounted) return;
+        await _processExpense(
+          context,
+          ref,
+          audioBytes: audioBytes,
+          audioContentType: contentType,
+          onSuccess: onSuccess,
+        );
+      });
     },
   );
 }
@@ -1042,10 +1051,14 @@ Future<void> _processExpense(
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
   final user = ref.read(authProvider);
+  final preview = ref.read(previewModeProvider);
   final contact = ref.read(analyticsProvider).contact;
   final householdId = _resolveHouseholdIdForAi(ref);
   final scope = ref.read(householdScopeProvider);
   final isPortfolio = scope.activeAccountType == ActiveAccountType.portfolio;
+  final effectiveUserId = preview.isActive
+      ? (PreviewMockData.contact.userId ?? 'preview-user')
+      : user.uid;
 
   // Determine if this is a potentially slow operation (PDF/file uploads)
   final hasAttachments = attachments?.isNotEmpty ?? false;
@@ -1095,9 +1108,28 @@ Future<void> _processExpense(
             : locale.languageCode;
 
     final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
+    Map<String, dynamic>? responseData;
+
+    if (preview.isActive) {
+      responseData = {
+        'success': true,
+        'data': {
+          'items': [
+            {
+              'description': 'Demo coffee at Cafe Bloom',
+              'amount': 5.50,
+              'currency': 'USD',
+              'category': 'Dining',
+              'date': formatDateOnlyYmd(today),
+              'is_income': false,
+            },
+          ],
+        },
+      };
+    }
 
     final Map<String, dynamic> body = {
-      'userId': user.uid,
+      'userId': effectiveUserId,
       'date': formatDateOnlyYmd(today),
       'language': languageTag,
       'typeHint': 'mixed',
@@ -1176,10 +1208,8 @@ Future<void> _processExpense(
       return;
     }
 
-    Map<String, dynamic>? responseData;
-
     // Use SSE streaming for file uploads to get real-time progress
-    if (shouldStream && dialogController != null) {
+    if (responseData == null && shouldStream && dialogController != null) {
       try {
         responseData = await _processWithSSE(
           body: body,
@@ -1388,17 +1418,19 @@ Future<void> _processExpense(
             unawaited(_maybeShowUnsetHoldQuickActionReminder(context, ref));
           }
 
-          final container = ProviderScope.containerOf(context, listen: false);
-          unawaited(
-            _persistAiTransactions(
-              container,
-              userId: user.uid,
-              householdId: householdId,
-              isPortfolio: isPortfolio,
-              transactions: parsed,
-              localImagePath: imagePath,
-            ),
-          );
+          if (!preview.isActive) {
+            final container = ProviderScope.containerOf(context, listen: false);
+            unawaited(
+              _persistAiTransactions(
+                container,
+                userId: user.uid,
+                householdId: householdId,
+                isPortfolio: isPortfolio,
+                transactions: parsed,
+                localImagePath: imagePath,
+              ),
+            );
+          }
         } else {
           if (context.mounted) {
             AppToast.info(context, context.l10n.noExpenseInformationExtracted);

@@ -45,7 +45,11 @@ class MockAuth extends Auth {
 class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
 
 class MockUserHouseholdsNotifier extends UserHouseholdsNotifier {
-  MockUserHouseholdsNotifier(super.repository, super.userId);
+  MockUserHouseholdsNotifier(
+    HouseholdRepository repository,
+    String userId,
+    Ref ref,
+  ) : super(repository, userId, ref);
 
   Future<List<Household>> build() async {
     return [
@@ -215,8 +219,12 @@ void main() {
 
       container = ProviderContainer(
         overrides: [
-          supabaseClientProvider.overrideWithValue(
-            SupabaseClient('http://localhost', 'anon'),
+          userHouseholdsProvider.overrideWith(
+            (ref, userId) => MockUserHouseholdsNotifier(
+              _MockHouseholdRepository(),
+              userId,
+              ref,
+            ),
           ),
           sharedPreferencesProvider.overrideWithValue(prefs),
           authProvider.overrideWith(() => MockAuth()),

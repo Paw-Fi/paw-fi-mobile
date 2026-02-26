@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod/riverpod.dart' show ProviderSubscription;
@@ -24,6 +25,7 @@ import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -33,6 +35,7 @@ class MainShell extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final previewState = ref.watch(previewModeProvider);
 
     // One-time native notification prompt logic & listeners
     useEffect(() {
@@ -140,6 +143,19 @@ class MainShell extends HookConsumerWidget {
           color: colorScheme.appBackground,
           child: Column(
             children: [
+              if (previewState.isActive)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: _PreviewModeBanner(
+                    currentIndex: currentIndex,
+                    onRegisterTap: () {
+                      ref.read(previewModeProvider.notifier).disable();
+                      if (context.mounted) {
+                        context.go('/register');
+                      }
+                    },
+                  ),
+                ),
               const HomeHeaderSliver(),
               Expanded(
                 child: Stack(
@@ -198,6 +214,159 @@ class MainShell extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
+    );
+  }
+}
+
+class _PreviewModeBanner extends StatefulWidget {
+  const _PreviewModeBanner({required this.onRegisterTap, required this.currentIndex});
+
+  final VoidCallback onRegisterTap;
+  final int currentIndex;
+
+  @override
+  State<_PreviewModeBanner> createState() => _PreviewModeBannerState();
+}
+
+class _PreviewModeBannerState extends State<_PreviewModeBanner> {
+  bool _expanded = true;
+
+  @override
+  void didUpdateWidget(covariant _PreviewModeBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex && _expanded) {
+      setState(() {
+        _expanded = false;
+      });
+    }
+  }
+
+  void _toggle() {
+    setState(() {
+      _expanded = !_expanded;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = Text(
+      'Preview mode is on · Demo data only',
+      style: TextStyle(
+        color: colorScheme.warning,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
+    final icon = Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: colorScheme.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.visibility_outlined,
+        color: colorScheme.warning,
+        size: 18,
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10,vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.warningBorder),
+      ),
+      child: _expanded
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      icon,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: title),
+                                IconButton(
+                                  icon: Icon(
+                                    _expanded
+                                        ? Icons.expand_less
+                                        : Icons.expand_more,
+                                    color: colorScheme.warning,
+                                  ),
+                                  onPressed: _toggle,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              'Your progress won’t be saved. Create an account to keep your changes.',
+                              style: TextStyle(
+                                color: colorScheme.foreground,
+                                height: 1.35,
+                              ),
+                            ),
+                              const SizedBox(width: 8),
+                  FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 36),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      foregroundColor: colorScheme.onSecondaryContainer,
+                      backgroundColor: colorScheme.secondaryContainer,
+                    ),
+                    onPressed: widget.onRegisterTap,
+                    child: const Text('Create account'),
+                  ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),             
+                ],
+              ),
+          )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                icon,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Preview mode is on · Demo data only',
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      height: 1.35,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              
+                IconButton(
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: colorScheme.warning,
+                  ),
+                  onPressed: _toggle,
+                ),
+              ],
+            ),
     );
   }
 }

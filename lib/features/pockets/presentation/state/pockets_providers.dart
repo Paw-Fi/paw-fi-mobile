@@ -6,6 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -178,6 +181,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   final PocketsScopeParams params;
 
   bool _hasLoadedOnce = false;
+  bool get _isPreview => ref.read(previewModeProvider).isActive;
 
   dynamic _applyAccountScopeFilter(
     dynamic query,
@@ -250,7 +254,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     _hasLoadedOnce = true;
 
     final authUser = ref.read(authProvider);
-    if (authUser.isEmpty) {
+    if (authUser.isEmpty && !_isPreview) {
       _debugLog('[Pockets] No auth user, cannot load');
       if (!mounted) return;
       state = state.copyWith(isLoading: false, error: 'Not authenticated');
@@ -265,6 +269,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         '[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
     if (!mounted) return;
     state = state.copyWith(isLoading: true, clearError: true);
+
+    if (_isPreview) {
+      _applyPreviewState();
+      return;
+    }
+
     try {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
@@ -285,7 +295,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
       final isPortfolio = scopeType == PocketsScopeType.portfolio;
-      final householdId = params.householdId;
+      final householdId = params.householdId ?? (_isPreview ? 'preview-house-1' : null);
 
       if (isHousehold && householdId == null) {
         if (!mounted) return;
@@ -732,6 +742,53 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  void _applyPreviewState() {
+    final mockPockets = PreviewMockData.pockets;
+    final savedPockets = _clonePockets(mockPockets);
+    final editingPockets = _clonePockets(mockPockets);
+    final totalBudget = savedPockets.fold<double>(
+      0,
+      (sum, pocket) => sum + pocket.budgetAmountCents / 100.0,
+    );
+    final totalSpent = savedPockets.fold<double>(0, (sum, pocket) => sum + pocket.spent);
+    final now = DateTime.now();
+
+    state = PocketsState(
+      isLoading: false,
+      error: null,
+      saved: savedPockets,
+      editing: editingPockets,
+      budgetId: 'preview-budget-main',
+      periodMonth: DateTime(now.year, now.month, 1),
+      previousBudget: totalBudget,
+      hasPreviousMonthPockets: true,
+      totalBudget: totalBudget,
+      savedTotalBudget: totalBudget,
+      unallocatedSpend: math.max(totalBudget - totalSpent, 0),
+      uncategorized: const [],
+      uncategorizedExpenses: const {},
+    );
+  }
+
+  List<PocketEnvelope> _clonePockets(List<PocketEnvelope> pockets) {
+    return pockets
+        .map(
+          (p) => PocketEnvelope(
+            id: p.id,
+            name: p.name,
+            budgetAmountCents: p.budgetAmountCents,
+            spent: p.spent,
+            currency: p.currency,
+            icon: p.icon,
+            color: p.color,
+            budgetId: p.budgetId,
+            householdId: p.householdId,
+            lastUpdated: p.lastUpdated,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   /// Update total budget - amounts stay the same!
   void updateTotalBudget(double newTotal) {
     if (newTotal < 0) return;
@@ -1158,6 +1215,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   Future<void> saveChanges() async {
     if (!mounted) return;
     if (!state.hasChanges) return;
+    if (_isPreview) {
+      _showPreviewModeToast();
+      return;
+    }
     try {
       final authUser = ref.read(authProvider);
       final filter = ref.read(homeFilterProvider);
@@ -1323,6 +1384,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required List<PocketTemplate> pockets,
   }) async {
     if (!mounted) return;
+    if (_isPreview) {
+      _showPreviewModeToast();
+      return;
+    }
 
     final authUser = ref.read(authProvider);
     if (authUser.isEmpty) {
@@ -1449,6 +1514,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> assignCategoryToPocket(String pocketId, String category) async {
+    if (_isPreview) {
+      _showPreviewModeToast();
+      return;
+    }
     try {
       await supabase.from('envelope_category_links').insert({
         'envelope_id': pocketId,
@@ -1468,6 +1537,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (!mounted) return;
       state = state.copyWith(error: e.toString());
     }
+  }
+
+  void _showPreviewModeToast() {
+    if (!mounted) return;
+    
   }
 }
 

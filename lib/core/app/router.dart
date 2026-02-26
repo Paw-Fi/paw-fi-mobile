@@ -20,6 +20,8 @@ import 'package:moneko/features/households/presentation/pages/household_settings
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_preview_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -35,6 +37,9 @@ GoRouter router(RouterRef ref) {
   final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
+  final previewMode = ref.watch(previewModeProvider);
+  final hasSeenPreview =
+      prefs.getBool('preview_onboarding_seen') ?? false;
 
   // Use V2 initialization provider (cache-first, faster)
   final appInitStateV2 = ref.watch(appInitializationV2Provider);
@@ -188,6 +193,10 @@ GoRouter router(RouterRef ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingFlowPage(),
       ),
+      GoRoute(
+        path: '/preview',
+        builder: (context, state) => const OnboardingPreviewPage(),
+      ),
 
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
@@ -216,12 +225,14 @@ GoRouter router(RouterRef ref) {
         final hasOnboarded = !isAuthenticated
             ? true
             : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
+        final isPreview = previewMode.isActive;
         final isOnSplashPage = state.matchedLocation == '/splash';
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/auth/callback');
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
+        final isOnPreviewPage = state.matchedLocation == '/preview';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
         final isOnPlanSelectionPage =
             state.matchedLocation == '/plan-selection';
@@ -248,6 +259,12 @@ GoRouter router(RouterRef ref) {
         if (isOnSplashPage) {
           debugPrint(
               '🚀 [RouterV2] On splash, redirecting immediately based on auth');
+          if (isPreview) {
+            if (!hasSeenPreview) {
+              prefs.setBool('preview_onboarding_seen', true);
+            }
+            return '/dashboard';
+          }
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
             // Always check onboarding first
@@ -273,7 +290,10 @@ GoRouter router(RouterRef ref) {
             }
             return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
-            return '/login';
+            if (hasSeenPreview) {
+              return '/login';
+            }
+            return '/preview';
           }
         }
 
@@ -287,6 +307,12 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
+        // If authenticated and sitting on preview page, forward to onboarding/dashboard
+        if (isAuthenticated && isOnPreviewPage) {
+          if (!hasOnboarded) return '/onboarding';
+          return '/dashboard';
+        }
+
         // Allow paywall page for authenticated users (mobile only)
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
           return null;
@@ -296,13 +322,16 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // If not authenticated and not on auth/onboarding page, redirect to login
-        if (!isAuthenticated && !isOnAuthPage) {
-          return '/login';
+        // If not authenticated and not on auth/onboarding page, redirect to preview once, then login thereafter
+        if (!isPreview && !isAuthenticated && !isOnAuthPage && !isOnPreviewPage) {
+          if (hasSeenPreview) {
+            return '/login';
+          }
+          return '/preview';
         }
 
         // If authenticated and on auth page, check onboarding then subscription then redirect
-        if (isAuthenticated && isOnAuthPage) {
+        if (!isPreview && isAuthenticated && isOnAuthPage) {
           // Always prioritize onboarding
           if (!hasOnboarded) {
             return '/onboarding';
@@ -329,7 +358,8 @@ GoRouter router(RouterRef ref) {
 
         // If authenticated but no subscription and trying to access protected pages
         // Only redirect to paywall if subscription is confirmed loaded and onboarding completed
-        if (!kIsWeb &&
+        if (!isPreview &&
+            !kIsWeb &&
             isAuthenticated &&
             hasOnboarded &&
             isSubscriptionLoaded &&

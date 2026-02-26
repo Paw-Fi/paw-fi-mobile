@@ -18,6 +18,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
@@ -587,6 +588,15 @@ class _EditTransactionBottomSheetState
   }
 
   Future<void> _handleSave() async {
+    if (ref.read(previewModeProvider).isActive) {
+      Navigator.of(context, rootNavigator: true).pop();
+      AppToast.success(
+        context,
+        'Preview: changes applied for demo (not saved).',
+      );
+      return;
+    }
+
     // Validate
     final validation = _validate();
     if (validation != null) {

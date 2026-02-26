@@ -42,6 +42,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -367,6 +368,17 @@ class _UnifiedTransactionSheetState
 
   /// Handle adding a photo to existing expense
   Future<void> _handleAddPhoto() async {
+    if (ref.read(previewModeProvider).isActive) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.info(
+          context,
+          'Preview mode: mock receipt noted (not actually saved).',
+        );
+      }
+      return;
+    }
+
     debugPrint('📷 Adding photo to existing expense...');
 
     try {
@@ -2190,6 +2202,19 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleSave() async {
+    if (ref.read(previewModeProvider).isActive) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.success(
+          context,
+          widget.existingExpense != null
+              ? 'Preview mode: mock updates applied (not saved).'
+              : 'Preview mode: mock expense created (not saved).',
+        );
+      }
+      return;
+    }
+
     setState(() => _isSaving = true);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
@@ -2765,6 +2790,17 @@ class _UnifiedTransactionSheetState
   }
 
   Future<void> _handleDelete() async {
+    if (ref.read(previewModeProvider).isActive) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.info(
+          context,
+          'Preview mode: deletion skipped (data is demo only).',
+        );
+      }
+      return;
+    }
+
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
     final confirmedResult = await MonekoAlertDialog.show(

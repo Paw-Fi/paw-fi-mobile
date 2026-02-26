@@ -24,6 +24,7 @@ import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 /// Supported sentence word orders for arranging the scenario inputs
 enum _WordOrder { svo, sov, vso, v2 }
@@ -70,6 +71,12 @@ class _ScenarioPlanningTabContentState
       TextEditingController();
   DateTime? _scenarioDate;
   bool _scenarioLoading = false;
+
+  List<String> get _previewSavedScenarios => [
+        'Can I buy a \$1,200 laptop before Apr 15?',
+        'Can I fund my June wedding deposits before May 20?',
+        'Can I build a \$5,000 emergency fund before December 31?',
+      ];
 
   String _buildScenarioTourDescription() {
     final now = DateTime.now();
@@ -350,6 +357,7 @@ class _ScenarioPlanningTabContentState
         householdScope.activeAccountType != ActiveAccountType.personal &&
             activeHouseholdId != null;
     final String? householdId = isHousehold ? activeHouseholdId : null;
+    final preview = ref.watch(previewModeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -859,147 +867,180 @@ class _ScenarioPlanningTabContentState
           const SizedBox(height: 16),
           InsightsSectionCard(
             colorScheme: colorScheme,
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _loadScenarioHistory(
-                user.uid,
-                isHousehold ? householdId : null,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                final items = snapshot.data ?? const [];
-                if (items.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        context.l10n.noSavedScenariosYet,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: colorScheme.mutedForeground,
-                          fontSize: 13,
-                        ),
-                      ),
+            child: preview.isActive
+                ? _buildPreviewScenarioList(colorScheme)
+                : FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _loadScenarioHistory(
+                      user.uid,
+                      isHousehold ? householdId : null,
                     ),
-                  );
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.history,
-                      size: 18,
-                    ),
-                    const SizedBox(height: 12),
-                    ...items.map((row) {
-                      final id = row['id'] as String?;
-                      final q = row['question'] as String? ?? '';
-                      final a = row['answer'] as String? ?? '';
-                      final createdAtRaw = row['created_at'] as String?;
-
-                      String? createdAtLabel;
-                      if (createdAtRaw != null) {
-                        try {
-                          final parsed = DateTime.parse(createdAtRaw);
-                          createdAtLabel = _formatLocalizedDate(parsed);
-                        } catch (_) {
-                          createdAtLabel = createdAtRaw;
-                        }
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
                       }
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: InkWell(
-                          onTap: () {
-                            showScenarioResultSheet(
-                              context,
-                              a,
-                              const {},
-                              selectedCurrency: widget.selectedCurrency,
-                              question: q,
-                              userId: user.uid,
-                              mode: isHousehold ? 'household' : 'personal',
-                              householdId: householdId,
-                              scenarioId: id,
-                              onSaved: () {
-                                setState(() {});
-                              },
-                              onDeleted: () {
-                                setState(() {});
-                              },
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
+
+                      final items = snapshot.data ?? const [];
+                      if (items.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: SizedBox(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 2, horizontal: 0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    if (createdAtLabel != null)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary
-                                              .withValues(alpha: 0.06),
-                                          borderRadius:
-                                              BorderRadius.circular(100),
-                                        ),
-                                        child: Text(
-                                          createdAtLabel,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.primary,
-                                            letterSpacing: -0.3,
-                                          ),
-                                        ),
-                                      ),
-                                    Icon(
-                                      CupertinoIcons.arrow_up_right,
-                                      size: 16,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  q,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.6,
-                                    height: 1.3,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              context.l10n.noSavedScenariosYet,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.history,
+                            size: 18,
+                          ),
+                          const SizedBox(height: 12),
+                          ...items.map((row) {
+                            final id = row['id'] as String?;
+                            final q = row['question'] as String? ?? '';
+                            final a = row['answer'] as String? ?? '';
+                            final createdAtRaw = row['created_at'] as String?;
+
+                            String? createdAtLabel;
+                            if (createdAtRaw != null) {
+                              try {
+                                final parsed = DateTime.parse(createdAtRaw);
+                                createdAtLabel = _formatLocalizedDate(parsed);
+                              } catch (_) {
+                                createdAtLabel = createdAtRaw;
+                              }
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: InkWell(
+                                onTap: () {
+                                  showScenarioResultSheet(
+                                    context,
+                                    a,
+                                    const {},
+                                    selectedCurrency: widget.selectedCurrency,
+                                    question: q,
+                                    userId: user.uid,
+                                    mode: isHousehold ? 'household' : 'personal',
+                                    householdId: householdId,
+                                    scenarioId: id,
+                                    onSaved: () {
+                                      setState(() {});
+                                    },
+                                    onDeleted: () {
+                                      setState(() {});
+                                    },
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(24),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 2, horizontal: 0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          if (createdAtLabel != null)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.primary
+                                                    .withValues(alpha: 0.06),
+                                                borderRadius:
+                                                    BorderRadius.circular(100),
+                                              ),
+                                              child: Text(
+                                                createdAtLabel,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.primary,
+                                                  letterSpacing: -0.3,
+                                                ),
+                                              ),
+                                            ),
+                                          Icon(
+                                            CupertinoIcons.arrow_up_right,
+                                            size: 16,
+                                            color: colorScheme.mutedForeground,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        q,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: -0.6,
+                                          height: 1.3,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ],
                       );
-                    }).toList(),
-                  ],
-                );
-              },
-            ),
+                    },
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPreviewScenarioList(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.history, size: 18),
+        const SizedBox(height: 12),
+        ..._previewSavedScenarios.map(
+          (s) => Padding(
+            padding: const EdgeInsets.only(bottom: 10.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.bookmark, size: 16, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    s,
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -10,6 +10,8 @@ import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 
 // ============================================================================
 // ADVANCED ANALYTICS PAGE
@@ -50,6 +52,18 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final householdScope = ref.watch(householdScopeProvider);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
+    final preview = ref.watch(previewModeProvider);
+
+    // Ensure analytics is loaded in preview even without auth
+    if (preview.isActive &&
+        (analyticsData.allExpenses.isEmpty || analyticsData.isLoading)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final userId = ref.read(authProvider).uid.isNotEmpty
+            ? ref.read(authProvider).uid
+            : (PreviewMockData.contact.userId ?? 'preview-user');
+        ref.read(analyticsProvider.notifier).loadData(userId);
+      });
+    }
 
     if (currentTabIndex == 3 && currentInsightsTabIndex == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,8 +77,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       body: RefreshIndicator(
         onRefresh: () async {
           final user = ref.read(authProvider);
-          if (user.uid.isEmpty) return;
-          await ref.read(analyticsProvider.notifier).loadData(user.uid);
+          final userId = user.uid.isNotEmpty
+              ? user.uid
+              : (preview.isActive
+                  ? PreviewMockData.contact.userId ?? 'preview-user'
+                  : '');
+          if (userId.isEmpty) return;
+          await ref.read(analyticsProvider.notifier).loadData(userId);
         },
         child: SizedBox(
           width: double.infinity,

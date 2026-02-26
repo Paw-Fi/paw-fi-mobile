@@ -31,6 +31,7 @@ import 'package:moneko/shared/widgets/moneko_avatar.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 enum _ExportAction {
   exportExcel,
@@ -86,25 +87,58 @@ class HomeHeaderLeading extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
+    final previewPrivateSpaces = preview.isActive
+        ? [
+            Household(
+              id: 'preview-card',
+              name: 'Chase Sapphire',
+              ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
+              currency: 'USD',
+              themeColor: '#0EA5E9',
+              createdAt: DateTime.now().subtract(const Duration(days: 45)),
+              updatedAt: DateTime.now(),
+              isPortfolio: true,
+              coverImageUrl: null,
+            ),
+            Household(
+              id: 'preview-savings',
+              name: 'High-Yield Savings',
+              ownerId: user.uid.isNotEmpty ? user.uid : 'preview-user',
+              currency: 'USD',
+              themeColor: '#10B981',
+              createdAt: DateTime.now().subtract(const Duration(days: 90)),
+              updatedAt: DateTime.now(),
+              isPortfolio: true,
+              coverImageUrl: null,
+            ),
+          ]
+        : const <Household>[];
     final AppDrawerController zoomController =
         ref.read(zoomDrawerControllerProvider);
 
-    final name = viewMode.mode == ViewMode.personal
-        ? _userLabel(user, shortenEmail: false)
-        : householdsAsync.when(
-            loading: () => _userLabel(user, shortenEmail: false),
-            error: (_, __) => _userLabel(user, shortenEmail: false),
-            data: (households) {
-              if (households.isEmpty) {
-                return _userLabel(user, shortenEmail: false);
-              }
-              final resolved =
-                  _resolveSelectedHousehold(selectedHouseholdState, households);
-              return resolved?.name ?? _userLabel(user, shortenEmail: false);
-            },
-          );
+    final name = preview.isActive
+        ? 'Moneko Preview'
+        : viewMode.mode == ViewMode.personal
+            ? _userLabel(user, shortenEmail: false)
+            : householdsAsync.when(
+                loading: () => _userLabel(user, shortenEmail: false),
+                error: (_, __) => _userLabel(user, shortenEmail: false),
+                data: (households) {
+                  final combined = [
+                    ...households,
+                    ...previewPrivateSpaces,
+                  ];
+                  if (combined.isEmpty) {
+                    return _userLabel(user, shortenEmail: false);
+                  }
+                  final resolved =
+                      _resolveSelectedHousehold(selectedHouseholdState, combined);
+                  return resolved?.name ?? _userLabel(user, shortenEmail: false);
+                },
+              );
 
     return GestureDetector(
       onTap: () => zoomController.toggle?.call(),
@@ -116,6 +150,7 @@ class HomeHeaderLeading extends ConsumerWidget {
             viewMode: viewMode,
             householdsAsync: householdsAsync,
             selectedHouseholdState: selectedHouseholdState,
+            isPreview: preview.isActive,
           ),
           const SizedBox(width: 12),
           Flexible(
@@ -163,6 +198,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
     final user = ref.watch(authProvider);
+    final preview = ref.watch(previewModeProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final spotlightController = ref.read(homeSpotlightControllerProvider);
@@ -246,27 +282,29 @@ class HomeHeaderSliver extends ConsumerWidget {
             selectedHouseholdState.household?.id)
         : null;
 
+    final previewLabel = 'Sarah Collins';
+
     final personalLabel = _truncateMenuLabel(
-      _userLabel(user, shortenEmail: true),
+      preview.isActive ? previewLabel : _userLabel(user, shortenEmail: true),
     );
 
     final profilePillLabel = _truncateMenuLabel(
-      viewMode.mode == ViewMode.personal
-          ? _userLabel(user, shortenEmail: true)
-          : householdsAsync.when(
-              loading: () => _userLabel(user, shortenEmail: true),
-              error: (_, __) => _userLabel(user, shortenEmail: true),
-              data: (households) {
-                if (households.isEmpty) {
-                  return _userLabel(user, shortenEmail: true);
-                }
-                final resolved = _resolveSelectedHousehold(
-                  selectedHouseholdState,
-                  households,
-                );
-                return resolved?.name ?? _userLabel(user, shortenEmail: true);
-              },
-            ),
+      preview.isActive
+          ? previewLabel
+          : viewMode.mode == ViewMode.personal
+              ? _userLabel(user, shortenEmail: true)
+              : householdsAsync.when(
+                  loading: () => _userLabel(user, shortenEmail: true),
+                  error: (_, __) => _userLabel(user, shortenEmail: true),
+                  data: (households) {
+                    if (households.isEmpty) {
+                      return _userLabel(user, shortenEmail: true);
+                    }
+                    final resolved = _resolveSelectedHousehold(
+                        selectedHouseholdState, households);
+                    return resolved?.name ?? _userLabel(user, shortenEmail: true);
+                  },
+                ),
       maxLength: 18,
     );
 
@@ -363,6 +401,7 @@ class HomeHeaderSliver extends ConsumerWidget {
               viewMode: viewMode,
               householdsAsync: householdsAsync,
               selectedHouseholdState: selectedHouseholdState,
+              isPreview: preview.isActive,
               size: 32, // Smaller size for the pill
             ),
             const SizedBox(width: 8),
@@ -767,6 +806,7 @@ class _HeaderAvatarButton extends StatelessWidget {
     required this.viewMode,
     required this.householdsAsync,
     required this.selectedHouseholdState,
+    required this.isPreview,
     this.size = 44,
   });
 
@@ -774,10 +814,22 @@ class _HeaderAvatarButton extends StatelessWidget {
   final ViewModeState viewMode;
   final AsyncValue<List<Household>> householdsAsync;
   final SelectedHouseholdState selectedHouseholdState;
+  final bool isPreview;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    if (isPreview) {
+      return ClipOval(
+        child: Image.asset(
+          'lib/assets/mascots/moneko.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
     if (viewMode.mode == ViewMode.personal) {
       return MonekoAvatar.supabaseUser(
         size: size,

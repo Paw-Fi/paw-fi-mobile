@@ -28,6 +28,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 class EditPocketEnvelopeSheet extends HookConsumerWidget {
   const EditPocketEnvelopeSheet({
@@ -215,6 +216,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         return;
       }
 
+      if (ref.read(previewModeProvider).isActive) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.success(
+          context,
+          existingEnvelope != null
+              ? 'Preview: pocket updated for demo (not saved).'
+              : 'Preview: pocket created for demo (not saved).',
+        );
+        return;
+      }
+
       // Offline mode: Return data directly without DB calls
       if (onSaveOffline != null) {
         final derivedWeight =
@@ -368,6 +380,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
     Future<void> handleDelete() async {
       if (!isEditing) return;
+
+      if (ref.read(previewModeProvider).isActive) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppToast.info(
+          context,
+          'Preview: pocket removal skipped (demo data only).',
+        );
+        return;
+      }
 
       final l10n = context.l10n;
       final confirmed = await _confirmDelete(context, l10n);

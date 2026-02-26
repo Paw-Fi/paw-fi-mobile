@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import '../../domain/entities/household.dart';
 import 'household_providers.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 
 /// Storage key for selected household ID
 const String _kLegacySelectedHouseholdIdKey = 'selected_household_id';
@@ -80,7 +82,8 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
   /// Initialize - loads selected household from storage
   Future<void> initialize({List<Household>? preloadedHouseholds}) async {
-    if (_userId.isEmpty) {
+    final preview = ref.read(previewModeProvider);
+    if (_userId.isEmpty && !preview.isActive) {
       state = const SelectedHouseholdState();
       return;
     }
@@ -91,8 +94,9 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     try {
       debugPrint('🔍 Initializing selected household for user: $_userId');
 
-      final households =
-          preloadedHouseholds ?? await _waitForHouseholds(_userId);
+      final households = preview.isActive
+          ? PreviewMockData.households
+          : preloadedHouseholds ?? await _waitForHouseholds(_userId);
 
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');

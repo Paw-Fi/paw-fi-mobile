@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 
@@ -46,6 +48,25 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     String userId, {
     int retryCount = 0,
   }) async {
+    final previewMode = ref.read(previewModeProvider);
+    if (previewMode.isActive) {
+      final mockExpenses = PreviewMockData.expenses;
+      final mockBudgets = PreviewMockData.budgets;
+      state = state.copyWith(
+        contact: PreviewMockData.contact,
+        expenses: mockExpenses,
+        allExpenses: mockExpenses,
+        budgets: mockBudgets,
+        allBudgets: mockBudgets,
+        preferredCurrency:
+            PreviewMockData.contact.preferredCurrency?.toUpperCase(),
+        isLoading: false,
+        hasLoadedOnce: true,
+        clearError: true,
+      );
+      return;
+    }
+
     // Prevent concurrent loads - if already loading, skip this request.
     // Exception: retries should continue (same operation).
     // If we have no data yet, allow the new request to proceed so we don't

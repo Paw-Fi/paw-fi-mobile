@@ -39,6 +39,7 @@ import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 // Prevent accidental PII/financial logging.
 // Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
@@ -544,6 +545,18 @@ class AddRecurringSheet extends HookConsumerWidget {
       final amount = amountCents == null ? null : centsToAmount(amountCents);
       if (amount == null || amountCents == null || amountCents <= 0) {
         AppToast.error(context, context.l10n.pleaseEnterValidAmount);
+        return;
+      }
+
+      if (ref.read(previewModeProvider).isActive) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+        AppToast.success(
+          context,
+          isEditing
+              ? 'Preview: recurring updated for demo (not saved).'
+              : 'Preview: recurring scheduled for demo (not saved).',
+        );
         return;
       }
 

@@ -104,7 +104,12 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     });
 
     if (mounted) {
-      Navigator.pop(context);
+      // Defer pop to avoid navigator lock during drawer close
+      await Future.microtask(() {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
       await widget.onSubmit(text);
       widget.textController.clear();
     }

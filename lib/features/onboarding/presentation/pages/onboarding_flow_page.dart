@@ -111,6 +111,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
         }
         return;
       }
+
       notificationFlowStarted.value = true;
       final uid = ref.read(authProvider).uid;
       final prefs = ref.read(sharedPreferencesProvider);
@@ -272,20 +273,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
         return;
       }
 
-      if (currentPage.value == 5) {
-        if (aiLogSuccess.value != null) {
-          unawaited(showFinishPage());
-          return;
-        }
-        // Last step: show AI input modal instead of finishing
-        await handleAiFreeFormText(
-          context,
-          ref,
-          onSuccess: (success) => aiLogSuccess.value = success,
-        );
-        return;
-      }
-
       // Default: advance to next step
       next();
     }
@@ -394,8 +381,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
                                                   : context.l10n
                                                       .pocketsIntroUseTemplate)
                                               : (aiLogSuccess.value != null
-                                                  ? context
-                                                      .l10n.continueAction
+                                                  ? context.l10n.continueAction
                                                   : context.l10n.tryNow),
                         ),
                       ),

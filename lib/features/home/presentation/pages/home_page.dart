@@ -50,6 +50,8 @@ import 'package:go_router/go_router.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/mounted_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -88,6 +90,18 @@ class _HomePageState extends ConsumerState<HomePage> {
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final isPreview = ref.read(previewModeProvider).isActive;
+      if (isPreview) {
+        final previewUserId = PreviewMockData.contact.userId ?? 'preview-user';
+        await ref.read(analyticsProvider.notifier).loadData(previewUserId);
+        final preferredCurrency =
+            PreviewMockData.contact.preferredCurrency?.toUpperCase();
+        if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
+          ref
+              .read(homeFilterProvider.notifier)
+              .setSelectedCurrency(preferredCurrency);
+        }
+      }
       // Initialize currency filter on first load (one-time)
       // Check provider state instead of local flag to prevent race conditions
       final currentCurrency = ref.read(homeFilterProvider).selectedCurrency;

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/foundation.dart' show immutable;
+import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -13,6 +14,10 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/app/router.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -106,12 +111,31 @@ class RecurringTransactionsNotifier
           hasLoadedOnce: false,
         ));
 
+  bool get _isPreview => ref.read(previewModeProvider).isActive;
+
+  bool _guardPreviewWrites() {
+    if (_isPreview) {
+      _showPreviewToast();
+      return true;
+    }
+    return false;
+  }
+
   /// Load recurring transactions for the current scope (Personal or Household)
   Future<void> loadRecurringTransactions(
     String userId, {
     int limit = 100,
     bool forceRefresh = false,
   }) async {
+    if (_isPreview) {
+      final mockData = PreviewMockData.recurringTransactions;
+      state = state.copyWith(
+        data: AsyncValue.data(mockData),
+        hasLoadedOnce: true,
+      );
+      return;
+    }
+
     if (!mounted) return;
 
     // Log current state
@@ -268,6 +292,9 @@ class RecurringTransactionsNotifier
     String userId,
     String transactionId,
   ) async {
+    if (_guardPreviewWrites()) {
+      return const DeleteRecurringResult.failure('preview_mode_blocked');
+    }
     try {
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _debugPrint('🗑️ [RecurringTx] DELETE REQUESTED');
@@ -334,6 +361,9 @@ class RecurringTransactionsNotifier
     String transactionId,
     DateTime dateToSkip,
   ) async {
+    if (_guardPreviewWrites()) {
+      return const DeleteRecurringResult.failure('preview_mode_blocked');
+    }
     try {
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
@@ -559,6 +589,16 @@ class RecurringTransactionSaveNotifier
   RecurringTransactionSaveNotifier(this.ref)
       : super(const AsyncValue.data(null));
 
+  bool get _isPreview => ref.read(previewModeProvider).isActive;
+
+  bool _guardPreviewWrites() {
+    if (_isPreview) {
+      _showPreviewToast();
+      return true;
+    }
+    return false;
+  }
+
   /// Save recurring expense
   Future<RecurringTransaction?> saveRecurringExpense({
     required String userId,
@@ -580,6 +620,9 @@ class RecurringTransactionSaveNotifier
     List<MemberSplit>? customSplits,
     String? payerUserId,
   }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
     state = const AsyncValue.loading();
 
     try {
@@ -713,6 +756,9 @@ class RecurringTransactionSaveNotifier
     String privacyScope = 'full',
     String? householdId,
   }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
     state = const AsyncValue.loading();
 
     try {
@@ -811,6 +857,9 @@ class RecurringTransactionSaveNotifier
     List<MemberSplit>? customSplits,
     String? payerUserId,
   }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
     state = const AsyncValue.loading();
 
     try {
@@ -1009,6 +1058,9 @@ class RecurringTransactionSaveNotifier
     String privacyScope = 'full',
     String? householdId,
   }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
     state = const AsyncValue.loading();
 
     try {
@@ -1121,3 +1173,12 @@ class RecurringTransactionSaveNotifier
 // ============================================================================
 
 final selectedRecurringTabProvider = StateProvider<int>((ref) => 0);
+
+void _showPreviewToast() {
+  final ctx = rootNavigatorKey.currentContext;
+  if (ctx == null || !ctx.mounted) return;
+  AppToast.info(
+    ctx,
+    'Preview mode is read-only. Create an account to save recurring changes.',
+  );
+}

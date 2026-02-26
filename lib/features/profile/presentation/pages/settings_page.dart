@@ -52,6 +52,7 @@ import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_pa
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/util/constants.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
@@ -372,6 +373,16 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleDeleteAccount() async {
+      if (ref.read(previewModeProvider).isActive) {
+        if (context.mounted) {
+          AppToast.info(
+            context,
+            'Preview: account deletion is disabled in demo mode.',
+          );
+        }
+        return;
+      }
+
       final l10n = context.l10n;
 
       if (isAccountDeletionInProgress.value) {
@@ -468,6 +479,15 @@ class SettingsPage extends HookConsumerWidget {
         ref.invalidate(subscriptionManagementProvider);
 
         try {
+          if (ref.read(previewModeProvider).isActive) {
+            if (context.mounted) {
+              AppToast.info(
+                context,
+                'Preview: sign out is disabled in demo mode.',
+              );
+            }
+            return;
+          }
           await ref.read(authProvider.notifier).signOut();
         } catch (_) {}
 
@@ -1072,7 +1092,16 @@ class SettingsPage extends HookConsumerWidget {
 
                         debugPrint('✅ All user-specific state cleared');
 
-                        await ref.read(authProvider.notifier).signOut();
+                        if (ref.read(previewModeProvider).isActive) {
+                          if (context.mounted) {
+                            AppToast.info(
+                              context,
+                              'Preview: sign out is disabled in demo mode.',
+                            );
+                          }
+                        } else {
+                          await ref.read(authProvider.notifier).signOut();
+                        }
                       } finally {
                         if (context.mounted) {
                           // Handled by router/auth state change

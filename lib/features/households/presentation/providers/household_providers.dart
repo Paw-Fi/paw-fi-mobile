@@ -6,6 +6,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
@@ -63,14 +65,23 @@ class UserHouseholdsNotifier
     extends StateNotifier<AsyncValue<List<Household>>> {
   final HouseholdRepository _repository;
   final String _userId;
+  final Ref _ref;
 
-  UserHouseholdsNotifier(this._repository, this._userId)
+  UserHouseholdsNotifier(this._repository, this._userId, this._ref)
       : super(const AsyncValue.loading()) {
     load();
   }
 
   Future<void> load() async {
     if (!mounted) return;
+
+    // Preview mode: return mock households instantly
+    final preview = _ref.read(previewModeProvider);
+    if (preview.isActive) {
+      state = AsyncValue.data(PreviewMockData.households);
+      return;
+    }
+
     state = const AsyncValue.loading();
     final result =
         await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
@@ -99,7 +110,7 @@ final userHouseholdsProvider = StateNotifierProvider.family<
     UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
   (ref, userId) {
     final repository = ref.watch(householdRepositoryProvider);
-    return UserHouseholdsNotifier(repository, userId);
+    return UserHouseholdsNotifier(repository, userId, ref);
   },
 );
 

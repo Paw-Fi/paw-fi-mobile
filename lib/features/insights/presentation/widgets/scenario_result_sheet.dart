@@ -8,6 +8,8 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 /// Helper to safely convert dynamic value to double
 double _asDouble(dynamic v) {
@@ -162,6 +164,20 @@ void showScenarioResultSheet(
                             onPressed: (question == null || userId == null)
                                 ? null
                                 : () async {
+                                    final preview = ProviderScope.containerOf(
+                                      context,
+                                      listen: false,
+                                    ).read(previewModeProvider);
+                                    if (preview.isActive) {
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pop();
+                                      AppToast.success(
+                                        context,
+                                        'Preview: scenario bookmarked for demo (not saved).',
+                                      );
+                                      return;
+                                    }
+
                                     // Toggle behavior: save when not yet saved, otherwise
                                     // ask for confirmation and delete.
                                     if (!isSaved) {
@@ -210,6 +226,19 @@ void showScenarioResultSheet(
                                       }
                                     } else {
                                       // Confirm deletion before removing a saved scenario.
+                                      final preview = ProviderScope
+                                          .containerOf(context, listen: false)
+                                          .read(previewModeProvider);
+                                      if (preview.isActive) {
+                                        Navigator.of(context,
+                                                rootNavigator: true)
+                                            .pop();
+                                        AppToast.info(
+                                          context,
+                                          'Preview: scenario removal skipped (demo only).',
+                                        );
+                                        return;
+                                      }
                                       await AdaptiveAlertDialog.show(
                                         context: context,
                                         title: context.l10n.delete,

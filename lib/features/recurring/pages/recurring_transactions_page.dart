@@ -23,6 +23,8 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -108,6 +110,7 @@ class _RecurringTransactionsPageState
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final preview = ref.watch(previewModeProvider);
 
     // Use householdScopeProvider to properly handle portfolio households
     // Portfolio households (is_portfolio=true) are treated as personal, not household
@@ -139,12 +142,18 @@ class _RecurringTransactionsPageState
       _debugPrint('   Data count: ${state.data.value?.length ?? 0}');
     }
 
-    if (user != null && !state.hasLoadedOnce && !state.data.isLoading) {
+    final shouldTriggerPreviewLoad =
+        preview.isActive && !state.hasLoadedOnce && !state.data.isLoading;
+
+    if ((user != null || shouldTriggerPreviewLoad) &&
+        !state.hasLoadedOnce &&
+        !state.data.isLoading) {
       _debugPrint('🚀 [RecurringPage] Triggering initial load...');
       Future.microtask(() {
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
-            .loadRecurringTransactions(user.id);
+            .loadRecurringTransactions(
+                user?.id ?? PreviewMockData.contact.userId ?? 'preview-user');
       });
     } else {
       _debugPrint(
