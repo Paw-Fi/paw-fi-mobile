@@ -43,6 +43,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -75,6 +76,37 @@ String _formatRelativeDate(
     // Use localized date formatter for full date
     return DateFormat.yMMMMd(localeName).format(dateOnly);
   }
+}
+
+class _AccountOption {
+  final ActiveAccountType type;
+  final String? householdId;
+  final String label;
+  final bool isPortfolio;
+
+  const _AccountOption({
+    required this.type,
+    required this.label,
+    this.householdId,
+    this.isPortfolio = false,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! _AccountOption) return false;
+    return type == other.type && householdId == other.householdId;
+  }
+
+  @override
+  int get hashCode => Object.hash(type, householdId);
+}
+
+class _AccountTarget {
+  final String? householdId;
+  final bool isPortfolio;
+
+  const _AccountTarget({required this.householdId, required this.isPortfolio});
 }
 
 /// Shows unified transaction sheet
@@ -131,6 +163,10 @@ class _UnifiedTransactionSheetState
   String? _localImagePath; // Track locally captured image for existing expenses
   final timeFormat = DateFormat('HH:mm');
   bool _isSharedWithHousehold = false;
+  ActiveAccountType _selectedAccountType = ActiveAccountType.personal;
+  String? _selectedAccountHouseholdId;
+  ActiveAccountType _lastNonHouseholdAccountType = ActiveAccountType.personal;
+  String? _lastNonHouseholdHouseholdId;
   TimeOfDay _selectedTime = TimeOfDay.now();
   SplitType? _customSplitType;
   List<MemberSplit>? _customSplits;
@@ -193,13 +229,21 @@ class _UnifiedTransactionSheetState
       debugPrint('🏠 [HOUSEHOLD SHARE] Existing expense context loaded');
 
       final scope = ref.read(householdScopeProvider);
-      final isPortfolio =
-          scope.isPortfolioId(widget.existingExpense!.householdId);
+      final existingHouseholdId = widget.existingExpense!.householdId;
+      final isPortfolio = scope.isPortfolioId(existingHouseholdId);
+      final hasHousehold = existingHouseholdId != null &&
+          existingHouseholdId.isNotEmpty;
+      final hasSharedSplit = widget.existingExpense!.splitGroupId != null;
 
-      // Initialize share state from existing expense (skip portfolio-only households).
-      _isSharedWithHousehold = !isPortfolio &&
-          (widget.existingExpense!.householdId != null ||
-              widget.existingExpense!.splitGroupId != null);
+      final defaultAccountType = () {
+        if (isPortfolio && hasHousehold) return ActiveAccountType.portfolio;
+        if (!isPortfolio && (hasHousehold || hasSharedSplit)) {
+          return ActiveAccountType.household;
+        }
+        return ActiveAccountType.personal;
+      }();
+
+      _setAccountSelectionDefaults(defaultAccountType, existingHouseholdId);
 
       final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
       if (_isSharedWithHousehold &&
@@ -245,10 +289,26 @@ class _UnifiedTransactionSheetState
       // Auto-enable household sharing when in household view mode
       final scope = ref.read(householdScopeProvider);
       debugPrint('🆕 [ADD EXPENSE] Initialized add flow');
-      if (scope.isHouseholdView) {
-        _isSharedWithHousehold = true; // safe to set local field in initState
-        debugPrint('🆕 [ADD EXPENSE] Auto-enabling household sharing');
-      }
+
+      final defaultAccountType = () {
+        switch (scope.activeAccountType) {
+          case ActiveAccountType.personal:
+            return ActiveAccountType.personal;
+          case ActiveAccountType.portfolio:
+            return scope.activeAccountHouseholdId != null
+                ? ActiveAccountType.portfolio
+                : ActiveAccountType.personal;
+          case ActiveAccountType.household:
+            return scope.activeAccountHouseholdId != null
+                ? ActiveAccountType.household
+                : ActiveAccountType.personal;
+        }
+      }();
+
+      _setAccountSelectionDefaults(
+        defaultAccountType,
+        scope.activeAccountHouseholdId,
+      );
 
       // Seed the dropdown with the main menu's currently selected household (if any)
       // BEFORE build to avoid the first-household fallback firing.
@@ -262,14 +322,15 @@ class _UnifiedTransactionSheetState
         // Seed the pending expense so edits/saves are consistent.
         ref.read(pendingExpenseProvider.notifier).state = newExpense;
 
-        if (selected != null) {
-          ref.read(selectedHouseholdForSharingProvider.notifier).state =
-              selected;
+        if (selected != null &&
+            _selectedAccountHouseholdId == null &&
+            _selectedAccountType == ActiveAccountType.household) {
+          ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
           if (_isSharedWithHousehold) {
             debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members');
             _loadMembers(selected);
           }
-        } else {
+        } else if (selected == null) {
           debugPrint('⚠️ [ADD EXPENSE] No household selected in provider!');
         }
       });
@@ -366,6 +427,199 @@ class _UnifiedTransactionSheetState
     );
   }
 
+  void _setAccountSelectionDefaults(
+    ActiveAccountType type,
+    String? householdId,
+  ) {
+    _selectedAccountType = type;
+    _selectedAccountHouseholdId = householdId;
+    if (type != ActiveAccountType.household) {
+      _lastNonHouseholdAccountType = type;
+      _lastNonHouseholdHouseholdId = householdId;
+    }
+    _isSharedWithHousehold = type == ActiveAccountType.household;
+  }
+
+  List<_AccountOption> _accountOptions(
+    BuildContext context,
+    List<Household> households,
+  ) {
+    final options = <_AccountOption>[
+      _AccountOption(
+        type: ActiveAccountType.personal,
+        householdId: null,
+        label: context.l10n.personalScope,
+      ),
+    ];
+
+    for (final household in households) {
+      final suffix = household.isPortfolio
+          ? context.l10n.privateSpace
+          : context.l10n.sharedSpace;
+      options.add(
+        _AccountOption(
+          type: household.isPortfolio
+              ? ActiveAccountType.portfolio
+              : ActiveAccountType.household,
+          householdId: household.id,
+          label: '${household.name} · $suffix',
+          isPortfolio: household.isPortfolio,
+        ),
+      );
+    }
+
+    return options;
+  }
+
+  _AccountOption _currentAccountOption() {
+    return _AccountOption(
+      type: _selectedAccountType,
+      householdId: _selectedAccountHouseholdId,
+      label: '',
+      isPortfolio: _selectedAccountType == ActiveAccountType.portfolio,
+    );
+  }
+
+  String _accountDisplayValue(
+    BuildContext context,
+    List<Household> households,
+  ) {
+    switch (_selectedAccountType) {
+      case ActiveAccountType.personal:
+        return context.l10n.personalScope;
+      case ActiveAccountType.portfolio:
+        final household = _findHousehold(households, _selectedAccountHouseholdId);
+        return household?.name ?? context.l10n.privateSpace;
+      case ActiveAccountType.household:
+        final household = _findHousehold(households, _selectedAccountHouseholdId);
+        return household?.name ?? context.l10n.tapToSet;
+    }
+  }
+
+  Household? _findHousehold(List<Household> households, String? id) {
+    if (id == null) return null;
+    for (final household in households) {
+      if (household.id == id) return household;
+    }
+    return null;
+  }
+
+  bool _isPortfolioHousehold(List<Household> households, String? householdId) {
+    if (householdId == null) return false;
+    for (final household in households) {
+      if (household.id == householdId) {
+        return household.isPortfolio;
+      }
+    }
+    return false;
+  }
+
+  _AccountTarget _resolveAccountTarget() {
+    final existingHouseholdId = widget.existingExpense?.householdId;
+    final selectedSharingId = ref.read(selectedHouseholdForSharingProvider);
+    final householdScope = ref.read(householdScopeProvider);
+
+    switch (_selectedAccountType) {
+      case ActiveAccountType.personal:
+        return const _AccountTarget(householdId: null, isPortfolio: false);
+      case ActiveAccountType.portfolio:
+        final fallbackPortfolioId = _selectedAccountHouseholdId ??
+            existingHouseholdId ??
+            householdScope.activeAccountHouseholdId;
+        if (fallbackPortfolioId == null ||
+            !householdScope.isPortfolioId(fallbackPortfolioId)) {
+          return const _AccountTarget(householdId: null, isPortfolio: false);
+        }
+        return _AccountTarget(householdId: fallbackPortfolioId, isPortfolio: true);
+      case ActiveAccountType.household:
+        final fallbackHouseholdId =
+            _selectedAccountHouseholdId ?? selectedSharingId ?? existingHouseholdId;
+        if (fallbackHouseholdId == null ||
+            householdScope.isPortfolioId(fallbackHouseholdId)) {
+          return const _AccountTarget(householdId: null, isPortfolio: false);
+        }
+        return _AccountTarget(
+          householdId: fallbackHouseholdId,
+          isPortfolio: false,
+        );
+    }
+  }
+
+  void _applyAccountSelection(_AccountOption option) {
+    final isHouseholdSelection = option.type == ActiveAccountType.household;
+    if (isHouseholdSelection && (option.householdId == null || option.householdId!.isEmpty)) {
+      return;
+    }
+    setState(() {
+      _selectedAccountType = option.type;
+      _selectedAccountHouseholdId = option.householdId;
+      _isSharedWithHousehold = isHouseholdSelection;
+      if (!isHouseholdSelection) {
+        _lastNonHouseholdAccountType = option.type;
+        _lastNonHouseholdHouseholdId = option.householdId;
+      }
+    });
+
+    if (isHouseholdSelection) {
+      if (option.householdId != null) {
+        ref.read(selectedHouseholdForSharingProvider.notifier).state =
+            option.householdId;
+        _loadMembers(option.householdId!);
+
+        if (isExistingExpense &&
+            widget.existingExpense?.householdId == option.householdId) {
+          _resolveSplitGroupIdForExistingExpense(loadSplitConfig: true);
+        } else {
+          _clearSharingData();
+        }
+      }
+    } else {
+      ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+      _clearSharingData();
+    }
+  }
+
+  Future<void> _handleEditAccount({required List<Household> households}) async {
+    final options = _accountOptions(context, households);
+    if (options.length <= 1) return;
+    final current = _currentAccountOption();
+    final initial = options.contains(current) ? current : options.first;
+
+    final selected = await showTransactionSelectionSheet<_AccountOption>(
+      context: context,
+      items: options,
+      getLabel: (option) => option.label,
+      initial: initial,
+    );
+
+    if (selected == null || selected == current) return;
+    _applyAccountSelection(selected);
+  }
+
+  void _clearSharingData() {
+    _customSplitType = null;
+    _customSplits = null;
+    _initialSplitSignature = null;
+    _loadedSplitGroupType = null;
+    _resolvedSplitGroupId = null;
+    _hasCheckedSplitGroup = false;
+    _householdMembers = null;
+    _membersError = null;
+    _isLoadingMembers = false;
+  }
+
+  String? _resolveDefaultHouseholdId(
+    List<Household> householdList,
+    SelectedHouseholdState selectedState,
+  ) {
+    final selectedId = selectedState.householdId ?? selectedState.household?.id;
+    if (selectedId != null &&
+        householdList.any((household) => household.id == selectedId)) {
+      return selectedId;
+    }
+    return householdList.isNotEmpty ? householdList.first.id : null;
+  }
+
   /// Handle adding a photo to existing expense
   Future<void> _handleAddPhoto() async {
     if (ref.read(previewModeProvider).isActive) {
@@ -422,25 +676,31 @@ class _UnifiedTransactionSheetState
     );
   }
 
+  Widget _buildAccountPlaceholder(ColorScheme colorScheme, String value) {
+    return MonekoInput(
+      child: Column(
+        children: [
+          MonekoDisclosureRow(
+            label: context.l10n.account,
+            value: value,
+            onTap: () {},
+            isFirst: true,
+            isLast: true,
+            isValuePlaceholder: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final user = ref.watch(authProvider);
-    final householdScope = ref.watch(householdScopeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
-
-    final canShareWithHousehold = () {
-      if (isExistingExpense) {
-        final householdId = widget.existingExpense?.householdId;
-        if (householdId == null || householdId.isEmpty) return false;
-        return !householdScope.isPortfolioId(householdId);
-      }
-      return householdScope.activeAccountType == ActiveAccountType.household &&
-          householdScope.activeAccountHouseholdId != null;
-    }();
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -468,6 +728,40 @@ class _UnifiedTransactionSheetState
     final isIncomeMode = isNewExpense
         ? (pendingExpense?.isIncome ?? widget.newExpense!.isIncome)
         : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
+
+    final accountAndSharingSection = householdsAsync.when(
+      data: (householdsData) {
+        final households = householdsData.cast<Household>();
+        return Column(
+          children: [
+            _buildAccountSection(colorScheme, households),
+            const SizedBox(height: 24),
+            if (_selectedAccountType == ActiveAccountType.household &&
+                households.isNotEmpty)
+              _buildSharingSection(
+                colorScheme,
+                households,
+                selectedHousehold,
+                selectedHouseholdState,
+                isIncomeMode,
+              ),
+            if (households.isNotEmpty) const SizedBox(height: 24),
+          ],
+        );
+      },
+      loading: () => Column(
+        children: [
+          _buildAccountPlaceholder(colorScheme, context.l10n.loading),
+          const SizedBox(height: 24),
+        ],
+      ),
+      error: (_, __) => Column(
+        children: [
+          _buildAccountPlaceholder(colorScheme, context.l10n.tapToSet),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
 
     return Container(
       constraints: BoxConstraints(
@@ -590,29 +884,7 @@ class _UnifiedTransactionSheetState
 
                       const SizedBox(height: 32),
 
-                      // Household Sharing Section
-                      householdsAsync.when(
-                        data: (households) {
-                          if (!canShareWithHousehold) return const SizedBox();
-                          if (households.isEmpty) return const SizedBox();
-
-                          // If showing, wrap reasonably
-                          return Column(
-                            children: [
-                              _buildSharingSection(
-                                colorScheme,
-                                households,
-                                selectedHousehold,
-                                selectedHouseholdState,
-                                isIncomeMode,
-                              ),
-                              const SizedBox(height: 24),
-                            ],
-                          );
-                        },
-                        loading: () => const SizedBox(),
-                        error: (_, __) => const SizedBox(),
-                      ),
+                      accountAndSharingSection,
 
                       // Metadata Group (Apple-style List)
                       MonekoInput(
@@ -897,35 +1169,51 @@ class _UnifiedTransactionSheetState
     );
   }
 
+  Widget _buildAccountSection(
+    ColorScheme colorScheme,
+    List<Household> households,
+  ) {
+    final value = _accountDisplayValue(context, households);
+
+    return MonekoInput(
+      child: Column(
+        children: [
+          MonekoDisclosureRow(
+            label: context.l10n.account,
+            value: value,
+            onTap: () => _handleEditAccount(households: households),
+            isFirst: true,
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSharingSection(
     ColorScheme colorScheme,
-    List households,
+    List<Household> households,
     String? selectedHousehold,
     SelectedHouseholdState selectedHouseholdState,
     bool isIncomeMode,
   ) {
     final householdList = households
-        .cast<Household>() // Assuming Household type is available or dynamic
         .where((h) => !h.isPortfolio)
         .toList(growable: false);
 
     if (householdList.isEmpty) {
-      if (_isSharedWithHousehold) {
+      if (_selectedAccountType == ActiveAccountType.household) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          setState(() {
-            _isSharedWithHousehold = false;
-            _customSplitType = null;
-            _customSplits = null;
-            _initialSplitSignature = null;
-            _loadedSplitGroupType = null;
-            _resolvedSplitGroupId = null;
-            _hasCheckedSplitGroup = false;
-            _householdMembers = null;
-            _membersError = null;
-            _isLoadingMembers = false;
-          });
-          ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
+          _applyAccountSelection(
+            _AccountOption(
+              type: _lastNonHouseholdAccountType,
+              householdId: _lastNonHouseholdHouseholdId,
+              label: '',
+              isPortfolio:
+                  _lastNonHouseholdAccountType == ActiveAccountType.portfolio,
+            ),
+          );
         });
       }
       return const SizedBox();
@@ -933,24 +1221,6 @@ class _UnifiedTransactionSheetState
     // Auto-select household only if no valid selection exists.
     final hasValidSelection = selectedHousehold != null &&
         householdList.any((h) => h.id == selectedHousehold);
-
-    bool isPortfolioHousehold(String? householdId) {
-      if (householdId == null) return false;
-      try {
-        return householdList.firstWhere((h) => h.id == householdId).isPortfolio;
-      } catch (_) {
-        return false;
-      }
-    }
-
-    String resolveDefaultHouseholdId() {
-      final headerId = selectedHouseholdState.householdId ??
-          selectedHouseholdState.household?.id;
-      if (headerId != null && householdList.any((h) => h.id == headerId)) {
-        return headerId;
-      }
-      return householdList.first.id;
-    }
 
     if (_isSharedWithHousehold &&
         householdList.isNotEmpty &&
@@ -964,10 +1234,14 @@ class _UnifiedTransactionSheetState
             currentSelection.isNotEmpty &&
             householdList.any((h) => h.id == currentSelection);
         if (isCurrentValid) return;
-        final preferredId = resolveDefaultHouseholdId();
+        final preferredId = _resolveDefaultHouseholdId(
+              householdList,
+              selectedHouseholdState,
+            ) ??
+            householdList.first.id;
         ref.read(selectedHouseholdForSharingProvider.notifier).state =
             preferredId;
-        if (!isPortfolioHousehold(preferredId)) {
+        if (!_isPortfolioHousehold(households, preferredId)) {
           _loadMembers(preferredId);
         }
       });
@@ -994,72 +1268,49 @@ class _UnifiedTransactionSheetState
                   ),
                 ),
                 MonekoSwitch(
-                  value: _isSharedWithHousehold,
+                  value: _selectedAccountType == ActiveAccountType.household,
                   onChanged: (value) {
                     debugPrint(
                         '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
-                    setState(() {
-                      _isSharedWithHousehold = value;
-                      if (!value) {
-                        // Clear household selection and custom splits
-                        debugPrint('🔀 [SHARE TOGGLE] Clearing household data');
-                        ref
-                            .read(selectedHouseholdForSharingProvider.notifier)
-                            .state = null;
-                        _customSplitType = null;
-                        _customSplits = null;
-                        _initialSplitSignature = null;
-                        _loadedSplitGroupType = null;
-                        _resolvedSplitGroupId = null;
-                        _hasCheckedSplitGroup = false;
-                        _householdMembers = null;
-                        _membersError = null;
-                        _isLoadingMembers = false;
-                      } else if (households.isNotEmpty) {
-                        _initialSplitSignature = null;
-                        _loadedSplitGroupType = null;
-                        _resolvedSplitGroupId = null;
-                        _hasCheckedSplitGroup = false;
+                              if (!value) {
+                      final fallbackType =
+                          _lastNonHouseholdAccountType == ActiveAccountType.household
+                              ? ActiveAccountType.personal
+                              : _lastNonHouseholdAccountType;
+                      final fallbackId =
+                          fallbackType == ActiveAccountType.personal
+                              ? null
+                              : _lastNonHouseholdHouseholdId;
+                      _applyAccountSelection(
+                        _AccountOption(
+                          type: fallbackType,
+                          householdId: fallbackId,
+                          label: '',
+                          isPortfolio:
+                              fallbackType == ActiveAccountType.portfolio,
+                        ),
+                      );
+                      return;
+                    }
 
-                        // Prefer the current selection, otherwise restore the
-                        // expense's household (edit mode), otherwise fallback
-                        // to the first available household.
-                        final preferredId = () {
-                          final current =
-                              ref.read(selectedHouseholdForSharingProvider);
-                          if (current != null &&
-                              current.isNotEmpty &&
-                              households.any((h) => h.id == current)) {
-                            return current;
-                          }
-                          if (isExistingExpense) {
-                            final existingId =
-                                widget.existingExpense?.householdId;
-                            if (existingId != null &&
-                                households.any((h) => h.id == existingId)) {
-                              return existingId;
-                            }
-                          }
-                          return resolveDefaultHouseholdId();
-                        }();
+                    final preferredId = _selectedAccountHouseholdId ??
+                        ref.read(selectedHouseholdForSharingProvider) ??
+                        _resolveDefaultHouseholdId(
+                          householdList,
+                          selectedHouseholdState,
+                        ) ??
+                        householdList.first.id;
 
-                        debugPrint(
-                            '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
-                        ref
-                            .read(selectedHouseholdForSharingProvider.notifier)
-                            .state = preferredId;
-                        debugPrint('🔀 [SHARE TOGGLE] Calling _loadMembers');
-                        _loadMembers(preferredId);
-
-                        // Restore existing split config when editing.
-                        if (isExistingExpense &&
-                            widget.existingExpense?.householdId ==
-                                preferredId) {
-                          _resolveSplitGroupIdForExistingExpense(
-                              loadSplitConfig: true);
-                        }
-                      }
-                    });
+                    debugPrint(
+                        '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
+                    _applyAccountSelection(
+                      _AccountOption(
+                        type: ActiveAccountType.household,
+                        householdId: preferredId,
+                        label: '',
+                        isPortfolio: false,
+                      ),
+                    );
                   },
                 ),
               ],
@@ -1067,7 +1318,8 @@ class _UnifiedTransactionSheetState
           ),
 
           // Show household dropdown only when toggle is ON
-          if (_isSharedWithHousehold && householdList.isNotEmpty) ...[
+          if (_selectedAccountType == ActiveAccountType.household &&
+              householdList.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -1079,7 +1331,11 @@ class _UnifiedTransactionSheetState
                 child: DropdownButton<String>(
                   value: hasValidSelection
                       ? selectedHousehold
-                      : resolveDefaultHouseholdId(),
+                      : (_resolveDefaultHouseholdId(
+                            householdList,
+                            selectedHouseholdState,
+                          ) ??
+                          householdList.first.id),
                   isExpanded: true,
                   icon: Icon(Icons.arrow_drop_down,
                       color: colorScheme.foreground),
@@ -1162,7 +1418,8 @@ class _UnifiedTransactionSheetState
                         _membersError = null;
                         _isLoadingMembers = false;
                       });
-                      final isPortfolioSelection = isPortfolioHousehold(value);
+                      final isPortfolioSelection =
+                          _isPortfolioHousehold(households, value);
                       if (!isPortfolioSelection) {
                         debugPrint(
                             '🔄 [HOUSEHOLD DROPDOWN] Calling _loadMembers for: $value');
@@ -1236,7 +1493,7 @@ class _UnifiedTransactionSheetState
                 final activeHouseholdId =
                     selectedHousehold ?? widget.existingExpense?.householdId;
                 final isPortfolioSelection =
-                    isPortfolioHousehold(activeHouseholdId);
+                    _isPortfolioHousehold(households, activeHouseholdId);
 
                 if (isPortfolioSelection) {
                   return Container(
@@ -2241,18 +2498,18 @@ class _UnifiedTransactionSheetState
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
-        final selectedHousehold = ref.read(selectedHouseholdForSharingProvider);
 
-        final effectiveHouseholdId = switch (householdScope.activeAccountType) {
-          ActiveAccountType.personal =>
-            _isSharedWithHousehold ? selectedHousehold : null,
-          ActiveAccountType.portfolio =>
-            householdScope.activeAccountHouseholdId,
-          ActiveAccountType.household =>
-            _isSharedWithHousehold ? selectedHousehold : null,
-        };
-        final isEffectivePortfolio = effectiveHouseholdId != null &&
-            householdScope.isPortfolioId(effectiveHouseholdId);
+        final accountTarget = _resolveAccountTarget();
+        final effectiveHouseholdId = accountTarget.householdId;
+        final isEffectivePortfolio = accountTarget.isPortfolio;
+        final isSharedHousehold =
+            _selectedAccountType == ActiveAccountType.household &&
+                effectiveHouseholdId != null;
+        if (isEffectivePortfolio) {
+          _selectedPayerUserId = ref.read(authProvider).uid;
+          _customSplitType = null;
+          _customSplits = null;
+        }
 
         if (expense == null) {
           throw Exception('No transaction to save');
@@ -2353,7 +2610,7 @@ class _UnifiedTransactionSheetState
           Navigator.of(context).pop();
           AppToast.success(
             toastContext,
-            selectedHousehold != null
+            isSharedHousehold
                 ? context.l10n.incomeSavedAndShared
                 : context.l10n.incomeSaved,
             duration: const Duration(seconds: 3),
@@ -2387,9 +2644,7 @@ class _UnifiedTransactionSheetState
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
-                payerUserId: (!isEffectivePortfolio &&
-                        effectiveHouseholdId != null &&
-                        _isSharedWithHousehold)
+                payerUserId: (isSharedHousehold && !isEffectivePortfolio)
                     ? _selectedPayerUserId
                     : null,
               );
@@ -2461,6 +2716,15 @@ class _UnifiedTransactionSheetState
         // EXISTING EXPENSE: Build updates map from local edits
         await _resolveSplitGroupIdForExistingExpense();
         final Map<String, dynamic> updates = {};
+        final accountTarget = _resolveAccountTarget();
+        final targetHouseholdId = accountTarget.householdId;
+        final targetIsPortfolio = accountTarget.isPortfolio;
+        final isTargetHousehold =
+            _selectedAccountType == ActiveAccountType.household &&
+                targetHouseholdId != null;
+        final originalHouseholdId = widget.existingExpense!.householdId;
+        final originalIsPortfolio = originalHouseholdId != null &&
+            householdScope.isPortfolioId(originalHouseholdId);
 
         if (_editedAmount != null) {
           updates['amount_cents'] = (_editedAmount! * 100).round();
@@ -2513,28 +2777,32 @@ class _UnifiedTransactionSheetState
         // create the first split group using the inline CustomSplitEditor.
         // For expenses that already have a split group, we may instead send an
         // update payload to adjust the existing split configuration.
-        final existingHouseholdId = widget.existingExpense!.householdId;
-        final isPortfolio = existingHouseholdId != null &&
-            ref.read(householdScopeProvider).isPortfolioId(existingHouseholdId);
         final existingSplitGroupId = _effectiveSplitGroupId;
         // Persist payer changes for shared expenses even without split edits
-        if (_isSharedWithHousehold && existingHouseholdId != null) {
+        if (isTargetHousehold) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
           updates['payer_user_id'] = payer;
           updates['payerUserId'] = payer; // compatibility with edge fn
         }
 
-        final shouldCreateSplitGroupForExisting = _isSharedWithHousehold &&
-            existingHouseholdId != null &&
+        final shouldCreateSplitGroupForExisting = isTargetHousehold &&
             existingSplitGroupId == null &&
             _hasCheckedSplitGroup &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
-        final hasExistingSplitGroup = _isSharedWithHousehold &&
-            existingHouseholdId != null &&
+        final hasExistingSplitGroup = isTargetHousehold &&
             existingSplitGroupId != null;
+
+        final householdChanged = originalHouseholdId != targetHouseholdId;
+        final portfolioChanged = targetHouseholdId != null &&
+            targetIsPortfolio != originalIsPortfolio;
+        if (householdChanged || portfolioChanged) {
+          updates['household_id'] = targetHouseholdId;
+          updates['is_portfolio'] =
+              targetHouseholdId != null ? targetIsPortfolio : false;
+        }
 
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
@@ -2551,14 +2819,14 @@ class _UnifiedTransactionSheetState
 
         // Build optional extra body for split creation or update
         Map<String, dynamic>? extraBody;
-        if (isPortfolio) {
+        if (targetIsPortfolio && targetHouseholdId != null) {
           extraBody = {'isPortfolio': true};
         }
         if (shouldCreateSplitGroupForExisting) {
           final splitTypeStr = _customSplitType!.toString().split('.').last;
           extraBody = {
-            'householdId': existingHouseholdId,
-            'isPortfolio': isPortfolio,
+            'householdId': targetHouseholdId,
+            'isPortfolio': targetIsPortfolio,
             'customSplits': {
               'splitType': splitTypeStr,
               'memberSplits': _customSplits!.map((split) {
@@ -2717,7 +2985,7 @@ class _UnifiedTransactionSheetState
           debugPrint(' Triggering comprehensive UI refresh...');
 
           // Get the household from the edited expense
-          final editedHouseholdId = widget.existingExpense!.householdId;
+          final editedHouseholdId = targetHouseholdId ?? originalHouseholdId;
 
           // Refresh the household where expense exists (if it's shared)
           if (editedHouseholdId != null) {
