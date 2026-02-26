@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart' as foundation;
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
 const bool _enableDebugLogs =
@@ -16,6 +17,16 @@ void _debugLog(String message) {
 
 DateTime? _parseRecurrenceCalendarDate(dynamic value) {
   return parseCalendarDateFromFlexibleInput(value?.toString());
+}
+
+String _sanitizeRequired(String value, {String fallback = ''}) {
+  if (value.isEmpty) return fallback;
+  return sanitizeUtf16(value);
+}
+
+String? _sanitizeOptional(String? value) {
+  if (value == null || value.isEmpty) return value;
+  return sanitizeUtf16(value);
 }
 
 class RecurringTransaction {
@@ -107,14 +118,19 @@ class RecurringTransaction {
       return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
     }
 
+    final rawCategory = json['category'] as String? ?? 'Uncategorized';
+    final sanitizedDescription = _sanitizeOptional(
+          json['description'] as String?,
+        ) ??
+        _sanitizeOptional(json['raw_text'] as String?);
+
     return RecurringTransaction(
       id: json['id'] as String,
       userId: json['userId'] as String? ?? json['user_id'] as String?,
       date: parseDateOnly(json['date']),
-      category: json['category'] as String,
-      description:
-          json['description'] as String? ?? json['raw_text'] as String?,
-      source: json['source'] as String?,
+      category: _sanitizeRequired(rawCategory, fallback: 'Uncategorized'),
+      description: sanitizedDescription,
+      source: _sanitizeOptional(json['source'] as String?),
       amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
       ownerType:

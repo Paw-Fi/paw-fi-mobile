@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod/riverpod.dart' show ProviderSubscription;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -31,13 +34,22 @@ class MainShell extends HookConsumerWidget {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // One-time native notification prompt logic
+    // One-time native notification prompt logic & listeners
     useEffect(() {
+      var disposed = false;
+      final navigationReadyController =
+          ref.read(navigationReadyProvider.notifier);
+      final dispatcher = ref.read(notificationDispatcherProvider);
+      final widgetLaunchNotifier = ref.read(widgetLaunchProvider.notifier);
+      final tabController = ref.read(mainShellTabIndexProvider.notifier);
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(navigationReadyProvider.notifier).state = true;
+        if (!disposed) {
+          navigationReadyController.state = true;
+        }
       });
 
-      () async {
+      Future<void> maybePromptForNotifications() async {
         final user = ref.read(authProvider);
         if (user.uid.isEmpty) return;
         try {
@@ -47,8 +59,6 @@ class MainShell extends HookConsumerWidget {
           final deviceSvc = ref.read(deviceRegistrationServiceProvider);
           final isRegistered = await deviceSvc.isRegistered();
 
-          // If user hasn't enabled notifications AND was never prompted (likely skipped onboarding),
-          // set prompted and trigger native permission flow.
           if (!isRegistered && !prompted) {
             await prefs.setBool(promptedKey, true);
             try {
@@ -56,20 +66,58 @@ class MainShell extends HookConsumerWidget {
             } catch (_) {}
           }
         } catch (_) {}
-      }();
-      // ignore: discarded_futures
-      ref.read(notificationDispatcherProvider).replayPendingIntents();
+      }
+
+      unawaited(() async {
+        await maybePromptForNotifications();
+        // ignore: discarded_futures
+        dispatcher.replayPendingIntents();
+      }());
+
+      final ProviderSubscription<AppUser> authSubscription =
+          ref.listenManual<AppUser>(authProvider, (previous, next) {
+        if (next.uid.isNotEmpty) {
+          // ignore: discarded_futures
+          dispatcher.replayPendingIntents();
+        }
+      });
+
+      final ProviderSubscription<WidgetLaunchEvent> widgetLaunchSubscription =
+          ref.listenManual<WidgetLaunchEvent>(
+        widgetLaunchProvider,
+        (previous, next) {
+          if (next == previous) return;
+
+          if (next.type == WidgetLaunchActionType.textInput ||
+              next.type == WidgetLaunchActionType.cameraInput) {
+            if (ref.read(mainShellTabIndexProvider) != 0) {
+              tabController.state = 0;
+            }
+          } else if (next.type == WidgetLaunchActionType.openPockets) {
+            if (ref.read(mainShellTabIndexProvider) != 2) {
+              tabController.state = 2;
+            }
+            widgetLaunchNotifier.state = const WidgetLaunchEvent();
+          } else if (next.type == WidgetLaunchActionType.configure) {
+            final widgetIdStr = next.params?['widgetId'];
+            if (widgetIdStr != null) {
+              final widgetId = int.tryParse(widgetIdStr);
+              if (widgetId != null && context.mounted) {
+                _showWidgetConfigurationDialog(context, ref, widgetId);
+              }
+            }
+            widgetLaunchNotifier.state = const WidgetLaunchEvent();
+          }
+        },
+      );
+
       return () {
-        ref.read(navigationReadyProvider.notifier).state = false;
+        disposed = true;
+        authSubscription.close();
+        widgetLaunchSubscription.close();
+        navigationReadyController.state = false;
       };
     }, const []);
-
-    ref.listen<AppUser>(authProvider, (previous, next) {
-      if (next.uid.isNotEmpty) {
-        // ignore: discarded_futures
-        ref.read(notificationDispatcherProvider).replayPendingIntents();
-      }
-    });
 
     final pages = [
       const HomePage(),
@@ -77,39 +125,6 @@ class MainShell extends HookConsumerWidget {
       const PocketsPage(),
       const AnalyticsPage(),
     ];
-
-    // Keep the HomePage mounted so its listener can respond to widget launches
-    // even when another tab is selected. Also auto-switch to Overview on a widget action.
-    // Keep the HomePage mounted so its listener can respond to widget launches
-    // even when another tab is selected. Also auto-switch to Overview on a widget action.
-    ref.listen<WidgetLaunchEvent>(widgetLaunchProvider, (previous, next) {
-      if (next.type == WidgetLaunchActionType.textInput ||
-          next.type == WidgetLaunchActionType.cameraInput) {
-        // Quick actions stay on Overview (index 0) as before.
-        if (ref.read(mainShellTabIndexProvider) != 0) {
-          ref.read(mainShellTabIndexProvider.notifier).state = 0;
-        }
-      } else if (next.type == WidgetLaunchActionType.openPockets) {
-        // Any tap on the widget surface should open the Pockets tab.
-        if (ref.read(mainShellTabIndexProvider) != 2) {
-          ref.read(mainShellTabIndexProvider.notifier).state = 2;
-        }
-        // Reset state
-        ref.read(widgetLaunchProvider.notifier).state =
-            const WidgetLaunchEvent();
-      } else if (next.type == WidgetLaunchActionType.configure) {
-        final widgetIdStr = next.params?['widgetId'];
-        if (widgetIdStr != null) {
-          final widgetId = int.tryParse(widgetIdStr);
-          if (widgetId != null) {
-            _showWidgetConfigurationDialog(context, ref, widgetId);
-          }
-        }
-        // Reset state
-        ref.read(widgetLaunchProvider.notifier).state =
-            const WidgetLaunchEvent();
-      }
-    });
 
     return AdaptiveScaffold(
       appBar: AdaptiveAppBar(

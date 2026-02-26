@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:postgrest/postgrest.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -13,41 +18,55 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 ///   reactive and consistent with the app's data flow.
 final currencyTransactionCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) async {
-  final authState = ref.watch(authProvider);
   final scope = ref.watch(householdScopeProvider);
-  final userId = authState.uid;
-  if (userId.isEmpty) return const <String, int>{};
+  final userId = ref.watch(currentUserIdProvider);
+  if (userId == null) return const <String, int>{};
 
-  var query = supabase
-      .from('expenses')
-      .select('currency')
-      .eq('user_id', userId)
-      .not('currency', 'is', null);
+  try {
+    var query = supabase
+        .from('expenses')
+        .select('currency')
+        .eq('user_id', userId)
+        .not('currency', 'is', null);
 
-  switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
-      // Personal mode should include entries where household_id is null.
-      query = query.isFilter('household_id', null);
-      break;
-    case ActiveAccountType.household:
-    case ActiveAccountType.portfolio:
-      final householdId = scope.activeAccountHouseholdId;
-      if (householdId == null || householdId.isEmpty) {
-        return const <String, int>{};
-      }
-      query = query.eq('household_id', householdId);
-      break;
+    switch (scope.activeAccountType) {
+      case ActiveAccountType.personal:
+        // Personal mode should include entries where household_id is null.
+        query = query.isFilter('household_id', null);
+        break;
+      case ActiveAccountType.household:
+      case ActiveAccountType.portfolio:
+        final householdId = scope.activeAccountHouseholdId;
+        if (householdId == null || householdId.isEmpty) {
+          return const <String, int>{};
+        }
+        query = query.eq('household_id', householdId);
+        break;
+    }
+
+    final response = await query.limit(5000);
+    final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
+    final counts = <String, int>{};
+
+    for (final row in rows) {
+      final code = (row['currency'] as String?)?.toUpperCase();
+      if (code == null || code.isEmpty) continue;
+      counts[code] = (counts[code] ?? 0) + 1;
+    }
+
+    return counts;
+  } on PostgrestException catch (error) {
+    debugPrint(
+        '[currencyTransactionCounts] Postgrest error ${error.code}: ${error.message}');
+    return const <String, int>{};
+  } on SocketException catch (error) {
+    debugPrint('[currencyTransactionCounts] Network error: $error');
+    return const <String, int>{};
+  } on http.ClientException catch (error) {
+    debugPrint('[currencyTransactionCounts] HTTP client error: $error');
+    return const <String, int>{};
+  } catch (error) {
+    debugPrint('[currencyTransactionCounts] Unexpected error: $error');
+    return const <String, int>{};
   }
-
-  final response = await query.limit(5000);
-  final rows = (response as List?)?.cast<Map<String, dynamic>>() ?? const [];
-  final counts = <String, int>{};
-
-  for (final row in rows) {
-    final code = (row['currency'] as String?)?.toUpperCase();
-    if (code == null || code.isEmpty) continue;
-    counts[code] = (counts[code] ?? 0) + 1;
-  }
-
-  return counts;
 });

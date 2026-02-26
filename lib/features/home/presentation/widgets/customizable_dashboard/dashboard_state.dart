@@ -57,6 +57,7 @@ class PersonalDashboardController
       final configs = await _repository.loadPersonalLayout(_userId);
       if (!mounted) return;
       if (configs != null && configs.isNotEmpty) {
+        configs.sort((a, b) => a.order.compareTo(b.order));
         // Migration: Ensure all default widgets are present
         final currentTypes = configs.map((c) => c.type).toSet();
         final defaultTypes = [
@@ -94,32 +95,34 @@ class PersonalDashboardController
       } else {
         // Default Layout
         if (!mounted) return;
-        state = const AsyncValue.data([
-          DashboardWidgetConfig(
+        final defaultConfigs = [
+          const DashboardWidgetConfig(
               id: 'spending',
               type: DashboardWidgetType.spendingSummary,
               order: 0),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'net_cashflow',
               type: DashboardWidgetType.netCashflow,
               order: 1),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'calendar',
               type: DashboardWidgetType.financialCalendar,
               order: 2),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'categories',
               type: DashboardWidgetType.recentTransactions,
               order: 3),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.spendingBreakdownChart,
               order: 4),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'where_the_money_went',
               type: DashboardWidgetType.whereTheMoneyWent,
               order: 5),
-        ]);
+        ];
+        state = AsyncValue.data(defaultConfigs);
+        await _repository.savePersonalLayout(_userId, defaultConfigs);
       }
     } catch (e, st) {
       if (!mounted) return;
@@ -210,6 +213,7 @@ class HouseholdDashboardController
       final configs = await _repository.loadHouseholdLayout(_householdId);
       if (!mounted) return;
       if (configs != null && configs.isNotEmpty) {
+        configs.sort((a, b) => a.order.compareTo(b.order));
         // Migration: Ensure all default widgets are present
         final currentTypes = configs.map((c) => c.type).toSet();
         final defaultTypes = [
@@ -249,44 +253,46 @@ class HouseholdDashboardController
       } else {
         // Default Layout
         if (!mounted) return;
-        state = const AsyncValue.data([
-          DashboardWidgetConfig(
+        final defaultConfigs = [
+          const DashboardWidgetConfig(
               id: 'settlement',
               type: DashboardWidgetType.householdSettlement,
               order: 0),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'member_spending',
               type: DashboardWidgetType.householdMemberSpending,
               order: 1),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'spent_by_you',
               type: DashboardWidgetType.householdSpentByYou,
               order: 2),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'calendar',
               type: DashboardWidgetType.householdFinancialCalendar,
               order: 3),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'budget_overview',
               type: DashboardWidgetType.householdBudgetOverview,
               order: 4),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'fairness',
               type: DashboardWidgetType.householdFairness,
               order: 5),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'categories',
               type: DashboardWidgetType.householdRecentTransactions,
               order: 6),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'spending_chart',
               type: DashboardWidgetType.householdSpendingBreakdownChart,
               order: 7),
-          DashboardWidgetConfig(
+          const DashboardWidgetConfig(
               id: 'where_the_money_went',
               type: DashboardWidgetType.householdWhereTheMoneyWent,
               order: 8),
-        ]);
+        ];
+        state = AsyncValue.data(defaultConfigs);
+        await _repository.saveHouseholdLayout(_householdId, defaultConfigs);
       }
     } catch (e, st) {
       if (!mounted) return;
