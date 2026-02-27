@@ -233,20 +233,18 @@ class _UnifiedTransactionSheetState
       final isPortfolio = scope.isPortfolioId(existingHouseholdId);
       final hasHousehold = existingHouseholdId != null &&
           existingHouseholdId.isNotEmpty;
-      final hasSharedSplit = widget.existingExpense!.splitGroupId != null;
+      final isSharedSpace = hasHousehold && !isPortfolio;
 
       final defaultAccountType = () {
         if (isPortfolio && hasHousehold) return ActiveAccountType.portfolio;
-        if (!isPortfolio && (hasHousehold || hasSharedSplit)) {
-          return ActiveAccountType.household;
-        }
+        if (isSharedSpace) return ActiveAccountType.household;
         return ActiveAccountType.personal;
       }();
 
       _setAccountSelectionDefaults(defaultAccountType, existingHouseholdId);
 
       final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
-      if (_isSharedWithHousehold &&
+      if (isSharedSpace &&
           existingSplitGroupId != null &&
           existingSplitGroupId.isNotEmpty) {
         _resolvedSplitGroupId = existingSplitGroupId;
@@ -257,8 +255,7 @@ class _UnifiedTransactionSheetState
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
 
       // If expense is shared with a household, initialize the household selection and load members
-      if (_isSharedWithHousehold &&
-          widget.existingExpense!.householdId != null) {
+      if (isSharedSpace && widget.existingExpense!.householdId != null) {
         debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -1494,6 +1491,14 @@ class _UnifiedTransactionSheetState
                     selectedHousehold ?? widget.existingExpense?.householdId;
                 final isPortfolioSelection =
                     _isPortfolioHousehold(households, activeHouseholdId);
+                final isSharedSpace = _selectedAccountType ==
+                        ActiveAccountType.household &&
+                    activeHouseholdId != null &&
+                    !isPortfolioSelection;
+
+                if (!isSharedSpace) {
+                  return const SizedBox();
+                }
 
                 if (isPortfolioSelection) {
                   return Container(
@@ -2133,7 +2138,10 @@ class _UnifiedTransactionSheetState
     final expense = widget.existingExpense;
     if (expense == null) return null;
 
-    if (!_isSharedWithHousehold) {
+    final accountTarget = _resolveAccountTarget();
+    final isSharedSpace =
+        accountTarget.householdId != null && !accountTarget.isPortfolio;
+    if (!isSharedSpace) {
       _markSplitCheck();
       return null;
     }
@@ -2719,9 +2727,8 @@ class _UnifiedTransactionSheetState
         final accountTarget = _resolveAccountTarget();
         final targetHouseholdId = accountTarget.householdId;
         final targetIsPortfolio = accountTarget.isPortfolio;
-        final isTargetHousehold =
-            _selectedAccountType == ActiveAccountType.household &&
-                targetHouseholdId != null;
+        final isSharedSpace =
+            targetHouseholdId != null && !targetIsPortfolio;
         final originalHouseholdId = widget.existingExpense!.householdId;
         final originalIsPortfolio = originalHouseholdId != null &&
             householdScope.isPortfolioId(originalHouseholdId);
@@ -2779,20 +2786,20 @@ class _UnifiedTransactionSheetState
         // update payload to adjust the existing split configuration.
         final existingSplitGroupId = _effectiveSplitGroupId;
         // Persist payer changes for shared expenses even without split edits
-        if (isTargetHousehold) {
+        if (isSharedSpace) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
           updates['payer_user_id'] = payer;
           updates['payerUserId'] = payer; // compatibility with edge fn
         }
 
-        final shouldCreateSplitGroupForExisting = isTargetHousehold &&
+        final shouldCreateSplitGroupForExisting = isSharedSpace &&
             existingSplitGroupId == null &&
             _hasCheckedSplitGroup &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
-        final hasExistingSplitGroup = isTargetHousehold &&
+        final hasExistingSplitGroup = isSharedSpace &&
             existingSplitGroupId != null;
 
         final householdChanged = originalHouseholdId != targetHouseholdId;
@@ -2800,8 +2807,6 @@ class _UnifiedTransactionSheetState
             targetIsPortfolio != originalIsPortfolio;
         if (householdChanged || portfolioChanged) {
           updates['household_id'] = targetHouseholdId;
-          updates['is_portfolio'] =
-              targetHouseholdId != null ? targetIsPortfolio : false;
         }
 
         // Handle receipt image upload for existing expenses

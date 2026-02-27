@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -8,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -18,7 +20,16 @@ class OnboardingPreviewPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    void markPreviewSeen() {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final alreadySeen = prefs.getBool('preview_onboarding_seen') ?? false;
+      if (!alreadySeen) {
+        unawaited(prefs.setBool('preview_onboarding_seen', true));
+      }
+    }
+
     void startPreview() {
+      markPreviewSeen();
       ref.read(previewModeProvider.notifier).enable();
       if (context.mounted) {
         context.go('/dashboard');
@@ -26,6 +37,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
     }
 
     void goToRegister() {
+      markPreviewSeen();
       ref.read(previewModeProvider.notifier).disable();
       if (context.mounted) {
         context.go('/register');
