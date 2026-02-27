@@ -55,13 +55,13 @@ class DashboardSpaceCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(24),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20,12,20,0),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-               Transform.translate(
-                   offset: const Offset(-8, 0),
+                Transform.translate(
+                  offset: const Offset(-8, 0),
                   child: Row(
                     children: [
                       SizedBox(
@@ -76,8 +76,8 @@ class DashboardSpaceCard extends StatelessWidget {
                             : Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color:
-                                      colorScheme.primary.withValues(alpha: 0.1),
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(

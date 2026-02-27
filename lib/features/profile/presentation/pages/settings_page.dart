@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/material.dart';
@@ -67,6 +68,82 @@ String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
   };
 }
 
+const Set<String> _restrictedRegionCountryCodes = {
+  'ID', // Indonesia
+  'CU', // Cuba
+  'IR', // Iran
+  'KP', // North Korea
+  'SY', // Syria
+};
+
+const Map<String, String> _restrictedRegionCountryNames = {
+  'ID': 'Indonesia',
+  'CU': 'Cuba',
+  'IR': 'Iran',
+  'KP': 'North Korea',
+  'SY': 'Syria',
+};
+
+bool _isDeviceInRestrictedRegion({String? countryCode}) {
+  final code = countryCode ?? _resolveDeviceCountryCode();
+  if (code == null) {
+    return false;
+  }
+  return _restrictedRegionCountryCodes.contains(code);
+}
+
+String? _restrictedRegionDisplayName(String? countryCode) {
+  if (countryCode == null || countryCode.isEmpty) return null;
+  return _restrictedRegionCountryNames[countryCode] ?? countryCode;
+}
+
+String? _resolveDeviceCountryCode() {
+  try {
+    final primary = ui.PlatformDispatcher.instance.locale;
+    final code = primary.countryCode;
+    if (code != null && code.isNotEmpty) {
+      return code.toUpperCase();
+    }
+    for (final locale in ui.PlatformDispatcher.instance.locales) {
+      final localeCode = locale.countryCode;
+      if (localeCode != null && localeCode.isNotEmpty) {
+        return localeCode.toUpperCase();
+      }
+    }
+  } catch (_) {
+    // Ignore and fall back to Platform.localeName
+  }
+
+  try {
+    final segments = Platform.localeName.split('_');
+    if (segments.length > 1) {
+      final inferred = segments.last.trim();
+      if (inferred.isNotEmpty) {
+        return inferred.toUpperCase();
+      }
+    }
+  } catch (_) {
+    // Ignore failures and return null.
+  }
+
+  return null;
+}
+
+Future<bool> _showWhatsAppRestrictedRegionDialog({
+  required BuildContext context,
+  required String countryName,
+}) async {
+  final result = await MonekoAlertDialog.show(
+    context: context,
+    title: 'WhatsApp access may be limited',
+    description:
+        'WhatsApp access is restricted in certain countries, including $countryName. This limitation is imposed by the service provider and is outside of our control. For that reason, we’ve introduced Telegram as an alternative channel to ensure continued access. If this detection is incorrect, you can continue below.',
+    confirmLabel: 'Acknowledge',
+    cancelLabel: 'Continue anyway',
+  );
+  return result?.confirmed ?? false;
+}
+
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
 
@@ -88,6 +165,12 @@ class SettingsPage extends HookConsumerWidget {
         useState<AiHoldQuickAction?>(readAiHoldQuickActionPreference(prefs));
     final isAccountDeletionInProgress = useState(false);
     final siriStatusReloadKey = useState(0);
+    final hasAcknowledgedRestrictedRegion = useState(false);
+    final deviceCountryCode = _resolveDeviceCountryCode();
+    final isDeviceInRestrictedRegion =
+        _isDeviceInRestrictedRegion(countryCode: deviceCountryCode);
+    final restrictedCountryName =
+        _restrictedRegionDisplayName(deviceCountryCode);
     final siriShortcutStatus = useFuture(
       useMemoized(
         () => SiriShortcutAuthService.instance.getStatus(),
@@ -335,6 +418,19 @@ class SettingsPage extends HookConsumerWidget {
       (option) => option.value == timezoneValue,
       orElse: () => timezoneOptions.first,
     );
+
+    Future<bool> guardRestrictedRegion() async {  
+      if (!isDeviceInRestrictedRegion) return true;
+      if (hasAcknowledgedRestrictedRegion.value) return true;
+      final acknowledged = await _showWhatsAppRestrictedRegionDialog(
+        context: context,
+        countryName: restrictedCountryName ?? 'your country',
+      );
+      if (acknowledged) {
+        hasAcknowledgedRestrictedRegion.value = true;
+      }
+      return !acknowledged;
+    }
 
     Future<void> handleTimezoneChange(String timezone) async {
       final previous = selectedTimezone.value;
@@ -941,6 +1037,10 @@ class SettingsPage extends HookConsumerWidget {
                             ? context.l10n.activeStatus
                             : context.l10n.tapToSet,
                     onTap: () async {
+                      final canProceed = await guardRestrictedRegion();
+                      if (!canProceed) {
+                        return;
+                      }
                       final isBound =
                           ref.read(whatsAppBindingProvider).valueOrNull ??
                               false;
