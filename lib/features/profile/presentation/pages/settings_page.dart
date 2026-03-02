@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:app_badge_plus/app_badge_plus.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' as material;
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -30,7 +34,6 @@ import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_m
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
@@ -45,8 +48,10 @@ import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
@@ -54,6 +59,7 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/services/support_ticket_service.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
@@ -135,11 +141,13 @@ Future<bool> _showWhatsAppRestrictedRegionDialog({
 }) async {
   final result = await MonekoAlertDialog.show(
     context: context,
-    title: 'WhatsApp access may be limited',
+    title: context.l10n.whatsAppAccessLimitedTitle,
     description:
-        'WhatsApp access is restricted in certain countries, including $countryName. This limitation is imposed by the service provider and is outside of our control. For that reason, we’ve introduced Telegram as an alternative channel to ensure continued access. If this detection is incorrect, you can continue below.',
-    confirmLabel: 'Acknowledge',
-    cancelLabel: 'Continue anyway',
+        context.l10n.whatsAppAccessLimitedDescription(
+          countryName ?? context.l10n.yourCountry,
+        ),
+    confirmLabel: context.l10n.acknowledge,
+    cancelLabel: context.l10n.continueAnyway,
   );
   return result?.confirmed ?? false;
 }
@@ -424,7 +432,7 @@ class SettingsPage extends HookConsumerWidget {
       if (hasAcknowledgedRestrictedRegion.value) return true;
       final acknowledged = await _showWhatsAppRestrictedRegionDialog(
         context: context,
-        countryName: restrictedCountryName ?? 'your country',
+        countryName: restrictedCountryName ?? context.l10n.yourCountry,
       );
       if (acknowledged) {
         hasAcknowledgedRestrictedRegion.value = true;
@@ -493,7 +501,7 @@ class SettingsPage extends HookConsumerWidget {
         cancelLabel: l10n.cancel,
         isDestructive: true,
         inputConfig: MonekoAlertDialogInputConfig(
-          placeholder: 'DELETE',
+          placeholder: context.l10n.delete,
           isRequired: true,
           validationPattern: RegExp(r'^DELETE$'),
           validationMessage: l10n.settingsDeleteAccountConfirmValidation,
@@ -504,7 +512,7 @@ class SettingsPage extends HookConsumerWidget {
         return;
       }
 
-      if ((confirmation.text ?? '').trim() != 'DELETE') {
+      if ((confirmation.text ?? '').trim() != context.l10n.delete) {
         if (context.mounted) {
           AppToast.info(context, l10n.settingsDeleteAccountConfirmValidation);
         }
@@ -650,11 +658,11 @@ class SettingsPage extends HookConsumerWidget {
         ],
         cancelAction: MonekoActionSheetAction<String>(
           label: context.l10n.cancel,
-          value: 'cancel',
+          value: context.l10n.cancel,
         ),
       );
 
-      if (result == null || result == 'cancel') {
+      if (result == null || result == context.l10n.cancel) {
         return;
       }
 
@@ -904,7 +912,7 @@ class SettingsPage extends HookConsumerWidget {
                                 fallbackOffsetMinutes: deviceOffsetMinutes,
                                 preferFallback: true,
                               );
-                              return '${_formatTimezoneLabel(deviceOption)} (Current timezone)';
+                              return '${_formatTimezoneLabel(deviceOption)} (${context.l10n.currentTimezone})';
                             }
                             return _formatTimezoneLabel(option);
                           },
@@ -1008,7 +1016,7 @@ class SettingsPage extends HookConsumerWidget {
                       if (isBound) {
                         await launchIntegrationUrl(
                           Uri.parse('https://t.me/moneko_ai_bot'),
-                          errorMessage: 'Could not launch Telegram',
+                          errorMessage: context.l10n.couldNotLaunchTelegram,
                         );
                       } else {
                         final result = await showDialog<bool>(
@@ -1037,8 +1045,12 @@ class SettingsPage extends HookConsumerWidget {
                             ? context.l10n.activeStatus
                             : context.l10n.tapToSet,
                     onTap: () async {
+                      final tileContext = context;
                       final canProceed = await guardRestrictedRegion();
                       if (!canProceed) {
+                        return;
+                      }
+                      if (!tileContext.mounted) {
                         return;
                       }
                       final isBound =
@@ -1047,11 +1059,11 @@ class SettingsPage extends HookConsumerWidget {
                       if (isBound) {
                         await launchIntegrationUrl(
                           Uri.parse('https://wa.link/zxwtld'),
-                          errorMessage: 'Could not launch WhatsApp',
+                          errorMessage: context.l10n.couldNotLaunchWhatsApp,
                         );
                       } else {
                         final result = await showDialog<bool>(
-                          context: context,
+                          context: tileContext,
                           builder: (context) => const WhatsAppTutorialModal(),
                         );
                         if (result == true) {
@@ -1085,9 +1097,9 @@ class SettingsPage extends HookConsumerWidget {
                       label: context.l10n.membership,
                       value: subscriptionAsync.when(
                         data: (d) => d?.hasActiveSubscription == true
-                            ? 'Premium'
-                            : 'Free',
-                        loading: () => '...',
+                            ? context.l10n.premium
+                            : context.l10n.free,
+        loading: () => '...',
                         error: (_, __) => 'Error',
                       ),
                       onTap: () async {
@@ -1125,6 +1137,23 @@ class SettingsPage extends HookConsumerWidget {
                           ),
                         );
                       },
+                    ),
+                  ],
+                ),
+
+                // Support
+                _SettingsGroup(
+                  title: context.l10n.support,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.bug_report_rounded,
+                      label: context.l10n.reportABug,
+                      onTap: () => _showReportBugSheet(context),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.chat_bubble_rounded,
+                      label: context.l10n.submitNewFeatureRequest,
+                      onTap: () => _showSubmitFeedbackSheet(context),
                     ),
                   ],
                 ),
@@ -1220,7 +1249,7 @@ class SettingsPage extends HookConsumerWidget {
                 Center(
                   child: material.Text(
                     packageInfo.hasData
-                        ? 'Version ${packageInfo.data!.version}'
+                        ? context.l10n.version(packageInfo.data!.version)
                         : '',
                     style: TextStyle(
                       color: Colors.grey.shade500,
@@ -1234,6 +1263,52 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AttachmentPreview extends StatelessWidget {
+  const _AttachmentPreview({
+    required this.file,
+    required this.onRemove,
+  });
+
+  final File file;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.file(
+            file,
+            width: 96,
+            height: 96,
+            fit: BoxFit.cover,
+          ),
+        ),
+        Positioned(
+          top: -8,
+          right: -8,
+          child: IconButton(
+            style: IconButton.styleFrom(
+              backgroundColor: colorScheme.foreground.withValues(alpha: 0.85),
+              minimumSize: const Size(24, 24),
+              padding: EdgeInsets.zero,
+            ),
+            icon: Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: colorScheme.sheetBackground,
+            ),
+            onPressed: onRemove,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1296,6 +1371,642 @@ Future<void> _showAvatarSourceSheet(
       AppToast.error(context, context.l10n.failedToSaveAvatar);
     }
   }
+}
+
+Future<void> _showReportBugSheet(BuildContext context) async {
+  await _showSupportSheet(
+    context: context,
+    mode: _SupportSheetMode.reportBug,
+  );
+}
+
+Future<void> _showSubmitFeedbackSheet(BuildContext context) async {
+  await _showSupportSheet(
+    context: context,
+    mode: _SupportSheetMode.feedback,
+  );
+}
+
+Future<void> _showSupportSheet({
+  required BuildContext context,
+  required _SupportSheetMode mode,
+}) async {
+  final colorScheme = Theme.of(context).colorScheme;
+  await MonekoBottomSheet.show(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: colorScheme.sheetBackground,
+    builder: (sheetContext) {
+      return _SupportSheet(mode: mode);
+    },
+  );
+}
+
+const _maxTicketAttachments = 5;
+const _maxAttachmentBytes = 5 * 1024 * 1024;
+const _attachmentMinDimension = 1600;
+
+class _SupportSheet extends HookConsumerWidget {
+  const _SupportSheet({required this.mode});
+
+  final _SupportSheetMode mode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final textController = useTextEditingController();
+    final focusNode = useFocusNode();
+    final picker = useMemoized(ImagePicker.new);
+    final attachments = useState<List<File>>(<File>[]);
+    final isSubmitting = useState(false);
+    final includeDiagnostics = useState(true);
+    useListenable(textController);
+    useEffect(() {
+      Future.microtask(() => focusNode.requestFocus());
+      return null;
+    }, const []);
+    final currentMessage = textController.text.trim();
+    final supportTicketService = ref.read(supportTicketServiceProvider);
+
+    List<File> currentAttachments() => List<File>.from(attachments.value);
+
+    Future<void> handlePick(_AttachmentSource source) async {
+      final remainingSlots = _maxTicketAttachments - attachments.value.length;
+      if (remainingSlots <= 0) {
+        AppToast.info(
+          context,
+          'You can attach up to $_maxTicketAttachments images per ticket.',
+        );
+        return;
+      }
+
+      if (source == _AttachmentSource.camera) {
+        final selection = await pickImageWithGuard(
+          picker: picker,
+          source: ImageSource.camera,
+          imageQuality: 80,
+          maxWidth: 2048,
+        );
+        if (selection == null) return;
+        attachments.value = [
+          ...currentAttachments(),
+          File(selection.path),
+        ];
+        return;
+      }
+
+      final picked = await picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 2048,
+      );
+      if (picked.isEmpty) return;
+      final files = picked.take(remainingSlots).map((xfile) => File(xfile.path));
+      attachments.value = [
+        ...currentAttachments(),
+        ...files,
+      ];
+    }
+
+    Future<void> handleAttach() async {
+      final selection = await MonekoActionSheet.show<_AttachmentSource>(
+        context: context,
+        title: context.l10n.attachAScreenshot,
+        actions: [
+          MonekoActionSheetAction(
+            label: context.l10n.takePhoto,
+            value: _AttachmentSource.camera,
+            icon: Icons.photo_camera_outlined,
+          ),
+          MonekoActionSheetAction(
+            label: context.l10n.chooseFromLibrary,
+            value: _AttachmentSource.gallery,
+            icon: Icons.photo_library_rounded,
+          ),
+        ],
+        cancelAction: MonekoActionSheetAction(
+          label: context.l10n.cancel,
+          value: _AttachmentSource.cancel,
+        ),
+      );
+      if (selection == null || selection == _AttachmentSource.cancel) {
+        return;
+      }
+      await handlePick(selection);
+    }
+
+    Future<void> handleSubmit() async {
+      final message = textController.text.trim();
+      if (message.isEmpty) {
+        HapticFeedback.mediumImpact();
+        AppToast.info(context, context.l10n.pleaseDescribeTheIssueBeforeSubmitting);
+        return;
+      }
+      if (message.length < 10) {
+        HapticFeedback.mediumImpact();
+        AppToast.info(
+          context,
+          context.l10n.pleaseIncludeAtLeast10Characters,
+        );
+        return;
+      }
+      if (isSubmitting.value) return;
+      isSubmitting.value = true;
+      try {
+        final diagnostics = includeDiagnostics.value
+            ? await _collectDeviceDiagnostics()
+            : null;
+        final preparedAttachments =
+            await _createSupportAttachments(attachments.value, context);
+        final packageInfo = await PackageInfo.fromPlatform();
+        final result = await supportTicketService.submitTicket(
+          type: mode.ticketType,
+          message: message,
+          diagnostics: diagnostics,
+          metadata: {
+            'mode': mode.name,
+            'includeDiagnostics': includeDiagnostics.value,
+            'hasAttachments': attachments.value.isNotEmpty,
+            'attachmentCount': attachments.value.length,
+          },
+          attachments: preparedAttachments,
+          appVersion: '${packageInfo.version}+${packageInfo.buildNumber}',
+          platform: _currentPlatformLabel(),
+          source: 'settings_support_sheet',
+        );
+
+        if (context.mounted) {
+          textController.clear();
+          attachments.value = const [];
+          Navigator.of(context).maybePop();
+          final messageText = result.success
+              ? mode.getSuccessMessage(context)
+              : context.l10n.ticketSubmittedWeWillFollowUpSoon;
+          AppToast.success(context, messageText);
+        }
+      } on SupportTicketException catch (error) {
+        debugPrint('Support ticket submission failed: ${error.message}');
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            error.message,
+          );
+        }
+      } catch (error, stack) {
+        debugPrint('Support submission failed: $error\n$stack');
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            context.l10n.somethingWentWrongWhileSubmittingTicket,
+          );
+        }
+      } finally {
+        isSubmitting.value = false;
+      }
+    }
+
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final isSubmitDisabled = currentMessage.isEmpty || isSubmitting.value;
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: viewInsets > 0 ? viewInsets : 0),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          child: Material(
+            color: colorScheme.sheetBackground,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.sheetBorder,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        splashRadius: 20,
+                        icon: const Icon(Icons.close_rounded),
+                        color: colorScheme.foreground,
+                        onPressed:
+                            isSubmitting.value ? null : () => Navigator.of(context).maybePop(),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              mode.getTitle(context),
+                              style: textTheme.titleMedium?.copyWith(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              mode.getDescription(context),
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        minSize: 0,
+                        borderRadius: BorderRadius.circular(999),
+                        color: colorScheme.primary,
+                        disabledColor: colorScheme.primary.withValues(alpha: 0.4),
+                        onPressed: isSubmitDisabled ? null : handleSubmit,
+                        child: isSubmitting.value
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(
+                                context.l10n.submit,
+                                style: TextStyle(
+                                  color: colorScheme.primaryForeground,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: TextField(
+                      focusNode: focusNode,
+                      controller: textController,
+                      minLines: 5,
+                      maxLines: 7,
+                      keyboardType: TextInputType.multiline,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.foreground,
+                        height: 1.4,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: mode.getPlaceholder(context),
+                        hintStyle: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.mutedForeground,
+                        ),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _SupportSheetActionCard(
+                    onTap: handleAttach,
+                    icon: Icons.photo_camera_outlined,
+                    title: attachments.value.isEmpty
+                        ? context.l10n.attachScreenshots
+                        : context.l10n.addAnotherAttachment,
+                    subtitle: attachments.value.isEmpty
+                        ? context.l10n.addUpToImagesUnder5MBEach(_maxTicketAttachments.toString())
+                        : context.l10n.ofAttached(
+                          attachments.value.length.toString(),
+                          _maxTicketAttachments.toString(),
+                        ),
+                    trailing: attachments.value.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                            color: colorScheme.mutedForeground,
+                            onPressed: () => attachments.value = const [],
+                          ),
+                  ),
+                  if (attachments.value.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        for (final file in attachments.value)
+                          _AttachmentPreview(
+                            file: file,
+                            onRemove: () {
+                              attachments.value = currentAttachments()
+                                ..remove(file);
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.card,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  context.l10n.deviceInformation,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  context.l10n.includeAnonymizedDiagnostics,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: includeDiagnostics.value,
+                            onChanged: (value) => includeDiagnostics.value = value,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportSheetActionCard extends StatelessWidget {
+  const _SupportSheetActionCard({
+    required this.onTap,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  final VoidCallback onTap;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Material(
+      color: colorScheme.card,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.foreground.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: colorScheme.foreground),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _SupportSheetMode { reportBug, feedback }
+
+extension _SupportSheetModeX on _SupportSheetMode {
+  String getTitle(BuildContext context) {
+    return switch (this) {
+      _SupportSheetMode.reportBug => context.l10n.reportABugTitle,
+      _SupportSheetMode.feedback => context.l10n.submitNewFeatureRequestTitle,
+    };
+  }
+
+  String getDescription(BuildContext context) {
+    return switch (this) {
+      _SupportSheetMode.reportBug => context.l10n.tellUsWhatWentWrongDescription,
+      _SupportSheetMode.feedback => context.l10n.shareIdeasFeatureRequestsDescription,
+    };
+  }
+
+  String getPlaceholder(BuildContext context) {
+    return switch (this) {
+      _SupportSheetMode.reportBug => context.l10n.whatHappenedIncludeStepsPlaceholder,
+      _SupportSheetMode.feedback => context.l10n.shareYourThoughtsFeatureIdeasPlaceholder,
+    };
+  }
+
+  String getSuccessMessage(BuildContext context) {
+    return switch (this) {
+      _SupportSheetMode.reportBug => context.l10n.thanksBugReportQueue,
+      _SupportSheetMode.feedback => context.l10n.thanksFeedbackTicketLogged,
+    };
+  }
+
+  SupportTicketType get ticketType {
+    return switch (this) {
+      _SupportSheetMode.reportBug => SupportTicketType.bug,
+      _SupportSheetMode.feedback => SupportTicketType.feedback,
+    };
+  }
+}
+
+enum _AttachmentSource { camera, gallery, cancel }
+
+Future<Map<String, dynamic>> _collectDeviceDiagnostics() async {
+  final plugin = DeviceInfoPlugin();
+  final packageInfo = await PackageInfo.fromPlatform();
+  final timezone = await resolveDeviceTimezoneIdentifier();
+  final Map<String, dynamic> payload = {
+    'appVersion': '${packageInfo.version}+${packageInfo.buildNumber}',
+    'locale': Platform.localeName,
+    'timezone': timezone,
+  };
+
+  if (Platform.isAndroid) {
+    final info = await plugin.androidInfo;
+    payload.addAll({
+      'platform': 'android',
+      'brand': info.brand,
+      'model': info.model,
+      'manufacturer': info.manufacturer,
+      'osVersion': info.version.release,
+      'sdk': info.version.sdkInt,
+      'isPhysicalDevice': info.isPhysicalDevice,
+    });
+  } else if (Platform.isIOS) {
+    final info = await plugin.iosInfo;
+    payload.addAll({
+      'platform': 'ios',
+      'device': info.name,
+      'model': info.model,
+      'systemName': info.systemName,
+      'systemVersion': info.systemVersion,
+      'isPhysicalDevice': info.isPhysicalDevice,
+    });
+  } else {
+    final info = await plugin.deviceInfo;
+    payload.addAll({
+      'platform': 'other',
+      'data': info.data,
+    });
+  }
+
+  return payload;
+}
+
+Future<List<SupportTicketAttachment>> _createSupportAttachments(
+  List<File> files,
+  BuildContext context,
+) async {
+  if (files.isEmpty) return const [];
+  final attachments = <SupportTicketAttachment>[];
+  for (final file in files) {
+    if (!await file.exists()) {
+      continue;
+    }
+    final optimized = await _compressAttachment(file);
+    final bytes = optimized ?? await file.readAsBytes();
+    if (bytes.length > _maxAttachmentBytes) {
+      throw SupportTicketException(
+        context.l10n.eachScreenshotMustBeSmallerThan5MB,
+      );
+    }
+    final fileName = file.path.split('/').last;
+    attachments.add(
+      SupportTicketAttachment(
+        base64: base64Encode(bytes),
+        fileName: fileName,
+        contentType: _inferMimeType(fileName),
+      ),
+    );
+  }
+  return attachments;
+}
+
+Future<Uint8List?> _compressAttachment(File file) async {
+  try {
+    final format = _compressFormatForExtension(file.path);
+    final quality = _compressQualityForExtension(file.path);
+    return await FlutterImageCompress.compressWithFile(
+      file.absolute.path,
+      quality: quality,
+      minWidth: _attachmentMinDimension,
+      minHeight: _attachmentMinDimension,
+      format: format,
+      keepExif: true,
+    );
+  } catch (error, stack) {
+    debugPrint('Attachment compression failed: $error\n$stack');
+    return null;
+  }
+}
+
+CompressFormat _compressFormatForExtension(String path) {
+  final ext = path.contains('.') ? path.split('.').last.toLowerCase() : '';
+  switch (ext) {
+    case 'png':
+      return CompressFormat.png;
+    case 'webp':
+      return CompressFormat.webp;
+    case 'heic':
+      return CompressFormat.heic;
+    default:
+      return CompressFormat.jpeg;
+  }
+}
+
+int _compressQualityForExtension(String path) {
+  final ext = path.contains('.') ? path.split('.').last.toLowerCase() : '';
+  if (ext == 'png') {
+    return 72;
+  }
+  return 70;
+}
+
+String _inferMimeType(String fileName) {
+  final extension = fileName.contains('.')
+      ? fileName.split('.').last.toLowerCase()
+      : '';
+  switch (extension) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'heic':
+      return 'image/heic';
+    case 'jpeg':
+    case 'jpg':
+    default:
+      return 'image/jpeg';
+  }
+}
+
+String _currentPlatformLabel() {
+  if (Platform.isIOS) return 'ios';
+  if (Platform.isAndroid) return 'android';
+  return Platform.operatingSystem;
 }
 
 Future<File?> _pickAndCropAvatarImage(
@@ -1538,7 +2249,7 @@ class _ProfileHeader extends ConsumerWidget {
                   ? dbName!.trim()
                   : (authState.displayName?.trim().isNotEmpty == true
                       ? authState.displayName!.trim()
-                      : 'User');
+                      : context.l10n.user);
               final initials = displayName.isNotEmpty
                   ? displayName.substring(0, 1).toUpperCase()
                   : (authState.email.isNotEmpty
@@ -1625,7 +2336,7 @@ class _ProfileHeader extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          authState.displayName ?? 'User',
+          authState.displayName ?? context.l10n.user,
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
@@ -1766,7 +2477,7 @@ class _SettingsTile extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                flex: label == "Email" ? 1 : 2,
+                flex: label == "Email" ? 1 : 4,
                 child: Text(
                   label,
                   style: TextStyle(
@@ -1779,7 +2490,7 @@ class _SettingsTile extends StatelessWidget {
               if (value != null) ...[
                 const SizedBox(width: 12),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
                     value!,
                     textAlign: TextAlign.right,

@@ -1,3 +1,7 @@
+import 'dart:developer' as developer;
+
+import 'package:flutter_native_timezone_updated_gradle/flutter_native_timezone.dart';
+
 int? tryParseTimezoneOffsetMinutes(String timezone) {
   if (timezone == 'UTC' || timezone == 'GMT') return 0;
 
@@ -180,4 +184,36 @@ String formatDateOnlyYmd(DateTime date) {
   final m = date.month.toString().padLeft(2, '0');
   final d = date.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+Future<String> resolveDeviceTimezoneIdentifier() async {
+  try {
+    final timezone = await FlutterNativeTimezone.getLocalTimezone();
+    if (timezone.trim().isNotEmpty) {
+      return timezone;
+    }
+  } catch (error, stackTrace) {
+    developer.log(
+      'Failed to determine native timezone',
+      name: 'user_timezone',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  final fallbackName = DateTime.now().timeZoneName;
+  final offsetLabel = _formatUtcOffset(DateTime.now().timeZoneOffset);
+  if (fallbackName.isEmpty || fallbackName == 'GMT' || fallbackName == 'UTC') {
+    return offsetLabel;
+  }
+  return '$fallbackName ($offsetLabel)';
+}
+
+String _formatUtcOffset(Duration offset) {
+  final sign = offset.isNegative ? '-'
+      : '+';
+  final totalMinutes = offset.inMinutes.abs();
+  final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
+  final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
+  return 'GMT$sign$hours:$minutes';
 }
