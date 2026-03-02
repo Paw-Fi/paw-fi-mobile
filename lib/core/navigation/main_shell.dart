@@ -6,7 +6,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:riverpod/riverpod.dart' show ProviderSubscription;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -154,6 +153,9 @@ class MainShell extends HookConsumerWidget {
                         context.go('/register');
                       }
                     },
+                    onExitTap: () {
+                      ref.read(previewModeProvider.notifier).disable();
+                    },
                   ),
                 ),
               const HomeHeaderSliver(),
@@ -219,9 +221,14 @@ class MainShell extends HookConsumerWidget {
 }
 
 class _PreviewModeBanner extends StatefulWidget {
-  const _PreviewModeBanner({required this.onRegisterTap, required this.currentIndex});
+  const _PreviewModeBanner({
+    required this.onRegisterTap,
+    required this.onExitTap,
+    required this.currentIndex,
+  });
 
   final VoidCallback onRegisterTap;
+  final VoidCallback onExitTap;
   final int currentIndex;
 
   @override
@@ -259,24 +266,9 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
       ),
     );
 
-    final icon = Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: colorScheme.warning.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.visibility_outlined,
-        color: colorScheme.warning,
-        size: 18,
-      ),
-    );
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10,vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: colorScheme.warningSurface,
         borderRadius: BorderRadius.circular(14),
@@ -284,15 +276,13 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
       ),
       child: _expanded
           ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      icon,
-                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,49 +311,74 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                                 height: 1.35,
                               ),
                             ),
-                              const SizedBox(width: 8),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 36),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      foregroundColor: colorScheme.onSecondaryContainer,
-                      backgroundColor: colorScheme.secondaryContainer,
-                    ),
-                    onPressed: widget.onRegisterTap,
-                    child: const Text('Create account'),
-                  ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 36),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                foregroundColor: colorScheme.onPrimary,
+                                backgroundColor: colorScheme.warning,
+                              ),
+                              onPressed: widget.onExitTap,
+                              child: const Text('Exit tour'),
+                            ),
                           ],
                         ),
                       ),
                     ],
-                  ),             
+                  ),
                 ],
               ),
-          )
+            )
           : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                icon,
-                const SizedBox(width: 12),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Preview mode is on · Demo data only',
+                    'Preview Mode - Data won\'t be saved',
                     style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       color: colorScheme.foreground,
-                      height: 1.35,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              
+                GestureDetector(
+                  onTap: widget.onExitTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.warning,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Exit',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    Icons.expand_more,
                     color: colorScheme.warning,
+                    size: 20,
                   ),
                   onPressed: _toggle,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),

@@ -12,6 +12,7 @@ void main() {
       expect(resolveCurrencySymbol('CAD'), 'C\$');
       expect(resolveCurrencySymbol('AED'), 'د.إ');
       expect(resolveCurrencySymbol('INR'), '₹');
+      expect(resolveCurrencySymbol('ZMW'), 'ZK');
     });
 
     test('handles null and empty codes', () {
@@ -110,6 +111,7 @@ void main() {
       expect(options.containsKey('CNY'), true);
       expect(options.containsKey('SGD'), true);
       expect(options.containsKey('INR'), true);
+      expect(options.containsKey('ZMW'), true);
     });
 
     test('contains correct symbol mappings', () {
@@ -121,6 +123,7 @@ void main() {
       expect(options['CNY'], '¥');
       expect(options['INR'], '₹');
       expect(options['AED'], 'د.إ');
+      expect(options['ZMW'], 'ZK');
     });
   });
 

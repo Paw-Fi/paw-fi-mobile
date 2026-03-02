@@ -15,6 +15,7 @@ void main() {
       expect(getCurrencyFlagPath('CAD'), 'lib/assets/images/flags/ca.png');
       expect(getCurrencyFlagPath('JMD'), 'lib/assets/images/flags/jamaica.png');
       expect(getCurrencyFlagPath('MWK'), 'lib/assets/images/flags/malawi.png');
+      expect(getCurrencyFlagPath('ZMW'), 'lib/assets/images/flags/zambia.png');
     });
 
     test('returns null for currencies without flags', () {
@@ -30,6 +31,7 @@ void main() {
       expect(getCurrencyFlagPath('aed'), 'lib/assets/images/flags/uae.png');
       expect(getCurrencyFlagPath('jmd'), 'lib/assets/images/flags/jamaica.png');
       expect(getCurrencyFlagPath('mwk'), 'lib/assets/images/flags/malawi.png');
+      expect(getCurrencyFlagPath('zmw'), 'lib/assets/images/flags/zambia.png');
     });
 
     test('handles empty and special input', () {
@@ -66,6 +68,7 @@ void main() {
         'IDR': 'indonesia',
         'MYR': 'my',
         'MWK': 'malawi',
+        'ZMW': 'zambia',
         'PHP': 'philippines',
         'TRY': 'turkey',
         'AED': 'uae', // Corrected from 'uab'

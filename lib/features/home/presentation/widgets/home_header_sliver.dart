@@ -282,7 +282,7 @@ class HomeHeaderSliver extends ConsumerWidget {
             selectedHouseholdState.household?.id)
         : null;
 
-    final previewLabel = 'Sarah Collins';
+    const previewLabel = 'Sarah Collins';
 
     final personalLabel = _truncateMenuLabel(
       preview.isActive ? previewLabel : _userLabel(user, shortenEmail: true),

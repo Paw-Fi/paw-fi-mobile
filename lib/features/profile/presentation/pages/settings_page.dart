@@ -1060,19 +1060,19 @@ class SettingsPage extends HookConsumerWidget {
                       }
                     },
                   ),
-                  _SettingsTile(
-                    icon: Icons.account_balance_rounded,
-                    label: context.l10n.syncBankAccountsTitle,
-                    value: context.l10n.comingSoon,
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (context) =>
-                              const PlaidSyncWalkthroughPage(),
-                        ),
-                      );
-                    },
-                  ),
+                  // _SettingsTile(
+                  //   icon: Icons.account_balance_rounded,
+                  //   label: context.l10n.syncBankAccountsTitle,
+                  //   value: context.l10n.comingSoon,
+                  //   onTap: () {
+                  //     Navigator.of(context).push(
+                  //       MaterialPageRoute<void>(
+                  //         builder: (context) =>
+                  //             const PlaidSyncWalkthroughPage(),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
                 ]),
 
                 // Subscription
