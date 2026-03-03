@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
@@ -67,7 +68,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            'Experience Moneko',
+                            context.l10n.onboardingPreviewTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,
@@ -78,7 +79,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Jump into a live preview with curated mock data. Test features without touching real accounts.',
+                            context.l10n.onboardingPreviewSubtitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
@@ -87,19 +88,19 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 32),
-                          const _FeatureItem(
+                          _FeatureItem(
                             icon: Icons.auto_awesome_rounded,
-                            text: 'Test AI logging in a safe sandbox',
+                            text: context.l10n.onboardingPreviewFeatureAiLogging,
                           ),
                           const SizedBox(height: 16),
-                          const _FeatureItem(
+                          _FeatureItem(
                             icon: Icons.dashboard_customize_rounded,
-                            text: 'Explore Pockets, Insights & Recurring',
+                            text: context.l10n.onboardingPreviewFeatureExplore,
                           ),
                           const SizedBox(height: 16),
-                          const _FeatureItem(
+                          _FeatureItem(
                             icon: Icons.cloud_done_rounded,
-                            text: 'Create an account later to save progress',
+                            text: context.l10n.onboardingPreviewFeatureSaveProgress,
                           ),
                         ],
                       ),
@@ -118,9 +119,9 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                 children: [
                   PrimaryAdaptiveButton(
                     onPressed: startPreview,
-                    child: const Text(
-                      'Take the tour',
-                      style: TextStyle(
+                    child: Text(
+                      context.l10n.onboardingPreviewTakeTour,
+                      style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
@@ -130,7 +131,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   PlainAdaptiveButton(
                     onPressed: goToRegister,
                     child: Text(
-                      'Create an account instead',
+                      context.l10n.onboardingPreviewCreateAccountInstead,
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w500,
@@ -202,37 +203,37 @@ class _PreviewOrbitHero extends HookWidget {
       duration: const Duration(seconds: 40),
     )..repeat();
 
-    const innerBubbles = [
+    final innerBubbles = [
       _OrbitBubbleData(
-        text: 'AI Logging',
+        text: context.l10n.onboardingPreviewBubbleAiLogging,
         icon: Icons.mic_rounded,
         baseAngle: 0,
       ),
       _OrbitBubbleData(
-        text: 'Smart Pockets',
+        text: context.l10n.onboardingPreviewBubbleSmartPockets,
         icon: Icons.account_balance_wallet_rounded,
         baseAngle: 2 * math.pi / 3,
       ),
       _OrbitBubbleData(
-        text: 'Shared Spaces',
+        text: context.l10n.onboardingPreviewBubbleSharedSpaces,
         icon: Icons.family_restroom_rounded,
         baseAngle: 4 * math.pi / 3,
       ),
     ];
 
-    const outerBubbles = [
+    final outerBubbles = [
       _OrbitBubbleData(
-        text: 'Insightful Charts',
+        text: context.l10n.onboardingPreviewBubbleInsightfulCharts,
         icon: Icons.pie_chart_rounded,
         baseAngle: math.pi / 6,
       ),
       _OrbitBubbleData(
-        text: 'WhatsApp Sync',
+        text: context.l10n.onboardingPreviewBubbleWhatsappSync,
         icon: Icons.chat_rounded,
         baseAngle: math.pi / 6 + 2 * math.pi / 3,
       ),
       _OrbitBubbleData(
-        text: 'Recurring Bills',
+        text: context.l10n.onboardingPreviewBubbleRecurringBills,
         icon: Icons.event_repeat_rounded,
         baseAngle: math.pi / 6 + 4 * math.pi / 3,
       ),

@@ -557,8 +557,8 @@ class AddRecurringSheet extends HookConsumerWidget {
         AppToast.success(
           context,
           isEditing
-              ? 'Preview: recurring updated for demo (not saved).'
-              : 'Preview: recurring scheduled for demo (not saved).',
+              ? context.l10n.previewRecurringUpdatedForDemo
+              : context.l10n.previewRecurringScheduledForDemo,
         );
         return;
       }
@@ -938,7 +938,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           );
 
           final msg = ErrorHandler.getUserFriendlyMessage(
-            saveError ?? 'Failed to save recurring transaction',
+            saveError ?? context.l10n.failedToSaveRecurringTransaction,
             context: BackendErrorContext.saveRecurring,
           );
 
@@ -1810,11 +1810,13 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     final result = await MonekoAlertDialog.show(
       context: toastContext,
-      title: 'Update category preference?',
-      description:
-          'In the future, should this type of transaction be automatically saved to "$toLabel" instead of "$fromLabel"?',
-      confirmLabel: 'Yes',
-      cancelLabel: 'No',
+      title: toastContext.l10n.updateCategoryPreferenceTitle,
+      description: toastContext.l10n.updateCategoryPreferenceDescription(
+        toLabel,
+        fromLabel,
+      ),
+      confirmLabel: toastContext.l10n.yes,
+      cancelLabel: toastContext.l10n.no,
       barrierDismissible: true,
     );
 
@@ -1837,14 +1839,14 @@ class AddRecurringSheet extends HookConsumerWidget {
     if (saved) {
       AppToast.success(
         toastContext,
-        'Preference updated successfully',
+        toastContext.l10n.preferenceUpdatedSuccessfully,
       );
       return;
     }
 
     AppToast.error(
       toastContext,
-      'Could not update preference',
+      toastContext.l10n.preferenceUpdateFailed,
     );
     AppToast.success(toastContext, fallbackSuccessMessage);
   }

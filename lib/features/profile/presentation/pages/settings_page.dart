@@ -710,7 +710,8 @@ class SettingsPage extends HookConsumerWidget {
                             left: 16,
                             right: 16,
                             top: 16,
-                            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                            bottom:
+                                16 + MediaQuery.of(context).viewInsets.bottom,
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -1583,206 +1584,214 @@ class _SupportSheet extends HookConsumerWidget {
       }
     }
 
-    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final viewInsets = mediaQuery.viewInsets.bottom;
+    final maxSheetHeight = mediaQuery.size.height - mediaQuery.padding.top - 24;
     final isSubmitDisabled = currentMessage.isEmpty || isSubmitting.value;
 
     return SafeArea(
       top: false,
       bottom: false,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: viewInsets > 0 ? viewInsets : 0),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: Material(
-            color: colorScheme.sheetBackground,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.sheetBorder,
-                        borderRadius: BorderRadius.circular(999),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxSheetHeight),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Material(
+              color: colorScheme.sheetBackground,
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + viewInsets),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.sheetBorder,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
-                  ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      IconButton(
-                        splashRadius: 20,
-                        icon: const Icon(Icons.close_rounded),
-                        color: colorScheme.foreground,
-                        onPressed: isSubmitting.value
-                            ? null
-                            : () => Navigator.of(context).maybePop(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        IconButton(
+                          splashRadius: 20,
+                          icon: const Icon(Icons.close_rounded),
+                          color: colorScheme.foreground,
+                          onPressed: isSubmitting.value
+                              ? null
+                              : () => Navigator.of(context).maybePop(),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mode.getTitle(context),
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                mode.getDescription(context),
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          minSize: 0,
+                          borderRadius: BorderRadius.circular(999),
+                          color: colorScheme.primary,
+                          disabledColor:
+                              colorScheme.primary.withValues(alpha: 0.4),
+                          onPressed: isSubmitDisabled ? null : handleSubmit,
+                          child: isSubmitting.value
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(
+                                  context.l10n.submit,
+                                  style: TextStyle(
+                                    color: colorScheme.primaryForeground,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      child: TextField(
+                        focusNode: focusNode,
+                        controller: textController,
+                        minLines: 5,
+                        maxLines: 7,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.foreground,
+                          height: 1.4,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: mode.getPlaceholder(context),
+                          hintStyle: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.mutedForeground,
+                          ),
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding:
+                              const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _SupportSheetActionCard(
+                      onTap: handleAttach,
+                      icon: Icons.photo_camera_outlined,
+                      title: attachments.value.isEmpty
+                          ? context.l10n.attachScreenshots
+                          : context.l10n.addAnotherAttachment,
+                      subtitle: attachments.value.isEmpty
+                          ? context.l10n.addUpToImagesUnder5MBEach(
+                              _maxTicketAttachments.toString())
+                          : context.l10n.ofAttached(
+                              attachments.value.length.toString(),
+                              _maxTicketAttachments.toString(),
+                            ),
+                      trailing: attachments.value.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  size: 20),
+                              color: colorScheme.mutedForeground,
+                              onPressed: () => attachments.value = const [],
+                            ),
+                    ),
+                    if (attachments.value.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final file in attachments.value)
+                            _AttachmentPreview(
+                              file: file,
+                              onRemove: () {
+                                attachments.value = currentAttachments()
+                                  ..remove(file);
+                              },
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 16),
+                        child: Row(
                           children: [
-                            Text(
-                              mode.getTitle(context),
-                              style: textTheme.titleMedium?.copyWith(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    context.l10n.deviceInformation,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    context.l10n.includeAnonymizedDiagnostics,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.mutedForeground,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              mode.getDescription(context),
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.mutedForeground,
-                              ),
+                            Switch.adaptive(
+                              value: includeDiagnostics.value,
+                              onChanged: (value) =>
+                                  includeDiagnostics.value = value,
                             ),
                           ],
                         ),
                       ),
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        minSize: 0,
-                        borderRadius: BorderRadius.circular(999),
-                        color: colorScheme.primary,
-                        disabledColor:
-                            colorScheme.primary.withValues(alpha: 0.4),
-                        onPressed: isSubmitDisabled ? null : handleSubmit,
-                        child: isSubmitting.value
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Text(
-                                context.l10n.submit,
-                                style: TextStyle(
-                                  color: colorScheme.primaryForeground,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: TextField(
-                      focusNode: focusNode,
-                      controller: textController,
-                      minLines: 5,
-                      maxLines: 7,
-                      keyboardType: TextInputType.multiline,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.foreground,
-                        height: 1.4,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: mode.getPlaceholder(context),
-                        hintStyle: textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.mutedForeground,
-                        ),
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding:
-                            const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _SupportSheetActionCard(
-                    onTap: handleAttach,
-                    icon: Icons.photo_camera_outlined,
-                    title: attachments.value.isEmpty
-                        ? context.l10n.attachScreenshots
-                        : context.l10n.addAnotherAttachment,
-                    subtitle: attachments.value.isEmpty
-                        ? context.l10n.addUpToImagesUnder5MBEach(
-                            _maxTicketAttachments.toString())
-                        : context.l10n.ofAttached(
-                            attachments.value.length.toString(),
-                            _maxTicketAttachments.toString(),
-                          ),
-                    trailing: attachments.value.isEmpty
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                size: 20),
-                            color: colorScheme.mutedForeground,
-                            onPressed: () => attachments.value = const [],
-                          ),
-                  ),
-                  if (attachments.value.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        for (final file in attachments.value)
-                          _AttachmentPreview(
-                            file: file,
-                            onRemove: () {
-                              attachments.value = currentAttachments()
-                                ..remove(file);
-                            },
-                          ),
-                      ],
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  context.l10n.deviceInformation,
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  context.l10n.includeAnonymizedDiagnostics,
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch.adaptive(
-                            value: includeDiagnostics.value,
-                            onChanged: (value) =>
-                                includeDiagnostics.value = value,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

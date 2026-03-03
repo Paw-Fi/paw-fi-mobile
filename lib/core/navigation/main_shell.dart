@@ -36,6 +36,11 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
 
+    void exitPreviewMode() {
+      ref.read(mainShellTabIndexProvider.notifier).state = 0;
+      ref.read(previewModeProvider.notifier).disable();
+    }
+
     // One-time native notification prompt logic & listeners
     useEffect(() {
       var disposed = false;
@@ -148,13 +153,13 @@ class MainShell extends HookConsumerWidget {
                   child: _PreviewModeBanner(
                     currentIndex: currentIndex,
                     onRegisterTap: () {
-                      ref.read(previewModeProvider.notifier).disable();
+                      exitPreviewMode();
                       if (context.mounted) {
                         context.go('/register');
                       }
                     },
                     onExitTap: () {
-                      ref.read(previewModeProvider.notifier).disable();
+                      exitPreviewMode();
                     },
                   ),
                 ),

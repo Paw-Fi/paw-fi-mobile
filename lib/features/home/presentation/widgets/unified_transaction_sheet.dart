@@ -584,7 +584,7 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  Future<void> _handleEditAccount({required List<Household> households}) async {
+  Future<void> _handleEditSpace({required List<Household> households}) async {
     final options = _accountOptions(context, households);
     if (options.length <= 1) return;
     final current = _currentAccountOption();
@@ -632,7 +632,7 @@ class _UnifiedTransactionSheetState
         Navigator.of(context, rootNavigator: true).pop();
         AppToast.info(
           context,
-          'Preview mode: mock receipt noted (not actually saved).',
+          context.l10n.previewMockReceiptNoted,
         );
       }
       return;
@@ -681,12 +681,12 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  Widget _buildAccountPlaceholder(ColorScheme colorScheme, String value) {
+  Widget _buildSpacePlaceholder(ColorScheme colorScheme, String value) {
     return MonekoInput(
       child: Column(
         children: [
           MonekoDisclosureRow(
-            label: context.l10n.account,
+            label: context.l10n.space,
             value: value,
             onTap: () {},
             isFirst: true,
@@ -744,7 +744,7 @@ class _UnifiedTransactionSheetState
         final households = householdsData.cast<Household>();
         return Column(
           children: [
-            _buildAccountSection(colorScheme, households),
+            _buildSpaceSection(colorScheme, households),
             const SizedBox(height: 24),
             if (_selectedAccountType == ActiveAccountType.household &&
                 households.isNotEmpty)
@@ -761,13 +761,13 @@ class _UnifiedTransactionSheetState
       },
       loading: () => Column(
         children: [
-          _buildAccountPlaceholder(colorScheme, context.l10n.loading),
+          _buildSpacePlaceholder(colorScheme, context.l10n.loading),
           const SizedBox(height: 24),
         ],
       ),
       error: (_, __) => Column(
         children: [
-          _buildAccountPlaceholder(colorScheme, context.l10n.tapToSet),
+          _buildSpacePlaceholder(colorScheme, context.l10n.tapToSet),
           const SizedBox(height: 24),
         ],
       ),
@@ -1180,7 +1180,7 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  Widget _buildAccountSection(
+  Widget _buildSpaceSection(
     ColorScheme colorScheme,
     List<Household> households,
   ) {
@@ -1190,9 +1190,9 @@ class _UnifiedTransactionSheetState
       child: Column(
         children: [
           MonekoDisclosureRow(
-            label: context.l10n.account,
+            label: context.l10n.space,
             value: value,
-            onTap: () => _handleEditAccount(households: households),
+            onTap: () => _handleEditSpace(households: households),
             isFirst: true,
             isLast: true,
           ),
@@ -1624,7 +1624,7 @@ class _UnifiedTransactionSheetState
         isRequired: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-        validationMessage: 'Please enter a valid amount.',
+        validationMessage: context.l10n.pleaseEnterValidAmount,
       ),
     );
 
@@ -2475,8 +2475,8 @@ class _UnifiedTransactionSheetState
         AppToast.success(
           context,
           widget.existingExpense != null
-              ? 'Preview mode: mock updates applied (not saved).'
-              : 'Preview mode: mock expense created (not saved).',
+              ? context.l10n.previewMockUpdatesApplied
+              : context.l10n.previewMockExpenseCreated,
         );
       }
       return;
@@ -2522,7 +2522,7 @@ class _UnifiedTransactionSheetState
         }
 
         if (expense == null) {
-          throw Exception('No transaction to save');
+          throw Exception(context.l10n.noTransactionToSave);
         }
 
         // Combine extracted date (calendar day) with the selected time in local timezone.
@@ -3106,11 +3106,13 @@ class _UnifiedTransactionSheetState
 
     final result = await MonekoAlertDialog.show(
       context: toastContext,
-      title: 'Update category preference?',
-      description:
-          'In the future, should this type of transaction be automatically saved to "$toLabel" instead of "$fromLabel"?',
-      confirmLabel: 'Yes',
-      cancelLabel: 'No',
+      title: toastContext.l10n.updateCategoryPreferenceTitle,
+      description: toastContext.l10n.updateCategoryPreferenceDescription(
+        toLabel,
+        fromLabel,
+      ),
+      confirmLabel: toastContext.l10n.yes,
+      cancelLabel: toastContext.l10n.no,
       barrierDismissible: true,
     );
 
@@ -3127,7 +3129,7 @@ class _UnifiedTransactionSheetState
       if (saved) {
         AppToast.success(
           toastContext,
-          'Preference updated successfully',
+          toastContext.l10n.preferenceUpdatedSuccessfully,
           duration: const Duration(seconds: 3),
         );
         return;
@@ -3135,7 +3137,7 @@ class _UnifiedTransactionSheetState
 
       AppToast.error(
         toastContext,
-        'Could not update preference',
+        toastContext.l10n.preferenceUpdateFailed,
         duration: const Duration(seconds: 4),
       );
       AppToast.success(
@@ -3159,7 +3161,7 @@ class _UnifiedTransactionSheetState
         Navigator.of(context, rootNavigator: true).pop();
         AppToast.info(
           context,
-          'Preview mode: deletion skipped (data is demo only).',
+          context.l10n.previewDeletionSkipped,
         );
       }
       return;
