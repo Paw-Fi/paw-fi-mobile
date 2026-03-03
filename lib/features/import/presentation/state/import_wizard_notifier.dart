@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -46,16 +45,21 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     );
   }
 
-  Future<void> pickFile() async {
+  Future<void> pickFile({List<String>? allowedExtensions}) async {
     state = state.copyWith(
       clearErrorMessage: true,
       clearParsingStatusMessage: true,
     );
     try {
+      final normalizedAllowedExtensions =
+          (allowedExtensions != null && allowedExtensions.isNotEmpty)
+              ? allowedExtensions
+              : const ['csv', 'txt', 'pdf', 'xlsx', 'xls'];
+
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.custom,
-        allowedExtensions: ['csv', 'txt', 'pdf', 'xlsx', 'xls'],
+        allowedExtensions: normalizedAllowedExtensions,
         withData: true,
       );
 

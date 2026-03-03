@@ -11,6 +11,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
+import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -46,8 +47,57 @@ String _userLabel(AppUser user, {required bool shortenEmail}) {
   return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
 }
 
+String _importSourceLabel(ImportSourceApp source) {
+  switch (source) {
+    case ImportSourceApp.ynab:
+      return 'YNAB';
+    case ImportSourceApp.monarch:
+      return 'Monarch';
+    case ImportSourceApp.everyDollar:
+      return 'EveryDollar';
+    case ImportSourceApp.cashew:
+      return 'Cashew';
+    case ImportSourceApp.mint:
+      return 'Mint';
+    case ImportSourceApp.goodbudget:
+      return 'Goodbudget';
+    case ImportSourceApp.spendee:
+      return 'Spendee';
+    case ImportSourceApp.other:
+      return 'Other';
+  }
+}
+
+String _importSourceFileRequest(ImportSourceApp source) {
+  switch (source) {
+    case ImportSourceApp.ynab:
+      return 'Upload YNAB export (CSV/TSV). Note: targets may not transfer.';
+    case ImportSourceApp.monarch:
+      return 'Upload Transactions CSV (all accounts). Optional: Balance history CSV.';
+    case ImportSourceApp.everyDollar:
+      return 'Upload one or more monthly Transactions CSV exports.';
+    case ImportSourceApp.cashew:
+      return 'Upload Cashew Data File backup (preferred).';
+    case ImportSourceApp.mint:
+      return 'Upload one or more Mint Transactions CSV exports (may require multiple exports).';
+    case ImportSourceApp.goodbudget:
+      return 'Upload Transactions CSV.';
+    case ImportSourceApp.spendee:
+      return 'Upload CSV/XLS export (All wallets; free users limited to 365 days).';
+    case ImportSourceApp.other:
+      return 'Upload a CSV, XLS/XLSX, TXT, or PDF export from your tool.';
+  }
+}
+
 class ImportWizardPage extends ConsumerStatefulWidget {
-  const ImportWizardPage({super.key});
+  const ImportWizardPage({
+    super.key,
+    this.lockPersonalTarget = false,
+    this.sourceApp,
+  });
+
+  final bool lockPersonalTarget;
+  final ImportSourceApp? sourceApp;
 
   @override
   ConsumerState<ImportWizardPage> createState() => _ImportWizardPageState();
@@ -74,6 +124,14 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.lockPersonalTarget) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref
+            .read(importWizardProvider.notifier)
+            .setTargetAccount(householdId: null, isPortfolio: false);
+      });
+    }
   }
 
   @override
@@ -133,7 +191,11 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       case ImportStep.selectFile:
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _SelectFileStep(state: state),
+          child: _SelectFileStep(
+            state: state,
+            sourceApp: widget.sourceApp,
+            lockPersonalTarget: widget.lockPersonalTarget,
+          ),
         );
       case ImportStep.mapColumns:
         return SingleChildScrollView(
@@ -141,7 +203,10 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           child: _MapColumnsStep(state: state),
         );
       case ImportStep.preview:
-        return _PreviewStep(state: state);
+        return _PreviewStep(
+          state: state,
+          lockPersonalTarget: widget.lockPersonalTarget,
+        );
     }
   }
 
@@ -382,14 +447,22 @@ class _TimelineConnector extends StatelessWidget {
 }
 
 class _SelectFileStep extends ConsumerWidget {
-  const _SelectFileStep({required this.state});
+  const _SelectFileStep({
+    required this.state,
+    this.sourceApp,
+    required this.lockPersonalTarget,
+  });
 
   final ImportWizardState state;
+  final ImportSourceApp? sourceApp;
+  final bool lockPersonalTarget;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(importWizardProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
+    final sourceSpec =
+        sourceApp == null ? null : importSourceSpecFor(sourceApp!);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -399,6 +472,24 @@ class _SelectFileStep extends ConsumerWidget {
           title: context.l10n.importSelectFileTitle,
           description: context.l10n.importSelectFileHint,
         ),
+        if (sourceSpec != null) ...[
+          const SizedBox(height: 12),
+          _InstructionCard(
+            icon: Icons.sync_alt_rounded,
+            title: 'Source: ${_importSourceLabel(sourceSpec.app)}',
+            description: _importSourceFileRequest(sourceSpec.app),
+          ),
+          if (lockPersonalTarget) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Imports in this onboarding step always sync to your personal account.',
+              style: TextStyle(
+                fontSize: 12,
+                color: scheme.mutedForeground,
+              ),
+            ),
+          ],
+        ],
         const SizedBox(height: 24),
         _GroupedSectionCard(
           title: context.l10n.file.toUpperCase(),
@@ -406,7 +497,9 @@ class _SelectFileStep extends ConsumerWidget {
             _StandardTile(
               leadingIcon: Icons.description_rounded,
               title: state.fileName ?? context.l10n.noFileSelected,
-              subtitle: context.l10n.csvTxtSupported,
+              subtitle: sourceSpec == null
+                  ? context.l10n.csvTxtSupported
+                  : _importSourceFileRequest(sourceSpec.app),
               trailing: state.isParsing
                   ? const SizedBox(
                       height: 18,
@@ -417,7 +510,11 @@ class _SelectFileStep extends ConsumerWidget {
                       Icons.chevron_right,
                       color: scheme.mutedForeground.withValues(alpha: 0.6),
                     ),
-              onTap: state.isParsing ? null : () => notifier.pickFile(),
+              onTap: state.isParsing
+                  ? null
+                  : () => notifier.pickFile(
+                        allowedExtensions: sourceSpec?.allowedExtensions,
+                      ),
             ),
           ],
         ),
@@ -741,9 +838,13 @@ class _SheetSelector extends ConsumerWidget {
 }
 
 class _PreviewStep extends ConsumerWidget {
-  const _PreviewStep({required this.state});
+  const _PreviewStep({
+    required this.state,
+    required this.lockPersonalTarget,
+  });
 
   final ImportWizardState state;
+  final bool lockPersonalTarget;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -772,7 +873,11 @@ class _PreviewStep extends ConsumerWidget {
               if (index == 0) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 24),
-                  child: _buildOverviewCard(context, ref),
+                  child: _buildOverviewCard(
+                    context,
+                    ref,
+                    lockPersonalTarget: lockPersonalTarget,
+                  ),
                 );
               }
               if (index == 1) {
@@ -853,12 +958,18 @@ class _PreviewStep extends ConsumerWidget {
     );
   }
 
-  Widget _buildOverviewCard(BuildContext context, WidgetRef ref) {
+  Widget _buildOverviewCard(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool lockPersonalTarget,
+  }) {
     final scheme = Theme.of(context).colorScheme;
     return _GroupedSectionCard(
       title: context.l10n.summary.toUpperCase(),
       children: [
-        _buildAccountSelectorRow(context, ref, scheme),
+        lockPersonalTarget
+            ? _buildPersonalTargetRow(context, scheme)
+            : _buildAccountSelectorRow(context, ref, scheme),
         _MetricRow(
           leftLabel: context.l10n.rows,
           leftValue: '${state.totalRows}',
@@ -872,6 +983,45 @@ class _PreviewStep extends ConsumerWidget {
           rightValue: '${state.duplicateRows}',
         ),
       ],
+    );
+  }
+
+  Widget _buildPersonalTargetRow(BuildContext context, ColorScheme scheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.importInto,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: scheme.foreground,
+              ),
+            ),
+          ),
+          Container(
+            height: 36,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            decoration: BoxDecoration(
+              color: scheme.cardSurface,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'Personal account',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: scheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

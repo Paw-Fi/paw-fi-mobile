@@ -62,11 +62,10 @@ class AuthCallbackScreen extends HookConsumerWidget {
                   DateTime.now().difference(createdAt).inMinutes < 5;
 
               if (isNewUser) {
-                // New user - redirect to avatar customizer
-                context.go('/avatar');
+                context.go('/onboarding?stage=prepare');
               } else {
                 // Existing user - go to specified redirect or dashboard
-                context.go(next ?? '/dashboard');
+                context.go(next ?? '/onboarding?stage=prepare');
               }
             }
           } else {
@@ -77,7 +76,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
 
             if (retrySession != null) {
               if (context.mounted) {
-                context.go(next ?? '/dashboard');
+                context.go(next ?? '/onboarding?stage=prepare');
               }
             } else {
               // Session establishment failed

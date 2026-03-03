@@ -19,12 +19,16 @@ import 'package:moneko/features/home/presentation/services/widget_sync_manager.d
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -36,9 +40,22 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
 
+    void clearPreviewDataCaches() {
+      ref.read(viewModeProvider.notifier).setPersonalMode();
+      unawaited(ref.read(selectedHouseholdProvider.notifier).clearSelection());
+
+      ref.invalidate(selectedHouseholdProvider);
+      ref.invalidate(userHouseholdsProvider);
+      ref.invalidate(homeFilterProvider);
+      ref.invalidate(analyticsProvider);
+      ref.invalidate(recurringTransactionsProvider);
+      ref.invalidate(pocketsProvider);
+    }
+
     void exitPreviewMode() {
       ref.read(mainShellTabIndexProvider.notifier).state = 0;
       ref.read(previewModeProvider.notifier).disable();
+      clearPreviewDataCaches();
     }
 
     // One-time native notification prompt logic & listeners
@@ -160,6 +177,9 @@ class MainShell extends HookConsumerWidget {
                     },
                     onExitTap: () {
                       exitPreviewMode();
+                      if (context.mounted) {
+                        context.go('/onboarding?stage=pre&source=preview_exit');
+                      }
                     },
                   ),
                 ),

@@ -8,13 +8,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/data/services/device_registration_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 
@@ -28,44 +25,6 @@ class _TestAuth extends Auth {
 
   @override
   AppUser build() => _user;
-}
-
-class _TestHomeFilterNotifier extends HomeFilterNotifier {
-  _TestHomeFilterNotifier() : super() {
-    state = HomeFilterState(selectedCurrency: 'USD');
-  }
-}
-
-class _TestPocketsNotifier extends PocketsNotifier {
-  _TestPocketsNotifier(super.ref, super.params, {this.saveDelay});
-
-  final Duration? saveDelay;
-
-  @override
-  Future<void> load() async {
-    if (!mounted) return;
-    state = state.copyWith(
-      isLoading: false,
-      saved: const [],
-      editing: const [],
-      periodMonth: DateTime(1970, 1, 1),
-      previousBudget: 0,
-      totalBudget: 0,
-      savedTotalBudget: 0,
-      unallocatedSpend: 0,
-      uncategorized: const [],
-      uncategorizedExpenses: const {},
-      clearError: true,
-    );
-  }
-
-  @override
-  Future<void> saveChanges() async {
-    final delay = saveDelay;
-    if (delay != null) {
-      await Future<void>.delayed(delay);
-    }
-  }
 }
 
 GoRouter _createRouter() {
@@ -90,7 +49,6 @@ Future<void> _pumpOnboarding(
   WidgetTester tester, {
   required SharedPreferences prefs,
   required DeviceRegistrationService deviceRegistrationService,
-  Duration? pocketsSaveDelay,
 }) async {
   await tester.binding.setSurfaceSize(const Size(1000, 1200));
   addTearDown(() async {
@@ -108,16 +66,6 @@ Future<void> _pumpOnboarding(
         ),
         deviceRegistrationServiceProvider
             .overrideWithValue(deviceRegistrationService),
-        homeFilterProvider.overrideWith(
-          (ref) => _TestHomeFilterNotifier(),
-        ),
-        pocketsProvider.overrideWith(
-          (ref, params) => _TestPocketsNotifier(
-            ref,
-            params,
-            saveDelay: pocketsSaveDelay,
-          ),
-        ),
       ],
       child: MaterialApp.router(
         routerConfig: router,
@@ -182,28 +130,11 @@ void main() {
       deviceRegistrationService: deviceService,
     );
 
-    // Skip advances through onboarding steps (0 -> 4).
-    for (var i = 0; i < 4; i++) {
-      await _tapSkip(tester);
-    }
-
-    // Step 4 is pockets intro; skip once more to reach AI step (step 5).
+    // Step 0 -> step 1.
     await _tapSkip(tester);
-
-    // Allow transition to settle.
-    await tester.pump(const Duration(milliseconds: 400));
-
-    // On AI step, primary CTA opens AI modal; keep this robust to text changes.
-    await _tapPrimary(tester);
-    await tester.pumpAndSettle();
-
-    // Close the AI modal by tapping the close button
-    final closeButton = find.byIcon(Icons.close);
-    expect(closeButton, findsOneWidget);
-    await tester.tap(closeButton);
-    await tester.pumpAndSettle();
-
-    // Now tap skip to go to finish page
+    // Step 1 -> step 2.
+    await _tapSkip(tester);
+    // Step 2 -> finish page.
     await _tapSkip(tester);
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -235,15 +166,10 @@ void main() {
     );
 
     await _tapPrimary(tester);
-    expect(find.byType(PocketsHeaderCard), findsOneWidget);
-
-    await _tapPrimary(tester);
-    expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
-
-    await _tapPrimary(tester);
-    expect(find.byType(TextField), findsOneWidget);
-
     expect(prefs.getBool('notifications_prompted:u1'), true);
+
+    await _tapPrimary(tester);
+    expect(find.byType(PrimaryAdaptiveButton), findsOneWidget);
   });
 
   testWidgets(
@@ -266,11 +192,9 @@ void main() {
       tester,
       prefs: prefs,
       deviceRegistrationService: deviceService,
-      pocketsSaveDelay: const Duration(milliseconds: 50),
     );
 
     await _tapPrimary(tester);
-    expect(find.byType(PocketsHeaderCard), findsOneWidget);
 
     final primary = find.byType(PrimaryAdaptiveButton);
     await tester.tap(primary);

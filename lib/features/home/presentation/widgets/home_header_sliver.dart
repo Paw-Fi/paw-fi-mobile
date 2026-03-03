@@ -592,7 +592,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     // Build menu items dynamically - ordered by frequency/context priority
     // 1. Shared Space & Members (most relevant, household context)
     // 2. Customize Widgets (high frequency)
-    // 3. Export Transactions (low frequency, grouped separately)
+    // 3. Export Transactions (low frequency, organized separately)
     // 4. Settings (system, always at bottom)
     final menuItems = <AdaptivePopupMenuItem>[];
 
@@ -859,7 +859,11 @@ class _HeaderAvatarButton extends StatelessWidget {
           return MonekoAvatar.placeholder(size: size);
         }
 
-        final household = selectedHouseholdState.household ?? households.first;
+        final household = _resolveSelectedHousehold(
+              selectedHouseholdState,
+              households,
+            ) ??
+            households.first;
         return MonekoAvatar.network(
           size: size,
           fallbackIcon: Icons.home_rounded,

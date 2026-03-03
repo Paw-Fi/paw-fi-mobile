@@ -41,7 +41,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
       markPreviewSeen();
       ref.read(previewModeProvider.notifier).disable();
       if (context.mounted) {
-        context.go('/register');
+        context.go('/onboarding?stage=pre');
       }
     }
 
@@ -59,7 +59,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   children: [
                     SizedBox(
                       // Takes 45% of screen height, but never less than 280px
-                      height: math.max(MediaQuery.sizeOf(context).height * 0.45, 280),
+                      height: math.max(
+                          MediaQuery.sizeOf(context).height * 0.45, 280),
                       child: const _PreviewOrbitHero(),
                     ),
                     Padding(
@@ -90,7 +91,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                           const SizedBox(height: 32),
                           _FeatureItem(
                             icon: Icons.auto_awesome_rounded,
-                            text: context.l10n.onboardingPreviewFeatureAiLogging,
+                            text:
+                                context.l10n.onboardingPreviewFeatureAiLogging,
                           ),
                           const SizedBox(height: 16),
                           _FeatureItem(
@@ -100,7 +102,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                           const SizedBox(height: 16),
                           _FeatureItem(
                             icon: Icons.cloud_done_rounded,
-                            text: context.l10n.onboardingPreviewFeatureSaveProgress,
+                            text: context
+                                .l10n.onboardingPreviewFeatureSaveProgress,
                           ),
                         ],
                       ),
@@ -109,7 +112,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                 ),
               ),
             ),
-            
+
             // Fixed Bottom Actions
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
@@ -131,7 +134,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   PlainAdaptiveButton(
                     onPressed: goToRegister,
                     child: Text(
-                      context.l10n.onboardingPreviewCreateAccountInstead,
+                      context.l10n.skipNow,
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w500,
