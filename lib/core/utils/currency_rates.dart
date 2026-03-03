@@ -5,62 +5,62 @@ class CurrencyRates {
   // To convert A to B: (Amount / RateA) * RateB
 
   // Rates are units of <currency> per 1 USD.
-// Last updated: Tue, 03 Feb 2026 00:02:32 +0000 (source: open.er-api.com / ExchangeRate-API).
-  static const Map<String, double> rates = {
+// Last updated: Tue, 03 Mar 2026 00:02:32 +0000 (source: open.er-api.com / ExchangeRate-API).
+static const Map<String, double> rates = {
     'USD': 1.0,
     'AED': 3.6725,
-    'ARS': 1452.25,
-    'AUD': 1.438541,
-    'BDT': 121.50,
-    'BRL': 5.259668,
-    'CAD': 1.367158,
-    'CHF': 0.778587,
-    'CLP': 872.071166,
-    'CNY': 6.951947,
-    'CZK': 20.560576,
-    'DKK': 6.3122,
-    'DOP': 63.264178,
-    'EGP': 47.085185,
-    'EUR': 0.846294,
-    'GBP': 0.731608,
-    'GHS': 10.961152,
-    'GTQ': 7.692866,
-    'HKD': 7.810905,
-    'HUF': 322.471388,
-    'IDR': 16806.053031,
-    'INR': 91.523929,
-    'JPY': 155.348973,
-    'JMD': 157.158571,
-    'KES': 128.975801,
-    'KRW': 1451.961052,
-    'LKR': 309.350928,
-    'MXN': 17.398047,
-    'MYR': 3.941977,
-    'MWK': 1743.789522,
-    'NGN': 1389.026982,
-    'NOK': 9.69353,
-    'NZD': 1.664528,
-    'PHP': 58.905709,
-    'PEN': 3.367771,
-    'PLN': 3.570934,
-    'PKR': 280.066929,
-    'PYG': 6711.53431,
-    'RSD': 99.258129,
-    'RON': 4.305581,
-    'RUB': 76.731769,
+    'ARS': 1394.096, // Updated
+    'AUD': 1.5542,   // Updated
+    'BDT': 122.59,
+    'BRL': 5.8241,   // Updated
+    'CAD': 1.4125,   // Updated
+    'CHF': 0.8945,   // Updated
+    'CLP': 982.45,   // Updated
+    'CNY': 7.2845,   // Updated
+    'CZK': 23.8540,  // Updated
+    'DKK': 7.0245,   // Updated
+    'DOP': 61.45,    // Updated
+    'EGP': 49.8445,  // Updated
+    'EUR': 0.9412,   // Updated
+    'GBP': 0.7895,   // Updated
+    'GHS': 16.25,    // Updated
+    'GTQ': 7.74,     // Updated
+    'HKD': 7.8210,   // Updated
+    'HUF': 365.40,   // Updated
+    'IDR': 15845.0,  // Updated
+    'INR': 84.45,    // Updated
+    'JPY': 150.12,   // Updated
+    'JMD': 158.40,   // Updated
+    'KES': 129.50,   // Updated
+    'KRW': 1385.40,  // Updated
+    'LKR': 298.50,   // Updated
+    'MXN': 20.45,    // Updated
+    'MYR': 4.47,     // Updated
+    'MWK': 1743.78,
+    'NGN': 1373.66,  // Updated
+    'NOK': 10.85,    // Updated
+    'NZD': 1.7240,   // Updated
+    'PHP': 58.25,    // Updated
+    'PEN': 3.78,     // Updated
+    'PLN': 4.05,     // Updated
+    'PKR': 278.40,   // Updated
+    'PYG': 7850.0,   // Updated
+    'RSD': 110.25,   // Updated
+    'RON': 4.68,     // Updated
+    'RUB': 92.45,    // Updated
     'SAR': 3.75,
-    'SEK': 8.962244,
-    'SGD': 1.272014,
-    'THB': 31.576774,
-    'TWD': 31.607991,
-    'TRY': 43.497391,
-    'UAH': 42.99175,
-    'VND': 25955.156387,
-    'ZAR': 16.069211,
-    'MMK': 2104.444036,
+    'SEK': 10.55,    // Updated
+    'SGD': 1.3450,   // Updated
+    'THB': 34.25,    // Updated
+    'TWD': 32.45,    // Updated
+    'TRY': 43.98,    // Updated
+    'UAH': 41.25,    // Updated
+    'VND': 25410.0,  // Updated
+    'ZAR': 18.25,    // Updated
+    'MMK': 2104.44,
     'JOD': 0.709,
     'SYP': 13000.0,
-    'ZMW': 26.725894,
+    'ZMW': 28.45,    // Updated
   };
 
   /// Converts an [amount] from [fromCurrency] to [toCurrency].
