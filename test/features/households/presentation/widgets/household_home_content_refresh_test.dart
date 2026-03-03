@@ -230,7 +230,7 @@ void main() {
           authProvider.overrideWith(() => MockAuth()),
           currentUserIdProvider.overrideWithValue('u1'),
           currencyTransactionCountsProvider.overrideWith(
-            (ref) async => const <String, int>{},
+            (ref) => const <String, int>{},
           ),
           householdRepositoryProvider.overrideWithValue(householdRepository),
           dashboardRepositoryFutureProvider

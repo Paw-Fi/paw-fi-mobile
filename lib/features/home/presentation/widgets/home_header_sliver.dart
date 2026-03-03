@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -134,9 +135,10 @@ class HomeHeaderLeading extends ConsumerWidget {
                   if (combined.isEmpty) {
                     return _userLabel(user, shortenEmail: false);
                   }
-                  final resolved =
-                      _resolveSelectedHousehold(selectedHouseholdState, combined);
-                  return resolved?.name ?? _userLabel(user, shortenEmail: false);
+                  final resolved = _resolveSelectedHousehold(
+                      selectedHouseholdState, combined);
+                  return resolved?.name ??
+                      _userLabel(user, shortenEmail: false);
                 },
               );
 
@@ -254,7 +256,7 @@ class HomeHeaderSliver extends ConsumerWidget {
         ref.invalidate(currencySummariesProvider);
         ref.invalidate(currencyTransactionCountsProvider);
         ref.read(currencySummariesProvider);
-        await ref.read(currencyTransactionCountsProvider.future);
+        ref.read(currencyTransactionCountsProvider);
       } else {
         ref.invalidate(currencySummariesProvider);
         ref.invalidate(currencyTransactionCountsProvider);
@@ -302,7 +304,8 @@ class HomeHeaderSliver extends ConsumerWidget {
                     }
                     final resolved = _resolveSelectedHousehold(
                         selectedHouseholdState, households);
-                    return resolved?.name ?? _userLabel(user, shortenEmail: true);
+                    return resolved?.name ??
+                        _userLabel(user, shortenEmail: true);
                   },
                 ),
       maxLength: 18,
@@ -353,9 +356,19 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
 
       final analyticsData = ref.read(analyticsProvider);
-      final exportableExpenses = analyticsData.allExpenses
-          .where((e) => !e.isRecurring)
+      final optimisticByHousehold =
+          ref.read(householdOptimisticExpensesProvider);
+      final allOptimisticExpenses = optimisticByHousehold.values
+          .expand((entries) => entries)
           .toList(growable: false);
+      final mergedExpenses = allOptimisticExpenses.isEmpty
+          ? analyticsData.allExpenses
+          : mergeHouseholdExpenses(
+              analyticsData.allExpenses,
+              allOptimisticExpenses,
+            );
+      final exportableExpenses =
+          mergedExpenses.where((e) => !e.isRecurring).toList(growable: false);
       final households = householdsAsync.valueOrNull ?? const <Household>[];
       final householdNames = {
         for (final household in households) household.id: household.name,

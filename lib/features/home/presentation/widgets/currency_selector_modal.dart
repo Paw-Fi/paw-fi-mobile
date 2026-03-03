@@ -117,8 +117,7 @@ class _CurrencySelectorScreenState
     final colorScheme = Theme.of(context).colorScheme;
     final summaries = ref.watch(currencySummariesProvider);
     final filterState = ref.watch(homeFilterProvider);
-    final currencyCounts =
-        ref.watch(currencyTransactionCountsProvider).valueOrNull;
+    final currencyCounts = ref.watch(currencyTransactionCountsProvider);
 
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();
@@ -141,12 +140,12 @@ class _CurrencySelectorScreenState
 
     // Separate currencies into active (with transactions) and inactive
     var activeCurrencies = allCurrencySummaries.where((s) {
-      final txCount = currencyCounts?[s.currencyCode] ?? s.transactionCount;
+      final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount > 0;
     }).toList();
 
     var inactiveCurrencies = allCurrencySummaries.where((s) {
-      final txCount = currencyCounts?[s.currencyCode] ?? s.transactionCount;
+      final txCount = currencyCounts[s.currencyCode] ?? s.transactionCount;
       return txCount == 0;
     }).toList()
       ..sort((a, b) => a.currencyCode.compareTo(b.currencyCode));
@@ -320,7 +319,7 @@ class _CurrencySelectorScreenState
                       child: _CurrencyCard(
                         summary: summary,
                         transactionCount:
-                            (currencyCounts?[summary.currencyCode] ??
+                            (currencyCounts[summary.currencyCode] ??
                                 summary.transactionCount),
                         isSelected:
                             filterState.selectedCurrency?.toUpperCase() ==
@@ -393,8 +392,9 @@ class _CurrencySelectorScreenState
                               debugPrint(
                                   'Failed to update preferred currency on backend: $error');
 
-                              final currentSelection = filterNotifier
-                                  .state.selectedCurrency
+                              final currentSelection = ref
+                                  .read(homeFilterProvider)
+                                  .selectedCurrency
                                   ?.toUpperCase();
                               final selectedCode =
                                   summary.currencyCode.toUpperCase();
