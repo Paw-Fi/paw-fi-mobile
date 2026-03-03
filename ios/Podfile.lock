@@ -113,7 +113,7 @@ PODS:
     - SDWebImageWebPCoder
   - flutter_local_notifications (0.0.1):
     - Flutter
-  - flutter_native_timezone_updated_gradle (0.0.1):
+  - flutter_timezone (0.0.1):
     - Flutter
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
@@ -224,7 +224,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_image_compress_common (from `.symlinks/plugins/flutter_image_compress_common/ios`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
-  - flutter_native_timezone_updated_gradle (from `.symlinks/plugins/flutter_native_timezone_updated_gradle/ios`)
+  - flutter_timezone (from `.symlinks/plugins/flutter_timezone/ios`)
   - home_widget (from `.symlinks/plugins/home_widget/ios`)
   - image_cropper (from `.symlinks/plugins/image_cropper/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
@@ -294,8 +294,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_image_compress_common/ios"
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
-  flutter_native_timezone_updated_gradle:
-    :path: ".symlinks/plugins/flutter_native_timezone_updated_gradle/ios"
+  flutter_timezone:
+    :path: ".symlinks/plugins/flutter_timezone/ios"
   home_widget:
     :path: ".symlinks/plugins/home_widget/ios"
   image_cropper:
@@ -352,7 +352,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_image_compress_common: ec1d45c362c9d30a3f6a0426c297f47c52007e3e
   flutter_local_notifications: ff50f8405aaa0ccdc7dcfb9022ca192e8ad9688f
-  flutter_native_timezone_updated_gradle: d144a6b4980d61d022c539d090ab39bb390aac90
+  flutter_timezone: ac3da59ac941ff1c98a2e1f0293420e020120282
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   home_widget: fdbbfaa90f06f3022cb57f79678d4d58b9c5e140

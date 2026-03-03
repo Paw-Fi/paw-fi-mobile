@@ -1,6 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 /// Local filter state for home page only (currency)
@@ -48,7 +50,7 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedHouseholdId = scope.selectedHouseholdId;
 
   // Get all expenses from provider
-  final allExpenses = analyticsData.allExpenses;
+  final allExpenses = _resolveScopeAwareExpenses(ref, analyticsData, scope);
 
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
@@ -84,7 +86,7 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final scope = ref.watch(householdScopeProvider);
   final selectedHouseholdId = scope.selectedHouseholdId;
 
-  final all = analyticsData.allExpenses;
+  final all = _resolveScopeAwareExpenses(ref, analyticsData, scope);
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   return all.where((tx) {
@@ -149,6 +151,7 @@ final availableCurrenciesProvider = Provider<List<String>>((ref) {
 final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final data = ref.watch(analyticsProvider);
   final scope = ref.watch(householdScopeProvider);
+  final scopedExpenses = _resolveScopeAwareExpenses(ref, data, scope);
 
   String? _normalizeHouseholdId(String? raw) {
     if (raw == null) return null;
@@ -175,7 +178,7 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final byCurBudgets = <String, double>{};
   final byCurCount = <String, int>{};
 
-  for (final e in data.allExpenses) {
+  for (final e in scopedExpenses) {
     if (!matchesScope(e.householdId)) continue;
     final currencyCode = (e.currency ?? '').toUpperCase();
     if (currencyCode.isEmpty) continue;
@@ -221,3 +224,30 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
       )
       .toList();
 });
+
+List<ExpenseEntry> _resolveScopeAwareExpenses(
+  Ref ref,
+  AnalyticsData analyticsData,
+  HouseholdScope scope,
+) {
+  if (scope.activeAccountType == ActiveAccountType.personal) {
+    return analyticsData.allExpenses;
+  }
+
+  final activeHouseholdId = scope.activeAccountHouseholdId;
+  if (activeHouseholdId == null || activeHouseholdId.isEmpty) {
+    return analyticsData.allExpenses;
+  }
+
+  final optimistic = ref.watch(
+    householdOptimisticExpensesProvider.select(
+      (state) => state[activeHouseholdId] ?? const <ExpenseEntry>[],
+    ),
+  );
+
+  if (optimistic.isEmpty) {
+    return analyticsData.allExpenses;
+  }
+
+  return mergeHouseholdExpenses(analyticsData.allExpenses, optimistic);
+}

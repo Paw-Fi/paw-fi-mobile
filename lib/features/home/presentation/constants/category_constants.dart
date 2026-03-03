@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 
 // Central palette derived from the Moneko brand plus accessible accent colors
 const List<Color> _fallbackPalette = [
@@ -443,8 +445,25 @@ final Map<String, IconData> categoryIcons = {
   'uncategorized': Icons.help_outline,
 };
 
+List<Color> getCustomCategoryColorOptions() {
+  return List<Color>.unmodifiable(_fallbackPalette);
+}
+
+int computeFallbackCategoryColorArgb(String? category) {
+  final key = normalizeCategory(category ?? 'uncategorized');
+  final paletteIndex = key.hashCode.abs() % _fallbackPalette.length;
+  return _fallbackPalette[paletteIndex].toARGB32();
+}
+
 Color getCategoryColor(String? category) {
   final key = normalizeCategory(category ?? 'uncategorized');
+
+  final override = getCustomCategoryStyleOverrides()[key];
+  final overrideColorArgb = override?.colorArgb;
+  if (overrideColorArgb is int) {
+    return Color(overrideColorArgb);
+  }
+
   final mapped = categoryColors[key];
   if (mapped != null) return mapped;
 
@@ -454,7 +473,14 @@ Color getCategoryColor(String? category) {
 
 IconData getCategoryIcon(String? category) {
   final key = normalizeCategory(category ?? 'uncategorized');
-  return categoryIcons[key] ?? Icons.category;
+
+  final override = getCustomCategoryStyleOverrides()[key];
+  final iconKey = override?.iconKey;
+  if (iconKey is String && iconKey.isNotEmpty) {
+    return customCategoryIconForKey(iconKey);
+  }
+
+  return categoryIcons[key] ?? Icons.sell;
 }
 
 /// Translates category names to localized strings

@@ -3,8 +3,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -50,6 +52,30 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final activeHouseholdId =
+        householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : householdScope.activeAccountHouseholdId;
+    final activeScopeOptimisticExpenses = ref.watch(
+      householdOptimisticExpensesProvider.select(
+        (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
+            ? const <ExpenseEntry>[]
+            : state[activeHouseholdId] ?? const <ExpenseEntry>[],
+      ),
+    );
+
+    final scopedAnalyticsData = activeScopeOptimisticExpenses.isEmpty
+        ? analyticsData
+        : analyticsData.copyWith(
+            expenses: mergeHouseholdExpenses(
+              analyticsData.expenses,
+              activeScopeOptimisticExpenses,
+            ),
+            allExpenses: mergeHouseholdExpenses(
+              analyticsData.allExpenses,
+              activeScopeOptimisticExpenses,
+            ),
+          );
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
     final preview = ref.watch(previewModeProvider);
@@ -100,28 +126,28 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                   children: [
                     _buildScenarioPlanningTabWithProvider(
                       colorScheme,
-                      analyticsData,
+                      scopedAnalyticsData,
                       filterState.selectedCurrency,
                       _insightsTourController,
                     ),
                     buildRunningBalanceTab(
                       context,
                       colorScheme,
-                      analyticsData,
+                      scopedAnalyticsData,
                       householdScope: householdScope,
                       selectedCurrency: filterState.selectedCurrency,
                     ),
                     build30DayLookAheadTab(
                       context,
                       colorScheme,
-                      analyticsData,
+                      scopedAnalyticsData,
                       householdScope: householdScope,
                       selectedCurrency: filterState.selectedCurrency,
                     ),
                     buildLongTermProjectionTab(
                       context,
                       colorScheme,
-                      analyticsData,
+                      scopedAnalyticsData,
                       householdScope: householdScope,
                       selectedCurrency: filterState.selectedCurrency,
                     ),
@@ -145,16 +171,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     String? selectedCurrency,
     SpotlightTourController spotlightController,
   ) {
-    return ProviderScope(
-      overrides: const [
-        // Override any providers if needed
-      ],
-      child: buildScenarioPlanningTab(
-        context,
-        analyticsData,
-        selectedCurrency: selectedCurrency,
-        spotlightController: spotlightController,
-      ),
+    return buildScenarioPlanningTab(
+      context,
+      analyticsData,
+      selectedCurrency: selectedCurrency,
+      spotlightController: spotlightController,
     );
   }
 }

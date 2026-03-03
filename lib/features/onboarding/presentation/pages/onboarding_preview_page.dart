@@ -50,78 +50,95 @@ class OnboardingPreviewPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Expanded(
-              flex: 5,
-              child: _PreviewOrbitHero(),
-            ),
+            // Scrollable Content Area
             Expanded(
-              flex: 6,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(
-                      'Experience Moneko',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.5,
-                        color: colorScheme.foreground,
+                    SizedBox(
+                      // Takes 45% of screen height, but never less than 280px
+                      height: math.max(MediaQuery.sizeOf(context).height * 0.45, 280),
+                      child: const _PreviewOrbitHero(),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'Experience Moneko',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Jump into a live preview with curated mock data. Test features without touching real accounts.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: colorScheme.mutedForeground,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+                          const _FeatureItem(
+                            icon: Icons.auto_awesome_rounded,
+                            text: 'Test AI logging in a safe sandbox',
+                          ),
+                          const SizedBox(height: 16),
+                          const _FeatureItem(
+                            icon: Icons.dashboard_customize_rounded,
+                            text: 'Explore Pockets, Insights & Recurring',
+                          ),
+                          const SizedBox(height: 16),
+                          const _FeatureItem(
+                            icon: Icons.cloud_done_rounded,
+                            text: 'Create an account later to save progress',
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Jump into a live preview with curated mock data. Test features without touching real accounts.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: colorScheme.mutedForeground,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const _FeatureItem(
-                      icon: Icons.auto_awesome_rounded,
-                      text: 'Test AI logging in a safe sandbox',
-                    ),
-                    const SizedBox(height: 16),
-                    const _FeatureItem(
-                      icon: Icons.dashboard_customize_rounded,
-                      text: 'Explore Pockets, Insights & Recurring',
-                    ),
-                    const SizedBox(height: 16),
-                    const _FeatureItem(
-                      icon: Icons.cloud_done_rounded,
-                      text: 'Create an account later to save progress',
-                    ),
-                    const Spacer(),
-                    PrimaryAdaptiveButton(
-                      onPressed: startPreview,
-                      child: const Text(
-                        'Take the tour',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    PlainAdaptiveButton(
-                      onPressed: goToRegister,
-                      child: Text(
-                        'Create an account instead',
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                   ],
                 ),
+              ),
+            ),
+            
+            // Fixed Bottom Actions
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PrimaryAdaptiveButton(
+                    onPressed: startPreview,
+                    child: const Text(
+                      'Take the tour',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PlainAdaptiveButton(
+                    onPressed: goToRegister,
+                    child: Text(
+                      'Create an account instead',
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
           ],

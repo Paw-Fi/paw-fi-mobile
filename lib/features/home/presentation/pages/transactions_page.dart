@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/utils/transaction_exporter.dar
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
@@ -90,13 +91,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final householdScope = ref.watch(householdScopeProvider);
+    final recurringHouseholdId = widget.householdId ??
+        (householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : householdScope.activeAccountHouseholdId);
     // Exclude recurring templates from the transactions list.
     // Also copy to avoid mutating the base list when sorting.
     var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
 
     // Merge projected recurring entries
     final recurringState = ref.watch(
-      recurringTransactionsProvider(widget.householdId),
+      recurringTransactionsProvider(recurringHouseholdId),
     );
     recurringState.data.whenData((recurringTxs) {
       if (recurringTxs.isNotEmpty) {
@@ -217,9 +222,27 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final analyticsData = ref.watch(analyticsProvider);
+    final householdScope = ref.watch(householdScopeProvider);
+
+    final activeHouseholdId =
+        householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : householdScope.activeAccountHouseholdId;
+    final activeScopeOptimisticExpenses = ref.watch(
+      householdOptimisticExpensesProvider.select(
+        (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
+            ? const <ExpenseEntry>[]
+            : state[activeHouseholdId] ?? const <ExpenseEntry>[],
+      ),
+    );
 
     // Resolve base expenses source (household-specific or global analytics)
     if (widget.householdId != null) {
+      final optimisticHouseholdExpenses = ref.watch(
+        householdOptimisticExpensesProvider.select(
+          (state) => state[widget.householdId!] ?? const <ExpenseEntry>[],
+        ),
+      );
       final expensesAsync = ref.watch(householdExpensesProvider(
         HouseholdExpensesParams(householdId: widget.householdId!),
       ));
@@ -247,12 +270,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
         ),
         data: (list) {
-          _baseExpenses = list;
+          _baseExpenses = optimisticHouseholdExpenses.isEmpty
+              ? list
+              : mergeHouseholdExpenses(list, optimisticHouseholdExpenses);
           return _buildMainScaffold(colorScheme, null);
         },
       );
     } else {
-      _baseExpenses = analyticsData.allExpenses;
+      _baseExpenses = activeScopeOptimisticExpenses.isEmpty
+          ? analyticsData.allExpenses
+          : mergeHouseholdExpenses(
+              analyticsData.allExpenses,
+              activeScopeOptimisticExpenses,
+            );
     }
 
     return _buildMainScaffold(colorScheme, analyticsData.contact);

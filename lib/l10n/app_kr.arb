@@ -1938,5 +1938,9 @@
   "tellUsWhatWentWrongDescription": "무엇이 잘못되었는지 알려주시면 빠르게 수정할 수 있습니다. 가능하다면 스크린샷을 첨부해주세요.",
   "shareIdeasFeatureRequestsDescription": "Moneko를 개선하는 데 도움이 되는 아이디어, 기능 요청, 또는 일반적인 생각을 공유해주세요.",
   "whatHappenedIncludeStepsPlaceholder": "무슨 일이 있었나요? 재현 단계를 포함할 수 있다면 포함해주세요.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "생각, 기능 아이디어, 또는 일반적인 피드백을 공유해주세요."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "생각, 기능 아이디어, 또는 일반적인 피드백을 공유해주세요.",
+  "categories": "카테고리",
+  "noResultsFound": "검색 결과가 없어요",
+  "edit": "편집",
+  "missingCategoryHint": "원하는 카테고리가 없나요? 다음에서 사용자 지정으로 추가하세요: "
 }

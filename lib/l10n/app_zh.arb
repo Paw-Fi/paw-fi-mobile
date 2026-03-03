@@ -2121,5 +2121,9 @@
   "tellUsWhatWentWrongDescription": "告诉我们出了什么问题，以便我们快速修复。如果可能，请添加截图。",
   "shareIdeasFeatureRequestsDescription": "分享想法、功能请求或一般想法，帮助我们改进Moneko。",
   "whatHappenedIncludeStepsPlaceholder": "发生了什么？如果可能，请包含重现步骤。",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "分享您的想法、功能想法或一般反馈。"
+  "shareYourThoughtsFeatureIdeasPlaceholder": "分享您的想法、功能想法或一般反馈。",
+  "categories": "分类",
+  "noResultsFound": "未找到结果",
+  "edit": "编辑",
+  "missingCategoryHint": "找不到合适的分类？可在此处添加自定义分类："
 }

@@ -16,6 +16,7 @@ import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -187,7 +188,11 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       return null;
     }, [isEditing ? existingEnvelope!.id : null]);
 
-    final allCategories = getExpenseCategories();
+    final lists = ref.watch(userCategoryListsProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
+    final allCategories = lists?.expenseCategories ?? getExpenseCategories();
 
     String formatLocalizedAmount(num value) {
       final normalized = double.parse(value.toStringAsFixed(0));

@@ -2071,5 +2071,9 @@
   "tellUsWhatWentWrongDescription": "ہمیں بتائیں کیا غلط ہوا تاکہ ہم اسے جلز ٹھیر کریں۔ اگر ممکن ہو تو اسکرین شاٹس شامل کریں۔",
   "shareIdeasFeatureRequestsDescription": "ہمیں Moneko بہتر بنانے میں مدد کرنے کے لیے خیالات، فیچر ریکویسٹس، یا عام خیالات شیئر کریں۔",
   "whatHappenedIncludeStepsPlaceholder": "کیا ہوا؟ اگر ہو سکے تو دہرانے کے مراحل شامل کریں۔",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "اپنے خیالات، فیچر آئیڈیاز، یا عام فیڈبیک شیئر کریں۔"
+  "shareYourThoughtsFeatureIdeasPlaceholder": "اپنے خیالات، فیچر آئیڈیاز، یا عام فیڈبیک شیئر کریں۔",
+  "categories": "زمرے",
+  "noResultsFound": "کوئی نتیجہ نہیں ملا",
+  "edit": "ترمیم کریں",
+  "missingCategoryHint": "کوئی زمرہ نہیں مل رہا؟ ایک حسبِ ضرورت زمرہ یہاں شامل کریں: "
 }

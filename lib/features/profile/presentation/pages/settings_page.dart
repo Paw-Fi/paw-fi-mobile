@@ -30,6 +30,7 @@ import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider
 import 'package:moneko/features/profile/presentation/widgets/whatsapp_tutorial_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/widgets/telegram_tutorial_modal.dart';
+import 'package:moneko/features/profile/presentation/widgets/category_customization_sheet.dart';
 // import 'package:moneko/features/subscription/data/models/subscription_details.dart'; // Removed unused import
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
@@ -142,10 +143,9 @@ Future<bool> _showWhatsAppRestrictedRegionDialog({
   final result = await MonekoAlertDialog.show(
     context: context,
     title: context.l10n.whatsAppAccessLimitedTitle,
-    description:
-        context.l10n.whatsAppAccessLimitedDescription(
-          countryName ?? context.l10n.yourCountry,
-        ),
+    description: context.l10n.whatsAppAccessLimitedDescription(
+      countryName ?? context.l10n.yourCountry,
+    ),
     confirmLabel: context.l10n.acknowledge,
     cancelLabel: context.l10n.continueAnyway,
   );
@@ -427,7 +427,7 @@ class SettingsPage extends HookConsumerWidget {
       orElse: () => timezoneOptions.first,
     );
 
-    Future<bool> guardRestrictedRegion() async {  
+    Future<bool> guardRestrictedRegion() async {
       if (!isDeviceInRestrictedRegion) return true;
       if (hasAcknowledgedRestrictedRegion.value) return true;
       final acknowledged = await _showWhatsAppRestrictedRegionDialog(
@@ -703,27 +703,29 @@ class SettingsPage extends HookConsumerWidget {
                   isScrollControlled: true,
                   builder: (context) {
                     final scheme = Theme.of(context).colorScheme;
-                    return SafeArea(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 16,
-                          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            material.Text(
-                              'Debug Menu',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: scheme.foreground,
+                    return Material(
+                      child: SafeArea(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 16,
+                            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              material.Text(
+                                'Debug Menu',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.foreground,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -944,6 +946,21 @@ class SettingsPage extends HookConsumerWidget {
                         ),
                       ),
                     ),
+                    _SettingsTile(
+                      icon: Icons.category_rounded,
+                      label: 'Categories',
+                      value: 'Customize',
+                      onTap: () async {
+                        await MonekoBottomSheet.show(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: colorScheme.sheetBackground,
+                          builder: (sheetContext) {
+                            return const CategoryCustomizationSheet();
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
 
@@ -1099,7 +1116,7 @@ class SettingsPage extends HookConsumerWidget {
                         data: (d) => d?.hasActiveSubscription == true
                             ? context.l10n.premium
                             : context.l10n.free,
-        loading: () => '...',
+                        loading: () => '...',
                         error: (_, __) => 'Error',
                       ),
                       onTap: () async {
@@ -1461,7 +1478,8 @@ class _SupportSheet extends HookConsumerWidget {
         maxWidth: 2048,
       );
       if (picked.isEmpty) return;
-      final files = picked.take(remainingSlots).map((xfile) => File(xfile.path));
+      final files =
+          picked.take(remainingSlots).map((xfile) => File(xfile.path));
       attachments.value = [
         ...currentAttachments(),
         ...files,
@@ -1499,7 +1517,8 @@ class _SupportSheet extends HookConsumerWidget {
       final message = textController.text.trim();
       if (message.isEmpty) {
         HapticFeedback.mediumImpact();
-        AppToast.info(context, context.l10n.pleaseDescribeTheIssueBeforeSubmitting);
+        AppToast.info(
+            context, context.l10n.pleaseDescribeTheIssueBeforeSubmitting);
         return;
       }
       if (message.length < 10) {
@@ -1513,9 +1532,8 @@ class _SupportSheet extends HookConsumerWidget {
       if (isSubmitting.value) return;
       isSubmitting.value = true;
       try {
-        final diagnostics = includeDiagnostics.value
-            ? await _collectDeviceDiagnostics()
-            : null;
+        final diagnostics =
+            includeDiagnostics.value ? await _collectDeviceDiagnostics() : null;
         final preparedAttachments =
             await _createSupportAttachments(attachments.value, context);
         final packageInfo = await PackageInfo.fromPlatform();
@@ -1600,8 +1618,9 @@ class _SupportSheet extends HookConsumerWidget {
                         splashRadius: 20,
                         icon: const Icon(Icons.close_rounded),
                         color: colorScheme.foreground,
-                        onPressed:
-                            isSubmitting.value ? null : () => Navigator.of(context).maybePop(),
+                        onPressed: isSubmitting.value
+                            ? null
+                            : () => Navigator.of(context).maybePop(),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -1626,17 +1645,20 @@ class _SupportSheet extends HookConsumerWidget {
                         ),
                       ),
                       CupertinoButton(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
                         minSize: 0,
                         borderRadius: BorderRadius.circular(999),
                         color: colorScheme.primary,
-                        disabledColor: colorScheme.primary.withValues(alpha: 0.4),
+                        disabledColor:
+                            colorScheme.primary.withValues(alpha: 0.4),
                         onPressed: isSubmitDisabled ? null : handleSubmit,
                         child: isSubmitting.value
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : Text(
                                 context.l10n.submit,
@@ -1675,7 +1697,8 @@ class _SupportSheet extends HookConsumerWidget {
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                        contentPadding:
+                            const EdgeInsets.fromLTRB(20, 18, 20, 24),
                       ),
                     ),
                   ),
@@ -1687,15 +1710,17 @@ class _SupportSheet extends HookConsumerWidget {
                         ? context.l10n.attachScreenshots
                         : context.l10n.addAnotherAttachment,
                     subtitle: attachments.value.isEmpty
-                        ? context.l10n.addUpToImagesUnder5MBEach(_maxTicketAttachments.toString())
+                        ? context.l10n.addUpToImagesUnder5MBEach(
+                            _maxTicketAttachments.toString())
                         : context.l10n.ofAttached(
-                          attachments.value.length.toString(),
-                          _maxTicketAttachments.toString(),
-                        ),
+                            attachments.value.length.toString(),
+                            _maxTicketAttachments.toString(),
+                          ),
                     trailing: attachments.value.isEmpty
                         ? null
                         : IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                            icon: const Icon(Icons.delete_outline_rounded,
+                                size: 20),
                             color: colorScheme.mutedForeground,
                             onPressed: () => attachments.value = const [],
                           ),
@@ -1724,7 +1749,8 @@ class _SupportSheet extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 16),
                       child: Row(
                         children: [
                           Expanded(
@@ -1749,7 +1775,8 @@ class _SupportSheet extends HookConsumerWidget {
                           ),
                           Switch.adaptive(
                             value: includeDiagnostics.value,
-                            onChanged: (value) => includeDiagnostics.value = value,
+                            onChanged: (value) =>
+                                includeDiagnostics.value = value,
                           ),
                         ],
                       ),
@@ -1845,15 +1872,19 @@ extension _SupportSheetModeX on _SupportSheetMode {
 
   String getDescription(BuildContext context) {
     return switch (this) {
-      _SupportSheetMode.reportBug => context.l10n.tellUsWhatWentWrongDescription,
-      _SupportSheetMode.feedback => context.l10n.shareIdeasFeatureRequestsDescription,
+      _SupportSheetMode.reportBug =>
+        context.l10n.tellUsWhatWentWrongDescription,
+      _SupportSheetMode.feedback =>
+        context.l10n.shareIdeasFeatureRequestsDescription,
     };
   }
 
   String getPlaceholder(BuildContext context) {
     return switch (this) {
-      _SupportSheetMode.reportBug => context.l10n.whatHappenedIncludeStepsPlaceholder,
-      _SupportSheetMode.feedback => context.l10n.shareYourThoughtsFeatureIdeasPlaceholder,
+      _SupportSheetMode.reportBug =>
+        context.l10n.whatHappenedIncludeStepsPlaceholder,
+      _SupportSheetMode.feedback =>
+        context.l10n.shareYourThoughtsFeatureIdeasPlaceholder,
     };
   }
 
@@ -1986,9 +2017,8 @@ int _compressQualityForExtension(String path) {
 }
 
 String _inferMimeType(String fileName) {
-  final extension = fileName.contains('.')
-      ? fileName.split('.').last.toLowerCase()
-      : '';
+  final extension =
+      fileName.contains('.') ? fileName.split('.').last.toLowerCase() : '';
   switch (extension) {
     case 'png':
       return 'image/png';

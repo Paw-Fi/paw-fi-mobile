@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 
@@ -17,11 +18,24 @@ Future<String?> showCategoryPicker({
   required BuildContext context,
   required String currentCategory,
   required bool isIncome,
+  List<String>? allCategories,
+  Future<String?> Function(String name)? onCreateCategory,
 }) async {
   final colorScheme = Theme.of(context).colorScheme;
   final normalizedCurrent = currentCategory.trim().toLowerCase();
-  final baseCategories =
-      isIncome ? getIncomeCategories() : getExpenseCategories();
+  final baseCategoriesRaw = allCategories ??
+      (isIncome ? getIncomeCategories() : getExpenseCategories());
+  final baseCategories = <String>[];
+  final seen = <String>{};
+  for (final category in baseCategoriesRaw) {
+    final normalized = normalizeCategory(category);
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    baseCategories.add(normalized);
+  }
+  final builtinCategories =
+      isIncome ? getIncomeCategories().toSet() : getExpenseCategories().toSet();
 
   // If there is no current category, don't preselect anything.
   final categories = normalizedCurrent.isEmpty
@@ -29,6 +43,14 @@ Future<String?> showCategoryPicker({
       : (baseCategories.contains(normalizedCurrent)
           ? baseCategories
           : [...baseCategories, normalizedCurrent]);
+  final customCategories = categories
+      .where(
+        (category) =>
+            !builtinCategories.contains(category) &&
+            category != 'other' &&
+            category != 'uncategorized',
+      )
+      .toList();
 
   final initialSelected =
       normalizedCurrent.isEmpty ? <String>[] : <String>[normalizedCurrent];
@@ -39,7 +61,10 @@ Future<String?> showCategoryPicker({
     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       return CategoryPickerBottomSheet(
+        title: context.l10n.selectCategory,
         allCategories: categories,
+        customCategories: customCategories,
+        onCreateCategory: onCreateCategory,
         selectedCategories: initialSelected,
         isSingleSelect: true,
         onChanged: (value) {

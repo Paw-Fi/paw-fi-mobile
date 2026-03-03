@@ -2125,5 +2125,9 @@
   "tellUsWhatWentWrongDescription": "Erzählen Sie uns, was schief gelaufen ist, damit wir es schnell beheben können. Fügen Sie nach Möglichkeit Screenshots hinzu.",
   "shareIdeasFeatureRequestsDescription": "Teilen Sie Ideen, Funktionsanfragen oder allgemeine Gedanken, um uns bei der Verbesserung von Moneko zu helfen.",
   "whatHappenedIncludeStepsPlaceholder": "Was ist passiert? Fügen Sie nach Möglichkeit Schritte zur Reproduktion bei.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "Teilen Sie Ihre Gedanken, Feature-Ideen oder allgemeines Feedback."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "Teilen Sie Ihre Gedanken, Feature-Ideen oder allgemeines Feedback.",
+  "categories": "Kategorien",
+  "noResultsFound": "Keine Ergebnisse gefunden",
+  "edit": "Bearbeiten",
+  "missingCategoryHint": "Fehlt eine Kategorie? Füge eine eigene hinzu unter "
 }

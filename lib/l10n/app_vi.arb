@@ -2124,5 +2124,9 @@
   "tellUsWhatWentWrongDescription": "Hãy cho chúng tôi biết điều gì đã sai để chúng tôi có thể khắc phục nhanh chóng. Thêm ảnh chụp màn hình nếu có thể.",
   "shareIdeasFeatureRequestsDescription": "Chia sẻ ý tưởng, yêu cầu tính năng hoặc suy nghĩ chung để giúp chúng tôi cải thiện Moneko.",
   "whatHappenedIncludeStepsPlaceholder": "Đã xảy ra chuyện gì? Bao gồm các bước để tái tạo nếu bạn có thể.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "Chia sẻ suy nghĩ, ý tưởng tính năng hoặc phản hồi chung của bạn."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "Chia sẻ suy nghĩ, ý tưởng tính năng hoặc phản hồi chung của bạn.",
+  "categories": "Danh mục",
+  "noResultsFound": "Không tìm thấy kết quả",
+  "edit": "Chỉnh sửa",
+  "missingCategoryHint": "Thiếu danh mục? Thêm danh mục tùy chỉnh tại "
 }

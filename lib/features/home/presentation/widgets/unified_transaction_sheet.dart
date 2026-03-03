@@ -2,6 +2,7 @@
 // Handles BOTH existing expenses (ExpenseEntry) and new expenses (ParsedExpense)
 // Always shows household sharing option
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -18,10 +19,10 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_notifie
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
-import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -41,6 +42,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
@@ -231,8 +233,8 @@ class _UnifiedTransactionSheetState
       final scope = ref.read(householdScopeProvider);
       final existingHouseholdId = widget.existingExpense!.householdId;
       final isPortfolio = scope.isPortfolioId(existingHouseholdId);
-      final hasHousehold = existingHouseholdId != null &&
-          existingHouseholdId.isNotEmpty;
+      final hasHousehold =
+          existingHouseholdId != null && existingHouseholdId.isNotEmpty;
       final isSharedSpace = hasHousehold && !isPortfolio;
 
       final defaultAccountType = () {
@@ -322,7 +324,8 @@ class _UnifiedTransactionSheetState
         if (selected != null &&
             _selectedAccountHouseholdId == null &&
             _selectedAccountType == ActiveAccountType.household) {
-          ref.read(selectedHouseholdForSharingProvider.notifier).state = selected;
+          ref.read(selectedHouseholdForSharingProvider.notifier).state =
+              selected;
           if (_isSharedWithHousehold) {
             debugPrint('🆕 [ADD EXPENSE] Sharing enabled; loading members');
             _loadMembers(selected);
@@ -485,10 +488,12 @@ class _UnifiedTransactionSheetState
       case ActiveAccountType.personal:
         return context.l10n.personalScope;
       case ActiveAccountType.portfolio:
-        final household = _findHousehold(households, _selectedAccountHouseholdId);
+        final household =
+            _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.privateSpace;
       case ActiveAccountType.household:
-        final household = _findHousehold(households, _selectedAccountHouseholdId);
+        final household =
+            _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.tapToSet;
     }
   }
@@ -527,10 +532,12 @@ class _UnifiedTransactionSheetState
             !householdScope.isPortfolioId(fallbackPortfolioId)) {
           return const _AccountTarget(householdId: null, isPortfolio: false);
         }
-        return _AccountTarget(householdId: fallbackPortfolioId, isPortfolio: true);
+        return _AccountTarget(
+            householdId: fallbackPortfolioId, isPortfolio: true);
       case ActiveAccountType.household:
-        final fallbackHouseholdId =
-            _selectedAccountHouseholdId ?? selectedSharingId ?? existingHouseholdId;
+        final fallbackHouseholdId = _selectedAccountHouseholdId ??
+            selectedSharingId ??
+            existingHouseholdId;
         if (fallbackHouseholdId == null ||
             householdScope.isPortfolioId(fallbackHouseholdId)) {
           return const _AccountTarget(householdId: null, isPortfolio: false);
@@ -544,7 +551,8 @@ class _UnifiedTransactionSheetState
 
   void _applyAccountSelection(_AccountOption option) {
     final isHouseholdSelection = option.type == ActiveAccountType.household;
-    if (isHouseholdSelection && (option.householdId == null || option.householdId!.isEmpty)) {
+    if (isHouseholdSelection &&
+        (option.householdId == null || option.householdId!.isEmpty)) {
       return;
     }
     setState(() {
@@ -702,6 +710,11 @@ class _UnifiedTransactionSheetState
     // For new expenses, use pending expense provider
     final pendingExpense =
         isNewExpense ? ref.watch(pendingExpenseProvider) : null;
+
+    final userCategoryLists = ref.watch(userCategoryListsProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
 
     // Use pending expense if available (for new expenses only), otherwise use local/initial
     final displayAmount =
@@ -890,7 +903,8 @@ class _UnifiedTransactionSheetState
                             MonekoDisclosureRow(
                               label: context.l10n.category,
                               value: _getLocalizedCategory(displayCategory),
-                              onTap: () => _handleEditCategory(displayCategory),
+                              onTap: () => _handleEditCategory(
+                                  displayCategory, userCategoryLists),
                               isFirst: true,
                             ),
                             _buildDivider(colorScheme),
@@ -1194,9 +1208,8 @@ class _UnifiedTransactionSheetState
     SelectedHouseholdState selectedHouseholdState,
     bool isIncomeMode,
   ) {
-    final householdList = households
-        .where((h) => !h.isPortfolio)
-        .toList(growable: false);
+    final householdList =
+        households.where((h) => !h.isPortfolio).toList(growable: false);
 
     if (householdList.isEmpty) {
       if (_selectedAccountType == ActiveAccountType.household) {
@@ -1269,11 +1282,11 @@ class _UnifiedTransactionSheetState
                   onChanged: (value) {
                     debugPrint(
                         '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
-                              if (!value) {
-                      final fallbackType =
-                          _lastNonHouseholdAccountType == ActiveAccountType.household
-                              ? ActiveAccountType.personal
-                              : _lastNonHouseholdAccountType;
+                    if (!value) {
+                      final fallbackType = _lastNonHouseholdAccountType ==
+                              ActiveAccountType.household
+                          ? ActiveAccountType.personal
+                          : _lastNonHouseholdAccountType;
                       final fallbackId =
                           fallbackType == ActiveAccountType.personal
                               ? null
@@ -1491,10 +1504,10 @@ class _UnifiedTransactionSheetState
                     selectedHousehold ?? widget.existingExpense?.householdId;
                 final isPortfolioSelection =
                     _isPortfolioHousehold(households, activeHouseholdId);
-                final isSharedSpace = _selectedAccountType ==
-                        ActiveAccountType.household &&
-                    activeHouseholdId != null &&
-                    !isPortfolioSelection;
+                final isSharedSpace =
+                    _selectedAccountType == ActiveAccountType.household &&
+                        activeHouseholdId != null &&
+                        !isPortfolioSelection;
 
                 if (!isSharedSpace) {
                   return const SizedBox();
@@ -1633,52 +1646,41 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  void _handleEditCategory(String currentCategory) async {
+  void _handleEditCategory(
+      String currentCategory, UserCategoryLists? lists) async {
     final isIncomeMode = isNewExpense
         ? (ref.read(pendingExpenseProvider)?.isIncome ??
             widget.newExpense!.isIncome)
         : ((widget.existingExpense?.type?.toLowerCase() == 'income'));
 
-    final baseCategories =
-        isIncomeMode ? getIncomeCategories() : getExpenseCategories();
-    final normalizedCurrent = currentCategory.toLowerCase();
-    final categories = () {
-      if (!baseCategories.contains(normalizedCurrent)) {
-        return [...baseCategories, normalizedCurrent];
-      }
-      return baseCategories;
-    }();
-
-    await showModalBottomSheet<void>(
+    final baseCategories = isIncomeMode
+        ? (lists?.incomeCategories ?? getIncomeCategories())
+        : (lists?.expenseCategories ?? getExpenseCategories());
+    final next = await showCategoryPicker(
       context: context,
-      isScrollControlled: true,
-      backgroundColor:
-          Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
-      builder: (sheetContext) {
-        return CategoryPickerBottomSheet(
-          allCategories: categories,
-          selectedCategories: <String>[normalizedCurrent],
-          isSingleSelect: true,
-          onChanged: (value) {
-            final next = value.isNotEmpty ? value.first : null;
-            if (next == null) return;
-
-            if (isNewExpense) {
-              final current = ref.read(pendingExpenseProvider);
-              if (current != null) {
-                ref.read(pendingExpenseProvider.notifier).state =
-                    current.copyWith(category: next);
-              }
-            } else {
-              setState(() {
-                _editedCategory = next;
-              });
-            }
-            Navigator.of(sheetContext).pop();
-          },
-        );
-      },
+      currentCategory: currentCategory,
+      isIncome: isIncomeMode,
+      allCategories: baseCategories,
+      onCreateCategory: (name) => createUserCustomCategory(
+        ref: ref,
+        name: name,
+        isIncome: isIncomeMode,
+      ),
     );
+
+    if (next == null) return;
+    if (isNewExpense) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state =
+            current.copyWith(category: next);
+      }
+      return;
+    }
+
+    setState(() {
+      _editedCategory = next;
+    });
   }
 
   void _handleEditDate(DateTime currentDate) async {
@@ -2727,8 +2729,7 @@ class _UnifiedTransactionSheetState
         final accountTarget = _resolveAccountTarget();
         final targetHouseholdId = accountTarget.householdId;
         final targetIsPortfolio = accountTarget.isPortfolio;
-        final isSharedSpace =
-            targetHouseholdId != null && !targetIsPortfolio;
+        final isSharedSpace = targetHouseholdId != null && !targetIsPortfolio;
         final originalHouseholdId = widget.existingExpense!.householdId;
         final originalIsPortfolio = originalHouseholdId != null &&
             householdScope.isPortfolioId(originalHouseholdId);
@@ -2799,8 +2800,8 @@ class _UnifiedTransactionSheetState
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
-        final hasExistingSplitGroup = isSharedSpace &&
-            existingSplitGroupId != null;
+        final hasExistingSplitGroup =
+            isSharedSpace && existingSplitGroupId != null;
 
         final householdChanged = originalHouseholdId != targetHouseholdId;
         final portfolioChanged = targetHouseholdId != null &&
@@ -2969,6 +2970,18 @@ class _UnifiedTransactionSheetState
           return;
         }
 
+        final originalCategoryForRemap =
+            normalizeCategory(widget.existingExpense!.category ?? 'other');
+        final String? nextCategoryForRemap = updates.containsKey('category')
+            ? normalizeCategory(updates['category']?.toString() ?? '')
+            : null;
+        final shouldPromptCategoryRemap = updates.containsKey('category') &&
+            nextCategoryForRemap != null &&
+            nextCategoryForRemap.trim().isNotEmpty &&
+            nextCategoryForRemap != originalCategoryForRemap &&
+            originalCategoryForRemap != 'other' &&
+            originalCategoryForRemap != 'uncategorized';
+
         debugPrint(
             ' Updating expense with changed fields=${updates.keys.toList()} hasExtraBody=${extraBody != null}');
 
@@ -3014,7 +3027,26 @@ class _UnifiedTransactionSheetState
 
           // Close the sheet so when user reopens it, they see fresh data
           closeDialog();
+
+          final remapToCategory = nextCategoryForRemap;
+          if (shouldPromptCategoryRemap && remapToCategory != null) {
+            await _handleCategoryRemapPrompt(
+              toastContext: toastContext,
+              userId: user.uid,
+              transactionType:
+                  (widget.existingExpense?.type?.toLowerCase() == 'income')
+                      ? 'income'
+                      : 'expense',
+              fromCategory: originalCategoryForRemap,
+              toCategory: remapToCategory,
+            );
+            if (!mounted) return;
+            Navigator.of(context).pop();
+            return;
+          }
+
           Navigator.of(context).pop();
+
           AppToast.success(
             toastContext,
             context.l10n.expenseUpdatedSuccessfully,
@@ -3060,6 +3092,65 @@ class _UnifiedTransactionSheetState
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  Future<void> _handleCategoryRemapPrompt({
+    required BuildContext toastContext,
+    required String userId,
+    required String transactionType,
+    required String fromCategory,
+    required String toCategory,
+  }) async {
+    final fromLabel = getCategoryTranslation(toastContext, fromCategory);
+    final toLabel = getCategoryTranslation(toastContext, toCategory);
+
+    final result = await MonekoAlertDialog.show(
+      context: toastContext,
+      title: 'Update category preference?',
+      description:
+          'In the future, should this type of transaction be automatically saved to "$toLabel" instead of "$fromLabel"?',
+      confirmLabel: 'Yes',
+      cancelLabel: 'No',
+      barrierDismissible: true,
+    );
+
+    if (!toastContext.mounted) return;
+
+    if (result?.confirmed == true) {
+      final saved = await saveUserCategoryRemapPreferenceForUser(
+        userId: userId,
+        fromCategory: fromCategory,
+        toCategory: toCategory,
+        transactionType: transactionType,
+      );
+
+      if (saved) {
+        AppToast.success(
+          toastContext,
+          'Preference updated successfully',
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
+      AppToast.error(
+        toastContext,
+        'Could not update preference',
+        duration: const Duration(seconds: 4),
+      );
+      AppToast.success(
+        toastContext,
+        toastContext.l10n.expenseUpdatedSuccessfully,
+        duration: const Duration(seconds: 4),
+      );
+      return;
+    }
+
+    AppToast.success(
+      toastContext,
+      toastContext.l10n.expenseUpdatedSuccessfully,
+      duration: const Duration(seconds: 4),
+    );
   }
 
   Future<void> _handleDelete() async {

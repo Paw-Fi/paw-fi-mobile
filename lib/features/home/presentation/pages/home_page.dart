@@ -18,6 +18,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -852,12 +853,30 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
+    final portfolioOptimisticExpenses = householdScope.activeAccountType ==
+            ActiveAccountType.portfolio
+        ? ref.watch(
+            householdOptimisticExpensesProvider.select(
+              (state) =>
+                  state[householdScope.activeAccountHouseholdId] ?? const [],
+            ),
+          )
+        : const <ExpenseEntry>[];
+
+    final accountScopedExpenses =
+        householdScope.activeAccountType == ActiveAccountType.portfolio
+            ? mergeHouseholdExpenses(
+                analyticsData.allExpenses,
+                portfolioOptimisticExpenses,
+              )
+            : analyticsData.allExpenses;
+
     // Base transactions filtered by currency and ACTIVE account selection.
     // Active account is chosen via HomeHeaderSliver:
     // - Personal account: household_id == null
     // - Portfolio account: household_id == selected portfolio household id
     // Household-group mode uses a separate UI path (HouseholdHomeContent).
-    final personalExpensesAll = analyticsData.allExpenses.where((e) {
+    final personalExpensesAll = accountScopedExpenses.where((e) {
       if (e.isRecurring) return false;
       final hid = e.householdId;
       final activeOk = switch (householdScope.activeAccountType) {

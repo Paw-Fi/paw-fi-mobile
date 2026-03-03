@@ -2117,5 +2117,9 @@
   "tellUsWhatWentWrongDescription": "Розкажіть, що пішло не так, щоб ми могли швидко це виправити. Додайте скріншоти, якщо можливо.",
   "shareIdeasFeatureRequestsDescription": "Діліться ідеями, запитами на функції або загальними думками, щоб допомогти нам покращити Moneko.",
   "whatHappenedIncludeStepsPlaceholder": "Що сталося? Включіть кроки для відтворення, якщо можете.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "Поділіться своїми думками, ідеями функцій або загальними відгуками."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "Поділіться своїми думками, ідеями функцій або загальними відгуками.",
+  "categories": "Категорії",
+  "noResultsFound": "Результатів не знайдено",
+  "edit": "Редагувати",
+  "missingCategoryHint": "Немає потрібної категорії? Додайте власну в розділі "
 }

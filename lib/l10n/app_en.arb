@@ -2144,5 +2144,9 @@
   "tellUsWhatWentWrongDescription": "Tell us what went wrong so we can fix it quickly. Add screenshots if possible.",
   "shareIdeasFeatureRequestsDescription": "Share ideas, feature requests, or general thoughts to help us improve Moneko.",
   "whatHappenedIncludeStepsPlaceholder": "What happened? Include steps to reproduce if you can.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "Share your thoughts, feature ideas, or general feedback."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "Share your thoughts, feature ideas, or general feedback.",
+  "missingCategoryHint": "Missing a category? Add a custom one in ",
+  "categories": "Categories",
+  "noResultsFound": "No results found",
+  "edit": "Edit"
 }

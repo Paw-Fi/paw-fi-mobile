@@ -1,6 +1,6 @@
 import 'dart:developer' as developer;
 
-import 'package:flutter_native_timezone_updated_gradle/flutter_native_timezone.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 int? tryParseTimezoneOffsetMinutes(String timezone) {
   if (timezone == 'UTC' || timezone == 'GMT') return 0;
@@ -40,8 +40,7 @@ DateTime? parseCalendarDateFromFlexibleInput(String? value) {
   // in UTC at midnight). For calendar semantics we must not apply timezone
   // conversion (which can shift the day). Instead, prefer extracting the
   // YYYY-MM-DD prefix when present.
-  final ymdPrefix =
-      RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(trimmed);
+  final ymdPrefix = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(trimmed);
   if (ymdPrefix != null) {
     final year = int.parse(ymdPrefix.group(1)!);
     final month = int.parse(ymdPrefix.group(2)!);
@@ -60,6 +59,7 @@ DateTime? parseCalendarDateFromFlexibleInput(String? value) {
   // without shifting it through `toLocal()`.
   return DateTime(parsed.year, parsed.month, parsed.day);
 }
+
 int resolveUserTimezoneOffsetMinutes(
   String? preferredTimezone, {
   int? fallbackOffsetMinutes,
@@ -188,9 +188,9 @@ String formatDateOnlyYmd(DateTime date) {
 
 Future<String> resolveDeviceTimezoneIdentifier() async {
   try {
-    final timezone = await FlutterNativeTimezone.getLocalTimezone();
-    if (timezone.trim().isNotEmpty) {
-      return timezone;
+    final timezone = await FlutterTimezone.getLocalTimezone();
+    if (timezone.identifier.trim().isNotEmpty) {
+      return timezone.identifier;
     }
   } catch (error, stackTrace) {
     developer.log(
@@ -210,8 +210,7 @@ Future<String> resolveDeviceTimezoneIdentifier() async {
 }
 
 String _formatUtcOffset(Duration offset) {
-  final sign = offset.isNegative ? '-'
-      : '+';
+  final sign = offset.isNegative ? '-' : '+';
   final totalMinutes = offset.inMinutes.abs();
   final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
   final minutes = (totalMinutes % 60).toString().padLeft(2, '0');

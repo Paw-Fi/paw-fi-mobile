@@ -2069,5 +2069,9 @@
   "tellUsWhatWentWrongDescription": "告訴我們出了什麼問題，以便我們快速修復。如果可能，請添加截圖。",
   "shareIdeasFeatureRequestsDescription": "分享想法、功能請求或一般想法，幫助我們改進Moneko。",
   "whatHappenedIncludeStepsPlaceholder": "發生了什麼事？如果可能，請包含重現步驟。",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "分享您的想法、功能想法或一般回饋。"
+  "shareYourThoughtsFeatureIdeasPlaceholder": "分享您的想法、功能想法或一般回饋。",
+  "categories": "分類",
+  "noResultsFound": "找不到結果",
+  "edit": "編輯",
+  "missingCategoryHint": "找不到合適的分類？可在此處新增自訂分類："
 }

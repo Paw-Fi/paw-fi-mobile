@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -9,6 +10,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_category_picker.dart';
@@ -30,6 +32,7 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
@@ -584,6 +587,16 @@ class AddRecurringSheet extends HookConsumerWidget {
         }
       }
 
+      final originalCategoryForRemap =
+          normalizeCategory(existingTransaction?.category ?? 'other');
+      final selectedCategoryForRemap =
+          normalizeCategory(selectedCategory.value ?? '');
+      final shouldPromptCategoryRemap = isEditing &&
+          selectedCategoryForRemap.isNotEmpty &&
+          selectedCategoryForRemap != originalCategoryForRemap &&
+          originalCategoryForRemap != 'other' &&
+          originalCategoryForRemap != 'uncategorized';
+
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       final toastContext = rootNavigator.context;
       isLoading.value = true;
@@ -895,6 +908,21 @@ class AddRecurringSheet extends HookConsumerWidget {
                 : (isEditing
                     ? l10n.recurringIncomeUpdatedSuccessfully
                     : l10n.recurringIncomeAddedSuccessfully);
+
+            if (shouldPromptCategoryRemap) {
+              unawaited(
+                _handleCategoryRemapPrompt(
+                  toastContext: toastContext,
+                  userId: userId,
+                  transactionType: selectedType.value,
+                  fromCategory: originalCategoryForRemap,
+                  toCategory: selectedCategoryForRemap,
+                  fallbackSuccessMessage: successMsg,
+                ),
+              );
+              return;
+            }
+
             AppToast.success(toastContext, successMsg);
           }
         } else {
@@ -1168,13 +1196,37 @@ class AddRecurringSheet extends HookConsumerWidget {
                               : context.l10n.selectCategory,
                           isValuePlaceholder: selectedCategory.value == null,
                           onTap: () async {
+                            final isIncomeMode = !isExpense;
+                            UserCategoryLists? lists;
+                            try {
+                              lists = await ref.read(
+                                userCategoryListsProvider.future,
+                              );
+                            } catch (_) {
+                              lists = null;
+                            }
+                            if (!context.mounted) return;
+
+                            final categories = isIncomeMode
+                                ? (lists?.incomeCategories ??
+                                    getIncomeCategories())
+                                : (lists?.expenseCategories ??
+                                    getExpenseCategories());
+
                             final result = await showCategoryPicker(
                               context: context,
                               // When no category is selected, pass an empty string so
                               // the picker shows with no preselection. Existing
                               // transactions still pass their actual category.
                               currentCategory: selectedCategory.value ?? '',
-                              isIncome: !isExpense,
+                              isIncome: isIncomeMode,
+                              allCategories: categories,
+                              onCreateCategory: (name) =>
+                                  createUserCustomCategory(
+                                ref: ref,
+                                name: name,
+                                isIncome: isIncomeMode,
+                              ),
                             );
                             if (result != null) {
                               selectedCategory.value = result;
@@ -1743,6 +1795,58 @@ class AddRecurringSheet extends HookConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleCategoryRemapPrompt({
+    required BuildContext toastContext,
+    required String userId,
+    required String transactionType,
+    required String fromCategory,
+    required String toCategory,
+    required String fallbackSuccessMessage,
+  }) async {
+    final fromLabel = getCategoryTranslation(toastContext, fromCategory);
+    final toLabel = getCategoryTranslation(toastContext, toCategory);
+
+    final result = await MonekoAlertDialog.show(
+      context: toastContext,
+      title: 'Update category preference?',
+      description:
+          'In the future, should this type of transaction be automatically saved to "$toLabel" instead of "$fromLabel"?',
+      confirmLabel: 'Yes',
+      cancelLabel: 'No',
+      barrierDismissible: true,
+    );
+
+    if (!toastContext.mounted) return;
+
+    if (result?.confirmed != true) {
+      AppToast.success(toastContext, fallbackSuccessMessage);
+      return;
+    }
+
+    final saved = await saveUserCategoryRemapPreferenceForUser(
+      userId: userId,
+      transactionType: transactionType,
+      fromCategory: fromCategory,
+      toCategory: toCategory,
+    );
+
+    if (!toastContext.mounted) return;
+
+    if (saved) {
+      AppToast.success(
+        toastContext,
+        'Preference updated successfully',
+      );
+      return;
+    }
+
+    AppToast.error(
+      toastContext,
+      'Could not update preference',
+    );
+    AppToast.success(toastContext, fallbackSuccessMessage);
   }
 
   Widget _buildLabel(String text, ColorScheme colorScheme) {

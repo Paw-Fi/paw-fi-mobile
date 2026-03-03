@@ -11,26 +11,32 @@ class CategoryPickerBottomSheet extends StatelessWidget {
   const CategoryPickerBottomSheet({
     super.key,
     required this.allCategories,
+    this.customCategories = const <String>[],
     required this.selectedCategories,
     required this.onChanged,
     this.isSingleSelect = false,
     this.title = "",
+    this.onCreateCategory,
   });
 
   final List<String> allCategories;
+  final List<String> customCategories;
   final List<String> selectedCategories;
   final ValueChanged<List<String>> onChanged;
   final bool isSingleSelect;
   final String title;
+  final Future<String?> Function(String name)? onCreateCategory;
 
   @override
   Widget build(BuildContext context) {
     return CategoryPicker(
       allCategories: allCategories,
+      customCategories: customCategories,
       selectedCategories: selectedCategories,
       onChanged: onChanged,
       title: title,
       isSingleSelect: isSingleSelect,
+      onCreateCategory: onCreateCategory,
       // Let CategoryPicker handle closing behavior. For single-select flows,
       // it will call onChanged and then onClose to pop the sheet exactly once
       // with the selected value. For multi-select, the header close button
@@ -44,19 +50,23 @@ class CategoryPicker extends HookWidget {
   const CategoryPicker({
     super.key,
     required this.allCategories,
+    this.customCategories = const <String>[],
     required this.selectedCategories,
     required this.onChanged,
     required this.title,
     this.isSingleSelect = false,
     this.onClose,
+    this.onCreateCategory,
   });
 
   final List<String> allCategories;
+  final List<String> customCategories;
   final List<String> selectedCategories;
   final ValueChanged<List<String>> onChanged;
   final String title;
   final bool isSingleSelect;
   final VoidCallback? onClose;
+  final Future<String?> Function(String name)? onCreateCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +91,13 @@ class CategoryPicker extends HookWidget {
       };
     }, [searchController]);
 
-    final grouped = _buildGroups(context, canonicalCategories);
+    final canonicalCustomCategories =
+        _canonicalizeCategories(customCategories).toSet();
+    final grouped = _buildGroups(
+      context,
+      canonicalCategories,
+      customCategories: canonicalCustomCategories,
+    );
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
     final normalizedQuery = searchQuery.value.trim().toLowerCase();
@@ -173,55 +189,113 @@ class CategoryPicker extends HookWidget {
                                     const SizedBox(height: 8),
                                     const Divider(height: 1),
                                     const SizedBox(height: 12),
-                                    GestureDetector(
-                                      onTap: () => handleToggle(
-                                        normalizedCreateKey,
-                                      ),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.surface
-                                              .withValues(alpha: 0.0),
+                                    Semantics(
+                                      button: true,
+                                      label: normalizedCreateKey,
+                                      child: Material(
+                                        color: colorScheme.surface
+                                            .withValues(alpha: 0.0),
+                                        borderRadius: BorderRadius.circular(14),
+                                        child: InkWell(
                                           borderRadius:
                                               BorderRadius.circular(14),
-                                          border: Border.all(
-                                            color: colorScheme.border,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.add,
-                                              size: 18,
-                                              color: colorScheme.primary,
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
+                                          onTap: () async {
+                                            if (onCreateCategory != null) {
+                                              final created =
+                                                  await onCreateCategory!(
                                                 normalizedCreateKey,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: colorScheme.foreground,
-                                                ),
+                                              );
+                                              if (created != null &&
+                                                  created.trim().isNotEmpty) {
+                                                handleToggle(created.trim());
+                                                return;
+                                              }
+                                            }
+                                            handleToggle(normalizedCreateKey);
+                                          },
+                                          child: Ink(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.surface
+                                                  .withValues(alpha: 0.0),
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                              border: Border.all(
+                                                color: colorScheme.border,
                                               ),
                                             ),
-                                          ],
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.add,
+                                                  size: 18,
+                                                  color: colorScheme.primary,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Text(
+                                                    normalizedCreateKey,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: colorScheme
+                                                          .foreground,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    context.l10n.missingCategoryHint,
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.settings,
+                                    size: 14,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                  Text(
+                                    ' Settings',
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             for (final entry in filtered.entries)
                               _CategoryGroupSection(
-                                groupTitle: getCategoryGroupTranslation(
-                                    context, entry.key),
+                                groupTitle: (entry.key == 'custom'
+                                        ? context.l10n.custom
+                                        : getCategoryGroupTranslation(
+                                            context,
+                                            entry.key,
+                                          ))
+                                    .toUpperCase(),
                                 categories: entry.value,
                                 selected: selected.value,
                                 onToggle: handleToggle,
@@ -298,14 +372,22 @@ class CategoryPicker extends HookWidget {
 }
 
 Map<String, List<String>> _buildGroups(
-  BuildContext context,
-  List<String> categories,
-) {
+    BuildContext context, List<String> categories,
+    {required Set<String> customCategories}) {
   final allowed = categories.toSet();
   final Map<String, List<String>> groups = {};
 
+  final customItems = customCategories.where(allowed.contains).toList()
+    ..sort((a, b) => a.compareTo(b));
+  if (customItems.isNotEmpty) {
+    groups['custom'] = customItems;
+  }
+
   categoryGroups.forEach((groupKey, groupCategories) {
-    final items = groupCategories.where(allowed.contains).toList();
+    final items = groupCategories
+        .where((category) =>
+            allowed.contains(category) && !customCategories.contains(category))
+        .toList();
     if (items.isEmpty) return;
 
     groups[groupKey] = items;
@@ -367,13 +449,16 @@ class _CategoryPickerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedTitle =
+        title.trim().isEmpty ? context.l10n.selectCategory : title;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            title,
+            resolvedTitle,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),

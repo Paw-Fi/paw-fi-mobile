@@ -2072,5 +2072,9 @@
   "tellUsWhatWentWrongDescription": "Vertel ons wat er mis is gegaan zodat we het snel kunnen oplossen. Voeg indien mogelijk screenshots toe.",
   "shareIdeasFeatureRequestsDescription": "Deel ideeën, functieverzoeken of algemene gedachten om ons te helpen Moneko te verbeteren.",
   "whatHappenedIncludeStepsPlaceholder": "Wat is er gebeurd? Voeg stappen om te reproduceren toe als je kunt.",
-  "shareYourThoughtsFeatureIdeasPlaceholder": "Deel je gedachten, functie-ideeën of algemene feedback."
+  "shareYourThoughtsFeatureIdeasPlaceholder": "Deel je gedachten, functie-ideeën of algemene feedback.",
+  "categories": "Categorieën",
+  "noResultsFound": "Geen resultaten gevonden",
+  "edit": "Bewerken",
+  "missingCategoryHint": "Mis je een categorie? Voeg een aangepaste categorie toe in "
 }

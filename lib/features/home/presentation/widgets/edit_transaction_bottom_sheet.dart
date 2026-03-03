@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
@@ -224,8 +225,14 @@ class _EditTransactionBottomSheetState
   Widget _buildCategoryPicker(ColorScheme colorScheme) {
     final isIncome =
         (widget.expense.type ?? 'expense').toLowerCase() == 'income';
-    final baseCategories =
-        isIncome ? getIncomeCategories() : getExpenseCategories();
+    final lists = ref.watch(userCategoryListsProvider).maybeWhen(
+          data: (value) => value,
+          orElse: () => null,
+        );
+
+    final baseCategories = isIncome
+        ? (lists?.incomeCategories ?? getIncomeCategories())
+        : (lists?.expenseCategories ?? getExpenseCategories());
     final categories = () {
       final current = (widget.currentValue?.toString().toLowerCase());
       if (current != null && !baseCategories.contains(current)) {
@@ -243,6 +250,11 @@ class _EditTransactionBottomSheetState
         builder: (sheetContext) {
           return CategoryPickerBottomSheet(
             allCategories: categories,
+            onCreateCategory: (name) => createUserCustomCategory(
+              ref: ref,
+              name: name,
+              isIncome: isIncome,
+            ),
             selectedCategories: _selectedCategory != null
                 ? <String>[_selectedCategory!]
                 : const [],

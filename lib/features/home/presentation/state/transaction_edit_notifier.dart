@@ -12,11 +12,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
-const bool _enableDebugLogs =
-    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
-
 void _debugPrint(String? message, {int? wrapWidth}) {
-  if (foundation.kDebugMode && _enableDebugLogs) {
+  if (foundation.kDebugMode) {
     foundation.debugPrint(message, wrapWidth: wrapWidth);
   }
 }
@@ -26,6 +23,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   final Ref ref;
 
   TransactionEditNotifier(this.ref) : super(const TransactionEditState());
+
+  String _normalizeCategoryValue(dynamic value) {
+    return value?.toString().trim().toLowerCase() ?? '';
+  }
 
   /// Update an expense field with optimistic UI update
   /// Returns true on success, false on failure
@@ -115,12 +116,57 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       }
 
       final responseData = response.data as Map<String, dynamic>;
+      _debugPrint(
+        '📥 update-expense response: success=${responseData['success']} code=${responseData['code']} error=${responseData['error']}',
+      );
 
       if (responseData['success'] != true) {
         final errorMessage =
             responseData['error'] as String? ?? 'Update failed';
         final errorCode = responseData['code'] as String? ?? 'UNKNOWN_ERROR';
         throw Exception('$errorCode: $errorMessage');
+      }
+
+      if (updates.containsKey('category')) {
+        final requestedCategory = _normalizeCategoryValue(updates['category']);
+        final responseCategory = _normalizeCategoryValue(
+          (responseData['data'] as Map<String, dynamic>?)?['category'],
+        );
+        _debugPrint(
+          '🏷️ category update check: requested="$requestedCategory" response="$responseCategory" expenseId=$expenseId',
+        );
+
+        if (requestedCategory.isNotEmpty &&
+            responseCategory != requestedCategory) {
+          _debugPrint(
+            '⚠️ Category mismatch after update (requested=$requestedCategory, got=$responseCategory). Retrying category-only update.',
+          );
+
+          final retryResponse = await supabase.functions.invoke(
+            'update-expense',
+            body: {
+              'userId': user.uid,
+              'expenseId': expenseId,
+              'updates': {'category': requestedCategory},
+              'clientTimezoneOffsetMinutes':
+                  DateTime.now().timeZoneOffset.inMinutes,
+            },
+          );
+
+          final retryData = retryResponse.data as Map<String, dynamic>?;
+          final retrySuccess = retryData?['success'] == true;
+          final retryCategory = _normalizeCategoryValue(
+            (retryData?['data'] as Map<String, dynamic>?)?['category'],
+          );
+          _debugPrint(
+            '🔁 category retry result: success=$retrySuccess responseCategory="$retryCategory" rawError=${retryData?['error']} rawCode=${retryData?['code']}',
+          );
+
+          if (!retrySuccess || retryCategory != requestedCategory) {
+            throw Exception(
+                'CATEGORY_UPDATE_MISMATCH: Category update was not persisted');
+          }
+        }
       }
 
       _debugPrint('✅ Backend update successful');
@@ -168,7 +214,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return true;
     } catch (e) {
       // 6. Error: Rollback optimistic update
-      _debugPrint('❌ Update failed');
+      _debugPrint('❌ Update failed: $e');
 
       try {
         final analyticsData = ref.read(analyticsProvider);

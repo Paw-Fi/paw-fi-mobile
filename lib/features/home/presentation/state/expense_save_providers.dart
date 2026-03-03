@@ -237,9 +237,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         saved is Map<String, dynamic> ? saved : <String, dynamic>{};
     final savedId = savedMap['id']?.toString();
     final hasServerId = savedId != null && savedId.isNotEmpty;
-    final expenseId = hasServerId
-        ? savedId
-        : 'optimistic_${DateTime.now().millisecondsSinceEpoch}';
+    if (!hasServerId) return;
+    final expenseId = savedId;
 
     final createdAtRaw = savedMap['created_at']?.toString();
     final createdAt =
@@ -470,10 +469,14 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> _invalidateProviders(String userId, String? householdId) async {
     _debugPrint('🔄 Invalidating providers...');
 
-    // Always refresh personal analytics (expense is in user's expenses table)
-    // Avoid a full reload on household-mode saves to keep the home dashboard
-    // from re-entering the initial skeleton state.
-    if (householdId == null || householdId.isEmpty) {
+    final isPortfolioSave = householdId != null &&
+        householdId.isNotEmpty &&
+        ref.read(householdScopeProvider).isPortfolioId(householdId);
+
+    // Refresh analytics for personal + portfolio saves.
+    // Portfolio dashboards read from analytics state, so they need an immediate
+    // refresh after save to reflect backend category remaps and server truth.
+    if (householdId == null || householdId.isEmpty || isPortfolioSave) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
 
