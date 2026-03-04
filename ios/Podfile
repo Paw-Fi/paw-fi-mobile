@@ -61,7 +61,7 @@ post_install do |installer|
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'YES'
       
       # Fix for Pod signing issues - specify development team
-      config.build_settings['DEVELOPMENT_TEAM'] = 'GW28HYRJ9H'
+      config.build_settings['DEVELOPMENT_TEAM'] = 'G779AVFRMK'
     end
   end
 end

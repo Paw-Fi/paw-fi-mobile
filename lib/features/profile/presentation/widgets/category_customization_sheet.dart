@@ -630,7 +630,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                 color: colorScheme.foreground,
                                               ),
                                             ),
-                                            trailing: MonekoSwitch(
+                                            trailing: AdaptiveSwitch(
                                               value: !hiddenNow,
                                               onChanged: (value) async {
                                                 await setUserCategoryHidden(

@@ -285,7 +285,7 @@ class CategoryPicker extends HookWidget {
                                     color: colorScheme.mutedForeground,
                                   ),
                                   Text(
-                                    ' Settings',
+                                    " ${context.l10n.settings}",
                                     style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 12,
