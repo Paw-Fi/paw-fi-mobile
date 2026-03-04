@@ -450,13 +450,28 @@ List<Color> getCustomCategoryColorOptions() {
 }
 
 int computeFallbackCategoryColorArgb(String? category) {
-  final key = normalizeCategory(category ?? 'uncategorized');
+  final raw = (category ?? 'uncategorized').trim().toLowerCase();
+  final key = raw.isEmpty ? 'uncategorized' : raw;
   final paletteIndex = key.hashCode.abs() % _fallbackPalette.length;
   return _fallbackPalette[paletteIndex].toARGB32();
 }
 
 Color getCategoryColor(String? category) {
-  final key = normalizeCategory(category ?? 'uncategorized');
+  final raw = (category ?? 'uncategorized').trim().toLowerCase();
+  final directKey = raw.isEmpty ? 'uncategorized' : raw;
+
+  final directOverride = getCustomCategoryStyleOverrides()[directKey];
+  final directColorArgb = directOverride?.colorArgb;
+  if (directColorArgb is int) {
+    return Color(directColorArgb);
+  }
+
+  final directMapped = categoryColors[directKey];
+  if (directMapped != null) return directMapped;
+
+  final key = directKey.contains(' ')
+      ? directKey
+      : normalizeCategory(category ?? 'uncategorized');
 
   final override = getCustomCategoryStyleOverrides()[key];
   final overrideColorArgb = override?.colorArgb;
@@ -472,7 +487,21 @@ Color getCategoryColor(String? category) {
 }
 
 IconData getCategoryIcon(String? category) {
-  final key = normalizeCategory(category ?? 'uncategorized');
+  final raw = (category ?? 'uncategorized').trim().toLowerCase();
+  final directKey = raw.isEmpty ? 'uncategorized' : raw;
+
+  final directOverride = getCustomCategoryStyleOverrides()[directKey];
+  final directIconKey = directOverride?.iconKey;
+  if (directIconKey is String && directIconKey.isNotEmpty) {
+    return customCategoryIconForKey(directIconKey);
+  }
+
+  final directMapped = categoryIcons[directKey];
+  if (directMapped != null) return directMapped;
+
+  final key = directKey.contains(' ')
+      ? directKey
+      : normalizeCategory(category ?? 'uncategorized');
 
   final override = getCustomCategoryStyleOverrides()[key];
   final iconKey = override?.iconKey;
@@ -486,7 +515,8 @@ IconData getCategoryIcon(String? category) {
 /// Translates category names to localized strings
 String getCategoryTranslation(BuildContext context, String? category) {
   final l10n = context.l10n;
-  final key = normalizeCategory(category ?? 'uncategorized');
+  final rawValue = (category ?? 'uncategorized').trim();
+  final rawKey = rawValue.toLowerCase();
 
   final translations = <String, String>{
     // Life & Home
@@ -637,7 +667,23 @@ String getCategoryTranslation(BuildContext context, String? category) {
     'uncategorized': l10n.categoryUncategorized,
   };
 
-  return translations[key] ?? _titleCase(category ?? 'uncategorized');
+  if (rawKey.isEmpty) {
+    return translations['uncategorized'] ?? _titleCase('uncategorized');
+  }
+
+  // Exact key takes precedence and keeps user-defined categories intact.
+  final exact = translations[rawKey];
+  if (exact != null) return exact;
+
+  // Legacy alias mapping for single-token values (e.g. "restaurant").
+  // Multi-word values are treated as user-entered labels and are not remapped.
+  if (!rawKey.contains(' ')) {
+    final normalized = normalizeCategory(rawValue);
+    final mapped = translations[normalized];
+    if (mapped != null) return mapped;
+  }
+
+  return _titleCase(rawValue);
 }
 
 /// Group title translations (English already provided; other locales can fill later)

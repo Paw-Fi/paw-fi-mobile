@@ -206,6 +206,14 @@ class _UnifiedTransactionSheetState
   String _getLocalizedCategory(String category) =>
       getCategoryTranslation(context, category);
 
+  String _normalizeCategoryRemapKey(String? category) {
+    final raw = (category ?? '').trim().toLowerCase();
+    if (raw.isEmpty) return '';
+    if (categoryColors.containsKey(raw)) return raw;
+    if (!raw.contains(' ')) return normalizeCategory(raw);
+    return raw;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -2971,9 +2979,9 @@ class _UnifiedTransactionSheetState
         }
 
         final originalCategoryForRemap =
-            normalizeCategory(widget.existingExpense!.category ?? 'other');
+            _normalizeCategoryRemapKey(widget.existingExpense!.category);
         final String? nextCategoryForRemap = updates.containsKey('category')
-            ? normalizeCategory(updates['category']?.toString() ?? '')
+            ? _normalizeCategoryRemapKey(updates['category']?.toString())
             : null;
         final shouldPromptCategoryRemap = updates.containsKey('category') &&
             nextCategoryForRemap != null &&
@@ -2992,6 +3000,9 @@ class _UnifiedTransactionSheetState
                   updates,
                   extraBody: extraBody,
                 );
+        debugPrint(
+          '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
+        );
 
         if (!mounted) {
           closeDialog();
@@ -3056,6 +3067,9 @@ class _UnifiedTransactionSheetState
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
+          debugPrint(
+            '🧪 updateExpense failure state: error=${editState.error}',
+          );
           final message = ErrorHandler.getUserFriendlyMessage(
             editState.error ?? context.l10n.failedToUpdateExpense,
             context: BackendErrorContext.updateExpense,
@@ -3135,11 +3149,6 @@ class _UnifiedTransactionSheetState
         return;
       }
 
-      AppToast.error(
-        toastContext,
-        toastContext.l10n.preferenceUpdateFailed,
-        duration: const Duration(seconds: 4),
-      );
       AppToast.success(
         toastContext,
         toastContext.l10n.expenseUpdatedSuccessfully,

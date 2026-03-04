@@ -3,6 +3,25 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
 
+String _normalizePickerCategoryKey(String rawCategory) {
+  return rawCategory.trim().toLowerCase();
+}
+
+String _resolvePickerCurrentCategory({
+  required String currentCategory,
+  required List<String> baseCategories,
+}) {
+  final strict = _normalizePickerCategoryKey(currentCategory);
+  if (strict.isEmpty) return strict;
+  if (baseCategories.contains(strict)) return strict;
+
+  final legacyNormalized = normalizeCategory(currentCategory);
+  if (baseCategories.contains(legacyNormalized)) {
+    return legacyNormalized;
+  }
+  return strict;
+}
+
 /// Shows a category picker for expense or income transactions
 ///
 /// This is a low-level widget that only handles showing the category
@@ -22,18 +41,21 @@ Future<String?> showCategoryPicker({
   Future<String?> Function(String name)? onCreateCategory,
 }) async {
   final colorScheme = Theme.of(context).colorScheme;
-  final normalizedCurrent = currentCategory.trim().toLowerCase();
   final baseCategoriesRaw = allCategories ??
       (isIncome ? getIncomeCategories() : getExpenseCategories());
   final baseCategories = <String>[];
   final seen = <String>{};
   for (final category in baseCategoriesRaw) {
-    final normalized = normalizeCategory(category);
+    final normalized = _normalizePickerCategoryKey(category);
     if (normalized.isEmpty || !seen.add(normalized)) {
       continue;
     }
     baseCategories.add(normalized);
   }
+  final normalizedCurrent = _resolvePickerCurrentCategory(
+    currentCategory: currentCategory,
+    baseCategories: baseCategories,
+  );
   final builtinCategories =
       isIncome ? getIncomeCategories().toSet() : getExpenseCategories().toSet();
 
