@@ -12,6 +12,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'ARS': 'argentina',
     'AUD': 'au',
     'BDT': 'bangladesh',
+    'BZD': 'belize',
     'CAD': 'ca',
     'CNY': 'cn',
     'JPY': 'jp',

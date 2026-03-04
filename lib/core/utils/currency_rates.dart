@@ -12,6 +12,7 @@ static const Map<String, double> rates = {
     'ARS': 1394.096, // Updated
     'AUD': 1.5542,   // Updated
     'BDT': 122.59,
+    'BZD': 2.01,
     'BRL': 5.8241,   // Updated
     'CAD': 1.4125,   // Updated
     'CHF': 0.8945,   // Updated
