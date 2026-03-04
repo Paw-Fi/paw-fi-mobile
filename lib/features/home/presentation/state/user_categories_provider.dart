@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 class UserCategoryLists {
   const UserCategoryLists({
@@ -72,6 +73,9 @@ void _refreshCategoryDependentState({
   ref.read(analyticsProvider.notifier).refresh(userId);
   ref.invalidate(pocketsProvider);
   ref.invalidate(currencyTransactionCountsProvider);
+  ref.invalidate(recurringTransactionsProvider);
+  ref.invalidate(recurringExpensesProvider);
+  ref.invalidate(recurringIncomesProvider);
 
   ref.read(cacheInvalidatorProvider).invalidateAll();
   ref.invalidate(userHouseholdsProvider(userId));
@@ -229,10 +233,10 @@ final userCategoryListsProvider =
 
 bool _isValidCategoryName(String name) {
   if (name.isEmpty) return false;
-  if (name.length > 48) return false;
-  final allowed = RegExp(r'^[a-z0-9 &/._-]+$');
-  if (!allowed.hasMatch(name)) return false;
+  if (name.length > 96) return false;
   if (name.contains('`')) return false;
+  final hasControlChars = RegExp(r'[\x00-\x1F\x7F]').hasMatch(name);
+  if (hasControlChars) return false;
   return true;
 }
 

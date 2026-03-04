@@ -138,30 +138,11 @@ class RecurringTransactionsNotifier
 
     if (!mounted) return;
 
-    // Log current state
-    _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    _debugPrint('🔄 [RecurringTx] LOAD REQUESTED');
-    _debugPrint(
-        '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-    _debugPrint('   User context present');
-    _debugPrint('   ForceRefresh: $forceRefresh');
-    _debugPrint('   HasLoadedOnce: ${state.hasLoadedOnce}');
-    _debugPrint('   IsLoading: ${state.data.isLoading}');
-
     // Skip loading if already loaded successfully (unless forced refresh)
-    if (state.hasLoadedOnce && !forceRefresh) {
-      _debugPrint('   ⏭️  SKIPPING: Already loaded');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      return;
-    }
-
-    _debugPrint('   ✅ PROCEEDING with load');
+    if (state.hasLoadedOnce && !forceRefresh) return;
     state = state.copyWith(data: const AsyncValue.loading());
 
     try {
-      _debugPrint(
-          '🌐 [RecurringTx] Loading recurring transactions from expenses table...');
-
       // For recurring transactions we only need rows from the `expenses`
       // table where is_recurring=true. This avoids the heavier
       // list-expenses/list-income Edge Functions and keeps the data
@@ -208,44 +189,25 @@ class RecurringTransactionsNotifier
       final allTransactions = <RecurringTransaction>[];
       final typedRows = (rows as List).cast<Map<String, dynamic>>();
 
-      _debugPrint('   📊 Raw recurring rows count: ${typedRows.length}');
-
       for (final item in typedRows) {
         try {
-          final transaction = RecurringTransaction.fromJson(item);
-          allTransactions.add(transaction);
-          _debugPrint(
-              '      ✅ Tx: ${transaction.id} | ${transaction.type} | ${transaction.category} | ${transaction.amount} | household=${transaction.householdId}');
+          allTransactions.add(RecurringTransaction.fromJson(item));
         } catch (parseError) {
-          _debugPrint('      ❌ Error parsing recurring row: $parseError');
-          _debugPrint('      Raw row omitted for privacy');
+          _debugPrint('[RecurringTx] Error parsing row: $parseError');
         }
       }
 
-      _debugPrint(
-          '   📦 Total recurring transactions after scoping: ${allTransactions.length}');
-
-      if (!mounted) {
-        _debugPrint('   ⚠️  Provider unmounted, aborting');
-        return;
-      }
+      if (!mounted) return;
 
       state = state.copyWith(
         data: AsyncValue.data(allTransactions),
         hasLoadedOnce: true,
       );
 
-      _debugPrint('   ✅ State updated successfully');
-      _debugPrint('   📊 Final transaction list:');
-      for (var t in allTransactions) {
-        _debugPrint(
-            '      - ${t.type}: ${t.category} | ${t.amount} ${t.currency} | ${t.recurrenceRule?.frequency ?? "one-time"}');
-      }
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint(
+          '[RecurringTx] Loaded ${allTransactions.length} recurring transactions');
     } catch (e, st) {
-      _debugPrint('❌ [RecurringTx] Exception: $e');
-      _debugPrint('   Stack trace captured');
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      _debugPrint('[RecurringTx] Load failed: $e');
       if (!mounted) return;
       // Mark hasLoadedOnce=true even on error so the RecurringPage does
       // not keep auto-retrying in a loop. The error state will be
@@ -260,7 +222,7 @@ class RecurringTransactionsNotifier
   /// Refresh recurring transactions list
   Future<void> refresh(String userId) async {
     if (!mounted) return;
-    _debugPrint('🔄 Refresh requested for $householdId');
+
     await loadRecurringTransactions(
       userId,
       forceRefresh: true,
@@ -296,12 +258,7 @@ class RecurringTransactionsNotifier
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
     try {
-      _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      _debugPrint('🗑️ [RecurringTx] DELETE REQUESTED');
-      _debugPrint(
-          '   Scope: ${householdId == null ? 'PERSONAL' : 'HOUSEHOLD($householdId)'}');
-      _debugPrint('   User context present');
-      _debugPrint('   TransactionId: $transactionId');
+
 
       // Optimistic update
       if (!mounted) {

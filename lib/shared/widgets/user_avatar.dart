@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -184,16 +185,15 @@ class UserAvatar extends StatelessWidget {
     double fontSize,
   ) {
     return ClipOval(
-      child: Image.network(
-        url,
+      child: CachedNetworkImage(
+        imageUrl: url,
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
+        errorWidget: (context, url, error) {
           return _buildInitials(colorScheme, initials, fontSize);
         },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
+        placeholder: (context, url) {
           return Center(
             child: SizedBox(
               width: size * 0.5,

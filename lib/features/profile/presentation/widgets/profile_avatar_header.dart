@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -71,10 +72,10 @@ Widget buildProfileAvatarHeader(BuildContext context, WidgetRef ref, user) {
               child: GestureDetector(
                 onTap: () => context.push('/avatar'),
                 child: avatarUrl != null
-                    ? Image.network(
-                        avatarUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: avatarUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorWidget: (_, __, ___) =>
                             _InitialsFallback(initials),
                       )
                     : _InitialsFallback(initials),

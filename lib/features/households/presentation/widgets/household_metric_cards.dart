@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
@@ -440,11 +441,11 @@ Widget buildMemberSpendingCard(
                                   ),
                                   clipBehavior: Clip.antiAlias,
                                   child: avatarUrl != null
-                                      ? Image.network(
-                                          avatarUrl,
+                                      ? CachedNetworkImage(
+                                          imageUrl: avatarUrl,
                                           fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stack) => Icon(
+                                          errorWidget: (context, url, error) =>
+                                              Icon(
                                             Icons.person,
                                             size: 14,
                                             color: colorScheme.mutedForeground,

@@ -18,7 +18,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:moneko/features/households/presentation/widgets/household_home_content.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -855,52 +854,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-    final portfolioOptimisticExpenses = householdScope.activeAccountType ==
-            ActiveAccountType.portfolio
-        ? ref.watch(
-            householdOptimisticExpensesProvider.select(
-              (state) =>
-                  state[householdScope.activeAccountHouseholdId] ?? const [],
-            ),
-          )
-        : const <ExpenseEntry>[];
-
-    final accountScopedExpenses =
-        householdScope.activeAccountType == ActiveAccountType.portfolio
-            ? mergeHouseholdExpenses(
-                analyticsData.allExpenses,
-                portfolioOptimisticExpenses,
-              )
-            : analyticsData.allExpenses;
-
-    // Base transactions filtered by currency and ACTIVE account selection.
-    // Active account is chosen via HomeHeaderSliver:
-    // - Personal account: household_id == null
-    // - Portfolio account: household_id == selected portfolio household id
-    // Household-group mode uses a separate UI path (HouseholdHomeContent).
-    final personalExpensesAll = accountScopedExpenses.where((e) {
-      if (e.isRecurring) return false;
-      final hid = e.householdId;
-      final activeOk = switch (householdScope.activeAccountType) {
-        ActiveAccountType.personal => hid == null || hid.isEmpty,
-        ActiveAccountType.portfolio =>
-          householdScope.activeAccountHouseholdId != null &&
-              hid == householdScope.activeAccountHouseholdId,
-        ActiveAccountType.household =>
-          householdScope.selectedHouseholdId != null &&
-              hid == householdScope.selectedHouseholdId,
-      };
-      if (!activeOk) return false;
-
-      // Filter by selected currency (if set)
-      if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-        final expenseCurrency = (e.currency ?? '').toUpperCase();
-        if (expenseCurrency.isNotEmpty && expenseCurrency != selectedCurrency) {
-          return false;
-        }
-      }
-      return true;
-    }).toList();
+    // Use memoized provider — filters by scope, currency, and excludes recurring.
+    // Only recomputes when analyticsProvider, homeFilterProvider, or
+    // householdScopeProvider change (NOT on every widget rebuild).
+    final personalExpensesAll = ref.watch(homeFilteredTransactionsProvider);
 
     _maybeLogHomeDebugSnapshot(
       analyticsData: analyticsData,

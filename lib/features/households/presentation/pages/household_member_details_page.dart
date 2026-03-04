@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -206,10 +207,10 @@ class HouseholdMemberDetailsPage extends HookConsumerWidget {
                 builder: (context, snapshot) {
                   final avatarUrl = snapshot.data;
                   if (avatarUrl != null) {
-                    return Image.network(
-                      avatarUrl,
+                    return CachedNetworkImage(
+                      imageUrl: avatarUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
+                      errorWidget: (_, __, ___) => Icon(
                         Icons.person_rounded,
                         size: 40,
                         color:

@@ -693,6 +693,28 @@ class _CategoryUpsertSheet extends HookWidget {
     int colorArgb,
     String iconKey,
   ) onSubmit;
+
+  String? _validateCategoryName(String name) {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'Category name is required.';
+    }
+    if (normalized.length > 96) {
+      return 'Category name must be 96 characters or fewer.';
+    }
+    if (normalized.contains('`')) {
+      return 'Category name cannot contain backticks (`).';
+    }
+    final hasControlChars = RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized);
+    if (hasControlChars) {
+      return 'Category name cannot contain control characters.';
+    }
+    if (normalized == 'other') {
+      return '"other" is reserved and cannot be used as a custom category.';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1028,6 +1050,13 @@ class _CategoryUpsertSheet extends HookWidget {
                         isSaving.value)
                     ? null
                     : () async {
+                        final validationMessage =
+                            _validateCategoryName(nameController.text);
+                        if (validationMessage != null) {
+                          AppToast.error(context, validationMessage);
+                          return;
+                        }
+
                         isSaving.value = true;
                         final ok = await onSubmit(
                           nameController.text.trim(),
@@ -1044,7 +1073,7 @@ class _CategoryUpsertSheet extends HookWidget {
                         } else {
                           AppToast.error(
                             context,
-                            'Failed to update category. Please try again.',
+                            'Failed to update category. Check name rules and max length (96).',
                           );
                         }
                       },

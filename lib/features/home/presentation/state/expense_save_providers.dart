@@ -1,6 +1,7 @@
 // State providers for expense save flow
 
 import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
@@ -18,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -480,9 +482,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
 
-    // Always refresh pockets + currency counts so other tabs reflect changes.
+    // Refresh pockets so budget calculations reflect the new expense.
+    // Note: currencyTransactionCountsProvider auto-recomputes reactively
+    // via ref.watch(analyticsProvider), so no explicit invalidation needed.
     ref.invalidate(pocketsProvider);
-    ref.invalidate(currencyTransactionCountsProvider);
 
     if (householdId != null) {
       // Shared expense: refresh household data
@@ -506,9 +509,6 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       _debugPrint('✅ Invalidated families: expenses, splits, budgets');
     }
 
-    // Small delay to ensure backend has propagated changes
-    await Future.delayed(const Duration(milliseconds: 300));
-
     _debugPrint('✅ Providers invalidated and ready for refresh');
   }
 
@@ -525,6 +525,12 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     try {
       _debugPrint('📤 Uploading receipt image...');
 
+      // Compress before upload to reduce egress (raw photos are 1-6MB)
+      final compressedBytes = await ImageCompressor.compressFile(
+        imageFile,
+        config: ImageCompressConfig.receipt,
+      );
+
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       //This Path is fixed, SO DO NOT CHANGE IT!
@@ -532,7 +538,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       final response = await supabase.storage
           .from('expense-receipts')
-          .upload(path, imageFile);
+          .uploadBinary(path, compressedBytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/jpeg',
+                cacheControl: '31536000',
+              ));
 
       if (response.isEmpty) {
         throw Exception('Upload failed');

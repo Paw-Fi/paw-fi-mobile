@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/config/storage_config.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import '../../core/household_constants.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 
@@ -41,8 +42,12 @@ class HouseholdCreationUtils {
         throw Exception('File not found at path: ${imageFile.path}');
       }
 
-      final bytes = await imageFile.readAsBytes();
-      debugPrint('  - Size: ${bytes.length} bytes');
+      // Compress before upload to reduce egress
+      final bytes = await ImageCompressor.compressFile(
+        imageFile,
+        config: ImageCompressConfig.householdCover,
+      );
+      debugPrint('  - Size: ${bytes.length} bytes (compressed)');
 
       if (!StorageConfig.isValidFileSize(bytes.length)) {
         throw Exception(
@@ -75,6 +80,7 @@ class HouseholdCreationUtils {
               fileOptions: FileOptions(
                 upsert: false,
                 contentType: _getContentType(fileExt),
+                cacheControl: '31536000',
               ),
             );
 

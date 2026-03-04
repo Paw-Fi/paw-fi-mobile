@@ -187,70 +187,78 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
                     duration: const Duration(milliseconds: 180),
                     child: hasData
                         ? selected != null
-                            ? Column(
-                                key: const ValueKey('selected'),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    getCategoryTranslation(
-                                        context, selected.category),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: widget.colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      displayAmount(selected.amount),
+                            ? SizedBox(
+                                width: 110,
+                                child: Column(
+                                  key: const ValueKey('selected'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      getCategoryTranslation(
+                                          context, selected.category),
                                       textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -0.8,
-                                        color: widget.colorScheme.foreground,
+                                        fontSize: 13,
+                                        color: widget.colorScheme.mutedForeground,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    // percent calculated but not used - keep for potential future use
-                                    // percentOfTotal(selected.amount),
-                                    '',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: widget.colorScheme.mutedForeground,
+                                    const SizedBox(height: 6),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        displayAmount(selected.amount),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.8,
+                                          color: widget.colorScheme.foreground,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      // percent calculated but not used - keep for potential future use
+                                      // percentOfTotal(selected.amount),
+                                      '',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: widget.colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               )
-                            : Column(
-                                key: const ValueKey('total'),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      displayAmount(totalSpent),
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w700,
-                                        letterSpacing: -1.0,
-                                        color: widget.colorScheme.foreground,
+                            : SizedBox(
+                                width: 110,
+                                child: Column(
+                                  key: const ValueKey('total'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        displayAmount(totalSpent),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -1.0,
+                                          color: widget.colorScheme.foreground,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  Text(
-                                    context.l10n.spent,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: widget.colorScheme.mutedForeground,
+                                    Text(
+                                      context.l10n.spent,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: widget.colorScheme.mutedForeground,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               )
                         : Column(
                             key: const ValueKey('empty'),

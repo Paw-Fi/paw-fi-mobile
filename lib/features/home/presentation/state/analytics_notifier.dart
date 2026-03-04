@@ -150,24 +150,26 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         // RPC might not be deployed yet - fall back to batched queries
       }
 
-      try {
+      // Use RPC data directly when available — eliminates redundant DB round-trip
+      if (rpcSucceeded) {
+        allExpenses = rpcExpenses;
         debugPrint(
-            '[Analytics] 📊 Fetching expenses from DB (source of truth)...');
-        final dbExpenses = await _loadExpensesFromDb(
-          userId: userId,
-          currentOperationId: currentOperationId,
+          '[Analytics] Using RPC expenses as source of truth: ${allExpenses.length}',
         );
-        allExpenses = dbExpenses;
-        debugPrint(
-          '[Analytics] ✅ DB expenses loaded: ${allExpenses.length} expenses (rpc=${rpcExpenses.length})',
-        );
-      } catch (e) {
-        debugPrint('[Analytics] ❌ DB expenses load failed: $e');
-        if (rpcSucceeded && rpcExpenses.isNotEmpty) {
-          allExpenses = rpcExpenses;
-          debugPrint(
-            '[Analytics] ⚠️ Falling back to RPC expenses: ${allExpenses.length}',
+      } else {
+        // RPC failed — try direct DB fetch before falling back to batched queries
+        try {
+          debugPrint('[Analytics] RPC failed, fetching expenses from DB...');
+          final dbExpenses = await _loadExpensesFromDb(
+            userId: userId,
+            currentOperationId: currentOperationId,
           );
+          allExpenses = dbExpenses;
+          debugPrint(
+            '[Analytics] DB expenses loaded: ${allExpenses.length}',
+          );
+        } catch (e) {
+          debugPrint('[Analytics] DB expenses load failed: $e');
         }
       }
 
@@ -827,71 +829,24 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     required int to,
     required Duration timeout,
   }) async {
-    debugPrint('[Analytics] 📊 _fetchExpenseBatch START');
-    debugPrint('[Analytics]   - userId: $userId');
-    debugPrint('[Analytics]   - contactIds: $contactIds');
-    debugPrint(
-        '[Analytics]   - applyPersonalFiltersInQuery: $applyPersonalFiltersInQuery');
-    debugPrint('[Analytics]   - range: $from-$to');
-
     var query = supabase.from('expenses').select(
         'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,bank_account_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
-      debugPrint(
-          '[Analytics]   - Filtering by contactIds OR userId (to include app + WhatsApp data)');
       final orFilter =
           'contact_id.in.(${contactIds.join(',')}),user_id.eq.$userId';
       query = query.or(orFilter);
     } else {
-      debugPrint('[Analytics]   - Filtering by userId: $userId');
       query = query.eq('user_id', userId);
     }
 
-    if (applyPersonalFiltersInQuery) {
-      debugPrint(
-          '[Analytics]   - Personal filters requested, but will filter client-side');
-    } else {
-      debugPrint(
-          '[Analytics]   - NO personal filters applied (will filter client-side)');
-    }
-
-    final orderedQuery = query.order('date', ascending: false);
-
-    debugPrint('[Analytics] 🔍 Executing query...');
-    final response = await orderedQuery.range(from, to).timeout(timeout);
+    final response = await query
+        .order('date', ascending: false)
+        .range(from, to)
+        .timeout(timeout);
     final results = (response as List).cast<Map<String, dynamic>>();
 
-    debugPrint(
-        '[Analytics] ✅ Query completed: ${results.length} expenses returned');
-
-    // Log first few expenses for debugging
-    if (results.isNotEmpty) {
-      debugPrint(
-          '[Analytics] 📋 First ${results.length > 3 ? 3 : results.length} expenses:');
-      for (int i = 0; i < (results.length > 3 ? 3 : results.length); i++) {
-        final exp = results[i];
-        debugPrint(
-            '[Analytics]   [$i] id=${exp['id']}, category=${exp['category']}, '
-            'household_id=${exp['household_id']}, split_group_id=${exp['split_group_id']}, '
-            'amount=${exp['amount_cents']}');
-      }
-
-      // Specifically check for the portfolio expense
-      final portfolioExpense = results
-          .where((e) =>
-              e['household_id'] == 'a044d6af-d96a-4a6b-9c73-564dbe338d93')
-          .toList();
-      if (portfolioExpense.isNotEmpty) {
-        debugPrint(
-            '[Analytics] 🎯 FOUND portfolio expense (trading portfolio): ${portfolioExpense.length}');
-      } else {
-        debugPrint('[Analytics] ⚠️ Portfolio expense NOT found in results');
-      }
-    } else {
-      debugPrint('[Analytics] ⚠️ No expenses returned from query');
-    }
-
+    debugPrint('[Analytics] Batch $from-$to: ${results.length} expenses');
     return results;
   }
 
@@ -918,8 +873,6 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         .where((id) => id != null && id.isNotEmpty)
         .cast<String>()
         .toList();
-
-    debugPrint('[Analytics]   - DB contactIds: $contactIds');
 
     final rawExpenses = await _fetchExpensesInBatches(
       userId: userId,

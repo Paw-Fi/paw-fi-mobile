@@ -196,14 +196,20 @@ class PocketsHeaderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    formatLocalizedCurrency(effectiveBudget),
-                    style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                      letterSpacing: -1.5,
-                      height: 1.1,
+                  SizedBox(
+                    height: 50, // Keep height consistent while text scales
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        formatLocalizedCurrency(effectiveBudget),
+                        style: TextStyle(
+                          fontSize: 42,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                          letterSpacing: -1.5,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
                   ),
                 ],

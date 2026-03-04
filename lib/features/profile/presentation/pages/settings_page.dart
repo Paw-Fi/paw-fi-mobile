@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:app_badge_plus/app_badge_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -61,6 +62,8 @@ import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
+
+import 'package:crypto/crypto.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
@@ -2211,22 +2214,28 @@ Future<void> _uploadAndSaveAvatar(
 
     final path = '${user.id}/avatar.png';
 
+    // Read file bytes for deterministic hash computation
+    final imageBytes = await imageFile.readAsBytes();
+
     await client.storage.from('avatars').upload(
           path,
           imageFile,
           fileOptions: const FileOptions(
             upsert: true,
             contentType: 'image/png',
-            cacheControl: '3600',
+            cacheControl: '31536000',
           ),
         );
 
     final publicUrl = client.storage.from('avatars').getPublicUrl(path);
-    final cacheBustedUrl =
-        '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+    // Use deterministic content hash for cache-busting instead of random
+    // timestamp. Same avatar content -> same URL -> CDN/device cache hit.
+    final contentHash =
+        sha256.convert(imageBytes).toString().substring(0, 8);
 
     await client.from('users').update({
-      'avatar_url': cacheBustedUrl,
+      'avatar_url': '$publicUrl?v=$contentHash',
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', user.id);
 
@@ -2253,6 +2262,7 @@ Future<void> _uploadAndSaveAvatar(
     }
   }
 }
+
 
 class _ProfileHeader extends ConsumerWidget {
   const _ProfileHeader({
@@ -2336,10 +2346,10 @@ class _ProfileHeader extends ConsumerWidget {
                       ),
                       child: ClipOval(
                         child: avatarUrl != null
-                            ? Image.network(
-                                avatarUrl,
+                            ? CachedNetworkImage(
+                                imageUrl: avatarUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorWidget: (_, __, ___) =>
                                     _InitialsAvatar(initials: initials),
                               )
                             : _InitialsAvatar(initials: initials),

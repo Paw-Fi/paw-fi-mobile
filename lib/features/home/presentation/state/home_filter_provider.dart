@@ -58,8 +58,10 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   final filtered = allExpenses
       .where((expense) {
         if (expense.isRecurring) return false;
+        final expCurrency = (expense.currency ?? '').toUpperCase();
         final currencyOk = selectedCurrency == null ||
-            (expense.currency?.toUpperCase() == selectedCurrency);
+            expCurrency.isEmpty ||
+            expCurrency == selectedCurrency;
 
         final activeOk = switch (scope.activeAccountType) {
           ActiveAccountType.personal => expense.householdId == null ||
@@ -91,8 +93,10 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
 
   return all.where((tx) {
     if (tx.isRecurring) return false;
+    final txCurrency = (tx.currency ?? '').toUpperCase();
     final currencyOk = selectedCurrency == null ||
-        (tx.currency?.toUpperCase() == selectedCurrency);
+        txCurrency.isEmpty ||
+        txCurrency == selectedCurrency;
     final activeOk = switch (scope.activeAccountType) {
       ActiveAccountType.personal =>
         tx.householdId == null || (tx.householdId?.isEmpty ?? false),

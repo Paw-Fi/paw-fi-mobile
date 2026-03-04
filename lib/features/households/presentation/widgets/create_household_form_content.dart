@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -84,10 +85,10 @@ class CreateHouseholdFormContent extends ConsumerWidget {
                         fit: BoxFit.cover,
                       )
                     : selectedImageUrl != null
-                        ? Image.network(
-                            selectedImageUrl!,
+                        ? CachedNetworkImage(
+                            imageUrl: selectedImageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                            errorWidget: (_, __, ___) =>
                                 _buildPlaceholder(colorScheme),
                           )
                         : _buildPlaceholder(colorScheme),

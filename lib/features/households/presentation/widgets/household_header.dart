@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import '../../domain/entities/household.dart';
@@ -19,12 +20,12 @@ class HouseholdHeader extends StatelessWidget {
             if (household.coverImageUrl != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  household.coverImageUrl!,
+                child: CachedNetworkImage(
+                  imageUrl: household.coverImageUrl!,
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
+                  errorWidget: (context, url, error) => Container(
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(

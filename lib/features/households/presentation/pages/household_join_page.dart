@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -661,29 +662,24 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
                 child: coverImageUrl != null && coverImageUrl.isNotEmpty
-                    ? Image.network(
-                        coverImageUrl,
+                    ? CachedNetworkImage(
+                        imageUrl: coverImageUrl,
                         fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
+                        placeholder: (context, url) {
                           return Container(
                             color: colorScheme.primary.withValues(alpha: 0.2),
-                            child: Center(
+                            child: const Center(
                               child: SizedBox(
                                 width: 30,
                                 height: 30,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  value: progress.expectedTotalBytes != null
-                                      ? progress.cumulativeBytesLoaded /
-                                          progress.expectedTotalBytes!
-                                      : null,
                                 ),
                               ),
                             ),
                           );
                         },
-                        errorBuilder: (context, error, stack) {
+                        errorWidget: (context, url, error) {
                           return Container(
                             color: colorScheme.primary.withValues(alpha: 0.2),
                             child: Icon(

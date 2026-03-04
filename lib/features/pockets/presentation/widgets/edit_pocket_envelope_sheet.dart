@@ -193,6 +193,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           orElse: () => null,
         );
     final allCategories = lists?.expenseCategories ?? getExpenseCategories();
+    final builtinExpenseCategories = getExpenseCategories().toSet();
+    final customExpenseCategories = allCategories
+        .where(
+          (category) =>
+              !builtinExpenseCategories.contains(category) &&
+              category != 'other' &&
+              category != 'uncategorized',
+        )
+        .toList(growable: false);
 
     String formatLocalizedAmount(num value) {
       final normalized = double.parse(value.toStringAsFixed(0));
@@ -544,6 +553,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 return CategoryPickerBottomSheet(
                                   title: context.l10n.selectCategoriesMultiple,
                                   allCategories: allCategories,
+                                  customCategories: customExpenseCategories,
                                   selectedCategories: selectedCategories.value,
                                   onChanged: (value) {
                                     selectedCategories.value =
