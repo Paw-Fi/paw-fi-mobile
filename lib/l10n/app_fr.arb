@@ -2156,5 +2156,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Espaces Partagés",
   "onboardingPreviewBubbleInsightfulCharts": "Graphiques d'Analyse",
   "onboardingPreviewBubbleWhatsappSync": "Sync WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Factures Récurrentes"
+  "onboardingPreviewBubbleRecurringBills": "Factures Récurrentes",
+  "settingsCustomCategoriesAction": "Personnaliser",
+  "customCategoryDeleteConfirmation": "Voulez-vous vraiment supprimer « {name} » ?",
+  "customCategoriesLoadFailed": "Échec du chargement des catégories : {error}",
+  "unhide": "Afficher",
+  "hide": "Masquer",
+  "editCategory": "Modifier la catégorie",
+  "addCustomCategory": "Ajouter une catégorie personnalisée",
+  "customCategoryNameRequired": "Le nom de la catégorie est requis.",
+  "customCategoryNameTooLong": "Le nom doit comporter 96 caractères ou moins.",
+  "customCategoryNameBackticksNotAllowed": "Le nom ne peut pas contenir d'accents graves (`).",
+  "customCategoryNameControlCharsNotAllowed": "Le nom ne peut pas contenir de caractères de contrôle.",
+  "customCategoryNameReservedOther": "« other » (autres) est réservé et ne peut pas être utilisé comme catégorie personnalisée.",
+  "customCategoryNameLabel": "Nom de la catégorie",
+  "customCategoryUpdated": "Catégorie mise à jour",
+  "customCategoryUpdateFailed": "Échec de la mise à jour. Vérifiez les règles et la longueur max (96).",
+  "customCategoryAddCta": "Ajouter",
+  "manualInputQuickActionLabel": "Saisie manuelle"
 }

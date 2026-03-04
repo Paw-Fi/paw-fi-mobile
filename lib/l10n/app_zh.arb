@@ -2152,5 +2152,22 @@
   "onboardingPreviewBubbleSharedSpaces": "共享空间",
   "onboardingPreviewBubbleInsightfulCharts": "分析图表",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp 同步",
-  "onboardingPreviewBubbleRecurringBills": "定期账单"
+  "onboardingPreviewBubbleRecurringBills": "定期账单",
+  "settingsCustomCategoriesAction": "自定义",
+  "customCategoryDeleteConfirmation": "确定要删除“{name}”吗？",
+  "customCategoriesLoadFailed": "无法加载类别：{error}",
+  "unhide": "取消隐藏",
+  "hide": "隐藏",
+  "editCategory": "编辑类别",
+  "addCustomCategory": "添加自定义类别",
+  "customCategoryNameRequired": "请输入类别名称。",
+  "customCategoryNameTooLong": "类别名称不得超过 96 个字符。",
+  "customCategoryNameBackticksNotAllowed": "类别名称不能包含反引号 (`)。",
+  "customCategoryNameControlCharsNotAllowed": "类别名称不能包含控制字符。",
+  "customCategoryNameReservedOther": "“其他”为系统预留，不能用作自定义类别。",
+  "customCategoryNameLabel": "类别名称",
+  "customCategoryUpdated": "类别已更新",
+  "customCategoryUpdateFailed": "类别更新失败通。请检查命名规则和字符长度限制（96个字符）。",
+  "customCategoryAddCta": "添加类别",
+  "manualInputQuickActionLabel": "手动输入"
 }

@@ -74,6 +74,8 @@ String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
     AiHoldQuickAction.photoLibrary => context.l10n.choosePhotoFromLibrary,
     AiHoldQuickAction.recordAudio => context.l10n.recordWithAudio,
     AiHoldQuickAction.textInputDrawer => context.l10n.showTextInputDrawer,
+    AiHoldQuickAction.manualEntry =>
+        context.l10n.manualInputQuickActionLabel,
     null => context.l10n.notSet,
   };
 }
@@ -655,9 +657,9 @@ class SettingsPage extends HookConsumerWidget {
             value: 'textInputDrawer',
           ),
           MonekoActionSheetAction<String>(
-            label: context.l10n.notSet,
-            value: 'unset',
-          ),
+            label: context.l10n.manualInputQuickActionLabel,
+            value: 'manualEntry',
+          ),       
         ],
         cancelAction: MonekoActionSheetAction<String>(
           label: context.l10n.cancel,
@@ -674,6 +676,7 @@ class SettingsPage extends HookConsumerWidget {
         'photoLibrary' => AiHoldQuickAction.photoLibrary,
         'recordAudio' => AiHoldQuickAction.recordAudio,
         'textInputDrawer' => AiHoldQuickAction.textInputDrawer,
+        'manualEntry' => AiHoldQuickAction.manualEntry,
         'unset' => null,
         _ => holdQuickAction.value,
       };
@@ -952,8 +955,8 @@ class SettingsPage extends HookConsumerWidget {
                     ),
                     _SettingsTile(
                       icon: Icons.category_rounded,
-                      label: 'Categories',
-                      value: 'Customize',
+                      label: context.l10n.categories,
+                      value: context.l10n.settingsCustomCategoriesAction,
                       onTap: () async {
                         await MonekoBottomSheet.show(
                           context: context,
@@ -2231,8 +2234,7 @@ Future<void> _uploadAndSaveAvatar(
 
     // Use deterministic content hash for cache-busting instead of random
     // timestamp. Same avatar content -> same URL -> CDN/device cache hit.
-    final contentHash =
-        sha256.convert(imageBytes).toString().substring(0, 8);
+    final contentHash = sha256.convert(imageBytes).toString().substring(0, 8);
 
     await client.from('users').update({
       'avatar_url': '$publicUrl?v=$contentHash',
@@ -2262,7 +2264,6 @@ Future<void> _uploadAndSaveAvatar(
     }
   }
 }
-
 
 class _ProfileHeader extends ConsumerWidget {
   const _ProfileHeader({

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/gestures.dart';
@@ -1506,6 +1507,7 @@ class HomeAiExpandableFab extends ConsumerStatefulWidget {
 
 class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   final AudioRecorder _holdRecorder = AudioRecorder();
+  final GlobalKey<ExpandableFabState> _fabKey = GlobalKey<ExpandableFabState>();
 
   bool _isHoldRecording = false;
   bool _isHoldCancelled = false;
@@ -1513,6 +1515,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   double _holdDragDeltaX = 0;
   DateTime? _holdRecordingStartedAt;
   double? _holdStartGlobalX;
+  bool _isFabOpen = false;
 
   @override
   void dispose() {
@@ -1524,6 +1527,28 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
     HapticFeedback.mediumImpact();
     await Future<void>.delayed(const Duration(milliseconds: 40));
     HapticFeedback.lightImpact();
+  }
+
+  Future<void> _openManualEntrySheet() async {
+    final contact = ref.read(analyticsProvider).contact;
+    final filterState = ref.read(homeFilterProvider);
+    final selectedCurrency =
+        (filterState.selectedCurrency ?? contact?.preferredCurrency ?? 'USD')
+            .trim()
+            .toUpperCase();
+
+    await showUnifiedTransactionSheet(
+      context,
+      contact: contact,
+      newExpense: ParsedExpense(
+        amount: 0,
+        category: 'other',
+        currency: selectedCurrency,
+        currencySymbol: '\$',
+        date: effectiveToday(preferredTimezone: contact?.preferredTimezone),
+        description: null,
+      ),
+    );
   }
 
   Future<void> _runHoldAction() async {
@@ -1546,6 +1571,11 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         await _playQuickActionDualNudge();
         if (!mounted) return;
         await handleAiFreeFormText(context, ref);
+        return;
+      case AiHoldQuickAction.manualEntry:
+        await _playQuickActionDualNudge();
+        if (!mounted) return;
+        await _openManualEntrySheet();
         return;
       case AiHoldQuickAction.recordAudio:
         await _startHoldRecording();
@@ -1726,6 +1756,79 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
     }
   }
 
+  Widget _buildContextPill(ColorScheme colorScheme) {
+    final householdId = _resolveHouseholdIdForAi(ref);
+    final targetLabel = _resolveLogTargetLabel(context, ref);
+
+    final contact = ref.watch(analyticsProvider).contact;
+    final filterState = ref.watch(homeFilterProvider);
+    final selectedCurrency =
+        (filterState.selectedCurrency ?? contact?.preferredCurrency ?? 'USD')
+            .trim()
+            .toUpperCase();
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.fastLinearToSlowEaseIn,
+      bottom: 12,
+      right: _isFabOpen ? 72 : 24,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: _isFabOpen ? 1.0 : 0.0,
+        curve: Curves.easeOut,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 300),
+          scale: _isFabOpen ? 1.0 : 0.9,
+          curve: Curves.fastLinearToSlowEaseIn,
+          alignment: Alignment.centerRight,
+          child: IgnorePointer(
+            ignoring: !_isFabOpen,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.7),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        householdId == null
+                            ? Icons.person_outline
+                            : Icons.people_outline,
+                        size: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$targetLabel • $selectedCurrency',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurfaceVariant,
+                          letterSpacing: -0.2,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHoldRecordingIndicator(ColorScheme colorScheme) {
     final dragProgress = (_holdDragDeltaX.abs() / _recordCancelDragThreshold)
         .clamp(0.0, 1.0)
@@ -1840,13 +1943,24 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
 
   @override
   Widget build(BuildContext context) {
-    final fabKey = GlobalKey<ExpandableFabState>();
     final colorScheme = Theme.of(context).colorScheme;
 
-    return ExpandableFab(
-      key: fabKey,
-      distance: 120,
-      openButtonBuilder: (context, defaultButton) {
+    return Stack(
+      alignment: Alignment.bottomRight,
+      clipBehavior: Clip.none,
+      children: [
+        _buildContextPill(colorScheme),
+        ExpandableFab(
+          key: _fabKey,
+          distance: 120,
+          onToggle: (isOpen) {
+            if (mounted) {
+              setState(() {
+                _isFabOpen = isOpen;
+              });
+            }
+          },
+          openButtonBuilder: (context, defaultButton) {
         return Listener(
           behavior: HitTestBehavior.translucent,
           onPointerMove: _onHoldPointerMove,
@@ -1904,7 +2018,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
       children: [
         ActionButton(
           onPressed: () async {
-            fabKey.currentState?.close();
+            _fabKey.currentState?.close();
             await handleAiFreeFormText(context, ref);
           },
           icon: Image.asset(
@@ -1916,7 +2030,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         ),
         ActionButton(
           onPressed: () async {
-            fabKey.currentState?.close();
+            _fabKey.currentState?.close();
             await handleAiCameraCapture(context, ref);
           },
           icon: const Icon(Icons.camera_alt),
@@ -1924,12 +2038,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         ),
         ActionButton(
           onPressed: () async {
-            fabKey.currentState?.close();
+            _fabKey.currentState?.close();
             await handleAiFileOrGallery(context, ref);
           },
           icon: const Icon(Icons.attach_file),
           label: context.l10n.files,
         ),
+      ],
+    ),
       ],
     );
   }

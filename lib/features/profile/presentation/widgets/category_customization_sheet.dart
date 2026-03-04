@@ -70,8 +70,10 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
-            title: Text('Delete'),
-            content: Text('Are you sure you want to delete "$name"?'),
+            title: Text(context.l10n.delete),
+            content: Text(
+              context.l10n.customCategoryDeleteConfirmation(name),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -82,7 +84,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.destructive,
                 ),
-                child: Text('Delete'),
+                child: Text(context.l10n.delete),
               ),
             ],
           );
@@ -262,7 +264,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(
                     child: Text(
-                      'Failed to load categories: $e',
+                      context.l10n.customCategoriesLoadFailed(e.toString()),
                       style: TextStyle(color: colorScheme.destructive),
                     ),
                   ),
@@ -327,7 +329,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(32),
                             child: Text(
-                              'No results found',
+                              context.l10n.noResultsFound,
                               style: TextStyle(
                                 color: colorScheme.mutedForeground,
                               ),
@@ -430,16 +432,20 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   actions: [
                                                     MonekoActionSheetAction(
                                                       label: hiddenNow
-                                                          ? 'Unhide'
-                                                          : 'Hide',
+                                                          ? context.l10n
+                                                              .unhide
+                                                          : context.l10n
+                                                              .hide,
                                                       value: 'hide_unhide',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label: 'Edit',
+                                                      label: context.l10n
+                                                          .edit,
                                                       value: 'edit',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label: 'Delete',
+                                                      label: context.l10n
+                                                          .delete,
                                                       value: 'delete',
                                                       isDestructive: true,
                                                     ),
@@ -460,7 +466,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   );
                                                 } else if (action == 'edit') {
                                                   await showUpsertSheet(
-                                                    title: 'Edit category',
+                                                    title: context.l10n
+                                                        .editCategory,
                                                     initialName: name,
                                                     initialType: catType,
                                                     initialColorArgb:
@@ -532,7 +539,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       ),
                                     ),
                                     title: Text(
-                                      'Add Custom Category',
+                                      context.l10n.addCustomCategory,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w500,
                                         color: colorScheme.primary,
@@ -540,7 +547,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                     ),
                                     onTap: () async {
                                       await showUpsertSheet(
-                                        title: 'Add custom category',
+                                        title: context.l10n
+                                            .addCustomCategory,
                                         initialType: type,
                                         onSubmit: (name, onSubmitType,
                                             colorArgb, iconKey) async {
@@ -694,23 +702,23 @@ class _CategoryUpsertSheet extends HookWidget {
     String iconKey,
   ) onSubmit;
 
-  String? _validateCategoryName(String name) {
+  String? _validateCategoryName(BuildContext context, String name) {
     final normalized = name.trim().toLowerCase();
     if (normalized.isEmpty) {
-      return 'Category name is required.';
+      return context.l10n.customCategoryNameRequired;
     }
     if (normalized.length > 96) {
-      return 'Category name must be 96 characters or fewer.';
+      return context.l10n.customCategoryNameTooLong;
     }
     if (normalized.contains('`')) {
-      return 'Category name cannot contain backticks (`).';
+      return context.l10n.customCategoryNameBackticksNotAllowed;
     }
     final hasControlChars = RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized);
     if (hasControlChars) {
-      return 'Category name cannot contain control characters.';
+      return context.l10n.customCategoryNameControlCharsNotAllowed;
     }
     if (normalized == 'other') {
-      return '"other" is reserved and cannot be used as a custom category.';
+      return context.l10n.customCategoryNameReservedOther;
     }
     return null;
   }
@@ -807,7 +815,7 @@ class _CategoryUpsertSheet extends HookWidget {
                           child: TextField(
                             controller: nameController,
                             decoration: InputDecoration(
-                              labelText: 'Category Name',
+                              labelText: context.l10n.customCategoryNameLabel,
                               labelStyle: TextStyle(
                                 color: colorScheme.mutedForeground,
                               ),
@@ -827,7 +835,7 @@ class _CategoryUpsertSheet extends HookWidget {
                           child: Row(
                             children: [
                               Text(
-                                'Type',
+                                context.l10n.type,
                                 style: TextStyle(
                                   color: colorScheme.foreground,
                                   fontSize: 16,
@@ -841,16 +849,16 @@ class _CategoryUpsertSheet extends HookWidget {
                                 unselectedColor: colorScheme.card,
                                 borderColor: colorScheme.border,
                                 pressedColor: colorScheme.muted,
-                                children: const {
+                                children: {
                                   'expense': Padding(
                                     padding:
-                                        EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text('Expense'),
+                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    child: Text(context.l10n.expense),
                                   ),
                                   'income': Padding(
                                     padding:
-                                        EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text('Income'),
+                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    child: Text(context.l10n.income),
                                   ),
                                 },
                                 onValueChanged: (value) {
@@ -867,7 +875,7 @@ class _CategoryUpsertSheet extends HookWidget {
 
                   // Color Picker
                   Text(
-                    'Color',
+                    context.l10n.color,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.mutedForeground,
@@ -977,7 +985,7 @@ class _CategoryUpsertSheet extends HookWidget {
 
                   // Icon Picker
                   Text(
-                    'Icon',
+                    context.l10n.pocketIconLabel,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.mutedForeground,
@@ -1050,8 +1058,10 @@ class _CategoryUpsertSheet extends HookWidget {
                         isSaving.value)
                     ? null
                     : () async {
-                        final validationMessage =
-                            _validateCategoryName(nameController.text);
+                        final validationMessage = _validateCategoryName(
+                          context,
+                          nameController.text,
+                        );
                         if (validationMessage != null) {
                           AppToast.error(context, validationMessage);
                           return;
@@ -1068,19 +1078,24 @@ class _CategoryUpsertSheet extends HookWidget {
 
                         if (!context.mounted) return;
                         if (ok) {
-                          AppToast.success(context, 'Category updated');
+                          AppToast.success(
+                            context,
+                            context.l10n.customCategoryUpdated,
+                          );
                           Navigator.of(context).pop();
                         } else {
                           AppToast.error(
                             context,
-                            'Failed to update category. Check name rules and max length (96).',
+                            context.l10n.customCategoryUpdateFailed,
                           );
                         }
                       },
                 child: Text(
                   isSaving.value
-                      ? 'Saving...'
-                      : (initialName == null ? 'Add Category' : 'Save Changes'),
+                      ? context.l10n.saving
+                      : (initialName == null
+                          ? context.l10n.customCategoryAddCta
+                          : context.l10n.saveChanges),
                 ),
               ),
             ),

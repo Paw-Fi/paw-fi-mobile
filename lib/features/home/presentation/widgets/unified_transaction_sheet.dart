@@ -2525,6 +2525,15 @@ class _UnifiedTransactionSheetState
           throw Exception(context.l10n.noTransactionToSave);
         }
 
+        if (expense.amount <= 0) {
+          closeDialog();
+          AppToast.error(
+            toastContext,
+            context.l10n.pleaseEnterAValidAmountGreaterThan0,
+          );
+          return;
+        }
+
         // Combine extracted date (calendar day) with the selected time in local timezone.
         final expenseLocalDate = DateTime(
           expense.date.year,

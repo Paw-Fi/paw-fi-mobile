@@ -2100,5 +2100,22 @@
   "onboardingPreviewBubbleSharedSpaces": "共用空間",
   "onboardingPreviewBubbleInsightfulCharts": "分析圖表",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp 同步",
-  "onboardingPreviewBubbleRecurringBills": "定期帳單"
+  "onboardingPreviewBubbleRecurringBills": "定期帳單",
+  "settingsCustomCategoriesAction": "自訂",
+  "customCategoryDeleteConfirmation": "確定要刪除「{name}」嗎？",
+  "customCategoriesLoadFailed": "無法載入類別：{error}",
+  "unhide": "取消隱藏",
+  "hide": "隱藏",
+  "editCategory": "編輯類別",
+  "addCustomCategory": "新增自訂類別",
+  "customCategoryNameRequired": "請輸入類別名稱。",
+  "customCategoryNameTooLong": "類別名稱不得超過 96 個字元。",
+  "customCategoryNameBackticksNotAllowed": "類別名稱不能包含反引號 (`)。",
+  "customCategoryNameControlCharsNotAllowed": "類別名稱不能包含控制字元。",
+  "customCategoryNameReservedOther": "「其他」為系統預留，不能用作自訂類別。",
+  "customCategoryNameLabel": "類別名稱",
+  "customCategoryUpdated": "類別已更新",
+  "customCategoryUpdateFailed": "類別更新失敗。請檢查命名規則和字元長度限制（96個字元）。",
+  "customCategoryAddCta": "新增類別",
+  "manualInputQuickActionLabel": "手動輸入"
 }

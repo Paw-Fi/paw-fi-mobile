@@ -1969,5 +1969,22 @@
   "onboardingPreviewBubbleSharedSpaces": "공유 스페이스",
   "onboardingPreviewBubbleInsightfulCharts": "직관적인 차트",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp 동기화",
-  "onboardingPreviewBubbleRecurringBills": "고정 지출"
+  "onboardingPreviewBubbleRecurringBills": "고정 지출",
+  "settingsCustomCategoriesAction": "맞춤 설정",
+  "customCategoryDeleteConfirmation": "\"{name}\" 카테고리를 삭제하시겠습니까?",
+  "customCategoriesLoadFailed": "카테고리를 불러오지 못했습니다: {error}",
+  "unhide": "숨기기 취소",
+  "hide": "숨기기",
+  "editCategory": "카테고리 편집",
+  "addCustomCategory": "사용자 정의 카테고리 추가",
+  "customCategoryNameRequired": "카테고리 이름은 필수입니다.",
+  "customCategoryNameTooLong": "카테고리 이름은 96자 이내여야 합니다.",
+  "customCategoryNameBackticksNotAllowed": "카테고리 이름에 백틱(`)을 포함할 수 없습니다.",
+  "customCategoryNameControlCharsNotAllowed": "카테고리 이름에 제어 문자를 포함할 수 없습니다.",
+  "customCategoryNameReservedOther": "\"기타(other)\"는 시스템 예약어로, 카테고리 이름으로 사용할 수 없습니다.",
+  "customCategoryNameLabel": "카테고리 이름",
+  "customCategoryUpdated": "카테고리가 업데이트되었습니다",
+  "customCategoryUpdateFailed": "카테고리 업데이트 실패. 이름 규칙과 최대 길이(96자)를 확인하세요.",
+  "customCategoryAddCta": "카테고리 추가",
+  "manualInputQuickActionLabel": "직접 입력"
 }

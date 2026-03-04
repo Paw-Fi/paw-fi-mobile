@@ -2175,5 +2175,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Shared Spaces",
   "onboardingPreviewBubbleInsightfulCharts": "Insightful Charts",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp Sync",
-  "onboardingPreviewBubbleRecurringBills": "Recurring Bills"
+  "onboardingPreviewBubbleRecurringBills": "Recurring Bills",
+  "settingsCustomCategoriesAction": "Customize",
+  "customCategoryDeleteConfirmation": "Are you sure you want to delete \"{name}\"?",
+  "customCategoriesLoadFailed": "Failed to load categories: {error}",
+  "unhide": "Unhide",
+  "hide": "Hide",
+  "editCategory": "Edit category",
+  "addCustomCategory": "Add Custom Category",
+  "customCategoryNameRequired": "Category name is required.",
+  "customCategoryNameTooLong": "Category name must be 96 characters or fewer.",
+  "customCategoryNameBackticksNotAllowed": "Category name cannot contain backticks (`).",
+  "customCategoryNameControlCharsNotAllowed": "Category name cannot contain control characters.",
+  "customCategoryNameReservedOther": "\"other\" is reserved and cannot be used as a custom category.",
+  "customCategoryNameLabel": "Category Name",
+  "customCategoryUpdated": "Category updated",
+  "customCategoryUpdateFailed": "Failed to update category. Check name rules and max length (96).",
+  "customCategoryAddCta": "Add Category",
+  "manualInputQuickActionLabel": "Manual entry"
 }

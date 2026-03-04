@@ -2148,5 +2148,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Спільні простори",
   "onboardingPreviewBubbleInsightfulCharts": "Зрозумілі графіки",
   "onboardingPreviewBubbleWhatsappSync": "Синхронізація WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Регулярні рахунки"
+  "onboardingPreviewBubbleRecurringBills": "Регулярні рахунки",
+  "settingsCustomCategoriesAction": "Налаштувати",
+  "customCategoryDeleteConfirmation": "Ви впевнені, що хочете видалити «{name}»?",
+  "customCategoriesLoadFailed": "Не вдалося завантажити категорії: {error}",
+  "unhide": "Показати",
+  "hide": "Приховати",
+  "editCategory": "Редагувати категорію",
+  "addCustomCategory": "Додати власну категорію",
+  "customCategoryNameRequired": "Назва категорії є обов’язковою.",
+  "customCategoryNameTooLong": "Назва не повинна перевищувати 96 символів.",
+  "customCategoryNameBackticksNotAllowed": "Назва не може містити зворотні лапки (`).",
+  "customCategoryNameControlCharsNotAllowed": "Назва не може містити керуючі символи.",
+  "customCategoryNameReservedOther": "Слово «other» зарезервоване і не може бути назвою категорії.",
+  "customCategoryNameLabel": "Назва категорії",
+  "customCategoryUpdated": "Категорію оновлено",
+  "customCategoryUpdateFailed": "Не вдалося оновити категорію. Перевірте правила та довжину (до 96 символов).",
+  "customCategoryAddCta": "Додати",
+  "manualInputQuickActionLabel": "Ручне введення"
 }

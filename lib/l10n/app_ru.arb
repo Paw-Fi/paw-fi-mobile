@@ -2106,5 +2106,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Общие пространства",
   "onboardingPreviewBubbleInsightfulCharts": "Наглядные графики",
   "onboardingPreviewBubbleWhatsappSync": "Синхронизация WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Регулярные платежи"
+  "onboardingPreviewBubbleRecurringBills": "Регулярные платежи",
+  "settingsCustomCategoriesAction": "Настроить",
+  "customCategoryDeleteConfirmation": "Вы уверены, что хотите удалить «{name}»?",
+  "customCategoriesLoadFailed": "Не удалось загрузить категории: {error}",
+  "unhide": "Показать",
+  "hide": "Скрыть",
+  "editCategory": "Изменить категорию",
+  "addCustomCategory": "Добавить категорию",
+  "customCategoryNameRequired": "Введите название категории.",
+  "customCategoryNameTooLong": "Название не должно превышать 96 символов.",
+  "customCategoryNameBackticksNotAllowed": "Название не может содержать обратные кавычки (`).",
+  "customCategoryNameControlCharsNotAllowed": "Название не может содержать управляющие символы.",
+  "customCategoryNameReservedOther": "Слово «other» зарезервировано и не может быть названием категории.",
+  "customCategoryNameLabel": "Название категории",
+  "customCategoryUpdated": "Категория обновлена",
+  "customCategoryUpdateFailed": "Не удалось обновить категорию. Проверьте правила и длину (до 96 символов).",
+  "customCategoryAddCta": "Добавить",
+  "manualInputQuickActionLabel": "Ручной ввод"
 }
