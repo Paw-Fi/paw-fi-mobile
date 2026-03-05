@@ -14,6 +14,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import '../../../../core/config/storage_config.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
@@ -469,9 +470,16 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     final fileName =
         '${StorageConfig.householdCoversPath}/${user.uid}/${DateTime.now().millisecondsSinceEpoch}$ext';
 
+    // Compress before upload to reduce egress
+    final compressedBytes = await ImageCompressor.compressFile(
+      imageFile,
+      config: ImageCompressConfig.householdCover,
+    );
+
     await supabase.storage
         .from(StorageConfig.publicBucket)
-        .upload(fileName, imageFile);
+        .uploadBinary(fileName, compressedBytes,
+            fileOptions: const FileOptions(cacheControl: '31536000'));
 
     return supabase.storage
         .from(StorageConfig.publicBucket)

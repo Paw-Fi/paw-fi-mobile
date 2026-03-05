@@ -2155,5 +2155,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Không gian chung",
   "onboardingPreviewBubbleInsightfulCharts": "Biểu đồ phân tích",
   "onboardingPreviewBubbleWhatsappSync": "Đồng bộ WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Hóa đơn định kỳ"
+  "onboardingPreviewBubbleRecurringBills": "Hóa đơn định kỳ",
+  "settingsCustomCategoriesAction": "Tùy chỉnh",
+  "customCategoryDeleteConfirmation": "Bạn có chắc chắn muốn xóa \"{name}\" không?",
+  "customCategoriesLoadFailed": "Lỗi tải danh mục: {error}",
+  "unhide": "Bỏ ẩn",
+  "hide": "Ẩn",
+  "editCategory": "Chỉnh sửa danh mục",
+  "addCustomCategory": "Thêm danh mục tùy chỉnh",
+  "customCategoryNameRequired": "Vui lòng nhập tên danh mục.",
+  "customCategoryNameTooLong": "Tên danh mục không được quá 96 ký tự.",
+  "customCategoryNameBackticksNotAllowed": "Tên danh mục không được chứa dấu huyền (`).",
+  "customCategoryNameControlCharsNotAllowed": "Tên danh mục không được chứa ký tự điều khiển.",
+  "customCategoryNameReservedOther": "\"other\" đã được đặt trước và không thể dùng làm danh mục tùy chỉnh.",
+  "customCategoryNameLabel": "Tên danh mục",
+  "customCategoryUpdated": "Đã cập nhật danh mục",
+  "customCategoryUpdateFailed": "Lỗi cập nhật danh mục. Vui lòng kiểm tra quy tắc đặt tên và độ dài tối đa (96).",
+  "customCategoryAddCta": "Thêm danh mục",
+  "manualInputQuickActionLabel": "Nhập thủ công"
 }

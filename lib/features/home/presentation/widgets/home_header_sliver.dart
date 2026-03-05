@@ -22,8 +22,6 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
@@ -233,34 +231,12 @@ class HomeHeaderSliver extends ConsumerWidget {
     Future<void> refreshHomeDataForSelectedAccount({
       bool refreshCurrenciesNow = false,
     }) async {
-      if (user.uid.isEmpty) return;
-
-      ref.read(analyticsProvider.notifier).refresh(user.uid);
-
-      final currentViewMode = ref.read(viewModeProvider);
-      final currentSelectedHousehold = ref.read(selectedHouseholdProvider);
-      final rawHouseholdId = currentViewMode.mode == ViewMode.household
-          ? currentSelectedHousehold.householdId
-          : null;
-      final householdId =
-          (rawHouseholdId != null && rawHouseholdId.trim().isNotEmpty)
-              ? rawHouseholdId
-              : null;
-
-      ref
-          .read(recurringTransactionsProvider(householdId).notifier)
-          .refresh(user.uid);
-      ref.invalidate(pocketsProvider);
-
-      if (refreshCurrenciesNow) {
-        ref.invalidate(currencySummariesProvider);
-        ref.invalidate(currencyTransactionCountsProvider);
-        ref.read(currencySummariesProvider);
-        ref.read(currencyTransactionCountsProvider);
-      } else {
-        ref.invalidate(currencySummariesProvider);
-        ref.invalidate(currencyTransactionCountsProvider);
-      }
+      // No-op: all downstream providers (homeFilteredTransactionsProvider,
+      // currencySummariesProvider, currencyTransactionCountsProvider, etc.)
+      // reactively watch analyticsProvider + householdScopeProvider +
+      // homeFilterProvider. When space/currency changes, they auto-recompute
+      // without a network round-trip. Pockets is scope-parameterized and
+      // creates new instances per scope that auto-load.
     }
 
     ref.listen<BankSyncResult?>(bankSyncResultProvider, (previous, next) {

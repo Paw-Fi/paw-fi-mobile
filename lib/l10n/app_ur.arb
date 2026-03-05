@@ -2102,5 +2102,22 @@
   "onboardingPreviewBubbleSharedSpaces": "مشترکہ اسپیس",
   "onboardingPreviewBubbleInsightfulCharts": "بصیرت انگیز چارٹس",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp سنک",
-  "onboardingPreviewBubbleRecurringBills": "بار بار آنے والے بل"
+  "onboardingPreviewBubbleRecurringBills": "بار بار آنے والے بل",
+  "settingsCustomCategoriesAction": "اپنی مرضی کے مطابق بنائیں",
+  "customCategoryDeleteConfirmation": "کیا آپ واقعی \"{name}\" کو حذف کرنا چاہتے ہیں؟",
+  "customCategoriesLoadFailed": "کیٹیگریز لوڈ کرنے میں ناکامی: {error}",
+  "unhide": "ظاہر کریں",
+  "hide": "چھپائیں",
+  "editCategory": "کیٹیگری میں ترمیم کریں",
+  "addCustomCategory": "اپنی مرضی کی کیٹیگری شامل کریں",
+  "customCategoryNameRequired": "کیٹیگری का نام ضروری ہے۔",
+  "customCategoryNameTooLong": "کیٹیگری کا نام 96 حروف یا اس سے کم ہونا چاہیے۔",
+  "customCategoryNameBackticksNotAllowed": "کیٹیگری کے نام میں بیک ٹِکس (`) نہیں ہو سکتے۔",
+  "customCategoryNameControlCharsNotAllowed": "کیٹیگری کے نام میں کنٹرول کریکٹرز نہیں ہو سکتے۔",
+  "customCategoryNameReservedOther": "\"other\" مخصوص ہے اور اسے اپنی مرضی کی کیٹیگری کے طور پر استعمال نہیں کیا جا سکتا۔",
+  "customCategoryNameLabel": "کیٹیگری کا نام",
+  "customCategoryUpdated": "کیٹیگری اپ ڈیٹ ہو گئی",
+  "customCategoryUpdateFailed": "کیٹیگری اپ ڈیٹ کرنے میں ناکامی۔ نام کے قواعد اور زیادہ سے زیادہ لمبائی (96) چیک کریں۔",
+  "customCategoryAddCta": "کیٹیگری شامل کریں",
+  "manualInputQuickActionLabel": "دستی اندراج"
 }

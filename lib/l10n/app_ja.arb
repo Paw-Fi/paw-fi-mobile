@@ -2156,5 +2156,22 @@
   "onboardingPreviewBubbleSharedSpaces": "共有スペース",
   "onboardingPreviewBubbleInsightfulCharts": "分析チャート",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp同期",
-  "onboardingPreviewBubbleRecurringBills": "固定費・サブスク"
+  "onboardingPreviewBubbleRecurringBills": "固定費・サブスク",
+  "settingsCustomCategoriesAction": "カスタマイズ",
+  "customCategoryDeleteConfirmation": "「{name}」を削除してもよろしいですか？",
+  "customCategoriesLoadFailed": "カテゴリーの読み込みに失敗しました: {error}",
+  "unhide": "表示",
+  "hide": "非表示",
+  "editCategory": "カテゴリーを編集",
+  "addCustomCategory": "カスタムカテゴリーを追加",
+  "customCategoryNameRequired": "カテゴリー名は必須です。",
+  "customCategoryNameTooLong": "カテゴリー名は96文字以内で入力してください。",
+  "customCategoryNameBackticksNotAllowed": "カテゴリー名にバッククォート（`）は使用できません。",
+  "customCategoryNameControlCharsNotAllowed": "カテゴリー名に制御文字は使用できません。",
+  "customCategoryNameReservedOther": "「その他」は予約済みの語句のため、カスタムカテゴリーには使用できません。",
+  "customCategoryNameLabel": "カテゴリー名",
+  "customCategoryUpdated": "カテゴリーを更新しました",
+  "customCategoryUpdateFailed": "カテゴリーの更新に失敗しました。命名ルールと最大文字数（96文字）を確認してください。",
+  "customCategoryAddCta": "カテゴリーを追加",
+  "manualInputQuickActionLabel": "手入力"
 }

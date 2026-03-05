@@ -60,9 +60,21 @@ class RequestDeduplicator<T> {
       completer.complete(result);
       return result;
     } catch (e) {
-      debugPrint('❌ [FETCH ERROR] Failed to fetch $key: $e');
-      completer.completeError(e);
-      rethrow;
+      final isCurrent = _pending[key] == completer;
+      if (isCurrent) {
+        // Current request failed — propagate the error to any dedup
+        // waiters and rethrow so the provider reports the error.
+        debugPrint('❌ [FETCH ERROR] Failed to fetch $key: $e');
+        completer.completeError(e);
+        rethrow;
+      }
+      // Request was invalidated while in-flight — the provider that
+      // started this fetch has already been disposed/rebuilt.  Swallow
+      // the error to avoid unhandled zone exceptions and return a
+      // never-completing future (the caller is abandoned anyway).
+      debugPrint(
+          '⚠️ [FETCH STALE ERROR] Ignoring error for invalidated request $key: $e');
+      return Completer<T>().future;
     } finally {
       if (_pending[key] == completer) {
         _pending.remove(key);
@@ -89,6 +101,21 @@ class RequestDeduplicator<T> {
     _pending.clear();
     debugPrint(
         '🗑️ [INVALIDATE ALL] Cleared $count cache entries and $pendingCount pending requests');
+  }
+
+  void invalidateByPrefix(String prefix) {
+    final keysToRemove = _cache.keys.where((k) => k.startsWith(prefix)).toList();
+    for (final key in keysToRemove) {
+      _cache.remove(key);
+    }
+    final pendingToRemove = _pending.keys.where((k) => k.startsWith(prefix)).toList();
+    for (final key in pendingToRemove) {
+      _pending.remove(key);
+    }
+    if (keysToRemove.isNotEmpty || pendingToRemove.isNotEmpty) {
+      debugPrint(
+          '🗑️ [INVALIDATE PREFIX] Cleared ${keysToRemove.length} cache entries and ${pendingToRemove.length} pending requests for prefix: $prefix');
+    }
   }
 }
 
@@ -195,9 +222,9 @@ class CacheInvalidator {
   void invalidateHouseholdData(String householdId) {
     debugPrint(
         '🗑️ [CACHE_INVALIDATOR] Invalidating cache for household $householdId');
-    // Invalidate all cached keys for this household
-    _expensesDeduplicator.invalidateAll();
-    _splitsDeduplicator.invalidateAll();
+    // Only invalidate cached keys for the specific household
+    _expensesDeduplicator.invalidateByPrefix('expenses_${householdId}_');
+    _splitsDeduplicator.invalidateByPrefix('splits_${householdId}_');
     debugPrint(
         '✅ [CACHE_INVALIDATOR] Cache invalidated for household $householdId');
   }

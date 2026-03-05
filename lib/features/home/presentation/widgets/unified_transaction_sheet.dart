@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -205,6 +206,14 @@ class _UnifiedTransactionSheetState
   /// Get localized category name
   String _getLocalizedCategory(String category) =>
       getCategoryTranslation(context, category);
+
+  String _normalizeCategoryRemapKey(String? category) {
+    final raw = (category ?? '').trim().toLowerCase();
+    if (raw.isEmpty) return '';
+    if (categoryColors.containsKey(raw)) return raw;
+    if (!raw.contains(' ')) return normalizeCategory(raw);
+    return raw;
+  }
 
   @override
   void initState() {
@@ -1093,25 +1102,17 @@ class _UnifiedTransactionSheetState
                         height: 200,
                         fit: BoxFit.cover,
                       )
-                    : Image.network(
-                        receiptImageUrl!,
+                    : CachedNetworkImage(
+                        imageUrl: receiptImageUrl!,
                         width: double.infinity,
                         height: 200,
                         fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            height: 200,
-                            alignment: Alignment.center,
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => Container(
+                        placeholder: (context, url) => Container(
+                          height: 200,
+                          alignment: Alignment.center,
+                          child: const CircularProgressIndicator(),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
                           height: 200,
                           color: colorScheme.surfaceContainerHighest,
                           child: const Icon(Icons.broken_image),
@@ -1363,13 +1364,12 @@ class _UnifiedTransactionSheetState
                           if (h.coverImageUrl != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                h.coverImageUrl!,
+                              child: CachedNetworkImage(
+                                imageUrl: h.coverImageUrl!,
                                 width: 32,
                                 height: 32,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stack) =>
-                                    Container(
+                                errorWidget: (context, url, error) => Container(
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
@@ -2525,6 +2525,15 @@ class _UnifiedTransactionSheetState
           throw Exception(context.l10n.noTransactionToSave);
         }
 
+        if (expense.amount <= 0) {
+          closeDialog();
+          AppToast.error(
+            toastContext,
+            context.l10n.pleaseEnterAValidAmountGreaterThan0,
+          );
+          return;
+        }
+
         // Combine extracted date (calendar day) with the selected time in local timezone.
         final expenseLocalDate = DateTime(
           expense.date.year,
@@ -2971,9 +2980,9 @@ class _UnifiedTransactionSheetState
         }
 
         final originalCategoryForRemap =
-            normalizeCategory(widget.existingExpense!.category ?? 'other');
+            _normalizeCategoryRemapKey(widget.existingExpense!.category);
         final String? nextCategoryForRemap = updates.containsKey('category')
-            ? normalizeCategory(updates['category']?.toString() ?? '')
+            ? _normalizeCategoryRemapKey(updates['category']?.toString())
             : null;
         final shouldPromptCategoryRemap = updates.containsKey('category') &&
             nextCategoryForRemap != null &&
@@ -2992,6 +3001,9 @@ class _UnifiedTransactionSheetState
                   updates,
                   extraBody: extraBody,
                 );
+        debugPrint(
+          '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
+        );
 
         if (!mounted) {
           closeDialog();
@@ -3056,6 +3068,9 @@ class _UnifiedTransactionSheetState
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
+          debugPrint(
+            '🧪 updateExpense failure state: error=${editState.error}',
+          );
           final message = ErrorHandler.getUserFriendlyMessage(
             editState.error ?? context.l10n.failedToUpdateExpense,
             context: BackendErrorContext.updateExpense,
@@ -3135,11 +3150,6 @@ class _UnifiedTransactionSheetState
         return;
       }
 
-      AppToast.error(
-        toastContext,
-        toastContext.l10n.preferenceUpdateFailed,
-        duration: const Duration(seconds: 4),
-      );
       AppToast.success(
         toastContext,
         toastContext.l10n.expenseUpdatedSuccessfully,
@@ -3308,22 +3318,15 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                   fit: BoxFit.contain,
                 )
               : widget.imageUrl != null
-                  ? Image.network(
-                      widget.imageUrl!,
+                  ? CachedNetworkImage(
+                      imageUrl: widget.imageUrl!,
                       fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
-                            color: colorScheme.foreground,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
+                      placeholder: (context, url) => Center(
+                        child: CircularProgressIndicator(
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      errorWidget: (context, url, error) {
                         return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,

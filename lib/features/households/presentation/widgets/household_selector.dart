@@ -2,6 +2,7 @@
 // Horizontal scrollable list of households with + button to create new
 // Shows cover images as circular/rounded tiles
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 // import 'dart:math' as math;
 import 'package:flutter/services.dart';
@@ -146,10 +147,10 @@ class _HouseholdTile extends StatelessWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: household.coverImageUrl != null
-                    ? Image.network(
-                        household.coverImageUrl!,
+                    ? CachedNetworkImage(
+                        imageUrl: household.coverImageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stack) => Container(
+                        errorWidget: (context, url, error) => Container(
                           color: colorScheme.muted.withValues(alpha: 0.5),
                           child: Icon(
                             Icons.home_rounded,

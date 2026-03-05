@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -405,11 +406,10 @@ Widget buildHouseholdUnifiedOverviewCard(
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: avatarUrl != null
-                                ? Image.network(
-                                    avatarUrl,
+                                ? CachedNetworkImage(
+                                    imageUrl: avatarUrl,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stack) =>
-                                        Icon(
+                                    errorWidget: (context, url, error) => Icon(
                                       Icons.person,
                                       size: 18,
                                       color: colorScheme.mutedForeground,

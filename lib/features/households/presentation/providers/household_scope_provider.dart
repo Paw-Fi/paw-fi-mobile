@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/features/auth/auth.dart';
@@ -60,30 +59,12 @@ class HouseholdScope {
     return selectedHouseholdId;
   }
 
-  bool get isHouseholdView {
-    final result = viewMode == ViewMode.household &&
-        hasSelectedHousehold &&
-        !isPortfolioSelected;
-    if (kDebugMode) {
-      debugPrint('[HouseholdScope] 🔍 isHouseholdView calculation:');
-      debugPrint(
-          '[HouseholdScope]   - viewMode == household: ${viewMode == ViewMode.household}');
-      debugPrint(
-          '[HouseholdScope]   - hasSelectedHousehold: $hasSelectedHousehold');
-      debugPrint(
-          '[HouseholdScope]   - isPortfolioSelected: $isPortfolioSelected');
-      debugPrint('[HouseholdScope]   - RESULT isHouseholdView: $result');
-    }
-    return result;
-  }
+  bool get isHouseholdView =>
+      viewMode == ViewMode.household &&
+      hasSelectedHousehold &&
+      !isPortfolioSelected;
 
-  bool get isPersonalView {
-    final result = !isHouseholdView;
-    if (kDebugMode) {
-      debugPrint('[HouseholdScope]   - RESULT isPersonalView: $result');
-    }
-    return result;
-  }
+  bool get isPersonalView => !isHouseholdView;
 }
 
 final householdScopeProvider = Provider<HouseholdScope>((ref) {
@@ -96,23 +77,6 @@ final householdScopeProvider = Provider<HouseholdScope>((ref) {
           const <Household>[];
   final portfolioIds =
       households.where((h) => h.isPortfolio).map((h) => h.id).toSet();
-
-  // Debug logging for portfolio households
-  if (kDebugMode) {
-    debugPrint('[HouseholdScope] 🏠 Building scope:');
-    debugPrint('[HouseholdScope]   - Total households: ${households.length}');
-    debugPrint('[HouseholdScope]   - Portfolio count: ${portfolioIds.length}');
-    debugPrint('[HouseholdScope]   - Portfolio IDs: $portfolioIds');
-    debugPrint('[HouseholdScope]   - View mode: $viewMode');
-    debugPrint(
-        '[HouseholdScope]   - Selected household: ${selected.householdId}');
-
-    // Log each household's portfolio status
-    for (final h in households) {
-      debugPrint(
-          '[HouseholdScope]   - Household: ${h.name} (${h.id}), isPortfolio=${h.isPortfolio}');
-    }
-  }
 
   return HouseholdScope(
     viewMode: viewMode,

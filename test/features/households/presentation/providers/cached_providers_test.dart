@@ -63,8 +63,11 @@ void main() {
     addTearDown(container.dispose);
 
     const params = HouseholdExpensesParams(householdId: 'h1');
-    final future1 =
-        container.read(cachedHouseholdExpensesProvider(params).future);
+    // Start in-flight request. Suppress its error — disposing the underlying
+    // provider mid-load is expected to throw.
+    final future1 = container
+        .read(cachedHouseholdExpensesProvider(params).future)
+        .catchError((_) => <ExpenseEntry>[]);
 
     container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
     container.invalidate(householdExpensesProvider);
@@ -105,8 +108,11 @@ void main() {
     addTearDown(container.dispose);
 
     const params = HouseholdSplitsParams(householdId: 'h1');
-    final future1 =
-        container.read(cachedHouseholdSplitsProvider(params).future);
+    // Start in-flight request. Suppress its error — disposing the underlying
+    // provider mid-load is expected to throw.
+    final future1 = container
+        .read(cachedHouseholdSplitsProvider(params).future)
+        .catchError((_) => <ExpenseSplitGroup>[]);
 
     container.read(cacheInvalidatorProvider).invalidateHouseholdData('h1');
     container.invalidate(householdSplitsProvider);

@@ -2158,5 +2158,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Espacios Compartidos",
   "onboardingPreviewBubbleInsightfulCharts": "Gráficos de Análisis",
   "onboardingPreviewBubbleWhatsappSync": "Sincronización con WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Gastos Recurrentes"
+  "onboardingPreviewBubbleRecurringBills": "Gastos Recurrentes",
+  "settingsCustomCategoriesAction": "Personalizar",
+  "customCategoryDeleteConfirmation": "¿Estás seguro de que quieres eliminar \"{name}\"?",
+  "customCategoriesLoadFailed": "Error al cargar las categorías: {error}",
+  "unhide": "Mostrar",
+  "hide": "Ocultar",
+  "editCategory": "Editar categoría",
+  "addCustomCategory": "Añadir categoría personalizada",
+  "customCategoryNameRequired": "El nombre de la categoría es obligatorio.",
+  "customCategoryNameTooLong": "El nombre debe tener 96 caracteres o menos.",
+  "customCategoryNameBackticksNotAllowed": "El nombre no puede contener acentos graves (`).",
+  "customCategoryNameControlCharsNotAllowed": "El nombre no puede contener caracteres de control.",
+  "customCategoryNameReservedOther": "\"other\" (otros) está reservado y no puede usarse como categoría personalizada.",
+  "customCategoryNameLabel": "Nombre de la categoría",
+  "customCategoryUpdated": "Categoría actualizada",
+  "customCategoryUpdateFailed": "Error al actualizar la categoría. Revisa las reglas y la longitud máxima (96).",
+  "customCategoryAddCta": "Añadir categoría",
+  "manualInputQuickActionLabel": "Registro manual"
 }

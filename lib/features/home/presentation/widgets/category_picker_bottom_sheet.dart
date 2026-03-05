@@ -5,6 +5,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
+import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
 class CategoryPickerBottomSheet extends StatelessWidget {
@@ -74,10 +76,20 @@ class CategoryPicker extends HookWidget {
     final searchBackground = colorScheme.homeSearchFieldBackground;
     final searchController = useTextEditingController();
     final searchQuery = useState<String>('');
-    final canonicalCategories = _canonicalizeCategories(allCategories);
+    final canonicalCategories = _canonicalizePickerCategories(allCategories);
+    final canonicalCategorySet = canonicalCategories.toSet();
     final initialSelected = isSingleSelect && selectedCategories.isNotEmpty
-        ? <String>{normalizeCategory(selectedCategories.first)}
-        : _canonicalizeCategories(selectedCategories).toSet();
+        ? <String>{
+            _resolveInitialSelectedKey(
+              selectedCategories.first,
+              canonicalCategorySet,
+            )
+          }
+        : selectedCategories
+            .map((category) =>
+                _resolveInitialSelectedKey(category, canonicalCategorySet))
+            .where((category) => category.isNotEmpty)
+            .toSet();
     final selected = useState<Set<String>>(initialSelected);
 
     useEffect(() {
@@ -92,7 +104,7 @@ class CategoryPicker extends HookWidget {
     }, [searchController]);
 
     final canonicalCustomCategories =
-        _canonicalizeCategories(customCategories).toSet();
+        _canonicalizePickerCategories(customCategories).toSet();
     final grouped = _buildGroups(
       context,
       canonicalCategories,
@@ -101,17 +113,13 @@ class CategoryPicker extends HookWidget {
     final filtered = _filterGroups(context, grouped, searchQuery.value);
 
     final normalizedQuery = searchQuery.value.trim().toLowerCase();
-    final normalizedCreateKey =
-        normalizedQuery.isEmpty ? '' : normalizeCategory(normalizedQuery);
+    final normalizedCreateKey = normalizedQuery.isEmpty
+        ? ''
+        : _normalizePickerCategoryKey(normalizedQuery);
 
     bool hasExactOrLocalizedMatch(String key) {
       if (key.isEmpty) return false;
-      if (canonicalCategories.contains(key)) return true;
-      final localized = getCategoryTranslation(context, key).toLowerCase();
-      return canonicalCategories.any((k) {
-        if (k == key) return true;
-        return getCategoryTranslation(context, k).toLowerCase() == localized;
-      });
+      return canonicalCategories.contains(key);
     }
 
     final canCreateFromQuery = normalizedQuery.isNotEmpty &&
@@ -277,7 +285,7 @@ class CategoryPicker extends HookWidget {
                                     color: colorScheme.mutedForeground,
                                   ),
                                   Text(
-                                    ' Settings',
+                                    " ${context.l10n.settings}",
                                     style: TextStyle(
                                       color: colorScheme.mutedForeground,
                                       fontSize: 12,
@@ -299,6 +307,7 @@ class CategoryPicker extends HookWidget {
                                 categories: entry.value,
                                 selected: selected.value,
                                 onToggle: handleToggle,
+                                isCustomGroup: entry.key == 'custom',
                               ),
                           ],
                         ),
@@ -403,11 +412,25 @@ Map<String, List<String>> _buildGroups(
   return groups;
 }
 
-List<String> _canonicalizeCategories(List<String> categories) {
+String _normalizePickerCategoryKey(String category) {
+  return category.trim().toLowerCase();
+}
+
+String _resolveInitialSelectedKey(String category, Set<String> allowed) {
+  final strict = _normalizePickerCategoryKey(category);
+  if (strict.isEmpty) return strict;
+  if (allowed.contains(strict)) return strict;
+
+  final legacyNormalized = normalizeCategory(category);
+  if (allowed.contains(legacyNormalized)) return legacyNormalized;
+  return strict;
+}
+
+List<String> _canonicalizePickerCategories(List<String> categories) {
   final seen = <String>{};
   final result = <String>[];
   for (final category in categories) {
-    final normalized = normalizeCategory(category);
+    final normalized = _normalizePickerCategoryKey(category);
     if (normalized.isEmpty || !seen.add(normalized)) {
       continue;
     }
@@ -502,12 +525,14 @@ class _CategoryGroupSection extends StatelessWidget {
     required this.categories,
     required this.selected,
     required this.onToggle,
+    required this.isCustomGroup,
   });
 
   final String groupTitle;
   final List<String> categories;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
+  final bool isCustomGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -533,6 +558,7 @@ class _CategoryGroupSection extends StatelessWidget {
                 _CategoryTile(
                   categoryKey: key,
                   isSelected: selected.contains(key),
+                  isCustomCategory: isCustomGroup,
                   onTap: () => onToggle(key),
                 ),
             ],
@@ -547,19 +573,26 @@ class _CategoryTile extends StatelessWidget {
   const _CategoryTile({
     required this.categoryKey,
     required this.isSelected,
+    required this.isCustomCategory,
     required this.onTap,
   });
 
   final String categoryKey;
   final bool isSelected;
+  final bool isCustomCategory;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = getCategoryColor(categoryKey);
-    final icon = getCategoryIcon(categoryKey);
-    final label = getCategoryTranslation(context, categoryKey);
+    final color =
+        _categoryColor(categoryKey, isCustomCategory: isCustomCategory);
+    final icon = _categoryIcon(categoryKey, isCustomCategory: isCustomCategory);
+    final label = _categoryLabel(
+      context,
+      categoryKey,
+      isCustomCategory: isCustomCategory,
+    );
 
     final circleColor =
         isSelected ? color : colorScheme.surface.withValues(alpha: 0.0);
@@ -617,4 +650,44 @@ class _CategoryTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _categoryLabel(
+  BuildContext context,
+  String categoryKey, {
+  required bool isCustomCategory,
+}) {
+  if (isCustomCategory) {
+    return categoryKey;
+  }
+  return getCategoryTranslation(context, categoryKey);
+}
+
+Color _categoryColor(String categoryKey, {required bool isCustomCategory}) {
+  if (!isCustomCategory) {
+    return getCategoryColor(categoryKey);
+  }
+
+  final style = getCustomCategoryStyleOverrides()[categoryKey];
+  if (style?.colorArgb case final int colorArgb) {
+    return Color(colorArgb);
+  }
+
+  final palette = getCustomCategoryColorOptions();
+  final index = categoryKey.hashCode.abs() % palette.length;
+  return palette[index];
+}
+
+IconData _categoryIcon(String categoryKey, {required bool isCustomCategory}) {
+  if (!isCustomCategory) {
+    return getCategoryIcon(categoryKey);
+  }
+
+  final style = getCustomCategoryStyleOverrides()[categoryKey];
+  final iconKey = style?.iconKey?.trim();
+  if (iconKey != null && iconKey.isNotEmpty) {
+    return customCategoryIconForKey(iconKey);
+  }
+
+  return customCategoryIconForKey('tag');
 }

@@ -2,6 +2,7 @@
 // Used in both create and edit flows
 
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -304,29 +305,24 @@ class HouseholdImagePicker {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(17),
-              child: Image.network(
-                imageUrl,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) {
-                    return child;
-                  }
-                  return Container(
-                    color: colorScheme.muted.withValues(alpha: 0.3),
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              colorScheme.primary),
-                        ),
+                placeholder: (context, url) => Container(
+                  color: colorScheme.muted.withValues(alpha: 0.3),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(colorScheme.primary),
                       ),
                     ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
+                  ),
+                ),
+                errorWidget: (context, url, error) {
                   return Container(
                     color: colorScheme.muted.withValues(alpha: 0.3),
                     child: Column(

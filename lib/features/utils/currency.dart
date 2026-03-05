@@ -6,6 +6,7 @@ const Map<String, String> currencyOptions = {
   'ARS': 'ARS\$',
   'AUD': 'A\$',
   'BDT': '৳',
+  'BZD': 'BZ\$',
   'BRL': 'R\$',
   'CAD': 'C\$',
   'CHF': 'CHF',

@@ -1,8 +1,15 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 class UserCategoryLists {
   const UserCategoryLists({
@@ -54,6 +61,30 @@ String _normalizeCategoryName(String raw) {
 
 bool _isUnhidableCategory(String normalized) {
   return normalized == 'other' || normalized == 'uncategorized';
+}
+
+void _refreshCategoryDependentState({
+  required WidgetRef ref,
+  required String userId,
+}) {
+  ref.invalidate(userCategoryConfigProvider);
+  ref.invalidate(userCategoryListsProvider);
+
+  ref.read(analyticsProvider.notifier).refresh(userId);
+  ref.invalidate(pocketsProvider);
+  ref.invalidate(currencyTransactionCountsProvider);
+  ref.invalidate(recurringTransactionsProvider);
+  ref.invalidate(recurringExpensesProvider);
+  ref.invalidate(recurringIncomesProvider);
+
+  ref.read(cacheInvalidatorProvider).invalidateAll();
+  ref.invalidate(userHouseholdsProvider(userId));
+  ref.invalidate(householdExpensesProvider);
+  ref.invalidate(cachedHouseholdExpensesProvider);
+  ref.invalidate(householdSplitsProvider);
+  ref.invalidate(cachedHouseholdSplitsProvider);
+  ref.invalidate(householdBudgetsProvider);
+  ref.invalidate(householdMembersProvider);
 }
 
 final userCategoryConfigProvider =
@@ -202,10 +233,10 @@ final userCategoryListsProvider =
 
 bool _isValidCategoryName(String name) {
   if (name.isEmpty) return false;
-  if (name.length > 48) return false;
-  final allowed = RegExp(r'^[a-z0-9 &/._-]+$');
-  if (!allowed.hasMatch(name)) return false;
+  if (name.length > 96) return false;
   if (name.contains('`')) return false;
+  final hasControlChars = RegExp(r'[\x00-\x1F\x7F]').hasMatch(name);
+  if (hasControlChars) return false;
   return true;
 }
 
@@ -223,24 +254,28 @@ Future<String?> createUserCustomCategory({
   final transactionType = isIncome ? 'income' : 'expense';
 
   try {
-    await supabase.from('user_transaction_categories').upsert(
-      <String, dynamic>{
-        'user_id': user.uid,
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'upsert',
         'name': trimmed,
-        'transaction_type': transactionType,
-        'color_argb': colorArgb ?? computeFallbackCategoryColorArgb(trimmed),
-        'icon_key': (iconKey != null && iconKey.trim().isNotEmpty)
+        'transactionType': transactionType,
+        'colorArgb': colorArgb ?? computeFallbackCategoryColorArgb(trimmed),
+        'iconKey': (iconKey != null && iconKey.trim().isNotEmpty)
             ? iconKey.trim()
             : 'tag',
       },
-      onConflict: 'user_id,name,transaction_type',
     );
-  } catch (_) {
+    final data = response.data;
+    if (data is Map && data['success'] != true) return null;
+  } catch (error, stackTrace) {
+    debugPrint(
+      '[createUserCustomCategory] RPC failed: $error\n$stackTrace',
+    );
     return null;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return trimmed;
 }
 
@@ -260,29 +295,23 @@ Future<bool> setUserCategoryHidden({
   if (!_isValidCategoryName(name)) return false;
 
   try {
-    if (hidden) {
-      await supabase.from('user_hidden_transaction_categories').upsert(
-        <String, dynamic>{
-          'user_id': user.uid,
-          'category_name': name,
-          'transaction_type': type,
-        },
-        onConflict: 'user_id,category_name,transaction_type',
-      );
-    } else {
-      await supabase
-          .from('user_hidden_transaction_categories')
-          .delete()
-          .eq('user_id', user.uid)
-          .eq('category_name', name)
-          .eq('transaction_type', type);
-    }
-  } catch (_) {
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'hide',
+        'name': name,
+        'transactionType': type,
+        'hidden': hidden,
+      },
+    );
+    final data = response.data;
+    if (data is Map && data['success'] != true) return false;
+  } catch (error, stackTrace) {
+    debugPrint('[setUserCategoryHidden] RPC failed: $error\n$stackTrace');
     return false;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return true;
 }
 
@@ -299,24 +328,23 @@ Future<bool> deleteUserCustomCategory({
   if (!_isValidCategoryName(normalized)) return false;
 
   try {
-    await supabase
-        .from('user_transaction_categories')
-        .delete()
-        .eq('user_id', user.uid)
-        .eq('name', normalized)
-        .eq('transaction_type', type);
-
-    await supabase
-        .from('user_hidden_transaction_categories')
-        .delete()
-        .eq('user_id', user.uid)
-        .eq('category_name', normalized);
-  } catch (_) {
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'delete',
+        'name': normalized,
+        'transactionType': type,
+        'fallbackCategory': 'other',
+      },
+    );
+    final data = response.data;
+    if (data is Map && data['success'] != true) return false;
+  } catch (error, stackTrace) {
+    debugPrint('[deleteUserCustomCategory] RPC failed: $error\n$stackTrace');
     return false;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return true;
 }
 
@@ -337,24 +365,26 @@ Future<bool> upsertUserCustomCategory({
   if (normalized == 'other') return false;
 
   try {
-    await supabase.from('user_transaction_categories').upsert(
-      <String, dynamic>{
-        'user_id': user.uid,
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'upsert',
         'name': normalized,
-        'transaction_type': type,
-        'color_argb': colorArgb ?? computeFallbackCategoryColorArgb(normalized),
-        'icon_key': (iconKey != null && iconKey.trim().isNotEmpty)
+        'transactionType': type,
+        'colorArgb': colorArgb ?? computeFallbackCategoryColorArgb(normalized),
+        'iconKey': (iconKey != null && iconKey.trim().isNotEmpty)
             ? iconKey.trim()
             : 'tag',
       },
-      onConflict: 'user_id,name,transaction_type',
     );
-  } catch (_) {
+    final data = response.data;
+    if (data is Map && data['success'] != true) return false;
+  } catch (error, stackTrace) {
+    debugPrint('[upsertUserCustomCategory] RPC failed: $error\n$stackTrace');
     return false;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return true;
 }
 
@@ -376,22 +406,24 @@ Future<bool> setUserCustomCategoryStyle({
   if (iconKey.trim().isEmpty) return false;
 
   try {
-    await supabase
-        .from('user_transaction_categories')
-        .update(<String, dynamic>{
-          'color_argb': colorArgb,
-          'icon_key': iconKey.trim(),
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        })
-        .eq('user_id', user.uid)
-        .eq('name', normalized)
-        .eq('transaction_type', type);
-  } catch (_) {
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'style',
+        'name': normalized,
+        'transactionType': type,
+        'colorArgb': colorArgb,
+        'iconKey': iconKey.trim(),
+      },
+    );
+    final data = response.data;
+    if (data is Map && data['success'] != true) return false;
+  } catch (error, stackTrace) {
+    debugPrint('[setUserCustomCategoryStyle] RPC failed: $error\n$stackTrace');
     return false;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return true;
 }
 
@@ -414,65 +446,38 @@ Future<bool> renameUserCustomCategory({
       !_isValidCategoryName(newNormalized)) {
     return false;
   }
+  if (oldType != 'expense' && oldType != 'income') {
+    return false;
+  }
   if (newType != 'expense' && newType != 'income') {
     return false;
   }
 
-  int? preservedColorArgb;
-  String? preservedIconKey;
-
   try {
-    try {
-      final oldRow = await supabase
-          .from('user_transaction_categories')
-          .select('color_argb,icon_key')
-          .eq('user_id', user.uid)
-          .eq('name', oldNormalized)
-          .eq('transaction_type', oldType)
-          .maybeSingle();
-
-      final colorRaw = oldRow?['color_argb'];
-      final iconRaw = oldRow?['icon_key'];
-      if (colorRaw is num) preservedColorArgb = colorRaw.toInt();
-      if (iconRaw is String && iconRaw.trim().isNotEmpty) {
-        preservedIconKey = iconRaw.trim();
-      }
-    } catch (_) {}
-
-    await supabase.from('user_transaction_categories').upsert(
-      <String, dynamic>{
-        'user_id': user.uid,
-        'name': newNormalized,
-        'transaction_type': newType,
-        'color_argb': preservedColorArgb ??
-            computeFallbackCategoryColorArgb(newNormalized),
-        'icon_key': (preservedIconKey != null && preservedIconKey.isNotEmpty)
-            ? preservedIconKey
-            : 'tag',
+    final response = await supabase.functions.invoke(
+      'manage-user-categories',
+      body: <String, dynamic>{
+        'action': 'rename',
+        'oldName': oldNormalized,
+        'oldTransactionType': oldType,
+        'newName': newNormalized,
+        'newTransactionType': newType,
       },
-      onConflict: 'user_id,name,transaction_type',
     );
-
-    if (oldNormalized != newNormalized || oldType != newType) {
-      await supabase
-          .from('user_transaction_categories')
-          .delete()
-          .eq('user_id', user.uid)
-          .eq('name', oldNormalized)
-          .eq('transaction_type', oldType);
-
-      await supabase
-          .from('user_hidden_transaction_categories')
-          .delete()
-          .eq('user_id', user.uid)
-          .eq('category_name', oldNormalized);
+    final data = response.data;
+    if (data is Map && data['success'] != true) {
+      debugPrint(
+        '[renameUserCustomCategory] Edge function returned unsuccessful response: $data',
+      );
+      return false;
     }
-  } catch (_) {
+  } catch (error, stackTrace) {
+    debugPrint(
+        '[renameUserCustomCategory] Edge function failed: $error\n$stackTrace');
     return false;
   }
 
-  ref.invalidate(userCategoryConfigProvider);
-  ref.invalidate(userCategoryListsProvider);
+  _refreshCategoryDependentState(ref: ref, userId: user.uid);
   return true;
 }
 

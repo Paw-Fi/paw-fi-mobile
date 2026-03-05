@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -128,10 +129,10 @@ class MonekoAvatar extends StatelessWidget {
       return _fallback(colorScheme);
     }
 
-    return Image.network(
-      validatedUrl,
+    return CachedNetworkImage(
+      imageUrl: validatedUrl,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => _fallback(colorScheme),
+      errorWidget: (context, url, error) => _fallback(colorScheme),
     );
   }
 
@@ -160,10 +161,10 @@ class MonekoAvatar extends StatelessWidget {
           return _fallback(colorScheme);
         }
 
-        return Image.network(
-          resolvedUrl,
+        return CachedNetworkImage(
+          imageUrl: resolvedUrl,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => _fallback(colorScheme),
+          errorWidget: (context, url, error) => _fallback(colorScheme),
         );
       },
     );

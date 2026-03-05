@@ -8,6 +8,7 @@ enum AiHoldQuickAction {
   photoLibrary,
   recordAudio,
   textInputDrawer,
+  manualEntry,
 }
 
 extension AiHoldQuickActionStorage on AiHoldQuickAction {
@@ -17,6 +18,7 @@ extension AiHoldQuickActionStorage on AiHoldQuickAction {
       AiHoldQuickAction.photoLibrary => 'photo_library',
       AiHoldQuickAction.recordAudio => 'record_audio',
       AiHoldQuickAction.textInputDrawer => 'text_input_drawer',
+      AiHoldQuickAction.manualEntry => 'manual_entry',
     };
   }
 
@@ -26,6 +28,7 @@ extension AiHoldQuickActionStorage on AiHoldQuickAction {
       'photo_library' => AiHoldQuickAction.photoLibrary,
       'record_audio' => AiHoldQuickAction.recordAudio,
       'text_input_drawer' => AiHoldQuickAction.textInputDrawer,
+      'manual_entry' => AiHoldQuickAction.manualEntry,
       _ => null,
     };
   }

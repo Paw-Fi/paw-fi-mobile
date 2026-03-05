@@ -185,27 +185,34 @@ class PocketCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(
-                                  spentDisplay,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isOverBudget
-                                        ? colorScheme.error
-                                        : colorScheme.pocketTitle,
-                                  ),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: spentDisplay,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: isOverBudget
+                                            ? colorScheme.error
+                                            : colorScheme.pocketTitle,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' / $limitDisplay',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.pocketSubtitle,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  ' / $limitDisplay',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: colorScheme.pocketSubtitle,
-                                  ),
-                                ),
-                              ],
+                                maxLines: 1,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             ClipRRect(

@@ -11,9 +11,12 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/profile/presentation/providers/user_profile_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
+
+import 'package:crypto/crypto.dart';
 
 class AvatarCustomizerScreen extends ConsumerStatefulWidget {
   const AvatarCustomizerScreen({super.key});
@@ -372,6 +375,12 @@ class _AvatarCustomizerScreenState
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw Exception('Failed to encode image');
       final pngBytes = byteData.buffer.asUint8List();
+
+      // Compress avatar before upload (1200px PNG -> 600px, ~40-60% reduction)
+      final compressedBytes = await ImageCompressor.compressBytes(
+        pngBytes,
+        config: ImageCompressConfig.avatar,
+      );
       setState(() {
         _uploadProgress = 50;
       });
@@ -380,11 +389,11 @@ class _AvatarCustomizerScreenState
       // Upload with upsert
       await client.storage.from('avatars').uploadBinary(
             path,
-            pngBytes,
+            compressedBytes,
             fileOptions: const FileOptions(
               upsert: true,
               contentType: 'image/png',
-              cacheControl: '3600',
+              cacheControl: '31536000',
             ),
           );
 
@@ -394,8 +403,13 @@ class _AvatarCustomizerScreenState
 
       final publicUrl = client.storage.from('avatars').getPublicUrl(path);
 
+      // Use deterministic content hash for cache-busting instead of random
+      // timestamp. Same avatar content -> same URL -> CDN/device cache hit.
+      final contentHash =
+          sha256.convert(compressedBytes).toString().substring(0, 8);
+
       await client.from('users').update({
-        'avatar_url': '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+        'avatar_url': '$publicUrl?v=$contentHash',
         'avatar_elements': _selected,
         'avatar_colors': _colors,
         'updated_at': DateTime.now().toIso8601String(),
@@ -427,6 +441,7 @@ class _AvatarCustomizerScreenState
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

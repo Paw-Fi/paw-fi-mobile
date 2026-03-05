@@ -2103,5 +2103,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Spazi Condivisi",
   "onboardingPreviewBubbleInsightfulCharts": "Grafici Intuitivi",
   "onboardingPreviewBubbleWhatsappSync": "Sincronizzazione WhatsApp",
-  "onboardingPreviewBubbleRecurringBills": "Bollette Ricorrenti"
+  "onboardingPreviewBubbleRecurringBills": "Bollette Ricorrenti",
+  "settingsCustomCategoriesAction": "Personalizza",
+  "customCategoryDeleteConfirmation": "Sei sicuro di voler eliminare \"{name}\"?",
+  "customCategoriesLoadFailed": "Impossibile caricare le categorie: {error}",
+  "unhide": "Mostra",
+  "hide": "Nascondi",
+  "editCategory": "Modifica categoria",
+  "addCustomCategory": "Aggiungi categoria personalizzata",
+  "customCategoryNameRequired": "Il nome della categoria è obbligatorio.",
+  "customCategoryNameTooLong": "Il nome non può superare i 96 caratteri.",
+  "customCategoryNameBackticksNotAllowed": "Il nome non può contenere l'accento grave (`).",
+  "customCategoryNameControlCharsNotAllowed": "Il nome non può contenere caratteri di controllo.",
+  "customCategoryNameReservedOther": "\"other\" è riservato e non può essere usato come categoria personalizzata.",
+  "customCategoryNameLabel": "Nome categoria",
+  "customCategoryUpdated": "Categoria aggiornata",
+  "customCategoryUpdateFailed": "Impossibile aggiornare la categoria. Verifica le regole e la lunghezza massima (96).",
+  "customCategoryAddCta": "Aggiungi",
+  "manualInputQuickActionLabel": "Inserimento manuale"
 }

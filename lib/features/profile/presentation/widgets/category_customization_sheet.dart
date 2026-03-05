@@ -9,6 +9,7 @@ import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
@@ -36,7 +37,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       String initialType = 'expense',
       int? initialColorArgb,
       String? initialIconKey,
-      required Future<void> Function(
+      required Future<bool> Function(
         String name,
         String type,
         int colorArgb,
@@ -69,8 +70,10 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
-            title: Text('Delete'),
-            content: Text('Are you sure you want to delete "$name"?'),
+            title: Text(context.l10n.delete),
+            content: Text(
+              context.l10n.customCategoryDeleteConfirmation(name),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -81,7 +84,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.destructive,
                 ),
-                child: Text('Delete'),
+                child: Text(context.l10n.delete),
               ),
             ],
           );
@@ -238,7 +241,9 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                           ),
                         ),
                         child: Icon(
-                          PlatformInfo.isIOS ? CupertinoIcons.clear : Icons.close,
+                          PlatformInfo.isIOS
+                              ? CupertinoIcons.clear
+                              : Icons.close,
                           color: colorScheme.onSurface,
                           size: 16,
                         ),
@@ -255,10 +260,11 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
 
               Expanded(
                 child: configAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(
                     child: Text(
-                      'Failed to load categories: $e',
+                      context.l10n.customCategoriesLoadFailed(e.toString()),
                       style: TextStyle(color: colorScheme.destructive),
                     ),
                   ),
@@ -277,16 +283,16 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
 
                         final validCats = cats.where((c) {
                           if (!builtinSet.contains(c)) return false;
-                          
+
                           final normalized = c.trim().toLowerCase();
-                          if (normalized == 'other' || normalized == 'uncategorized') {
+                          if (normalized == 'other' ||
+                              normalized == 'uncategorized') {
                             return false;
                           }
 
                           if (query.isNotEmpty) {
-                            final localized =
-                                getCategoryTranslation(context, c)
-                                    .toLowerCase();
+                            final localized = getCategoryTranslation(context, c)
+                                .toLowerCase();
                             if (!c.toLowerCase().contains(query) &&
                                 !localized.contains(query)) {
                               return false;
@@ -323,7 +329,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                           child: Padding(
                             padding: const EdgeInsets.all(32),
                             child: Text(
-                              'No results found',
+                              context.l10n.noResultsFound,
                               style: TextStyle(
                                 color: colorScheme.mutedForeground,
                               ),
@@ -387,10 +393,10 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                             ),
                                             leading: CircleAvatar(
                                               radius: 18,
-                                              backgroundColor: Color(
-                                                  cat.colorArgb ??
-                                                      computeFallbackCategoryColorArgb(
-                                                          name)),
+                                              backgroundColor: Color(cat
+                                                      .colorArgb ??
+                                                  computeFallbackCategoryColorArgb(
+                                                      name)),
                                               child: Icon(
                                                 customCategoryIconForKey(
                                                     cat.iconKey ?? 'tag'),
@@ -400,8 +406,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                               ),
                                             ),
                                             title: Text(
-                                              getCategoryTranslation(
-                                                  context, name),
+                                              name,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w500,
                                                 color: colorScheme.foreground,
@@ -415,28 +420,32 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                 PlatformInfo.isIOS
                                                     ? CupertinoIcons.ellipsis
                                                     : Icons.more_vert,
-                                                color: colorScheme
-                                                    .mutedForeground,
+                                                color:
+                                                    colorScheme.mutedForeground,
                                               ),
                                               onPressed: () async {
-                                                final action = await MonekoActionSheet
-                                                    .show<String>(
+                                                final action =
+                                                    await MonekoActionSheet
+                                                        .show<String>(
                                                   context: context,
                                                   title: name,
                                                   actions: [
                                                     MonekoActionSheetAction(
                                                       label: hiddenNow
-                                                          ? 'Unhide'
-                                                          : 'Hide',
+                                                          ? context.l10n
+                                                              .unhide
+                                                          : context.l10n
+                                                              .hide,
                                                       value: 'hide_unhide',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label: 'Edit',
+                                                      label: context.l10n
+                                                          .edit,
                                                       value: 'edit',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label:
-                                                          'Delete',
+                                                      label: context.l10n
+                                                          .delete,
                                                       value: 'delete',
                                                       isDestructive: true,
                                                     ),
@@ -457,7 +466,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   );
                                                 } else if (action == 'edit') {
                                                   await showUpsertSheet(
-                                                    title: 'Edit category',
+                                                    title: context.l10n
+                                                        .editCategory,
                                                     initialName: name,
                                                     initialType: catType,
                                                     initialColorArgb:
@@ -467,7 +477,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                         newType,
                                                         colorArgb,
                                                         iconKey) async {
-                                                      await renameUserCustomCategory(
+                                                      final renamed =
+                                                          await renameUserCustomCategory(
                                                         ref: ref,
                                                         oldName: name,
                                                         oldTransactionType:
@@ -476,8 +487,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                         newTransactionType:
                                                             newType,
                                                       );
+                                                      if (!renamed) {
+                                                        return false;
+                                                      }
 
-                                                      await setUserCustomCategoryStyle(
+                                                      final styled =
+                                                          await setUserCustomCategoryStyle(
                                                         ref: ref,
                                                         name: newName,
                                                         transactionType:
@@ -485,6 +500,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                         colorArgb: colorArgb,
                                                         iconKey: iconKey,
                                                       );
+                                                      return styled;
                                                     },
                                                   );
                                                 } else if (action == 'delete') {
@@ -497,8 +513,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                             ),
                                           ),
                                           Padding(
-                                            padding: const EdgeInsets.only(
-                                                left: 60),
+                                            padding:
+                                                const EdgeInsets.only(left: 60),
                                             child: Divider(
                                               height: 1,
                                               color: colorScheme.border,
@@ -523,7 +539,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       ),
                                     ),
                                     title: Text(
-                                      'Add Custom Category',
+                                      context.l10n.addCustomCategory,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w500,
                                         color: colorScheme.primary,
@@ -531,11 +547,12 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                     ),
                                     onTap: () async {
                                       await showUpsertSheet(
-                                        title: 'Add custom category',
+                                        title: context.l10n
+                                            .addCustomCategory,
                                         initialType: type,
                                         onSubmit: (name, onSubmitType,
                                             colorArgb, iconKey) async {
-                                          await upsertUserCustomCategory(
+                                          return upsertUserCustomCategory(
                                             ref: ref,
                                             name: name,
                                             transactionType: onSubmitType,
@@ -613,7 +630,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                 color: colorScheme.foreground,
                                               ),
                                             ),
-                                            trailing: MonekoSwitch(
+                                            trailing: AdaptiveSwitch(
                                               value: !hiddenNow,
                                               onChanged: (value) async {
                                                 await setUserCategoryHidden(
@@ -678,12 +695,33 @@ class _CategoryUpsertSheet extends HookWidget {
   final String initialType;
   final int? initialColorArgb;
   final String? initialIconKey;
-  final Future<void> Function(
+  final Future<bool> Function(
     String name,
     String type,
     int colorArgb,
     String iconKey,
   ) onSubmit;
+
+  String? _validateCategoryName(BuildContext context, String name) {
+    final normalized = name.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return context.l10n.customCategoryNameRequired;
+    }
+    if (normalized.length > 96) {
+      return context.l10n.customCategoryNameTooLong;
+    }
+    if (normalized.contains('`')) {
+      return context.l10n.customCategoryNameBackticksNotAllowed;
+    }
+    final hasControlChars = RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized);
+    if (hasControlChars) {
+      return context.l10n.customCategoryNameControlCharsNotAllowed;
+    }
+    if (normalized == 'other') {
+      return context.l10n.customCategoryNameReservedOther;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -701,6 +739,7 @@ class _CategoryUpsertSheet extends HookWidget {
             ? initialIconKey!.trim()
             : 'tag';
     final selectedIconKey = useState(defaultIcon);
+    final isSaving = useState(false);
 
     final iconEntries =
         customCategoryIconOptions.entries.toList(growable: false);
@@ -776,7 +815,7 @@ class _CategoryUpsertSheet extends HookWidget {
                           child: TextField(
                             controller: nameController,
                             decoration: InputDecoration(
-                              labelText: 'Category Name',
+                              labelText: context.l10n.customCategoryNameLabel,
                               labelStyle: TextStyle(
                                 color: colorScheme.mutedForeground,
                               ),
@@ -796,7 +835,7 @@ class _CategoryUpsertSheet extends HookWidget {
                           child: Row(
                             children: [
                               Text(
-                                'Type',
+                                context.l10n.type,
                                 style: TextStyle(
                                   color: colorScheme.foreground,
                                   fontSize: 16,
@@ -810,16 +849,16 @@ class _CategoryUpsertSheet extends HookWidget {
                                 unselectedColor: colorScheme.card,
                                 borderColor: colorScheme.border,
                                 pressedColor: colorScheme.muted,
-                                children: const {
+                                children: {
                                   'expense': Padding(
                                     padding:
-                                        EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text('Expense'),
+                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    child: Text(context.l10n.expense),
                                   ),
                                   'income': Padding(
                                     padding:
-                                        EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text('Income'),
+                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    child: Text(context.l10n.income),
                                   ),
                                 },
                                 onValueChanged: (value) {
@@ -836,7 +875,7 @@ class _CategoryUpsertSheet extends HookWidget {
 
                   // Color Picker
                   Text(
-                    'Color',
+                    context.l10n.color,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.mutedForeground,
@@ -946,7 +985,7 @@ class _CategoryUpsertSheet extends HookWidget {
 
                   // Icon Picker
                   Text(
-                    'Icon',
+                    context.l10n.pocketIconLabel,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.mutedForeground,
@@ -974,14 +1013,17 @@ class _CategoryUpsertSheet extends HookWidget {
                             width: 52,
                             height: 52,
                             decoration: BoxDecoration(
-                              color: isSelected && selectedColorArgb.value != null
-                                  ? selectedColor.withValues(alpha: 0.15)
-                                  : isSelected
-                                      ? colorScheme.primary.withValues(alpha: 0.15)
-                                      : colorScheme.card,
+                              color:
+                                  isSelected && selectedColorArgb.value != null
+                                      ? selectedColor.withValues(alpha: 0.15)
+                                      : isSelected
+                                          ? colorScheme.primary
+                                              .withValues(alpha: 0.15)
+                                          : colorScheme.card,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: isSelected && selectedColorArgb.value != null
+                                color: isSelected &&
+                                        selectedColorArgb.value != null
                                     ? selectedColor
                                     : isSelected
                                         ? colorScheme.primary
@@ -991,11 +1033,12 @@ class _CategoryUpsertSheet extends HookWidget {
                             ),
                             child: Icon(
                               entry.value,
-                              color: isSelected && selectedColorArgb.value != null
-                                  ? selectedColor
-                                  : isSelected
-                                      ? colorScheme.primary
-                                      : colorScheme.mutedForeground,
+                              color:
+                                  isSelected && selectedColorArgb.value != null
+                                      ? selectedColor
+                                      : isSelected
+                                          ? colorScheme.primary
+                                          : colorScheme.mutedForeground,
                               size: 24,
                             ),
                           ),
@@ -1011,20 +1054,49 @@ class _CategoryUpsertSheet extends HookWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               child: PrimaryAdaptiveButton(
                 onPressed: (nameController.text.trim().isEmpty ||
-                        selectedColorArgb.value == null)
+                        selectedColorArgb.value == null ||
+                        isSaving.value)
                     ? null
                     : () async {
-                        await onSubmit(
+                        final validationMessage = _validateCategoryName(
+                          context,
+                          nameController.text,
+                        );
+                        if (validationMessage != null) {
+                          AppToast.error(context, validationMessage);
+                          return;
+                        }
+
+                        isSaving.value = true;
+                        final ok = await onSubmit(
                           nameController.text.trim(),
                           transactionType.value,
                           selectedColorArgb.value!,
                           selectedIconKey.value,
                         );
-                        if (context.mounted) {
+                        isSaving.value = false;
+
+                        if (!context.mounted) return;
+                        if (ok) {
+                          AppToast.success(
+                            context,
+                            context.l10n.customCategoryUpdated,
+                          );
                           Navigator.of(context).pop();
+                        } else {
+                          AppToast.error(
+                            context,
+                            context.l10n.customCategoryUpdateFailed,
+                          );
                         }
                       },
-                child: Text(initialName == null ? 'Add Category' : 'Save Changes'),
+                child: Text(
+                  isSaving.value
+                      ? context.l10n.saving
+                      : (initialName == null
+                          ? context.l10n.customCategoryAddCta
+                          : context.l10n.saveChanges),
+                ),
               ),
             ),
           ],

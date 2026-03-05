@@ -55,6 +55,14 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+String _normalizeCategoryRemapKey(String? category) {
+  final raw = (category ?? '').trim().toLowerCase();
+  if (raw.isEmpty) return '';
+  if (categoryColors.containsKey(raw)) return raw;
+  if (!raw.contains(' ')) return normalizeCategory(raw);
+  return raw;
+}
+
 /// Modern bottom sheet for adding/editing recurring transactions
 /// Apple-inspired design with clean animations and intuitive UX
 class AddRecurringSheet extends HookConsumerWidget {
@@ -74,6 +82,9 @@ class AddRecurringSheet extends HookConsumerWidget {
         useState<String>(type == 'income' ? 'income' : 'expense');
     final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
+
+    // Ensure custom category style overrides are loaded for display widgets.
+    ref.watch(userCategoryConfigProvider);
 
     final amountController = useTextEditingController(
       text: existingTransaction?.amount.toString() ?? '',
@@ -588,9 +599,9 @@ class AddRecurringSheet extends HookConsumerWidget {
       }
 
       final originalCategoryForRemap =
-          normalizeCategory(existingTransaction?.category ?? 'other');
+          _normalizeCategoryRemapKey(existingTransaction?.category);
       final selectedCategoryForRemap =
-          normalizeCategory(selectedCategory.value ?? '');
+          _normalizeCategoryRemapKey(selectedCategory.value);
       final shouldPromptCategoryRemap = isEditing &&
           selectedCategoryForRemap.isNotEmpty &&
           selectedCategoryForRemap != originalCategoryForRemap &&
@@ -1844,10 +1855,6 @@ class AddRecurringSheet extends HookConsumerWidget {
       return;
     }
 
-    AppToast.error(
-      toastContext,
-      toastContext.l10n.preferenceUpdateFailed,
-    );
     AppToast.success(toastContext, fallbackSuccessMessage);
   }
 

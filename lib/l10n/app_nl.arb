@@ -2103,5 +2103,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Gedeelde ruimtes",
   "onboardingPreviewBubbleInsightfulCharts": "Duidelijke grafieken",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp-synchronisatie",
-  "onboardingPreviewBubbleRecurringBills": "Terugkerende facturen"
+  "onboardingPreviewBubbleRecurringBills": "Terugkerende facturen",
+  "settingsCustomCategoriesAction": "Aanpassen",
+  "customCategoryDeleteConfirmation": "Weet je zeker dat je \"{name}\" wilt verwijderen?",
+  "customCategoriesLoadFailed": "Laden van categorieën mislukt: {error}",
+  "unhide": "Zichtbaar maken",
+  "hide": "Verbergen",
+  "editCategory": "Categorie bewerken",
+  "addCustomCategory": "Aangepaste categorie toevoegen",
+  "customCategoryNameRequired": "Categorienaam is verplicht.",
+  "customCategoryNameTooLong": "Categorienaam mag maximaal 96 tekens bevatten.",
+  "customCategoryNameBackticksNotAllowed": "Categorienaam mag geen backticks (`) bevatten.",
+  "customCategoryNameControlCharsNotAllowed": "Categorienaam mag geen besturingstekens bevatten.",
+  "customCategoryNameReservedOther": "\"overig\" is gereserveerd en kan niet als aangepaste categorie worden gebruikt.",
+  "customCategoryNameLabel": "Categorienaam",
+  "customCategoryUpdated": "Categorie bijgewerkt",
+  "customCategoryUpdateFailed": "Bijwerken van categorie mislukt. Controleer de regels en de maximale lengte (96).",
+  "customCategoryAddCta": "Categorie toevoegen",
+  "manualInputQuickActionLabel": "Handmatig"
 }

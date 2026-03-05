@@ -2156,5 +2156,22 @@
   "onboardingPreviewBubbleSharedSpaces": "Gemeinsame Budgets",
   "onboardingPreviewBubbleInsightfulCharts": "Aufschlussreiche Diagramme",
   "onboardingPreviewBubbleWhatsappSync": "WhatsApp-Sync",
-  "onboardingPreviewBubbleRecurringBills": "Wiederkehrende Rechnungen"
+  "onboardingPreviewBubbleRecurringBills": "Wiederkehrende Rechnungen",
+  "settingsCustomCategoriesAction": "Anpassen",
+  "customCategoryDeleteConfirmation": "Möchtest du „{name}“ wirklich löschen?",
+  "customCategoriesLoadFailed": "Kategorien konnten nicht geladen werden: {error}",
+  "unhide": "Einblenden",
+  "hide": "Ausblenden",
+  "editCategory": "Kategorie bearbeiten",
+  "addCustomCategory": "Eigene Kategorie hinzufügen",
+  "customCategoryNameRequired": "Kategoriename ist erforderlich.",
+  "customCategoryNameTooLong": "Der Name darf maximal 96 Zeichen lang sein.",
+  "customCategoryNameBackticksNotAllowed": "Der Name darf keine Backticks (`) enthalten.",
+  "customCategoryNameControlCharsNotAllowed": "Der Name darf keine Steuerzeichen enthalten.",
+  "customCategoryNameReservedOther": "„Andere“ ist reserviert und kann nicht als eigene Kategorie verwendet werden.",
+  "customCategoryNameLabel": "Kategoriename",
+  "customCategoryUpdated": "Kategorie aktualisiert",
+  "customCategoryUpdateFailed": "Kategorie konnte nicht aktualisiert werden. Prüfe die Regeln und die Maximallänge (96).",
+  "customCategoryAddCta": "Kategorie hinzufügen",
+  "manualInputQuickActionLabel": "Manuelle Eingabe"
 }
