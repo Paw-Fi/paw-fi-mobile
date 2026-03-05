@@ -46,7 +46,8 @@ GoRouter router(RouterRef ref) {
   }
   final hasCompletedPreauth =
       prefs.getBool('onboarding_preauth_completed') ?? false;
-  final draftRaw = prefs.getString('onboarding_preauth_draft_v1');
+  final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
+      prefs.getString('onboarding_preauth_draft_v1');
   final hasInProgressPreauthDraft = () {
     if (draftRaw == null || draftRaw.isEmpty) return false;
     try {

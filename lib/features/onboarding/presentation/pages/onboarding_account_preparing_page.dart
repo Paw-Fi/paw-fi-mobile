@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/utils/household_creation_utils.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'dart:io';
 
@@ -97,6 +100,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       // If user selected a shared space in pre-auth onboarding,
       // create the shared space and optional invite now that auth exists.
+      String? createdHouseholdId;
       try {
         if (draft.wantsSharedSpace && draft.spaceName.trim().isNotEmpty) {
           String? coverImageUrl = draft.spaceImageUrl.trim().isNotEmpty
@@ -128,6 +132,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           await ref
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(createdHousehold.id);
+          createdHouseholdId = createdHousehold.id;
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
 
           final inviteEmail = draft.inviteEmail.trim();
@@ -156,10 +161,85 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
 
       try {
+        final recommendation = BudgetRecommender.recommend(draft);
+        if (!recommendation.hasBlockingError && draft.monthlyBudget > 0) {
+          final now = DateTime.now();
+          final monthStart = DateTime(now.year, now.month, 1);
+          final periodMonth =
+              '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-01';
+
+          Future<bool> hasExistingBudget(String? householdId) async {
+            final query = supabase
+                .from('budgets')
+                .select('id')
+                .eq('period_month', periodMonth);
+
+            if (householdId == null) {
+              final row = await query
+                  .eq('user_id', user.uid)
+                  .isFilter('household_id', null)
+                  .limit(1)
+                  .maybeSingle();
+              return row != null;
+            }
+
+            final row = await query
+                .eq('household_id', householdId)
+                .limit(1)
+                .maybeSingle();
+            return row != null;
+          }
+
+          final personalParams = PocketsScopeParams(
+            scope: PocketsScopeType.personal,
+            periodMonth: monthStart,
+          );
+          final hasPersonalBudget = await hasExistingBudget(null);
+          if (!hasPersonalBudget) {
+            await ref
+                .read(pocketsProvider(personalParams).notifier)
+                .createBudgetFromTemplate(
+                  totalBudget: draft.monthlyBudget,
+                  pockets: recommendation.pockets,
+                );
+          }
+
+          if (createdHouseholdId != null && createdHouseholdId.isNotEmpty) {
+            final hasHouseholdBudget =
+                await hasExistingBudget(createdHouseholdId);
+            if (!hasHouseholdBudget) {
+              final householdParams = PocketsScopeParams(
+                scope: PocketsScopeType.household,
+                householdId: createdHouseholdId,
+                periodMonth: monthStart,
+              );
+              await ref
+                  .read(pocketsProvider(householdParams).notifier)
+                  .createBudgetFromTemplate(
+                    totalBudget: draft.monthlyBudget,
+                    pockets: recommendation.pockets,
+                  );
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
         final prefs = ref.read(sharedPreferencesProvider);
         await prefs.setString(
           'onboarding_profile:${user.uid}',
-          '{"monthlyBudget":${draft.monthlyBudget},"wantsSharedSpace":${draft.wantsSharedSpace},"spaceName":"${draft.spaceName.replaceAll('"', '\\"')}","spaceImageUrl":"${draft.spaceImageUrl.replaceAll('"', '\\"')}","inviteEmail":"${draft.inviteEmail.replaceAll('"', '\\"')}","inviteMessage":"${draft.inviteMessage.replaceAll('"', '\\"')}","inviteExpiresInDays":${draft.inviteExpiresInDays},"wantsStarterPockets":${draft.wantsStarterPockets}}',
+          jsonEncode(
+            {
+              'monthlyBudget': draft.monthlyBudget,
+              'wantsSharedSpace': draft.wantsSharedSpace,
+              'spaceName': draft.spaceName,
+              'spaceImageUrl': draft.spaceImageUrl,
+              'inviteEmail': draft.inviteEmail,
+              'inviteMessage': draft.inviteMessage,
+              'inviteExpiresInDays': draft.inviteExpiresInDays,
+              'wantsStarterPockets': draft.wantsStarterPockets,
+            },
+          ),
         );
       } catch (_) {}
       if (!context.mounted) return;

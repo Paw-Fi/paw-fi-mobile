@@ -22,6 +22,7 @@ import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
@@ -96,48 +97,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       ),
     ];
 
-    const questionSteps = [
-      (
-        title: 'What do you want help with?',
-        options: [
-          'Keep track of shared expenses',
-          'Split bills',
-          'Stay on top of spending',
-          'Track my own spending',
-          'Plan a trip or event',
-          'Keep track of receipts',
-        ],
-      ),
-      (
-        title: 'Where do you live?',
-        options: [
-          'Renting',
-          'On my home',
-          'With roommates',
-          'With family',
-        ],
-      ),
-      (
-        title: 'How often do you eat out?',
-        options: ['Often', 'Sometimes', 'Rarely'],
-      ),
-      (
-        title: 'Do you have subscriptions?',
-        options: ['Many', 'A few', 'None'],
-      ),
-      (
-        title: 'Do you have pets?',
-        options: ['Yes', 'No'],
-      ),
-    ];
-
-    final questionAnswers = useState<List<String?>>(
-      List<String?>.filled(questionSteps.length, null),
-    );
-
-    final totalPages = introSlides.length + questionSteps.length;
-    final isIntro = currentPage.value < introSlides.length;
-    final questionIndex = currentPage.value - introSlides.length;
+    final totalPages = introSlides.length;
     final isFinalIntroSlide = currentPage.value == introSlides.length - 1;
 
     // Ambient glow controller morphs based on page progress
@@ -154,20 +114,13 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       CurvedAnimation(parent: glowController, curve: Curves.easeInOut),
     );
 
-    // Page transition progress for morphing glow intensity
-    final pageProgress = (currentPage.value / (totalPages - 1)).clamp(0.0, 1.0);
-
-    Future<void> persistAndContinue() async {
+    Future<void> goToPreAuthQuestions() async {
       if (isBusy.value) return;
       isBusy.value = true;
       try {
         final store = ref.read(onboardingPreauthDraftStoreProvider);
         final current = store.load();
-        final mapped = _applyGuestAnswersToDraft(
-          draft: current,
-          answers: questionAnswers.value,
-        );
-        await store.save(mapped.copyWith(currentStep: 5));
+        await store.save(current.copyWith(currentStep: 0));
         if (!context.mounted) return;
         context.go('/onboarding?stage=pre');
       } finally {
@@ -179,7 +132,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
 
     void goNext() {
       if (currentPage.value == totalPages - 1) {
-        unawaited(persistAndContinue());
+        unawaited(goToPreAuthQuestions());
         return;
       }
       currentPage.value++;
@@ -189,10 +142,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       if (currentPage.value <= 0) return;
       currentPage.value--;
     }
-
-    final questionProgress = !isIntro
-        ? ((questionIndex + 1) / questionSteps.length).clamp(0.0, 1.0)
-        : 0.0;
 
     return AdaptiveScaffold(
       appBar: null,
@@ -204,40 +153,33 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
             children: [
               // Ambient glow background layer (persists and morphs across slides)
               Positioned(
-                left: -88,
-                right: -88,
-                bottom: -100,
-                height: MediaQuery.sizeOf(context).height * 0.5,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: MediaQuery.sizeOf(context).height * 0.6,
                 child: IgnorePointer(
                   child: AnimatedOpacity(
                     duration: const Duration(milliseconds: 650),
-                    opacity: isIntro ? (isFinalIntroSlide ? 1.0 : 0.0) : 0.0,
-                    child: Transform.scale(
-                      scale: 1.0 + (glowAnimation * 0.05),
+                    opacity: isFinalIntroSlide ? 1.0 : 0.0,
+                    child: Transform(
+                      transform: Matrix4.identity()
+                        ..scale(2.0, 1.0 + (glowAnimation * 0.05)),
                       alignment: Alignment.bottomCenter,
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: RadialGradient(
-                            center: const Alignment(0, 1.0),
-                            radius: 1.0 +
-                                (pageProgress *
-                                    0.2), // slightly larger over time
-                            focal: Alignment(0,
-                                1.2 - (pageProgress * 0.1)), // shifts slightly
-                            focalRadius: 0.1,
+                            center: Alignment.bottomCenter,
+                            radius: 1.0,
                             colors: [
                               colorScheme.primary.withValues(
-                                alpha: 0.7 + (glowAnimation * 0.1),
-                              ),
-                              colorScheme.primary.withValues(
-                                alpha: 0.45 + (glowAnimation * 0.1),
+                                alpha: 0.5 + (glowAnimation * 0.1),
                               ),
                               colorScheme.primary.withValues(
                                 alpha: 0.2 + (glowAnimation * 0.05),
                               ),
                               colorScheme.primary.withValues(alpha: 0.0),
                             ],
-                            stops: const [0.0, 0.25, 0.5, 1.0],
+                            stops: const [0.0, 0.5, 1.0],
                           ),
                         ),
                       ),
@@ -308,59 +250,21 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                         key: ValueKey<int>(currentPage.value),
                         child: Builder(builder: (context) {
                           final index = currentPage.value;
-                          if (index < introSlides.length) {
-                            final slide = introSlides[index];
-                            return _IntroSlide(
-                              title: slide.title,
-                              body: slide.body,
-                              accent: slide.accent,
-                              currentIndex: index,
-                              totalSlides: introSlides.length,
-                              isFinalSlide: index == introSlides.length - 1,
-                              onNext: goNext,
-                            );
-                          } else {
-                            final qIndex = index - introSlides.length;
-                            final step = questionSteps[qIndex];
-                            return _QuestionSlide(
-                              title: step.title,
-                              options: step.options,
-                              selected: questionAnswers.value[qIndex],
-                              progress: questionProgress,
-                              onBack: goBack,
-                              onSelected: (option) {
-                                final nextAnswers =
-                                    List<String?>.from(questionAnswers.value);
-                                nextAnswers[qIndex] = option;
-                                questionAnswers.value = nextAnswers;
-                              },
-                            );
-                          }
+                          final slide = introSlides[index];
+                          return _IntroSlide(
+                            title: slide.title,
+                            body: slide.body,
+                            accent: slide.accent,
+                            currentIndex: index,
+                            totalSlides: introSlides.length,
+                            isFinalSlide: index == introSlides.length - 1,
+                            onNext: goNext,
+                          );
                         }),
                       ),
                     ),
                   ),
-                  if (!isIntro)
-                    Padding(
-                      padding:
-                          EdgeInsets.fromLTRB(20, 8, 20, 16 + bottomPadding),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: PrimaryAdaptiveButton(
-                          onPressed:
-                              (questionAnswers.value[questionIndex] == null ||
-                                      isBusy.value)
-                                  ? null
-                                  : goNext,
-                          child: Text(
-                            currentPage.value == totalPages - 1
-                                ? context.l10n.continueAction
-                                : context.l10n.next,
-                          ),
-                        ),
-                      ),
-                    ),
+                  SizedBox(height: 16 + bottomPadding),
                 ],
               ),
             ],
@@ -371,53 +275,10 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
   }
 }
 
-OnboardingPreauthDraft _applyGuestAnswersToDraft({
-  required OnboardingPreauthDraft draft,
-  required List<String?> answers,
-}) {
-  final help = answers.isNotEmpty ? (answers[0] ?? '') : '';
-  final living = answers.length > 1 ? (answers[1] ?? '') : '';
-  final food = answers.length > 2 ? (answers[2] ?? '') : '';
-  final subs = answers.length > 3 ? (answers[3] ?? '') : '';
-  final pets = answers.length > 4 ? (answers[4] ?? '') : '';
-
-  final wantsShared = help.contains('shared') || help.contains('Split bills');
-  final householdProfile = switch (living) {
-    'With roommates' => 'friends',
-    'With family' => 'family',
-    _ => 'personal',
-  };
-
-  final primaryGoal = switch (help) {
-    'Split bills' => 'debt_free',
-    'Plan a trip or event' => 'save_big',
-    'Keep track of receipts' => 'track_cashflow',
-    _ => 'balanced',
-  };
-
-  final lifestyle = switch (food) {
-    'Often' => 'foodie',
-    'Rarely' => 'minimalist',
-    _ => 'general',
-  };
-
-  final monthlyBudget = switch ('${subs}_$pets') {
-    'Many_Yes' => 1900.0,
-    'Many_No' => 1700.0,
-    'A few_Yes' => 1600.0,
-    'A few_No' => 1450.0,
-    'None_Yes' => 1300.0,
-    _ => 1200.0,
-  };
-
-  return draft.copyWith(
-    wantsSharedSpace: wantsShared,
-    householdProfile: householdProfile,
-    primaryGoal: primaryGoal,
-    lifestyleFocus: lifestyle,
-    monthlyBudget: monthlyBudget,
-    currentStep: 5,
-  );
+String? _colorToHex(Color? color) {
+  if (color == null) return null;
+  final hex = color.toARGB32().toRadixString(16).padLeft(8, '0');
+  return '#${hex.substring(2).toUpperCase()}';
 }
 
 class _IntroSlide extends HookWidget {
@@ -915,216 +776,6 @@ class _OrbitBubbleData {
   final String text;
   final IconData icon;
   final double baseAngle;
-}
-
-class _QuestionSlide extends HookWidget {
-  const _QuestionSlide({
-    required this.title,
-    required this.options,
-    required this.selected,
-    required this.progress,
-    required this.onBack,
-    required this.onSelected,
-  });
-
-  final String title;
-  final List<String> options;
-  final String? selected;
-  final double progress;
-  final VoidCallback onBack;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Staggered entrance animation
-    final animationController = useAnimationController(
-      duration: const Duration(milliseconds: 650),
-    );
-
-    useEffect(() {
-      animationController.forward(from: 0.0);
-      return null;
-    }, [title]);
-
-    final titleFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    final titleSlideAnim =
-        Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: animationController,
-        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: onBack,
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colorScheme.cardSurface,
-                  ),
-                  alignment: Alignment.center,
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                        right: 2.0), // Optical alignment for arrow
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 10,
-                    backgroundColor:
-                        colorScheme.mutedForeground.withValues(alpha: 0.25),
-                    color: colorScheme.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-            ],
-          ),
-          const SizedBox(height: 24),
-          FadeTransition(
-            opacity: titleFadeAnim,
-            child: SlideTransition(
-              position: titleSlideAnim,
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.5, // 36px line height / 24px font size
-                  letterSpacing: 0,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < options.length; i++) ...[
-                    Builder(builder: (context) {
-                      final optionStart = 0.2 + (i * 0.1).clamp(0.0, 0.5);
-                      final optionAnim =
-                          Tween<double>(begin: 0.0, end: 1.0).animate(
-                        CurvedAnimation(
-                          parent: animationController,
-                          curve: Interval(
-                              optionStart, math.min(1.0, optionStart + 0.5),
-                              curve: Curves.easeOutCubic),
-                        ),
-                      );
-                      final optionSlide = Tween<Offset>(
-                              begin: const Offset(0.0, 0.3), end: Offset.zero)
-                          .animate(
-                        CurvedAnimation(
-                          parent: animationController,
-                          curve: Interval(
-                              optionStart, math.min(1.0, optionStart + 0.6),
-                              curve: Curves.easeOutCubic),
-                        ),
-                      );
-
-                      return FadeTransition(
-                        opacity: optionAnim,
-                        child: SlideTransition(
-                          position: optionSlide,
-                          child: _QuestionOptionTile(
-                            label: options[i],
-                            selected: selected == options[i],
-                            onTap: () => onSelected(options[i]),
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 10),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuestionOptionTile extends StatelessWidget {
-  const _QuestionOptionTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: selected
-                ? colorScheme.primary.withValues(alpha: 0.2)
-                : colorScheme.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected
-                  ? colorScheme.primary
-                  : colorScheme.border.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              height: 1.5, // 24px line height / 16px font size
-              letterSpacing: 0,
-              color: colorScheme.foreground,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class OnboardingFlowPage extends HookConsumerWidget {
@@ -2007,60 +1658,25 @@ class _PocketsIntroStep extends HookConsumerWidget {
       return null;
     }, []);
 
-    // Mock pocket data using user's currency
-    final mockPockets = useMemoized(
-      () => [
-        PocketEnvelope(
-          id: 'mock-1',
-          name: 'Groceries',
-          budgetAmountCents: 50000,
-          spent: 325,
-          currency: currency,
-          icon: 'shopping_bag',
-          color: '#FF2D55', // iOS System Pink (High energy, appetizing)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-2',
-          name: 'Dining Out',
-          budgetAmountCents: 30000,
-          spent: 120,
-          currency: currency,
-          icon: 'restaurant',
-          color: '#AF52DE', // iOS System Purple (Premium, social)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-3',
-          name: 'Transport',
-          budgetAmountCents: 20000,
-          spent: 160,
-          currency: currency,
-          icon: 'directions_car',
-          color: '#FF9500', // iOS System Orange (Warning/Action, fits travel)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-4',
-          name: 'Fun',
-          budgetAmountCents: 20000,
-          spent: 50,
-          currency: currency,
-          icon: 'celebration',
-          color: '#007AFF', // iOS System Blue (Trustworthy, clean)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-      ],
-      [currency],
-    );
+    final draft = ref.read(onboardingPreauthDraftStoreProvider).load();
+    final recommendation = BudgetRecommender.recommend(draft);
+    final previewTotal = draft.monthlyBudget > 0 ? draft.monthlyBudget : 1.0;
+    final previewPockets = recommendation.pockets
+        .map(
+          (item) => PocketEnvelope(
+            id: 'preview-${item.name}',
+            name: item.name,
+            budgetAmountCents: (item.weight * previewTotal * 100).round(),
+            spent: 0,
+            currency: currency,
+            icon: item.iconName,
+            color: _colorToHex(item.color),
+            budgetId: null,
+            householdId: null,
+            lastUpdated: now,
+          ),
+        )
+        .toList(growable: false);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -2119,7 +1735,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Mock pocket grid with staggered animation
+            // Recommender pocket grid with staggered animation
             if (!pocketCreated)
               GridView.count(
                 crossAxisCount: 2,
@@ -2128,7 +1744,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
                 mainAxisSpacing: 14,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                children: List.generate(mockPockets.length, (index) {
+                children: List.generate(previewPockets.length, (index) {
                   final interval = Interval(
                     index * 0.15,
                     (index * 0.15 + 0.5).clamp(0.0, 1.0),
@@ -2148,9 +1764,9 @@ class _PocketsIntroStep extends HookConsumerWidget {
                     },
                     child: IgnorePointer(
                       child: PocketCard(
-                        pocket: mockPockets[index],
+                        pocket: previewPockets[index],
                         colorScheme: colorScheme,
-                        totalBudget: 1200,
+                        totalBudget: previewTotal,
                         envelopeMode: true,
                       ),
                     ),

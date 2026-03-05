@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 const kPreviewModeActiveKey = 'preview_mode_active';
+const kPreviewReturnToPreauthKey = 'preview_return_to_preauth';
 
 class PreviewModeState {
   const PreviewModeState({

@@ -3,22 +3,24 @@ import 'dart:io';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_question_steps.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/households/presentation/widgets/household_image_picker.dart';
-import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class OnboardingPreAuthFlowPage extends HookConsumerWidget {
@@ -31,10 +33,9 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final currentPage = useState(0);
     final isLoaded = useState(false);
     final draftState = useState(OnboardingPreauthDraft.initial());
-    const totalSteps = 7;
-
-    final progressValue =
-        ((currentPage.value + 1) / totalSteps).clamp(0.0, 1.0);
+    final answeredOptionSteps = useState<Set<int>>(<int>{});
+    final isAutoAdvancing = useState(false);
+    const totalSteps = 13;
 
     useEffect(() {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
@@ -50,8 +51,14 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     }, const []);
 
     Future<void> persistDraft(OnboardingPreauthDraft draft) async {
+      if (!context.mounted) return;
       draftState.value = draft;
       await ref.read(onboardingPreauthDraftStoreProvider).save(draft);
+    }
+
+    void markAnswered(int stepIndex) {
+      if (!context.mounted) return;
+      answeredOptionSteps.value = {...answeredOptionSteps.value, stepIndex};
     }
 
     Future<void> goToPage(int index) async {
@@ -64,6 +71,15 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
           curve: Curves.easeInOut,
         );
       }
+    }
+
+    Future<void> goBack() async {
+      if (currentPage.value <= 0) return;
+      var previousStep = currentPage.value - 1;
+      while (previousStep > 0 && _kTransientSteps.contains(previousStep)) {
+        previousStep -= 1;
+      }
+      await goToPage(previousStep);
     }
 
     Future<void> next() async {
@@ -87,9 +103,41 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> skip() async {
-      await next();
+    Future<void> answerAndAdvance({
+      required int stepIndex,
+      required OnboardingPreauthDraft nextDraft,
+      VoidCallback? afterPersist,
+    }) async {
+      if (!context.mounted || isAutoAdvancing.value) return;
+      HapticFeedback.lightImpact();
+      markAnswered(stepIndex);
+      await persistDraft(nextDraft);
+      afterPersist?.call();
+      if (!context.mounted) return;
+      isAutoAdvancing.value = true;
+      try {
+        await next();
+      } finally {
+        if (context.mounted) {
+          isAutoAdvancing.value = false;
+        }
+      }
     }
+
+    Future<void> exploreAppInPreview() async {
+      final prefs = ref.read(sharedPreferencesProvider);
+      await persistDraft(
+        draftState.value.copyWith(currentStep: totalSteps - 1),
+      );
+      await prefs.setBool(kPreviewModeActiveKey, true);
+      await prefs.setBool(kPreviewReturnToPreauthKey, true);
+      ref.read(previewModeProvider.notifier).enable();
+      if (!context.mounted) return;
+      context.go('/dashboard');
+    }
+
+    final isAutoAdvanceStep = _kAutoAdvanceSteps.contains(currentPage.value);
+    final canShowBackButton = currentPage.value < _kPostQuestionStartStep;
 
     if (!isLoaded.value) {
       return AdaptiveScaffold(
@@ -104,24 +152,174 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       body: SafeArea(
         child: Material(
           color: colorScheme.appBackground,
-          child: Column(            children: [
-   
+          child: Column(
+            children: [
+              if (canShowBackButton)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                  child: Row(
+                    children: [
+                      InkWell(
+                        onTap: currentPage.value > 0
+                            ? () => unawaited(goBack())
+                            : null,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colorScheme.cardSurface,
+                          ),
+                          alignment: Alignment.center,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 2.0),
+                            child: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18,
+                              color: currentPage.value > 0
+                                  ? colorScheme.mutedForeground
+                                  : colorScheme.mutedForeground
+                                      .withValues(alpha: 0.35),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: ((currentPage.value + 1) / totalSteps)
+                                .clamp(0.0, 1.0),
+                            minHeight: 10,
+                            backgroundColor: colorScheme.mutedForeground
+                                .withValues(alpha: 0.25),
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: PageView(
                   controller: pageController,
                   physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (i) => currentPage.value = i,
                   children: [
+                    _PreAuthHelpFocusStep(
+                      selectedFocus: draftState.value.onboardingFocus,
+                      hasAnswered: answeredOptionSteps.value.contains(0),
+                      onChanged: (focus) {
+                        final nextDraft = switch (focus) {
+                          'keep_shared_expenses' => draftState.value.copyWith(
+                              onboardingFocus: focus,
+                              primaryGoal: 'balanced',
+                              wantsSharedSpace: true,
+                            ),
+                          'split_bills' => draftState.value.copyWith(
+                              onboardingFocus: focus,
+                              primaryGoal: 'balanced',
+                              wantsSharedSpace: true,
+                            ),
+                          'trip_event' => draftState.value.copyWith(
+                              onboardingFocus: focus,
+                              primaryGoal: 'travel',
+                            ),
+                          'track_receipts' => draftState.value.copyWith(
+                              onboardingFocus: focus,
+                              primaryGoal: 'save',
+                            ),
+                          _ => draftState.value.copyWith(
+                              onboardingFocus: focus,
+                              primaryGoal: 'balanced',
+                            ),
+                        };
+                        unawaited(
+                          answerAndAdvance(stepIndex: 0, nextDraft: nextDraft),
+                        );
+                      },
+                    ),
+                    _PreAuthLivingSituationStep(
+                      selectedLiving: draftState.value.livingSituation,
+                      hasAnswered: answeredOptionSteps.value.contains(1),
+                      onChanged: (living) {
+                        final nextDraft = switch (living) {
+                          'roommates' => draftState.value.copyWith(
+                              livingSituation: living,
+                              householdProfile: 'mates',
+                              wantsSharedSpace: true,
+                            ),
+                          'family' => draftState.value.copyWith(
+                              livingSituation: living,
+                              householdProfile: 'family',
+                              wantsSharedSpace: true,
+                            ),
+                          _ => draftState.value.copyWith(
+                              livingSituation: living,
+                            ),
+                        };
+                        unawaited(
+                          answerAndAdvance(stepIndex: 1, nextDraft: nextDraft),
+                        );
+                      },
+                    ),
+                    _PreAuthEatingOutStep(
+                      selectedFrequency: draftState.value.eatingOutFrequency,
+                      hasAnswered: answeredOptionSteps.value.contains(2),
+                      onChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          eatingOutFrequency: value,
+                          lifestyleFocus: value == 'often'
+                              ? 'foodies'
+                              : draftState.value.lifestyleFocus,
+                        );
+                        unawaited(
+                          answerAndAdvance(stepIndex: 2, nextDraft: nextDraft),
+                        );
+                      },
+                    ),
+                    _PreAuthSubscriptionsStep(
+                      selectedLevel: draftState.value.subscriptionsLevel,
+                      hasAnswered: answeredOptionSteps.value.contains(3),
+                      onChanged: (value) {
+                        final nextDraft = draftState.value
+                            .copyWith(subscriptionsLevel: value);
+                        unawaited(
+                          answerAndAdvance(stepIndex: 3, nextDraft: nextDraft),
+                        );
+                      },
+                    ),
+                    _PreAuthPetsStep(
+                      hasPets: draftState.value.hasPets,
+                      hasAnswered: answeredOptionSteps.value.contains(4),
+                      onChanged: (hasPets) {
+                        final nextDraft = draftState.value.copyWith(
+                          hasPets: hasPets,
+                        );
+                        unawaited(
+                          answerAndAdvance(stepIndex: 4, nextDraft: nextDraft),
+                        );
+                      },
+                    ),
                     _PreAuthCurrencyStep(
                       selectedCurrency: draftState.value.selectedCurrency,
                       onSelected: (currency) {
                         final nextDraft = draftState.value.copyWith(
                           selectedCurrency: currency.toUpperCase(),
                         );
-                        unawaited(persistDraft(nextDraft));
-                        ref
-                            .read(homeFilterProvider.notifier)
-                            .setSelectedCurrency(currency.toUpperCase());
+                        unawaited(
+                          answerAndAdvance(
+                            stepIndex: 5,
+                            nextDraft: nextDraft,
+                            afterPersist: () {
+                              ref
+                                  .read(homeFilterProvider.notifier)
+                                  .setSelectedCurrency(currency.toUpperCase());
+                            },
+                          ),
+                        );
                       },
                     ),
                     _PreAuthBudgetStep(
@@ -183,7 +381,9 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         final nextDraft = draftState.value.copyWith(
                           primaryGoal: value,
                         );
-                        unawaited(persistDraft(nextDraft));
+                        unawaited(
+                          answerAndAdvance(stepIndex: 8, nextDraft: nextDraft),
+                        );
                       },
                     ),
                     _PreAuthLifestyleStep(
@@ -192,8 +392,14 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         final nextDraft = draftState.value.copyWith(
                           lifestyleFocus: value,
                         );
-                        unawaited(persistDraft(nextDraft));
+                        unawaited(
+                          answerAndAdvance(stepIndex: 9, nextDraft: nextDraft),
+                        );
                       },
+                    ),
+                    _PreAuthCalculatingStep(
+                      isActive: currentPage.value == 10,
+                      onCompleted: () => unawaited(next()),
                     ),
                     _PreAuthStarterStep(
                       templateId: draftState.value.recommendedTemplateId,
@@ -209,32 +415,283 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: PrimaryAdaptiveButton(
-                        onPressed: () => unawaited(next()),
-                        child: Text(
-                          currentPage.value == totalSteps - 1
-                              ? context.l10n.createAccount
-                              : context.l10n.continueAction,
+                    if (!isAutoAdvanceStep)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: _canContinuePreAuth(
+                            currentPage: currentPage.value,
+                            draft: draftState.value,
+                          )
+                              ? () => unawaited(next())
+                              : null,
+                          child: Text(
+                            currentPage.value == totalSteps - 1
+                                ? context.l10n.createAccount
+                                : context.l10n.continueAction,
+                          ),
                         ),
                       ),
-                    ),
-                    if (currentPage.value < 5) ...[
-                      const SizedBox(height: 8),
-                      PlainAdaptiveButton(
-                        onPressed: skip,
-                        child: Text(
-                          context.l10n.skipNow,
-                          style: TextStyle(color: colorScheme.mutedForeground),
+                    const SizedBox(height: 8),
+                    if (currentPage.value == totalSteps - 1)
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => unawaited(exploreAppInPreview()),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Explore the app',
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                                decorationColor: colorScheme.primary,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _kAutoAdvanceSteps = <int>{0, 1, 2, 3, 4, 5, 8, 9, 10};
+const _kTransientSteps = <int>{10};
+const _kPostQuestionStartStep = 10;
+
+bool _canContinuePreAuth({
+  required int currentPage,
+  required OnboardingPreauthDraft draft,
+}) {
+  if (currentPage == 6) {
+    return draft.monthlyBudget > 0;
+  }
+  return true;
+}
+
+OnboardingQuestionStep _sharedQuestionStep(int index) =>
+    onboardingSharedQuestionSteps[index];
+
+List<(String label, String value)> _sharedQuestionOptions(int index) =>
+    _sharedQuestionStep(index)
+        .options
+        .map((option) => (option.label, option.value))
+        .toList(growable: false);
+
+class _PreAuthHelpFocusStep extends StatelessWidget {
+  const _PreAuthHelpFocusStep({
+    required this.selectedFocus,
+    required this.hasAnswered,
+    required this.onChanged,
+  });
+
+  final String selectedFocus;
+  final bool hasAnswered;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _sharedQuestionStep(0);
+    return _PreAuthQuestionOptionsStep(
+      title: step.title,
+      options: _sharedQuestionOptions(0),
+      selectedValue: hasAnswered ? selectedFocus : '',
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthLivingSituationStep extends StatelessWidget {
+  const _PreAuthLivingSituationStep({
+    required this.selectedLiving,
+    required this.hasAnswered,
+    required this.onChanged,
+  });
+
+  final String selectedLiving;
+  final bool hasAnswered;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _sharedQuestionStep(1);
+    return _PreAuthQuestionOptionsStep(
+      title: step.title,
+      options: _sharedQuestionOptions(1),
+      selectedValue: hasAnswered ? selectedLiving : '',
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthEatingOutStep extends StatelessWidget {
+  const _PreAuthEatingOutStep({
+    required this.selectedFrequency,
+    required this.hasAnswered,
+    required this.onChanged,
+  });
+
+  final String selectedFrequency;
+  final bool hasAnswered;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _sharedQuestionStep(2);
+    return _PreAuthQuestionOptionsStep(
+      title: step.title,
+      options: _sharedQuestionOptions(2),
+      selectedValue: hasAnswered ? selectedFrequency : '',
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthSubscriptionsStep extends StatelessWidget {
+  const _PreAuthSubscriptionsStep({
+    required this.selectedLevel,
+    required this.hasAnswered,
+    required this.onChanged,
+  });
+
+  final String selectedLevel;
+  final bool hasAnswered;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _sharedQuestionStep(3);
+    return _PreAuthQuestionOptionsStep(
+      title: step.title,
+      options: _sharedQuestionOptions(3),
+      selectedValue: hasAnswered ? selectedLevel : '',
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthPetsStep extends StatelessWidget {
+  const _PreAuthPetsStep({
+    required this.hasPets,
+    required this.hasAnswered,
+    required this.onChanged,
+  });
+
+  final bool hasPets;
+  final bool hasAnswered;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _sharedQuestionStep(4);
+    return _PreAuthQuestionOptionsStep(
+      title: step.title,
+      options: _sharedQuestionOptions(4),
+      selectedValue: hasAnswered ? (hasPets ? 'yes' : 'no') : '',
+      onChanged: (value) => onChanged(value == 'yes'),
+    );
+  }
+}
+
+class _PreAuthQuestionOptionsStep extends StatelessWidget {
+  const _PreAuthQuestionOptionsStep({
+    required this.title,
+    required this.options,
+    required this.selectedValue,
+    required this.onChanged,
+  });
+
+  final String title;
+  final List<(String label, String value)> options;
+  final String selectedValue;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+                height: 1.05,
+                color: colorScheme.foreground,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ...options.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _PreAuthOptionTile(
+                  label: item.$1,
+                  selected: selectedValue == item.$2,
+                  onTap: () => onChanged(item.$2),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreAuthOptionTile extends StatelessWidget {
+  const _PreAuthOptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.2)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.border.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+              color: colorScheme.foreground,
+            ),
           ),
         ),
       ),
@@ -253,101 +710,25 @@ class _PreAuthCurrencyStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final upper = selectedCurrency.toUpperCase();
-    final flagPath = getCurrencyFlagPath(upper);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/onboarding1.svg',
-              width: 160,
-              height: 160,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.selectCurrencyForDailySpending,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'We will personalize your budget and suggestions around this currency.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 28),
-          Center(
-            child: GestureDetector(
-              onTap: () async {
-                await showCurrencySelectorModal(
-                  context,
-                  ref,
-                  showAllByDefault: true,
-                );
-                final selected = ref
-                    .read(homeFilterProvider)
-                    .selectedCurrency
-                    ?.toUpperCase();
-                if (selected != null && selected.isNotEmpty) {
-                  onSelected(selected);
-                }
-              },
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: colorScheme.selectedStateBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: colorScheme.controlBorder),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (flagPath != null)
-                      ClipOval(
-                        child: Image.asset(
-                          flagPath,
-                          width: 22,
-                          height: 22,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    if (flagPath != null) const SizedBox(width: 8),
-                    Text(
-                      upper,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _PreAuthQuestionOptionsStep(
+      title: context.l10n.selectCurrencyForDailySpending,
+      options: [
+        ('Current: $upper  -  Tap to choose currency', upper),
+      ],
+      selectedValue: upper,
+      onChanged: (_) async {
+        final result = await showCurrencySelectorModal(
+          context,
+          ref,
+          showAllByDefault: true,
+        );
+        if (!context.mounted) return;
+        if (result != null && result.isNotEmpty) {
+          onSelected(result.toUpperCase());
+        }
+      },
     );
   }
 }
@@ -365,7 +746,7 @@ class _PreAuthBudgetStep extends HookWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final controller = useTextEditingController(
-      text: monthlyBudget.toStringAsFixed(0),
+      text: monthlyBudget > 0 ? monthlyBudget.toStringAsFixed(0) : '',
     );
 
     useEffect(() {
@@ -568,10 +949,25 @@ class _PreAuthHouseholdStep extends HookConsumerWidget {
                   labelText: 'Space name (optional)',
                   hintText: context.l10n.householdNameHint,
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.appleInputBackground,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: colorScheme.border),
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide:
+                        BorderSide(color: colorScheme.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -594,11 +990,18 @@ class _PreAuthHouseholdStep extends HookConsumerWidget {
                 child: Container(
                   height: 110,
                   decoration: BoxDecoration(
-                    color: colorScheme.card,
-                    borderRadius: BorderRadius.circular(16),
+                    color: colorScheme.appleInputBackground,
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: colorScheme.border.withValues(alpha: 0.4),
+                      color: colorScheme.border.withValues(alpha: 0.12),
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.shadow.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -650,10 +1053,25 @@ class _PreAuthHouseholdStep extends HookConsumerWidget {
                   labelText: 'Who to invite (email)',
                   hintText: 'friend@example.com',
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.appleInputBackground,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: colorScheme.border),
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide:
+                        BorderSide(color: colorScheme.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -665,10 +1083,25 @@ class _PreAuthHouseholdStep extends HookConsumerWidget {
                   labelText: 'Invite message',
                   hintText: 'Hey! Join my shared budget space on Moneko.',
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.appleInputBackground,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: colorScheme.border),
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide:
+                        BorderSide(color: colorScheme.primary, width: 1.5),
                   ),
                 ),
               ),
@@ -678,10 +1111,25 @@ class _PreAuthHouseholdStep extends HookConsumerWidget {
                 decoration: InputDecoration(
                   labelText: 'Invite expires in',
                   filled: true,
-                  fillColor: colorScheme.card,
+                  fillColor: colorScheme.appleInputBackground,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: colorScheme.border),
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide(
+                      color: colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide:
+                        BorderSide(color: colorScheme.primary, width: 1.5),
                   ),
                 ),
                 items: const [
@@ -900,6 +1348,129 @@ class _AdvisorChoiceChip extends StatelessWidget {
   }
 }
 
+class _PreAuthCalculatingStep extends HookWidget {
+  const _PreAuthCalculatingStep({
+    required this.isActive,
+    required this.onCompleted,
+  });
+
+  final bool isActive;
+  final VoidCallback onCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final progressController = useAnimationController(
+      duration: const Duration(milliseconds: 4500),
+    );
+    final progress = useAnimation(progressController);
+    final hasCompleted = useRef(false);
+
+    useEffect(() {
+      if (!isActive) {
+        progressController.stop();
+        progressController.value = 0;
+        hasCompleted.value = false;
+        return null;
+      }
+
+      Future<void> run() async {
+        hasCompleted.value = false;
+        await progressController.forward(from: 0.0);
+        if (!context.mounted || hasCompleted.value) return;
+        hasCompleted.value = true;
+        onCompleted();
+      }
+
+      unawaited(run());
+
+      return () {
+        hasCompleted.value = true;
+        progressController.stop();
+      };
+    }, [isActive]);
+
+    final stageLabel = switch (progress) {
+      < 0.22 => 'Analyzing your answers',
+      < 0.48 => 'Mapping your fixed costs',
+      < 0.74 => 'Designing your pockets',
+      < 0.95 => 'Fine-tuning your plan',
+      _ => 'Finalizing your budget setup',
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Spacer(),
+          Container(
+            width: 88,
+            height: 88,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colorScheme.primary.withValues(alpha: 0.14),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.2),
+                  blurRadius: 28,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              size: 42,
+              color: colorScheme.primary,
+            ),
+          ),
+          Text(
+            'Crafting your personalized budget...',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            stageLabel,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor:
+                  colorScheme.mutedForeground.withValues(alpha: 0.25),
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '${(progress * 100).clamp(0, 100).round()}%',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const Spacer(flex: 2),
+        ],
+      ),
+    );
+  }
+}
+
 class _PreAuthStarterStep extends StatelessWidget {
   const _PreAuthStarterStep({
     required this.templateId,
@@ -945,12 +1516,12 @@ class _PreAuthStarterStep extends StatelessWidget {
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [         
+          children: [
             Text(
               context.l10n.pocketsIntroTitle,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize:26,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: colorScheme.foreground,
               ),
@@ -1038,7 +1609,7 @@ class _PreAuthCreateAccountStep extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: colorScheme.foreground,
             ),
-          ),         
+          ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),

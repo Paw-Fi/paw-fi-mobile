@@ -71,11 +71,19 @@ class MainShell extends HookConsumerWidget {
       ref.invalidate(pocketsProvider);
     }
 
-    Future<void> exitPreviewMode() async {
+    Future<String?> exitPreviewMode(
+        {required bool restorePreauthOnExit}) async {
       final prefs = ref.read(sharedPreferencesProvider);
+      final returnToPreauth =
+          prefs.getBool(kPreviewReturnToPreauthKey) ?? false;
       await prefs.setBool(kPreviewModeActiveKey, false);
+      await prefs.setBool(kPreviewReturnToPreauthKey, false);
       ref.read(previewModeProvider.notifier).disable();
       await clearPreviewDataCaches();
+      if (restorePreauthOnExit && returnToPreauth) {
+        return '/onboarding?stage=pre';
+      }
+      return null;
     }
 
     // One-time native notification prompt logic & listeners
@@ -195,7 +203,7 @@ class MainShell extends HookConsumerWidget {
                     currentIndex: currentIndex,
                     onRegisterTap: () {
                       unawaited(() async {
-                        await exitPreviewMode();
+                        await exitPreviewMode(restorePreauthOnExit: false);
                         if (context.mounted) {
                           context.go('/register');
                         }
@@ -203,9 +211,11 @@ class MainShell extends HookConsumerWidget {
                     },
                     onExitTap: () {
                       unawaited(() async {
-                        await exitPreviewMode();
+                        final returnRoute = await exitPreviewMode(
+                          restorePreauthOnExit: true,
+                        );
                         if (context.mounted) {
-                          context.go('/paywall');
+                          context.go(returnRoute ?? '/paywall');
                         }
                       }());
                     },
