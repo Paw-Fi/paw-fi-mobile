@@ -1,5 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+const kPreviewModeActiveKey = 'preview_mode_active';
+
 class PreviewModeState {
   const PreviewModeState({
     required this.isActive,

@@ -1128,7 +1128,7 @@ class SettingsPage extends HookConsumerWidget {
                       ),
                       onTap: () async {
                         Navigator.of(context).push(
-                          MaterialPageRoute<void>(
+                          MaterialPageRoute(
                             builder: (context) => const PlanSelectionPage(),
                           ),
                         );

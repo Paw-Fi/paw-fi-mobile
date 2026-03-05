@@ -141,7 +141,7 @@ ImportMapping autoMapFields(List<String> headers) {
     final candidates = synonyms[field]!;
     for (var i = 0; i < normalized.length; i++) {
       final h = normalized[i];
-      if (candidates.any((c) => h.contains(c) || c.contains(h))) {
+      if (candidates.any((c) => h.contains(c))) {
         mapping[field] = i;
         break;
       }

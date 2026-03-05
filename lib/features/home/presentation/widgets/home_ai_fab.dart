@@ -47,7 +47,7 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
 
-const int _reviewFirstPromptAt = 1;
+const int _reviewFirstPromptAt = 2;
 const int _reviewSecondInterval = 2;
 const int _reviewThirdInterval = 3;
 const int _reviewMaxInterval = 5;
@@ -56,6 +56,9 @@ const String _reviewLastPromptKey = 'review_last_prompt_count';
 const String _reviewLastIntervalKey = 'review_last_prompt_interval';
 const String _holdQuickActionReminderShownKey =
     'hold_quick_action_reminder_shown';
+const String _holdQuickActionReminderExpenseCountKey =
+    'hold_quick_action_reminder_expense_count';
+const int _holdQuickActionReminderFirstPromptAt = 2;
 const int _maxBatchSize = 400;
 const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
@@ -1020,16 +1023,29 @@ Future<Map<String, dynamic>?> _processWithSSE({
 
 Future<void> _maybeShowUnsetHoldQuickActionReminder(
   BuildContext context,
-  WidgetRef ref,
-) async {
+  WidgetRef ref, {
+  required int additionalExpenseCount,
+}) async {
   if (!context.mounted) return;
+  if (additionalExpenseCount <= 0) return;
 
   final prefs = ref.read(sharedPreferencesProvider);
   final quickAction = readAiHoldQuickActionPreference(prefs);
   if (quickAction != null) return;
 
-  final alreadyShown = prefs.getBool(_holdQuickActionReminderShownKey) ?? false;
+  final userId = ref.read(authProvider).uid;
+  if (userId.trim().isEmpty) return;
+  final userKey = sha256.convert(utf8.encode(userId)).toString();
+
+  final countKey = '${_holdQuickActionReminderExpenseCountKey}_$userKey';
+  final shownKey = '${_holdQuickActionReminderShownKey}_$userKey';
+
+  final updatedCount = (prefs.getInt(countKey) ?? 0) + additionalExpenseCount;
+  await prefs.setInt(countKey, updatedCount);
+
+  final alreadyShown = prefs.getBool(shownKey) ?? false;
   if (alreadyShown) return;
+  if (updatedCount < _holdQuickActionReminderFirstPromptAt) return;
 
   await MonekoAlertDialog.show(
     context: context,
@@ -1038,7 +1054,7 @@ Future<void> _maybeShowUnsetHoldQuickActionReminder(
     confirmLabel: context.l10n.gotIt,
     cancelLabel: null,
   );
-  await prefs.setBool(_holdQuickActionReminderShownKey, true);
+  await prefs.setBool(shownKey, true);
 }
 
 Future<void> _processExpense(
@@ -1414,9 +1430,14 @@ Future<void> _processExpense(
             );
           }
 
-          final hasExpense = parsed.any((entry) => !entry.transaction.isIncome);
-          if (context.mounted && hasExpense) {
-            unawaited(_maybeShowUnsetHoldQuickActionReminder(context, ref));
+          final expenseCount =
+              parsed.where((entry) => !entry.transaction.isIncome).length;
+          if (context.mounted && expenseCount > 0) {
+            unawaited(_maybeShowUnsetHoldQuickActionReminder(
+              context,
+              ref,
+              additionalExpenseCount: expenseCount,
+            ));
           }
 
           if (!preview.isActive) {
@@ -1961,91 +1982,92 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
             }
           },
           openButtonBuilder: (context, defaultButton) {
-        return Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerMove: _onHoldPointerMove,
-          onPointerUp: (_) {
-            if (_isHoldRecording) {
-              unawaited(_finishHoldRecording());
-            }
-          },
-          onPointerCancel: (_) {
-            if (_isHoldRecording) {
-              unawaited(_finishHoldRecording());
-            }
-          },
-          child: RawGestureDetector(
-            gestures: {
-              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
-                  LongPressGestureRecognizer>(
-                () => LongPressGestureRecognizer(
-                  duration: const Duration(milliseconds: 280),
-                ),
-                (instance) {
-                  instance
-                    ..onLongPressStart = (details) async {
-                      _holdStartGlobalX = details.globalPosition.dx;
-                      await _runHoldAction();
-                    }
-                    ..onLongPressMoveUpdate = _updateHoldRecordingDrag
-                    ..onLongPressEnd = (_) async {
-                      await _finishHoldRecording();
-                    }
-                    ..onLongPressUp = () async {
-                      await _finishHoldRecording();
-                    };
+            return Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerMove: _onHoldPointerMove,
+              onPointerUp: (_) {
+                if (_isHoldRecording) {
+                  unawaited(_finishHoldRecording());
+                }
+              },
+              onPointerCancel: (_) {
+                if (_isHoldRecording) {
+                  unawaited(_finishHoldRecording());
+                }
+              },
+              child: RawGestureDetector(
+                gestures: {
+                  LongPressGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                          LongPressGestureRecognizer>(
+                    () => LongPressGestureRecognizer(
+                      duration: const Duration(milliseconds: 280),
+                    ),
+                    (instance) {
+                      instance
+                        ..onLongPressStart = (details) async {
+                          _holdStartGlobalX = details.globalPosition.dx;
+                          await _runHoldAction();
+                        }
+                        ..onLongPressMoveUpdate = _updateHoldRecordingDrag
+                        ..onLongPressEnd = (_) async {
+                          await _finishHoldRecording();
+                        }
+                        ..onLongPressUp = () async {
+                          await _finishHoldRecording();
+                        };
+                    },
+                  ),
                 },
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.centerRight,
+                  children: [
+                    AnimatedScale(
+                      duration: const Duration(milliseconds: 150),
+                      scale: _isHoldRecording ? 1.08 : 1.0,
+                      child: defaultButton,
+                    ),
+                    Positioned(
+                      right: 66,
+                      child: _buildHoldRecordingIndicator(colorScheme),
+                    ),
+                  ],
+                ),
               ),
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.centerRight,
-              children: [
-                AnimatedScale(
-                  duration: const Duration(milliseconds: 150),
-                  scale: _isHoldRecording ? 1.08 : 1.0,
-                  child: defaultButton,
-                ),
-                Positioned(
-                  right: 66,
-                  child: _buildHoldRecordingIndicator(colorScheme),
-                ),
-              ],
+            );
+          },
+          children: [
+            ActionButton(
+              onPressed: () async {
+                _fabKey.currentState?.close();
+                await handleAiFreeFormText(context, ref);
+              },
+              icon: Image.asset(
+                'lib/assets/images/audio-message.png',
+                width: 25,
+                height: 25,
+              ),
+              label: context.l10n.textAudio,
             ),
-          ),
-        );
-      },
-      children: [
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiFreeFormText(context, ref);
-          },
-          icon: Image.asset(
-            'lib/assets/images/audio-message.png',
-            width: 25,
-            height: 25,
-          ),
-          label: context.l10n.textAudio,
+            ActionButton(
+              onPressed: () async {
+                _fabKey.currentState?.close();
+                await handleAiCameraCapture(context, ref);
+              },
+              icon: const Icon(Icons.camera_alt),
+              label: context.l10n.takePhoto,
+            ),
+            ActionButton(
+              onPressed: () async {
+                _fabKey.currentState?.close();
+                await handleAiFileOrGallery(context, ref);
+              },
+              icon: const Icon(Icons.attach_file),
+              label: context.l10n.files,
+            ),
+          ],
         ),
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiCameraCapture(context, ref);
-          },
-          icon: const Icon(Icons.camera_alt),
-          label: context.l10n.takePhoto,
-        ),
-        ActionButton(
-          onPressed: () async {
-            _fabKey.currentState?.close();
-            await handleAiFileOrGallery(context, ref);
-          },
-          icon: const Icon(Icons.attach_file),
-          label: context.l10n.files,
-        ),
-      ],
-    ),
       ],
     );
   }

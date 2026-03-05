@@ -104,42 +104,8 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       body: SafeArea(
         child: Material(
           color: colorScheme.appBackground,
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Step ${currentPage.value + 1} of $totalSteps',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.mutedForeground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(end: progressValue),
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) {
-                          return LinearProgressIndicator(
-                            value: value,
-                            minHeight: 8,
-                            backgroundColor: colorScheme.mutedForeground
-                                .withValues(alpha: 0.2),
-                            color: colorScheme.primary,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          child: Column(            children: [
+   
               Expanded(
                 child: PageView(
                   controller: pageController,
@@ -975,26 +941,17 @@ class _PreAuthStarterStep extends StatelessWidget {
     }).toList(growable: false);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 48, 20, 0),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: SvgPicture.asset(
-                'lib/assets/images/onboarding/onboarding3.svg',
-                width: 160,
-                height: 160,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 16),
+          children: [         
             Text(
               context.l10n.pocketsIntroTitle,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+                fontSize:26,
+                fontWeight: FontWeight.w800,
                 color: colorScheme.foreground,
               ),
             ),
@@ -1081,16 +1038,7 @@ class _PreAuthCreateAccountStep extends StatelessWidget {
               fontWeight: FontWeight.w700,
               color: colorScheme.foreground,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'We will set everything up automatically based on your answers.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
+          ),         
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(16),

@@ -12,6 +12,7 @@ import 'package:moneko/features/households/data/services/device_registration_ser
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 
@@ -33,7 +34,15 @@ GoRouter _createRouter() {
     routes: [
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingFlowPage(),
+        builder: (context, state) {
+          final stage = state.uri.queryParameters['stage'];
+          if (stage == 'pre') {
+            return const Scaffold(
+              body: Center(child: Text('PreAuthOnboarding')),
+            );
+          }
+          return const OnboardingFlowPage();
+        },
       ),
       GoRoute(
         path: '/dashboard',
@@ -49,6 +58,7 @@ Future<void> _pumpOnboarding(
   WidgetTester tester, {
   required SharedPreferences prefs,
   required DeviceRegistrationService deviceRegistrationService,
+  AppUser user = const AppUser(uid: 'u1', email: 'u1@example.com'),
 }) async {
   await tester.binding.setSurfaceSize(const Size(1000, 1200));
   addTearDown(() async {
@@ -62,7 +72,7 @@ Future<void> _pumpOnboarding(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         authProvider.overrideWith(
-          () => _TestAuth(const AppUser(uid: 'u1', email: 'u1@example.com')),
+          () => _TestAuth(user),
         ),
         deviceRegistrationServiceProvider
             .overrideWithValue(deviceRegistrationService),
@@ -97,6 +107,14 @@ Future<void> _tapSkip(WidgetTester tester) async {
   await tester.tap(skip, warnIfMissed: false);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 350));
+}
+
+Future<void> _tapText(WidgetTester tester, String text) async {
+  final finder = find.text(text, skipOffstage: false);
+  expect(finder, findsOneWidget);
+  await tester.tap(finder);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 250));
 }
 
 void main() {
@@ -170,6 +188,68 @@ void main() {
 
     await _tapPrimary(tester);
     expect(find.byType(PrimaryAdaptiveButton), findsOneWidget);
+  });
+
+  testWidgets('Guest onboarding routes into pre-auth onboarding stage',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final deviceService = _MockDeviceRegistrationService();
+    when(() => deviceService.initialize()).thenAnswer((_) async {});
+    when(() => deviceService.unregisterDevice()).thenAnswer((_) async {});
+
+    await _pumpOnboarding(
+      tester,
+      prefs: prefs,
+      deviceRegistrationService: deviceService,
+      user: AppUser.empty,
+    );
+
+    // Intro slides 1-3
+    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800)); // Wait for 650ms AnimatedSwitcher to complete
+    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    // Intro slide 4
+    final getStartedButton = find.text('Get Started');
+    await tester.ensureVisible(getStartedButton);
+    await tester.tap(getStartedButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+
+    // Questions 1-5
+    await _tapText(tester, 'Keep track of shared expenses');
+    await _tapPrimary(tester);
+    await _tapText(tester, 'Renting');
+    await _tapPrimary(tester);
+    await _tapText(tester, 'Sometimes');
+    await _tapPrimary(tester);
+    await _tapText(tester, 'A few');
+    await _tapPrimary(tester);
+    await _tapText(tester, 'No');
+    await _tapPrimary(tester);
+
+    expect(find.text('PreAuthOnboarding'), findsOneWidget);
+  });
+
+  test('Preview mode flag persists until manually cleared', () async {
+    SharedPreferences.setMockInitialValues({kPreviewModeActiveKey: true});
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(kPreviewModeActiveKey), true);
+
+    // Simulate app restart: value remains in storage.
+    final restartedPrefs = await SharedPreferences.getInstance();
+    expect(restartedPrefs.getBool(kPreviewModeActiveKey), true);
+
+    // Simulate tapping preview exit banner: clear persisted flag.
+    await restartedPrefs.setBool(kPreviewModeActiveKey, false);
+    expect(restartedPrefs.getBool(kPreviewModeActiveKey), false);
   });
 
   testWidgets(

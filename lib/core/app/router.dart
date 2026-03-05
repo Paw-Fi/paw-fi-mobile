@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_screen.dart';
-import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
+import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -21,7 +22,6 @@ import 'package:moneko/features/households/presentation/pages/settlement_history
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_preview_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
 
@@ -40,9 +40,24 @@ GoRouter router(RouterRef ref) {
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
   final previewMode = ref.watch(previewModeProvider);
-  final hasSeenPreview = prefs.getBool('preview_onboarding_seen') ?? false;
+  final persistedPreviewMode = prefs.getBool(kPreviewModeActiveKey) ?? false;
+  if (persistedPreviewMode && !previewMode.isActive) {
+    ref.read(previewModeProvider.notifier).enable();
+  }
   final hasCompletedPreauth =
       prefs.getBool('onboarding_preauth_completed') ?? false;
+  final draftRaw = prefs.getString('onboarding_preauth_draft_v1');
+  final hasInProgressPreauthDraft = () {
+    if (draftRaw == null || draftRaw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(draftRaw);
+      if (decoded is! Map<String, dynamic>) return false;
+      final currentStep = (decoded['currentStep'] as num?)?.toInt() ?? 0;
+      return currentStep > 0;
+    } catch (_) {
+      return false;
+    }
+  }();
 
   // Use V2 initialization provider (cache-first, faster)
   final appInitStateV2 = ref.watch(appInitializationV2Provider);
@@ -104,12 +119,14 @@ GoRouter router(RouterRef ref) {
         },
       ),
 
-      // Subscription Routes
+      // Subscription / Paywall
       GoRoute(
         path: '/paywall',
         builder: (context, state) {
-          final mode = state.uri.queryParameters['mode'];
-          return PaywallScreen(mode: PaywallModeX.fromQuery(mode));
+          final modeStr = state.uri.queryParameters['mode'];
+          return PaywallScreen(
+            mode: PaywallModeX.fromQuery(modeStr),
+          );
         },
       ),
       GoRoute(
@@ -205,11 +222,6 @@ GoRouter router(RouterRef ref) {
           return const OnboardingFlowPage();
         },
       ),
-      GoRoute(
-        path: '/preview',
-        builder: (context, state) => const OnboardingPreviewPage(),
-      ),
-
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
       GoRoute(
@@ -240,7 +252,7 @@ GoRouter router(RouterRef ref) {
         final hasOnboarded = !isAuthenticated
             ? true
             : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
-        final isPreview = previewMode.isActive;
+        final isPreview = previewMode.isActive || persistedPreviewMode;
         final onboardingStage = state.uri.queryParameters['stage'];
         final isOnSplashPage = state.matchedLocation == '/splash';
         final isOnAuthPage = state.matchedLocation == '/login' ||
@@ -256,7 +268,6 @@ GoRouter router(RouterRef ref) {
             onboardingStage != 'prepare';
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
-        final isOnPreviewPage = state.matchedLocation == '/preview';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
         final isOnPlanSelectionPage =
             state.matchedLocation == '/plan-selection';
@@ -284,9 +295,6 @@ GoRouter router(RouterRef ref) {
           debugPrint(
               '🚀 [RouterV2] On splash, redirecting immediately based on auth');
           if (isPreview) {
-            if (!hasSeenPreview) {
-              prefs.setBool('preview_onboarding_seen', true);
-            }
             return '/dashboard';
           }
           // Redirect from splash to appropriate page
@@ -309,21 +317,21 @@ GoRouter router(RouterRef ref) {
                 final everSubscribed =
                     prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
                 if (everSubscribed) {
-                  return '/plan-selection?mode=resubscribe';
+                  return '/paywall?mode=resubscribe';
                 } else {
-                  return '/plan-selection?mode=trial';
+                  return '/paywall?mode=trial';
                 }
               }
             }
             return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
-            if (hasSeenPreview && hasCompletedPreauth) {
+            if (hasCompletedPreauth) {
               return '/login';
             }
-            if (hasSeenPreview && !hasCompletedPreauth) {
+            if (hasInProgressPreauthDraft) {
               return '/onboarding?stage=pre';
             }
-            return '/preview';
+            return '/onboarding';
           }
         }
 
@@ -352,16 +360,9 @@ GoRouter router(RouterRef ref) {
         }
 
         if (!isAuthenticated && isOnPostOnboardingPage) {
-          return hasCompletedPreauth ? '/login' : '/onboarding?stage=pre';
-        }
-
-        // If authenticated and sitting on preview page, forward to onboarding/dashboard
-        if (isAuthenticated && isOnPreviewPage) {
-          if (hasCompletedPreauth && !isPreauthSynced) {
-            return '/onboarding?stage=prepare';
-          }
-          if (!hasOnboarded) return '/onboarding?stage=post';
-          return '/dashboard';
+          if (hasCompletedPreauth) return '/login';
+          if (hasInProgressPreauthDraft) return '/onboarding?stage=pre';
+          return null;
         }
 
         if (isAuthenticated &&
@@ -382,18 +383,18 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // If not authenticated and not on auth/pre-onboarding/preview page, route to pre-onboarding first.
+        // If not authenticated and not on auth/onboarding page, route into onboarding first.
         if (!isPreview &&
             !isAuthenticated &&
             !isOnAuthPage &&
-            !isOnPreviewPage) {
-          if (hasSeenPreview && hasCompletedPreauth) {
+            !isOnboardingPage) {
+          if (hasCompletedPreauth) {
             return '/login';
           }
-          if (hasSeenPreview && !hasCompletedPreauth) {
+          if (hasInProgressPreauthDraft) {
             return '/onboarding?stage=pre';
           }
-          return '/preview';
+          return '/onboarding';
         }
 
         // If authenticated and on auth page, check onboarding then subscription then redirect
@@ -417,9 +418,9 @@ GoRouter router(RouterRef ref) {
             final everSubscribed =
                 prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
             if (everSubscribed) {
-              return '/plan-selection?mode=resubscribe';
+              return '/paywall?mode=resubscribe';
             } else {
-              return '/plan-selection?mode=trial';
+              return '/paywall?mode=trial';
             }
           }
           return '/dashboard';
@@ -442,9 +443,9 @@ GoRouter router(RouterRef ref) {
           final everSubscribed =
               prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
           if (everSubscribed) {
-            return '/plan-selection?mode=resubscribe';
+            return '/paywall?mode=resubscribe';
           } else {
-            return '/plan-selection?mode=trial';
+            return '/paywall?mode=trial';
           }
         }
 
@@ -498,6 +499,20 @@ class RouterNotifier extends ChangeNotifier {
     // Listen to app initialization state changes (V2)
     _ref.listen<AppInitializationState>(
       appInitializationV2Provider,
+      (_, __) => notifyListeners(),
+    );
+
+    // Keep routing reactive to subscription/preview changes while app is open.
+    _ref.listen<bool>(
+      hasActiveSubscriptionProvider,
+      (_, __) => notifyListeners(),
+    );
+    _ref.listen<bool>(
+      isSubscriptionLoadedProvider,
+      (_, __) => notifyListeners(),
+    );
+    _ref.listen<PreviewModeState>(
+      previewModeProvider,
       (_, __) => notifyListeners(),
     );
   }

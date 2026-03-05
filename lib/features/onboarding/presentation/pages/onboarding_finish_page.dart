@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
@@ -51,6 +52,15 @@ class _OnboardingFinishPageState extends State<OnboardingFinishPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (kDebugMode)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      tooltip: 'Debug back',
+                    ),
+                  ),
                 Text(
                   context.l10n.onboardingFinishHighlightSharedExpenses,
                   textAlign: TextAlign.center,

@@ -1,7 +1,9 @@
 // ignore_for_file: unused_element
 
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -19,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
+import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
@@ -29,6 +32,7 @@ import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -58,24 +62,1040 @@ String _importSourceLabel(ImportSourceApp source) {
   }
 }
 
-String _importSourceFileRequest(ImportSourceApp source) {
-  switch (source) {
-    case ImportSourceApp.ynab:
-      return 'Upload YNAB export (CSV/TSV). Note: targets may not transfer.';
-    case ImportSourceApp.monarch:
-      return 'Upload Transactions CSV (all accounts). Optional: Balance history CSV.';
-    case ImportSourceApp.everyDollar:
-      return 'Upload one or more monthly Transactions CSV exports.';
-    case ImportSourceApp.cashew:
-      return 'Upload Cashew Data File backup (preferred).';
-    case ImportSourceApp.mint:
-      return 'Upload one or more Mint Transactions CSV exports (may require multiple exports).';
-    case ImportSourceApp.goodbudget:
-      return 'Upload Transactions CSV.';
-    case ImportSourceApp.spendee:
-      return 'Upload CSV/XLS export (All wallets; free users limited to 365 days).';
-    case ImportSourceApp.other:
-      return 'Upload a CSV, XLS/XLSX, TXT, or PDF export from your tool.';
+class _GuestOnboardingFlow extends HookConsumerWidget {
+  const _GuestOnboardingFlow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final currentPage = useState(0);
+    final isBusy = useState(false);
+
+    const introSlides = [
+      (
+        title: 'Money can feel\nchaotic sometimes.',
+        accent: 'chaotic sometimes.',
+        body: 'Bills, groceries, rent.\nThe month just\ngoes by fast.'
+      ),
+      (
+        title:
+            'You try to stay on\ntop of it. But\nsomehow there is\nalways something\nyou forgot to log.',
+        accent: 'you forgot to log.',
+        body: ''
+      ),
+      (
+        title: 'It is not that you are\nbad with money.',
+        accent: 'Keeping track of',
+        body: 'Keeping track of\neverything is harder\nthan it should be.'
+      ),
+      (
+        title: 'Tracking expenses\nshould be Simple',
+        accent: 'Simple',
+        body: ''
+      ),
+    ];
+
+    const questionSteps = [
+      (
+        title: 'What do you want help with?',
+        options: [
+          'Keep track of shared expenses',
+          'Split bills',
+          'Stay on top of spending',
+          'Track my own spending',
+          'Plan a trip or event',
+          'Keep track of receipts',
+        ],
+      ),
+      (
+        title: 'Where do you live?',
+        options: [
+          'Renting',
+          'On my home',
+          'With roommates',
+          'With family',
+        ],
+      ),
+      (
+        title: 'How often do you eat out?',
+        options: ['Often', 'Sometimes', 'Rarely'],
+      ),
+      (
+        title: 'Do you have subscriptions?',
+        options: ['Many', 'A few', 'None'],
+      ),
+      (
+        title: 'Do you have pets?',
+        options: ['Yes', 'No'],
+      ),
+    ];
+
+    final questionAnswers = useState<List<String?>>(
+      List<String?>.filled(questionSteps.length, null),
+    );
+
+    final totalPages = introSlides.length + questionSteps.length;
+    final isIntro = currentPage.value < introSlides.length;
+    final questionIndex = currentPage.value - introSlides.length;
+    final isFinalIntroSlide = currentPage.value == introSlides.length - 1;
+
+    // Ambient glow controller morphs based on page progress
+    final glowController = useAnimationController(
+      duration: const Duration(seconds: 4),
+    );
+
+    useEffect(() {
+      glowController.repeat(reverse: true);
+      return glowController.stop;
+    }, []);
+
+    final glowAnimation = useAnimation(
+      CurvedAnimation(parent: glowController, curve: Curves.easeInOut),
+    );
+
+    // Page transition progress for morphing glow intensity
+    final pageProgress = (currentPage.value / (totalPages - 1)).clamp(0.0, 1.0);
+
+    Future<void> persistAndContinue() async {
+      if (isBusy.value) return;
+      isBusy.value = true;
+      try {
+        final store = ref.read(onboardingPreauthDraftStoreProvider);
+        final current = store.load();
+        final mapped = _applyGuestAnswersToDraft(
+          draft: current,
+          answers: questionAnswers.value,
+        );
+        await store.save(mapped.copyWith(currentStep: 5));
+        if (!context.mounted) return;
+        context.go('/onboarding?stage=pre');
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
+    void goNext() {
+      if (currentPage.value == totalPages - 1) {
+        unawaited(persistAndContinue());
+        return;
+      }
+      currentPage.value++;
+    }
+
+    void goBack() {
+      if (currentPage.value <= 0) return;
+      currentPage.value--;
+    }
+
+    final questionProgress = !isIntro
+        ? ((questionIndex + 1) / questionSteps.length).clamp(0.0, 1.0)
+        : 0.0;
+
+    return AdaptiveScaffold(
+      appBar: null,
+      body: Material(
+        color: colorScheme.appBackground,
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              // Ambient glow background layer (persists and morphs across slides)
+              Positioned(
+                left: -88,
+                right: -88,
+                bottom: -100,
+                height: MediaQuery.sizeOf(context).height * 0.5,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 650),
+                    opacity: isIntro ? (isFinalIntroSlide ? 1.0 : 0.0) : 0.0,
+                    child: Transform.scale(
+                      scale: 1.0 + (glowAnimation * 0.05),
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: const Alignment(0, 1.0),
+                            radius: 1.0 +
+                                (pageProgress *
+                                    0.2), // slightly larger over time
+                            focal: Alignment(0,
+                                1.2 - (pageProgress * 0.1)), // shifts slightly
+                            focalRadius: 0.1,
+                            colors: [
+                              colorScheme.primary.withValues(
+                                alpha: 0.7 + (glowAnimation * 0.1),
+                              ),
+                              colorScheme.primary.withValues(
+                                alpha: 0.45 + (glowAnimation * 0.1),
+                              ),
+                              colorScheme.primary.withValues(
+                                alpha: 0.2 + (glowAnimation * 0.05),
+                              ),
+                              colorScheme.primary.withValues(alpha: 0.0),
+                            ],
+                            stops: const [0.0, 0.25, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Main Content
+              Column(
+                children: [
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 650),
+                      switchInCurve: Curves.easeInOut,
+                      switchOutCurve: Curves.easeInOut,
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        final inAnimation = Tween<Offset>(
+                          begin: const Offset(0.0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        final outAnimation = Tween<Offset>(
+                          begin: const Offset(0.0, -0.02),
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: child.key == ValueKey(currentPage.value)
+                                ? inAnimation
+                                : outAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(currentPage.value),
+                        child: Builder(builder: (context) {
+                          final index = currentPage.value;
+                          if (index < introSlides.length) {
+                            final slide = introSlides[index];
+                            return _IntroSlide(
+                              title: slide.title,
+                              body: slide.body,
+                              accent: slide.accent,
+                              currentIndex: index,
+                              totalSlides: introSlides.length,
+                              isFinalSlide: index == introSlides.length - 1,
+                              onNext: goNext,
+                            );
+                          } else {
+                            final qIndex = index - introSlides.length;
+                            final step = questionSteps[qIndex];
+                            return _QuestionSlide(
+                              title: step.title,
+                              options: step.options,
+                              selected: questionAnswers.value[qIndex],
+                              progress: questionProgress,
+                              onBack: goBack,
+                              onSelected: (option) {
+                                final nextAnswers =
+                                    List<String?>.from(questionAnswers.value);
+                                nextAnswers[qIndex] = option;
+                                questionAnswers.value = nextAnswers;
+                              },
+                            );
+                          }
+                        }),
+                      ),
+                    ),
+                  ),
+                  if (!isIntro)
+                    Padding(
+                      padding:
+                          EdgeInsets.fromLTRB(20, 8, 20, 16 + bottomPadding),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: PrimaryAdaptiveButton(
+                          onPressed:
+                              (questionAnswers.value[questionIndex] == null ||
+                                      isBusy.value)
+                                  ? null
+                                  : goNext,
+                          child: Text(
+                            currentPage.value == totalPages - 1
+                                ? context.l10n.continueAction
+                                : context.l10n.next,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+OnboardingPreauthDraft _applyGuestAnswersToDraft({
+  required OnboardingPreauthDraft draft,
+  required List<String?> answers,
+}) {
+  final help = answers.isNotEmpty ? (answers[0] ?? '') : '';
+  final living = answers.length > 1 ? (answers[1] ?? '') : '';
+  final food = answers.length > 2 ? (answers[2] ?? '') : '';
+  final subs = answers.length > 3 ? (answers[3] ?? '') : '';
+  final pets = answers.length > 4 ? (answers[4] ?? '') : '';
+
+  final wantsShared = help.contains('shared') || help.contains('Split bills');
+  final householdProfile = switch (living) {
+    'With roommates' => 'friends',
+    'With family' => 'family',
+    _ => 'personal',
+  };
+
+  final primaryGoal = switch (help) {
+    'Split bills' => 'debt_free',
+    'Plan a trip or event' => 'save_big',
+    'Keep track of receipts' => 'track_cashflow',
+    _ => 'balanced',
+  };
+
+  final lifestyle = switch (food) {
+    'Often' => 'foodie',
+    'Rarely' => 'minimalist',
+    _ => 'general',
+  };
+
+  final monthlyBudget = switch ('${subs}_$pets') {
+    'Many_Yes' => 1900.0,
+    'Many_No' => 1700.0,
+    'A few_Yes' => 1600.0,
+    'A few_No' => 1450.0,
+    'None_Yes' => 1300.0,
+    _ => 1200.0,
+  };
+
+  return draft.copyWith(
+    wantsSharedSpace: wantsShared,
+    householdProfile: householdProfile,
+    primaryGoal: primaryGoal,
+    lifestyleFocus: lifestyle,
+    monthlyBudget: monthlyBudget,
+    currentStep: 5,
+  );
+}
+
+class _IntroSlide extends HookWidget {
+  const _IntroSlide({
+    required this.title,
+    required this.body,
+    required this.accent,
+    required this.currentIndex,
+    required this.totalSlides,
+    required this.isFinalSlide,
+    required this.onNext,
+  });
+
+  final String title;
+  final String body;
+  final String accent;
+  final int currentIndex;
+  final int totalSlides;
+  final bool isFinalSlide;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final accentColor = colorScheme.primary;
+    final text = body.isNotEmpty ? '$title\n$body' : title;
+
+    final parts = text.split(accent);
+
+    // Staggered entrance animation
+    final animationController = useAnimationController(
+      duration: const Duration(milliseconds: 650),
+    );
+
+    useEffect(() {
+      animationController.forward(from: 0.0);
+      return null;
+    }, [currentIndex]);
+
+    final fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final slideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final actionFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final actionSlideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(28, 20, 28, 20 + bottomPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Progress Dots (static, no entrance animation)
+          Padding(
+            padding: const EdgeInsets.only(top: 24, bottom: 40),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalSlides, (index) {
+                final isActive = index == currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  height: 8,
+                  width: 26,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? colorScheme.primary
+                        : colorScheme.border.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(5.33),
+                  ),
+                );
+              }),
+            ),
+          ),
+
+          if (!isFinalSlide)
+            Expanded(
+              child: FadeTransition(
+                opacity: fadeAnim,
+                child: SlideTransition(
+                  position: slideAnim,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16, bottom: 24),
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 31,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.foreground,
+                            height: 1.375,
+                            letterSpacing: 0,
+                          ),
+                          children: [
+                            if (parts.isNotEmpty) TextSpan(text: parts[0]),
+                            TextSpan(
+                              text: accent,
+                              style: TextStyle(color: accentColor),
+                            ),
+                            if (parts.length > 1) TextSpan(text: parts[1]),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            // Content column for final slide
+            Expanded(
+              child: FadeTransition(
+                opacity: fadeAnim,
+                child: SlideTransition(
+                  position: slideAnim,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Title text
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: RichText(
+                            text: TextSpan(
+                              style: TextStyle(
+                                fontSize: 31,
+                                fontWeight: FontWeight.w800,
+                                color: colorScheme.foreground,
+                                height: 1.375,
+                                letterSpacing: 0,
+                              ),
+                              children: [
+                                if (parts.isNotEmpty) TextSpan(text: parts[0]),
+                                TextSpan(
+                                  text: accent,
+                                  style: TextStyle(color: accentColor),
+                                ),
+                                if (parts.length > 1) TextSpan(text: parts[1]),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Orbit circle (takes remaining space)
+                      Expanded(
+                        child: FadeTransition(
+                          opacity: actionFadeAnim,
+                          child: SlideTransition(
+                            position: actionSlideAnim,
+                            child: const _OnboardingOrbitHero(),
+                          ),
+                        ),
+                      ),
+                      // Get Started button
+                      FadeTransition(
+                        opacity: actionFadeAnim,
+                        child: SlideTransition(
+                          position: actionSlideAnim,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24, top: 16),
+                            child: InkWell(
+                              onTap: onNext,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.cardSurface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: colorScheme.border
+                                        .withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Get Started',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          if (!isFinalSlide)
+            FadeTransition(
+              opacity: actionFadeAnim,
+              child: SlideTransition(
+                position: actionSlideAnim,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: InkWell(
+                      onTap: onNext,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: colorScheme.cardSurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          color: colorScheme.onSurface.withValues(alpha: 0.8),
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingOrbitHero extends HookWidget {
+  const _OnboardingOrbitHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useAnimationController(
+      duration: const Duration(seconds: 40),
+    )..repeat();
+
+    final innerBubbles = [
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense1,
+        icon: Icons.mic_rounded,
+        baseAngle: 0,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense2,
+        icon: Icons.account_balance_wallet_rounded,
+        baseAngle: 2 * math.pi / 3,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense3,
+        icon: Icons.family_restroom_rounded,
+        baseAngle: 4 * math.pi / 3,
+      ),
+    ];
+
+    final outerBubbles = [
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight1,
+        icon: Icons.pie_chart_rounded,
+        baseAngle: math.pi / 6,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight2,
+        icon: Icons.chat_rounded,
+        baseAngle: math.pi / 6 + 2 * math.pi / 3,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight3,
+        icon: Icons.event_repeat_rounded,
+        baseAngle: math.pi / 6 + 4 * math.pi / 3,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = math.min(constraints.maxWidth, constraints.maxHeight) - 50;
+        final center = Offset(constraints.maxWidth / 2, size / 2 + 20);
+        final innerRadius = size * 0.28;
+        final outerRadius = size * 0.45;
+        const avatarSize = 60.0;
+
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final t = controller.value;
+            final innerAngleOffset = t * 2 * math.pi;
+            final outerAngleOffset = -t * 2 * math.pi;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Inner rings
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _OrbitRingsPainter(
+                      innerRadius: innerRadius,
+                      outerRadius: outerRadius,
+                      ringColor: colorScheme.border.withValues(alpha: 0.2),
+                      centerOffset: center,
+                    ),
+                  ),
+                ),
+
+                // Inner orbit bubbles
+                ...innerBubbles.map((bubble) {
+                  final angle = bubble.baseAngle + innerAngleOffset;
+                  final x = center.dx + innerRadius * math.cos(angle);
+                  final y = center.dy + innerRadius * math.sin(angle);
+                  return _buildBubble(
+                    x: x,
+                    y: y,
+                    bubble: bubble,
+                    colorScheme: colorScheme,
+                  );
+                }),
+
+                // Outer orbit bubbles
+                ...outerBubbles.map((bubble) {
+                  final angle = bubble.baseAngle + outerAngleOffset;
+                  final x = center.dx + outerRadius * math.cos(angle);
+                  final y = center.dy + outerRadius * math.sin(angle);
+                  return _buildBubble(
+                    x: x,
+                    y: y,
+                    bubble: bubble,
+                    colorScheme: colorScheme,
+                  );
+                }),
+
+                // Center avatar/icon
+                Positioned(
+                  left: center.dx - avatarSize / 2,
+                  top: center.dy - avatarSize / 2,
+                  child: Container(
+                    width: avatarSize,
+                    height: avatarSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.card,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withValues(alpha: 0.15),
+                          blurRadius: 24,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'lib/assets/mascots/moneko-avatar.gif',
+                        width: avatarSize,
+                        height: avatarSize,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Positioned _buildBubble({
+    required double x,
+    required double y,
+    required _OrbitBubbleData bubble,
+    required ColorScheme colorScheme,
+  }) {
+    return Positioned(
+      left: x - 65,
+      top: y - 20,
+      child: Container(
+        width: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: colorScheme.border.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              bubble.icon,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                bubble.text,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrbitRingsPainter extends CustomPainter {
+  const _OrbitRingsPainter({
+    required this.innerRadius,
+    required this.outerRadius,
+    required this.ringColor,
+    required this.centerOffset,
+  });
+
+  final double innerRadius;
+  final double outerRadius;
+  final Color ringColor;
+  final Offset centerOffset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = ringColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawCircle(centerOffset, innerRadius, paint);
+    canvas.drawCircle(centerOffset, outerRadius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitRingsPainter oldDelegate) =>
+      oldDelegate.innerRadius != innerRadius ||
+      oldDelegate.outerRadius != outerRadius ||
+      oldDelegate.ringColor != ringColor ||
+      oldDelegate.centerOffset != centerOffset;
+}
+
+class _OrbitBubbleData {
+  const _OrbitBubbleData({
+    required this.text,
+    required this.icon,
+    required this.baseAngle,
+  });
+
+  final String text;
+  final IconData icon;
+  final double baseAngle;
+}
+
+class _QuestionSlide extends HookWidget {
+  const _QuestionSlide({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.progress,
+    required this.onBack,
+    required this.onSelected,
+  });
+
+  final String title;
+  final List<String> options;
+  final String? selected;
+  final double progress;
+  final VoidCallback onBack;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Staggered entrance animation
+    final animationController = useAnimationController(
+      duration: const Duration(milliseconds: 650),
+    );
+
+    useEffect(() {
+      animationController.forward(from: 0.0);
+      return null;
+    }, [title]);
+
+    final titleFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final titleSlideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: onBack,
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.cardSurface,
+                  ),
+                  alignment: Alignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                        right: 2.0), // Optical alignment for arrow
+                    child: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 10,
+                    backgroundColor:
+                        colorScheme.mutedForeground.withValues(alpha: 0.25),
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FadeTransition(
+            opacity: titleFadeAnim,
+            child: SlideTransition(
+              position: titleSlideAnim,
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  height: 1.5, // 36px line height / 24px font size
+                  letterSpacing: 0,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < options.length; i++) ...[
+                    Builder(builder: (context) {
+                      final optionStart = 0.2 + (i * 0.1).clamp(0.0, 0.5);
+                      final optionAnim =
+                          Tween<double>(begin: 0.0, end: 1.0).animate(
+                        CurvedAnimation(
+                          parent: animationController,
+                          curve: Interval(
+                              optionStart, math.min(1.0, optionStart + 0.5),
+                              curve: Curves.easeOutCubic),
+                        ),
+                      );
+                      final optionSlide = Tween<Offset>(
+                              begin: const Offset(0.0, 0.3), end: Offset.zero)
+                          .animate(
+                        CurvedAnimation(
+                          parent: animationController,
+                          curve: Interval(
+                              optionStart, math.min(1.0, optionStart + 0.6),
+                              curve: Curves.easeOutCubic),
+                        ),
+                      );
+
+                      return FadeTransition(
+                        opacity: optionAnim,
+                        child: SlideTransition(
+                          position: optionSlide,
+                          child: _QuestionOptionTile(
+                            label: options[i],
+                            selected: selected == options[i],
+                            onTap: () => onSelected(options[i]),
+                          ),
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestionOptionTile extends StatelessWidget {
+  const _QuestionOptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.2)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.border.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.5, // 24px line height / 16px font size
+              letterSpacing: 0,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -86,6 +1106,11 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    if (auth.isEmpty) {
+      return const _GuestOnboardingFlow();
+    }
+
     final pageController = usePageController();
     final currentPage = useState(0);
     final colorScheme = Theme.of(context).colorScheme;
@@ -211,6 +1236,22 @@ class OnboardingFlowPage extends HookConsumerWidget {
           return;
         }
 
+        if (currentPage.value == 2) {
+          if (aiLogSuccess.value != null) {
+            next();
+            return;
+          }
+
+          await handleAiFreeFormText(
+            context,
+            ref,
+            onSuccess: (success) {
+              aiLogSuccess.value = success;
+            },
+          );
+          return;
+        }
+
         // Default: advance to next step
         next();
       } finally {
@@ -227,6 +1268,28 @@ class OnboardingFlowPage extends HookConsumerWidget {
           color: colorScheme.appBackground,
           child: Column(
             children: [
+              if (kDebugMode)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: currentPage.value > 0
+                            ? () => goToPage(currentPage.value - 1)
+                            : null,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        tooltip: 'Debug back',
+                      ),
+                      Text(
+                        'Debug back',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: PageView(
                   controller: pageController,
@@ -319,7 +1382,14 @@ class OnboardingFlowPage extends HookConsumerWidget {
     if (fromSettings) {
       Navigator.of(context).pop();
     } else {
-      context.go('/dashboard');
+      const isWeb = kIsWeb;
+      final hasSubscription = ref.read(hasActiveSubscriptionProvider);
+      final isSubscriptionLoaded = ref.read(isSubscriptionLoadedProvider);
+      if (!isWeb && isSubscriptionLoaded && !hasSubscription) {
+        context.go('/paywall');
+      } else {
+        context.go('/dashboard');
+      }
     }
   }
 }
@@ -637,11 +1707,11 @@ class _DataImportSourceStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Are you migrating from another app?',
+            'Are you currently using other app?',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
               color: colorScheme.foreground,
             ),
           ),
@@ -735,15 +1805,6 @@ class _ImportSourceCard extends StatelessWidget {
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _importSourceFileRequest(spec.app),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.mutedForeground,
-                        height: 1.35,
                       ),
                     ),
                   ],
@@ -1218,8 +2279,8 @@ class _AiLogStep extends HookConsumerWidget {
                       children: [
                         Center(
                           child: Container(
-                            width: 140,
-                            height: 140,
+                            width: 100,
+                            height: 100,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
@@ -1240,8 +2301,8 @@ class _AiLogStep extends HookConsumerWidget {
                           context.l10n.tryAiLoggingTitle,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
                             color: colorScheme.foreground,
                           ),
                         ),
@@ -1253,84 +2314,8 @@ class _AiLogStep extends HookConsumerWidget {
                             color: colorScheme.mutedForeground,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: colorScheme.homeCardSurface,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: colorScheme.homeCardBorder,
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.homeCardShadow,
-                                blurRadius: 32,
-                                offset: const Offset(0, 8),
-                                spreadRadius: -4,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _AiActionChip(
-                                    icon: Icons.edit_rounded,
-                                    label: context.l10n.freeFormText,
-                                    onTap: () async {
-                                      await handleAiFreeFormText(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                  _AiActionChip(
-                                    icon: Icons.camera_alt_rounded,
-                                    label: context.l10n.takePhoto,
-                                    onTap: () async {
-                                      await handleAiCameraCapture(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                  _AiActionChip(
-                                    icon: Icons.mic_rounded,
-                                    label: context.l10n.textAudio,
-                                    onTap: () async {
-                                      await handleAiFreeFormText(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _AiActionRow(
-                                icon: Icons.attach_file_rounded,
-                                label: context.l10n.files,
-                                subtitle: context.l10n.tryAiLoggingFilesHint,
-                                onTap: () async {
-                                  await handleAiFileOrGallery(
-                                    context,
-                                    ref,
-                                    onSuccess: onSuccess,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 35),
+                  
                         Text(
                           context.l10n.aiPromptExamplesTitle,
                           style: TextStyle(
@@ -1360,16 +2345,7 @@ class _AiLogStep extends HookConsumerWidget {
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                context.l10n.aiPromptExamplesDescription,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
+                            children: [                       
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -1388,6 +2364,15 @@ class _AiLogStep extends HookConsumerWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 20,),
+                               Text(
+                                context.l10n.aiPromptExamplesDescription,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  height: 1.4,
+                                ),
+                              ),
                       ],
                     ),
             ),

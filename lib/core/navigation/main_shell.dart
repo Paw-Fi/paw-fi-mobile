@@ -54,6 +54,8 @@ class MainShell extends HookConsumerWidget {
 
     void exitPreviewMode() {
       ref.read(mainShellTabIndexProvider.notifier).state = 0;
+      final prefs = ref.read(sharedPreferencesProvider);
+      unawaited(prefs.setBool(kPreviewModeActiveKey, false));
       ref.read(previewModeProvider.notifier).disable();
       clearPreviewDataCaches();
     }
@@ -178,7 +180,7 @@ class MainShell extends HookConsumerWidget {
                     onExitTap: () {
                       exitPreviewMode();
                       if (context.mounted) {
-                        context.go('/onboarding?stage=pre&source=preview_exit');
+                        context.go('/paywall');
                       }
                     },
                   ),
