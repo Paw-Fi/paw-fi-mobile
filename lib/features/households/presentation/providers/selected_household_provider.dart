@@ -259,11 +259,13 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
   /// Clear selection
   Future<void> clearSelection() async {
     debugPrint('🗑️ Clearing household selection');
+    if (mounted) {
+      state = const SelectedHouseholdState();
+    }
     if (_userId.isNotEmpty) {
       await prefs.remove(_selectedHouseholdIdKeyForUser(_userId));
     }
     await prefs.remove(_kLegacySelectedHouseholdIdKey);
-    state = const SelectedHouseholdState();
   }
 
   /// Refresh current household data

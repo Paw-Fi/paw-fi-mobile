@@ -213,13 +213,15 @@ GoRouter router(RouterRef ref) {
         path: '/onboarding',
         builder: (context, state) {
           final stage = state.uri.queryParameters['stage'];
+          final debugPost =
+              kDebugMode && state.uri.queryParameters['debug'] == 'post';
           if (stage == 'pre') {
             return const OnboardingPreAuthFlowPage();
           }
           if (stage == 'prepare') {
             return const OnboardingAccountPreparingPage();
           }
-          return const OnboardingFlowPage();
+          return OnboardingFlowPage(debugForcePostFlow: debugPost);
         },
       ),
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
@@ -254,6 +256,8 @@ GoRouter router(RouterRef ref) {
             : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
         final isPreview = previewMode.isActive || persistedPreviewMode;
         final onboardingStage = state.uri.queryParameters['stage'];
+        final isDebugPostBypass =
+            kDebugMode && state.uri.queryParameters['debug'] == 'post';
         final isOnSplashPage = state.matchedLocation == '/splash';
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
@@ -359,7 +363,7 @@ GoRouter router(RouterRef ref) {
           return '/login';
         }
 
-        if (!isAuthenticated && isOnPostOnboardingPage) {
+        if (!isAuthenticated && isOnPostOnboardingPage && !isDebugPostBypass) {
           if (hasCompletedPreauth) return '/login';
           if (hasInProgressPreauthDraft) return '/onboarding?stage=pre';
           return null;

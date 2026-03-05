@@ -249,6 +249,34 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
               // Main Content
               Column(
                 children: [
+                  if (kDebugMode)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: currentPage.value > 0 ? goBack : null,
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            tooltip: 'Debug back',
+                          ),
+                          IconButton(
+                            onPressed: goNext,
+                            icon: const Icon(Icons.skip_next_rounded),
+                            tooltip: 'Debug next',
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () =>
+                                context.go('/onboarding?stage=post&debug=post'),
+                            child: const Text('Debug post'),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/paywall?mode=trial'),
+                            child: const Text('Debug paywall'),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 650),
@@ -1100,14 +1128,19 @@ class _QuestionOptionTile extends StatelessWidget {
 }
 
 class OnboardingFlowPage extends HookConsumerWidget {
-  const OnboardingFlowPage({super.key, this.fromSettings = false});
+  const OnboardingFlowPage({
+    super.key,
+    this.fromSettings = false,
+    this.debugForcePostFlow = false,
+  });
 
   final bool fromSettings;
+  final bool debugForcePostFlow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    if (auth.isEmpty) {
+    if (auth.isEmpty && !debugForcePostFlow) {
       return const _GuestOnboardingFlow();
     }
 
@@ -1280,12 +1313,17 @@ class OnboardingFlowPage extends HookConsumerWidget {
                         icon: const Icon(Icons.arrow_back_rounded),
                         tooltip: 'Debug back',
                       ),
-                      Text(
-                        'Debug back',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                        ),
+                      IconButton(
+                        onPressed: currentPage.value < totalSteps - 1
+                            ? () => goToPage(currentPage.value + 1)
+                            : () => unawaited(showFinishPage()),
+                        icon: const Icon(Icons.skip_next_rounded),
+                        tooltip: 'Debug next',
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => context.go('/paywall?mode=trial'),
+                        child: const Text('Debug paywall'),
                       ),
                     ],
                   ),
@@ -2315,7 +2353,6 @@ class _AiLogStep extends HookConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 35),
-                  
                         Text(
                           context.l10n.aiPromptExamplesTitle,
                           style: TextStyle(
@@ -2345,7 +2382,7 @@ class _AiLogStep extends HookConsumerWidget {
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [                       
+                            children: [
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -2364,15 +2401,17 @@ class _AiLogStep extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20,),
-                               Text(
-                                context.l10n.aiPromptExamplesDescription,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  height: 1.4,
-                                ),
-                              ),
+                        const SizedBox(
+                          height: 20,
+                        ),
+                        Text(
+                          context.l10n.aiPromptExamplesDescription,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.mutedForeground,
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                     ),
             ),

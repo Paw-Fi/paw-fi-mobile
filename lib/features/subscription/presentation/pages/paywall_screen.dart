@@ -15,6 +15,7 @@ import 'package:moneko/features/subscription/data/models/subscription_product.da
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:go_router/go_router.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
@@ -130,7 +131,7 @@ class PaywallScreen extends HookConsumerWidget {
     final currentProvider = currentSub?.subscription?.provider;
 
     // Check if user is truly new (no subscription data exists)
-    final isNewUser = currentSub?.subscription == null;
+    // final isNewUser = currentSub?.subscription == null;
 
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
@@ -905,47 +906,48 @@ class PaywallScreen extends HookConsumerWidget {
                             color: colorScheme.mutedForeground,
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 16),
+                        const _AppRatingBadge(),
+                        const SizedBox(height: 24),
 
                         // --- SUBSCRIPTION PLANS ---
-                        ...plans.map((plan) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _AppleStylePlanCard(
-                              plan: plan,
-                              isSelected: selectedPlanId.value == plan.id,
-                              onTap: () => selectedPlanId.value = plan.id,
-                              isNewUser: isNewUser,
-                            ),
-                          );
-                        }),
+                        _UnifiedPlanCard(
+                          plans: plans,
+                          selectedPlanId: selectedPlanId.value,
+                          onPlanSelected: (id) => selectedPlanId.value = id,
+                        ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
 
-                        // Features Link
+                        // Preview App Link
                         GestureDetector(
                           onTap: () {
-                            showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                isScrollControlled: true,
-                                builder: (_) => const _CleanFeatureSheet());
+                            ref.read(previewModeProvider.notifier).enable();
+                            if (context.mounted) {
+                              context.go('/dashboard');
+                            }
                           },
                           child: Padding(
                             padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Compare features',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.primary,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                              
+                                Text(
+                                  'Preview the App',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                  Icon(Icons.arrow_right_alt, size: 16, color: colorScheme.primary),
+                              ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const _LegalLinks(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
@@ -954,128 +956,168 @@ class PaywallScreen extends HookConsumerWidget {
 
               // Bottom Actions
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                 decoration: BoxDecoration(
                   color: colorScheme.appBackground,
                   border: Border(
                       top: BorderSide(
                           color: colorScheme.outlineVariant
-                              .withValues(alpha: 0.5))),
+                              .withValues(alpha: 0.3))),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (requiresAutoRenewAcknowledgement) ...[
-                      CheckboxListTile(
-                        value: hasAcknowledgedAutoRenew.value,
-                        onChanged: isProcessing
-                            ? null
-                            : (value) =>
-                                hasAcknowledgedAutoRenew.value = value ?? false,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: colorScheme.primary,
-                        checkColor: colorScheme.onPrimary,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          mode == PaywallMode.trial
-                              ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                              : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 13,
-                            height: 1.35,
-                          ),
-                        ),
-          
-                      ),
-                   
-                      const SizedBox(height: 12),
-                    ],
-                    PrimaryAdaptiveButton(
-                      onPressed:
-                          isProcessing || !canConfirmAutoRenew || !isStoreReady
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (requiresAutoRenewAcknowledgement) ...[
+                        GestureDetector(
+                          onTap: isProcessing
                               ? null
-                              : onMainAction,
-                      child: Text(
-                        isProcessing
-                            ? 'Processing...'
-                            : !isStoreReady
-                                ? 'Store unavailable'
-                                : mode == PaywallMode.trial &&
-                                        activePlanOption.serverPlanId !=
-                                            'lifetime'
-                                    ? 'Start your free month'
-                                    : activePlanOption.serverPlanId ==
-                                            'lifetime'
-                                        ? 'Get Lifetime Access'
-                                        : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-
-                    // Cancel / Manage Subscription Button
-                    // ONLY shown if user is NOT on free plan
-                    if (currentPlanId != 'free' &&
-                        (currentProvider == null ||
-                            (currentProvider != 'app_store' &&
-                                currentProvider != 'play_store'))) ...[
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: isProcessing ? null : onCancelSubscription,
-                        child: Text(
-                          'Cancel Subscription',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                            decorationColor: colorScheme.mutedForeground
-                                .withValues(alpha: 0.5),
+                              : () => hasAcknowledgedAutoRenew.value =
+                                  !hasAcknowledgedAutoRenew.value,
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: Checkbox(
+                                    value: hasAcknowledgedAutoRenew.value,
+                                    onChanged: isProcessing
+                                        ? null
+                                        : (value) => hasAcknowledgedAutoRenew.value =
+                                            value ?? false,
+                                    activeColor: colorScheme.primary,
+                                    checkColor: colorScheme.onPrimary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    side: BorderSide(
+                                      color: colorScheme.outlineVariant,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    mode == PaywallMode.trial
+                                        ? 'I understand that my free trial will last for 7 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
+                                        : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings.',
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-
-                    if (currentPlanId != 'free' &&
-                        (currentProvider == 'app_store' ||
-                            currentProvider == 'play_store') &&
-                        currentPlanId != 'lifetime') ...[
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: isProcessing ? null : onManageStoreSubscription,
+                      ],
+                      PrimaryAdaptiveButton(
+                        onPressed:
+                            isProcessing || !canConfirmAutoRenew || !isStoreReady
+                                ? null
+                                : onMainAction,
                         child: Text(
-                          'Manage Subscription',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontSize: 14,
+                          isProcessing
+                              ? 'Processing...'
+                              : !isStoreReady
+                                  ? 'Store unavailable'
+                                  : mode == PaywallMode.trial &&
+                                          activePlanOption.serverPlanId !=
+                                              'lifetime'
+                                      ? 'Start Free Trial'
+                                      : activePlanOption.serverPlanId ==
+                                              'lifetime'
+                                          ? 'Get Lifetime Access'
+                                          : 'Subscribe',
+                          style: const TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor:
-                                colorScheme.primary.withValues(alpha: 0.5),
                           ),
                         ),
                       ),
-                    ],
 
-                    // Restore Purchases (Always visible)
-                    const SizedBox(height: 24),
-                    GestureDetector(
-                      onTap: isProcessing ? null : onRestorePurchases,
-                      child: Text(
-                        'Restore Purchases',
-                        style: TextStyle(
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                      // Cancel / Manage Subscription Button
+                      if (currentPlanId != 'free' &&
+                          (currentProvider == null ||
+                              (currentProvider != 'app_store' &&
+                                  currentProvider != 'play_store'))) ...[
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: isProcessing ? null : onCancelSubscription,
+                          child: Text(
+                            'Cancel Subscription',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
                         ),
+                      ],
+
+                      if (currentPlanId != 'free' &&
+                          (currentProvider == 'app_store' ||
+                              currentProvider == 'play_store') &&
+                          currentPlanId != 'lifetime') ...[
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: isProcessing ? null : onManageStoreSubscription,
+                          child: Text(
+                            'Manage Subscription',
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          GestureDetector(
+                            onTap: isProcessing ? null : onRestorePurchases,
+                            child: Text(
+                              'Restore Purchases',
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.8),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () async {
+                              final uri = Uri.parse('https://moneko.io/terms-of-service');
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            },
+                            child: Text(
+                              'Terms & Privacy',
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.8),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1088,219 +1130,205 @@ class PaywallScreen extends HookConsumerWidget {
 
 // --- COMPONENTS ---
 
-class _AppleStylePlanCard extends StatelessWidget {
-  final PlanOption plan;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isNewUser;
+class _UnifiedPlanCard extends StatelessWidget {
+  final List<PlanOption> plans;
+  final String selectedPlanId;
+  final ValueChanged<String> onPlanSelected;
 
-  const _AppleStylePlanCard({
-    required this.plan,
-    required this.isSelected,
-    required this.onTap,
-    required this.isNewUser,
+  const _UnifiedPlanCard({
+    required this.plans,
+    required this.selectedPlanId,
+    required this.onPlanSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    final backgroundColor = scheme.surface;
-    final borderColor = isSelected
-        ? scheme.primary
-        : scheme.outlineVariant.withValues(alpha: 0.3);
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: plans.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final plan = entry.value;
+          final isSelected = selectedPlanId == plan.id;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.1),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4))
-                ]
-              : [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2))
-                ],
-        ),
-        child: Row(
-          children: [
-            // Radio Indicator
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? scheme.primary
-                      : scheme.outlineVariant.withValues(alpha: 0.8),
-                  width: 2,
-                ),
-                color: isSelected ? scheme.primary : Colors.transparent,
-              ),
-              child: isSelected
-                  ? Center(
-                      child:
-                          Icon(Icons.check, size: 14, color: scheme.onPrimary))
-                  : null,
-            ),
-            const SizedBox(width: 16),
-
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          return Column(
+            children: [
+              if (idx > 0)
+                Divider(
+                    height: 1,
+                    color: scheme.outlineVariant.withValues(alpha: 0.3),
+                    indent: 16,
+                    endIndent: 16),
+              GestureDetector(
+                onTap: () => onPlanSelected(plan.id),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? scheme.primary.withValues(alpha: 0.05)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(idx == 0 ? 24 : 0),
+                      bottom: Radius.circular(idx == plans.length - 1 ? 24 : 0),
+                    ),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        plan.name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurface,
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? scheme.primary
+                                : scheme.outlineVariant.withValues(alpha: 0.8),
+                            width: isSelected ? 5.5 : 1.5,
+                          ),
+                          color: isSelected ? scheme.surface : Colors.transparent,
                         ),
                       ),
-                      if (plan.badgeText != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            plan.badgeText!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.primary,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              plan.name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: scheme.onSurface,
+                              ),
                             ),
-                          ),
+                            if (plan.badgeText != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: scheme.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  plan.badgeText!,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: scheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
+                      ),
                       Text(
                         plan.priceDisplay,
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
                           color: scheme.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        plan.periodDisplay,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: scheme.mutedForeground,
-                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
                   ),
-                  if (plan.billingInterval != null && isNewUser) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Free for first month, cancel anytime',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 }
 
-class _LegalLinks extends StatelessWidget {
-  const _LegalLinks();
-
-  Future<void> _launchUrl(BuildContext context, String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        AppToast.error(context, 'Could not open link');
-      }
-    }
-  }
+class _AppRatingBadge extends StatelessWidget {
+  const _AppRatingBadge();
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    final contentColor = scheme.onSurface;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        TextButton(
-          onPressed: () =>
-              _launchUrl(context, 'https://moneko.io/privacy-policy'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'Privacy',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
-          ),
+       
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            // Background image using laurel wreath
+            Image.asset(
+              'lib/assets/images/onboarding/laurel-wreath.png',
+              width: 170,
+            ),
+            
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '4.8',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: contentColor,
+                    letterSpacing: -1,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'OUT OF 5',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: contentColor.withValues(alpha: 0.5),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int i = 0; i < 4; i++)
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                    Stack(
+                      children: [
+                        Icon(Icons.star_rounded, color: scheme.outlineVariant.withValues(alpha: 0.5), size: 16),
+                        ClipRect(
+                          clipper: _FractionalClipper(0.8),
+                          child: const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+        
+          ],
         ),
-        Text(' • ',
-            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
-        TextButton(
-          onPressed: () =>
-              _launchUrl(context, 'https://moneko.io/terms-of-service'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'Terms',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
-          ),
-        ),
-        Text(' • ',
-            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
-        TextButton(
-          onPressed: () => _launchUrl(context, 'https://moneko.io/eula'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'EULA',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
+        const SizedBox(height: 6),
+        Text(
+          'We didn’t ask for applause— \n we built a budgeting app.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: contentColor.withValues(alpha: 0.8),
+            height: 1.3,
           ),
         ),
       ],
@@ -1308,73 +1336,17 @@ class _LegalLinks extends StatelessWidget {
   }
 }
 
-class _CleanFeatureSheet extends StatelessWidget {
-  const _CleanFeatureSheet();
+class _FractionalClipper extends CustomClipper<Rect> {
+  final double fraction;
+  _FractionalClipper(this.fraction);
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final features = [
-      'Unlimited AI Insights',
-      'Automatic Bank Sync',
-      'Smart Budgeting Goals',
-      'Export to CSV',
-      'Recurring Bill Tracking',
-      'Priority Support',
-      'Ad-free Experience',
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Included in Premium',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurface,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ...features.map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle_outline_rounded,
-                        size: 22, color: scheme.primary),
-                    const SizedBox(width: 14),
-                    Text(f,
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: scheme.onSurface.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w400)),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
+  Rect getClip(Size size) {
+    return Rect.fromLTRB(0, 0, size.width * fraction, size.height);
   }
+
+  @override
+  bool shouldReclip(covariant _FractionalClipper oldClipper) => oldClipper.fraction != fraction;
 }
 
 class _LifetimeView extends StatelessWidget {

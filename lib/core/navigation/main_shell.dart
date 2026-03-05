@@ -20,6 +20,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -40,24 +41,41 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
 
-    void clearPreviewDataCaches() {
-      ref.read(viewModeProvider.notifier).setPersonalMode();
-      unawaited(ref.read(selectedHouseholdProvider.notifier).clearSelection());
+    Future<void> clearPreviewDataCaches() async {
+      // Always reset shell navigation first.
+      ref.read(mainShellTabIndexProvider.notifier).state = 0;
 
+      // Reset launch intent state.
+      ref.read(widgetLaunchProvider.notifier).state = const WidgetLaunchEvent();
+
+      // Reset view/scope state.
+      ref.read(viewModeProvider.notifier).setPersonalMode();
+      await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+
+      // Invalidate providers that can surface preview mock data so the app
+      // reloads clean state after exiting preview.
       ref.invalidate(selectedHouseholdProvider);
+      ref.invalidate(selectedHouseholdIdProvider);
+      ref.invalidate(selectedHouseholdObjectProvider);
       ref.invalidate(userHouseholdsProvider);
+      ref.invalidate(householdProvider);
+      ref.invalidate(householdMembersProvider);
+      ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdInvitesProvider);
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
       ref.invalidate(homeFilterProvider);
       ref.invalidate(analyticsProvider);
+      ref.invalidate(currencyTransactionCountsProvider);
       ref.invalidate(recurringTransactionsProvider);
       ref.invalidate(pocketsProvider);
     }
 
-    void exitPreviewMode() {
-      ref.read(mainShellTabIndexProvider.notifier).state = 0;
+    Future<void> exitPreviewMode() async {
       final prefs = ref.read(sharedPreferencesProvider);
-      unawaited(prefs.setBool(kPreviewModeActiveKey, false));
+      await prefs.setBool(kPreviewModeActiveKey, false);
       ref.read(previewModeProvider.notifier).disable();
-      clearPreviewDataCaches();
+      await clearPreviewDataCaches();
     }
 
     // One-time native notification prompt logic & listeners
@@ -141,7 +159,11 @@ class MainShell extends HookConsumerWidget {
         disposed = true;
         authSubscription.close();
         widgetLaunchSubscription.close();
-        navigationReadyController.state = false;
+        Future<void>.microtask(() {
+          try {
+            navigationReadyController.state = false;
+          } catch (_) {}
+        });
       };
     }, const []);
 
@@ -172,16 +194,20 @@ class MainShell extends HookConsumerWidget {
                   child: _PreviewModeBanner(
                     currentIndex: currentIndex,
                     onRegisterTap: () {
-                      exitPreviewMode();
-                      if (context.mounted) {
-                        context.go('/register');
-                      }
+                      unawaited(() async {
+                        await exitPreviewMode();
+                        if (context.mounted) {
+                          context.go('/register');
+                        }
+                      }());
                     },
                     onExitTap: () {
-                      exitPreviewMode();
-                      if (context.mounted) {
-                        context.go('/paywall');
-                      }
+                      unawaited(() async {
+                        await exitPreviewMode();
+                        if (context.mounted) {
+                          context.go('/paywall');
+                        }
+                      }());
                     },
                   ),
                 ),
