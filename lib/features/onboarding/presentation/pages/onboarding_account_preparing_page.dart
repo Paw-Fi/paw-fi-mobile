@@ -20,6 +20,9 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'dart:io';
 
+const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
+const _kCreatedInvitePrefix = 'onboarding_created_invite:';
+
 class OnboardingAccountPreparingPage extends HookConsumerWidget {
   const OnboardingAccountPreparingPage({super.key});
 
@@ -28,12 +31,14 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final progress = useState(0.0);
     final progressLabel = useState('Preparing your account...');
+    final setupError = useState<String?>(null);
     final isDone = useState(false);
     final didStart = useState(false);
 
     Future<void> runSync() async {
       if (didStart.value || isDone.value) return;
       didStart.value = true;
+      setupError.value = null;
 
       void setProgressState(
           {double? progressValue, String? label, bool? done}) {
@@ -59,13 +64,25 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       final draft = store.load();
+      final prefs = ref.read(sharedPreferencesProvider);
 
       setProgressState(
         label: 'Saving your preferences...',
         progressValue: 0.2,
       );
 
-      await store.markSyncedForUser(user.uid, draft);
+      try {
+        await store.markSyncedForUser(user.uid, draft);
+      } catch (_) {
+        setProgressState(
+          progressValue: 0.2,
+          label: 'Almost there - we could not save this yet. Tap try again.',
+          done: false,
+        );
+        setupError.value = 'sync_failed';
+        didStart.value = false;
+        return;
+      }
       if (!context.mounted) return;
 
       setProgressState(
@@ -100,9 +117,29 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       // If user selected a shared space in pre-auth onboarding,
       // create the shared space and optional invite now that auth exists.
-      String? createdHouseholdId;
+      String? createdHouseholdId =
+          prefs.getString('$_kCreatedHouseholdPrefix${user.uid}');
+      if (createdHouseholdId != null && createdHouseholdId.isNotEmpty) {
+        try {
+          await ref.read(userHouseholdsProvider(user.uid).notifier).load();
+          final households =
+              ref.read(userHouseholdsProvider(user.uid)).valueOrNull ??
+                  const [];
+          final exists =
+              households.any((household) => household.id == createdHouseholdId);
+          if (!exists) {
+            createdHouseholdId = null;
+            await prefs.remove('$_kCreatedHouseholdPrefix${user.uid}');
+            await prefs.remove('$_kCreatedInvitePrefix${user.uid}');
+          }
+        } catch (_) {
+          createdHouseholdId = null;
+        }
+      }
       try {
-        if (draft.wantsSharedSpace && draft.spaceName.trim().isNotEmpty) {
+        if (draft.wantsSharedSpace &&
+            draft.spaceName.trim().isNotEmpty &&
+            (createdHouseholdId == null || createdHouseholdId.isEmpty)) {
           String? coverImageUrl = draft.spaceImageUrl.trim().isNotEmpty
               ? draft.spaceImageUrl
               : null;
@@ -133,11 +170,18 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(createdHousehold.id);
           createdHouseholdId = createdHousehold.id;
+          await prefs.setString(
+            '$_kCreatedHouseholdPrefix${user.uid}',
+            createdHousehold.id,
+          );
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
 
           final inviteEmail = draft.inviteEmail.trim();
           final inviteMessage = draft.inviteMessage.trim();
-          if (inviteEmail.isNotEmpty || inviteMessage.isNotEmpty) {
+          final inviteCreated =
+              prefs.getBool('$_kCreatedInvitePrefix${user.uid}') ?? false;
+          if ((inviteEmail.isNotEmpty || inviteMessage.isNotEmpty) &&
+              !inviteCreated) {
             final inviterName = (user.displayName?.trim().isNotEmpty == true
                     ? user.displayName
                     : user.email)
@@ -150,7 +194,14 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               householdName: createdHousehold.name,
               expiresInDays: draft.inviteExpiresInDays,
             );
+            await prefs.setBool('$_kCreatedInvitePrefix${user.uid}', true);
           }
+        } else if (createdHouseholdId != null &&
+            createdHouseholdId.isNotEmpty) {
+          await ref
+              .read(selectedHouseholdProvider.notifier)
+              .selectHousehold(createdHouseholdId);
+          ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
         }
       } catch (_) {}
       if (!context.mounted) return;
@@ -162,7 +213,15 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       try {
         final recommendation = BudgetRecommender.recommend(draft);
-        if (!recommendation.hasBlockingError && draft.monthlyBudget > 0) {
+        if (recommendation.hasBlockingError) {
+          setProgressState(
+            progressValue: 0.85,
+            label:
+                'Building your essentials-first plan from your fixed costs...',
+            done: false,
+          );
+        }
+        if (draft.monthlyBudget > 0) {
           final now = DateTime.now();
           final monthStart = DateTime(now.year, now.month, 1);
           final periodMonth =
@@ -222,10 +281,19 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             }
           }
         }
-      } catch (_) {}
+      } catch (_) {
+        setProgressState(
+          progressValue: 0.85,
+          label:
+              'Almost done - we hit a small hiccup creating your starter pockets. Tap try again.',
+          done: false,
+        );
+        setupError.value = 'budget_setup_failed';
+        didStart.value = false;
+        return;
+      }
 
       try {
-        final prefs = ref.read(sharedPreferencesProvider);
         await prefs.setString(
           'onboarding_profile:${user.uid}',
           jsonEncode(
@@ -268,16 +336,25 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               children: [
                 const SizedBox(height: 24),
                 Icon(
-                  isDone.value
-                      ? Icons.check_circle_rounded
-                      : Icons.auto_awesome_rounded,
+                  setupError.value != null
+                      ? Icons.auto_awesome_rounded
+                      : isDone.value
+                          ? Icons.check_circle_rounded
+                          : Icons.auto_awesome_rounded,
                   size: 58,
-                  color:
-                      isDone.value ? colorScheme.success : colorScheme.primary,
+                  color: setupError.value != null
+                      ? colorScheme.primary
+                      : isDone.value
+                          ? colorScheme.success
+                          : colorScheme.primary,
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  isDone.value ? 'Setup complete' : 'Preparing your account',
+                  setupError.value != null
+                      ? 'Almost there!'
+                      : isDone.value
+                          ? 'Setup complete'
+                          : 'Preparing your account',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 26,
@@ -287,9 +364,13 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  isDone.value
-                      ? 'We synced your choices and personalized your setup.'
-                      : 'Please wait a moment while we sync your onboarding answers.',
+                  setupError.value != null
+                      ? (setupError.value == 'budget_validation_failed'
+                          ? 'Great start - your essentials plan is ready to refine. Open the dashboard and we will guide your next step.'
+                          : 'You are very close - tap try again and we will finish setting everything up.')
+                      : isDone.value
+                          ? 'We synced your choices and personalized your setup.'
+                          : 'Hang tight - we are syncing your choices and personalizing your setup.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -324,8 +405,18 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                   child: PrimaryAdaptiveButton(
                     onPressed: isDone.value
                         ? () => context.go('/onboarding?stage=post')
-                        : null,
-                    child: const Text('Continue'),
+                        : setupError.value == 'budget_validation_failed'
+                            ? () => context.go('/dashboard')
+                            : setupError.value != null
+                                ? () => unawaited(runSync())
+                                : null,
+                    child: Text(
+                      setupError.value == 'budget_validation_failed'
+                          ? 'Open dashboard'
+                          : setupError.value != null
+                              ? 'Try again'
+                              : 'Continue',
+                    ),
                   ),
                 ),
               ],

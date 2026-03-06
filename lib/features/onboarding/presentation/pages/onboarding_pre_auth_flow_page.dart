@@ -16,12 +16,54 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_question_steps.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/households/presentation/widgets/household_image_picker.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+
+const _kStepHelpFocus = 0;
+const _kStepLivingSituation = 1;
+const _kStepEatingOut = 2;
+const _kStepSubscriptions = 3;
+const _kStepPets = 4;
+const _kStepCurrency = 5;
+const _kStepBudget = 6;
+const _kStepHousing = 8;
+const _kStepUtilities = 9;
+const _kStepSavings = 11;
+const _kStepHousehold = 12;
+const _kStepGoal = 13;
+const _kStepLifestyle = 14;
+const _kStepCalculating = 15;
+const _kStepStarter = 16;
+const _kStepCreateAccount = 17;
+const _kTotalPreAuthSteps = 18;
+
+int _migratePreauthStepIndex(int legacyStep) {
+  if (legacyStep <= _kStepBudget) {
+    return legacyStep.clamp(0, _kStepCreateAccount);
+  }
+
+  switch (legacyStep) {
+    case 7:
+      return _kStepHousehold;
+    case 8:
+      return _kStepGoal;
+    case 9:
+      return _kStepLifestyle;
+    case 10:
+      return _kStepCalculating;
+    case 11:
+      return _kStepStarter;
+    case 12:
+      return _kStepCreateAccount;
+    default:
+      return legacyStep.clamp(0, _kStepCreateAccount);
+  }
+}
 
 class OnboardingPreAuthFlowPage extends HookConsumerWidget {
   const OnboardingPreAuthFlowPage({super.key});
@@ -35,11 +77,19 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final draftState = useState(OnboardingPreauthDraft.initial());
     final answeredOptionSteps = useState<Set<int>>(<int>{});
     final isAutoAdvancing = useState(false);
-    const totalSteps = 13;
+    const totalSteps = _kTotalPreAuthSteps;
 
     useEffect(() {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
-      final draft = store.load();
+      var draft = store.load();
+      if (draft.flowVersion < 2) {
+        final migratedStep = _migratePreauthStepIndex(draft.currentStep);
+        draft = draft.copyWith(
+          flowVersion: 2,
+          currentStep: migratedStep,
+        );
+        unawaited(store.save(draft));
+      }
       draftState.value = draft;
       currentPage.value = draft.currentStep.clamp(0, totalSteps - 1);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,6 +105,22 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       draftState.value = draft;
       await ref.read(onboardingPreauthDraftStoreProvider).save(draft);
     }
+
+    final draftPersistDebounce = useRef<Timer?>(null);
+
+    Future<void> persistDraftDebounced(OnboardingPreauthDraft draft) async {
+      draftState.value = draft;
+      draftPersistDebounce.value?.cancel();
+      draftPersistDebounce.value = Timer(const Duration(milliseconds: 350), () {
+        unawaited(persistDraft(draft));
+      });
+    }
+
+    useEffect(() {
+      return () {
+        draftPersistDebounce.value?.cancel();
+      };
+    }, const []);
 
     void markAnswered(int stepIndex) {
       if (!context.mounted) return;
@@ -131,13 +197,18 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       );
       await prefs.setBool(kPreviewModeActiveKey, true);
       await prefs.setBool(kPreviewReturnToPreauthKey, true);
+      await prefs.setString(kPreviewExitRouteKey, '/onboarding?stage=pre');
       ref.read(previewModeProvider.notifier).enable();
       if (!context.mounted) return;
       context.go('/dashboard');
     }
 
     final isAutoAdvanceStep = _kAutoAdvanceSteps.contains(currentPage.value);
-    final canShowBackButton = currentPage.value < _kPostQuestionStartStep;
+    final hasBlockingRecommendation = currentPage.value == _kStepStarter
+        ? BudgetRecommender.recommend(draftState.value).hasBlockingError
+        : false;
+    final canShowBackButton = currentPage.value < _kPostQuestionStartStep ||
+        hasBlockingRecommendation;
 
     if (!isLoaded.value) {
       return AdaptiveScaffold(
@@ -215,11 +286,13 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         final nextDraft = switch (focus) {
                           'keep_shared_expenses' => draftState.value.copyWith(
                               onboardingFocus: focus,
+                              billSplitFrequency: 'often',
                               primaryGoal: 'balanced',
                               wantsSharedSpace: true,
                             ),
                           'split_bills' => draftState.value.copyWith(
                               onboardingFocus: focus,
+                              billSplitFrequency: 'sometimes',
                               primaryGoal: 'balanced',
                               wantsSharedSpace: true,
                             ),
@@ -233,6 +306,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                             ),
                           _ => draftState.value.copyWith(
                               onboardingFocus: focus,
+                              billSplitFrequency: 'none',
                               primaryGoal: 'balanced',
                             ),
                         };
@@ -328,7 +402,86 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         final nextDraft = draftState.value.copyWith(
                           monthlyBudget: value,
                         );
+                        unawaited(persistDraftDebounced(nextDraft));
+                      },
+                    ),
+                    _PreAuthBillSplitStep(
+                      selectedFrequency: draftState.value.billSplitFrequency,
+                      onChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          billSplitFrequency: value,
+                          wantsSharedSpace: value == 'none' ? false : true,
+                        );
                         unawaited(persistDraft(nextDraft));
+                      },
+                    ),
+                    _PreAuthHousingStep(
+                      housingType: draftState.value.housingType,
+                      housingPayment: draftState.value.housingPayment,
+                      onHousingTypeChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          housingType: value,
+                          housingPayment: value == 'not_sure'
+                              ? 0
+                              : draftState.value.housingPayment,
+                        );
+                        unawaited(persistDraft(nextDraft));
+                      },
+                      onHousingPaymentChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          housingPayment: value,
+                        );
+                        unawaited(persistDraftDebounced(nextDraft));
+                      },
+                    ),
+                    _PreAuthUtilitiesStep(
+                      utilitiesKnown: draftState.value.utilitiesKnown,
+                      utilitiesAmount: draftState.value.utilitiesAmount,
+                      onUtilitiesKnownChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          utilitiesKnown: value,
+                          utilitiesAmount:
+                              value ? draftState.value.utilitiesAmount : 0,
+                        );
+                        unawaited(persistDraft(nextDraft));
+                      },
+                      onUtilitiesAmountChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          utilitiesAmount: value,
+                        );
+                        unawaited(persistDraftDebounced(nextDraft));
+                      },
+                    ),
+                    _PreAuthDebtStep(
+                      debtMinimumPayments: draftState.value.debtMinimumPayments,
+                      onDebtChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          debtMinimumPayments: value,
+                        );
+                        unawaited(persistDraftDebounced(nextDraft));
+                      },
+                    ),
+                    _PreAuthSavingsStep(
+                      savingsMode: draftState.value.savingsMode,
+                      savingsAmount: draftState.value.savingsAmount,
+                      savingsPercent: draftState.value.savingsPercent,
+                      onSavingsModeChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          savingsMode: value,
+                        );
+                        unawaited(persistDraft(nextDraft));
+                      },
+                      onSavingsAmountChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          savingsAmount: value,
+                        );
+                        unawaited(persistDraftDebounced(nextDraft));
+                      },
+                      onSavingsPercentChanged: (value) {
+                        final nextDraft = draftState.value.copyWith(
+                          savingsPercent: value,
+                        );
+                        unawaited(persistDraftDebounced(nextDraft));
                       },
                     ),
                     _PreAuthHouseholdStep(
@@ -382,7 +535,8 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           primaryGoal: value,
                         );
                         unawaited(
-                          answerAndAdvance(stepIndex: 8, nextDraft: nextDraft),
+                          answerAndAdvance(
+                              stepIndex: _kStepGoal, nextDraft: nextDraft),
                         );
                       },
                     ),
@@ -393,18 +547,17 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           lifestyleFocus: value,
                         );
                         unawaited(
-                          answerAndAdvance(stepIndex: 9, nextDraft: nextDraft),
+                          answerAndAdvance(
+                              stepIndex: _kStepLifestyle, nextDraft: nextDraft),
                         );
                       },
                     ),
                     _PreAuthCalculatingStep(
-                      isActive: currentPage.value == 10,
+                      isActive: currentPage.value == _kStepCalculating,
                       onCompleted: () => unawaited(next()),
                     ),
                     _PreAuthStarterStep(
-                      templateId: draftState.value.recommendedTemplateId,
-                      selectedCurrency: draftState.value.selectedCurrency,
-                      monthlyBudget: draftState.value.monthlyBudget,
+                      draft: draftState.value,
                     ),
                     const _PreAuthCreateAccountStep(),
                   ],
@@ -464,16 +617,39 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
   }
 }
 
-const _kAutoAdvanceSteps = <int>{0, 1, 2, 3, 4, 5, 8, 9, 10};
-const _kTransientSteps = <int>{10};
-const _kPostQuestionStartStep = 10;
+const _kAutoAdvanceSteps = <int>{
+  _kStepHelpFocus,
+  _kStepLivingSituation,
+  _kStepEatingOut,
+  _kStepSubscriptions,
+  _kStepPets,
+  _kStepCurrency,
+  _kStepGoal,
+  _kStepLifestyle,
+  _kStepCalculating,
+};
+const _kTransientSteps = <int>{_kStepCalculating};
+const _kPostQuestionStartStep = _kStepCalculating;
 
 bool _canContinuePreAuth({
   required int currentPage,
   required OnboardingPreauthDraft draft,
 }) {
-  if (currentPage == 6) {
+  if (currentPage == _kStepBudget) {
     return draft.monthlyBudget > 0;
+  }
+  if (currentPage == _kStepHousing) {
+    if (draft.housingType == 'not_sure') return true;
+    return draft.housingPayment > 0;
+  }
+  if (currentPage == _kStepUtilities) {
+    if (!draft.utilitiesKnown) return true;
+    return draft.utilitiesAmount > 0;
+  }
+  if (currentPage == _kStepSavings) {
+    if (draft.savingsMode == 'not_sure') return true;
+    if (draft.savingsMode == 'amount') return draft.savingsAmount > 0;
+    if (draft.savingsMode == 'percent') return draft.savingsPercent > 0;
   }
   return true;
 }
@@ -674,7 +850,7 @@ class _PreAuthOptionTile extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: selected
+            color: selected 
                 ? colorScheme.primary.withValues(alpha: 0.2)
                 : colorScheme.card,
             borderRadius: BorderRadius.circular(10),
@@ -815,6 +991,387 @@ class _PreAuthBudgetStep extends HookWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PreAuthBillSplitStep extends StatelessWidget {
+  const _PreAuthBillSplitStep({
+    required this.selectedFrequency,
+    required this.onChanged,
+  });
+
+  final String selectedFrequency;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PreAuthQuestionOptionsStep(
+      title: 'How often do you split shared bills?',
+      options: const [
+        ('Often', 'often'),
+        ('Sometimes', 'sometimes'),
+        ('Rarely', 'rarely'),
+        ('Never', 'none'),
+      ],
+      selectedValue: selectedFrequency,
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthHousingStep extends HookWidget {
+  const _PreAuthHousingStep({
+    required this.housingType,
+    required this.housingPayment,
+    required this.onHousingTypeChanged,
+    required this.onHousingPaymentChanged,
+  });
+
+  final String housingType;
+  final double housingPayment;
+  final ValueChanged<String> onHousingTypeChanged;
+  final ValueChanged<double> onHousingPaymentChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useTextEditingController(
+      text: housingPayment > 0 ? housingPayment.toStringAsFixed(0) : '',
+    );
+
+    useEffect(() {
+      void listener() {
+        final parsed = double.tryParse(controller.text.trim());
+        if (parsed != null && parsed >= 0) {
+          onHousingPaymentChanged(parsed);
+        }
+      }
+
+      controller.addListener(listener);
+      return () => controller.removeListener(listener);
+    }, [controller]);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Your housing cost',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'We use this to avoid impossible budgets.',
+              style: TextStyle(color: colorScheme.mutedForeground),
+            ),
+            const SizedBox(height: 20),
+            _PreAuthOptionTile(
+              label: 'Rent',
+              selected: housingType == 'rent',
+              onTap: () => onHousingTypeChanged('rent'),
+            ),
+            const SizedBox(height: 10),
+            _PreAuthOptionTile(
+              label: 'Mortgage',
+              selected: housingType == 'mortgage',
+              onTap: () => onHousingTypeChanged('mortgage'),
+            ),
+            const SizedBox(height: 10),
+            _PreAuthOptionTile(
+              label: 'Not sure yet (we estimate)',
+              selected: housingType == 'not_sure',
+              onTap: () => onHousingTypeChanged('not_sure'),
+            ),
+            const SizedBox(height: 16),
+            if (housingType != 'not_sure')
+              TextField(
+                controller: controller,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Monthly housing amount',
+                  hintText: '1400',
+                  filled: true,
+                  fillColor: colorScheme.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.border),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreAuthUtilitiesStep extends HookWidget {
+  const _PreAuthUtilitiesStep({
+    required this.utilitiesKnown,
+    required this.utilitiesAmount,
+    required this.onUtilitiesKnownChanged,
+    required this.onUtilitiesAmountChanged,
+  });
+
+  final bool utilitiesKnown;
+  final double utilitiesAmount;
+  final ValueChanged<bool> onUtilitiesKnownChanged;
+  final ValueChanged<double> onUtilitiesAmountChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useTextEditingController(
+      text: utilitiesAmount > 0 ? utilitiesAmount.toStringAsFixed(0) : '',
+    );
+
+    useEffect(() {
+      void listener() {
+        final parsed = double.tryParse(controller.text.trim());
+        if (parsed != null && parsed >= 0) {
+          onUtilitiesAmountChanged(parsed);
+        }
+      }
+
+      controller.addListener(listener);
+      return () => controller.removeListener(listener);
+    }, [controller]);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Utilities estimate',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 20),
+            _PreAuthOptionTile(
+              label: 'I know my monthly utilities total',
+              selected: utilitiesKnown,
+              onTap: () => onUtilitiesKnownChanged(true),
+            ),
+            const SizedBox(height: 10),
+            _PreAuthOptionTile(
+              label: 'Not sure (use estimate)',
+              selected: !utilitiesKnown,
+              onTap: () => onUtilitiesKnownChanged(false),
+            ),
+            const SizedBox(height: 16),
+            if (utilitiesKnown)
+              TextField(
+                controller: controller,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Monthly utilities amount',
+                  hintText: '250',
+                  filled: true,
+                  fillColor: colorScheme.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.border),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PreAuthDebtStep extends HookWidget {
+  const _PreAuthDebtStep({
+    required this.debtMinimumPayments,
+    required this.onDebtChanged,
+  });
+
+  final double debtMinimumPayments;
+  final ValueChanged<double> onDebtChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useTextEditingController(
+      text:
+          debtMinimumPayments > 0 ? debtMinimumPayments.toStringAsFixed(0) : '',
+    );
+
+    useEffect(() {
+      void listener() {
+        final parsed = double.tryParse(controller.text.trim());
+        if (parsed != null && parsed >= 0) {
+          onDebtChanged(parsed);
+        }
+      }
+
+      controller.addListener(listener);
+      return () => controller.removeListener(listener);
+    }, [controller]);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Debt minimums',
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Enter total minimum monthly debt payments (0 if none).',
+            style: TextStyle(color: colorScheme.mutedForeground),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: 'Debt minimum payments',
+              hintText: '0',
+              filled: true,
+              fillColor: colorScheme.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: colorScheme.border),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PreAuthSavingsStep extends HookWidget {
+  const _PreAuthSavingsStep({
+    required this.savingsMode,
+    required this.savingsAmount,
+    required this.savingsPercent,
+    required this.onSavingsModeChanged,
+    required this.onSavingsAmountChanged,
+    required this.onSavingsPercentChanged,
+  });
+
+  final String savingsMode;
+  final double savingsAmount;
+  final double savingsPercent;
+  final ValueChanged<String> onSavingsModeChanged;
+  final ValueChanged<double> onSavingsAmountChanged;
+  final ValueChanged<double> onSavingsPercentChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final amountController = useTextEditingController(
+      text: savingsAmount > 0 ? savingsAmount.toStringAsFixed(0) : '',
+    );
+    final percentController = useTextEditingController(
+      text: savingsPercent > 0 ? (savingsPercent * 100).toStringAsFixed(0) : '',
+    );
+
+    useEffect(() {
+      void amountListener() {
+        final parsed = double.tryParse(amountController.text.trim());
+        if (parsed != null && parsed >= 0) {
+          onSavingsAmountChanged(parsed);
+        }
+      }
+
+      amountController.addListener(amountListener);
+      return () => amountController.removeListener(amountListener);
+    }, [amountController]);
+
+    useEffect(() {
+      void percentListener() {
+        final parsed = double.tryParse(percentController.text.trim());
+        if (parsed != null && parsed >= 0) {
+          onSavingsPercentChanged(parsed / 100);
+        }
+      }
+
+      percentController.addListener(percentListener);
+      return () => percentController.removeListener(percentListener);
+    }, [percentController]);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Savings target',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 20),
+            _PreAuthOptionTile(
+              label: 'Fixed amount each month',
+              selected: savingsMode == 'amount',
+              onTap: () => onSavingsModeChanged('amount'),
+            ),
+            const SizedBox(height: 10),
+            _PreAuthOptionTile(
+              label: 'Percentage of monthly budget',
+              selected: savingsMode == 'percent',
+              onTap: () => onSavingsModeChanged('percent'),
+            ),
+            const SizedBox(height: 10),
+            _PreAuthOptionTile(
+              label: 'Not sure yet',
+              selected: savingsMode == 'not_sure',
+              onTap: () => onSavingsModeChanged('not_sure'),
+            ),
+            const SizedBox(height: 16),
+            if (savingsMode == 'amount')
+              TextField(
+                controller: amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Savings amount',
+                  hintText: '300',
+                  filled: true,
+                  fillColor: colorScheme.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.border),
+                  ),
+                ),
+              ),
+            if (savingsMode == 'percent')
+              TextField(
+                controller: percentController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(
+                  labelText: 'Savings percent',
+                  hintText: '10',
+                  suffixText: '%',
+                  filled: true,
+                  fillColor: colorScheme.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: colorScheme.border),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1473,35 +2030,29 @@ class _PreAuthCalculatingStep extends HookWidget {
 
 class _PreAuthStarterStep extends StatelessWidget {
   const _PreAuthStarterStep({
-    required this.templateId,
-    required this.selectedCurrency,
-    required this.monthlyBudget,
+    required this.draft,
   });
 
-  final String templateId;
-  final String selectedCurrency;
-  final double monthlyBudget;
+  final OnboardingPreauthDraft draft;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
-    final currency = selectedCurrency.toUpperCase();
-
-    final template = BudgetTemplates.all.firstWhere(
-      (item) => item.id == templateId,
-      orElse: () => BudgetTemplates.all.first,
-    );
-
-    final annualized = (monthlyBudget > 0 ? monthlyBudget : 1200);
-    final mockPockets = template.pockets.map((item) {
-      final budget = (annualized * item.weight).clamp(50, annualized);
-      final spent = budget * 0.62;
+    final currency = draft.selectedCurrency.toUpperCase();
+    final recommendation = BudgetRecommender.recommend(draft);
+    final totalBudget = draft.monthlyBudget;
+    final previewPockets = recommendation.pockets.map((item) {
+      final budget = (totalBudget * item.weight).clamp(0, totalBudget);
+      final previewFill = _starterPreviewFillRatio(
+        item.name,
+        hasBlockingRecommendation: recommendation.hasBlockingError,
+      );
       return PocketEnvelope(
-        id: 'starter-${template.id}-${item.name}',
+        id: 'starter-${item.name}',
         name: item.name,
         budgetAmountCents: (budget * 100).round(),
-        spent: spent,
+        spent: budget * previewFill,
         currency: currency,
         icon: item.iconName,
         color: _colorToHex(item.color),
@@ -1537,7 +2088,7 @@ class _PreAuthStarterStep extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _templateTitle(template),
+              'Monthly total: ${totalBudget.toStringAsFixed(0)} $currency',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
@@ -1546,24 +2097,98 @@ class _PreAuthStarterStep extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            GridView.count(
-              crossAxisCount: 2,
-              childAspectRatio: 0.85,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: List.generate(mockPockets.length, (index) {
-                return IgnorePointer(
-                  child: PocketCard(
-                    pocket: mockPockets[index],
-                    colorScheme: colorScheme,
-                    totalBudget: 1200,
-                    envelopeMode: true,
+            if (recommendation.hasBlockingError) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.infoSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.infoBorder,
                   ),
-                );
-              }),
-            ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'You are not behind - you are getting clarity. We will build a safety-first essentials plan so you can take control from day one.',
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your essentials are currently above your monthly total, and we will help you rebalance them step by step.',
+                      style: TextStyle(
+                        color: colorScheme.mutedForeground,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (totalBudget <= 0) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colorScheme.infoSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.infoBorder,
+                  ),
+                ),
+                child: Text(
+                  'Add your monthly total and we will build your personalized plan right away.',
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (recommendation.warnings.isNotEmpty) ...[
+              ...recommendation.warnings.map(
+                (warning) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    warning,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (totalBudget > 0)
+              GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: List.generate(previewPockets.length, (index) {
+                  return IgnorePointer(
+                    child: PocketCard(
+                      pocket: previewPockets[index],
+                      colorScheme: colorScheme,
+                      totalBudget: totalBudget,
+                      envelopeMode: true,
+                    ),
+                  );
+                }),
+              ),
             const SizedBox(height: 16),
           ],
         ),
@@ -1572,13 +2197,16 @@ class _PreAuthStarterStep extends StatelessWidget {
   }
 }
 
-String _templateTitle(BudgetTemplate template) {
-  return template.id
-      .replaceAll('_', ' ')
-      .split(' ')
-      .where((part) => part.isNotEmpty)
-      .map((part) => part[0].toUpperCase() + part.substring(1))
-      .join(' ');
+double _starterPreviewFillRatio(
+  String pocketName, {
+  required bool hasBlockingRecommendation,
+}) {
+  final hash = pocketName.runes.fold<int>(0, (acc, rune) => acc + rune);
+  final base = 0.22 + ((hash % 38) / 100.0); // 22%..60%
+  if (!hasBlockingRecommendation) {
+    return base;
+  }
+  return (base * 0.85).clamp(0.16, 0.52);
 }
 
 class _PreAuthCreateAccountStep extends StatelessWidget {

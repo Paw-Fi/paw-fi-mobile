@@ -74,12 +74,17 @@ class MainShell extends HookConsumerWidget {
     Future<String?> exitPreviewMode(
         {required bool restorePreauthOnExit}) async {
       final prefs = ref.read(sharedPreferencesProvider);
+      final exitRoute = prefs.getString(kPreviewExitRouteKey);
       final returnToPreauth =
           prefs.getBool(kPreviewReturnToPreauthKey) ?? false;
       await prefs.setBool(kPreviewModeActiveKey, false);
       await prefs.setBool(kPreviewReturnToPreauthKey, false);
+      await prefs.remove(kPreviewExitRouteKey);
       ref.read(previewModeProvider.notifier).disable();
       await clearPreviewDataCaches();
+      if (exitRoute != null && exitRoute.isNotEmpty) {
+        return exitRoute;
+      }
       if (restorePreauthOnExit && returnToPreauth) {
         return '/onboarding?stage=pre';
       }

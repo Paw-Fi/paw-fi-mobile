@@ -13,6 +13,7 @@ const _kPreauthSyncedPrefix = 'onboarding_preauth_synced:';
 class OnboardingPreauthDraft {
   const OnboardingPreauthDraft({
     required this.currentStep,
+    required this.flowVersion,
     required this.selectedCurrency,
     required this.monthlyBudget,
     required this.wantsSharedSpace,
@@ -52,6 +53,7 @@ class OnboardingPreauthDraft {
   });
 
   final int currentStep;
+  final int flowVersion;
   final String selectedCurrency;
   final double monthlyBudget;
   final bool wantsSharedSpace;
@@ -92,6 +94,7 @@ class OnboardingPreauthDraft {
   static OnboardingPreauthDraft initial() {
     return OnboardingPreauthDraft(
       currentStep: 0,
+      flowVersion: 2,
       selectedCurrency: 'USD',
       monthlyBudget: 0,
       wantsSharedSpace: false,
@@ -133,6 +136,7 @@ class OnboardingPreauthDraft {
 
   OnboardingPreauthDraft copyWith({
     int? currentStep,
+    int? flowVersion,
     String? selectedCurrency,
     double? monthlyBudget,
     bool? wantsSharedSpace,
@@ -172,6 +176,7 @@ class OnboardingPreauthDraft {
   }) {
     return OnboardingPreauthDraft(
       currentStep: currentStep ?? this.currentStep,
+      flowVersion: flowVersion ?? this.flowVersion,
       selectedCurrency: selectedCurrency ?? this.selectedCurrency,
       monthlyBudget: monthlyBudget ?? this.monthlyBudget,
       wantsSharedSpace: wantsSharedSpace ?? this.wantsSharedSpace,
@@ -215,6 +220,7 @@ class OnboardingPreauthDraft {
   Map<String, dynamic> toJson() {
     return {
       'currentStep': currentStep,
+      'flowVersion': flowVersion,
       'selectedCurrency': selectedCurrency,
       'monthlyBudget': monthlyBudget,
       'wantsSharedSpace': wantsSharedSpace,
@@ -257,6 +263,7 @@ class OnboardingPreauthDraft {
   static OnboardingPreauthDraft fromJson(Map<String, dynamic> json) {
     return OnboardingPreauthDraft(
       currentStep: (json['currentStep'] as num?)?.toInt() ?? 0,
+      flowVersion: (json['flowVersion'] as num?)?.toInt() ?? 1,
       selectedCurrency:
           (json['selectedCurrency'] as String? ?? 'USD').toUpperCase(),
       monthlyBudget: (json['monthlyBudget'] as num?)?.toDouble() ?? 0,

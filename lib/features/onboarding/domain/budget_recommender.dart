@@ -54,8 +54,9 @@ class BudgetRecommender {
     }
 
     final fixedAmounts = <String, double>{};
-    final utilitiesKnownAmount =
-        draft.utilitiesKnown ? _safeAmount(draft.utilitiesAmount) : 0.0;
+    final utilitiesKnownAmount = draft.utilitiesKnown
+        ? _safeAmount(draft.utilitiesAmount)
+        : _estimatedUtilitiesAmount(draft, totalBudget);
     final housingKnownAmount =
         draft.housingType == 'rent' || draft.housingType == 'mortgage'
             ? _safeAmount(draft.housingPayment)
@@ -68,6 +69,9 @@ class BudgetRecommender {
     final savingsAmount = _computeSavingsAmount(draft, totalBudget);
     final dependentsKnownAmount =
         draft.hasDependents ? _safeAmount(draft.dependentsCostAmount) : 0.0;
+    final sharedBillsEnabled = _needsSharedBillsPocket(draft);
+    final sharedGroceries =
+        sharedBillsEnabled && draft.onboardingFocus == 'keep_shared_expenses';
 
     fixedAmounts['Housing'] = housingAmount;
     fixedAmounts['Utilities'] = utilitiesKnownAmount;
@@ -77,13 +81,22 @@ class BudgetRecommender {
       fixedAmounts['Kids / dependents'] = dependentsKnownAmount;
     }
 
+    if (sharedBillsEnabled) {
+      final sharedFixed = (fixedAmounts.remove('Housing') ?? 0) +
+          (fixedAmounts.remove('Utilities') ?? 0);
+      if (sharedFixed > 0) {
+        fixedAmounts['Shared bills'] =
+            (fixedAmounts['Shared bills'] ?? 0) + sharedFixed;
+      }
+    }
+
     final fixedSubtotal = fixedAmounts.values.fold<double>(0, (a, b) => a + b);
     final leftover = totalBudget - fixedSubtotal;
 
     if (leftover < 0) {
       return OnboardingBudgetRecommendation(
         recommendedTemplateId: _selectTemplateId(draft),
-        pockets: _buildFixedOnlyPockets(totalBudget, fixedAmounts),
+        pockets: _buildFixedOnlyPockets(totalBudget, fixedAmounts, draft),
         warnings: const [],
         suggestedAdjustments: const [
           'Increase your monthly total, or lower one of the fixed amounts.',
@@ -164,9 +177,19 @@ class BudgetRecommender {
       variablePoints['Debt payments'] = 0.3;
     }
 
-    if (_needsSharedBillsPocket(draft)) {
+    if (sharedBillsEnabled) {
       variablePoints['Shared bills'] =
           draft.billSplitFrequency == 'often' ? 0.75 : 0.45;
+    }
+
+    if (sharedBillsEnabled) {
+      final movedPoints = (variablePoints.remove('Housing') ?? 0) +
+          (variablePoints.remove('Utilities') ?? 0) +
+          (sharedGroceries ? (variablePoints.remove('Groceries') ?? 0) : 0);
+      if (movedPoints > 0) {
+        variablePoints['Shared bills'] =
+            (variablePoints['Shared bills'] ?? 0) + movedPoints;
+      }
     }
 
     final planAheadCount = draft.planAheadSelections.length;
@@ -196,6 +219,7 @@ class BudgetRecommender {
       totalBudget: totalBudget,
       amounts: amounts,
       includeZeroWeightCore: true,
+      draft: draft,
     );
     _normalizeWeights(pockets);
 
@@ -207,7 +231,7 @@ class BudgetRecommender {
     }
     if (!draft.utilitiesKnown) {
       warnings.add(
-        'Utilities is estimated from your remaining budget. You can edit it anytime.',
+        'Utilities is estimated from your profile. You can fine-tune it anytime.',
       );
     }
     if (housingEstimatedAmount != null && housingEstimatedAmount > 0) {
@@ -265,6 +289,21 @@ class BudgetRecommender {
       'family' => 0.32,
       'owning' => 0.30,
       _ => 0.28,
+    };
+
+    return total * ratio;
+  }
+
+  static double _estimatedUtilitiesAmount(
+    OnboardingPreauthDraft draft,
+    double total,
+  ) {
+    if (total <= 0) return 0;
+
+    final ratio = switch (draft.livingSituation) {
+      'roommates' => 0.06,
+      'family' => 0.10,
+      _ => 0.08,
     };
 
     return total * ratio;
@@ -335,11 +374,13 @@ class BudgetRecommender {
   static List<PocketTemplate> _buildFixedOnlyPockets(
     double total,
     Map<String, double> fixedAmounts,
+    OnboardingPreauthDraft draft,
   ) {
     return _buildPocketsFromAmounts(
       totalBudget: total,
       amounts: fixedAmounts,
       includeZeroWeightCore: true,
+      draft: draft,
     );
   }
 
@@ -347,6 +388,7 @@ class BudgetRecommender {
     required double totalBudget,
     required Map<String, double> amounts,
     required bool includeZeroWeightCore,
+    required OnboardingPreauthDraft draft,
   }) {
     final normalized = <String, double>{};
     amounts.forEach((key, value) {
@@ -375,7 +417,7 @@ class BudgetRecommender {
       final rightOrder = _pocketOrder[b.name] ?? 999;
       return leftOrder.compareTo(rightOrder);
     });
-    return _canonicalizeAndDeduplicateCategories(result);
+    return _canonicalizeAndDeduplicateCategories(result, draft: draft);
   }
 
   static bool _isCorePocket(String name) {
@@ -390,35 +432,126 @@ class BudgetRecommender {
   }
 
   static List<PocketTemplate> _canonicalizeAndDeduplicateCategories(
-    List<PocketTemplate> pockets,
-  ) {
+    List<PocketTemplate> pockets, {
+    required OnboardingPreauthDraft draft,
+  }) {
+    final sharedBillsEnabled = _needsSharedBillsPocket(draft);
+    final sharedGroceries =
+        sharedBillsEnabled && draft.onboardingFocus == 'keep_shared_expenses';
     final usedCategories = <String>{};
-    final allowedCategories = categoryColors.keys.toSet();
+    final allowedCategories = getExpenseCategories().toSet();
+    final pocketNames = pockets.map((pocket) => pocket.name).toSet();
     final normalized = <PocketTemplate>[];
+    final pocketByName = <String, PocketTemplate>{
+      for (final pocket in pockets) pocket.name: pocket,
+    };
 
-    for (final pocket in pockets) {
-      if (_manualOnlyPockets.contains(pocket.name)) {
-        normalized.add(
-          pocket.copyWith(suggestedCategories: const []),
-        );
+    final ownershipPriority = <String>[
+      'Shared bills',
+      'Housing',
+      'Utilities',
+      'Groceries',
+      'Debt payments',
+      'Subscriptions',
+      'Pets',
+      'Kids / dependents',
+      'Dining out',
+      'Transport',
+      'Travel / event fund',
+      'True expenses',
+      'Everyday spending',
+      'Fun',
+      'Savings / future',
+      'Buffer',
+    ];
+
+    final suggestedByPocket = <String, List<String>>{
+      for (final name in pocketNames) name: const <String>[],
+    };
+
+    for (final pocketName in ownershipPriority) {
+      if (!pocketByName.containsKey(pocketName)) continue;
+      final candidates = _candidateCategoriesForPocket(
+        pocketName: pocketName,
+        sharedBillsEnabled: sharedBillsEnabled,
+        sharedGroceries: sharedGroceries,
+      );
+      if (candidates.isEmpty) {
+        suggestedByPocket[pocketName] = const <String>[];
         continue;
       }
 
       final categories = <String>[];
-      for (final category in pocket.suggestedCategories) {
+      for (final category in candidates) {
         final canonical = normalizeCategory(category);
         if (!allowedCategories.contains(canonical)) continue;
         if (usedCategories.contains(canonical)) continue;
         usedCategories.add(canonical);
         categories.add(canonical);
       }
+      suggestedByPocket[pocketName] = categories;
+    }
 
+    for (final pocket in pockets) {
+      final categories = suggestedByPocket[pocket.name] ?? const <String>[];
       normalized.add(
         pocket.copyWith(suggestedCategories: categories),
       );
     }
 
     return normalized;
+  }
+
+  static List<String> _candidateCategoriesForPocket({
+    required String pocketName,
+    required bool sharedBillsEnabled,
+    required bool sharedGroceries,
+  }) {
+    if (_manualOnlyPockets.contains(pocketName)) {
+      return const <String>[];
+    }
+
+    switch (pocketName) {
+      case 'Shared bills':
+        if (!sharedBillsEnabled) {
+          return const <String>[];
+        }
+        return [
+          'rent',
+          'mortgage',
+          'home repairs',
+          'home services',
+          'home insurance',
+          'renters insurance',
+          'electricity',
+          'water',
+          'heating & gas',
+          'internet',
+          'phone bill',
+          'trash & recycling',
+          'home security',
+          if (sharedGroceries) 'groceries',
+          if (sharedGroceries) 'household supplies',
+          if (sharedGroceries) 'cleaning supplies',
+        ];
+      case 'Housing':
+      case 'Utilities':
+        if (sharedBillsEnabled) {
+          return const <String>[];
+        }
+        break;
+      case 'Groceries':
+        if (sharedGroceries) {
+          return const <String>[];
+        }
+        break;
+      case 'Savings / future':
+        return const <String>[];
+      default:
+        break;
+    }
+
+    return _metaByPocketName[pocketName]?.categories ?? const <String>[];
   }
 
   static void _normalizeWeights(List<PocketTemplate> pockets) {
@@ -653,6 +786,5 @@ const Map<String, _PocketMeta> _metaByPocketName = {
 };
 
 const _manualOnlyPockets = <String>{
-  'Shared bills',
   'Buffer',
 };

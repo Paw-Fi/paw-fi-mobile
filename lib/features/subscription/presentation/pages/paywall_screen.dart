@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, debugPrint;
@@ -12,6 +14,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:go_router/go_router.dart';
@@ -106,8 +109,7 @@ class PlanOption {
 
 // --- PAGE ---
 class PaywallScreen extends HookConsumerWidget {
-  const PaywallScreen(
-      {super.key, this.mode = PaywallMode.resubscribe});
+  const PaywallScreen({super.key, this.mode = PaywallMode.resubscribe});
 
   final PaywallMode mode;
 
@@ -435,12 +437,10 @@ class PaywallScreen extends HookConsumerWidget {
       }).toList()
         ..sort((a, b) {
           const order = {'monthly': 0, 'yearly': 1};
-          final aOrder = a.billingInterval != null
-              ? (order[a.billingInterval] ?? 2)
-              : 2;
-          final bOrder = b.billingInterval != null
-              ? (order[b.billingInterval] ?? 2)
-              : 2;
+          final aOrder =
+              a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
+          final bOrder =
+              b.billingInterval != null ? (order[b.billingInterval] ?? 2) : 2;
           return aOrder.compareTo(bOrder);
         });
     } else {
@@ -882,7 +882,6 @@ class PaywallScreen extends HookConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                
                         const SizedBox(height: 16),
                         Text(
                           mode == PaywallMode.trial
@@ -922,17 +921,26 @@ class PaywallScreen extends HookConsumerWidget {
                         // Preview App Link
                         GestureDetector(
                           onTap: () {
-                            ref.read(previewModeProvider.notifier).enable();
-                            if (context.mounted) {
-                              context.go('/dashboard');
-                            }
+                            unawaited(() async {
+                              final prefs = ref.read(sharedPreferencesProvider);
+                              await prefs.setBool(kPreviewModeActiveKey, true);
+                              await prefs.setBool(
+                                  kPreviewReturnToPreauthKey, false);
+                              await prefs.setString(
+                                kPreviewExitRouteKey,
+                                '/paywall?mode=${mode.queryValue}',
+                              );
+                              ref.read(previewModeProvider.notifier).enable();
+                              if (context.mounted) {
+                                context.go('/dashboard');
+                              }
+                            }());
                           },
                           child: Padding(
                             padding: const EdgeInsets.all(12.0),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                              
                                 Text(
                                   'Preview the App',
                                   style: TextStyle(
@@ -942,7 +950,8 @@ class PaywallScreen extends HookConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                  Icon(Icons.arrow_right_alt, size: 16, color: colorScheme.primary),
+                                Icon(Icons.arrow_right_alt,
+                                    size: 16, color: colorScheme.primary),
                               ],
                             ),
                           ),
@@ -988,8 +997,8 @@ class PaywallScreen extends HookConsumerWidget {
                                     value: hasAcknowledgedAutoRenew.value,
                                     onChanged: isProcessing
                                         ? null
-                                        : (value) => hasAcknowledgedAutoRenew.value =
-                                            value ?? false,
+                                        : (value) => hasAcknowledgedAutoRenew
+                                            .value = value ?? false,
                                     activeColor: colorScheme.primary,
                                     checkColor: colorScheme.onPrimary,
                                     shape: RoundedRectangleBorder(
@@ -1020,10 +1029,11 @@ class PaywallScreen extends HookConsumerWidget {
                         ),
                       ],
                       PrimaryAdaptiveButton(
-                        onPressed:
-                            isProcessing || !canConfirmAutoRenew || !isStoreReady
-                                ? null
-                                : onMainAction,
+                        onPressed: isProcessing ||
+                                !canConfirmAutoRenew ||
+                                !isStoreReady
+                            ? null
+                            : onMainAction,
                         child: Text(
                           isProcessing
                               ? 'Processing...'
@@ -1070,7 +1080,8 @@ class PaywallScreen extends HookConsumerWidget {
                           currentPlanId != 'lifetime') ...[
                         const SizedBox(height: 12),
                         GestureDetector(
-                          onTap: isProcessing ? null : onManageStoreSubscription,
+                          onTap:
+                              isProcessing ? null : onManageStoreSubscription,
                           child: Text(
                             'Manage Subscription',
                             style: TextStyle(
@@ -1101,8 +1112,10 @@ class PaywallScreen extends HookConsumerWidget {
                           ),
                           GestureDetector(
                             onTap: () async {
-                              final uri = Uri.parse('https://moneko.io/terms-of-service');
-                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              final uri = Uri.parse(
+                                  'https://moneko.io/terms-of-service');
+                              await launchUrl(uri,
+                                  mode: LaunchMode.externalApplication);
                             },
                             child: Text(
                               'Terms & Privacy',
@@ -1170,7 +1183,8 @@ class _UnifiedPlanCard extends StatelessWidget {
                 onTap: () => onPlanSelected(plan.id),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? scheme.primary.withValues(alpha: 0.05)
@@ -1193,7 +1207,8 @@ class _UnifiedPlanCard extends StatelessWidget {
                                 : scheme.outlineVariant.withValues(alpha: 0.8),
                             width: isSelected ? 5.5 : 1.5,
                           ),
-                          color: isSelected ? scheme.surface : Colors.transparent,
+                          color:
+                              isSelected ? scheme.surface : Colors.transparent,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1236,9 +1251,8 @@ class _UnifiedPlanCard extends StatelessWidget {
                         plan.priceDisplay,
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w600,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w600,
                           color: scheme.onSurface,
                         ),
                       ),
@@ -1265,7 +1279,6 @@ class _AppRatingBadge extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-       
         Stack(
           alignment: Alignment.center,
           children: [
@@ -1274,7 +1287,7 @@ class _AppRatingBadge extends StatelessWidget {
               'lib/assets/images/onboarding/laurel-wreath.png',
               width: 170,
             ),
-            
+
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1303,13 +1316,17 @@ class _AppRatingBadge extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     for (int i = 0; i < 4; i++)
-                      const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                      const Icon(Icons.star_rounded,
+                          color: Colors.amber, size: 16),
                     Stack(
                       children: [
-                        Icon(Icons.star_rounded, color: scheme.outlineVariant.withValues(alpha: 0.5), size: 16),
+                        Icon(Icons.star_rounded,
+                            color: scheme.outlineVariant.withValues(alpha: 0.5),
+                            size: 16),
                         ClipRect(
                           clipper: _FractionalClipper(0.8),
-                          child: const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                          child: const Icon(Icons.star_rounded,
+                              color: Colors.amber, size: 16),
                         ),
                       ],
                     ),
@@ -1317,7 +1334,6 @@ class _AppRatingBadge extends StatelessWidget {
                 ),
               ],
             ),
-        
           ],
         ),
         const SizedBox(height: 6),
@@ -1346,7 +1362,8 @@ class _FractionalClipper extends CustomClipper<Rect> {
   }
 
   @override
-  bool shouldReclip(covariant _FractionalClipper oldClipper) => oldClipper.fraction != fraction;
+  bool shouldReclip(covariant _FractionalClipper oldClipper) =>
+      oldClipper.fraction != fraction;
 }
 
 class _LifetimeView extends StatelessWidget {

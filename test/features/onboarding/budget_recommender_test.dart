@@ -180,7 +180,7 @@ void main() {
       ),
     );
 
-    final allowed = categoryColors.keys.toSet();
+    final allowed = getExpenseCategories().toSet();
     final seen = <String>{};
 
     for (final pocket in recommendation.pockets) {
@@ -215,5 +215,64 @@ void main() {
       recommendation.warnings.any((w) => w.toLowerCase().contains('housing')),
       true,
     );
+  });
+
+  test('shared bills owns essentials and removes housing/utilities overlap',
+      () {
+    final recommendation = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 4200,
+        householdProfile: 'couple',
+        billSplitFrequency: 'often',
+        onboardingFocus: 'split_bills',
+      ),
+    );
+
+    final shared = recommendation.pockets
+        .firstWhere((pocket) => pocket.name == 'Shared bills');
+    final housing = recommendation.pockets
+        .where((pocket) => pocket.name == 'Housing')
+        .toList();
+    final utilities = recommendation.pockets
+        .where((pocket) => pocket.name == 'Utilities')
+        .toList();
+    final groceries = recommendation.pockets
+        .where((pocket) => pocket.name == 'Groceries')
+        .toList();
+
+    expect(shared.suggestedCategories, contains('rent'));
+    expect(shared.suggestedCategories, contains('internet'));
+    expect(shared.suggestedCategories, isNot(contains('groceries')));
+    if (housing.isNotEmpty) {
+      expect(housing.first.suggestedCategories, isEmpty);
+    }
+    if (utilities.isNotEmpty) {
+      expect(utilities.first.suggestedCategories, isEmpty);
+    }
+    if (groceries.isNotEmpty) {
+      expect(groceries.first.suggestedCategories, contains('groceries'));
+    }
+  });
+
+  test('keep shared expenses moves groceries into shared bills', () {
+    final recommendation = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 4200,
+        householdProfile: 'mates',
+        billSplitFrequency: 'often',
+        onboardingFocus: 'keep_shared_expenses',
+      ),
+    );
+
+    final shared = recommendation.pockets
+        .firstWhere((pocket) => pocket.name == 'Shared bills');
+    final groceries = recommendation.pockets
+        .where((pocket) => pocket.name == 'Groceries')
+        .toList();
+
+    expect(shared.suggestedCategories, contains('groceries'));
+    if (groceries.isNotEmpty) {
+      expect(groceries.first.suggestedCategories, isEmpty);
+    }
   });
 }
