@@ -56,7 +56,7 @@ import 'package:image_cropper/image_cropper.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:moneko/core/config/storage_config.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_preview_page.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/core/util/constants.dart';
@@ -74,8 +74,7 @@ String _holdQuickActionLabel(BuildContext context, AiHoldQuickAction? action) {
     AiHoldQuickAction.photoLibrary => context.l10n.choosePhotoFromLibrary,
     AiHoldQuickAction.recordAudio => context.l10n.recordWithAudio,
     AiHoldQuickAction.textInputDrawer => context.l10n.showTextInputDrawer,
-    AiHoldQuickAction.manualEntry =>
-        context.l10n.manualInputQuickActionLabel,
+    AiHoldQuickAction.manualEntry => context.l10n.manualInputQuickActionLabel,
     null => context.l10n.notSet,
   };
 }
@@ -659,7 +658,7 @@ class SettingsPage extends HookConsumerWidget {
           MonekoActionSheetAction<String>(
             label: context.l10n.manualInputQuickActionLabel,
             value: 'manualEntry',
-          ),       
+          ),
         ],
         cancelAction: MonekoActionSheetAction<String>(
           label: context.l10n.cancel,
@@ -1157,7 +1156,7 @@ class SettingsPage extends HookConsumerWidget {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (context) =>
-                                const OnboardingFlowPage(fromSettings: true),
+                                const OnboardingPreviewPage(fromSettings: true),
                           ),
                         );
                       },

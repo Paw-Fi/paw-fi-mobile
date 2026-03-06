@@ -131,10 +131,13 @@ flutter:
     - dotenv-prod
     - dotenv-dev
     - lib/assets/images/logo192.png
+    - lib/assets/mascots/
     - lib/assets/images/whatsapp/receipt.png
     - lib/assets/images/onboarding/
+    - lib/assets/images/onboarding/ready/
     - lib/assets/images/flags/
     - lib/assets/images/household/
+    - lib/assets/images/paywall/
     - lib/assets/images/whatsapp/text.png
     - lib/assets/images/audio-message.png
     - lib/assets/gifs/loading-anim.gif

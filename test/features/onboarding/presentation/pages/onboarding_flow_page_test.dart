@@ -155,15 +155,6 @@ void main() {
     // Step 2 -> finish page.
     await _tapSkip(tester);
     await tester.pump(const Duration(milliseconds: 400));
-
-    // Complete onboarding from finish page
-    final startButton = find.widgetWithText(
-      PrimaryAdaptiveButton,
-      'Start',
-      skipOffstage: false,
-    );
-    expect(startButton, findsOneWidget);
-    await tester.tap(startButton);
     await tester.pumpAndSettle();
 
     expect(prefs.getBool('onboarding_completed:u1'), true);

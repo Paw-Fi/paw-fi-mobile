@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, debugPrint;
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -14,11 +15,12 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
@@ -130,11 +132,6 @@ class PaywallScreen extends HookConsumerWidget {
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final currentInterval = currentSub?.subscription?.billingInterval;
-    final currentProvider = currentSub?.subscription?.provider;
-
-    // Check if user is truly new (no subscription data exists)
-    // final isNewUser = currentSub?.subscription == null;
-
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
@@ -436,7 +433,7 @@ class PaywallScreen extends HookConsumerWidget {
         );
       }).toList()
         ..sort((a, b) {
-          const order = {'monthly': 0, 'yearly': 1};
+          const order = {'yearly': 0, 'monthly': 1};
           final aOrder =
               a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
           final bOrder =
@@ -829,312 +826,268 @@ class PaywallScreen extends HookConsumerWidget {
       }
     }
 
-    Future<void> onCancelSubscription() async {
-      final result = await MonekoAlertDialog.show(
-        context: context,
-        title: 'Cancel Subscription',
-        description:
-            'Are you sure? You will lose access to premium features at the end of your current billing period.',
-        confirmLabel: 'Confirm Cancellation',
-        cancelLabel: 'Keep Plan',
-        isDestructive: true,
-      );
-
-      if (result?.confirmed == true) {
-        if (context.mounted) {
-          processingDialogOpen.value = true;
-          _debugLog('🧾 Dialog open set to true (cancel subscription)');
-          showBlockingProcessingDialog(
-            context: context,
-            message: 'Cancelling subscription...',
-          );
-        }
-
-        try {
-          await ref
-              .read(subscriptionManagementProvider.notifier)
-              .cancelSubscription();
-          if (context.mounted) {
-            AppToast.success(context, 'Subscription cancelled');
-          }
-        } catch (e) {
-          if (context.mounted) {
-            AppToast.error(context, e.toString());
-          }
-        } finally {
-          dismissProcessingDialog('cancel subscription');
-        }
-      }
-    }
-
     return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: ''),
       body: Material(
         color: colorScheme.appBackground,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const SizedBox(height: 16),
-                        Text(
-                          mode == PaywallMode.trial
-                              ? 'Start your free trial'
-                              : 'Subscribe Now',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          mode == PaywallMode.trial
-                              ? 'Pick a plan. You won\'t be charged until your trial ends.'
-                              : 'Pick a plan to get back to full access.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const _AppRatingBadge(),
-                        const SizedBox(height: 24),
-
-                        // --- SUBSCRIPTION PLANS ---
-                        _UnifiedPlanCard(
-                          plans: plans,
-                          selectedPlanId: selectedPlanId.value,
-                          onPlanSelected: (id) => selectedPlanId.value = id,
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Preview App Link
-                        GestureDetector(
-                          onTap: () {
-                            unawaited(() async {
-                              final prefs = ref.read(sharedPreferencesProvider);
-                              await prefs.setBool(kPreviewModeActiveKey, true);
-                              await prefs.setBool(
-                                  kPreviewReturnToPreauthKey, false);
-                              await prefs.setString(
-                                kPreviewExitRouteKey,
-                                '/paywall?mode=${mode.queryValue}',
-                              );
-                              ref.read(previewModeProvider.notifier).enable();
-                              if (context.mounted) {
-                                context.go('/dashboard');
-                              }
-                            }());
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Preview the App',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Icon(Icons.arrow_right_alt,
-                                    size: 16, color: colorScheme.primary),
-                              ],
+        child: Stack(
+          children: [
+            const _PaywallBackground(),
+            SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 16),
+                            Text(
+                              mode == PaywallMode.trial
+                                  ? 'Managing money should\nbe Simple'
+                                  : 'Subscribe Now',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                                height: 1.2,
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // Bottom Actions
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                decoration: BoxDecoration(
-                  color: colorScheme.appBackground,
-                  border: Border(
-                      top: BorderSide(
-                          color: colorScheme.outlineVariant
-                              .withValues(alpha: 0.3))),
-                ),
-                child: SafeArea(
-                  top: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (requiresAutoRenewAcknowledgement) ...[
-                        GestureDetector(
-                          onTap: isProcessing
-                              ? null
-                              : () => hasAcknowledgedAutoRenew.value =
-                                  !hasAcknowledgedAutoRenew.value,
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  height: 24,
-                                  width: 24,
-                                  child: Checkbox(
-                                    value: hasAcknowledgedAutoRenew.value,
-                                    onChanged: isProcessing
-                                        ? null
-                                        : (value) => hasAcknowledgedAutoRenew
-                                            .value = value ?? false,
-                                    activeColor: colorScheme.primary,
-                                    checkColor: colorScheme.onPrimary,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    side: BorderSide(
-                                      color: colorScheme.outlineVariant,
-                                      width: 1.5,
-                                    ),
-                                  ),
+                            if (mode == PaywallMode.resubscribe) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Pick a plan to get back to full access.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colorScheme.mutedForeground,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    mode == PaywallMode.trial
-                                        ? 'I understand that my free trial will last for 7 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                                        : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings.',
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                      fontSize: 12,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
+                            ],
+                            const SizedBox(height: 24),
+                            const _HeroAppIcon(),
+                            const SizedBox(height: 24),
+                            const _AppRatingBadge(),
+                            const SizedBox(height: 32),
+                            // --- SUBSCRIPTION PLANS ---
+                            _UnifiedPlanCard(
+                              plans: plans,
+                              selectedPlanId: selectedPlanId.value,
+                              onPlanSelected: (id) => selectedPlanId.value = id,
                             ),
-                          ),
-                        ),
-                      ],
-                      PrimaryAdaptiveButton(
-                        onPressed: isProcessing ||
-                                !canConfirmAutoRenew ||
-                                !isStoreReady
-                            ? null
-                            : onMainAction,
-                        child: Text(
-                          isProcessing
-                              ? 'Processing...'
-                              : !isStoreReady
-                                  ? 'Store unavailable'
-                                  : mode == PaywallMode.trial &&
-                                          activePlanOption.serverPlanId !=
-                                              'lifetime'
-                                      ? 'Start Free Trial'
-                                      : activePlanOption.serverPlanId ==
-                                              'lifetime'
-                                          ? 'Get Lifetime Access'
-                                          : 'Subscribe',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                            const SizedBox(height: 32),
+
+                            // --- BENEFITS CHECKLIST ---
+                            const _BenefitsChecklist(),
+                            const SizedBox(height: 48),
+
+                            // --- REVIEWS ---
+                            const _ReviewsSection(),
+                            const SizedBox(height: 32),
+
+                            // Preview App Link
+                            GestureDetector(
+                              onTap: () {
+                                unawaited(() async {
+                                  final prefs =
+                                      ref.read(sharedPreferencesProvider);
+                                  await prefs.setBool(
+                                      kPreviewModeActiveKey, true);
+                                  await prefs.setBool(
+                                      kPreviewReturnToPreauthKey, false);
+                                  await prefs.setString(
+                                    kPreviewExitRouteKey,
+                                    '/paywall?mode=${mode.queryValue}',
+                                  );
+                                  ref
+                                      .read(previewModeProvider.notifier)
+                                      .enable();
+                                  if (context.mounted) {
+                                    context.go('/dashboard');
+                                  }
+                                }());
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Preview the App',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(Icons.arrow_right_alt,
+                                        size: 16, color: colorScheme.primary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
                         ),
                       ),
-
-                      // Cancel / Manage Subscription Button
-                      if (currentPlanId != 'free' &&
-                          (currentProvider == null ||
-                              (currentProvider != 'app_store' &&
-                                  currentProvider != 'play_store'))) ...[
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: isProcessing ? null : onCancelSubscription,
-                          child: Text(
-                            'Cancel Subscription',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                    decoration: BoxDecoration(
+                      color: colorScheme.appBackground,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.appBackground,
+                          blurRadius: 16,
+                          spreadRadius: 8,
+                          offset: const Offset(0, -8),
                         ),
                       ],
-
-                      if (currentPlanId != 'free' &&
-                          (currentProvider == 'app_store' ||
-                              currentProvider == 'play_store') &&
-                          currentPlanId != 'lifetime') ...[
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap:
-                              isProcessing ? null : onManageStoreSubscription,
-                          child: Text(
-                            'Manage Subscription',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          GestureDetector(
-                            onTap: isProcessing ? null : onRestorePurchases,
-                            child: Text(
-                              'Restore Purchases',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                          if (requiresAutoRenewAcknowledgement) ...[
+                            GestureDetector(
+                              onTap: isProcessing
+                                  ? null
+                                  : () => hasAcknowledgedAutoRenew.value =
+                                      !hasAcknowledgedAutoRenew.value,
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 24.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: Checkbox(
+                                        value: hasAcknowledgedAutoRenew.value,
+                                        onChanged: isProcessing
+                                            ? null
+                                            : (value) =>
+                                                hasAcknowledgedAutoRenew.value =
+                                                    value ?? false,
+                                        activeColor: colorScheme.primary,
+                                        checkColor: colorScheme.onPrimary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        side: BorderSide(
+                                          color: colorScheme.outlineVariant,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        mode == PaywallMode.trial
+                                            ? 'I understand my free trial lasts 7 days and renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless cancelled.'
+                                            : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period.',
+                                        style: TextStyle(
+                                          color: colorScheme.mutedForeground,
+                                          fontSize: 12,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                          PrimaryAdaptiveButton(
+                            onPressed: isProcessing ||
+                                    !canConfirmAutoRenew ||
+                                    !isStoreReady
+                                ? null
+                                : onMainAction,
+                            child: Center(
+                              child: Text(
+                                isProcessing
+                                    ? 'Processing...'
+                                    : !isStoreReady
+                                        ? 'Store unavailable'
+                                        : mode == PaywallMode.trial &&
+                                                activePlanOption.serverPlanId !=
+                                                    'lifetime'
+                                            ? 'Start my free trial'
+                                            : activePlanOption.serverPlanId ==
+                                                    'lifetime'
+                                                ? 'Get Lifetime Access'
+                                                : 'Subscribe',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onPrimary,
+                                ),
                               ),
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () async {
-                              final uri = Uri.parse(
-                                  'https://moneko.io/terms-of-service');
-                              await launchUrl(uri,
-                                  mode: LaunchMode.externalApplication);
-                            },
-                            child: Text(
-                              'Terms & Privacy',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: isProcessing ? null : onRestorePurchases,
+                                behavior: HitTestBehavior.opaque,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 8),
+                                  child: Text(
+                                    'Restore Purchase',
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground
+                                          .withValues(alpha: 0.8),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              GestureDetector(
+                                onTap: () async {
+                                  final uri = Uri.parse(
+                                      'https://moneko.io/terms-of-service');
+                                  await launchUrl(uri,
+                                      mode: LaunchMode.externalApplication);
+                                },
+                                behavior: HitTestBehavior.opaque,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 8),
+                                  child: Text(
+                                    'Terms & Privacy',
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground
+                                          .withValues(alpha: 0.8),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1158,112 +1111,206 @@ class _UnifiedPlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: plans.asMap().entries.map((entry) {
           final idx = entry.key;
           final plan = entry.value;
           final isSelected = selectedPlanId == plan.id;
+          final isPrimary = plan.billingInterval == 'yearly' ||
+              plan.serverPlanId == 'lifetime';
+          final hasFreeTrial =
+              plan.serverPlanId == 'plus' && plan.billingInterval != null;
 
-          return Column(
-            children: [
-              if (idx > 0)
-                Divider(
-                    height: 1,
-                    color: scheme.outlineVariant.withValues(alpha: 0.3),
-                    indent: 16,
-                    endIndent: 16),
-              GestureDetector(
-                onTap: () => onPlanSelected(plan.id),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
+          return Padding(
+            padding: EdgeInsets.only(
+              left: idx == 0 ? 0 : 6,
+              right: idx == plans.length - 1
+                  ? 24
+                  : 6, // extra right padding on the last item for overscroll buffer
+            ),
+            child: GestureDetector(
+              onTap: () => onPlanSelected(plan.id),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                constraints: const BoxConstraints.tightFor(
+                  width: 188,
+                  height: 168,
+                ),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? scheme.surfaceContainerHighest
+                      : scheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
                     color: isSelected
-                        ? scheme.primary.withValues(alpha: 0.05)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(idx == 0 ? 24 : 0),
-                      bottom: Radius.circular(idx == plans.length - 1 ? 24 : 0),
-                    ),
+                        ? scheme.primary
+                        : scheme.outlineVariant.withValues(alpha: 0.3),
+                    width: isSelected ? 2 : 1,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected
-                                ? scheme.primary
-                                : scheme.outlineVariant.withValues(alpha: 0.8),
-                            width: isSelected ? 5.5 : 1.5,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            plan.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface,
+                            ),
                           ),
-                          color:
-                              isSelected ? scheme.surface : Colors.transparent,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Text(
-                              plan.name,
+                        if (plan.badgeText != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: scheme.primary,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              plan.badgeText!,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: scheme.onSurface,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: scheme.onPrimary,
                               ),
                             ),
-                            if (plan.badgeText != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: scheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  plan.badgeText!,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: scheme.onPrimary,
-                                  ),
-                                ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    if (hasFreeTrial) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.check, size: 12, color: scheme.primary),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '30-day free trial',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: scheme.primary,
                               ),
-                            ],
-                          ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ] else if (plan.serverPlanId == 'lifetime') ...[
+                      Text(
+                        'One payment. Use forever.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.mutedForeground,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                    ] else ...[
                       Text(
-                        plan.priceDisplay,
+                        'Cancel anytime',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w600,
-                          color: scheme.onSurface,
+                          fontSize: 11,
+                          color: scheme.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                    if (plan.tagline.isNotEmpty &&
+                        isPrimary &&
+                        plan.serverPlanId != 'lifetime') ...[
+                      Text(
+                        'Family sharing included', // Hardcoded to match mockup for now, ideally comes from model
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.mutedForeground,
                         ),
                       ),
                     ],
-                  ),
+                    const Spacer(),
+                    Text(
+                      plan.priceDisplay,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    if (plan.billingInterval == 'monthly' ||
+                        plan.billingInterval == 'yearly')
+                      Text(
+                        plan.billingInterval == 'yearly'
+                            ? 'Save 50% vs monthly'
+                            : 'Billed monthly',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.mutedForeground,
+                        ),
+                      )
+                    else if (plan.serverPlanId == 'lifetime' &&
+                        plan.originalPriceUsd != null)
+                      Text(
+                        'Original \$${plan.originalPriceUsd!.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.mutedForeground,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ],
+            ),
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+class _PaywallBackground extends StatelessWidget {
+  const _PaywallBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SvgPicture.asset(
+        'lib/assets/images/paywall/background-gradient.svg',
+        width: MediaQuery.of(context).size.width,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+}
+
+class _HeroAppIcon extends StatelessWidget {
+  const _HeroAppIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      'lib/assets/mascots/moneko-gradient.svg',
+      width: 87,
+      height: 87,
+      fit: BoxFit.contain,
     );
   }
 }
@@ -1284,7 +1331,7 @@ class _AppRatingBadge extends StatelessWidget {
           children: [
             // Background image using laurel wreath
             Image.asset(
-              'lib/assets/images/onboarding/laurel-wreath.png',
+              'lib/assets/images/paywall/laurel-wreath.png',
               width: 170,
             ),
 
@@ -1303,12 +1350,11 @@ class _AppRatingBadge extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'OUT OF 5',
+                  '${PlatformInfo.isIOS?'App Store':'Play Store'} rating',
                   style: TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: contentColor.withValues(alpha: 0.5),
-                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: contentColor.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1336,17 +1382,6 @@ class _AppRatingBadge extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        Text(
-          'We didn’t ask for applause— \n we built a budgeting app.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: contentColor.withValues(alpha: 0.8),
-            height: 1.3,
-          ),
-        ),
       ],
     );
   }
@@ -1364,6 +1399,167 @@ class _FractionalClipper extends CustomClipper<Rect> {
   @override
   bool shouldReclip(covariant _FractionalClipper oldClipper) =>
       oldClipper.fraction != fraction;
+}
+
+class _BenefitsChecklist extends StatelessWidget {
+  const _BenefitsChecklist();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final items = [
+      'Log expenses with voice, text, photos, or chat',
+      'Add expenses from WhatsApp or Telegram',
+      'Shared budgets that stay in sync',
+      'Simple envelope budgeting to control spending',
+    ];
+
+    return Column(
+      children: items.map((item) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.primary,
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Icon(
+                  Icons.check,
+                  size: 14,
+                  color: scheme.onPrimary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onSurface.withValues(alpha: 0.9),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ReviewsSection extends StatelessWidget {
+  const _ReviewsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    // Pick 3 high-quality reviews that mention key value propositions
+    final selectedReviews = [
+      appStoreReviews.firstWhere((r) =>
+          r.id == 'review-004'), // Really good budgeting app! Clean, simple.
+      appStoreReviews.firstWhere(
+          (r) => r.id == 'review-002'), // Shared expenses, simple, AI features
+      appStoreReviews.firstWhere((r) =>
+          r.id ==
+          'review-010'), // WhatsApp integration, AI automatically does everything
+    ];
+
+    return Column(
+      children: [
+        Text(
+          'Loved by 6,000+ users',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 24),
+        ...selectedReviews.map((review) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '5d', // Simplified date representation for mockup feel
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: List.generate(
+                        review.rating,
+                        (index) => const Icon(
+                          Icons.star_rounded,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      review.reviewerNickname,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: scheme.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  review.body,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: scheme.onSurface.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
 }
 
 class _LifetimeView extends StatelessWidget {

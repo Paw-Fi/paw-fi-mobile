@@ -16,6 +16,7 @@ import 'package:moneko/features/households/presentation/pages/household_invites_
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_members_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
@@ -221,6 +222,9 @@ GoRouter router(RouterRef ref) {
           }
           if (stage == 'prepare') {
             return const OnboardingAccountPreparingPage();
+          }
+          if (stage == 'post') {
+            return const OnboardingPostAuthFlowPage();
           }
           return OnboardingFlowPage(debugForcePostFlow: debugPost);
         },

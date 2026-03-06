@@ -20,7 +20,6 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -828,15 +827,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
     Future<void> showFinishPage() async {
       if (!context.mounted) return;
-      final done = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const OnboardingFinishPage(),
-          fullscreenDialog: true,
-        ),
-      );
-      if (done == true && context.mounted) {
-        await _completeOnboarding(context, ref);
-      }
+      await _completeOnboarding(context, ref);
     }
 
     void next() {

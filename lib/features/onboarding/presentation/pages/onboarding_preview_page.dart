@@ -11,11 +11,17 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class OnboardingPreviewPage extends HookConsumerWidget {
-  const OnboardingPreviewPage({super.key});
+  const OnboardingPreviewPage({
+    super.key,
+    this.fromSettings = false,
+  });
+
+  final bool fromSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,6 +37,16 @@ class OnboardingPreviewPage extends HookConsumerWidget {
 
     void startPreview() {
       markPreviewSeen();
+      if (fromSettings) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => const OnboardingPostAuthFlowPage(
+              fromSettings: true,
+            ),
+          ),
+        );
+        return;
+      }
       ref.read(previewModeProvider.notifier).enable();
       if (context.mounted) {
         context.go('/dashboard');
@@ -39,6 +55,10 @@ class OnboardingPreviewPage extends HookConsumerWidget {
 
     void goToRegister() {
       markPreviewSeen();
+      if (fromSettings) {
+        Navigator.of(context).pop();
+        return;
+      }
       ref.read(previewModeProvider.notifier).disable();
       if (context.mounted) {
         context.go('/onboarding?stage=pre');
