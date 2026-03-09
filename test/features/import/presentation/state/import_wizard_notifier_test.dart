@@ -67,6 +67,7 @@ void main() {
         date: DateTime(2024, 1, 2),
         amountCents: 2200,
         category: 'food',
+        description: 'Dinner',
         currency: 'USD',
         type: 'expense',
       ),
@@ -102,7 +103,7 @@ void main() {
 
     notifier.state = notifier.state.copyWith(parsedRows: [row]);
     notifier.updateParsedRow(
-      ImportParsedRow(
+      const ImportParsedRow(
         index: 0,
         date: null,
         amountCents: 1200,
@@ -110,11 +111,92 @@ void main() {
         description: 'Lunch',
         currency: 'USD',
         type: 'expense',
-        errors: const [],
+        errors: [],
       ),
     );
 
     final updated = container.read(importWizardProvider).parsedRows.first;
     expect(updated.errors, contains('invalid_date'));
+  });
+
+  test('deleteParsedRow is safe when row is missing', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    notifier.state = notifier.state.copyWith(parsedRows: const []);
+
+    expect(() => notifier.deleteParsedRow(999), returnsNormally);
+  });
+
+  test('deleted rows stay removed after reparse', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    const table = ImportTable(
+      headers: ['date', 'amount', 'description'],
+      rows: [
+        ['2024-01-01', '-12.00', 'Lunch'],
+        ['2024-01-02', '-5.50', 'Coffee'],
+      ],
+    );
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.description: 2,
+      },
+    );
+
+    notifier.state = notifier.state.copyWith(
+      table: table,
+      mapping: mapping,
+      parsedRows: [
+        const ImportParsedRow(
+          index: 0,
+          date: null,
+          amountCents: null,
+          category: null,
+          description: 'Lunch',
+          currency: 'USD',
+          type: 'expense',
+          errors: [],
+        ),
+        const ImportParsedRow(
+          index: 1,
+          date: null,
+          amountCents: null,
+          category: null,
+          description: 'Coffee',
+          currency: 'USD',
+          type: 'expense',
+          errors: [],
+        ),
+      ],
+    );
+
+    notifier.deleteParsedRow(0);
+    notifier.updateMapping(ImportField.description, 2);
+
+    final rows = container.read(importWizardProvider).parsedRows;
+    expect(rows.any((row) => row.index == 0), isFalse);
+    expect(rows.any((row) => row.index == 1), isTrue);
   });
 }

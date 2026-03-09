@@ -427,15 +427,13 @@ int? parseAmountCents(String? value) {
     cleaned = cleaned.substring(1, cleaned.length - 1).trim();
   }
 
-  // Strip currency symbols and non-numeric prefix/suffix chars.
-  // Covers: $ € £ ¥ ₩ ₹ ₺ ₽ ₪ ฿ ₫ ₦ ₲ ₴ ₸ ₼ ₾ ﷼ ₡ ₵ ₢ ₣ ₤ ₧ ₨ ₮ ₯ ₱ ₳
+  // Strip any Unicode currency symbol (Sc category) — covers ALL currencies
+  // without maintaining a fixed list. Also strip 3-letter ISO currency codes
+  // (e.g. "USD", "EUR") that appear as leading/trailing text.
   cleaned = cleaned
-      .replaceAll(
-        RegExp(
-          r'[\$\€\£\¥\₩\₹\₺\₽\₪\฿\₫\₦\₲\₴\₸\₼\₾\﷼\₡\₵\₢\₣\₤\₧\₨\₮\₯\₱\₳]',
-        ),
-        '',
-      )
+      .replaceAll(RegExp(r'\p{Sc}', unicode: true), '')
+      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: true), '')
+      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: true), '')
       .trim();
 
   // Detect leading minus after symbol stripping.

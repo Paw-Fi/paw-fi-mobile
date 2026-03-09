@@ -60,6 +60,7 @@ const String _holdQuickActionReminderExpenseCountKey =
     'hold_quick_action_reminder_expense_count';
 const int _holdQuickActionReminderFirstPromptAt = 2;
 const int _maxBatchSize = 400;
+const int _maxAiFileUploadBytes = 20 * 1024 * 1024;
 const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
 
@@ -96,6 +97,52 @@ class AiLogSuccess {
     required this.targetLabel,
     required this.items,
   });
+}
+
+Map<String, dynamic>? _asStringDynamicMap(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map(
+      (key, entry) => MapEntry(key.toString(), entry),
+    );
+  }
+  return null;
+}
+
+List<Map<String, dynamic>> _asMapList(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .map(_asStringDynamicMap)
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
+}
+
+Map<String, dynamic> _unwrapFunctionData(Object? responseData) {
+  final payload = _asStringDynamicMap(responseData);
+  if (payload == null) {
+    throw Exception('Unexpected response shape from Edge Function');
+  }
+  return payload;
+}
+
+Map<String, dynamic>? _extractSavedEntryPayload(Object? responseData) {
+  final payload = _asStringDynamicMap(responseData);
+  if (payload == null) return null;
+
+  final nested = _asStringDynamicMap(payload['data']);
+  if (nested != null) return nested;
+
+  if (payload.containsKey('id') && payload['id'] != null) {
+    return payload;
+  }
+
+  return null;
+}
+
+double? _parseAmountValue(Object? value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value.trim());
+  return null;
 }
 
 String? _resolveHouseholdIdForAi(WidgetRef ref) {
@@ -489,20 +536,34 @@ Future<void> _persistAiTransactions(
         throw Exception('No response from save-transactions-batch');
       }
 
-      final responseData = response.data as Map<String, dynamic>;
-      final results = responseData['results'] as List?;
-      final summary = responseData['summary'] as Map<String, dynamic>?;
+      final responseData = _unwrapFunctionData(response.data);
+      final results = _asMapList(responseData['results']);
+      final summary = _asStringDynamicMap(responseData['summary']);
+      final backendSucceeded = responseData['success'] == true;
+      final hasStructuredResults = results.isNotEmpty;
+
+      if (!backendSucceeded && !hasStructuredResults) {
+        final backendError = responseData['error']?.toString();
+        throw Exception(backendError ?? 'Batch save failed');
+      }
 
       _debugPrint(
           '[AI Batch Save] Result: ${summary?['succeeded'] ?? 0} succeeded, ${summary?['failed'] ?? 0} failed');
 
-      if (results != null && results.isNotEmpty) {
+      if (hasStructuredResults) {
         // Map results back to optimistic entries by index
         for (final resultItem in results) {
-          final result = resultItem as Map<String, dynamic>;
-          final index = result['index'] as int;
-          final success = result['success'] as bool;
-          final data = result['data'] as Map<String, dynamic>?;
+          final result = resultItem;
+          final index = (result['index'] as num?)?.toInt();
+          final success = result['success'] == true;
+          final data = _asStringDynamicMap(result['data']);
+
+          if (index == null) {
+            _debugPrint(
+              '⚠️ Batch result missing index, ignoring item: $result',
+            );
+            continue;
+          }
 
           final originalIndex = batchOffset + index;
           if (originalIndex < 0 || originalIndex >= transactions.length) {
@@ -530,9 +591,13 @@ Future<void> _persistAiTransactions(
               householdId: householdId,
             );
             _debugPrint(
-                '❌ Failed to persist transaction at index $originalIndex: ${result['error']}');
+                '❌ Failed to persist transaction at index $originalIndex: ${result['error'] ?? 'unknown error'}');
           }
         }
+      } else {
+        _debugPrint(
+          '⚠️ Batch response returned no per-item results; preserving optimistic entries and continuing',
+        );
       }
 
       batchOffset += batch.length;
@@ -632,9 +697,10 @@ Future<void> _persistAiTransactions(
           final response =
               await supabase.functions.invoke(endpoint, body: requestBody);
 
-          if (response.data != null) {
-            final savedEntry =
-                ExpenseEntry.fromJson(response.data as Map<String, dynamic>);
+          final savedPayload = _extractSavedEntryPayload(response.data);
+
+          if (savedPayload != null) {
+            final savedEntry = ExpenseEntry.fromJson(savedPayload);
             upsertSavedEntry(
               optimisticId: item.optimisticId,
               savedEntry: savedEntry,
@@ -645,12 +711,8 @@ Future<void> _persistAiTransactions(
               savedExpenseEntriesById[savedEntry.id] = savedEntry;
             }
           } else {
-            // Remove failed optimistic entry
-            removeOptimisticTransactionWithContainer(
-              container: container,
-              optimisticId: item.optimisticId,
-              householdId: householdId,
-            );
+            throw Exception(
+                'No saved transaction data returned from $endpoint');
           }
         } catch (itemError) {
           _debugPrint('❌ Failed to save individual transaction: $itemError');
@@ -889,6 +951,17 @@ Future<void> handleAiFileUpload(
       return;
     }
 
+    final fileSize = file.size;
+    if (fileSize > _maxAiFileUploadBytes) {
+      if (context.mounted) {
+        AppToast.error(
+          context,
+          'File is too large to analyze. Keep it under 20MB or split it into smaller files.',
+        );
+      }
+      return;
+    }
+
     final bytes = await File(path).readAsBytes();
     final base64Data = base64Encode(bytes);
 
@@ -1013,8 +1086,10 @@ Future<Map<String, dynamic>?> _processWithSSE({
         result = event.data;
         break;
       case 'error':
-        final errorMsg = event.data['error']?.toString() ?? 'Unknown error';
-        throw Exception(errorMsg);
+        if (event.data is Map<String, dynamic>) {
+          throw Map<String, dynamic>.from(event.data as Map<String, dynamic>);
+        }
+        throw Exception(event.data?.toString() ?? 'Unknown error');
     }
   }
 
@@ -1046,6 +1121,7 @@ Future<void> _maybeShowUnsetHoldQuickActionReminder(
   final alreadyShown = prefs.getBool(shownKey) ?? false;
   if (alreadyShown) return;
   if (updatedCount < _holdQuickActionReminderFirstPromptAt) return;
+  if (!context.mounted) return;
 
   await MonekoAlertDialog.show(
     context: context,
@@ -1106,7 +1182,7 @@ Future<void> _processExpense(
               ? 'Processing file...'
               : 'Processing large file...',
       showElapsedTime: true,
-      enableCancelAfterSeconds: 45,
+      enableCancelAfterSeconds: 0,
     );
   } else {
     showBlockingProcessingDialog(
@@ -1261,8 +1337,9 @@ Future<void> _processExpense(
             : null,
       );
 
-      if (response.data != null) {
-        responseData = response.data as Map<String, dynamic>;
+      final parsedResponse = _asStringDynamicMap(response.data);
+      if (parsedResponse != null) {
+        responseData = parsedResponse;
       }
     }
 
@@ -1278,9 +1355,9 @@ Future<void> _processExpense(
     _debugPrint('Analysis response received');
 
     if (responseData != null && responseData['success'] == true) {
-      final innerData = responseData['data'];
+      final innerData = _asStringDynamicMap(responseData['data']);
 
-      if (innerData != null && innerData['items'] != null) {
+      if (innerData != null && innerData['items'] is List) {
         List items = List.from(innerData['items'] as List);
         // Safety filter: drop total/subtotal rows when multiple items exist
         if (items.length > 1) {
@@ -1340,16 +1417,22 @@ Future<void> _processExpense(
                 }
                 final isIncome =
                     (item['type']?.toString().toLowerCase() == 'income');
+                final amount = _parseAmountValue(item['amount']);
+                final currency = item['currency']?.toString().trim();
+                if (amount == null || currency == null || currency.isEmpty) {
+                  _debugPrint('Skipping AI item with invalid amount/currency');
+                  return null;
+                }
                 final transaction = ParsedExpense(
                   isIncome: isIncome,
-                  amount: (item['amount'] as num).toDouble(),
+                  amount: amount,
                   // Normalize income categories to at least 'income' umbrella if model returns a granular one
                   category: (item['category'] as String?)?.isNotEmpty == true
                       ? (isIncome
                           ? (item['category'] as String)
                           : item['category'] as String)
                       : (isIncome ? 'income' : 'other'),
-                  currency: item['currency'] as String,
+                  currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
                   description: item['description'] is String

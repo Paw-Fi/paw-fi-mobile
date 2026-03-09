@@ -124,10 +124,15 @@ Future<int?> _defaultImportExpensesAction(
   WidgetRef ref,
   String selectedApp,
 ) async {
+  if (selectedApp == 'Not using an app') {
+    return 1;
+  }
+
+  final allowedExtensions = _allowedImportExtensionsForApp(selectedApp);
   final result = await FilePicker.platform.pickFiles(
     allowMultiple: false,
     type: FileType.custom,
-    allowedExtensions: const ['csv', 'pdf', 'xlsx'],
+    allowedExtensions: allowedExtensions,
     withData: true,
   );
 
@@ -284,4 +289,16 @@ Future<int?> _defaultImportExpensesAction(
       navigator.pop();
     }
   }
+}
+
+List<String> _allowedImportExtensionsForApp(String selectedApp) {
+  return switch (selectedApp) {
+    'YNAB' => const ['csv'],
+    'Monarch' => const ['csv'],
+    'Copilot' => const ['csv'],
+    'PocketGuard' => const ['csv'],
+    'Splitwise' => const ['csv'],
+    'Other' => const ['xlsx', 'csv', 'pdf'],
+    _ => const ['csv'],
+  };
 }

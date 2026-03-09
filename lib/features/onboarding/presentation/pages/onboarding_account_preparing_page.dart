@@ -36,6 +36,35 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final isDone = useState(false);
     final didStart = useState(false);
 
+    Future<bool> accountHasExistingData(String userId) async {
+      try {
+        final checks = await Future.wait<dynamic>([
+          supabase
+              .from('expenses')
+              .select('id')
+              .eq('user_id', userId)
+              .limit(1)
+              .maybeSingle(),
+          supabase
+              .from('budgets')
+              .select('id')
+              .eq('user_id', userId)
+              .limit(1)
+              .maybeSingle(),
+          supabase
+              .from('household_members')
+              .select('household_id')
+              .eq('user_id', userId)
+              .limit(1)
+              .maybeSingle(),
+        ]);
+
+        return checks.any((row) => row != null);
+      } catch (_) {
+        return true;
+      }
+    }
+
     Future<void> runSync() async {
       if (didStart.value || isDone.value) return;
       didStart.value = true;
@@ -66,6 +95,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       final draft = store.load();
       final prefs = ref.read(sharedPreferencesProvider);
+      final shouldApplyStarterSync = !(await accountHasExistingData(user.uid));
 
       setProgressState(
         label: 'Saving your preferences...',
@@ -85,6 +115,15 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         return;
       }
       if (!context.mounted) return;
+
+      if (!shouldApplyStarterSync) {
+        setProgressState(
+          progressValue: 1.0,
+          label: 'We found your existing data, so we kept your current setup.',
+          done: true,
+        );
+        return;
+      }
 
       setProgressState(
         label: 'Applying currency and defaults...',

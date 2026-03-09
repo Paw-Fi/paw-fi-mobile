@@ -123,7 +123,7 @@ class PaywallScreen extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // View State
-    final selectedPlanId = useState<String>('plus_monthly');
+    final selectedPlanId = useState<String>('plus_yearly');
     final hasAcknowledgedAutoRenew = useState(false);
     final isStripeProcessing = useState(false);
     final processingDialogOpen = useState(false);
@@ -491,13 +491,13 @@ class PaywallScreen extends HookConsumerWidget {
           selectedPlanId.value = 'plus_yearly';
         }
       } else {
-        // Free user (both trial and resubscribe): default to monthly
-        final monthly = plans
+        // Free user (both trial and resubscribe): default to yearly
+        final yearly = plans
             .where((p) =>
-                p.serverPlanId == 'plus' && p.billingInterval == 'monthly')
+                p.serverPlanId == 'plus' && p.billingInterval == 'yearly')
             .toList();
-        if (monthly.isNotEmpty) {
-          selectedPlanId.value = monthly.first.id;
+        if (yearly.isNotEmpty) {
+          selectedPlanId.value = yearly.first.id;
         }
       }
       return null;
@@ -911,22 +911,40 @@ class PaywallScreen extends HookConsumerWidget {
                                   }
                                 }());
                               },
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Row(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF7458FF),
+                                      Color(0xFFA855F7),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
                                       'Preview the App',
                                       style: TextStyle(
                                         fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.arrow_right_alt,
-                                        size: 16, color: colorScheme.primary),
+                                    SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_right_alt,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
                                   ],
                                 ),
                               ),
@@ -1121,10 +1139,19 @@ class _UnifiedPlanCard extends StatelessWidget {
           final idx = entry.key;
           final plan = entry.value;
           final isSelected = selectedPlanId == plan.id;
-          final isPrimary = plan.billingInterval == 'yearly' ||
-              plan.serverPlanId == 'lifetime';
-          final hasFreeTrial =
-              plan.serverPlanId == 'plus' && plan.billingInterval != null;
+          final trialText = switch (plan.billingInterval) {
+            'yearly' => '30-day free trial',
+            'monthly' => '7-day free trial',
+            _ => null,
+          };
+          final supportingText = plan.serverPlanId == 'lifetime'
+              ? 'One payment. Use forever.'
+              : 'Family sharing included';
+          final periodText = switch (plan.billingInterval) {
+            'yearly' => '/year',
+            'monthly' => '/month',
+            _ => '',
+          };
 
           return Padding(
             padding: EdgeInsets.only(
@@ -1139,19 +1166,15 @@ class _UnifiedPlanCard extends StatelessWidget {
               child: Container(
                 constraints: const BoxConstraints.tightFor(
                   width: 188,
-                  height: 168,
+                  height: 150,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDark 
-                      ? const Color(0xFF17181D)
-                      : (isSelected
-                          ? scheme.surfaceContainerHighest
-                          : scheme.surface),
-                  borderRadius: BorderRadius.circular(24),
+                  color: isDark ? const Color(0xFF17181D) : scheme.surface,
+                  borderRadius: BorderRadius.circular(36),
                   border: Border.all(
                     color: isSelected
-                        ? scheme.primary
+                        ? const Color(0xFF7458FF)
                         : scheme.outlineVariant.withValues(alpha: 0.3),
                     width: isSelected ? 2 : 1,
                   ),
@@ -1200,88 +1223,61 @@ class _UnifiedPlanCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    if (hasFreeTrial) ...[
+                    const SizedBox(height: 12),
+                    if (trialText != null) ...[
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.check, size: 12, color: scheme.primary),
+                          const Icon(
+                            Icons.check,
+                            size: 12,
+                            color: Color(0xFF8B5CF6),
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              '30-day free trial',
-                              style: TextStyle(
+                              trialText,
+                              style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: scheme.primary,
+                                color: Color(0xFF8B5CF6),
                               ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                    ] else if (plan.serverPlanId == 'lifetime') ...[
-                      Text(
-                        'One payment. Use forever.',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                    ] else ...[
-                      Text(
-                        'Cancel anytime',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
                     ],
-                    if (plan.tagline.isNotEmpty &&
-                        isPrimary &&
-                        plan.serverPlanId != 'lifetime') ...[
-                      Text(
-                        'Family sharing included', // Hardcoded to match mockup for now, ideally comes from model
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
                     Text(
-                      plan.priceDisplay,
+                      supportingText,
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.primary,
-                        letterSpacing: -0.5,
+                        fontSize: 11,
+                        color: scheme.mutedForeground,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    if (plan.billingInterval == 'monthly' ||
-                        plan.billingInterval == 'yearly')
-                      Text(
-                        plan.billingInterval == 'yearly'
-                            ? 'Save 50% vs monthly'
-                            : 'Billed monthly',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.mutedForeground,
+                    const Spacer(),
+                    RichText(
+                      text: TextSpan(
+                        text: plan.priceDisplay,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF8B5CF6),
+                          letterSpacing: -0.5,
                         ),
-                      )
-                    else if (plan.serverPlanId == 'lifetime' &&
-                        plan.originalPriceUsd != null)
-                      Text(
-                        'Original \$${plan.originalPriceUsd!.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: scheme.mutedForeground,
-                          decoration: TextDecoration.lineThrough,
-                        ),
+                        children: [
+                          if (periodText.isNotEmpty)
+                            TextSpan(
+                              text: periodText,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF8B5CF6),
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -1360,7 +1356,7 @@ class _AppRatingBadge extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${PlatformInfo.isIOS?'App Store':'Play Store'} rating',
+                  '${PlatformInfo.isIOS ? 'App Store' : 'Play Store'} rating',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -1510,23 +1506,16 @@ class _ReviewsSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      review.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '5d', // Simplified date representation for mockup feel
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.mutedForeground,
+                    Expanded(
+                      child: Text(
+                        review.title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ],
@@ -1540,7 +1529,7 @@ class _ReviewsSection extends StatelessWidget {
                         review.rating,
                         (index) => const Icon(
                           Icons.star_rounded,
-                          color: Colors.amber,
+                          color: Color(0xFFFCB860),
                           size: 16,
                         ),
                       ),

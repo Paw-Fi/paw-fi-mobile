@@ -171,7 +171,9 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     final primaryLabel = switch (currentPage.value) {
       0 => loggedExpensePreview.value == null ? 'Add expense' : 'Continue',
-      1 => 'Import expenses',
+      1 => selectedImportApp.value == 'Not using an app'
+          ? 'Continue'
+          : 'Import expenses',
       2 => 'Turn on notifications',
       _ => 'Continue',
     };
@@ -826,8 +828,10 @@ class _ResultChip extends StatelessWidget {
 
 const _kImportApps = <String>[
   'YNAB',
-  'Mint',
   'Monarch',
   'Copilot',
+  'PocketGuard',
+  'Splitwise',
   'Other',
+  'Not using an app',
 ];

@@ -34,6 +34,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   final Ref _ref;
   static const int _maxPdfImportBytes = 20 * 1024 * 1024;
+  static const int _batchSize = 500;
 
   void _initializeTargetAccount() {
     final scope = _ref.read(householdScopeProvider);
@@ -46,6 +47,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }
 
   Future<void> pickFile({List<String>? allowedExtensions}) async {
+    if (state.isParsing || state.isImporting) return;
+
     state = state.copyWith(
       clearErrorMessage: true,
       clearParsingStatusMessage: true,
@@ -124,19 +127,39 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         );
       }
 
-      final mapping = autoMapFields(table.headers);
-      final parsedRows = _parseAndDedupe(table, mapping);
+      final sampleRows =
+          table.rows.length > 10 ? table.rows.sublist(0, 10) : table.rows;
+      final mappingResult = autoMapFieldsWithConfidence(
+        table.headers,
+        sampleRows: sampleRows,
+      );
+      final parsedRows = _parseAndDedupe(
+        table,
+        mappingResult.mapping,
+        deletedRowIndices: const {},
+      );
+
+      // High confidence AND most sample rows parsed → skip mapping step.
+      // Without the sampleValidRate check, confident header matches on
+      // bad data would skip mapping and show garbage in the preview.
+      final sampleValid = mappingResult.sampleValidRate ?? 0.0;
+      final autoSkip = mappingResult.confidence == MappingConfidence.high &&
+          sampleValid >= 0.7;
+      final nextStep = autoSkip ? ImportStep.preview : ImportStep.mapColumns;
 
       state = state.copyWith(
         isParsing: false,
         clearParsingStatusMessage: true,
         fileName: file.name,
         table: table,
-        mapping: mapping,
+        mapping: mappingResult.mapping,
+        mappingResult: mappingResult,
         parsedRows: parsedRows,
-        step: ImportStep.mapColumns,
+        step: nextStep,
+        didAutoSkipMapping: autoSkip,
         availableSheets: availableSheets,
         selectedSheetIndex: selectedSheetIndex,
+        clearDeletedRowIndices: true,
       );
     } catch (e) {
       state = state.copyWith(
@@ -148,6 +171,31 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }
 
   String _toImportErrorMessage(Object error) {
+    if (error is _ImportBackendException) {
+      final code = error.code?.toUpperCase();
+      if (code == 'UNAUTHORIZED' ||
+          error.status == 401 ||
+          error.status == 403) {
+        return 'Your session has expired. Please sign in again and retry the import.';
+      }
+      if (code == 'FILE_TOO_LARGE' || error.status == 413) {
+        return 'File is too large to import. Please reduce the file size and try again.';
+      }
+      if (code == 'PDF_PAGE_LIMIT') {
+        return 'This PDF is too long for one pass. Please split it into smaller files (1-5 pages each) and import again.';
+      }
+      if (code == 'PDF_TEXT_EXTRACTION_EMPTY' ||
+          code == 'PDF_PARSE_FAILED' ||
+          code == 'NO_TRANSACTIONS_FOUND' ||
+          code == 'VALIDATION_ERROR') {
+        return 'We could not extract transactions from this file. For PDF imports, use a digital statement or a clearer scan.';
+      }
+      if (code == 'SERVER_ERROR') {
+        return 'Import service is temporarily unavailable. Please try again shortly.';
+      }
+      return error.message;
+    }
+
     final message = error.toString();
     final lower = message.toLowerCase();
 
@@ -269,10 +317,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             responseData = event.data as Map<String, dynamic>;
           } else if (event.event == 'error') {
             streamReportedBackendError = true;
-            final err = (event.data is Map<String, dynamic>)
-                ? (event.data['error']?.toString() ?? 'Failed to analyze PDF')
-                : event.data.toString();
-            throw Exception(err);
+            if (event.data is Map<String, dynamic>) {
+              final data = event.data as Map<String, dynamic>;
+              throw _ImportBackendException(
+                data['error']?.toString() ?? 'Failed to analyze PDF',
+                code: data['code']?.toString(),
+                status: (data['status'] as num?)?.toInt(),
+              );
+            }
+            throw _ImportBackendException(event.data.toString());
           }
         }
       } catch (_) {
@@ -302,7 +355,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     }
 
     if (responseData['success'] != true) {
-      throw Exception(responseData['error'] ?? 'Failed to analyze PDF');
+      throw _ImportBackendException(
+        responseData['error']?.toString() ?? 'Failed to analyze PDF',
+        code: responseData['code']?.toString(),
+        status: (responseData['status'] as num?)?.toInt(),
+      );
     }
 
     final resultData = responseData['data'];
@@ -397,6 +454,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     state = state.copyWith(step: step);
   }
 
+  /// Navigate back to the map-columns step. Used when the mapping step was
+  /// auto-skipped and the user wants to review/adjust column assignments.
+  void goBackToMapColumns() {
+    state = state.copyWith(
+      step: ImportStep.mapColumns,
+      didAutoSkipMapping: false,
+    );
+  }
+
   void updateMapping(ImportField field, int? columnIndex) {
     final current = state.mapping;
     final table = state.table;
@@ -423,14 +489,25 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (sheetIndex < 0 || sheetIndex >= sheets.length) return;
 
     final table = sheets[sheetIndex].table;
-    final mapping = autoMapFields(table.headers);
-    final parsedRows = _parseAndDedupe(table, mapping);
+    final sampleRows =
+        table.rows.length > 10 ? table.rows.sublist(0, 10) : table.rows;
+    final mappingResult = autoMapFieldsWithConfidence(
+      table.headers,
+      sampleRows: sampleRows,
+    );
+    final parsedRows = _parseAndDedupe(
+      table,
+      mappingResult.mapping,
+      deletedRowIndices: const {},
+    );
 
     state = state.copyWith(
       selectedSheetIndex: sheetIndex,
       table: table,
-      mapping: mapping,
+      mapping: mappingResult.mapping,
+      mappingResult: mappingResult,
       parsedRows: parsedRows,
+      clearDeletedRowIndices: true,
     );
   }
 
@@ -465,8 +542,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   void updateParsedRow(ImportParsedRow updated) {
     final rows = [...state.parsedRows];
-    if (updated.index < 0 || updated.index >= rows.length) return;
-    rows[updated.index] = _validateRow(updated);
+    final pos = rows.indexWhere((r) => r.index == updated.index);
+    if (pos < 0) return;
+    rows[pos] = _validateRow(updated);
     final deduped = markDuplicates(
         rows, _existingExpensesForTarget(state.targetHouseholdId));
     state = state.copyWith(parsedRows: deduped);
@@ -474,29 +552,20 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   void deleteParsedRow(int index) {
     final rows = [...state.parsedRows];
-    // Validate existence
-    if (!rows.any((r) => r.index == index)) {
-      throw Exception('Row not found');
-    }
-
-    // Let's just remove it from the list. The 'index' field on ImportParsedRow is used for identification.
+    if (!rows.any((r) => r.index == index)) return;
     final updatedRows = rows.where((r) => r.index != index).toList();
-
-    // We might want to re-dedupe?
-    // If we remove a transaction that was a duplicate of another, the other one remains.
-    // If we remove a transaction that was the *original* that caused others to be duplicates...
-    // The current dedupe logic compares against *existing* DB expenses and *other rows in the list*.
-
     final deduped = markDuplicates(
         updatedRows, _existingExpensesForTarget(state.targetHouseholdId));
 
-    state = state.copyWith(parsedRows: deduped);
+    final deleted = {...state.deletedRowIndices, index};
+    state = state.copyWith(parsedRows: deduped, deletedRowIndices: deleted);
   }
 
   Future<void> importRows() async {
     final table = state.table;
     final mapping = state.mapping;
     if (table == null || mapping == null) return;
+    if (state.isImporting) return;
 
     final authUser = _ref.read(authProvider);
     if (authUser.isEmpty || authUser.uid.isEmpty) {
@@ -510,6 +579,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       failedCount: 0,
       clearErrorMessage: true,
     );
+
     final filterState = _ref.read(homeFilterProvider);
     final analytics = _ref.read(analyticsProvider);
     final defaultCurrency =
@@ -517,52 +587,104 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final targetHouseholdId = state.targetHouseholdId;
     final targetIsPortfolio = state.targetIsPortfolio;
 
-    int success = 0;
-    int failed = 0;
+    // 1. Filter importable rows, counting invalid ones upfront.
+    final importableRows = <ImportParsedRow>[];
+    int preFilterFailed = 0;
 
     for (final row in state.parsedRows) {
       if (!row.isValid) {
-        failed += 1;
+        preFilterFailed += 1;
         continue;
       }
       if (state.skipDuplicates && row.isDuplicate) {
         continue;
       }
+      importableRows.add(row);
+    }
 
+    if (importableRows.isEmpty) {
+      state = state.copyWith(
+        isImporting: false,
+        importedCount: 0,
+        failedCount: preFilterFailed,
+        step: ImportStep.preview,
+      );
+      return;
+    }
+
+    // 2. Convert rows to transaction maps for the batch endpoint.
+    final transactions = importableRows.map((row) {
       final currency = row.currency ?? defaultCurrency;
       final amount = (row.amountCents ?? 0) / 100.0;
-      final endpoint = row.type == 'income' ? 'save-income' : 'save-expense';
-
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
           DateTime(row.date!.year, row.date!.month, row.date!.day, 12);
-      final body = {
-        'userId': authUser.uid,
+
+      return <String, dynamic>{
+        'type': row.type ?? 'expense',
         'amount': amount,
         'category': row.category ?? 'uncategorized',
         'currency': currency,
         'date': dateOnly,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
-        'type': row.type ?? 'expense',
+        if (row.description != null) 'description': row.description,
+      };
+    }).toList(growable: false);
+
+    // 3. Chunk into batches of ≤500 and call save-transactions-batch.
+    int totalSucceeded = 0;
+    int totalFailed = preFilterFailed;
+
+    for (var offset = 0; offset < transactions.length; offset += _batchSize) {
+      final end = (offset + _batchSize > transactions.length)
+          ? transactions.length
+          : offset + _batchSize;
+      final chunk = transactions.sublist(offset, end);
+
+      final body = <String, dynamic>{
+        'userId': authUser.uid,
+        'transactions': chunk,
         if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
           'householdId': targetHouseholdId,
         if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
           'isPortfolio': targetIsPortfolio,
-        if (row.description != null) 'description': row.description,
       };
 
       try {
-        final response = await supabase.functions.invoke(endpoint, body: body);
-        if (response.data == null || response.data['success'] != true) {
-          failed += 1;
+        final response = await supabase.functions.invoke(
+          'save-transactions-batch',
+          body: body,
+        );
+
+        final data = response.data;
+        if (data is Map<String, dynamic>) {
+          // Always read summary regardless of `success` flag — backend sets
+          // success=false when ANY item fails, even if most succeeded.
+          final summary = data['summary'];
+          if (summary is Map<String, dynamic>) {
+            totalSucceeded += (summary['succeeded'] as num?)?.toInt() ?? 0;
+            totalFailed += (summary['failed'] as num?)?.toInt() ?? 0;
+          } else if (data['success'] == true) {
+            // Fallback: no summary but success — assume entire chunk succeeded.
+            totalSucceeded += chunk.length;
+          } else {
+            totalFailed += chunk.length;
+          }
         } else {
-          success += 1;
+          totalFailed += chunk.length;
         }
       } catch (_) {
-        failed += 1;
+        totalFailed += chunk.length;
       }
+
+      // Update progress after each batch for real-time UI feedback.
+      state = state.copyWith(
+        importedCount: totalSucceeded,
+        failedCount: totalFailed,
+      );
     }
 
+    // 4. Refresh analytics after import.
     if (authUser.uid.isNotEmpty &&
         (targetHouseholdId == null || targetHouseholdId.isEmpty)) {
       await _ref.read(analyticsProvider.notifier).loadData(authUser.uid);
@@ -570,23 +692,31 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     state = state.copyWith(
       isImporting: false,
-      importedCount: success,
-      failedCount: failed,
+      importedCount: totalSucceeded,
+      failedCount: totalFailed,
       step: ImportStep.preview,
     );
   }
 
   List<ImportParsedRow> _parseAndDedupe(
-    ImportTable table,
-    ImportMapping mapping,
-  ) {
+      ImportTable table, ImportMapping mapping,
+      {Set<int>? deletedRowIndices}) {
     final rows = <ImportParsedRow>[];
     for (var i = 0; i < table.rows.length; i++) {
       rows.add(parseRow(table.rows[i], mapping, index: i));
     }
 
+    final effectiveDeletedRowIndices =
+        deletedRowIndices ?? state.deletedRowIndices;
+
+    final filteredRows = effectiveDeletedRowIndices.isEmpty
+        ? rows
+        : rows
+            .where((row) => !effectiveDeletedRowIndices.contains(row.index))
+            .toList(growable: false);
+
     return markDuplicates(
-        rows, _existingExpensesForTarget(state.targetHouseholdId));
+        filteredRows, _existingExpensesForTarget(state.targetHouseholdId));
   }
 
   List<ExpenseEntry> _existingExpensesForTarget(String? householdId) {
@@ -607,10 +737,38 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   ImportParsedRow _validateRow(ImportParsedRow row) {
     final errors = <String>[];
-    if (row.date == null) errors.add('invalid_date');
-    if (row.amountCents == null) errors.add('invalid_amount');
-    return row.copyWith(errors: errors);
+    final issues = <RowIssue>[];
+    if (row.date == null) {
+      errors.add('invalid_date');
+      issues.add(RowIssue.invalidDate);
+    }
+    if (row.amountCents == null) {
+      errors.add('invalid_amount');
+      issues.add(RowIssue.invalidAmount);
+    }
+    if (row.currency == null || row.currency!.trim().isEmpty) {
+      issues.add(RowIssue.missingCurrency);
+    }
+    if (row.type == null || row.type!.trim().isEmpty) {
+      issues.add(RowIssue.unknownType);
+    }
+    return row.copyWith(errors: errors, issues: issues);
   }
+}
+
+class _ImportBackendException implements Exception {
+  const _ImportBackendException(
+    this.message, {
+    this.code,
+    this.status,
+  });
+
+  final String message;
+  final String? code;
+  final int? status;
+
+  @override
+  String toString() => message;
 }
 
 /// Top-level function so [compute] can dispatch it to an isolate.
