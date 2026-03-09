@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 
 double _weightOf(OnboardingBudgetRecommendation recommendation, String name) {
@@ -151,6 +152,70 @@ void main() {
     );
 
     expect(recommendation.pockets.any((p) => p.name == 'Shared bills'), true);
+  });
+
+  test('question-only intake still generates a starter budget recommendation',
+      () {
+    final draft = derivePreauthBudgetProfile(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 0,
+        housingType: 'rent',
+        livingSituation: 'renting',
+        billSplitFrequency: 'sometimes',
+        subscriptionsLevel: 'few',
+        eatingOutFrequency: 'sometimes',
+        lifestyleFocus: 'freelancer',
+        primaryGoal: 'save',
+        savingsMode: 'not_sure',
+        selectedCurrency: 'USD',
+      ),
+    );
+    final recommendation = BudgetRecommender.recommend(draft);
+
+    expect(recommendation.hasBlockingError, false);
+    expect(recommendation.totalBudget, greaterThan(0));
+    expect(recommendation.pockets, isNotEmpty);
+  });
+
+  test('commuter lifestyle allocates more transport than student lifestyle',
+      () {
+    final commuter = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 2800,
+        lifestyleFocus: 'commuter',
+      ),
+    );
+    final student = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 2800,
+        lifestyleFocus: 'student',
+      ),
+    );
+
+    expect(
+      _weightOf(commuter, 'Transport'),
+      greaterThan(_weightOf(student, 'Transport')),
+    );
+  });
+
+  test('freelancer lifestyle allocates more buffer than student lifestyle', () {
+    final freelancer = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 3000,
+        lifestyleFocus: 'freelancer',
+      ),
+    );
+    final student = BudgetRecommender.recommend(
+      OnboardingPreauthDraft.initial().copyWith(
+        monthlyBudget: 3000,
+        lifestyleFocus: 'student',
+      ),
+    );
+
+    expect(
+      _weightOf(freelancer, 'Buffer'),
+      greaterThan(_weightOf(student, 'Buffer')),
+    );
   });
 
   test('utilities unknown still includes utilities pocket', () {

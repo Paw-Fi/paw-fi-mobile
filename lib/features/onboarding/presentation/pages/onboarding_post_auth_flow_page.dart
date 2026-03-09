@@ -1,9 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,30 +7,17 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
-import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_actions.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
-import 'package:moneko/features/utils/currency_flags.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
-const _kNotificationsPromptedPrefix = 'notifications_prompted:';
+const _kTotalSteps = 3;
 
 class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   const OnboardingPostAuthFlowPage({
@@ -51,10 +34,11 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
-    final selectedImportFormat = useState<String>('csv');
-    final groupName = useState<String>('');
+    final selectedImportApp = useState<String>('YNAB');
+    final selectedExpenseSource = useState(_ExpenseCaptureSource.textAudio);
+    final loggedExpensePreview =
+        useState<OnboardingLoggedExpensePreview?>(null);
     final isPrimaryBusy = useState(false);
-    const totalSteps = 5;
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -85,45 +69,39 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
     void next() {
       if (!context.mounted) return;
-      if (currentPage.value < totalSteps - 1) {
+      if (currentPage.value < _kTotalSteps - 1) {
         goToPage(currentPage.value + 1);
       } else {
         unawaited(showFinishPage());
       }
     }
 
-    void skip() => next();
+    void skip() {
+      if (currentPage.value == _kTotalSteps - 1) {
+        unawaited(showFinishPage());
+        return;
+      }
+      next();
+    }
 
     Future<void> handleNotificationsFlow() async {
       if (!context.mounted) return;
       if (notificationFlowStarted.value || notificationFlowCompleted.value) {
         if (notificationFlowCompleted.value) {
-          next();
+          await showFinishPage();
         }
         return;
       }
 
       notificationFlowStarted.value = true;
       final uid = ref.read(authProvider).uid;
-      final prefs = ref.read(sharedPreferencesProvider);
-      final deviceRegistration = ref.read(deviceRegistrationServiceProvider);
       try {
-        final promptedKey = '$_kNotificationsPromptedPrefix$uid';
-        final prompted = prefs.getBool(promptedKey) ?? false;
-        if (!prompted) {
-          await prefs.setBool(promptedKey, true);
-        }
-
-        if (!context.mounted) return;
-
-        try {
-          await deviceRegistration.initialize();
-        } catch (_) {}
+        await ref.read(onboardingPostAuthNotificationsActionProvider)(ref, uid);
 
         if (!context.mounted) return;
 
         notificationFlowCompleted.value = true;
-        next();
+        await showFinishPage();
       } finally {
         if (context.mounted) {
           notificationFlowStarted.value = false;
@@ -131,237 +109,53 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> handleLogExpense() async {
+      final preview =
+          await ref.read(onboardingPostAuthLogExpenseActionProvider)(
+        context,
+        ref,
+        selectedExpenseSource.value.label,
+      );
+      if (!context.mounted) return;
+      if (preview != null) {
+        loggedExpensePreview.value = preview;
+        await _showLoggedExpenseResultSheet(context, preview);
+      }
+    }
+
+    Future<void> handleImportExpenses() async {
+      final importedCount =
+          await ref.read(onboardingPostAuthImportExpensesActionProvider)(
+        context,
+        ref,
+        selectedImportApp.value,
+      );
+      if (importedCount != null && importedCount > 0) {
+        next();
+      }
+    }
+
     Future<void> primary() async {
       if (isPrimaryBusy.value) return;
       isPrimaryBusy.value = true;
       try {
-        if (currentPage.value == 0) {
-          final filter = ref.read(homeFilterProvider);
-          final selectedCurrency =
-              (filter.selectedCurrency ?? 'USD').toUpperCase();
-
-          ref
-              .read(homeFilterProvider.notifier)
-              .setSelectedCurrency(selectedCurrency);
-          ref
-              .read(analyticsProvider.notifier)
-              .updatePreferredCurrency(selectedCurrency);
-
-          next();
-
-          unawaited(() async {
-            try {
-              await ref
-                  .read(currencyPreferenceServiceProvider)
-                  .setSelectedCurrency(selectedCurrency);
-            } catch (_) {}
-
-            final userId = supabase.auth.currentSession?.user.id;
-            if (userId == null || userId.isEmpty) return;
-
-            try {
-              await supabase.functions.invoke(
-                'update-preferred-currency',
-                body: {
-                  'currency': selectedCurrency,
-                  'userId': userId,
-                },
-              );
-            } catch (_) {}
-          }());
-          return;
-        }
-
-        if (currentPage.value == 1) {
-          final now = DateTime.now();
-          final monthStart = DateTime(now.year, now.month, 1);
-          final scopeParams = PocketsScopeParams(
-            scope: PocketsScopeType.personal,
-            periodMonth: monthStart,
-          );
-          await ref.read(pocketsProvider(scopeParams).notifier).saveChanges();
-          next();
-          return;
-        }
-
-        if (currentPage.value == 2) {
-          await handleNotificationsFlow();
-          return;
-        }
-
-        if (currentPage.value == 3) {
-          final result = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(
-              builder: (_) => CreateSpacePage(
-                key: UniqueKey(),
-                initialName: groupName.value,
-                fromOnboarding: true,
-              ),
-              fullscreenDialog: true,
-            ),
-          );
-          if (result == true) {
-            next();
-          }
-          return;
-        }
-
-        if (currentPage.value == 4) {
-          final format = selectedImportFormat.value;
-
-          final result = await FilePicker.platform.pickFiles(
-            allowMultiple: false,
-            type: FileType.custom,
-            allowedExtensions: [format],
-            withData: true,
-          );
-
-          if (result == null || result.files.isEmpty) {
-            return;
-          }
-
-          final file = result.files.single;
-          final bytes = file.bytes;
-          if (bytes == null) {
-            if (context.mounted) AppToast.error(context, 'Failed to read file');
-            return;
-          }
-
-          if (bytes.length > 20 * 1024 * 1024) {
-            if (context.mounted) AppToast.error(context, 'File is too large (max 20MB).');
-            return;
-          }
-
-          if (!context.mounted) return;
-          final navigator = Navigator.of(context, rootNavigator: true);
-
-          showBlockingProcessingDialog(
-            context: context,
-            message: 'Extracting transactions using AI',
-          );
-
-          try {
-            final authUser = ref.read(authProvider);
-            final session = supabase.auth.currentSession;
-            if (session == null) throw Exception('No auth session');
-
-            final ext = file.extension?.toLowerCase() ?? format;
-            String contentType = 'text/csv';
-            if (ext == 'pdf') {
-              contentType = 'application/pdf';
-            } else if (ext == 'xlsx') {
-              contentType =
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-            }
-
-            final base64Data = base64Encode(bytes);
-            final filterState = ref.read(homeFilterProvider);
-            final defaultCurrency = filterState.selectedCurrency ?? 'USD';
-
-            final body = {
-              'userId': authUser.uid,
-              'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-              'typeHint': 'mixed',
-              'currency': defaultCurrency.toUpperCase(),
-              'attachments': [
-                {
-                  'filename': file.name,
-                  'contentType': contentType,
-                  'data': base64Data,
-                }
-              ]
-            };
-
-            Map<String, dynamic>? responseData;
-            final supabaseUrl = Constants.supabaseUrl;
-            
-            final sseUrl = Uri.parse('$supabaseUrl/functions/v1/analyze-expense?stream=true');
-            await for (final event in SSEService.streamRequest(
-              url: sseUrl,
-              body: body,
-              headers: <String, String>{
-                'Authorization': 'Bearer ${session.accessToken}',
-              },
-              timeout: const Duration(minutes: 4),
-            )) {
-              if (event.event == 'complete' && event.data is Map<String, dynamic>) {
-                responseData = event.data as Map<String, dynamic>;
-              } else if (event.event == 'error') {
-                final err = (event.data is Map<String, dynamic>)
-                    ? (event.data['error']?.toString() ?? 'Failed to analyze file')
-                    : event.data.toString();
-                throw Exception(err);
-              }
-            }
-
-            if (responseData == null || responseData['success'] != true) {
-              throw Exception(responseData?['error'] ?? 'Failed to analyze file');
-            }
-
-            final resultData = responseData['data'];
-            final items = resultData is Map ? resultData['items'] : null;
-            if (items is! List || items.isEmpty) {
-              throw Exception('No transactions found in the file');
-            }
-
-            int success = 0;
-            
-            for (final item in items) {
-               if (item is! Map) continue;
-               
-               final amountRaw = item['amount'];
-               final amount = amountRaw is num ? amountRaw.toDouble() : double.tryParse(amountRaw?.toString() ?? '') ?? 0.0;
-               if (amount <= 0) continue;
-
-               final type = item['type']?.toString() ?? 'expense';
-               final endpoint = type == 'income' ? 'save-income' : 'save-expense';
-               
-               final dateStr = item['date']?.toString() ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
-               DateTime? parsedDate = DateTime.tryParse(dateStr);
-               parsedDate ??= DateTime.now();
-               
-               final safeTimestamp = DateTime(parsedDate.year, parsedDate.month, parsedDate.day, 12);
-               
-               final saveBody = {
-                 'userId': authUser.uid,
-                 'amount': amount,
-                 'category': item['category']?.toString() ?? 'uncategorized',
-                 'currency': item['currency']?.toString() ?? defaultCurrency.toUpperCase(),
-                 'date': DateFormat('yyyy-MM-dd').format(parsedDate),
-                 'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
-                 'type': type,
-                 if (item['description'] != null) 'description': item['description'].toString(),
-               };
-               
-               try {
-                 final response = await supabase.functions.invoke(endpoint, body: saveBody);
-                 if (response.data != null && response.data['success'] == true) {
-                   success++;
-                 }
-               } catch (_) {}
-            }
-
-            navigator.pop(); // dismiss dialog
-
-            if (success > 0) {
-              await ref.read(analyticsProvider.notifier).loadData(authUser.uid);
+        switch (currentPage.value) {
+          case 0:
+            if (loggedExpensePreview.value != null) {
               next();
             } else {
-              if (context.mounted) {
-                 AppToast.error(context, 'Failed to import transactions');
-              }
+              await handleLogExpense();
             }
-          } catch (e) {
-            navigator.pop(); // dismiss dialog
-            if (context.mounted) {
-              AppToast.error(context, e.toString().replaceAll('Exception: ', ''));
-            }
-          }
-
-          return;
+            return;
+          case 1:
+            await handleImportExpenses();
+            return;
+          case 2:
+            await handleNotificationsFlow();
+            return;
+          default:
+            next();
         }
-
-        next();
       } finally {
         if (context.mounted) {
           isPrimaryBusy.value = false;
@@ -369,12 +163,18 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       }
     }
 
-    useEffect(() {
-      if (currentPage.value == 2) {
-        unawaited(handleNotificationsFlow());
-      }
-      return null;
-    }, [currentPage.value]);
+    Future<void> handleSourceSelection(_ExpenseCaptureSource value) async {
+      if (isPrimaryBusy.value) return;
+      selectedExpenseSource.value = value;
+      await primary();
+    }
+
+    final primaryLabel = switch (currentPage.value) {
+      0 => loggedExpensePreview.value == null ? 'Add expense' : 'Continue',
+      1 => 'Import expenses',
+      2 => 'Turn on notifications',
+      _ => 'Continue',
+    };
 
     return AdaptiveScaffold(
       appBar: null,
@@ -389,29 +189,27 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (i) => currentPage.value = i,
                   children: [
-                    currentPage.value == 0
-                        ? const _CurrencyStep()
-                        : const SizedBox.shrink(),
-                    currentPage.value == 1
-                        ? const _BudgetStep()
-                        : const SizedBox.shrink(),
-                    currentPage.value == 2
-                        ? const _NotificationsStep()
-                        : const SizedBox.shrink(),
-                    currentPage.value == 3
-                        ? _HouseholdStep(
-                            name: groupName.value,
-                            onNameChanged: (v) => groupName.value = v,
-                          )
-                        : const SizedBox.shrink(),
-                    currentPage.value == 4
-                        ? _DataImportSourceStep(
-                            selectedFormat: selectedImportFormat.value,
-                            onFormatSelected: (format) {
-                              selectedImportFormat.value = format;
-                            },
-                          )
-                        : const SizedBox.shrink(),
+                    _LogExpenseStep(
+                      selectedSource: selectedExpenseSource.value,
+                      onSourceChanged: (value) =>
+                          unawaited(handleSourceSelection(value)),
+                      loggedExpensePreview: loggedExpensePreview.value,
+                      onViewResult: loggedExpensePreview.value == null
+                          ? null
+                          : () => unawaited(
+                                _showLoggedExpenseResultSheet(
+                                  context,
+                                  loggedExpensePreview.value!,
+                                ),
+                              ),
+                    ),
+                    _ImportExpensesStep(
+                      selectedApp: selectedImportApp.value,
+                      onAppChanged: (value) {
+                        selectedImportApp.value = value;
+                      },
+                    ),
+                    const _NotificationsStep(),
                   ],
                 ),
               ),
@@ -422,7 +220,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(totalSteps, (i) {
+                      children: List.generate(_kTotalSteps, (i) {
                         final active = currentPage.value == i;
                         return Container(
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -443,25 +241,24 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       width: double.infinity,
                       height: 52,
                       child: PrimaryAdaptiveButton(
-                        onPressed: isPrimaryBusy.value ? null : () => unawaited(primary()),
+                        onPressed: isPrimaryBusy.value
+                            ? null
+                            : () => unawaited(primary()),
                         child: isPrimaryBusy.value
                             ? const SizedBox(
                                 height: 20,
                                 width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : Text(currentPage.value == totalSteps - 1
-                                ? 'Import Expenses'
-                                : context.l10n.continueAction),
+                            : Text(primaryLabel),
                       ),
                     ),
                     const SizedBox(height: 8),
                     PlainAdaptiveButton(
                       onPressed: skip,
                       child: Text(
-                        currentPage.value == totalSteps - 1
-                            ? 'I\'ll do this later'
-                            : context.l10n.skipNow,
+                        'I\'ll do this later',
                         style: TextStyle(color: colorScheme.mutedForeground),
                       ),
                     ),
@@ -486,150 +283,302 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     if (!context.mounted) return;
     if (fromSettings) {
       Navigator.of(context).pop();
-    } else {
-      const isWeb = kIsWeb;
-      final hasSubscription = ref.read(hasActiveSubscriptionProvider);
-      final isSubscriptionLoaded = ref.read(isSubscriptionLoadedProvider);
-      if (!isWeb && isSubscriptionLoaded && !hasSubscription) {
-        context.go('/paywall');
-      } else {
-        context.go('/dashboard');
-      }
+      return;
     }
+    context.go('/paywall');
   }
 }
 
-class _CurrencyStep extends HookConsumerWidget {
-  const _CurrencyStep();
+enum _ExpenseCaptureSource {
+  textAudio('Audio / Text', Icons.graphic_eq_rounded),
+  takePhoto('Take photo', Icons.camera_alt_outlined);
+
+  const _ExpenseCaptureSource(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+Future<void> _showLoggedExpenseResultSheet(
+  BuildContext context,
+  OnboardingLoggedExpensePreview preview,
+) {
+  final colorScheme = Theme.of(context).colorScheme;
+  final amountLabel =
+      '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(preview.amount)}';
+
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: colorScheme.sheetBackground,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.border.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Expense logged',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Here is the result we captured. Review it, then continue when you are ready.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: colorScheme.successBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      amountLabel,
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      preview.description,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _ResultChip(label: preview.sourceLabel),
+                        _ResultChip(label: preview.category),
+                        _ResultChip(label: preview.currency),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: PrimaryAdaptiveButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _LogExpenseStep extends StatelessWidget {
+  const _LogExpenseStep({
+    required this.selectedSource,
+    required this.onSourceChanged,
+    required this.loggedExpensePreview,
+    required this.onViewResult,
+  });
+
+  final _ExpenseCaptureSource selectedSource;
+  final ValueChanged<_ExpenseCaptureSource> onSourceChanged;
+  final OnboardingLoggedExpensePreview? loggedExpensePreview;
+  final VoidCallback? onViewResult;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final selected =
-        ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase() ?? 'USD';
-    final flagPath = getCurrencyFlagPath(selected);
-
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            context.l10n.selectCurrencyForDailySpending,
-            textAlign: TextAlign.center,
+            'Log your first expense',
+            textAlign: TextAlign.start,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
               color: colorScheme.foreground,
+              letterSpacing: -0.5,
+              height: 1.15,
             ),
           ),
-          const SizedBox(height: 16),
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/onboarding1.svg',
-              width: 160,
-              height: 160,
-              fit: BoxFit.contain,
+          const SizedBox(height: 36),
+          SvgPicture.asset(
+            'lib/assets/images/onboarding/onboarding1.svg',
+            height: 180,
+          ),
+          const SizedBox(height: 28),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.55,
+            children: _ExpenseCaptureSource.values.map((source) {
+              return _SourceOptionTile(
+                label: source.label,
+                icon: source.icon,
+                selected: source == selectedSource,
+                onTap: () => onSourceChanged(source),
+              );
+            }).toList(growable: false),
+          ),
+          const SizedBox(height: 20),
+          if (loggedExpensePreview != null)
+            _LoggedExpenseInlineSummary(
+              preview: loggedExpensePreview!,
+              onViewResult: onViewResult,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportExpensesStep extends StatelessWidget {
+  const _ImportExpensesStep({
+    required this.selectedApp,
+    required this.onAppChanged,
+  });
+
+  final String selectedApp;
+  final ValueChanged<String> onAppChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Import your expenses\nfrom another app',
+            textAlign: TextAlign.start,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+              letterSpacing: -0.5,
+              height: 1.15,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
+          SvgPicture.asset(
+            'lib/assets/images/onboarding/onboarding5.svg',
+            height: 180,
+          ),
+          const SizedBox(height: 40),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
             decoration: BoxDecoration(
               color: colorScheme.card,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: colorScheme.border.withValues(alpha: 0.06),
-                width: 1,
+                color: colorScheme.border.withValues(alpha: 0.2),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: 0.06),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  context.l10n.currency,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: colorScheme.mutedForeground),
+                  'Which app are you using now?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                Center(
-                  child: GestureDetector(
-                    onTap: () async {
-                      await showCurrencySelectorModal(
-                        context,
-                        ref,
-                        showAllByDefault: true,
-                      );
-                      final user = ref.read(authProvider);
-                      if (user.uid.isNotEmpty) {
-                        ref.read(analyticsProvider.notifier).refresh(user.uid);
-
-                        final currentView = ref.read(viewModeProvider);
-                        final selectedHousehold =
-                            ref.read(selectedHouseholdProvider);
-                        final householdId =
-                            currentView.mode == ViewMode.household
-                                ? selectedHousehold.householdId
-                                : null;
-                        ref
-                            .read(recurringTransactionsProvider(householdId)
-                                .notifier)
-                            .refresh(user.uid);
-                        ref.invalidate(pocketsProvider);
-                      }
+                const SizedBox(height: 16),
+                Material(
+                  color: colorScheme.surface.withValues(alpha: 0.0),
+                  child: InkWell(
+                    onTap: () {
+                      MonekoActionSheet.show<String>(
+                        context: context,
+                        title: 'Select app',
+                        actions: _kImportApps
+                            .map(
+                              (app) => MonekoActionSheetAction(
+                                label: app,
+                                value: app,
+                              ),
+                            )
+                            .toList(growable: false),
+                      ).then((app) {
+                        if (app != null) {
+                          onAppChanged(app);
+                        }
+                      });
                     },
+                    borderRadius: BorderRadius.circular(999),
                     child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
-                        color: colorScheme.selectedStateBackground,
-                        borderRadius: BorderRadius.circular(22),
+                        color: colorScheme.appBackground,
+                        borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: colorScheme.controlBorder,
-                          width: 1,
+                          color: colorScheme.border.withValues(alpha: 0.5),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.spotlightShadow,
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (flagPath != null) ...[
-                            ClipOval(
-                              child: Image.asset(
-                                flagPath,
-                                width: 20,
-                                height: 20,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
                           Text(
-                            selected,
+                            selectedApp,
                             style: TextStyle(
-                              color: colorScheme.foreground,
+                              fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              fontSize: 16,
+                              color: colorScheme.foreground,
                             ),
                           ),
                           const SizedBox(width: 4),
                           Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 18,
-                            color: colorScheme.mutedForeground,
+                            Icons.arrow_drop_down_rounded,
+                            size: 20,
+                            color: colorScheme.foreground,
                           ),
                         ],
                       ),
@@ -638,70 +587,6 @@ class _CurrencyStep extends HookConsumerWidget {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BudgetStep extends HookConsumerWidget {
-  const _BudgetStep();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month, 1);
-    final scopeParams = PocketsScopeParams(
-      scope: PocketsScopeType.personal,
-      periodMonth: monthStart,
-    );
-    final state = ref.watch(pocketsProvider(scopeParams));
-    final notifier = ref.read(pocketsProvider(scopeParams).notifier);
-
-    final currency =
-        (ref.watch(homeFilterProvider).selectedCurrency ?? 'USD').toUpperCase();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.createSpendingLimitForCategory,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/onboarding2.svg',
-              width: 160,
-              height: 160,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(height: 24),
-          PocketsHeaderCard(
-            totalBudget: state.totalBudget,
-            totalAllocated: state.saved
-                .fold<double>(0.0, (s, p) => s + (p.budgetAmountCents / 100.0)),
-            totalSpent: state.totalSpent,
-            periodMonth: state.periodMonth,
-            previousBudget: state.previousBudget,
-            onReusePrevious: state.previousBudget > 0
-                ? () => notifier.reusePreviousBudget(state.previousBudget)
-                : null,
-            colorScheme: colorScheme,
-            onTotalChanged: notifier.updateTotalBudget,
-            onSave: () async => notifier.saveChanges(),
-            currency: currency,
-            onDateSelected: (_) {},
           ),
         ],
       ),
@@ -722,31 +607,29 @@ class _NotificationsStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            context.l10n.getNotifiedBeforeSpendingLimit,
-            textAlign: TextAlign.center,
+            'Get notified before you\noverspend',
+            textAlign: TextAlign.start,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
               color: colorScheme.foreground,
+              letterSpacing: -0.5,
+              height: 1.15,
             ),
           ),
-          const SizedBox(height: 16),
-          Center(
-            child: SvgPicture.asset(
-              'lib/assets/images/onboarding/onboarding3.svg',
-              width: 160,
-              height: 160,
-              fit: BoxFit.contain,
-            ),
+          const SizedBox(height: 40),
+          SvgPicture.asset(
+            'lib/assets/images/onboarding/onboarding3.svg',
+            height: 180,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 40),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: colorScheme.card,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: colorScheme.border.withValues(alpha: 0.06),
+                color: colorScheme.border.withValues(alpha: 0.08),
                 width: 1,
               ),
               boxShadow: [
@@ -778,7 +661,7 @@ class _NotificationsStep extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.newMessage,
+                        'New Message',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
@@ -786,7 +669,7 @@ class _NotificationsStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        context.l10n.closeToSpendingLimit,
+                        'You\'re close to your spending limit',
                         style: TextStyle(color: colorScheme.mutedForeground),
                       ),
                     ],
@@ -801,244 +684,113 @@ class _NotificationsStep extends StatelessWidget {
   }
 }
 
-class _HouseholdStep extends HookWidget {
-  const _HouseholdStep({required this.name, required this.onNameChanged});
+class _SourceOptionTile extends StatelessWidget {
+  const _SourceOptionTile({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final String name;
-  final ValueChanged<String> onNameChanged;
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final controller = useTextEditingController(text: name);
-
-    useEffect(() {
-      void listener() => onNameChanged(controller.text);
-      controller.addListener(listener);
-      return () => controller.removeListener(listener);
-    }, [controller]);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              context.l10n.inviteOthersToShareBudget,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.foreground,
-              ),
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.18)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.border.withValues(alpha: 0.25),
             ),
-            const SizedBox(height: 16),
-            Center(
-              child: SvgPicture.asset(
-                'lib/assets/images/onboarding/onboarding4.svg',
-                width: 160,
-                height: 160,
-                fit: BoxFit.contain,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-              decoration: BoxDecoration(
-                color: colorScheme.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.border.withValues(alpha: 0.06),
-                  width: 1,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: colorScheme.foreground),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.shadow.withValues(alpha: 0.08),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    context.l10n.createSpace,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: colorScheme.mutedForeground),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    textInputAction: TextInputAction.done,
-                    style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: context.l10n.householdNameHint,
-                      hintStyle: TextStyle(
-                        color:
-                            colorScheme.mutedForeground.withValues(alpha: 0.6),
-                      ),
-                      filled: true,
-                      fillColor: colorScheme.cardSurface,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.12),
-                          width: 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.12),
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide:
-                            BorderSide(color: colorScheme.primary, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _DataImportSourceStep extends StatelessWidget {
-  const _DataImportSourceStep({
-    required this.selectedFormat,
-    required this.onFormatSelected,
+class _LoggedExpenseInlineSummary extends StatelessWidget {
+  const _LoggedExpenseInlineSummary({
+    required this.preview,
+    required this.onViewResult,
   });
 
-  final String selectedFormat;
-  final ValueChanged<String> onFormatSelected;
+  final OnboardingLoggedExpensePreview preview;
+  final VoidCallback? onViewResult;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final amountLabel =
+        '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(preview.amount)}';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.successBorder),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: colorScheme.success),
+              const SizedBox(width: 8),
+              Text(
+                'Expense logged',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Text(
-            'Bring your expenses from\nanother app',
-            textAlign: TextAlign.start,
+            '$amountLabel - ${preview.description}',
             style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
+              fontSize: 13,
               color: colorScheme.foreground,
-              letterSpacing: -0.5,
-              height: 1.15,
             ),
           ),
-          const SizedBox(height: 48),
-          SvgPicture.asset(
-            'lib/assets/images/onboarding/onboarding5.svg',
-            height: 220,
-          ),
-          const SizedBox(height: 48),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  'Upload File',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Material(
-                  color: colorScheme.surface.withValues(alpha: 0.0),
-                  child: InkWell(
-                    onTap: () {
-                      MonekoActionSheet.show<String>(
-                        context: context,
-                        title: 'Select File Format',
-                        actions: [
-                          MonekoActionSheetAction(
-                            label: 'CSV File',
-                            value: 'csv',
-                          ),
-                          MonekoActionSheetAction(
-                            label: 'PDF File',
-                            value: 'pdf',
-                          ),
-                          MonekoActionSheetAction(
-                            label: 'Excel File (XLSX)',
-                            value: 'xlsx',
-                          ),
-                        ],
-                      ).then((format) {
-                        if (format != null) {
-                          onFormatSelected(format);
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.appBackground,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.insert_drive_file_rounded,
-                            size: 18,
-                            color: colorScheme.foreground,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            selectedFormat.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_drop_down_rounded,
-                            size: 20,
-                            color: colorScheme.foreground,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          const SizedBox(height: 10),
+          PlainAdaptiveButton(
+            onPressed: onViewResult,
+            child: const Text('View result'),
           ),
         ],
       ),
@@ -1046,3 +798,36 @@ class _DataImportSourceStep extends StatelessWidget {
   }
 }
 
+class _ResultChip extends StatelessWidget {
+  const _ResultChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.foreground,
+        ),
+      ),
+    );
+  }
+}
+
+const _kImportApps = <String>[
+  'YNAB',
+  'Mint',
+  'Monarch',
+  'Copilot',
+  'Other',
+];

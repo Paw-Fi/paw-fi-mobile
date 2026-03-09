@@ -1110,6 +1110,7 @@ class _UnifiedPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -1142,9 +1143,11 @@ class _UnifiedPlanCard extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? scheme.surfaceContainerHighest
-                      : scheme.surface,
+                  color: isDark 
+                      ? const Color(0xFF17181D)
+                      : (isSelected
+                          ? scheme.surfaceContainerHighest
+                          : scheme.surface),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: isSelected
@@ -1176,15 +1179,22 @@ class _UnifiedPlanCard extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
-                              color: scheme.primary,
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFF7458FF),
+                                  Color(0xFFA855F7),
+                                ],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               plan.badgeText!,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
-                                color: scheme.onPrimary,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -1246,7 +1256,7 @@ class _UnifiedPlanCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: scheme.onSurface,
+                        color: scheme.primary,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -1363,7 +1373,7 @@ class _AppRatingBadge extends StatelessWidget {
                   children: [
                     for (int i = 0; i < 4; i++)
                       const Icon(Icons.star_rounded,
-                          color: Colors.amber, size: 16),
+                          color: Color(0xFFFCB860), size: 16),
                     Stack(
                       children: [
                         Icon(Icons.star_rounded,
@@ -1372,7 +1382,7 @@ class _AppRatingBadge extends StatelessWidget {
                         ClipRect(
                           clipper: _FractionalClipper(0.8),
                           child: const Icon(Icons.star_rounded,
-                              color: Colors.amber, size: 16),
+                              color: Color(0xFFFCB860), size: 16),
                         ),
                       ],
                     ),
@@ -1424,9 +1434,9 @@ class _BenefitsChecklist extends StatelessWidget {
             children: [
               Container(
                 margin: const EdgeInsets.only(top: 2),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: scheme.primary,
+                  color: Color(0xFFFF8ED4),
                 ),
                 padding: const EdgeInsets.all(2),
                 child: Icon(

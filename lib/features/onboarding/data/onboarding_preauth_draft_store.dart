@@ -94,7 +94,7 @@ class OnboardingPreauthDraft {
   static OnboardingPreauthDraft initial() {
     return OnboardingPreauthDraft(
       currentStep: 0,
-      flowVersion: 2,
+      flowVersion: 4,
       selectedCurrency: 'USD',
       monthlyBudget: 0,
       wantsSharedSpace: false,

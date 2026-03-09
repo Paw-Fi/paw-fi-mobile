@@ -129,7 +129,7 @@ class WidgetService {
   }
 
   Future<void> saveConfigurationOptions({
-    required List<Map<String, String>> households, // id, name
+    required List<Map<String, Object?>> households,
     required List<String> currencies,
   }) async {
     try {

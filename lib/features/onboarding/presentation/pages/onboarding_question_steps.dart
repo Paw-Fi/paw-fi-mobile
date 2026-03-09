@@ -20,46 +20,24 @@ class OnboardingQuestionStep {
 
 const onboardingSharedQuestionSteps = <OnboardingQuestionStep>[
   OnboardingQuestionStep(
-    title: 'What do you want help with?',
+    title: 'What\'s your housing situation?',
     options: [
+      OnboardingQuestionOption(label: 'Mortgage', value: 'mortgage'),
+      OnboardingQuestionOption(label: 'Renting', value: 'rent'),
       OnboardingQuestionOption(
-        label: 'Keep track of shared expenses',
-        value: 'keep_shared_expenses',
+        label: 'Living with family',
+        value: 'family_home',
       ),
-      OnboardingQuestionOption(label: 'Split bills', value: 'split_bills'),
-      OnboardingQuestionOption(
-        label: 'Stay on top of spending',
-        value: 'stay_on_top',
-      ),
-      OnboardingQuestionOption(
-        label: 'Track my own spending',
-        value: 'track_spending',
-      ),
-      OnboardingQuestionOption(
-        label: 'Plan a trip or event',
-        value: 'trip_event',
-      ),
-      OnboardingQuestionOption(
-        label: 'Keep track of receipts',
-        value: 'track_receipts',
-      ),
+      OnboardingQuestionOption(label: 'Own home', value: 'paid_off'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Where do you live?',
-    options: [
-      OnboardingQuestionOption(label: 'Renting', value: 'renting'),
-      OnboardingQuestionOption(label: 'On my home', value: 'owning'),
-      OnboardingQuestionOption(label: 'With roommates', value: 'roommates'),
-      OnboardingQuestionOption(label: 'With family', value: 'family'),
-    ],
-  ),
-  OnboardingQuestionStep(
-    title: 'How often do you eat out?',
+    title: 'Do you split expenses with others?',
     options: [
       OnboardingQuestionOption(label: 'Often', value: 'often'),
       OnboardingQuestionOption(label: 'Sometimes', value: 'sometimes'),
       OnboardingQuestionOption(label: 'Rarely', value: 'rarely'),
+      OnboardingQuestionOption(label: 'Never', value: 'none'),
     ],
   ),
   OnboardingQuestionStep(
@@ -71,10 +49,49 @@ const onboardingSharedQuestionSteps = <OnboardingQuestionStep>[
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Do you have pets?',
+    title: 'How often do you eat out?',
     options: [
-      OnboardingQuestionOption(label: 'Yes', value: 'yes'),
-      OnboardingQuestionOption(label: 'No', value: 'no'),
+      OnboardingQuestionOption(label: 'Often', value: 'often'),
+      OnboardingQuestionOption(label: 'Sometimes', value: 'sometimes'),
+      OnboardingQuestionOption(label: 'Rarely', value: 'rarely'),
+    ],
+  ),
+  OnboardingQuestionStep(
+    title: 'Which spending style sounds most like you?',
+    options: [
+      OnboardingQuestionOption(label: 'Student budget', value: 'student'),
+      OnboardingQuestionOption(
+        label: 'Freelancer income',
+        value: 'freelancer',
+      ),
+      OnboardingQuestionOption(label: 'Daily commute', value: 'commuter'),
+      OnboardingQuestionOption(label: 'Food and fun', value: 'foodies'),
+    ],
+  ),
+  OnboardingQuestionStep(
+    title: 'What is your main money goal right now?',
+    options: [
+      OnboardingQuestionOption(label: 'Stay balanced', value: 'balanced'),
+      OnboardingQuestionOption(label: 'Save more', value: 'save'),
+      OnboardingQuestionOption(label: 'Pay off debt', value: 'debt'),
+      OnboardingQuestionOption(
+        label: 'Travel or experiences',
+        value: 'travel',
+      ),
+    ],
+  ),
+  OnboardingQuestionStep(
+    title: 'Do you want to set a savings target?',
+    options: [
+      OnboardingQuestionOption(
+        label: 'Save a fixed amount each month',
+        value: 'amount',
+      ),
+      OnboardingQuestionOption(
+        label: 'Save a percentage of income',
+        value: 'percent',
+      ),
+      OnboardingQuestionOption(label: 'Not sure yet', value: 'not_sure'),
     ],
   ),
 ];

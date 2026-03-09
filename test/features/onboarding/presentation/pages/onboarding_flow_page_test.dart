@@ -109,14 +109,6 @@ Future<void> _tapSkip(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 350));
 }
 
-Future<void> _tapText(WidgetTester tester, String text) async {
-  final finder = find.text(text, skipOffstage: false);
-  expect(finder, findsOneWidget);
-  await tester.tap(finder);
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 250));
-}
-
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -199,7 +191,8 @@ void main() {
     // Intro slides 1-3
     await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800)); // Wait for 650ms AnimatedSwitcher to complete
+    await tester.pump(const Duration(
+        milliseconds: 800)); // Wait for 650ms AnimatedSwitcher to complete
     await tester.tap(find.byIcon(Icons.arrow_forward_rounded).first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
@@ -213,18 +206,6 @@ void main() {
     await tester.tap(getStartedButton);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
-
-    // Questions 1-5
-    await _tapText(tester, 'Keep track of shared expenses');
-    await _tapPrimary(tester);
-    await _tapText(tester, 'Renting');
-    await _tapPrimary(tester);
-    await _tapText(tester, 'Sometimes');
-    await _tapPrimary(tester);
-    await _tapText(tester, 'A few');
-    await _tapPrimary(tester);
-    await _tapText(tester, 'No');
-    await _tapPrimary(tester);
 
     expect(find.text('PreAuthOnboarding'), findsOneWidget);
   });

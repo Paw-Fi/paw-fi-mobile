@@ -168,6 +168,32 @@ class BudgetRecommender {
       variablePoints['Transport'] = variablePoints['Transport']! + 0.1;
     }
 
+    switch (draft.lifestyleFocus) {
+      case 'student':
+        variablePoints['Groceries'] = variablePoints['Groceries']! + 0.15;
+        variablePoints['True expenses'] =
+            variablePoints['True expenses']! + 0.1;
+        variablePoints['Fun'] = math.max(0.3, variablePoints['Fun']! - 0.15);
+        variablePoints['Everyday spending'] =
+            math.max(0.55, variablePoints['Everyday spending']! - 0.1);
+        break;
+      case 'freelancer':
+        variablePoints['Buffer'] = variablePoints['Buffer']! + 0.25;
+        variablePoints['True expenses'] =
+            variablePoints['True expenses']! + 0.25;
+        break;
+      case 'commuter':
+        variablePoints['Transport'] = variablePoints['Transport']! + 0.25;
+        break;
+      case 'foodies':
+        variablePoints['Dining out'] =
+            (variablePoints['Dining out'] ?? 0.45) + 0.2;
+        variablePoints['Fun'] = variablePoints['Fun']! + 0.15;
+        break;
+      default:
+        break;
+    }
+
     if (draft.primaryGoal == 'travel' ||
         draft.planAheadSelections.contains('travel')) {
       variablePoints['Travel / event fund'] = 0.7;
@@ -236,7 +262,7 @@ class BudgetRecommender {
     }
     if (housingEstimatedAmount != null && housingEstimatedAmount > 0) {
       warnings.add(
-        'Housing is estimated because you selected "Not sure". Update this amount once you know it.',
+        'Housing is estimated from your housing situation. Update this amount once you know it.',
       );
     }
 
@@ -280,13 +306,24 @@ class BudgetRecommender {
     OnboardingPreauthDraft draft,
     double total,
   ) {
+    if (draft.housingType == 'family_home') {
+      return total * 0.12;
+    }
+    if (draft.housingType == 'paid_off') {
+      return total * 0.08;
+    }
+    if ((draft.housingType == 'rent' || draft.housingType == 'mortgage') &&
+        draft.housingPayment <= 0) {
+      final ratio = draft.housingType == 'mortgage' ? 0.31 : 0.28;
+      return total * ratio;
+    }
     if (draft.housingType != 'not_sure') {
       return null;
     }
 
     final ratio = switch (draft.livingSituation) {
       'roommates' => 0.22,
-      'family' => 0.32,
+      'family' => 0.16,
       'owning' => 0.30,
       _ => 0.28,
     };
@@ -302,7 +339,7 @@ class BudgetRecommender {
 
     final ratio = switch (draft.livingSituation) {
       'roommates' => 0.06,
-      'family' => 0.10,
+      'family' => 0.07,
       _ => 0.08,
     };
 

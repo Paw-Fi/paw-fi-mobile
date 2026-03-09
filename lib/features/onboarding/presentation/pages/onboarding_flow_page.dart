@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -1649,7 +1650,9 @@ class _PocketsIntroStep extends HookConsumerWidget {
       return null;
     }, []);
 
-    final draft = ref.read(onboardingPreauthDraftStoreProvider).load();
+    final draft = derivePreauthBudgetProfile(
+      ref.read(onboardingPreauthDraftStoreProvider).load(),
+    );
     final recommendation = BudgetRecommender.recommend(draft);
     final previewTotal = draft.monthlyBudget > 0 ? draft.monthlyBudget : 1.0;
     final previewPockets = recommendation.pockets

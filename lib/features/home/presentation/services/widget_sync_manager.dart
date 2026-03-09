@@ -48,19 +48,28 @@ class WidgetSyncManager extends HookConsumerWidget {
     // Ensure configuration options (households + currencies) are always saved
     // for the iOS AppIntent, independent of analytics loading state.
     useEffect(() {
-      if (user.uid.isEmpty || householdsAsync.isLoading) {
+      if (user.uid.isEmpty ||
+          householdsAsync.isLoading ||
+          householdsAsync.hasError ||
+          householdsAsync.valueOrNull == null) {
         return null;
       }
 
-      final households = householdsAsync.valueOrNull ?? [];
+      final households = householdsAsync.valueOrNull!;
 
       Future<void> syncConfigOptions() async {
         final allSupportedCurrencies = currencyOptions.keys.toList();
 
         await WidgetService().saveConfigurationOptions(
           households: [
-            {'id': 'personal', 'name': 'Personal'},
-            ...households.map((h) => {'id': h.id, 'name': h.name}),
+            {'id': 'personal', 'name': 'Personal', 'isPortfolio': false},
+            ...households.map(
+              (h) => {
+                'id': h.id,
+                'name': h.name,
+                'isPortfolio': h.isPortfolio,
+              },
+            ),
           ],
           currencies: allSupportedCurrencies,
         );

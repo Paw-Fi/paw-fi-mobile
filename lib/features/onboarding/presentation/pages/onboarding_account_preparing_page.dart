@@ -16,6 +16,7 @@ import 'package:moneko/features/households/presentation/utils/household_creation
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
+import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'dart:io';
@@ -211,8 +212,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         progressValue: 0.85,
       );
 
+      final preparedDraft = derivePreauthBudgetProfile(draft);
+
       try {
-        final recommendation = BudgetRecommender.recommend(draft);
+        final recommendation = BudgetRecommender.recommend(preparedDraft);
         if (recommendation.hasBlockingError) {
           setProgressState(
             progressValue: 0.85,
@@ -221,7 +224,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             done: false,
           );
         }
-        if (draft.monthlyBudget > 0) {
+        if (preparedDraft.monthlyBudget > 0) {
           final now = DateTime.now();
           final monthStart = DateTime(now.year, now.month, 1);
           final periodMonth =
@@ -231,7 +234,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             final query = supabase
                 .from('budgets')
                 .select('id')
-                .eq('period_month', periodMonth);
+                .eq('period_month', periodMonth)
+                .eq('currency', preparedDraft.selectedCurrency);
 
             if (householdId == null) {
               final row = await query
@@ -258,7 +262,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             await ref
                 .read(pocketsProvider(personalParams).notifier)
                 .createBudgetFromTemplate(
-                  totalBudget: draft.monthlyBudget,
+                  totalBudget: preparedDraft.monthlyBudget,
                   pockets: recommendation.pockets,
                 );
           }
@@ -275,7 +279,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               await ref
                   .read(pocketsProvider(householdParams).notifier)
                   .createBudgetFromTemplate(
-                    totalBudget: draft.monthlyBudget,
+                    totalBudget: preparedDraft.monthlyBudget,
                     pockets: recommendation.pockets,
                   );
             }
@@ -298,7 +302,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           'onboarding_profile:${user.uid}',
           jsonEncode(
             {
-              'monthlyBudget': draft.monthlyBudget,
+              'monthlyBudget': preparedDraft.monthlyBudget,
               'wantsSharedSpace': draft.wantsSharedSpace,
               'spaceName': draft.spaceName,
               'spaceImageUrl': draft.spaceImageUrl,
