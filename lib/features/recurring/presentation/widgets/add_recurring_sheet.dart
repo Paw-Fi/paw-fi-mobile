@@ -2179,3 +2179,25 @@ class AddRecurringSheet extends HookConsumerWidget {
     return '${effectiveType.name}|${entries.map((e) => '${e.key}:${e.value}').join(',')}';
   }
 }
+
+Future<void> showAddRecurringSheet(
+  BuildContext context, {
+  required String type,
+  RecurringTransaction? existingTransaction,
+}) {
+  final colorScheme = Theme.of(context).colorScheme;
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: AddRecurringSheet(
+        type: type,
+        existingTransaction: existingTransaction,
+      ),
+    ),
+  );
+}

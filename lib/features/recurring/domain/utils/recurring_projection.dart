@@ -5,11 +5,26 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 
 DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+final RegExp _projectedRecurringExpenseIdPattern =
+    RegExp(r'^recurring_(.+)_([0-9]{8})$');
+
 String _dateKey(DateTime d) {
   final y = d.year.toString().padLeft(4, '0');
   final m = d.month.toString().padLeft(2, '0');
   final day = d.day.toString().padLeft(2, '0');
   return '$y$m$day';
+}
+
+String buildProjectedRecurringExpenseId(
+  String recurringTransactionId,
+  DateTime occurrenceDate,
+) {
+  return 'recurring_${recurringTransactionId}_${_dateKey(occurrenceDate)}';
+}
+
+String? extractRecurringTransactionIdFromProjectedExpenseId(String expenseId) {
+  final match = _projectedRecurringExpenseIdPattern.firstMatch(expenseId);
+  return match?.group(1);
 }
 
 int _clampDayOfMonth(
@@ -236,7 +251,7 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
 
       result.add(
         ExpenseEntry(
-          id: 'recurring_${r.id}_${_dateKey(day)}',
+          id: buildProjectedRecurringExpenseId(r.id, day),
           householdId: r.householdId,
           userId: ownerUserId,
           date: day,

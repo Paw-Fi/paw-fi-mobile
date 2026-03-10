@@ -31,8 +31,11 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 // ============================================================================
@@ -85,16 +88,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<ExpenseEntry> _baseExpenses = const [];
 
+  String? get _recurringScopeHouseholdId {
+    final householdScope = ref.read(householdScopeProvider);
+    return widget.householdId ??
+        (householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : householdScope.activeAccountHouseholdId);
+  }
+
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final householdScope = ref.watch(householdScopeProvider);
-    final recurringHouseholdId = widget.householdId ??
-        (householdScope.activeAccountType == ActiveAccountType.personal
-            ? null
-            : householdScope.activeAccountHouseholdId);
+    final recurringHouseholdId = _recurringScopeHouseholdId;
     // Exclude recurring templates from the transactions list.
     // Also copy to avoid mutating the base list when sorting.
     var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
@@ -216,6 +224,75 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final symbol = resolveCurrencySymbol(code);
     final localized = formatLocalizedNumber(context, normalized);
     return '$symbol$localized';
+  }
+
+  RecurringTransaction? _findRecurringTransactionForExpense(
+    ExpenseEntry expense,
+  ) {
+    final recurringId = extractRecurringTransactionIdFromProjectedExpenseId(
+      expense.id,
+    );
+    if (recurringId == null) {
+      return null;
+    }
+
+    final transactions = ref
+        .read(recurringTransactionsProvider(_recurringScopeHouseholdId))
+        .data
+        .valueOrNull;
+    if (transactions == null) {
+      return null;
+    }
+
+    for (final transaction in transactions) {
+      if (transaction.id == recurringId) {
+        return transaction;
+      }
+    }
+
+    return null;
+  }
+
+  void _openRecurringTransactionEditor(RecurringTransaction transaction) {
+    showAddRecurringSheet(
+      context,
+      type: transaction.type,
+      existingTransaction: transaction,
+    );
+  }
+
+  Widget _buildUpcomingRecurringBannerSliver(ColorScheme colorScheme) {
+    final hasActivePageFilters = searchQuery.isNotEmpty ||
+        selectedCategory != 'all' ||
+        selectedType != 'all' ||
+        _selectedDateFilter != DateRangeFilter.allTime;
+    if (hasActivePageFilters) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final filterState = ref.watch(homeFilterProvider);
+    final upcoming = ref.watch(
+      upcomingRecurringTransactionProvider(
+        UpcomingRecurringScope(
+          householdId: _recurringScopeHouseholdId,
+          currency: filterState.selectedCurrency,
+        ),
+      ),
+    );
+
+    if (upcoming == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: UpcomingRecurringBanner(
+          upcoming: upcoming,
+          onTap: () => _openRecurringTransactionEditor(upcoming.transaction),
+        ),
+      ),
+    );
   }
 
   @override
@@ -427,6 +504,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ]
                 ],
               ),
+
+              _buildUpcomingRecurringBannerSliver(colorScheme),
 
               // Search Bar
               SliverToBoxAdapter(
@@ -1473,7 +1552,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         expense.userId == currentUserId;
 
     final isSelected = _selectedIds.contains(expense.id);
-    final isProjectedRecurring = expense.id.startsWith('recurring_');
+    final projectedRecurringTransaction =
+        _findRecurringTransactionForExpense(expense);
+    final isProjectedRecurring = projectedRecurringTransaction != null;
 
     return Slidable(
       key: ValueKey(expense.id),
@@ -1508,7 +1589,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 }
               });
             } else {
-              if (!isProjectedRecurring) {
+              if (isProjectedRecurring) {
+                _openRecurringTransactionEditor(projectedRecurringTransaction);
+              } else {
                 showUnifiedTransactionSheet(context,
                     existingExpense: expense, contact: contact);
               }
@@ -1588,8 +1671,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,
                           showYouLabel: isYou,
-                          showRecurringChip:
-                              expense.id.startsWith('recurring_'),
+                          showRecurringChip: isProjectedRecurring,
                         ),
                       ),
                     ],

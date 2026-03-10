@@ -16,101 +16,9 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/core/navigation/navigation_providers.dart';
-import 'package:moneko/features/utils/currency.dart';
-import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-
-String _buildUpcomingDueLabel(BuildContext context, int daysUntil) {
-  if (daysUntil <= 0) return context.l10n.today;
-  if (daysUntil == 1) return context.l10n.tomorrow;
-  return context.l10n.inDays(daysUntil);
-}
-
-Widget _buildUpcomingRecurringTile({
-  required BuildContext context,
-  required ColorScheme colorScheme,
-  required UpcomingRecurringTransaction upcoming,
-  required VoidCallback onTap,
-}) {
-  final transaction = upcoming.transaction;
-  final isIncome = transaction.type == 'income';
-  final title =
-      isIncome ? context.l10n.upcomingPaychecks : context.l10n.upcomingBills;
-  final dueLabel = _buildUpcomingDueLabel(context, upcoming.daysUntil);
-  final normalized = double.parse(formatAmount(transaction.amount.abs()));
-  final localized = formatLocalizedNumber(context, normalized);
-  final symbol = resolveCurrencySymbol(transaction.currency);
-  final sign = isIncome ? '+' : '-';
-  final amountText = '$sign$symbol$localized';
-
-  return Material(
-    color: colorScheme.surface.withValues(alpha: 0.0),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        decoration: BoxDecoration(
-          color: colorScheme.muted,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colorScheme.mutedForeground.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.repeat,
-                color: colorScheme.mutedForeground,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    dueLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              amountText,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
 Widget buildRecentTransactionsCard(
   BuildContext context,
@@ -184,12 +92,14 @@ Widget buildRecentTransactionsCard(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (upcoming != null) ...[
-                  _buildUpcomingRecurringTile(
-                    context: context,
-                    colorScheme: colorScheme,
+                  UpcomingRecurringBanner(
                     upcoming: upcoming,
                     onTap: () {
-                      ref.read(mainShellTabIndexProvider.notifier).state = 1;
+                      showAddRecurringSheet(
+                        context,
+                        type: upcoming.transaction.type,
+                        existingTransaction: upcoming.transaction,
+                      );
                     },
                   ),
                   const SizedBox(height: 12),
@@ -245,8 +155,8 @@ Widget buildRecentTransactionsCard(
                                     return;
                                   }
 
-                                  final rootNavigator =
-                                      Navigator.of(context, rootNavigator: true);
+                                  final rootNavigator = Navigator.of(context,
+                                      rootNavigator: true);
                                   final toastContext = rootNavigator.context;
                                   var dialogOpen = false;
                                   void closeDialog() {
@@ -290,31 +200,37 @@ Widget buildRecentTransactionsCard(
                                       if (householdId != null) {
                                         ref
                                             .read(cacheInvalidatorProvider)
-                                            .invalidateHouseholdData(householdId);
+                                            .invalidateHouseholdData(
+                                                householdId);
                                         ref.invalidate(
                                             userHouseholdsProvider(uid));
-                                        ref.invalidate(householdExpensesProvider);
+                                        ref.invalidate(
+                                            householdExpensesProvider);
                                         ref.invalidate(
                                             cachedHouseholdExpensesProvider);
                                         ref.invalidate(householdSplitsProvider);
                                         ref.invalidate(
                                             cachedHouseholdSplitsProvider);
-                                        ref.invalidate(householdBudgetsProvider);
-                                        ref.invalidate(householdMembersProvider);
+                                        ref.invalidate(
+                                            householdBudgetsProvider);
+                                        ref.invalidate(
+                                            householdMembersProvider);
                                       }
 
                                       // Keep other tabs and the currency selector in sync.
                                       ref.invalidate(pocketsProvider);
                                       ref.invalidate(
                                           currencyTransactionCountsProvider);
-                                      AppToast.success(
-                                          toastContext, l10n.transactionDeleted);
+                                      AppToast.success(toastContext,
+                                          l10n.transactionDeleted);
                                     } else {
-                                      final payload = res.data is Map<String, dynamic>
+                                      final payload = res.data
+                                              is Map<String, dynamic>
                                           ? (res.data as Map<String, dynamic>)
                                           : null;
                                       final message =
-                                          (payload?['error'] as String?)?.trim();
+                                          (payload?['error'] as String?)
+                                              ?.trim();
                                       AppToast.error(
                                         toastContext,
                                         (message != null && message.isNotEmpty)
@@ -327,7 +243,8 @@ Widget buildRecentTransactionsCard(
                                     if (context.mounted) {
                                       AppToast.error(
                                         toastContext,
-                                        ErrorHandler.getUserFriendlyMessage(err),
+                                        ErrorHandler.getUserFriendlyMessage(
+                                            err),
                                       );
                                     }
                                   } finally {

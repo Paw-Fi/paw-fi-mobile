@@ -128,6 +128,7 @@ Future<RecurrenceSelection?> showRecurrencePicker({
     const RecurrenceSelection(frequency: 'biweekly'),
     const RecurrenceSelection(frequency: 'monthly'),
     const RecurrenceSelection(frequency: 'monthly', interval: 3),
+    const RecurrenceSelection(frequency: 'monthly', interval: 6),
     const RecurrenceSelection(frequency: 'yearly'),
   ];
 
