@@ -550,6 +550,10 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                               : null,
                           child: Text(
                             context.l10n.continueAction,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
@@ -592,10 +596,10 @@ bool _canContinuePreAuth({
 OnboardingQuestionStep _sharedQuestionStep(int index) =>
     onboardingSharedQuestionSteps[index];
 
-List<(String label, String value)> _sharedQuestionOptions(int index) =>
+List<(String label, String value)> _sharedQuestionOptions(BuildContext context, int index) =>
     _sharedQuestionStep(index)
         .options
-        .map((option) => (option.label, option.value))
+        .map((option) => (option.getLabel(context), option.value))
         .toList(growable: false);
 
 class _PreAuthHelpFocusStep extends StatelessWidget {
@@ -613,8 +617,8 @@ class _PreAuthHelpFocusStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = _sharedQuestionStep(0);
     return _PreAuthQuestionOptionsStep(
-      title: step.title,
-      options: _sharedQuestionOptions(0),
+      title: step.getTitle(context),
+      options: _sharedQuestionOptions(context, 0),
       selectedValue: hasAnswered ? selectedFocus : '',
       onChanged: onChanged,
     );
@@ -636,8 +640,8 @@ class _PreAuthLivingSituationStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = _sharedQuestionStep(0);
     return _PreAuthQuestionOptionsStep(
-      title: step.title,
-      options: _sharedQuestionOptions(0),
+      title: step.getTitle(context),
+      options: _sharedQuestionOptions(context, 0),
       selectedValue: hasAnswered ? selectedLiving : '',
       onChanged: onChanged,
     );
@@ -659,8 +663,8 @@ class _PreAuthEatingOutStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = _sharedQuestionStep(3);
     return _PreAuthQuestionOptionsStep(
-      title: step.title,
-      options: _sharedQuestionOptions(3),
+      title: step.getTitle(context),
+      options: _sharedQuestionOptions(context, 3),
       selectedValue: hasAnswered ? selectedFrequency : '',
       onChanged: onChanged,
     );
@@ -682,8 +686,8 @@ class _PreAuthSubscriptionsStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = _sharedQuestionStep(2);
     return _PreAuthQuestionOptionsStep(
-      title: step.title,
-      options: _sharedQuestionOptions(2),
+      title: step.getTitle(context),
+      options: _sharedQuestionOptions(context, 2),
       selectedValue: hasAnswered ? selectedLevel : '',
       onChanged: onChanged,
     );
@@ -705,8 +709,8 @@ class _PreAuthPetsStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final step = _sharedQuestionStep(4);
     return _PreAuthQuestionOptionsStep(
-      title: step.title,
-      options: _sharedQuestionOptions(4),
+      title: step.getTitle(context),
+      options: _sharedQuestionOptions(context, 4),
       selectedValue: hasAnswered ? (hasPets ? 'yes' : 'no') : '',
       onChanged: (value) => onChanged(value == 'yes'),
     );
@@ -844,7 +848,7 @@ class _PreAuthBudgetStep extends HookWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'What monthly budget target should we prepare?',
+            context.l10n.onboardingPreAuthBudgetTitle,
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w700,
@@ -853,7 +857,7 @@ class _PreAuthBudgetStep extends HookWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'We use this with your answers to generate your first pocket plan.',
+            context.l10n.onboardingPreAuthBudgetSubtitle,
             style: TextStyle(
               fontSize: 14,
               color: colorScheme.mutedForeground,
@@ -870,8 +874,8 @@ class _PreAuthBudgetStep extends HookWidget {
               fontWeight: FontWeight.w600,
             ),
             decoration: InputDecoration(
-              labelText: 'Monthly budget',
-              hintText: '1200',
+              labelText: context.l10n.monthlyBudget,
+              hintText: context.l10n.monthlyBudgetHint,
               filled: true,
               fillColor: colorScheme.card,
               border: OutlineInputBorder(
@@ -900,8 +904,8 @@ class _PreAuthBillSplitStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PreAuthQuestionOptionsStep(
-      title: _sharedQuestionStep(1).title,
-      options: _sharedQuestionOptions(1),
+      title: _sharedQuestionStep(1).getTitle(context),
+      options: _sharedQuestionOptions(context, 1),
       selectedValue: hasAnswered ? selectedFrequency : '',
       onChanged: onChanged,
     );
@@ -946,30 +950,30 @@ class _PreAuthHousingStep extends HookWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Your housing cost',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            Text(
+              context.l10n.onboardingPreAuthHousingTitle,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Text(
-              'We use this to avoid impossible budgets.',
+              context.l10n.onboardingPreAuthHousingSubtitle,
               style: TextStyle(color: colorScheme.mutedForeground),
             ),
             const SizedBox(height: 20),
             _PreAuthOptionTile(
-              label: 'Rent',
+              label: context.l10n.rent,
               selected: housingType == 'rent',
               onTap: () => onHousingTypeChanged('rent'),
             ),
             const SizedBox(height: 10),
             _PreAuthOptionTile(
-              label: 'Mortgage',
+              label: context.l10n.mortgage,
               selected: housingType == 'mortgage',
               onTap: () => onHousingTypeChanged('mortgage'),
             ),
             const SizedBox(height: 10),
             _PreAuthOptionTile(
-              label: 'Not sure yet (we estimate)',
+              label: context.l10n.onboardingPreAuthNotSureEstimate,
               selected: housingType == 'not_sure',
               onTap: () => onHousingTypeChanged('not_sure'),
             ),
@@ -981,8 +985,8 @@ class _PreAuthHousingStep extends HookWidget {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
-                  labelText: 'Monthly housing amount',
-                  hintText: '1400',
+                  labelText: context.l10n.monthlyHousingAmount,
+                  hintText: context.l10n.monthlyHousingAmountHint,
                   filled: true,
                   fillColor: colorScheme.card,
                   border: OutlineInputBorder(
@@ -1036,19 +1040,19 @@ class _PreAuthUtilitiesStep extends HookWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Utilities estimate',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            Text(
+              context.l10n.onboardingPreAuthUtilitiesTitle,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 20),
             _PreAuthOptionTile(
-              label: 'I know my monthly utilities total',
+              label: context.l10n.onboardingPreAuthUtilitiesKnown,
               selected: utilitiesKnown,
               onTap: () => onUtilitiesKnownChanged(true),
             ),
             const SizedBox(height: 10),
             _PreAuthOptionTile(
-              label: 'Not sure (use estimate)',
+              label: context.l10n.onboardingPreAuthUtilitiesUnknown,
               selected: !utilitiesKnown,
               onTap: () => onUtilitiesKnownChanged(false),
             ),
@@ -1060,8 +1064,8 @@ class _PreAuthUtilitiesStep extends HookWidget {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
-                  labelText: 'Monthly utilities amount',
-                  hintText: '250',
+                  labelText: context.l10n.monthlyUtilitiesAmount,
+                  hintText: context.l10n.monthlyUtilitiesAmountHint,
                   filled: true,
                   fillColor: colorScheme.card,
                   border: OutlineInputBorder(
@@ -1111,13 +1115,13 @@ class _PreAuthDebtStep extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Debt minimums',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+          Text(
+            context.l10n.onboardingPreAuthDebtTitle,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
           Text(
-            'Enter total minimum monthly debt payments (0 if none).',
+            context.l10n.onboardingPreAuthDebtSubtitle,
             style: TextStyle(color: colorScheme.mutedForeground),
           ),
           const SizedBox(height: 16),
@@ -1126,8 +1130,8 @@ class _PreAuthDebtStep extends HookWidget {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
-              labelText: 'Debt minimum payments',
-              hintText: '0',
+              labelText: context.l10n.debtMinimumPayments,
+              hintText: context.l10n.debtMinimumPaymentsHint,
               filled: true,
               fillColor: colorScheme.card,
               border: OutlineInputBorder(
@@ -1199,25 +1203,25 @@ class _PreAuthSavingsStep extends HookWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Savings target',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+            Text(
+              context.l10n.onboardingPreAuthSavingsTitle,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 20),
             _PreAuthOptionTile(
-              label: 'Fixed amount each month',
+              label: context.l10n.onboardingQuestionSavingsFixed,
               selected: savingsMode == 'amount',
               onTap: () => onSavingsModeChanged('amount'),
             ),
             const SizedBox(height: 10),
             _PreAuthOptionTile(
-              label: 'Percentage of monthly budget',
+              label: context.l10n.onboardingQuestionSavingsPercent,
               selected: savingsMode == 'percent',
               onTap: () => onSavingsModeChanged('percent'),
             ),
             const SizedBox(height: 10),
             _PreAuthOptionTile(
-              label: 'Not sure yet',
+              label: context.l10n.onboardingQuestionSavingsNotSure,
               selected: savingsMode == 'not_sure',
               onTap: () => onSavingsModeChanged('not_sure'),
             ),
@@ -1229,7 +1233,7 @@ class _PreAuthSavingsStep extends HookWidget {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
-                  labelText: 'Savings amount',
+                  labelText: context.l10n.amount,
                   hintText: '300',
                   filled: true,
                   fillColor: colorScheme.card,
@@ -1246,7 +1250,7 @@ class _PreAuthSavingsStep extends HookWidget {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
-                  labelText: 'Savings percent',
+                  labelText: context.l10n.onboardingQuestionSavingsPercent,
                   hintText: '10',
                   suffixText: '%',
                   filled: true,
@@ -1278,8 +1282,8 @@ class _PreAuthGoalStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PreAuthQuestionOptionsStep(
-      title: _sharedQuestionStep(5).title,
-      options: _sharedQuestionOptions(5),
+      title: _sharedQuestionStep(5).getTitle(context),
+      options: _sharedQuestionOptions(context, 5),
       selectedValue: hasAnswered ? selectedGoal : '',
       onChanged: onGoalChanged,
     );
@@ -1300,8 +1304,8 @@ class _PreAuthLifestyleStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PreAuthQuestionOptionsStep(
-      title: _sharedQuestionStep(4).title,
-      options: _sharedQuestionOptions(4),
+      title: _sharedQuestionStep(4).getTitle(context),
+      options: _sharedQuestionOptions(context, 4),
       selectedValue: hasAnswered ? selectedLifestyle : '',
       onChanged: onLifestyleChanged,
     );
@@ -1322,8 +1326,8 @@ class _PreAuthSavingsTargetStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PreAuthQuestionOptionsStep(
-      title: _sharedQuestionStep(6).title,
-      options: _sharedQuestionOptions(6),
+      title: _sharedQuestionStep(6).getTitle(context),
+      options: _sharedQuestionOptions(context, 6),
       selectedValue: hasAnswered ? selectedMode : '',
       onChanged: onChanged,
     );
@@ -1364,7 +1368,7 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Which currency do you use most?',
+            context.l10n.onboardingPreAuthCurrencyTitle,
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w700,
@@ -1402,7 +1406,7 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
                     ],
                     Expanded(
                       child: Text(
-                        hasSelectedCurrency ? currency : 'Select a currency',
+                        hasSelectedCurrency ? currency : context.l10n.onboardingPreAuthCurrencySelect,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight:
@@ -1424,7 +1428,7 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'You can change this later in the app.',
+            context.l10n.onboardingPreAuthCurrencyChangeLater,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
@@ -1553,7 +1557,7 @@ class _PreAuthCalculatingStep extends HookWidget {
             ),
           ),
           Text(
-            'Crafting your personalized budget...',
+            context.l10n.onboardingPreAuthCalculatingTitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 26,
@@ -1632,17 +1636,17 @@ class _PreAuthStarterStep extends StatelessWidget {
     Future<void> showBudgetInputDialog() async {
       final result = await MonekoAlertDialog.show(
         context: context,
-        title: 'Adjust your budget',
-        description: 'You can change it anytime in the app.',
-        confirmLabel: 'Save',
-        cancelLabel: 'Cancel',
+        title: context.l10n.onboardingPreAuthAdjustBudgetTitle,
+        description: context.l10n.onboardingPreAuthAdjustBudgetSubtitle,
+        confirmLabel: context.l10n.save,
+        cancelLabel: context.l10n.cancel,
         inputConfig: MonekoAlertDialogInputConfig(
           initialValue: totalBudget.toStringAsFixed(0),
           placeholder: '0',
           isRequired: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: false),
           validationPattern: RegExp(r'^[0-9,]+$'),
-          validationMessage: 'Please enter a valid amount.',
+          validationMessage: context.l10n.onboardingPreAuthAdjustBudgetValidation,
         ),
       );
 
@@ -1665,7 +1669,7 @@ class _PreAuthStarterStep extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              "Your Budget is Ready!",
+              context.l10n.onboardingPreAuthStarterTitle,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 26,
@@ -1675,7 +1679,7 @@ class _PreAuthStarterStep extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Here’s a first draft based on your answers. You can change it anytime in the app.',
+              context.l10n.onboardingPreAuthStarterSubtitle,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -1703,7 +1707,7 @@ class _PreAuthStarterStep extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Drag slider or tap amount to adjust',
+                      context.l10n.onboardingPreAuthStarterSliderHint,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -1744,7 +1748,7 @@ class _PreAuthStarterStep extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            'Monthly Budget',
+                            context.l10n.monthlyBudgetLabel,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -1980,7 +1984,7 @@ class _PreAuthReadyCarouselStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Almost ready',
+            context.l10n.onboardingPreAuthAlmostReadyTitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 32,
@@ -1991,7 +1995,7 @@ class _PreAuthReadyCarouselStep extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Let\'s save your setup so you can come back anytime.',
+            context.l10n.onboardingPreAuthAlmostReadySubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -2012,7 +2016,7 @@ class _PreAuthReadyCarouselStep extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: EdgeInsetsGeometry.all(20),
+                        padding: const EdgeInsets.all(20),
                         decoration: const BoxDecoration(
                           borderRadius:
                               BorderRadius.vertical(top: Radius.circular(24)),
@@ -2049,7 +2053,7 @@ class _PreAuthReadyCarouselStep extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      item.title,
+                      item.getTitle(context),
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -2058,7 +2062,7 @@ class _PreAuthReadyCarouselStep extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item.description,
+                      item.getDescription(context),
                       style: TextStyle(
                         fontSize: 15,
                         color: colorScheme.mutedForeground,
@@ -2127,7 +2131,7 @@ Future<void> _showSaveBudgetModal({
                 children: [
                   Expanded(
                     child: Text(
-                      'Save your budget',
+                      context.l10n.onboardingPreAuthSaveBudgetTitle,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -2147,7 +2151,7 @@ Future<void> _showSaveBudgetModal({
               ),
               const SizedBox(height: 8),
               Text(
-                'Sign in to keep your budget safe and synced across devices.',
+                context.l10n.onboardingPreAuthSaveBudgetSubtitle,
                 style: TextStyle(
                   fontSize: 13,
                   color: colorScheme.mutedForeground,
@@ -2161,7 +2165,7 @@ Future<void> _showSaveBudgetModal({
                     Navigator.of(dialogContext).pop();
                     await onRegister();
                   },
-                  child: const Text('Save my budget'),
+                  child: Text(context.l10n.onboardingPreAuthSaveBudgetConfirm),
                 ),
               ),
               const SizedBox(height: 10),
@@ -2183,7 +2187,7 @@ Future<void> _showSaveBudgetModal({
                         border: Border.all(color: colorScheme.border),
                       ),
                       child: Text(
-                        'Preview the app',
+                        context.l10n.onboardingPreAuthSaveBudgetPreview,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.foreground,
@@ -2204,39 +2208,56 @@ Future<void> _showSaveBudgetModal({
 const _readyCarouselItems = <_ReadyCarouselItem>[
   _ReadyCarouselItem(
     assetPath: 'lib/assets/images/onboarding/ready/ready1.png',
-    title: 'Log from anywhere',
-    description: 'Log expenses from WhatsApp, Telegram, voice, or photos.',
+    titleKey: 'onboardingCarouselLogTitle',
+    descriptionKey: 'onboardingCarouselLogDesc',
   ),
   _ReadyCarouselItem(
     assetPath: 'lib/assets/images/onboarding/ready/ready2.png',
-    title: 'Snap a receipt',
-    description:
-        'Snap a photo and Moneko tags line items automatically for you.',
+    titleKey: 'onboardingCarouselSnapTitle',
+    descriptionKey: 'onboardingCarouselSnapDesc',
   ),
   _ReadyCarouselItem(
     assetPath: 'lib/assets/images/onboarding/ready/ready3.png',
-    title: 'Share expenses made easy',
-    description:
-        'Track shared spend, settle balances, and stay in sync with everyone.',
+    titleKey: 'onboardingCarouselShareTitle',
+    descriptionKey: 'onboardingCarouselShareDesc',
   ),
   _ReadyCarouselItem(
     assetPath: 'lib/assets/images/onboarding/ready/ready4.png',
-    title: 'Envelope budgeting',
-    description:
-        'Set spending limits for each category and stay intentional on track.',
+    titleKey: 'onboardingCarouselEnvelopeTitle',
+    descriptionKey: 'onboardingCarouselEnvelopeDesc',
   ),
 ];
 
 class _ReadyCarouselItem {
   const _ReadyCarouselItem({
     required this.assetPath,
-    required this.title,
-    required this.description,
+    required this.titleKey,
+    required this.descriptionKey,
   });
 
   final String assetPath;
-  final String title;
-  final String description;
+  final String titleKey;
+  final String descriptionKey;
+
+  String getTitle(BuildContext context) {
+    return switch (titleKey) {
+      'onboardingCarouselLogTitle' => context.l10n.onboardingCarouselLogTitle,
+      'onboardingCarouselSnapTitle' => context.l10n.onboardingCarouselSnapTitle,
+      'onboardingCarouselShareTitle' => context.l10n.onboardingCarouselShareTitle,
+      'onboardingCarouselEnvelopeTitle' => context.l10n.onboardingCarouselEnvelopeTitle,
+      _ => titleKey,
+    };
+  }
+
+  String getDescription(BuildContext context) {
+    return switch (descriptionKey) {
+      'onboardingCarouselLogDesc' => context.l10n.onboardingCarouselLogDesc,
+      'onboardingCarouselSnapDesc' => context.l10n.onboardingCarouselSnapDesc,
+      'onboardingCarouselShareDesc' => context.l10n.onboardingCarouselShareDesc,
+      'onboardingCarouselEnvelopeDesc' => context.l10n.onboardingCarouselEnvelopeDesc,
+      _ => descriptionKey,
+    };
+  }
 }
 
 BudgetTemplate _recommendTemplate(OnboardingPreauthDraft draft) {

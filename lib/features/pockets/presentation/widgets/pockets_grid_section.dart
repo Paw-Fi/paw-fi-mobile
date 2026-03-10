@@ -206,7 +206,7 @@ class PocketsGridSection extends HookConsumerWidget {
     }
 
     final pocketsForDisplay = isLoading && sortedPockets.isEmpty
-        ? _buildFakePockets(selectedCurrency)
+        ? _buildFakePockets(context, selectedCurrency)
         : sortedPockets;
 
     final totalAllocated = pocketsForDisplay.fold<double>(
@@ -505,12 +505,12 @@ class PocketsGridSection extends HookConsumerWidget {
   }
 }
 
-List<PocketEnvelope> _buildFakePockets(String currency) {
+List<PocketEnvelope> _buildFakePockets(BuildContext context, String currency) {
   final now = DateTime.now();
   return [
     PocketEnvelope(
       id: 'fake-1',
-      name: 'Groceries',
+      name: context.l10n.groceries,
       budgetAmountCents: 50000,
       spent: 350,
       currency: currency,
@@ -522,7 +522,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     ),
     PocketEnvelope(
       id: 'fake-2',
-      name: 'Bills',
+      name: context.l10n.bills,
       budgetAmountCents: 70000,
       spent: 420,
       currency: currency,
@@ -534,7 +534,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     ),
     PocketEnvelope(
       id: 'fake-3',
-      name: 'Dining Out',
+      name: context.l10n.diningOut,
       budgetAmountCents: 30000,
       spent: 120,
       currency: currency,
@@ -546,7 +546,7 @@ List<PocketEnvelope> _buildFakePockets(String currency) {
     ),
     PocketEnvelope(
       id: 'fake-4',
-      name: 'Fun',
+      name: context.l10n.fun,
       budgetAmountCents: 20000,
       spent: 80,
       currency: currency,

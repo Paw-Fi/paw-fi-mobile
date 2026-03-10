@@ -414,8 +414,8 @@ class _CurrencySelectorScreenState
                                 // Use AppToast with action so message appears above any bottom sheet
                                 AppToast.action(
                                   toastCtx,
-                                  'Failed to sync currency preference.',
-                                  actionLabel: 'Retry',
+                                  context.l10n.failedToSyncCurrency,
+                                  actionLabel: context.l10n.retry,
                                   type: AppToastType.warning,
                                   onPressed: () async {
                                     try {
@@ -423,12 +423,12 @@ class _CurrencySelectorScreenState
                                       final hasSession =
                                           supabase.auth.currentSession != null;
                                       if (!hasSession) {
-                                        throw Exception('Missing user session');
+                                        throw Exception(context.l10n.missingUserSession);
                                       }
                                       final userId =
                                           supabase.auth.currentSession?.user.id;
                                       if (userId == null || userId.isEmpty) {
-                                        throw Exception('Missing user session');
+                                        throw Exception(context.l10n.missingUserSession);
                                       }
                                       final retryResponse =
                                           await supabase.functions.invoke(
@@ -445,14 +445,14 @@ class _CurrencySelectorScreenState
                                       final retryData = retryResponse.data;
                                       if (retryData is! Map) {
                                         throw Exception(
-                                            'Retry failed: invalid response');
+                                            context.l10n.invalidResponse);
                                       }
                                       final payload =
                                           retryData.cast<String, dynamic>();
                                       if (payload['ok'] != true) {
                                         throw Exception(
                                           (payload['error'] ??
-                                                  'Unable to update currency')
+                                                  context.l10n.unableToUpdateCurrency)
                                               .toString(),
                                         );
                                       }
@@ -465,7 +465,7 @@ class _CurrencySelectorScreenState
                                       if (toastCtx.mounted) {
                                         AppToast.success(
                                           toastCtx,
-                                          'Currency updated successfully',
+                                          context.l10n.currencyUpdatedSuccess,
                                         );
                                       }
                                     } catch (retryError) {
@@ -474,7 +474,7 @@ class _CurrencySelectorScreenState
                                       if (toastCtx.mounted) {
                                         AppToast.error(
                                           toastCtx,
-                                          'Retry failed. Please try again.',
+                                          context.l10n.retryFailed(''),
                                         );
                                       }
                                     }

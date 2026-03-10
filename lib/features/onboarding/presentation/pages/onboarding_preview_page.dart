@@ -12,6 +12,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
+import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -92,8 +93,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            context.l10n.onboardingPreviewTitle,
+                          MonekoRichText(
+                            text: context.l10n.onboardingPreviewTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,

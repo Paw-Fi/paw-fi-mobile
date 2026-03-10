@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/core/util/constants.dart';
@@ -147,13 +148,13 @@ Future<int?> _defaultImportExpensesAction(
   final file = result.files.single;
   final bytes = file.bytes;
   if (bytes == null) {
-    if (context.mounted) AppToast.error(context, 'Failed to read file');
+    if (context.mounted) AppToast.error(context, context.l10n.failedToReadFile);
     return null;
   }
 
   if (bytes.length > 15 * 1024 * 1024) {
     if (context.mounted) {
-      AppToast.error(context, 'File is too large (max 15MB).');
+      AppToast.error(context, context.l10n.fileTooLarge);
     }
     return null;
   }
@@ -164,7 +165,7 @@ Future<int?> _defaultImportExpensesAction(
 
   showBlockingProcessingDialog(
     context: context,
-    message: 'Importing expenses from $selectedApp',
+    message: context.l10n.onboardingPostAuthImportingFrom(selectedApp),
   );
 
   try {
@@ -214,20 +215,20 @@ Future<int?> _defaultImportExpensesAction(
         responseData = event.data as Map<String, dynamic>;
       } else if (event.event == 'error') {
         final error = event.data is Map<String, dynamic>
-            ? (event.data['error']?.toString() ?? 'Failed to analyze file')
+            ? (event.data['error']?.toString() ?? context.l10n.invalidResponse)
             : event.data.toString();
         throw Exception(error);
       }
     }
 
     if (responseData == null || responseData['success'] != true) {
-      throw Exception(responseData?['error'] ?? 'Failed to analyze file');
+      throw Exception(responseData?['error'] ?? context.l10n.invalidResponse);
     }
 
     final resultData = responseData['data'];
     final items = resultData is Map ? resultData['items'] : null;
     if (items is! List || items.isEmpty) {
-      throw Exception('No transactions found in the file');
+      throw Exception(context.l10n.noTransactionsFound);
     }
 
     var success = 0;
@@ -275,7 +276,7 @@ Future<int?> _defaultImportExpensesAction(
     if (context.mounted) {
       AppToast.success(
         context,
-        'Imported $success transactions from $selectedApp',
+        context.l10n.onboardingPostAuthImportSuccess(success, selectedApp),
       );
     }
     return success > 0 ? success : null;

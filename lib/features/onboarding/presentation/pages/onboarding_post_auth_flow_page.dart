@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
@@ -117,7 +118,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           await ref.read(onboardingPostAuthLogExpenseActionProvider)(
         context,
         ref,
-        selectedExpenseSource.value.label,
+        selectedExpenseSource.value.getLabel(context),
       );
       if (!context.mounted) return;
       if (preview != null) {
@@ -183,12 +184,12 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     final primaryLabel = switch (currentPage.value) {
-      0 => loggedExpensePreview.value == null ? 'Add expense' : 'Continue',
+      0 => loggedExpensePreview.value == null ? context.l10n.addExpense : context.l10n.continueAction,
       1 => selectedImportApp.value == 'Not using an app'
-          ? 'Continue'
-          : 'Import expenses',
-      2 => 'Turn on notifications',
-      _ => 'Continue',
+          ? context.l10n.continueAction
+          : context.l10n.importExpenses,
+      2 => context.l10n.turnOnNotifications,
+      _ => context.l10n.continueAction,
     };
 
     return AdaptiveScaffold(
@@ -273,7 +274,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                     PlainAdaptiveButton(
                       onPressed: skip,
                       child: Text(
-                        'I\'ll do this later',
+                        context.l10n.onboardingPostAuthSkipLater,
                         style: TextStyle(color: colorScheme.mutedForeground),
                       ),
                     ),
@@ -319,10 +320,18 @@ enum _ExpenseCaptureSource {
   textAudio('Audio / Text', Icons.graphic_eq_rounded),
   takePhoto('Take photo', Icons.camera_alt_outlined);
 
-  const _ExpenseCaptureSource(this.label, this.icon);
+  const _ExpenseCaptureSource(this.labelKey, this.icon);
 
-  final String label;
+  final String labelKey;
   final IconData icon;
+
+  String getLabel(BuildContext context) {
+    return switch (labelKey) {
+      'Audio / Text' => context.l10n.onboardingPostAuthSourceAudioText,
+      'Take photo' => context.l10n.onboardingPostAuthSourceTakePhoto,
+      _ => labelKey,
+    };
+  }
 }
 
 Future<void> _showLoggedExpenseResultSheet(
@@ -377,7 +386,7 @@ Future<void> _showLoggedExpenseResultSheet(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Expense Captured!',
+                          context.l10n.onboardingPostAuthExpenseCaptured,
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
@@ -388,8 +397,8 @@ Future<void> _showLoggedExpenseResultSheet(
                         const SizedBox(height: 2),
                         Text(
                           preview.items.length > 1
-                              ? 'Moneko AI successfully extracted ${preview.items.length} transactions from your input.'
-                              : 'Moneko AI successfully extracted your transaction details.',
+                              ? context.l10n.onboardingPostAuthExpenseExtractedMultiple(preview.items.length)
+                              : context.l10n.onboardingPostAuthExpenseExtractedSingle,
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.mutedForeground,
@@ -426,7 +435,7 @@ Future<void> _showLoggedExpenseResultSheet(
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Analysis Result',
+                            context.l10n.analysisResult,
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -437,7 +446,7 @@ Future<void> _showLoggedExpenseResultSheet(
                       ),
                       const SizedBox(height: 20),
                       _ExtractedDetailRow(
-                        label: 'Amount',
+                        label: context.l10n.amount,
                         value: totalAmountLabel,
                         isHighlight: true,
                       ),
@@ -449,7 +458,7 @@ Future<void> _showLoggedExpenseResultSheet(
                         ),
                       ),
                       _ExtractedDetailRow(
-                        label: 'Category',
+                        label: context.l10n.category,
                         value: _capitalize(preview.category),
                       ),
                       Padding(
@@ -460,7 +469,7 @@ Future<void> _showLoggedExpenseResultSheet(
                         ),
                       ),
                       _ExtractedDetailRow(
-                        label: 'Description',
+                        label: context.l10n.description,
                         value: preview.description,
                       ),
                       Padding(
@@ -471,7 +480,7 @@ Future<void> _showLoggedExpenseResultSheet(
                         ),
                       ),
                       _ExtractedDetailRow(
-                        label: 'Input Source',
+                        label: context.l10n.inputSource,
                         value: preview.sourceLabel,
                       ),
                     ],
@@ -504,7 +513,7 @@ Future<void> _showLoggedExpenseResultSheet(
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'AI Extraction (${preview.items.length} items)',
+                                context.l10n.onboardingPostAuthAiExtractionCount(preview.items.length),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -597,7 +606,7 @@ Future<void> _showLoggedExpenseResultSheet(
                 height: 52,
                 child: PrimaryAdaptiveButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Looks good!'),
+                  child: Text(context.l10n.looksGood),
                 ),
               ),
             ],
@@ -685,7 +694,7 @@ class _LogExpenseStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Experience the magic\nof Moneko AI',
+            context.l10n.onboardingPostAuthLogExpenseTitle,
             textAlign: TextAlign.start,
             style: TextStyle(
               fontSize: 28,
@@ -697,7 +706,7 @@ class _LogExpenseStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Try logging your first expense. Speak naturally or snap a receipt—our AI handles the rest.',
+            context.l10n.onboardingPostAuthLogExpenseSubtitle,
             style: TextStyle(
               fontSize: 15,
               color: colorScheme.mutedForeground,
@@ -720,7 +729,7 @@ class _LogExpenseStep extends StatelessWidget {
               childAspectRatio: 1.55,
               children: _ExpenseCaptureSource.values.map((source) {
                 return _SourceOptionTile(
-                  label: source.label,
+                  label: source.getLabel(context),
                   icon: source.icon,
                   selected: source == selectedSource,
                   onTap: () => onSourceChanged(source),
@@ -797,7 +806,7 @@ class _LoggedExpenseInlineSummary extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Expense logged!',
+                  context.l10n.onboardingPostAuthExpenseLoggedInline,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -840,7 +849,7 @@ class _LoggedExpenseInlineSummary extends StatelessWidget {
             width: double.infinity,
             child: PrimaryAdaptiveButton(
               onPressed: onViewResult,
-              child: const Text('View extraction details'),
+              child: Text(context.l10n.onboardingPostAuthViewExtractionDetails),
             ),
           ),
         ],
@@ -868,7 +877,7 @@ class _ImportExpensesStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Import your expenses\nfrom another app',
+            context.l10n.onboardingPostAuthImportTitle,
             textAlign: TextAlign.start,
             style: TextStyle(
               fontSize: 28,
@@ -896,7 +905,7 @@ class _ImportExpensesStep extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Which app are you using now?',
+                  context.l10n.onboardingPostAuthImportQuestion,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -910,8 +919,8 @@ class _ImportExpensesStep extends StatelessWidget {
                     onTap: () {
                       MonekoActionSheet.show<String>(
                         context: context,
-                        title: 'Select app',
-                        actions: _kImportApps
+                        title: context.l10n.selectApp,
+                        actions: _kImportApps(context)
                             .map(
                               (app) => MonekoActionSheetAction(
                                 label: app,
@@ -982,7 +991,7 @@ class _NotificationsStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Get notified before you\noverspend',
+            context.l10n.onboardingPostAuthNotificationsTitle,
             textAlign: TextAlign.start,
             style: TextStyle(
               fontSize: 28,
@@ -1036,7 +1045,7 @@ class _NotificationsStep extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New Message',
+                        context.l10n.onboardingPostAuthNotificationExampleTitle,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
@@ -1044,7 +1053,7 @@ class _NotificationsStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'You\'re close to your spending limit',
+                        context.l10n.onboardingPostAuthNotificationExampleSubtitle,
                         style: TextStyle(color: colorScheme.mutedForeground),
                       ),
                     ],
@@ -1115,12 +1124,12 @@ class _SourceOptionTile extends StatelessWidget {
   }
 }
 
-const _kImportApps = <String>[
+List<String> _kImportApps(BuildContext context) => <String>[
   'YNAB',
   'Monarch',
   'Copilot',
   'PocketGuard',
   'Splitwise',
   'Other',
-  'Not using an app',
+  context.l10n.notUsingAnApp,
 ];

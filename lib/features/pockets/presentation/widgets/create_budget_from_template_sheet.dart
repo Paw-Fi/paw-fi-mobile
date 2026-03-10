@@ -343,7 +343,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
                       // Template Selector
                       Text(
-                        'Select Strategy',
+                        context.l10n.pocketsSelectStrategy,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -431,7 +431,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
                       // Pocket Breakdown
                       Text(
-                        'Customize Pockets',
+                        context.l10n.pocketsCustomizePockets,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

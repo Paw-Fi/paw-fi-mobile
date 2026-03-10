@@ -536,11 +536,11 @@ class _PocketsMonthView extends HookConsumerWidget {
 
                     final result = await MonekoAlertDialog.show(
                       context: context,
-                      title: 'Copy last month\'s pockets?',
+                      title: context.l10n.pocketsCopyDialogTitle,
                       description:
-                          'This will create pockets for this month using the same names, icons, colors, and budgeted amounts as last month. You can edit everything afterwards.',
-                      confirmLabel: 'Copy pockets',
-                      cancelLabel: 'Cancel',
+                          context.l10n.pocketsCopyDialogDesc,
+                      confirmLabel: context.l10n.pocketsCopyConfirm,
+                      cancelLabel: context.l10n.cancel,
                     );
                     final confirmed = result?.confirmed ?? false;
 
@@ -649,7 +649,7 @@ class _CopyBudgetBanner extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'New month, fresh budget',
+            context.l10n.pocketsNewMonthBannerTitle,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -658,7 +658,7 @@ class _CopyBudgetBanner extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Looks like you haven\'t set up pockets for this month yet. Want to start from last month?',
+            context.l10n.pocketsNewMonthBannerSubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -671,7 +671,7 @@ class _CopyBudgetBanner extends StatelessWidget {
             child: PrimaryAdaptiveButton(
               onPressed: isCopying ? null : onCopyPockets,
               child: Text(
-                isCopying ? 'Copying…' : 'Copy last month\'s pockets',
+                isCopying ? context.l10n.pocketsCopyingAction : context.l10n.pocketsCopyLastMonthAction,
               ),
             ),
           ),
@@ -682,7 +682,7 @@ class _CopyBudgetBanner extends StatelessWidget {
               child: PlainAdaptiveButton(
                 onPressed: onCopy,
                 child: Text(
-                  'Just use last month\'s budget ($formattedAmount)',
+                  context.l10n.pocketsUseLastMonthBudgetAction(formattedAmount),
                   style: TextStyle(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,

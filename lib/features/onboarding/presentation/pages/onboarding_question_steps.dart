@@ -1,102 +1,146 @@
+import 'package:flutter/widgets.dart';
+import 'package:moneko/core/l10n/l10n.dart';
+
 class OnboardingQuestionOption {
   const OnboardingQuestionOption({
-    required this.label,
+    required this.labelKey,
     required this.value,
   });
 
-  final String label;
+  final String labelKey;
   final String value;
+
+  String getLabel(BuildContext context) {
+    return switch (labelKey) {
+      'onboardingQuestionHousingMortgage' => context.l10n.onboardingQuestionHousingMortgage,
+      'onboardingQuestionHousingRenting' => context.l10n.onboardingQuestionHousingRenting,
+      'onboardingQuestionHousingFamily' => context.l10n.onboardingQuestionHousingFamily,
+      'onboardingQuestionHousingOwn' => context.l10n.onboardingQuestionHousingOwn,
+      'onboardingQuestionSplitOften' => context.l10n.onboardingQuestionSplitOften,
+      'onboardingQuestionSplitSometimes' => context.l10n.onboardingQuestionSplitSometimes,
+      'onboardingQuestionSplitNever' => context.l10n.onboardingQuestionSplitNever,
+      'onboardingQuestionSubscriptionsMany' => context.l10n.onboardingQuestionSubscriptionsMany,
+      'onboardingQuestionSubscriptionsFew' => context.l10n.onboardingQuestionSubscriptionsFew,
+      'onboardingQuestionSubscriptionsNone' => context.l10n.onboardingQuestionSubscriptionsNone,
+      'onboardingQuestionStyleStudent' => context.l10n.onboardingQuestionStyleStudent,
+      'onboardingQuestionStyleFreelancer' => context.l10n.onboardingQuestionStyleFreelancer,
+      'onboardingQuestionStyleCommuter' => context.l10n.onboardingQuestionStyleCommuter,
+      'onboardingQuestionStyleFoodies' => context.l10n.onboardingQuestionStyleFoodies,
+      'onboardingQuestionGoalBalanced' => context.l10n.onboardingQuestionGoalBalanced,
+      'onboardingQuestionGoalSave' => context.l10n.onboardingQuestionGoalSave,
+      'onboardingQuestionGoalDebt' => context.l10n.onboardingQuestionGoalDebt,
+      'onboardingQuestionGoalTravel' => context.l10n.onboardingQuestionGoalTravel,
+      'onboardingQuestionSavingsFixed' => context.l10n.onboardingQuestionSavingsFixed,
+      'onboardingQuestionSavingsPercent' => context.l10n.onboardingQuestionSavingsPercent,
+      'onboardingQuestionSavingsNotSure' => context.l10n.onboardingQuestionSavingsNotSure,
+      _ => labelKey,
+    };
+  }
 }
 
 class OnboardingQuestionStep {
   const OnboardingQuestionStep({
-    required this.title,
+    required this.titleKey,
     required this.options,
   });
 
-  final String title;
+  final String titleKey;
   final List<OnboardingQuestionOption> options;
+
+  String getTitle(BuildContext context) {
+    return switch (titleKey) {
+      'onboardingQuestionHousingTitle' => context.l10n.onboardingQuestionHousingTitle,
+      'onboardingQuestionSplitTitle' => context.l10n.onboardingQuestionSplitTitle,
+      'onboardingQuestionSubscriptionsTitle' => context.l10n.onboardingQuestionSubscriptionsTitle,
+      'onboardingQuestionEatingOutTitle' => context.l10n.onboardingQuestionEatingOutTitle,
+      'onboardingQuestionStyleTitle' => context.l10n.onboardingQuestionStyleTitle,
+      'onboardingQuestionGoalTitle' => context.l10n.onboardingQuestionGoalTitle,
+      'onboardingQuestionSavingsTitle' => context.l10n.onboardingQuestionSavingsTitle,
+      _ => titleKey,
+    };
+  }
 }
 
 const onboardingSharedQuestionSteps = <OnboardingQuestionStep>[
   OnboardingQuestionStep(
-    title: 'What\'s your housing situation?',
+    titleKey: 'onboardingQuestionHousingTitle',
     options: [
-      OnboardingQuestionOption(label: 'Mortgage', value: 'mortgage'),
-      OnboardingQuestionOption(label: 'Renting', value: 'rent'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionHousingMortgage', value: 'mortgage'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionHousingRenting', value: 'rent'),
       OnboardingQuestionOption(
-        label: 'Living with family',
+        labelKey: 'onboardingQuestionHousingFamily',
         value: 'family_home',
       ),
-      OnboardingQuestionOption(label: 'Own home', value: 'paid_off'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionHousingOwn', value: 'paid_off'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Do you split expenses with others?',
+    titleKey: 'onboardingQuestionSplitTitle',
     options: [
-      OnboardingQuestionOption(label: 'Often', value: 'often'),
-      OnboardingQuestionOption(label: 'Sometimes', value: 'sometimes'),
-      OnboardingQuestionOption(label: 'Rarely', value: 'rarely'),
-      OnboardingQuestionOption(label: 'Never', value: 'none'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitOften', value: 'often'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitSometimes', value: 'sometimes'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitRarely', value: 'rarely'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitNever', value: 'none'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Do you have subscriptions?',
+    titleKey: 'onboardingQuestionSubscriptionsTitle',
     options: [
-      OnboardingQuestionOption(label: 'Many', value: 'many'),
-      OnboardingQuestionOption(label: 'A few', value: 'few'),
-      OnboardingQuestionOption(label: 'None', value: 'none'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSubscriptionsMany', value: 'many'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSubscriptionsFew', value: 'few'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSubscriptionsNone', value: 'none'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'How often do you eat out?',
+    titleKey: 'onboardingQuestionEatingOutTitle',
     options: [
-      OnboardingQuestionOption(label: 'Often', value: 'often'),
-      OnboardingQuestionOption(label: 'Sometimes', value: 'sometimes'),
-      OnboardingQuestionOption(label: 'Rarely', value: 'rarely'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitOften', value: 'often'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitSometimes', value: 'sometimes'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSplitRarely', value: 'rarely'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Which spending style sounds most like you?',
+    titleKey: 'onboardingQuestionStyleTitle',
     options: [
-      OnboardingQuestionOption(label: 'Student budget', value: 'student'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionStyleStudent', value: 'student'),
       OnboardingQuestionOption(
-        label: 'Freelancer income',
+        labelKey: 'onboardingQuestionStyleFreelancer',
         value: 'freelancer',
       ),
-      OnboardingQuestionOption(label: 'Daily commute', value: 'commuter'),
-      OnboardingQuestionOption(label: 'Food and fun', value: 'foodies'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionStyleCommuter', value: 'commuter'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionStyleFoodies', value: 'foodies'),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'What is your main money goal right now?',
+    titleKey: 'onboardingQuestionGoalTitle',
     options: [
-      OnboardingQuestionOption(label: 'Stay balanced', value: 'balanced'),
-      OnboardingQuestionOption(label: 'Save more', value: 'save'),
-      OnboardingQuestionOption(label: 'Pay off debt', value: 'debt'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionGoalBalanced', value: 'balanced'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionGoalSave', value: 'save'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionGoalDebt', value: 'debt'),
       OnboardingQuestionOption(
-        label: 'Travel or experiences',
+        labelKey: 'onboardingQuestionGoalTravel',
         value: 'travel',
       ),
     ],
   ),
   OnboardingQuestionStep(
-    title: 'Do you want to set a savings target?',
+    titleKey: 'onboardingQuestionSavingsTitle',
     options: [
       OnboardingQuestionOption(
-        label: 'Save a fixed amount each month',
+        labelKey: 'onboardingQuestionSavingsFixed',
         value: 'amount',
       ),
       OnboardingQuestionOption(
-        label: 'Save a percentage of income',
+        labelKey: 'onboardingQuestionSavingsPercent',
         value: 'percent',
       ),
-      OnboardingQuestionOption(label: 'Not sure yet', value: 'not_sure'),
+      OnboardingQuestionOption(labelKey: 'onboardingQuestionSavingsNotSure', value: 'not_sure'),
     ],
   ),
 ];
 
 String? onboardingQuestionLabelFromValue({
+  required BuildContext context,
   required int stepIndex,
   required String? value,
 }) {
@@ -108,7 +152,7 @@ String? onboardingQuestionLabelFromValue({
   }
   for (final option in onboardingSharedQuestionSteps[stepIndex].options) {
     if (option.value == value) {
-      return option.label;
+      return option.getLabel(context);
     }
   }
   return null;

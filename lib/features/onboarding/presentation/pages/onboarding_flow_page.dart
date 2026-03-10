@@ -10,6 +10,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -79,26 +80,21 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     final currentPage = useState(0);
     final isBusy = useState(false);
 
-    const introSlides = [
+    final introSlides = [
       (
-        title: 'Money can feel\nchaotic sometimes.',
-        accent: 'chaotic sometimes.',
-        body: 'Bills, groceries, rent.\nThe month just\ngoes by fast.'
+        title: context.l10n.onboardingIntroSlide1Title,
+        body: context.l10n.onboardingIntroSlide1Body
       ),
       (
-        title:
-            'You try to stay on\ntop of it. But\nsomehow there is\nalways something\nyou forgot to log.',
-        accent: 'you forgot to log.',
+        title: context.l10n.onboardingIntroSlide2Title,
         body: ''
       ),
       (
-        title: 'It is not that you are\nbad with money.',
-        accent: 'Keeping track of',
-        body: 'Keeping track of\neverything is harder\nthan it should be.'
+        title: context.l10n.onboardingIntroSlide3Title,
+        body: context.l10n.onboardingIntroSlide3Body
       ),
       (
-        title: 'Tracking expenses\nshould be Simple',
-        accent: 'Simple',
+        title: context.l10n.onboardingIntroSlide4Title,
         body: ''
       ),
     ];
@@ -260,7 +256,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                           return _IntroSlide(
                             title: slide.title,
                             body: slide.body,
-                            accent: slide.accent,
                             currentIndex: index,
                             totalSlides: introSlides.length,
                             isFinalSlide: index == introSlides.length - 1,
@@ -291,7 +286,6 @@ class _IntroSlide extends HookWidget {
   const _IntroSlide({
     required this.title,
     required this.body,
-    required this.accent,
     required this.currentIndex,
     required this.totalSlides,
     required this.isFinalSlide,
@@ -300,7 +294,6 @@ class _IntroSlide extends HookWidget {
 
   final String title;
   final String body;
-  final String accent;
   final int currentIndex;
   final int totalSlides;
   final bool isFinalSlide;
@@ -310,10 +303,8 @@ class _IntroSlide extends HookWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final accentColor = colorScheme.primary;
+    
     final text = body.isNotEmpty ? '$title\n$body' : title;
-
-    final parts = text.split(accent);
 
     // Staggered entrance animation
     final animationController = useAnimationController(
@@ -392,24 +383,21 @@ class _IntroSlide extends HookWidget {
                   child: Align(
                     alignment: Alignment.topLeft,
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 16, bottom: 24),
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                            fontSize: 31,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.foreground,
-                            height: 1.375,
-                            letterSpacing: 0,
-                          ),
-                          children: [
-                            if (parts.isNotEmpty) TextSpan(text: parts[0]),
-                            TextSpan(
-                              text: accent,
-                              style: TextStyle(color: accentColor),
-                            ),
-                            if (parts.length > 1) TextSpan(text: parts[1]),
-                          ],
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: MonekoRichText(
+                        text: text,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 26,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                        highlightStyle: TextStyle(
+                          fontSize: 26,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.primary,
                         ),
                       ),
                     ),
@@ -432,23 +420,21 @@ class _IntroSlide extends HookWidget {
                         alignment: Alignment.topLeft,
                         child: Padding(
                           padding: const EdgeInsets.only(top: 16),
-                          child: RichText(
-                            text: TextSpan(
-                              style: TextStyle(
-                                fontSize: 31,
-                                fontWeight: FontWeight.w800,
-                                color: colorScheme.foreground,
-                                height: 1.375,
-                                letterSpacing: 0,
-                              ),
-                              children: [
-                                if (parts.isNotEmpty) TextSpan(text: parts[0]),
-                                TextSpan(
-                                  text: accent,
-                                  style: TextStyle(color: accentColor),
-                                ),
-                                if (parts.length > 1) TextSpan(text: parts[1]),
-                              ],
+                          child: MonekoRichText(
+                            text: text,
+                            style: TextStyle(
+                              fontSize: 31,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.foreground,
+                              height: 1.375,
+                              letterSpacing: 0,
+                            ),
+                            highlightStyle: TextStyle(
+                              fontSize: 31,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.primary,
+                              height: 1.375,
+                              letterSpacing: 0,
                             ),
                           ),
                         ),
@@ -487,7 +473,7 @@ class _IntroSlide extends HookWidget {
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  'Get Started',
+                                  context.l10n.getStarted,
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
