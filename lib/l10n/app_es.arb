@@ -2410,5 +2410,6 @@
   "categoryEventsEntertainment": "Eventos y ocio",
   "categoryClothing": "Ropa",
   "categoryElectronics": "Electrónica",
-  "categoryConvenienceStore": "Tiendas de conveniencia"
+  "categoryConvenienceStore": "Tiendas de conveniencia",
+  "deleteIncome": "Eliminar ingreso"
 }

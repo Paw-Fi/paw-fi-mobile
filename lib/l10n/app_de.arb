@@ -2408,5 +2408,6 @@
   "categoryEventsEntertainment": "Events & Unterhaltung",
   "categoryClothing": "Kleidung",
   "categoryElectronics": "Elektronik",
-  "categoryConvenienceStore": "Kiosk & Minimarkt"
+  "categoryConvenienceStore": "Kiosk & Minimarkt",
+  "deleteIncome": "Einkommen löschen"
 }

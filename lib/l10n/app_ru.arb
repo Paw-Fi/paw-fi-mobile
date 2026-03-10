@@ -2358,5 +2358,6 @@
   "categoryEventsEntertainment": "Досуг и развлечения",
   "categoryClothing": "Одежда",
   "categoryElectronics": "Электроника",
-  "categoryConvenienceStore": "Минимаркеты"
+  "categoryConvenienceStore": "Минимаркеты",
+  "deleteIncome": "Удалить доход"
 }

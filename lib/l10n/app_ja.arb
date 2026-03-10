@@ -2408,5 +2408,6 @@
   "categoryEventsEntertainment": "イベント・娯楽",
   "categoryClothing": "ファッション",
   "categoryElectronics": "電化製品",
-  "categoryConvenienceStore": "コンビニ"
+  "categoryConvenienceStore": "コンビニ",
+  "deleteIncome": "収入を削除"
 }

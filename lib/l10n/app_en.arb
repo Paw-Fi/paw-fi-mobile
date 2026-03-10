@@ -2427,5 +2427,6 @@
   "categoryEventsEntertainment": "Events & Entertainment",
   "categoryClothing": "Clothing",
   "categoryElectronics": "Electronics",
-  "categoryConvenienceStore": "Convenience Store"
+  "categoryConvenienceStore": "Convenience Store",
+  "deleteIncome": "Delete Income"
 }

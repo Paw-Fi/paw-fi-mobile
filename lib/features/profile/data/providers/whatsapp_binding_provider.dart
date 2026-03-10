@@ -22,12 +22,15 @@ class WhatsAppBinding extends _$WhatsAppBinding {
 
       final List<dynamic> response = await supabase
           .from('user_contacts')
-          .select('id')
+          .select('phone_e164')
           .eq('user_id', user.uid)
           .order('id', ascending: false)
           .limit(1);
 
-      return response.isNotEmpty;
+      if (response.isEmpty) return false;
+      final row = response.first as Map<String, dynamic>;
+      final phone = row['phone_e164'] as String?;
+      return phone != null && phone.isNotEmpty;
     } catch (error) {
       debugPrint('Error checking WhatsApp binding: $error');
       return false;

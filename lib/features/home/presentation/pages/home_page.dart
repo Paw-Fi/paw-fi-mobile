@@ -45,6 +45,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
+import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
@@ -907,6 +908,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ] else ...[
           // Personal mode - show customizable dashboard
+          const SliverToBoxAdapter(child: ConnectSocialBanner()),
           Consumer(
             builder: (context, ref, _) {
               final repoAsync = ref.watch(dashboardRepositoryFutureProvider);

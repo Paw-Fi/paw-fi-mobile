@@ -2355,5 +2355,6 @@
   "categoryEventsEntertainment": "Events & Entertainment",
   "categoryClothing": "Kleding",
   "categoryElectronics": "Elektronica",
-  "categoryConvenienceStore": "Gemakswinkels"
+  "categoryConvenienceStore": "Gemakswinkels",
+  "deleteIncome": "Inkomsten verwijderen"
 }

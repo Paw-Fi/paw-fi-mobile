@@ -2354,5 +2354,6 @@
   "categoryEventsEntertainment": "تقریبات اور تفریح",
   "categoryClothing": "لباس",
   "categoryElectronics": "الیکٹرونکس",
-  "categoryConvenienceStore": "سہولت اسٹور"
+  "categoryConvenienceStore": "سہولت اسٹور",
+  "deleteIncome": "آمدنی حذف کریں"
 }

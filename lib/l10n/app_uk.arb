@@ -2400,5 +2400,6 @@
   "categoryEventsEntertainment": "Заходи та розваги",
   "categoryClothing": "Одяг",
   "categoryElectronics": "Електроніка",
-  "categoryConvenienceStore": "Мінімаркети"
+  "categoryConvenienceStore": "Мінімаркети",
+  "deleteIncome": "Видалити дохід"
 }

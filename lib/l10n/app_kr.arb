@@ -2221,5 +2221,6 @@
   "categoryEventsEntertainment": "공연 및 엔터테인먼트",
   "categoryClothing": "의류/패션",
   "categoryElectronics": "전자기기",
-  "categoryConvenienceStore": "편의점"
+  "categoryConvenienceStore": "편의점",
+  "deleteIncome": "수입 삭제"
 }

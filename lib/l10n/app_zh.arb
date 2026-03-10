@@ -2404,5 +2404,6 @@
   "categoryEventsEntertainment": "演出与娱乐",
   "categoryClothing": "服饰鞋包",
   "categoryElectronics": "数码电子",
-  "categoryConvenienceStore": "便利店"
+  "categoryConvenienceStore": "便利店",
+  "deleteIncome": "删除收入"
 }

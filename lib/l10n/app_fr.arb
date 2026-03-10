@@ -2408,5 +2408,6 @@
   "categoryEventsEntertainment": "Sorties & Loisirs",
   "categoryClothing": "Vêtements",
   "categoryElectronics": "Électronique",
-  "categoryConvenienceStore": "Supérettes"
+  "categoryConvenienceStore": "Supérettes",
+  "deleteIncome": "Supprimer le revenu"
 }

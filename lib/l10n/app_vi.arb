@@ -2407,5 +2407,6 @@
   "categoryEventsEntertainment": "Sự kiện & Giải trí",
   "categoryClothing": "Quần áo",
   "categoryElectronics": "Đồ điện tử",
-  "categoryConvenienceStore": "Cửa hàng tiện lợi"
+  "categoryConvenienceStore": "Cửa hàng tiện lợi",
+  "deleteIncome": "Xóa thu nhập"
 }

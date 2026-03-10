@@ -2352,5 +2352,6 @@
   "categoryEventsEntertainment": "演出與娛樂",
   "categoryClothing": "服飾鞋包",
   "categoryElectronics": "數碼電子",
-  "categoryConvenienceStore": "便利店"
+  "categoryConvenienceStore": "便利店",
+  "deleteIncome": "刪除收入"
 }
