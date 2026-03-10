@@ -686,6 +686,36 @@ String getCategoryTranslation(BuildContext context, String? category) {
   return _titleCase(rawValue);
 }
 
+String? resolveBuiltinCategoryKey(BuildContext context, String? category) {
+  final rawValue = (category ?? '').trim();
+  if (rawValue.isEmpty) return null;
+
+  final rawKey = rawValue.toLowerCase();
+  final builtinCategories = <String>{
+    ...getExpenseCategories(),
+    ...getIncomeCategories(),
+  };
+
+  if (builtinCategories.contains(rawKey)) {
+    return rawKey;
+  }
+
+  final normalized = normalizeCategory(rawValue);
+  if (builtinCategories.contains(normalized)) {
+    return normalized;
+  }
+
+  for (final builtin in builtinCategories) {
+    final localized =
+        getCategoryTranslation(context, builtin).trim().toLowerCase();
+    if (localized == rawKey) {
+      return builtin;
+    }
+  }
+
+  return null;
+}
+
 /// Group title translations (English already provided; other locales can fill later)
 String getCategoryGroupTranslation(BuildContext context, String groupKey) {
   final l10n = context.l10n;

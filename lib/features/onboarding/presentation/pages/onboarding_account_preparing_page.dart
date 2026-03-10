@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -298,6 +299,12 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       try {
         final recommendation =
             BudgetRecommender.recommend(context, preparedDraft);
+        final builtinRecommendationCategories = recommendation.pockets
+            .expand((pocket) => pocket.suggestedCategories)
+            .where((category) =>
+                resolveBuiltinCategoryKey(context, category) != null)
+            .map((category) => category.trim().toLowerCase())
+            .toSet();
         if (recommendation.hasBlockingError) {
           setProgressState(
             progressValue: 0.85,
@@ -334,6 +341,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               selectedCurrency: selectedCurrency,
               totalBudget: preparedDraft.monthlyBudget,
               pockets: recommendation.pockets,
+              builtinCategoryNames: builtinRecommendationCategories,
             );
           }
 
@@ -360,6 +368,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 selectedCurrency: selectedCurrency,
                 totalBudget: preparedDraft.monthlyBudget,
                 pockets: recommendation.pockets,
+                builtinCategoryNames: builtinRecommendationCategories,
               );
             }
           }

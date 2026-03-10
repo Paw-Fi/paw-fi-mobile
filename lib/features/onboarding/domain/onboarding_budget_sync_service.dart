@@ -14,6 +14,7 @@ class OnboardingBudgetSyncService {
     required String selectedCurrency,
     required double totalBudget,
     required List<PocketTemplate> pockets,
+    required Set<String> builtinCategoryNames,
   }) async {
     final month = scopeParams.periodMonth ?? DateTime.now();
     final monthStart = DateTime(month.year, month.month, 1);
@@ -130,6 +131,9 @@ class OnboardingBudgetSyncService {
           'envelope_id': envelopeId,
           'category': category.toLowerCase(),
         });
+        if (builtinCategoryNames.contains(category.trim().toLowerCase())) {
+          continue;
+        }
         customCategoryPayload.add({
           'user_id': userId,
           'name': category.toLowerCase(),
