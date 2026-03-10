@@ -693,24 +693,30 @@ class _LogExpenseStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.l10n.onboardingPostAuthLogExpenseTitle,
-            textAlign: TextAlign.start,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-              letterSpacing: -0.5,
-              height: 1.15,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            child: Text(
+              context.l10n.onboardingPostAuthLogExpenseTitle,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+                height: 1.15,
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            context.l10n.onboardingPostAuthLogExpenseSubtitle,
-            style: TextStyle(
-              fontSize: 15,
-              color: colorScheme.mutedForeground,
-              height: 1.4,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10,0,10,0),
+            child: Text(
+              context.l10n.onboardingPostAuthLogExpenseSubtitle,
+              style: TextStyle(
+                fontSize: 15,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
             ),
           ),
           const SizedBox(height: 36),
@@ -876,15 +882,18 @@ class _ImportExpensesStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.l10n.onboardingPostAuthImportTitle,
-            textAlign: TextAlign.start,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-              letterSpacing: -0.5,
-              height: 1.15,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            child: Text(
+              context.l10n.onboardingPostAuthImportTitle,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+                height: 1.15,
+              ),
             ),
           ),
           const SizedBox(height: 40),
@@ -990,15 +999,18 @@ class _NotificationsStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.l10n.onboardingPostAuthNotificationsTitle,
-            textAlign: TextAlign.start,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-              letterSpacing: -0.5,
-              height: 1.15,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            child: Text(
+              context.l10n.onboardingPostAuthNotificationsTitle,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                letterSpacing: -0.5,
+                height: 1.15,
+              ),
             ),
           ),
           const SizedBox(height: 40),
