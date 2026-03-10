@@ -132,6 +132,8 @@ class PaywallScreen extends HookConsumerWidget {
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final currentInterval = currentSub?.subscription?.billingInterval;
+    final hasActiveSubscription =
+        currentSub?.subscription?.isSubscribed ?? false;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
@@ -147,6 +149,13 @@ class PaywallScreen extends HookConsumerWidget {
     final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
+
+    void runAfterBuild(VoidCallback callback) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        callback();
+      });
+    }
 
     void dismissProcessingDialog([String? reason]) {
       _debugLog(
@@ -193,10 +202,10 @@ class PaywallScreen extends HookConsumerWidget {
       if (message.isEmpty) return;
       if (message == lastIapErrorShown.value) return;
       lastIapErrorShown.value = message;
-      dismissProcessingDialog('iap error $source');
-      if (context.mounted) {
+      runAfterBuild(() {
+        dismissProcessingDialog('iap error $source');
         AppToast.error(context, humanizePurchaseError(message));
-      }
+      });
     }
 
     if (useIap && !didRegisterIapListener.value) {
@@ -340,12 +349,12 @@ class PaywallScreen extends HookConsumerWidget {
       if (!processingDialogOpen.value) return null;
 
       if (iapLastError.isNotEmpty) {
-        showIapError(iapLastError, 'effect');
+        runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
       }
 
       if (didSeeIapProcessing.value && !iapProcessing) {
-        dismissProcessingDialog('iap processing ended');
+        runAfterBuild(() => dismissProcessingDialog('iap processing ended'));
       }
 
       return null;
@@ -518,6 +527,17 @@ class PaywallScreen extends HookConsumerWidget {
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
     useEffect(() {
+      if (hasActiveSubscription) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            context.go('/dashboard');
+          }
+        });
+      }
+      return null;
+    }, [hasActiveSubscription]);
+
+    useEffect(() {
       if (!requiresAutoRenewAcknowledgement) {
         hasAcknowledgedAutoRenew.value = true;
         return null;
@@ -538,9 +558,15 @@ class PaywallScreen extends HookConsumerWidget {
       return false;
     }
 
-    // DIRECT RETURN FOR LIFETIME USERS
-    if (currentPlanId == 'lifetime') {
-      return const _LifetimeView();
+    if (hasActiveSubscription) {
+      return AdaptiveScaffold(
+        body: Material(
+          color: colorScheme.appBackground,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
     }
 
     if (useIap && productsAsync.isLoading) {
@@ -718,7 +744,10 @@ class PaywallScreen extends HookConsumerWidget {
           // Show processing dialog before starting purchase
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
+            lastIapErrorShown.value = null;
+            didSeeIapProcessing.value = false;
             processingDialogOpen.value = true;
+            processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
                 '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
             showBlockingProcessingDialog(
@@ -956,7 +985,7 @@ class PaywallScreen extends HookConsumerWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                     decoration: BoxDecoration(
                       color: colorScheme.appBackground,
                       boxShadow: [
@@ -1053,7 +1082,6 @@ class PaywallScreen extends HookConsumerWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -1557,68 +1585,6 @@ class _ReviewsSection extends StatelessWidget {
           );
         }).toList(),
       ],
-    );
-  }
-}
-
-class _LifetimeView extends StatelessWidget {
-  const _LifetimeView();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: ''),
-      body: Material(
-        color: scheme.appBackground,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.1),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
-                      )
-                    ],
-                  ),
-                  child: Icon(Icons.verified_rounded,
-                      size: 48, color: scheme.primary),
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  'Lifetime Member',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'You have full access forever.\nThank you for supporting Moneko.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: scheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

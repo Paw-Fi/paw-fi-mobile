@@ -41,10 +41,6 @@ GoRouter router(RouterRef ref) {
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
   final previewMode = ref.watch(previewModeProvider);
-  final persistedPreviewMode = prefs.getBool(kPreviewModeActiveKey) ?? false;
-  if (persistedPreviewMode && !previewMode.isActive) {
-    ref.read(previewModeProvider.notifier).enable();
-  }
   final hasCompletedPreauth =
       prefs.getBool('onboarding_preauth_completed') ?? false;
   final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
@@ -259,7 +255,7 @@ GoRouter router(RouterRef ref) {
         final hasOnboarded = !isAuthenticated
             ? true
             : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
-        final isPreview = previewMode.isActive || persistedPreviewMode;
+        final isPreview = previewMode.isActive;
         final onboardingStage = state.uri.queryParameters['stage'];
         final isDebugPostBypass =
             kDebugMode && state.uri.queryParameters['debug'] == 'post';

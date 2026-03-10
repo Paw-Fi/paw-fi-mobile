@@ -9,6 +9,9 @@ import 'package:intl/intl.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/import/domain/import_source_app.dart';
+import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_actions.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -124,13 +127,23 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> handleImportExpenses() async {
-      final importedCount =
-          await ref.read(onboardingPostAuthImportExpensesActionProvider)(
-        context,
-        ref,
-        selectedImportApp.value,
+      if (selectedImportApp.value == 'Not using an app') {
+        next();
+        return;
+      }
+
+      ref.read(importWizardProvider.notifier).resetAfterImport();
+      final imported = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) => ImportWizardPage(
+            lockPersonalTarget: true,
+            sourceApp: _mapImportSourceApp(selectedImportApp.value),
+          ),
+        ),
       );
-      if (importedCount != null && importedCount > 0) {
+
+      if (!context.mounted) return;
+      if (imported == true) {
         next();
       }
     }
@@ -291,6 +304,17 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   }
 }
 
+ImportSourceApp _mapImportSourceApp(String app) {
+  return switch (app) {
+    'YNAB' => ImportSourceApp.ynab,
+    'Monarch' => ImportSourceApp.monarch,
+    'Copilot' => ImportSourceApp.copilot,
+    'PocketGuard' => ImportSourceApp.pocketGuard,
+    'Splitwise' => ImportSourceApp.splitwise,
+    _ => ImportSourceApp.other,
+  };
+}
+
 enum _ExpenseCaptureSource {
   textAudio('Audio / Text', Icons.graphic_eq_rounded),
   takePhoto('Take photo', Icons.camera_alt_outlined);
@@ -306,13 +330,21 @@ Future<void> _showLoggedExpenseResultSheet(
   OnboardingLoggedExpensePreview preview,
 ) {
   final colorScheme = Theme.of(context).colorScheme;
-  final amountLabel =
-      '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(preview.amount)}';
+
+  // Calculate total amount if there are multiple items
+  final totalAmount = preview.items.isNotEmpty
+      ? preview.items.fold<double>(0, (sum, item) => sum + item.amount)
+      : preview.amount;
+
+  final totalAmountLabel =
+      '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(totalAmount)}';
 
   return showModalBottomSheet<void>(
     context: context,
+    useRootNavigator: true,
     backgroundColor: colorScheme.sheetBackground,
     isScrollControlled: true,
+    useSafeArea: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
@@ -335,71 +367,237 @@ Future<void> _showLoggedExpenseResultSheet(
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                'Expense logged',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Here is the result we captured. Review it, then continue when you are ready.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: colorScheme.card,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: colorScheme.successBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      amountLabel,
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      preview.description,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+              const SizedBox(height: 24),
+              Row(
+                children: [
+              
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _ResultChip(label: preview.sourceLabel),
-                        _ResultChip(label: preview.category),
-                        _ResultChip(label: preview.currency),
+                        Text(
+                          'Expense Captured!',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.foreground,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          preview.items.length > 1
+                              ? 'Moneko AI successfully extracted ${preview.items.length} transactions from your input.'
+                              : 'Moneko AI successfully extracted your transaction details.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.mutedForeground,
+                            height: 1.3,
+                          ),
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 28),
+              if (preview.items.length <= 1) ...[
+                // Single item view (Original detailed design)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colorScheme.cardSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colorScheme.border.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            color: colorScheme.primary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Analysis Result',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _ExtractedDetailRow(
+                        label: 'Amount',
+                        value: totalAmountLabel,
+                        isHighlight: true,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(
+                          height: 1,
+                          color: colorScheme.border.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      _ExtractedDetailRow(
+                        label: 'Category',
+                        value: _capitalize(preview.category),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(
+                          height: 1,
+                          color: colorScheme.border.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      _ExtractedDetailRow(
+                        label: 'Description',
+                        value: preview.description,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Divider(
+                          height: 1,
+                          color: colorScheme.border.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      _ExtractedDetailRow(
+                        label: 'Input Source',
+                        value: preview.sourceLabel,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Multiple items view
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colorScheme.cardSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: colorScheme.border.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_rounded,
+                                color: colorScheme.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'AI Extraction (${preview.items.length} items)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            totalAmountLabel,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Divider(
+                        height: 1,
+                        color: colorScheme.border.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.4,
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: preview.items.length,
+                          separatorBuilder: (context, index) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Divider(
+                              height: 1,
+                              color: colorScheme.border.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          itemBuilder: (context, index) {
+                            final item = preview.items[index];
+                            final itemAmount =
+                                '${item.currencySymbol}${NumberFormat('#,##0.00').format(item.amount)}';
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.description ?? 'Item ${index + 1}',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _capitalize(item.category),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: colorScheme.mutedForeground,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  itemAmount,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
+                height: 52,
                 child: PrimaryAdaptiveButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Got it'),
+                  child: const Text('Looks good!'),
                 ),
               ),
             ],
@@ -408,6 +606,59 @@ Future<void> _showLoggedExpenseResultSheet(
       );
     },
   );
+}
+
+String _capitalize(String s) {
+  if (s.isEmpty) return s;
+  return s[0].toUpperCase() + s.substring(1);
+}
+
+class _ExtractedDetailRow extends StatelessWidget {
+  const _ExtractedDetailRow({
+    required this.label,
+    required this.value,
+    this.isHighlight = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isHighlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Padding(
+            padding: EdgeInsets.only(top: isHighlight ? 4 : 0),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: isHighlight ? 22 : 15,
+              fontWeight: isHighlight ? FontWeight.w800 : FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _LogExpenseStep extends StatelessWidget {
@@ -426,13 +677,15 @@ class _LogExpenseStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    // We render the main view normally. The bottom sheet is shown via handleLogExpense.
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Log your first expense',
+            'Experience the magic\nof Moneko AI',
             textAlign: TextAlign.start,
             style: TextStyle(
               fontSize: 28,
@@ -442,34 +695,154 @@ class _LogExpenseStep extends StatelessWidget {
               height: 1.15,
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            'Try logging your first expense. Speak naturally or snap a receipt—our AI handles the rest.',
+            style: TextStyle(
+              fontSize: 15,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
+          ),
           const SizedBox(height: 36),
           SvgPicture.asset(
             'lib/assets/images/onboarding/onboarding1.svg',
             height: 180,
           ),
           const SizedBox(height: 28),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.55,
-            children: _ExpenseCaptureSource.values.map((source) {
-              return _SourceOptionTile(
-                label: source.label,
-                icon: source.icon,
-                selected: source == selectedSource,
-                onTap: () => onSourceChanged(source),
-              );
-            }).toList(growable: false),
-          ),
-          const SizedBox(height: 20),
+          if (loggedExpensePreview == null) ...[
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.55,
+              children: _ExpenseCaptureSource.values.map((source) {
+                return _SourceOptionTile(
+                  label: source.label,
+                  icon: source.icon,
+                  selected: source == selectedSource,
+                  onTap: () => onSourceChanged(source),
+                );
+              }).toList(growable: false),
+            ),
+            const SizedBox(height: 20),
+          ],
+          // Also show the inline summary so users can see the result if they close the sheet
           if (loggedExpensePreview != null)
             _LoggedExpenseInlineSummary(
               preview: loggedExpensePreview!,
               onViewResult: onViewResult,
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoggedExpenseInlineSummary extends StatelessWidget {
+  const _LoggedExpenseInlineSummary({
+    required this.preview,
+    required this.onViewResult,
+  });
+
+  final OnboardingLoggedExpensePreview preview;
+  final VoidCallback? onViewResult;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final totalAmount = preview.items.isNotEmpty
+        ? preview.items.fold<double>(0, (sum, item) => sum + item.amount)
+        : preview.amount;
+
+    final amountLabel =
+        '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(totalAmount)}';
+
+    final itemCount = preview.items.length;
+    final subtitleText = itemCount > 1
+        ? '$itemCount transactions extracted'
+        : preview.description;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.success.withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.success.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: colorScheme.success.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.check_circle_rounded,
+                    size: 16, color: colorScheme.success),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Expense logged!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                amountLabel,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  subtitleText,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: PrimaryAdaptiveButton(
+              onPressed: onViewResult,
+              child: const Text('View extraction details'),
+            ),
+          ),
         ],
       ),
     );
@@ -736,90 +1109,6 @@ class _SourceOptionTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoggedExpenseInlineSummary extends StatelessWidget {
-  const _LoggedExpenseInlineSummary({
-    required this.preview,
-    required this.onViewResult,
-  });
-
-  final OnboardingLoggedExpensePreview preview;
-  final VoidCallback? onViewResult;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final amountLabel =
-        '${resolveCurrencySymbol(preview.currency)}${NumberFormat('#,##0.00').format(preview.amount)}';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.successBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: colorScheme.success),
-              const SizedBox(width: 8),
-              Text(
-                'Expense logged',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            '$amountLabel - ${preview.description}',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 10),
-          PlainAdaptiveButton(
-            onPressed: onViewResult,
-            child: const Text('View result'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ResultChip extends StatelessWidget {
-  const _ResultChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: colorScheme.foreground,
         ),
       ),
     );

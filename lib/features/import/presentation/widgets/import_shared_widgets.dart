@@ -34,6 +34,12 @@ String importSourceLabel(ImportSourceApp source) {
       return 'YNAB';
     case ImportSourceApp.monarch:
       return 'Monarch';
+    case ImportSourceApp.copilot:
+      return 'Copilot';
+    case ImportSourceApp.pocketGuard:
+      return 'PocketGuard';
+    case ImportSourceApp.splitwise:
+      return 'Splitwise';
     case ImportSourceApp.everyDollar:
       return 'EveryDollar';
     case ImportSourceApp.cashew:
@@ -56,6 +62,12 @@ String importSourceFileRequest(ImportSourceApp source) {
       return 'Upload YNAB export (CSV/TSV). Note: targets may not transfer.';
     case ImportSourceApp.monarch:
       return 'Upload Transactions CSV (all accounts). Optional: Balance history CSV.';
+    case ImportSourceApp.copilot:
+      return 'Upload your Copilot transactions CSV export.';
+    case ImportSourceApp.pocketGuard:
+      return 'Upload your PocketGuard transactions CSV export.';
+    case ImportSourceApp.splitwise:
+      return 'Upload your Splitwise CSV export.';
     case ImportSourceApp.everyDollar:
       return 'Upload one or more monthly Transactions CSV exports.';
     case ImportSourceApp.cashew:

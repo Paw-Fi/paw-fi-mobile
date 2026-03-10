@@ -1,18 +1,19 @@
 import 'dart:convert';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/core/services/sse_service.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart'
     show AiLogSuccess, handleAiCameraCapture, handleAiFreeFormText;
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/services/sse_service.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -26,6 +27,7 @@ class OnboardingLoggedExpensePreview {
     required this.currency,
     required this.description,
     required this.category,
+    required this.items,
   });
 
   final String sourceLabel;
@@ -33,6 +35,7 @@ class OnboardingLoggedExpensePreview {
   final String currency;
   final String description;
   final String category;
+  final List<ParsedExpense> items; // Keep track of all items logged
 }
 
 typedef OnboardingPostAuthLogExpenseAction
@@ -116,6 +119,7 @@ Future<OnboardingLoggedExpensePreview?> _defaultLogExpenseAction(
         ? firstItem.description!.trim()
         : sourceLabel,
     category: firstItem.category,
+    items: success?.items ?? [],
   );
 }
 

@@ -113,11 +113,16 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     useEffect(() {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       var draft = store.load();
-      if (draft.flowVersion < 4) {
+      if (draft.flowVersion < kOnboardingPreauthFlowVersion) {
         final migratedStep = _migratePreauthStepIndex(draft.currentStep);
+        final shouldResetCurrency =
+            draft.flowVersion < 5 &&
+            draft.currentStep <= _kStepCurrency &&
+            draft.selectedCurrency.trim().toUpperCase() == 'USD';
         draft = draft.copyWith(
-          flowVersion: 4,
+          flowVersion: kOnboardingPreauthFlowVersion,
           currentStep: migratedStep,
+          selectedCurrency: shouldResetCurrency ? '' : draft.selectedCurrency,
         );
         unawaited(store.save(draft));
       }
@@ -1337,8 +1342,9 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currency = selectedCurrency.toUpperCase();
-    final flagPath = getCurrencyFlagPath(currency);
+    final currency = selectedCurrency.trim().toUpperCase();
+    final hasSelectedCurrency = currency.isNotEmpty;
+    final flagPath = hasSelectedCurrency ? getCurrencyFlagPath(currency) : null;
 
     Future<void> handleSelectCurrency() async {
       final selected = await showCurrencySelectorModal(
@@ -1396,11 +1402,14 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
                     ],
                     Expanded(
                       child: Text(
-                        currency,
+                        hasSelectedCurrency ? currency : 'Select a currency',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
+                          fontWeight:
+                              hasSelectedCurrency ? FontWeight.w600 : FontWeight.w500,
+                          color: hasSelectedCurrency
+                              ? colorScheme.foreground
+                              : colorScheme.mutedForeground,
                         ),
                       ),
                     ),
@@ -1411,6 +1420,16 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'You can change this later in the app.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.mutedForeground,
             ),
           ),
         ],
@@ -1614,7 +1633,7 @@ class _PreAuthStarterStep extends StatelessWidget {
       final result = await MonekoAlertDialog.show(
         context: context,
         title: 'Adjust your budget',
-        description: 'Tap save after entering your monthly budget amount.',
+        description: 'You can change it anytime in the app.',
         confirmLabel: 'Save',
         cancelLabel: 'Cancel',
         inputConfig: MonekoAlertDialogInputConfig(
@@ -1663,6 +1682,38 @@ class _PreAuthStarterStep extends StatelessWidget {
                 color: colorScheme.mutedForeground,
               ),
             ),
+            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.touch_app_outlined,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Drag slider or tap amount to adjust',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             Material(
               color: colorScheme.surface.withValues(alpha: 0.0),
@@ -1700,15 +1751,6 @@ class _PreAuthStarterStep extends StatelessWidget {
                               color: colorScheme.foreground,
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Drag the slider (or tap the amount) to adjust.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
                         ),
                       ),
                       SizedBox(

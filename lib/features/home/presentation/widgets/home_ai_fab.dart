@@ -893,34 +893,27 @@ Future<void> handleAiFreeFormText(
 }) async {
   final controller = TextEditingController();
 
-  showTextInputDrawer(
+  await showTextInputDrawer(
     context,
     controller,
     (text) async {
       if (!context.mounted) return;
-      // Defer to next frame to ensure drawer closes before processing
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          text: text,
-          onSuccess: onSuccess,
-        );
-      });
+      await _processExpense(
+        context,
+        ref,
+        text: text,
+        onSuccess: onSuccess,
+      );
     },
     onSubmitAudio: (audioBytes, contentType) async {
       if (!context.mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          audioBytes: audioBytes,
-          audioContentType: contentType,
-          onSuccess: onSuccess,
-        );
-      });
+      await _processExpense(
+        context,
+        ref,
+        audioBytes: audioBytes,
+        audioContentType: contentType,
+        onSuccess: onSuccess,
+      );
     },
   );
 }

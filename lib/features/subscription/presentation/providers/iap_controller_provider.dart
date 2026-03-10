@@ -74,6 +74,7 @@ class IapState {
 class IapController extends AsyncNotifier<IapState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _processingTimeout;
+  bool _didReceivePurchaseUpdateForCurrentAttempt = false;
 
   static const _processingTimeoutDuration = Duration(minutes: 2);
 
@@ -303,6 +304,7 @@ class IapController extends AsyncNotifier<IapState> {
         initiatedProductId: product.storeProductId,
         clearLastCompletedProductId: true,
       );
+      _didReceivePurchaseUpdateForCurrentAttempt = false;
       print(
           '✅ Processing state set to true, initiatedProductId=${product.storeProductId}');
 
@@ -354,6 +356,30 @@ class IapController extends AsyncNotifier<IapState> {
         throw Exception('Failed to start purchase');
       }
 
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      final latestState = state.valueOrNull;
+      final isStillWaitingForSamePurchase = latestState?.isProcessing == true &&
+          latestState?.initiatedProductId == product.storeProductId &&
+          !_didReceivePurchaseUpdateForCurrentAttempt;
+
+      print(
+        '🔍 Post-purchase return check: '
+        'didReceivePurchaseUpdate=$_didReceivePurchaseUpdateForCurrentAttempt '
+        'isProcessing=${latestState?.isProcessing} '
+        'initiatedProductId=${latestState?.initiatedProductId}',
+      );
+
+      if (isStillWaitingForSamePurchase) {
+        print(
+            '🚫 No purchase update received after store sheet closed; treating as user cancellation');
+        _setState(
+          isProcessing: false,
+          lastError: 'Purchase cancelled.',
+          clearInitiatedProductId: true,
+        );
+      }
+
       print(
           '✅ Purchase initiated successfully, waiting for purchase stream updates...');
     } catch (error, stackTrace) {
@@ -391,10 +417,21 @@ class IapController extends AsyncNotifier<IapState> {
     for (final purchase in purchases) {
       print(
           '📦 Processing purchase: id=${purchase.purchaseID}, productId=${purchase.productID}, status=${purchase.status}');
+      _didReceivePurchaseUpdateForCurrentAttempt = true;
 
       try {
         if (purchase.status == PurchaseStatus.pending) {
           print('⏳ Purchase pending, skipping...');
+          continue;
+        }
+
+        if (purchase.status == PurchaseStatus.canceled) {
+          print('🚫 Purchase cancelled by store');
+          _setState(
+            isProcessing: false,
+            lastError: 'Purchase cancelled.',
+            clearInitiatedProductId: true,
+          );
           continue;
         }
 
@@ -403,6 +440,7 @@ class IapController extends AsyncNotifier<IapState> {
           _setState(
             isProcessing: false,
             lastError: purchase.error?.message ?? 'Purchase error',
+            clearInitiatedProductId: true,
           );
           continue;
         }
@@ -421,6 +459,7 @@ class IapController extends AsyncNotifier<IapState> {
             _setState(
               isProcessing: false,
               lastError: 'Unknown product purchased',
+              clearInitiatedProductId: true,
             );
             continue;
           }
@@ -504,6 +543,7 @@ class IapController extends AsyncNotifier<IapState> {
               _setState(
                 isProcessing: false,
                 lastError: errorMessage,
+                clearInitiatedProductId: true,
               );
 
               continue;
@@ -570,6 +610,7 @@ class IapController extends AsyncNotifier<IapState> {
             _setState(
               isProcessing: false,
               lastError: errorMessage,
+              clearInitiatedProductId: true,
             );
             print('✅ Error state set successfully');
           }
@@ -580,6 +621,7 @@ class IapController extends AsyncNotifier<IapState> {
         _setState(
           isProcessing: false,
           lastError: e.toString(),
+          clearInitiatedProductId: true,
         );
       } finally {
         if (purchase.pendingCompletePurchase) {

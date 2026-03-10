@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/app/startup_guard.dart';
 import 'package:moneko/core/app/flutter_error_reporter.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -275,6 +276,12 @@ void main() {
         overrides: [
           // Provide SharedPreferences instance to selected household provider
           sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+          previewModeProvider.overrideWith(
+            (ref) => PreviewModeNotifier(
+              initiallyActive:
+                  sharedPreferences.getBool(kPreviewModeActiveKey) ?? false,
+            ),
+          ),
         ],
         child: const App(),
       ),

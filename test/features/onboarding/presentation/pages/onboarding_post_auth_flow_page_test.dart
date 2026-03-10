@@ -101,6 +101,7 @@ void main() {
             currency: 'USD',
             description: 'Lunch',
             category: 'Uncategorized',
+            items: [],
           ),
         ),
       ],
@@ -110,13 +111,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Expense logged'), findsWidgets);
-    expect(find.text('Lunch'), findsOneWidget);
-    expect(find.text('Log your first expense'), findsOneWidget);
+    expect(find.text('Expense logged!'), findsWidgets);
+    expect(find.text('Lunch'), findsWidgets);
+    expect(find.text('Experience the magic\nof Moneko AI'), findsOneWidget);
 
-    await tester.tap(find.text('Got it'));
+    await tester.tap(find.text('View extraction details'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Expense Captured!'), findsWidgets);
+
+    // Tap outside the bottom sheet or use the primary button
+    await tester.tap(find.text('Looks good!'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();

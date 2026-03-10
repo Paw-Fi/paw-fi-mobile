@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
+const kOnboardingPreauthFlowVersion = 5;
+
 const _kPreauthDraftKey = 'onboarding_preauth_draft_v2';
 const _kPreauthCompletedKey = 'onboarding_preauth_completed';
 const _kPreauthBoundPrefix = 'onboarding_preauth_bound:';
@@ -94,8 +96,8 @@ class OnboardingPreauthDraft {
   static OnboardingPreauthDraft initial() {
     return OnboardingPreauthDraft(
       currentStep: 0,
-      flowVersion: 4,
-      selectedCurrency: 'USD',
+      flowVersion: kOnboardingPreauthFlowVersion,
+      selectedCurrency: '',
       monthlyBudget: 0,
       wantsSharedSpace: false,
       householdProfile: 'personal',
@@ -265,7 +267,7 @@ class OnboardingPreauthDraft {
       currentStep: (json['currentStep'] as num?)?.toInt() ?? 0,
       flowVersion: (json['flowVersion'] as num?)?.toInt() ?? 1,
       selectedCurrency:
-          (json['selectedCurrency'] as String? ?? 'USD').toUpperCase(),
+          (json['selectedCurrency'] as String? ?? '').toUpperCase(),
       monthlyBudget: (json['monthlyBudget'] as num?)?.toDouble() ?? 0,
       wantsSharedSpace: json['wantsSharedSpace'] as bool? ?? false,
       householdProfile: json['householdProfile'] as String? ?? 'personal',

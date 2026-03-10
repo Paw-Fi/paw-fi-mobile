@@ -196,7 +196,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
 
                   // Modern elevated card with soft shadows
                   AnimatedContainer(
@@ -239,7 +239,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                             redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
 
                           // Modern Divider
                           Row(

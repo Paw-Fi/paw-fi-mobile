@@ -48,6 +48,12 @@ String _importSourceLabel(ImportSourceApp source) {
       return 'YNAB';
     case ImportSourceApp.monarch:
       return 'Monarch';
+    case ImportSourceApp.copilot:
+      return 'Copilot';
+    case ImportSourceApp.pocketGuard:
+      return 'PocketGuard';
+    case ImportSourceApp.splitwise:
+      return 'Splitwise';
     case ImportSourceApp.everyDollar:
       return 'EveryDollar';
     case ImportSourceApp.cashew:

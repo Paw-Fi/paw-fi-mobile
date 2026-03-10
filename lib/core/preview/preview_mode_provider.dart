@@ -27,7 +27,15 @@ class PreviewModeState {
 }
 
 class PreviewModeNotifier extends StateNotifier<PreviewModeState> {
-  PreviewModeNotifier() : super(PreviewModeState.inactive);
+  PreviewModeNotifier({bool initiallyActive = false})
+      : super(
+          initiallyActive
+              ? PreviewModeState(
+                  isActive: true,
+                  activatedAt: DateTime.now(),
+                )
+              : PreviewModeState.inactive,
+        );
 
   void enable() {
     if (state.isActive) return;

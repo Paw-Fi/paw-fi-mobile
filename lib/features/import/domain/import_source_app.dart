@@ -1,6 +1,9 @@
 enum ImportSourceApp {
   ynab,
   monarch,
+  copilot,
+  pocketGuard,
+  splitwise,
   everyDollar,
   cashew,
   mint,
@@ -26,6 +29,18 @@ const List<ImportSourceSpec> importSourceSpecs = [
   ),
   ImportSourceSpec(
     app: ImportSourceApp.monarch,
+    allowedExtensions: ['csv', 'txt'],
+  ),
+  ImportSourceSpec(
+    app: ImportSourceApp.copilot,
+    allowedExtensions: ['csv', 'txt'],
+  ),
+  ImportSourceSpec(
+    app: ImportSourceApp.pocketGuard,
+    allowedExtensions: ['csv', 'txt'],
+  ),
+  ImportSourceSpec(
+    app: ImportSourceApp.splitwise,
     allowedExtensions: ['csv', 'txt'],
   ),
   ImportSourceSpec(

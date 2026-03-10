@@ -1,6 +1,7 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -198,7 +199,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   }
 
   void _handleImportCompleted(ImportWizardState next) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       _dismissBlockingDialogIfVisible();
@@ -208,7 +209,12 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       if (userId.isNotEmpty) {
         final targetHouseholdId = next.targetHouseholdId;
         if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
-          ref.read(analyticsProvider.notifier).refresh(userId);
+          // Home personal mode reads directly from analyticsProvider via
+          // homeFilteredTransactionsProvider, so we must await a real reload
+          // before dismissing the import wizard. A fire-and-forget refresh can
+          // race with navigation and leave stale data visible until manual pull
+          // to refresh.
+          await ref.read(analyticsProvider.notifier).loadData(userId);
         } else {
           ref
               .read(cacheInvalidatorProvider)
@@ -220,11 +226,17 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           ref.invalidate(cachedHouseholdSplitsProvider);
           ref.invalidate(householdBudgetsProvider);
           ref.invalidate(householdMembersProvider);
+
+          // App init itself does not own expenses, but keeping the selected
+          // household list fresh prevents stale shell state after imports.
+          ref.invalidate(appInitializationV2Provider);
         }
 
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
       }
+
+      if (!mounted) return;
 
       final succeeded = next.importedCount;
       final failed = next.failedCount;

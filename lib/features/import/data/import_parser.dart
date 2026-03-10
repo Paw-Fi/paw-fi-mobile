@@ -6,6 +6,28 @@ import 'package:intl/intl.dart';
 
 import 'package:moneko/features/import/domain/import_models.dart';
 
+final RegExp _opaqueImportIdPattern = RegExp(
+  r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Z0-9_-]{10,})$',
+  caseSensitive: false,
+);
+
+String? _normalizeUserFacingImportNote(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    return null;
+  }
+  if (_opaqueImportIdPattern.hasMatch(trimmed) && !trimmed.contains(' ')) {
+    return null;
+  }
+  if (!RegExp(r'[A-Za-z]').hasMatch(trimmed) &&
+      RegExp(r'\d{6,}').hasMatch(trimmed)) {
+    return null;
+  }
+  return trimmed;
+}
+
 // ---------------------------------------------------------------------------
 // Encoding detection & text decoding
 // ---------------------------------------------------------------------------
@@ -292,11 +314,8 @@ ImportParsedRow parseRow(
   final normalizedType = _resolveType(typeValue, parsedAmount);
 
   // Compose description: prefer explicit description, fall back to reference.
-  String? finalDescription = descriptionValue?.isNotEmpty == true
-      ? descriptionValue
-      : referenceValue?.isNotEmpty == true
-          ? referenceValue
-          : null;
+  final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
+      _normalizeUserFacingImportNote(referenceValue);
 
   return ImportParsedRow(
     index: index,

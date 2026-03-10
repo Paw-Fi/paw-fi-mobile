@@ -35,7 +35,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
       }
     }
 
-    void startPreview() {
+    Future<void> startPreview() async {
       markPreviewSeen();
       if (fromSettings) {
         Navigator.of(context).push(
@@ -47,18 +47,22 @@ class OnboardingPreviewPage extends HookConsumerWidget {
         );
         return;
       }
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(kPreviewModeActiveKey, true);
       ref.read(previewModeProvider.notifier).enable();
       if (context.mounted) {
         context.go('/dashboard');
       }
     }
 
-    void goToRegister() {
+    Future<void> goToRegister() async {
       markPreviewSeen();
       if (fromSettings) {
         Navigator.of(context).pop();
         return;
       }
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(kPreviewModeActiveKey, false);
       ref.read(previewModeProvider.notifier).disable();
       if (context.mounted) {
         context.go('/onboarding?stage=pre');
@@ -141,7 +145,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   PrimaryAdaptiveButton(
-                    onPressed: startPreview,
+                    onPressed: () => unawaited(startPreview()),
                     child: Text(
                       context.l10n.onboardingPreviewTakeTour,
                       style: const TextStyle(
@@ -152,7 +156,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   PlainAdaptiveButton(
-                    onPressed: goToRegister,
+                    onPressed: () => unawaited(goToRegister()),
                     child: Text(
                       context.l10n.skipNow,
                       style: TextStyle(

@@ -148,6 +148,13 @@ class PlanSelectionPage extends HookConsumerWidget {
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
 
+    void runAfterBuild(VoidCallback callback) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        callback();
+      });
+    }
+
     void dismissProcessingDialog([String? reason]) {
       _debugLog(
         '🧹 Dismissing processing dialog${reason != null ? " - $reason" : ""} | open=${processingDialogOpen.value} mounted=${context.mounted}',
@@ -193,10 +200,10 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (message.isEmpty) return;
       if (message == lastIapErrorShown.value) return;
       lastIapErrorShown.value = message;
-      dismissProcessingDialog('iap error $source');
-      if (context.mounted) {
+      runAfterBuild(() {
+        dismissProcessingDialog('iap error $source');
         AppToast.error(context, humanizePurchaseError(message));
-      }
+      });
     }
 
     if (useIap && !didRegisterIapListener.value) {
@@ -340,12 +347,12 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (!processingDialogOpen.value) return null;
 
       if (iapLastError.isNotEmpty) {
-        showIapError(iapLastError, 'effect');
+        runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
       }
 
       if (didSeeIapProcessing.value && !iapProcessing) {
-        dismissProcessingDialog('iap processing ended');
+        runAfterBuild(() => dismissProcessingDialog('iap processing ended'));
       }
 
       return null;
@@ -434,12 +441,10 @@ class PlanSelectionPage extends HookConsumerWidget {
       }).toList()
         ..sort((a, b) {
           const order = {'monthly': 0, 'yearly': 1};
-          final aOrder = a.billingInterval != null
-              ? (order[a.billingInterval] ?? 2)
-              : 2;
-          final bOrder = b.billingInterval != null
-              ? (order[b.billingInterval] ?? 2)
-              : 2;
+          final aOrder =
+              a.billingInterval != null ? (order[a.billingInterval] ?? 2) : 2;
+          final bOrder =
+              b.billingInterval != null ? (order[b.billingInterval] ?? 2) : 2;
           return aOrder.compareTo(bOrder);
         });
     } else {
@@ -720,7 +725,10 @@ class PlanSelectionPage extends HookConsumerWidget {
           // Show processing dialog before starting purchase
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
+            lastIapErrorShown.value = null;
+            didSeeIapProcessing.value = false;
             processingDialogOpen.value = true;
+            processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
                 '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
             showBlockingProcessingDialog(
@@ -1004,9 +1012,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                             height: 1.35,
                           ),
                         ),
-          
                       ),
-                   
                       const SizedBox(height: 12),
                     ],
                     PrimaryAdaptiveButton(

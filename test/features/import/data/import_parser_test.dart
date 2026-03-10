@@ -71,4 +71,33 @@ void main() {
     expect(parsed.amountCents, 1250);
     expect(parsed.category, 'Food');
   });
+
+  test('parseRow does not use opaque reference ids as description fallback',
+      () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.reference: 2,
+      },
+    );
+    final row = ['2026-02-01', '12.50', '9f3b5c2a-4b37-4c0d-9f7a-4f9c5c2b1e88'];
+    final parsed = parseRow(row, mapping);
+
+    expect(parsed.description, isNull);
+  });
+
+  test('parseRow uses meaningful reference text as description fallback', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.reference: 2,
+      },
+    );
+    final row = ['2026-02-01', '12.50', 'Blue Bottle coffee beans'];
+    final parsed = parseRow(row, mapping);
+
+    expect(parsed.description, 'Blue Bottle coffee beans');
+  });
 }
