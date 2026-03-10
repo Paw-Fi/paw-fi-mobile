@@ -18,6 +18,7 @@ class OnboardingQuestionOption {
       'onboardingQuestionHousingOwn' => context.l10n.onboardingQuestionHousingOwn,
       'onboardingQuestionSplitOften' => context.l10n.onboardingQuestionSplitOften,
       'onboardingQuestionSplitSometimes' => context.l10n.onboardingQuestionSplitSometimes,
+      'onboardingQuestionSplitRarely' => context.l10n.onboardingQuestionSplitRarely,
       'onboardingQuestionSplitNever' => context.l10n.onboardingQuestionSplitNever,
       'onboardingQuestionSubscriptionsMany' => context.l10n.onboardingQuestionSubscriptionsMany,
       'onboardingQuestionSubscriptionsFew' => context.l10n.onboardingQuestionSubscriptionsFew,

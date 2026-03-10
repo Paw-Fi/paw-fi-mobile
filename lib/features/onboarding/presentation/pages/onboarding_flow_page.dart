@@ -382,23 +382,20 @@ class _IntroSlide extends HookWidget {
                   position: slideAnim,
                   child: Align(
                     alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: MonekoRichText(
-                        text: text,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 26,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
-                        ),
-                        highlightStyle: TextStyle(
-                          fontSize: 26,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.primary,
-                        ),
+                    child: MonekoRichText(
+                      text: text,
+                      textAlign: TextAlign.start,
+                      style: TextStyle(
+                        fontSize: 31,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                      ),
+                      highlightStyle: TextStyle(
+                        fontSize: 31,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ),
@@ -419,7 +416,7 @@ class _IntroSlide extends HookWidget {
                       Align(
                         alignment: Alignment.topLeft,
                         child: Padding(
-                          padding: const EdgeInsets.only(top: 16),
+                          padding: const EdgeInsets.only(top: 0),
                           child: MonekoRichText(
                             text: text,
                             style: TextStyle(
@@ -1645,7 +1642,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
     final draft = derivePreauthBudgetProfile(
       ref.read(onboardingPreauthDraftStoreProvider).load(),
     );
-    final recommendation = BudgetRecommender.recommend(draft);
+    final recommendation = BudgetRecommender.recommend(context, draft);
     final previewTotal = draft.monthlyBudget > 0 ? draft.monthlyBudget : 1.0;
     final previewPockets = recommendation.pockets
         .map(

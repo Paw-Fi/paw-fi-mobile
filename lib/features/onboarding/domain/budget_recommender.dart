@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 
@@ -10,8 +10,6 @@ class OnboardingBudgetRecommendation {
   const OnboardingBudgetRecommendation({
     required this.recommendedTemplateId,
     required this.pockets,
-    required this.warnings,
-    required this.suggestedAdjustments,
     required this.fixedCostsExceedBudget,
     required this.blockingError,
     required this.totalBudget,
@@ -21,8 +19,6 @@ class OnboardingBudgetRecommendation {
 
   final String recommendedTemplateId;
   final List<PocketTemplate> pockets;
-  final List<String> warnings;
-  final List<String> suggestedAdjustments;
   final bool fixedCostsExceedBudget;
   final String? blockingError;
   final double totalBudget;
@@ -34,19 +30,15 @@ class OnboardingBudgetRecommendation {
 
 class BudgetRecommender {
   static OnboardingBudgetRecommendation recommend(
-      OnboardingPreauthDraft draft) {
+      BuildContext context, OnboardingPreauthDraft draft) {
     final totalBudget = draft.monthlyBudget;
     if (totalBudget <= 0) {
       return OnboardingBudgetRecommendation(
         recommendedTemplateId: _selectTemplateId(draft),
         pockets: const [],
-        warnings: const [],
-        suggestedAdjustments: const [
-          'Enter a monthly amount to generate your starting pocket plan.',
-        ],
         fixedCostsExceedBudget: false,
         blockingError:
-            'Add your monthly amount before we can build your pocket plan.',
+            context.l10n.addYourMonthlyAmountBeforeWeCanBuildYourPocketPlan,
         totalBudget: totalBudget,
         fixedCostsTotal: 0,
         leftoverAfterFixed: 0,
@@ -73,20 +65,21 @@ class BudgetRecommender {
     final sharedGroceries =
         sharedBillsEnabled && draft.onboardingFocus == 'keep_shared_expenses';
 
-    fixedAmounts['Housing'] = housingAmount;
-    fixedAmounts['Utilities'] = utilitiesKnownAmount;
-    fixedAmounts['Debt payments'] = debtMinimum;
-    fixedAmounts['Savings / future'] = savingsAmount;
+    fixedAmounts[context.l10n.categoryHousing] = housingAmount;
+    fixedAmounts[context.l10n.categoryUtilities] = utilitiesKnownAmount;
+    fixedAmounts[context.l10n.categoryDebtPayments] = debtMinimum;
+    fixedAmounts[context.l10n.categorySavingsFuture] = savingsAmount;
     if (dependentsKnownAmount > 0) {
-      fixedAmounts['Kids / dependents'] = dependentsKnownAmount;
+      fixedAmounts[context.l10n.categoryKidsDependents] = dependentsKnownAmount;
     }
 
     if (sharedBillsEnabled) {
-      final sharedFixed = (fixedAmounts.remove('Housing') ?? 0) +
-          (fixedAmounts.remove('Utilities') ?? 0);
+      final sharedFixed =
+          (fixedAmounts.remove(context.l10n.categoryHousing) ?? 0) +
+              (fixedAmounts.remove(context.l10n.categoryUtilities) ?? 0);
       if (sharedFixed > 0) {
-        fixedAmounts['Shared bills'] =
-            (fixedAmounts['Shared bills'] ?? 0) + sharedFixed;
+        fixedAmounts[context.l10n.categorySharedBills] =
+            (fixedAmounts[context.l10n.categorySharedBills] ?? 0) + sharedFixed;
       }
     }
 
@@ -96,14 +89,11 @@ class BudgetRecommender {
     if (leftover < 0) {
       return OnboardingBudgetRecommendation(
         recommendedTemplateId: _selectTemplateId(draft),
-        pockets: _buildFixedOnlyPockets(totalBudget, fixedAmounts, draft),
-        warnings: const [],
-        suggestedAdjustments: const [
-          'Increase your monthly total, or lower one of the fixed amounts.',
-        ],
+        pockets:
+            _buildFixedOnlyPockets(context, totalBudget, fixedAmounts, draft),
         fixedCostsExceedBudget: true,
-        blockingError:
-            'Your fixed costs are higher than your total. Increase your total or lower a fixed amount to continue.',
+        blockingError: context.l10n
+            .yourFixedCostsAreHigherThanYourTotalIncreaseYourTotalOrLowerAFixedAmountToContinue,
         totalBudget: totalBudget,
         fixedCostsTotal: fixedSubtotal,
         leftoverAfterFixed: leftover,
@@ -111,37 +101,37 @@ class BudgetRecommender {
     }
 
     final variablePoints = <String, double>{
-      'Groceries': 1.0,
-      'Transport': 0.9,
-      'Everyday spending': 0.85,
-      'Fun': 0.65,
-      'True expenses': 0.7,
-      'Buffer': _bufferBasePoints(draft.bufferPreference),
+      context.l10n.categoryGroceries: 1.0,
+      context.l10n.categoryTransport: 0.9,
+      context.l10n.categoryEverydaySpending: 0.85,
+      context.l10n.fun: 0.65,
+      context.l10n.categoryTrueExpenses: 0.7,
+      context.l10n.categoryBuffer: _bufferBasePoints(draft.bufferPreference),
     };
 
     if (utilitiesKnownAmount <= 0) {
-      variablePoints['Utilities'] = 0.5;
+      variablePoints[context.l10n.categoryUtilities] = 0.5;
     }
     if (housingAmount <= 0 && draft.housingType != 'none') {
-      variablePoints['Housing'] = 1.0;
+      variablePoints[context.l10n.categoryHousing] = 1.0;
     }
 
     if (draft.eatingOutFrequency != 'rarely') {
-      variablePoints['Dining out'] =
+      variablePoints[context.l10n.diningOut] =
           draft.eatingOutFrequency == 'often' ? 0.85 : 0.5;
-      variablePoints['Groceries'] = math.max(
+      variablePoints[context.l10n.categoryGroceries] = math.max(
         0.5,
-        variablePoints['Groceries']! -
+        variablePoints[context.l10n.categoryGroceries]! -
             (draft.eatingOutFrequency == 'often' ? 0.25 : 0.1),
       );
     }
 
     switch (draft.subscriptionsLevel) {
       case 'many':
-        variablePoints['Subscriptions'] = 0.5;
+        variablePoints[context.l10n.categorySubscriptions] = 0.5;
         break;
       case 'few':
-        variablePoints['Subscriptions'] = 0.25;
+        variablePoints[context.l10n.categorySubscriptions] = 0.25;
         break;
       case 'none':
         break;
@@ -150,7 +140,7 @@ class BudgetRecommender {
     }
 
     if (draft.hasPets) {
-      variablePoints['Pets'] = switch (draft.petSpendLevel) {
+      variablePoints[context.l10n.categoryPets] = switch (draft.petSpendLevel) {
         'low' => 0.2,
         'high' => 0.5,
         _ => 0.35,
@@ -158,37 +148,44 @@ class BudgetRecommender {
     }
 
     if (draft.hasDependents && dependentsKnownAmount <= 0) {
-      variablePoints['Kids / dependents'] = 0.75;
+      variablePoints[context.l10n.categoryKidsDependents] = 0.75;
     }
 
     if (draft.transportMode == 'car') {
-      variablePoints['Transport'] = variablePoints['Transport']! + 0.2;
+      variablePoints[context.l10n.categoryTransport] =
+          variablePoints[context.l10n.categoryTransport]! + 0.2;
     }
     if (draft.transportMode == 'mixed') {
-      variablePoints['Transport'] = variablePoints['Transport']! + 0.1;
+      variablePoints[context.l10n.categoryTransport] =
+          variablePoints[context.l10n.categoryTransport]! + 0.1;
     }
 
     switch (draft.lifestyleFocus) {
       case 'student':
-        variablePoints['Groceries'] = variablePoints['Groceries']! + 0.15;
-        variablePoints['True expenses'] =
-            variablePoints['True expenses']! + 0.1;
-        variablePoints['Fun'] = math.max(0.3, variablePoints['Fun']! - 0.15);
-        variablePoints['Everyday spending'] =
-            math.max(0.55, variablePoints['Everyday spending']! - 0.1);
+        variablePoints[context.l10n.categoryGroceries] =
+            variablePoints[context.l10n.categoryGroceries]! + 0.15;
+        variablePoints[context.l10n.categoryTrueExpenses] =
+            variablePoints[context.l10n.categoryTrueExpenses]! + 0.1;
+        variablePoints[context.l10n.fun] =
+            math.max(0.3, variablePoints[context.l10n.fun]! - 0.15);
+        variablePoints[context.l10n.categoryEverydaySpending] = math.max(
+            0.55, variablePoints[context.l10n.categoryEverydaySpending]! - 0.1);
         break;
       case 'freelancer':
-        variablePoints['Buffer'] = variablePoints['Buffer']! + 0.25;
-        variablePoints['True expenses'] =
-            variablePoints['True expenses']! + 0.25;
+        variablePoints[context.l10n.categoryBuffer] =
+            variablePoints[context.l10n.categoryBuffer]! + 0.25;
+        variablePoints[context.l10n.categoryTrueExpenses] =
+            variablePoints[context.l10n.categoryTrueExpenses]! + 0.25;
         break;
       case 'commuter':
-        variablePoints['Transport'] = variablePoints['Transport']! + 0.25;
+        variablePoints[context.l10n.categoryTransport] =
+            variablePoints[context.l10n.categoryTransport]! + 0.25;
         break;
       case 'foodies':
-        variablePoints['Dining out'] =
-            (variablePoints['Dining out'] ?? 0.45) + 0.2;
-        variablePoints['Fun'] = variablePoints['Fun']! + 0.15;
+        variablePoints[context.l10n.diningOut] =
+            (variablePoints[context.l10n.diningOut] ?? 0.45) + 0.2;
+        variablePoints[context.l10n.fun] =
+            variablePoints[context.l10n.fun]! + 0.15;
         break;
       default:
         break;
@@ -196,39 +193,46 @@ class BudgetRecommender {
 
     if (draft.primaryGoal == 'travel' ||
         draft.planAheadSelections.contains('travel')) {
-      variablePoints['Travel / event fund'] = 0.7;
+      variablePoints[context.l10n.categoryTravelEventFund] = 0.7;
     }
 
     if (draft.primaryGoal == 'debt' && debtMinimum <= 0) {
-      variablePoints['Debt payments'] = 0.3;
+      variablePoints[context.l10n.categoryDebtPayments] = 0.3;
     }
 
     if (sharedBillsEnabled) {
-      variablePoints['Shared bills'] =
+      variablePoints[context.l10n.categorySharedBills] =
           draft.billSplitFrequency == 'often' ? 0.75 : 0.45;
     }
 
     if (sharedBillsEnabled) {
-      final movedPoints = (variablePoints.remove('Housing') ?? 0) +
-          (variablePoints.remove('Utilities') ?? 0) +
-          (sharedGroceries ? (variablePoints.remove('Groceries') ?? 0) : 0);
+      final movedPoints =
+          (variablePoints.remove(context.l10n.categoryHousing) ?? 0) +
+              (variablePoints.remove(context.l10n.categoryUtilities) ?? 0) +
+              (sharedGroceries
+                  ? (variablePoints.remove(context.l10n.categoryGroceries) ?? 0)
+                  : 0);
       if (movedPoints > 0) {
-        variablePoints['Shared bills'] =
-            (variablePoints['Shared bills'] ?? 0) + movedPoints;
+        variablePoints[context.l10n.categorySharedBills] =
+            (variablePoints[context.l10n.categorySharedBills] ?? 0) +
+                movedPoints;
       }
     }
 
     final planAheadCount = draft.planAheadSelections.length;
     if (planAheadCount > 0) {
-      variablePoints['True expenses'] =
-          variablePoints['True expenses']! + (0.2 * planAheadCount.clamp(1, 4));
+      variablePoints[context.l10n.categoryTrueExpenses] =
+          variablePoints[context.l10n.categoryTrueExpenses]! +
+              (0.2 * planAheadCount.clamp(1, 4));
     }
 
     if (draft.primaryGoal == 'save') {
-      variablePoints['Fun'] = math.max(0.3, variablePoints['Fun']! - 0.2);
+      variablePoints[context.l10n.fun] =
+          math.max(0.3, variablePoints[context.l10n.fun]! - 0.2);
     }
     if (draft.primaryGoal == 'debt') {
-      variablePoints['Fun'] = math.max(0.25, variablePoints['Fun']! - 0.25);
+      variablePoints[context.l10n.fun] =
+          math.max(0.25, variablePoints[context.l10n.fun]! - 0.25);
     }
 
     final variableSum =
@@ -242,35 +246,17 @@ class BudgetRecommender {
     }
 
     final pockets = _buildPocketsFromAmounts(
+      context: context,
       totalBudget: totalBudget,
       amounts: amounts,
       includeZeroWeightCore: true,
       draft: draft,
     );
-    _normalizeWeights(pockets);
-
-    final warnings = <String>[];
-    if (leftover <= totalBudget * 0.1) {
-      warnings.add(
-        'This is tight for day-to-day spending. Consider reducing savings/debt extras or increasing your total.',
-      );
-    }
-    if (!draft.utilitiesKnown) {
-      warnings.add(
-        'Utilities is estimated from your profile. You can fine-tune it anytime.',
-      );
-    }
-    if (housingEstimatedAmount != null && housingEstimatedAmount > 0) {
-      warnings.add(
-        'Housing is estimated from your housing situation. Update this amount once you know it.',
-      );
-    }
+    _normalizeWeights(context, pockets);
 
     return OnboardingBudgetRecommendation(
       recommendedTemplateId: _selectTemplateId(draft),
       pockets: pockets,
-      warnings: warnings,
-      suggestedAdjustments: const [],
       fixedCostsExceedBudget: false,
       blockingError: null,
       totalBudget: totalBudget,
@@ -409,11 +395,13 @@ class BudgetRecommender {
   }
 
   static List<PocketTemplate> _buildFixedOnlyPockets(
+    BuildContext context,
     double total,
     Map<String, double> fixedAmounts,
     OnboardingPreauthDraft draft,
   ) {
     return _buildPocketsFromAmounts(
+      context: context,
       totalBudget: total,
       amounts: fixedAmounts,
       includeZeroWeightCore: true,
@@ -422,6 +410,7 @@ class BudgetRecommender {
   }
 
   static List<PocketTemplate> _buildPocketsFromAmounts({
+    required BuildContext context,
     required double totalBudget,
     required Map<String, double> amounts,
     required bool includeZeroWeightCore,
@@ -430,14 +419,15 @@ class BudgetRecommender {
     final normalized = <String, double>{};
     amounts.forEach((key, value) {
       final safe = _safeAmount(value);
-      if (safe > 0 || (includeZeroWeightCore && _isCorePocket(key))) {
+      if (safe > 0 || (includeZeroWeightCore && _isCorePocket(context, key))) {
         normalized[key] = safe;
       }
     });
 
     final result = <PocketTemplate>[];
     for (final entry in normalized.entries) {
-      final meta = _metaByPocketName[entry.key] ?? _metaByPocketName['Buffer']!;
+      final meta = _metaByPocketName(context)[entry.key] ??
+          _metaByPocketName(context)[context.l10n.categoryBuffer]!;
       result.add(
         PocketTemplate(
           name: entry.key,
@@ -450,25 +440,26 @@ class BudgetRecommender {
     }
 
     result.sort((a, b) {
-      final leftOrder = _pocketOrder[a.name] ?? 999;
-      final rightOrder = _pocketOrder[b.name] ?? 999;
+      final leftOrder = _pocketOrder(context)[a.name] ?? 999;
+      final rightOrder = _pocketOrder(context)[b.name] ?? 999;
       return leftOrder.compareTo(rightOrder);
     });
-    return _canonicalizeAndDeduplicateCategories(result, draft: draft);
+    return _canonicalizeAndDeduplicateCategories(context, result, draft: draft);
   }
 
-  static bool _isCorePocket(String name) {
-    return name == 'Housing' ||
-        name == 'Utilities' ||
-        name == 'Groceries' ||
-        name == 'Transport' ||
-        name == 'Everyday spending' ||
-        name == 'Savings / future' ||
-        name == 'Buffer' ||
-        name == 'True expenses';
+  static bool _isCorePocket(BuildContext context, String name) {
+    return name == context.l10n.categoryHousing ||
+        name == context.l10n.categoryUtilities ||
+        name == context.l10n.categoryGroceries ||
+        name == context.l10n.categoryTransport ||
+        name == context.l10n.categoryEverydaySpending ||
+        name == context.l10n.categorySavingsFuture ||
+        name == context.l10n.categoryBuffer ||
+        name == context.l10n.categoryTrueExpenses;
   }
 
   static List<PocketTemplate> _canonicalizeAndDeduplicateCategories(
+    BuildContext context,
     List<PocketTemplate> pockets, {
     required OnboardingPreauthDraft draft,
   }) {
@@ -476,7 +467,6 @@ class BudgetRecommender {
     final sharedGroceries =
         sharedBillsEnabled && draft.onboardingFocus == 'keep_shared_expenses';
     final usedCategories = <String>{};
-    final allowedCategories = getExpenseCategories().toSet();
     final pocketNames = pockets.map((pocket) => pocket.name).toSet();
     final normalized = <PocketTemplate>[];
     final pocketByName = <String, PocketTemplate>{
@@ -484,22 +474,20 @@ class BudgetRecommender {
     };
 
     final ownershipPriority = <String>[
-      'Shared bills',
-      'Housing',
-      'Utilities',
-      'Groceries',
-      'Debt payments',
-      'Subscriptions',
-      'Pets',
-      'Kids / dependents',
-      'Dining out',
-      'Transport',
-      'Travel / event fund',
-      'True expenses',
-      'Everyday spending',
-      'Fun',
-      'Savings / future',
-      'Buffer',
+      context.l10n.categorySharedBills,
+      context.l10n.categoryHousing,
+      context.l10n.categoryUtilities,
+      context.l10n.categoryGroceries,
+      context.l10n.categoryDebtPayments,
+      context.l10n.categorySubscriptions,
+      context.l10n.categoryPets,
+      context.l10n.categoryKidsDependents,
+      context.l10n.categoryTransport,
+      context.l10n.categoryTravelEventFund,
+      context.l10n.categoryTrueExpenses,
+      context.l10n.categoryEverydaySpending,
+      context.l10n.categorySavingsFuture,
+      context.l10n.categoryBuffer,
     ];
 
     final suggestedByPocket = <String, List<String>>{
@@ -509,6 +497,7 @@ class BudgetRecommender {
     for (final pocketName in ownershipPriority) {
       if (!pocketByName.containsKey(pocketName)) continue;
       final candidates = _candidateCategoriesForPocket(
+        context: context,
         pocketName: pocketName,
         sharedBillsEnabled: sharedBillsEnabled,
         sharedGroceries: sharedGroceries,
@@ -520,11 +509,12 @@ class BudgetRecommender {
 
       final categories = <String>[];
       for (final category in candidates) {
-        final canonical = normalizeCategory(category);
-        if (!allowedCategories.contains(canonical)) continue;
-        if (usedCategories.contains(canonical)) continue;
-        usedCategories.add(canonical);
-        categories.add(canonical);
+        final localized = category.trim();
+        if (localized.isEmpty) continue;
+        final localizedKey = localized.toLowerCase();
+        if (usedCategories.contains(localizedKey)) continue;
+        usedCategories.add(localizedKey);
+        categories.add(localized);
       }
       suggestedByPocket[pocketName] = categories;
     }
@@ -540,58 +530,56 @@ class BudgetRecommender {
   }
 
   static List<String> _candidateCategoriesForPocket({
+    required BuildContext context,
     required String pocketName,
     required bool sharedBillsEnabled,
     required bool sharedGroceries,
   }) {
-    if (_manualOnlyPockets.contains(pocketName)) {
+    if (_manualOnlyPockets(context).contains(pocketName)) {
       return const <String>[];
     }
 
-    switch (pocketName) {
-      case 'Shared bills':
-        if (!sharedBillsEnabled) {
-          return const <String>[];
-        }
-        return [
-          'rent',
-          'mortgage',
-          'home repairs',
-          'home services',
-          'home insurance',
-          'renters insurance',
-          'electricity',
-          'water',
-          'heating & gas',
-          'internet',
-          'phone bill',
-          'trash & recycling',
-          'home security',
-          if (sharedGroceries) 'groceries',
-          if (sharedGroceries) 'household supplies',
-          if (sharedGroceries) 'cleaning supplies',
-        ];
-      case 'Housing':
-      case 'Utilities':
-        if (sharedBillsEnabled) {
-          return const <String>[];
-        }
-        break;
-      case 'Groceries':
-        if (sharedGroceries) {
-          return const <String>[];
-        }
-        break;
-      case 'Savings / future':
+    if (pocketName == context.l10n.categorySharedBills) {
+      if (!sharedBillsEnabled) {
         return const <String>[];
-      default:
-        break;
+      }
+      return [
+        context.l10n.categoryRent,
+        context.l10n.categoryMortgage,
+        context.l10n.categoryHomeRepairs,
+        context.l10n.categoryHomeServices,
+        context.l10n.categoryHomeInsurance,
+        context.l10n.categoryRentersInsurance,
+        context.l10n.categoryElectricity,
+        context.l10n.categoryWater,
+        context.l10n.categoryHeatingGas,
+        context.l10n.categoryInternet,
+        context.l10n.categoryPhoneBill,
+        context.l10n.categoryTrashRecycling,
+        context.l10n.categoryHomeSecurity,
+        if (sharedGroceries) context.l10n.categoryGroceries,
+        if (sharedGroceries) context.l10n.categoryHouseholdSupplies,
+        if (sharedGroceries) context.l10n.categoryCleaningSupplies,
+      ];
+    } else if (pocketName == context.l10n.categoryHousing ||
+        pocketName == context.l10n.categoryUtilities) {
+      if (sharedBillsEnabled) {
+        return const <String>[];
+      }
+    } else if (pocketName == context.l10n.categoryGroceries) {
+      if (sharedGroceries) {
+        return const <String>[];
+      }
+    } else if (pocketName == context.l10n.categorySavingsFuture) {
+      return const <String>[];
     }
 
-    return _metaByPocketName[pocketName]?.categories ?? const <String>[];
+    return _metaByPocketName(context)[pocketName]?.categories ??
+        const <String>[];
   }
 
-  static void _normalizeWeights(List<PocketTemplate> pockets) {
+  static void _normalizeWeights(
+      BuildContext context, List<PocketTemplate> pockets) {
     if (pockets.isEmpty) return;
     final sum = pockets.fold<double>(0, (acc, p) => acc + p.weight);
     if (sum <= 0) return;
@@ -612,7 +600,8 @@ class BudgetRecommender {
       return;
     }
 
-    final bufferIndex = adjusted.indexWhere((p) => p.name == 'Buffer');
+    final bufferIndex =
+        adjusted.indexWhere((p) => p.name == context.l10n.categoryBuffer);
     final targetIndex = bufferIndex >= 0 ? bufferIndex : 0;
     final target = adjusted[targetIndex];
     adjusted[targetIndex] = target.copyWith(
@@ -637,191 +626,191 @@ class _PocketMeta {
   final Color color;
 }
 
-const Map<String, int> _pocketOrder = {
-  'Housing': 10,
-  'Utilities': 20,
-  'Debt payments': 30,
-  'Savings / future': 40,
-  'Shared bills': 50,
-  'Kids / dependents': 60,
-  'Groceries': 70,
-  'Dining out': 80,
-  'Transport': 90,
-  'Subscriptions': 100,
-  'Pets': 110,
-  'Travel / event fund': 120,
-  'True expenses': 130,
-  'Everyday spending': 140,
-  'Fun': 150,
-  'Buffer': 160,
-};
+Map<String, int> _pocketOrder(BuildContext context) => {
+      context.l10n.categoryHousing: 10,
+      context.l10n.categoryUtilities: 20,
+      context.l10n.categoryDebtPayments: 30,
+      context.l10n.categorySavingsFuture: 40,
+      context.l10n.categorySharedBills: 50,
+      context.l10n.categoryKidsDependents: 60,
+      context.l10n.categoryGroceries: 70,
+      context.l10n.categoryTransport: 90,
+      context.l10n.categorySubscriptions: 100,
+      context.l10n.categoryPets: 110,
+      context.l10n.categoryTravelEventFund: 120,
+      context.l10n.categoryTrueExpenses: 130,
+      context.l10n.categoryEverydaySpending: 140,
+      context.l10n.categoryBuffer: 160,
+    };
 
-const Map<String, _PocketMeta> _metaByPocketName = {
-  'Housing': _PocketMeta(
-    iconName: 'house',
-    categories: [
-      'rent',
-      'mortgage',
-      'home repairs',
-      'home services',
-      'home insurance',
-      'renters insurance',
-    ],
-    color: Color(0xFFEF4444),
-  ),
-  'Utilities': _PocketMeta(
-    iconName: 'bolt',
-    categories: [
-      'electricity',
-      'water',
-      'heating & gas',
-      'internet',
-      'phone bill',
-      'trash & recycling',
-      'home security',
-    ],
-    color: Color(0xFF3B82F6),
-  ),
-  'Debt payments': _PocketMeta(
-    iconName: 'credit_card',
-    categories: ['debt payments', 'loan payments'],
-    color: Color(0xFFB91C1C),
-  ),
-  'Savings / future': _PocketMeta(
-    iconName: 'savings',
-    categories: ['savings', 'investments'],
-    color: Color(0xFF10B981),
-  ),
-  'Shared bills': _PocketMeta(
-    iconName: 'groups',
-    categories: [],
-    color: Color(0xFF0EA5E9),
-  ),
-  'Kids / dependents': _PocketMeta(
-    iconName: 'child_care',
-    categories: [
-      'childcare',
-      'school supplies',
-      'kids activities',
-      'kids clothing',
-      'toys & games',
-      'baby supplies',
-    ],
-    color: Color(0xFFF59E0B),
-  ),
-  'Groceries': _PocketMeta(
-    iconName: 'local_grocery_store',
-    categories: ['groceries', 'household supplies', 'cleaning supplies'],
-    color: Color(0xFF14B8A6),
-  ),
-  'Dining out': _PocketMeta(
-    iconName: 'restaurant',
-    categories: [
-      'restaurants',
-      'takeout & delivery',
-      'coffee & tea',
-      'bars & drinks'
-    ],
-    color: Color(0xFFEC4899),
-  ),
-  'Transport': _PocketMeta(
-    iconName: 'directions_car',
-    categories: [
-      'fuel / gas',
-      'public transport',
-      'taxi & ride apps',
-      'parking',
-      'tolls',
-      'car repairs',
-      'car parts',
-      'car rental',
-      'bike / scooter',
-    ],
-    color: Color(0xFF6366F1),
-  ),
-  'Subscriptions': _PocketMeta(
-    iconName: 'subscriptions',
-    categories: [
-      'music & streaming',
-      'games & apps',
-      'software tools',
-      'cloud storage',
-    ],
-    color: Color(0xFF8B5CF6),
-  ),
-  'Pets': _PocketMeta(
-    iconName: 'pets',
-    categories: [
-      'pet food',
-      'pet treats',
-      'vet visits',
-      'pet medicine',
-      'pet grooming',
-      'pet supplies',
-      'pet insurance',
-      'pet boarding / sitting',
-    ],
-    color: Color(0xFFFF9800),
-  ),
-  'Travel / event fund': _PocketMeta(
-    iconName: 'flight',
-    categories: [
-      'travel',
-      'flights',
-      'hotels',
-      'travel activities',
-      'luggage & travel gear',
-      'passport & visa fees',
-    ],
-    color: Color(0xFF0EA5E9),
-  ),
-  'True expenses': _PocketMeta(
-    iconName: 'event_repeat',
-    categories: [
-      'insurance',
-      'health insurance',
-      'life insurance',
-      'travel insurance',
-      'medical care',
-      'gifts',
-      'licensing & fees',
-      'taxes',
-      'bank fees',
-    ],
-    color: Color(0xFF64748B),
-  ),
-  'Everyday spending': _PocketMeta(
-    iconName: 'account_balance_wallet',
-    categories: [
-      'personal care',
-      'clothing & shoes',
-      'laundry / dry cleaning',
-      'miscellaneous',
-      'other',
-    ],
-    color: Color(0xFF64748B),
-  ),
-  'Fun': _PocketMeta(
-    iconName: 'celebration',
-    categories: [
-      'hobbies',
-      'movies & shows',
-      'concerts & events',
-      'sports clubs',
-      'crafts & art',
-      'dating',
-      'parties & hosting',
-      'collectibles',
-    ],
-    color: Color(0xFFA855F7),
-  ),
-  'Buffer': _PocketMeta(
-    iconName: 'account_balance_wallet',
-    categories: [],
-    color: Color(0xFF334155),
-  ),
-};
+Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
+      context.l10n.categoryHousing: _PocketMeta(
+        iconName: 'house',
+        categories: [
+          context.l10n.categoryRent,
+          context.l10n.categoryMortgage,
+          context.l10n.categoryHomeRepairs,
+          context.l10n.categoryHomeServices,
+          context.l10n.categoryHomeInsurance,
+          context.l10n.categoryRentersInsurance,
+        ],
+        color: Color(0xFFEF4444),
+      ),
+      context.l10n.categoryUtilities: _PocketMeta(
+        iconName: 'bolt',
+        categories: [
+          context.l10n.categoryElectricity,
+          context.l10n.categoryWater,
+          context.l10n.categoryHeatingGas,
+          context.l10n.categoryInternet,
+          context.l10n.categoryPhoneBill,
+          context.l10n.categoryTrashRecycling,
+          context.l10n.categoryHomeSecurity,
+        ],
+        color: Color(0xFF3B82F6),
+      ),
+      context.l10n.categoryDebtPayments: _PocketMeta(
+        iconName: 'credit_card',
+        categories: [
+          context.l10n.categoryDebtPayments,
+          context.l10n.categoryLoanPayments,
+        ],
+        color: Color(0xFFB91C1C),
+      ),
+      context.l10n.categorySavingsFuture: _PocketMeta(
+        iconName: 'savings',
+        categories: [
+          context.l10n.categorySavings,
+          context.l10n.categoryInvestments,
+        ],
+        color: Color(0xFF10B981),
+      ),
+      context.l10n.categorySharedBills: const _PocketMeta(
+        iconName: 'groups',
+        categories: [],
+        color: Color(0xFF0EA5E9),
+      ),
+      context.l10n.categoryKidsDependents: _PocketMeta(
+        iconName: 'child_care',
+        categories: [
+          context.l10n.categoryChildcare,
+          context.l10n.categorySchoolSupplies,
+          context.l10n.categoryKidsActivities,
+          context.l10n.categoryKidsClothing,
+          context.l10n.categoryToysGames,
+          context.l10n.categoryBabySupplies,
+        ],
+        color: Color(0xFFF59E0B),
+      ),
+      context.l10n.categoryGroceries: _PocketMeta(
+        iconName: 'local_grocery_store',
+        categories: [
+          context.l10n.categoryGroceries,
+          context.l10n.categoryHouseholdSupplies,
+          context.l10n.categoryCleaningSupplies,
+        ],
+        color: Color(0xFF14B8A6),
+      ),
+      context.l10n.categoryRestaurants: _PocketMeta(
+        iconName: 'restaurant',
+        categories: [
+          context.l10n.categoryRestaurants,
+          context.l10n.categoryTakeoutDelivery,
+          context.l10n.categoryCoffeeTea,
+          context.l10n.categoryBarsDrinks,
+        ],
+        color: Color(0xFFEC4899),
+      ),
+      context.l10n.categoryTransport: _PocketMeta(
+        iconName: 'directions_car',
+        categories: [
+          context.l10n.categoryFuelGas,
+          context.l10n.categoryPublicTransport,
+          context.l10n.categoryTaxiRideApps,
+          context.l10n.categoryParking,
+          context.l10n.categoryTolls,
+          context.l10n.categoryCarRepairs,
+          context.l10n.categoryCarParts,
+          context.l10n.categoryCarRental,
+          context.l10n.categoryBikeScooter,
+        ],
+        color: Color(0xFF6366F1),
+      ),
+      context.l10n.categorySubscriptions: _PocketMeta(
+        iconName: 'subscriptions',
+        categories: [
+          context.l10n.categoryMusicStreaming,
+          context.l10n.categorySoftwareTools,
+          context.l10n.categoryFitnessGym,
+          context.l10n.categoryCloudStorage,
+        ],
+        color: Color(0xFF8B5CF6),
+      ),
+      context.l10n.categoryPets: _PocketMeta(
+        iconName: 'pets',
+        categories: [
+          context.l10n.categoryPetFood,
+          context.l10n.categoryPetSupplies,
+          context.l10n.categoryVetVisits,
+          context.l10n.categoryPetGrooming,
+          context.l10n.categoryPetInsurance,
+        ],
+        color: Color(0xFFEAB308),
+      ),
+      context.l10n.categoryTravelEventFund: _PocketMeta(
+        iconName: 'flight',
+        categories: [
+          context.l10n.categoryTravel,
+          context.l10n.categoryFlights,
+          context.l10n.categoryConcertsEvents,
+          context.l10n.categoryGifts,
+        ],
+        color: Color(0xFF06B6D4),
+      ),
+      context.l10n.categoryTrueExpenses: _PocketMeta(
+        iconName: 'calendar_today',
+        categories: [
+          context.l10n.categoryClothingShoes,
+          context.l10n.categoryAppliances,
+          context.l10n.categoryFurniture,
+          context.l10n.categoryPersonalCare,
+          context.l10n.categoryMedicalCare,
+          context.l10n.categoryCoursesClasses,
+        ],
+        color: Color(0xFF6366F1),
+      ),
+      context.l10n.categoryEverydaySpending: _PocketMeta(
+        iconName: 'coffee',
+        categories: [
+          context.l10n.categoryCoffeeTea,
+          context.l10n.categorySnacks,
+          context.l10n.categoryPersonalCare,
+          context.l10n.categoryMiscellaneous,
+          context.l10n.categoryPharmacy,
+        ],
+        color: Color(0xFFEA580C),
+      ),
+      context.l10n.fun: _PocketMeta(
+        iconName: 'celebration',
+        categories: [
+          context.l10n.categoryHobbies,
+          context.l10n.categoryMoviesShows,
+          context.l10n.categoryConcertsEvents,
+          context.l10n.categorySportsClubs,
+          context.l10n.categoryCraftsArt,
+          context.l10n.categoryDating,
+          context.l10n.categoryPartiesHosting,
+          context.l10n.categoryCollectibles,
+        ],
+        color: Color(0xFFA855F7),
+      ),
+      context.l10n.categoryBuffer: const _PocketMeta(
+        iconName: 'account_balance_wallet',
+        categories: [],
+        color: Color(0xFF334155),
+      ),
+    };
 
-const _manualOnlyPockets = <String>{
-  'Buffer',
-};
+Set<String> _manualOnlyPockets(BuildContext context) => {
+      context.l10n.categoryBuffer,
+    };

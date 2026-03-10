@@ -254,7 +254,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final preparedDraft = derivePreauthBudgetProfile(draft);
 
       try {
-        final recommendation = BudgetRecommender.recommend(preparedDraft);
+        final recommendation = BudgetRecommender.recommend(context, preparedDraft);
         if (recommendation.hasBlockingError) {
           setProgressState(
             progressValue: 0.85,

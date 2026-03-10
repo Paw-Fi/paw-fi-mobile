@@ -7,7 +7,6 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
-import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -424,6 +423,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                     colorScheme.mutedForeground,
                                               ),
                                               onPressed: () async {
+                                                final l10n = context.l10n;
                                                 final action =
                                                     await MonekoActionSheet
                                                         .show<String>(
@@ -432,27 +432,23 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   actions: [
                                                     MonekoActionSheetAction(
                                                       label: hiddenNow
-                                                          ? context.l10n
-                                                              .unhide
-                                                          : context.l10n
-                                                              .hide,
+                                                          ? l10n.unhide
+                                                          : l10n.hide,
                                                       value: 'hide_unhide',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label: context.l10n
-                                                          .edit,
+                                                      label: l10n.edit,
                                                       value: 'edit',
                                                     ),
                                                     MonekoActionSheetAction(
-                                                      label: context.l10n
-                                                          .delete,
+                                                      label: l10n.delete,
                                                       value: 'delete',
                                                       isDestructive: true,
                                                     ),
                                                   ],
                                                   cancelAction:
                                                       MonekoActionSheetAction(
-                                                    label: context.l10n.cancel,
+                                                    label: l10n.cancel,
                                                     value: 'cancel',
                                                   ),
                                                 );
@@ -466,8 +462,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   );
                                                 } else if (action == 'edit') {
                                                   await showUpsertSheet(
-                                                    title: context.l10n
-                                                        .editCategory,
+                                                    title: l10n.editCategory,
                                                     initialName: name,
                                                     initialType: catType,
                                                     initialColorArgb:
@@ -547,8 +542,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                     ),
                                     onTap: () async {
                                       await showUpsertSheet(
-                                        title: context.l10n
-                                            .addCustomCategory,
+                                        title: context.l10n.addCustomCategory,
                                         initialType: type,
                                         onSubmit: (name, onSubmitType,
                                             colorArgb, iconKey) async {
@@ -851,13 +845,13 @@ class _CategoryUpsertSheet extends HookWidget {
                                 pressedColor: colorScheme.muted,
                                 children: {
                                   'expense': Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
                                     child: Text(context.l10n.expense),
                                   ),
                                   'income': Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
                                     child: Text(context.l10n.income),
                                   ),
                                 },

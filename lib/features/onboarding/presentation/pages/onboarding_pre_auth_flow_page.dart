@@ -242,7 +242,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
         if (currentPage.value == _kStepCurrency) {
           final preparedDraft = derivePreauthBudgetProfile(draftState.value);
           final recommendedTemplate =
-              BudgetRecommender.recommend(preparedDraft);
+              BudgetRecommender.recommend(context, preparedDraft);
           await persistDraft(
             preparedDraft.copyWith(
               wantsStarterPockets: true,
@@ -286,6 +286,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final isAutoAdvanceStep = _kAutoAdvanceSteps.contains(currentPage.value);
     final hasBlockingRecommendation = currentPage.value == _kStepStarter
         ? BudgetRecommender.recommend(
+            context,
             derivePreauthBudgetProfile(draftState.value),
           ).hasBlockingError
         : false;
@@ -1597,7 +1598,7 @@ class _PreAuthStarterStep extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final currency = draft.selectedCurrency.toUpperCase();
-    final recommendation = BudgetRecommender.recommend(draft);
+    final recommendation = BudgetRecommender.recommend(context, draft);
     final totalBudget = draft.monthlyBudget;
     final sliderConfig = _preauthBudgetSliderConfig(
       currencyCode: currency,
