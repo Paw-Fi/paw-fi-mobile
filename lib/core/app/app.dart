@@ -6,7 +6,6 @@ import 'package:moneko/features/home/presentation/state/widget_launch_provider.d
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
-import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
@@ -94,7 +93,8 @@ class _AppState extends ConsumerState<App> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
-    final locale = ref.watch(localeProvider);
+    // Hardcoded to Mandarin ('zh') for testing as requested
+    const locale = Locale('zh');
     final localizationsDelegates = <LocalizationsDelegate<dynamic>>[
       ...AppLocalizations.localizationsDelegates,
       GlobalMaterialLocalizations.delegate,

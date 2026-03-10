@@ -19,6 +19,7 @@ import 'package:moneko/features/import/data/import_local_parser.dart';
 import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
+import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
@@ -57,7 +58,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final normalizedAllowedExtensions =
           (allowedExtensions != null && allowedExtensions.isNotEmpty)
               ? allowedExtensions
-              : const ['csv', 'txt', 'pdf', 'xlsx', 'xls'];
+              : supportedImportExtensions;
 
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: false,

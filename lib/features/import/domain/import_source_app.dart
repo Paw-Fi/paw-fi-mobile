@@ -22,50 +22,59 @@ class ImportSourceSpec {
   final List<String> allowedExtensions;
 }
 
+const List<String> supportedImportExtensions = [
+  'csv',
+  'tsv',
+  'txt',
+  'pdf',
+  'xlsx',
+  'xls',
+];
+
 const List<ImportSourceSpec> importSourceSpecs = [
   ImportSourceSpec(
     app: ImportSourceApp.ynab,
-    allowedExtensions: ['csv', 'tsv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.monarch,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.copilot,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.pocketGuard,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.splitwise,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.everyDollar,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.cashew,
-    allowedExtensions: ['csv', 'txt', 'xlsx', 'xls'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.mint,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.goodbudget,
-    allowedExtensions: ['csv', 'txt'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.spendee,
-    allowedExtensions: ['csv', 'txt', 'xlsx', 'xls'],
+    allowedExtensions: supportedImportExtensions,
   ),
   ImportSourceSpec(
     app: ImportSourceApp.other,
-    allowedExtensions: ['csv', 'txt', 'pdf', 'xlsx', 'xls', 'tsv'],
+    allowedExtensions: supportedImportExtensions,
   ),
 ];
 

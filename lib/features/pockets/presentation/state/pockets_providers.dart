@@ -453,47 +453,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                 100.0;
       }
 
-      if (budgetRow == null) {
-        final insertPayload = <String, dynamic>{
-          'user_id': authUser.uid,
-          'household_id':
-              (scopeType == PocketsScopeType.personal) ? null : householdId,
-          'currency': selectedCurrency,
-          'period_month': periodMonth,
-          'total_budget_cents': 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        };
-
-        try {
-          budgetRow = await supabase
-              .from('budgets')
-              .insert(insertPayload)
-              .select('id,total_budget_cents')
-              .maybeSingle();
-        } catch (e) {
-          if (_isConflictError(e)) {
-            _debugLog(
-                '[Pockets] Budget insert conflict during load, fetching existing row');
-            budgetRow = await _findBudgetRowForPeriod(
-              periodMonth: periodMonth,
-              isHousehold: scopeType != PocketsScopeType.personal,
-              householdId: householdId,
-              userId: authUser.uid,
-              currency: selectedCurrency,
-            );
-            // Fallback: try without currency filter (legacy rows)
-            budgetRow ??= await _findBudgetRowForPeriod(
-              periodMonth: periodMonth,
-              isHousehold: scopeType != PocketsScopeType.personal,
-              householdId: householdId,
-              userId: authUser.uid,
-            );
-          } else {
-            rethrow;
-          }
-        }
-      }
-
       final budgetId = budgetRow?['id'] as String?;
       final totalBudget =
           ((budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0) / 100.0;

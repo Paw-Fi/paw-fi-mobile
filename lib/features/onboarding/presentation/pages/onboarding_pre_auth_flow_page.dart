@@ -115,8 +115,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       var draft = store.load();
       if (draft.flowVersion < kOnboardingPreauthFlowVersion) {
         final migratedStep = _migratePreauthStepIndex(draft.currentStep);
-        final shouldResetCurrency =
-            draft.flowVersion < 5 &&
+        final shouldResetCurrency = draft.flowVersion < 5 &&
             draft.currentStep <= _kStepCurrency &&
             draft.selectedCurrency.trim().toUpperCase() == 'USD';
         draft = draft.copyWith(
@@ -158,6 +157,11 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       budgetSliderDebounce.value = Timer(const Duration(milliseconds: 180), () {
         unawaited(persistDraft(draft));
       });
+    }
+
+    Future<void> flushPendingBudgetDraft() async {
+      budgetSliderDebounce.value?.cancel();
+      await persistDraft(draftState.value);
     }
 
     useEffect(() {
@@ -207,6 +211,8 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
 
     Future<void> next() async {
       if (currentPage.value == _kStepCreateAccount) {
+        await flushPendingBudgetDraft();
+        if (!context.mounted) return;
         final lastReadySlide = _readyCarouselItems.length - 1;
         if (readyCarouselPage.value < lastReadySlide) {
           final targetPage = readyCarouselPage.value + 1;
@@ -239,6 +245,10 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       }
 
       if (currentPage.value < totalSteps - 1) {
+        if (currentPage.value == _kStepStarter) {
+          await flushPendingBudgetDraft();
+          if (!context.mounted) return;
+        }
         if (currentPage.value == _kStepCurrency) {
           final preparedDraft = derivePreauthBudgetProfile(draftState.value);
           final recommendedTemplate =
@@ -597,7 +607,8 @@ bool _canContinuePreAuth({
 OnboardingQuestionStep _sharedQuestionStep(int index) =>
     onboardingSharedQuestionSteps[index];
 
-List<(String label, String value)> _sharedQuestionOptions(BuildContext context, int index) =>
+List<(String label, String value)> _sharedQuestionOptions(
+        BuildContext context, int index) =>
     _sharedQuestionStep(index)
         .options
         .map((option) => (option.getLabel(context), option.value))
@@ -1407,11 +1418,14 @@ class _PreAuthCurrencyStep extends HookConsumerWidget {
                     ],
                     Expanded(
                       child: Text(
-                        hasSelectedCurrency ? currency : context.l10n.onboardingPreAuthCurrencySelect,
+                        hasSelectedCurrency
+                            ? currency
+                            : context.l10n.onboardingPreAuthCurrencySelect,
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight:
-                              hasSelectedCurrency ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: hasSelectedCurrency
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           color: hasSelectedCurrency
                               ? colorScheme.foreground
                               : colorScheme.mutedForeground,
@@ -1647,7 +1661,8 @@ class _PreAuthStarterStep extends StatelessWidget {
           isRequired: true,
           keyboardType: const TextInputType.numberWithOptions(decimal: false),
           validationPattern: RegExp(r'^[0-9,]+$'),
-          validationMessage: context.l10n.onboardingPreAuthAdjustBudgetValidation,
+          validationMessage:
+              context.l10n.onboardingPreAuthAdjustBudgetValidation,
         ),
       );
 
@@ -2244,8 +2259,10 @@ class _ReadyCarouselItem {
     return switch (titleKey) {
       'onboardingCarouselLogTitle' => context.l10n.onboardingCarouselLogTitle,
       'onboardingCarouselSnapTitle' => context.l10n.onboardingCarouselSnapTitle,
-      'onboardingCarouselShareTitle' => context.l10n.onboardingCarouselShareTitle,
-      'onboardingCarouselEnvelopeTitle' => context.l10n.onboardingCarouselEnvelopeTitle,
+      'onboardingCarouselShareTitle' =>
+        context.l10n.onboardingCarouselShareTitle,
+      'onboardingCarouselEnvelopeTitle' =>
+        context.l10n.onboardingCarouselEnvelopeTitle,
       _ => titleKey,
     };
   }
@@ -2255,7 +2272,8 @@ class _ReadyCarouselItem {
       'onboardingCarouselLogDesc' => context.l10n.onboardingCarouselLogDesc,
       'onboardingCarouselSnapDesc' => context.l10n.onboardingCarouselSnapDesc,
       'onboardingCarouselShareDesc' => context.l10n.onboardingCarouselShareDesc,
-      'onboardingCarouselEnvelopeDesc' => context.l10n.onboardingCarouselEnvelopeDesc,
+      'onboardingCarouselEnvelopeDesc' =>
+        context.l10n.onboardingCarouselEnvelopeDesc,
       _ => descriptionKey,
     };
   }

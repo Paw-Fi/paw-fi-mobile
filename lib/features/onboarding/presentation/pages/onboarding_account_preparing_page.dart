@@ -15,6 +15,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/utils/household_creation_utils.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/onboarding_account_sync_policy.dart';
+import 'package:moneko/features/onboarding/domain/onboarding_budget_sync_service.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -49,6 +51,13 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .from('budgets')
               .select('id')
               .eq('user_id', userId)
+              .gt('total_budget_cents', 0)
+              .limit(1)
+              .maybeSingle(),
+          supabase
+              .from('budget_envelopes')
+              .select('id')
+              .eq('user_id', userId)
               .limit(1)
               .maybeSingle(),
           supabase
@@ -59,10 +68,53 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .maybeSingle(),
         ]);
 
-        return checks.any((row) => row != null);
+        return hasMeaningfulOnboardingData(
+          hasExpenses: checks[0] != null,
+          hasBudgetAmounts: checks[1] != null,
+          hasBudgetEnvelopes: checks[2] != null,
+          hasHouseholdMembership: checks[3] != null,
+        );
       } catch (_) {
         return true;
       }
+    }
+
+    Future<bool> hasExistingBudgetPockets({
+      required String periodMonth,
+      required String currency,
+      required String? householdId,
+    }) async {
+      final currentUser = ref.read(authProvider);
+      final budgetQuery = supabase
+          .from('budgets')
+          .select('id')
+          .eq('period_month', periodMonth)
+          .eq('currency', currency);
+
+      final budgetRow = householdId == null
+          ? await budgetQuery
+              .eq('user_id', currentUser.uid)
+              .isFilter('household_id', null)
+              .limit(1)
+              .maybeSingle()
+          : await budgetQuery
+              .eq('household_id', householdId)
+              .limit(1)
+              .maybeSingle();
+
+      final budgetId = budgetRow?['id'] as String?;
+      if (budgetId == null || budgetId.isEmpty) {
+        return false;
+      }
+
+      final envelopeRow = await supabase
+          .from('budget_envelopes')
+          .select('id')
+          .eq('budget_id', budgetId)
+          .limit(1)
+          .maybeSingle();
+
+      return envelopeRow != null;
     }
 
     Future<void> runSync() async {
@@ -95,28 +147,18 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       final draft = store.load();
       final prefs = ref.read(sharedPreferencesProvider);
-      final shouldApplyStarterSync = !(await accountHasExistingData(user.uid));
+      final wasAlreadySynced = store.isSyncedForUser(user.uid);
+      final hasExistingData = await accountHasExistingData(user.uid);
+      final shouldRunOnboardingPrep = !wasAlreadySynced || !hasExistingData;
+      final shouldApplyStarterSync =
+          draft.wantsStarterPockets && shouldRunOnboardingPrep;
 
       setProgressState(
         label: 'Saving your preferences...',
         progressValue: 0.2,
       );
 
-      try {
-        await store.markSyncedForUser(user.uid, draft);
-      } catch (_) {
-        setProgressState(
-          progressValue: 0.2,
-          label: 'Almost there - we could not save this yet. Tap try again.',
-          done: false,
-        );
-        setupError.value = 'sync_failed';
-        didStart.value = false;
-        return;
-      }
-      if (!context.mounted) return;
-
-      if (!shouldApplyStarterSync) {
+      if (!shouldRunOnboardingPrep) {
         setProgressState(
           progressValue: 1.0,
           label: 'We found your existing data, so we kept your current setup.',
@@ -254,7 +296,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final preparedDraft = derivePreauthBudgetProfile(draft);
 
       try {
-        final recommendation = BudgetRecommender.recommend(context, preparedDraft);
+        final recommendation =
+            BudgetRecommender.recommend(context, preparedDraft);
         if (recommendation.hasBlockingError) {
           setProgressState(
             progressValue: 0.85,
@@ -269,62 +312,62 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           final periodMonth =
               '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-01';
 
-          Future<bool> hasExistingBudget(String? householdId) async {
-            final query = supabase
-                .from('budgets')
-                .select('id')
-                .eq('period_month', periodMonth)
-                .eq('currency', preparedDraft.selectedCurrency);
-
-            if (householdId == null) {
-              final row = await query
-                  .eq('user_id', user.uid)
-                  .isFilter('household_id', null)
-                  .limit(1)
-                  .maybeSingle();
-              return row != null;
-            }
-
-            final row = await query
-                .eq('household_id', householdId)
-                .limit(1)
-                .maybeSingle();
-            return row != null;
-          }
-
           final personalParams = PocketsScopeParams(
             scope: PocketsScopeType.personal,
             periodMonth: monthStart,
           );
-          final hasPersonalBudget = await hasExistingBudget(null);
-          if (!hasPersonalBudget) {
-            await ref
-                .read(pocketsProvider(personalParams).notifier)
-                .createBudgetFromTemplate(
-                  totalBudget: preparedDraft.monthlyBudget,
-                  pockets: recommendation.pockets,
-                );
+          final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
+          final hasPersonalBudgetPockets = await hasExistingBudgetPockets(
+            periodMonth: periodMonth,
+            currency: selectedCurrency,
+            householdId: null,
+          );
+          if (shouldApplyStarterSync &&
+              shouldCreateStarterBudget(
+                forceSync: !wasAlreadySynced,
+                hasExistingBudgetPockets: hasPersonalBudgetPockets,
+              )) {
+            await OnboardingBudgetSyncService.createStarterBudget(
+              ref: ref,
+              scopeParams: personalParams,
+              userId: user.uid,
+              selectedCurrency: selectedCurrency,
+              totalBudget: preparedDraft.monthlyBudget,
+              pockets: recommendation.pockets,
+            );
           }
 
           if (createdHouseholdId != null && createdHouseholdId.isNotEmpty) {
-            final hasHouseholdBudget =
-                await hasExistingBudget(createdHouseholdId);
-            if (!hasHouseholdBudget) {
+            final hasHouseholdBudgetPockets = await hasExistingBudgetPockets(
+              periodMonth: periodMonth,
+              currency: selectedCurrency,
+              householdId: createdHouseholdId,
+            );
+            if (shouldApplyStarterSync &&
+                shouldCreateStarterBudget(
+                  forceSync: !wasAlreadySynced,
+                  hasExistingBudgetPockets: hasHouseholdBudgetPockets,
+                )) {
               final householdParams = PocketsScopeParams(
                 scope: PocketsScopeType.household,
                 householdId: createdHouseholdId,
                 periodMonth: monthStart,
               );
-              await ref
-                  .read(pocketsProvider(householdParams).notifier)
-                  .createBudgetFromTemplate(
-                    totalBudget: preparedDraft.monthlyBudget,
-                    pockets: recommendation.pockets,
-                  );
+              await OnboardingBudgetSyncService.createStarterBudget(
+                ref: ref,
+                scopeParams: householdParams,
+                userId: user.uid,
+                selectedCurrency: selectedCurrency,
+                totalBudget: preparedDraft.monthlyBudget,
+                pockets: recommendation.pockets,
+              );
             }
           }
         }
-      } catch (_) {
+      } catch (error, stackTrace) {
+        debugPrint(
+          'Onboarding starter budget sync failed: $error\n$stackTrace',
+        );
         setProgressState(
           progressValue: 0.85,
           label:
@@ -337,6 +380,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
 
       try {
+        await store.markSyncedForUser(user.uid, preparedDraft);
         await prefs.setString(
           'onboarding_profile:${user.uid}',
           jsonEncode(

@@ -17,6 +17,7 @@ import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 const _kNotificationsPromptedPrefix = 'notifications_prompted:';
@@ -177,6 +178,8 @@ Future<int?> _defaultImportExpensesAction(
     String contentType = 'text/csv';
     if (ext == 'pdf') {
       contentType = 'application/pdf';
+    } else if (ext == 'xls') {
+      contentType = 'application/vnd.ms-excel';
     } else if (ext == 'xlsx') {
       contentType =
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -297,13 +300,5 @@ Future<int?> _defaultImportExpensesAction(
 }
 
 List<String> _allowedImportExtensionsForApp(String selectedApp) {
-  return switch (selectedApp) {
-    'YNAB' => const ['csv'],
-    'Monarch' => const ['csv'],
-    'Copilot' => const ['csv'],
-    'PocketGuard' => const ['csv'],
-    'Splitwise' => const ['csv'],
-    'Other' => const ['xlsx', 'csv', 'pdf'],
-    _ => const ['csv'],
-  };
+  return supportedImportExtensions;
 }
