@@ -11,6 +11,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_state.d
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void _debugPrint(String? message, {int? wrapWidth}) {
   if (foundation.kDebugMode) {
@@ -90,6 +91,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // We continue regardless of whether optimistic update was applied.
       // ═══════════════════════════════════════════════════════════════
       final user = ref.read(authProvider);
+      final supabaseClient = ref.read(transactionEditSupabaseClientProvider);
       _debugPrint('🌐 Calling update-expense API...');
 
       final requestBody = <String, dynamic>{
@@ -105,7 +107,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
         requestBody.addAll(extraBody);
       }
 
-      final response = await supabase.functions.invoke(
+      final response = await supabaseClient.functions.invoke(
         'update-expense',
         body: requestBody,
       );
@@ -142,29 +144,35 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             '⚠️ Category mismatch after update (requested=$requestedCategory, got=$responseCategory). Retrying category-only update.',
           );
 
-          final retryResponse = await supabase.functions.invoke(
-            'update-expense',
-            body: {
-              'userId': user.uid,
-              'expenseId': expenseId,
-              'updates': {'category': requestedCategory},
-              'clientTimezoneOffsetMinutes':
-                  DateTime.now().timeZoneOffset.inMinutes,
-            },
-          );
+          try {
+            final retryResponse = await supabaseClient.functions.invoke(
+              'update-expense',
+              body: {
+                'userId': user.uid,
+                'expenseId': expenseId,
+                'updates': {'category': requestedCategory},
+                'clientTimezoneOffsetMinutes':
+                    DateTime.now().timeZoneOffset.inMinutes,
+              },
+            );
 
-          final retryData = retryResponse.data as Map<String, dynamic>?;
-          final retrySuccess = retryData?['success'] == true;
-          final retryCategory = _normalizeCategoryValue(
-            (retryData?['data'] as Map<String, dynamic>?)?['category'],
-          );
-          _debugPrint(
-            '🔁 category retry result: success=$retrySuccess responseCategory="$retryCategory" rawError=${retryData?['error']} rawCode=${retryData?['code']}',
-          );
-
-          if (!retrySuccess || retryCategory != requestedCategory) {
+            final retryData = retryResponse.data as Map<String, dynamic>?;
+            final retrySuccess = retryData?['success'] == true;
+            final retryCategory = _normalizeCategoryValue(
+              (retryData?['data'] as Map<String, dynamic>?)?['category'],
+            );
             _debugPrint(
-              '⚠️ CATEGORY_UPDATE_MISMATCH (soft): requested="$requestedCategory" response="$retryCategory". Continuing after backend success to avoid false-negative UI failures.',
+              '🔁 category retry result: success=$retrySuccess responseCategory="$retryCategory" rawError=${retryData?['error']} rawCode=${retryData?['code']}',
+            );
+
+            if (!retrySuccess || retryCategory != requestedCategory) {
+              _debugPrint(
+                '⚠️ CATEGORY_UPDATE_MISMATCH (soft): requested="$requestedCategory" response="$retryCategory". Continuing after backend success to avoid false-negative UI failures.',
+              );
+            }
+          } catch (retryError) {
+            _debugPrint(
+              '⚠️ CATEGORY_UPDATE_MISMATCH (soft): retry threw "$retryError". Continuing after backend success to avoid false-negative UI failures.',
             );
           }
         }
@@ -314,6 +322,10 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     state = state.copyWith(clearError: true);
   }
 }
+
+final transactionEditSupabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return supabase;
+});
 
 /// Provider for transaction editing state
 final transactionEditProvider =
