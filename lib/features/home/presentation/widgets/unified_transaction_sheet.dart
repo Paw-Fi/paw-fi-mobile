@@ -1048,7 +1048,7 @@ class _UnifiedTransactionSheetState
                                           colorScheme.error),
                                     ),
                                   )
-                                : Text(context.l10n.deleteExpense),
+                                : Text(isIncomeMode ? context.l10n.deleteIncome : context.l10n.deleteExpense),
                           ),
                         ),
 

@@ -8,18 +8,40 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
+import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class OnboardingPreviewPage extends HookConsumerWidget {
-  const OnboardingPreviewPage({super.key});
+  const OnboardingPreviewPage({
+    super.key,
+    this.fromSettings = false,
+  });
+
+  final bool fromSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: 'onboarding_preview',
+          startNewSession: !fromSettings,
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{'from_settings': fromSettings},
+        ),
+      );
+      return null;
+    }, [fromSettings]);
 
     void markPreviewSeen() {
       final prefs = ref.read(sharedPreferencesProvider);
@@ -29,19 +51,61 @@ class OnboardingPreviewPage extends HookConsumerWidget {
       }
     }
 
-    void startPreview() {
+    Future<void> startPreview() async {
       markPreviewSeen();
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_preview',
+        actionId: 'take_tour_tapped',
+        result: 'used',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{'from_settings': fromSettings},
+      );
+      await analytics.endPage(
+        reason: 'take_tour',
+        transitionTo: fromSettings ? 'post_auth_log_expense' : '/dashboard',
+      );
+      if (fromSettings) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => const OnboardingPostAuthFlowPage(
+              fromSettings: true,
+            ),
+          ),
+        );
+        return;
+      }
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(kPreviewModeActiveKey, true);
       ref.read(previewModeProvider.notifier).enable();
       if (context.mounted) {
         context.go('/dashboard');
       }
     }
 
-    void goToRegister() {
+    Future<void> goToRegister() async {
       markPreviewSeen();
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_preview',
+        actionId: 'skip_preview',
+        result: 'skipped',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{'from_settings': fromSettings},
+      );
+      await analytics.endPage(
+        reason: 'skip_preview',
+        transitionTo: fromSettings ? '/settings' : 'preauth_housing_situation',
+      );
+      if (fromSettings) {
+        Navigator.of(context).pop();
+        return;
+      }
+      final prefs = ref.read(sharedPreferencesProvider);
+      await prefs.setBool(kPreviewModeActiveKey, false);
       ref.read(previewModeProvider.notifier).disable();
       if (context.mounted) {
-        context.go('/register');
+        context.go('/onboarding?stage=pre');
       }
     }
 
@@ -59,7 +123,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   children: [
                     SizedBox(
                       // Takes 45% of screen height, but never less than 280px
-                      height: math.max(MediaQuery.sizeOf(context).height * 0.45, 280),
+                      height: math.max(
+                          MediaQuery.sizeOf(context).height * 0.45, 280),
                       child: const _PreviewOrbitHero(),
                     ),
                     Padding(
@@ -67,8 +132,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            context.l10n.onboardingPreviewTitle,
+                          MonekoRichText(
+                            text: context.l10n.onboardingPreviewTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,
@@ -90,7 +155,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                           const SizedBox(height: 32),
                           _FeatureItem(
                             icon: Icons.auto_awesome_rounded,
-                            text: context.l10n.onboardingPreviewFeatureAiLogging,
+                            text:
+                                context.l10n.onboardingPreviewFeatureAiLogging,
                           ),
                           const SizedBox(height: 16),
                           _FeatureItem(
@@ -100,7 +166,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                           const SizedBox(height: 16),
                           _FeatureItem(
                             icon: Icons.cloud_done_rounded,
-                            text: context.l10n.onboardingPreviewFeatureSaveProgress,
+                            text: context
+                                .l10n.onboardingPreviewFeatureSaveProgress,
                           ),
                         ],
                       ),
@@ -109,7 +176,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                 ),
               ),
             ),
-            
+
             // Fixed Bottom Actions
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
@@ -118,7 +185,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   PrimaryAdaptiveButton(
-                    onPressed: startPreview,
+                    onPressed: () => unawaited(startPreview()),
                     child: Text(
                       context.l10n.onboardingPreviewTakeTour,
                       style: const TextStyle(
@@ -129,9 +196,9 @@ class OnboardingPreviewPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   PlainAdaptiveButton(
-                    onPressed: goToRegister,
+                    onPressed: () => unawaited(goToRegister()),
                     child: Text(
-                      context.l10n.onboardingPreviewCreateAccountInstead,
+                      context.l10n.skipNow,
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w500,

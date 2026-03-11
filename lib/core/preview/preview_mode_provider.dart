@@ -1,5 +1,9 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+const kPreviewModeActiveKey = 'preview_mode_active';
+const kPreviewReturnToPreauthKey = 'preview_return_to_preauth';
+const kPreviewExitRouteKey = 'preview_exit_route';
+
 class PreviewModeState {
   const PreviewModeState({
     required this.isActive,
@@ -23,7 +27,15 @@ class PreviewModeState {
 }
 
 class PreviewModeNotifier extends StateNotifier<PreviewModeState> {
-  PreviewModeNotifier() : super(PreviewModeState.inactive);
+  PreviewModeNotifier({bool initiallyActive = false})
+      : super(
+          initiallyActive
+              ? PreviewModeState(
+                  isActive: true,
+                  activatedAt: DateTime.now(),
+                )
+              : PreviewModeState.inactive,
+        );
 
   void enable() {
     if (state.isActive) return;

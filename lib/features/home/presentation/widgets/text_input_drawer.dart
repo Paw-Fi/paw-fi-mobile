@@ -15,7 +15,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-void showTextInputDrawer(
+Future<void> showTextInputDrawer(
   BuildContext parentContext,
   TextEditingController textController,
   Future<void> Function(String text) onSubmit, {
@@ -24,7 +24,7 @@ void showTextInputDrawer(
 }) {
   final colorScheme = Theme.of(parentContext).colorScheme;
 
-  showModalBottomSheet(
+  return showModalBottomSheet<void>(
     context: parentContext,
     isScrollControlled: true,
     backgroundColor: colorScheme.sheetBackground,
@@ -104,14 +104,11 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     });
 
     if (mounted) {
-      // Defer pop to avoid navigator lock during drawer close
-      await Future.microtask(() {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      });
       await widget.onSubmit(text);
       widget.textController.clear();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -198,10 +195,10 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     if (widget.onSubmitAudio != null) {
-      if (mounted) {
-        Navigator.pop(context);
-      }
       await widget.onSubmitAudio!(bytes, 'audio/aac');
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

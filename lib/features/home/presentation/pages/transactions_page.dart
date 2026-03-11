@@ -22,6 +22,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/app/router.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,8 +32,11 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
+import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 
 // ============================================================================
@@ -62,6 +66,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String selectedCategory = 'all';
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
+  String? _highlightedChartCategory;
 
   // Date Filter State
   DateRangeFilter _selectedDateFilter = DateRangeFilter.last7Days;
@@ -85,16 +90,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   List<ExpenseEntry> _baseExpenses = const [];
 
+  String? get _recurringScopeHouseholdId {
+    final householdScope = ref.read(householdScopeProvider);
+    return widget.householdId ??
+        (householdScope.activeAccountType == ActiveAccountType.personal
+            ? null
+            : householdScope.activeAccountHouseholdId);
+  }
+
   List<ExpenseEntry> get filteredExpenses {
     final filterState = ref.watch(homeFilterProvider);
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final householdScope = ref.watch(householdScopeProvider);
-    final recurringHouseholdId = widget.householdId ??
-        (householdScope.activeAccountType == ActiveAccountType.personal
-            ? null
-            : householdScope.activeAccountHouseholdId);
+    final recurringHouseholdId = _recurringScopeHouseholdId;
     // Exclude recurring templates from the transactions list.
     // Also copy to avoid mutating the base list when sorting.
     var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
@@ -216,6 +226,161 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final symbol = resolveCurrencySymbol(code);
     final localized = formatLocalizedNumber(context, normalized);
     return '$symbol$localized';
+  }
+
+  String _selectedPeriodLabel(BuildContext context) {
+    if (_selectedDateFilter == DateRangeFilter.custom &&
+        _customStart != null &&
+        _customEnd != null) {
+      final locale = Localizations.localeOf(context).toString();
+      final formatter = DateFormat('MMM d', locale);
+      final startLabel = formatter.format(_customStart!);
+      final endLabel = formatter.format(_customEnd!);
+      return startLabel == endLabel ? startLabel : '$startLabel - $endLabel';
+    }
+
+    return _selectedDateFilter.getLabel(context);
+  }
+
+  List<_PieChartSegment> _buildPieChartSegments(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+  ) {
+    final spendOnly = expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
+
+    final totalsByCategory = <String, double>{};
+    for (final expense in spendOnly) {
+      final rawCategory = expense.category?.trim();
+      final category = rawCategory == null || rawCategory.isEmpty
+          ? 'uncategorized'
+          : rawCategory.toLowerCase();
+      totalsByCategory[category] =
+          (totalsByCategory[category] ?? 0) + expense.amount.abs();
+    }
+
+    final sortedEntries = totalsByCategory.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final segments = sortedEntries.take(5).map((entry) {
+      return _PieChartSegment(
+        categoryKey: entry.key,
+        label: getCategoryTranslation(context, entry.key),
+        value: entry.value,
+        color: getCategoryColor(entry.key),
+      );
+    }).toList(growable: true);
+
+    final remainingValue = sortedEntries
+        .skip(5)
+        .fold<double>(0, (sum, entry) => sum + entry.value);
+    if (remainingValue > 0) {
+      segments.add(
+        _PieChartSegment(
+          categoryKey: 'other',
+          label: context.l10n.other,
+          value: remainingValue,
+          color: colorScheme.muted,
+        ),
+      );
+    }
+
+    return segments;
+  }
+
+  void _showRootBlockingDialog(String message) {
+    final rootContext = rootNavigatorKey.currentContext;
+    if (rootContext == null) return;
+
+    showBlockingProcessingDialog(
+      context: rootContext,
+      message: message,
+    );
+  }
+
+  void _showRootSuccessToast(String message) {
+    final rootContext = rootNavigatorKey.currentContext;
+    if (rootContext == null) return;
+
+    AppToast.success(rootContext, message);
+  }
+
+  void _showRootErrorToast(String message) {
+    final rootContext = rootNavigatorKey.currentContext;
+    if (rootContext == null) return;
+
+    AppToast.error(rootContext, message);
+  }
+
+  RecurringTransaction? _findRecurringTransactionForExpense(
+    ExpenseEntry expense,
+  ) {
+    final recurringId = extractRecurringTransactionIdFromProjectedExpenseId(
+      expense.id,
+    );
+    if (recurringId == null) {
+      return null;
+    }
+
+    final transactions = ref
+        .read(recurringTransactionsProvider(_recurringScopeHouseholdId))
+        .data
+        .valueOrNull;
+    if (transactions == null) {
+      return null;
+    }
+
+    for (final transaction in transactions) {
+      if (transaction.id == recurringId) {
+        return transaction;
+      }
+    }
+
+    return null;
+  }
+
+  void _openRecurringTransactionEditor(RecurringTransaction transaction) {
+    showAddRecurringSheet(
+      context,
+      type: transaction.type,
+      existingTransaction: transaction,
+    );
+  }
+
+  Widget _buildUpcomingRecurringBannerSliver(ColorScheme colorScheme) {
+    final hasActivePageFilters = searchQuery.isNotEmpty ||
+        selectedCategory != 'all' ||
+        selectedType != 'all' ||
+        _selectedDateFilter != DateRangeFilter.allTime;
+    if (hasActivePageFilters) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    final filterState = ref.watch(homeFilterProvider);
+    final upcoming = ref.watch(
+      upcomingRecurringTransactionProvider(
+        UpcomingRecurringScope(
+          householdId: _recurringScopeHouseholdId,
+          currency: filterState.selectedCurrency,
+        ),
+      ),
+    );
+
+    if (upcoming == null) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: UpcomingRecurringBanner(
+          upcoming: upcoming,
+          onTap: () => _openRecurringTransactionEditor(upcoming.transaction),
+        ),
+      ),
+    );
   }
 
   @override
@@ -427,6 +592,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   ]
                 ],
               ),
+
+              _buildUpcomingRecurringBannerSliver(colorScheme),
 
               // Search Bar
               SliverToBoxAdapter(
@@ -831,17 +998,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     if (result?.confirmed != true) return;
 
-    if (!mounted) return;
+    final rootNavigator = rootNavigatorKey.currentState;
+    if (rootNavigator == null) return;
 
-    // Using root navigator for blocking dialog to ensure it overlays everything
-    final rootNavigator = Navigator.of(context, rootNavigator: true);
-    final toastContext = rootNavigator
-        .context; // Use this context for toasts if needed while dialog is up or after
-
-    showBlockingProcessingDialog(
-      context: toastContext,
-      message: '${l10n.delete}...',
-    );
+    _showRootBlockingDialog('${l10n.delete}...');
 
     try {
       final user = ref.read(authProvider);
@@ -864,18 +1024,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
         }
 
-        if (mounted) {
-          AppToast.success(context, l10n.transactionDeleted);
-        }
+        _showRootSuccessToast(l10n.transactionDeleted);
       } else {
         final message = (res.data?['error'] as String?) ?? l10n.anErrorOccurred;
-        if (mounted) AppToast.error(context, message);
+        _showRootErrorToast(message);
       }
     } catch (e) {
       if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
-      if (mounted) {
-        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
-      }
+      _showRootErrorToast(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -983,7 +1139,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         .toList();
     final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
     final filterState = ref.watch(homeFilterProvider);
-    final periodLabel = context.l10n.allTime;
+    final periodLabel = _selectedPeriodLabel(context);
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
     final currencies = spendOnly
         .map((e) => e.currency?.toUpperCase())
@@ -1104,18 +1260,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     ColorScheme colorScheme,
     List<ExpenseEntry> expenses,
   ) {
-    final spendOnly = expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .toList();
+    final segments = _buildPieChartSegments(context, colorScheme, expenses);
 
-    final totalsByCategory = <String, double>{};
-    for (final expense in spendOnly) {
-      final category = (expense.category ?? 'uncategorized').toLowerCase();
-      totalsByCategory[category] =
-          (totalsByCategory[category] ?? 0) + expense.amount.abs();
-    }
-
-    if (totalsByCategory.isEmpty) {
+    if (segments.isEmpty) {
       return Center(
         child: Text(
           context.l10n.noData,
@@ -1124,43 +1271,148 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       );
     }
 
-    final sortedEntries = totalsByCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final topEntries = sortedEntries.take(6).toList();
-    final totalValue = topEntries.fold(0.0, (sum, item) => sum + item.value);
+    final totalValue = segments.fold(0.0, (sum, item) => sum + item.value);
 
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: PieChart(
-        PieChartData(
-          centerSpaceRadius: 48,
-          sectionsSpace: 3,
-          borderData: FlBorderData(show: false),
-          sections: topEntries.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            final value = item.value;
-            final percentage = totalValue == 0 ? 0 : (value / totalValue) * 100;
+      child: Column(
+        children: [
+          Expanded(
+            child: PieChart(
+              PieChartData(
+                pieTouchData: PieTouchData(
+                  touchCallback: (event, pieTouchResponse) {
+                    if (!mounted || event is! FlTapUpEvent) {
+                      return;
+                    }
 
-            return PieChartSectionData(
-              value: value,
-              color: AppTheme.pocketChartPalette[
-                  index % AppTheme.pocketChartPalette.length],
-              radius: 62,
-              showTitle: percentage >= 8,
-              title: '${percentage.toStringAsFixed(0)}%',
-              titleStyle: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.foreground,
+                    if (pieTouchResponse?.touchedSection == null) {
+                      setState(() => _highlightedChartCategory = null);
+                      return;
+                    }
+
+                    final touchedIndex =
+                        pieTouchResponse!.touchedSection!.touchedSectionIndex;
+                    if (touchedIndex < 0 || touchedIndex >= segments.length) {
+                      setState(() => _highlightedChartCategory = null);
+                      return;
+                    }
+
+                    setState(() {
+                      final touchedCategory =
+                          segments[touchedIndex].categoryKey;
+                      _highlightedChartCategory =
+                          _highlightedChartCategory == touchedCategory
+                              ? null
+                              : touchedCategory;
+                    });
+                  },
+                ),
+                centerSpaceRadius: 48,
+                sectionsSpace: 3,
+                borderData: FlBorderData(show: false),
+                sections: segments.map((segment) {
+                  final isHighlighted =
+                      _highlightedChartCategory == segment.categoryKey;
+                  final hasActiveHighlight = _highlightedChartCategory != null;
+                  final percentage =
+                      totalValue == 0 ? 0 : (segment.value / totalValue) * 100;
+
+                  return PieChartSectionData(
+                    value: segment.value,
+                    color: hasActiveHighlight && !isHighlighted
+                        ? segment.color.withValues(alpha: 0.45)
+                        : segment.color,
+                    radius: isHighlighted ? 68 : 62,
+                    showTitle: percentage >= 5,
+                    title: '${percentage.toStringAsFixed(0)}%',
+                    titleStyle: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: hasActiveHighlight && !isHighlighted
+                          ? colorScheme.foreground.withValues(alpha: 0.65)
+                          : colorScheme.foreground,
+                    ),
+                    borderSide: BorderSide(
+                      color: colorScheme.card,
+                      width: 2,
+                    ),
+                  );
+                }).toList(),
               ),
-              borderSide: BorderSide(
-                color: colorScheme.card,
-                width: 2,
-              ),
-            );
-          }).toList(),
-        ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            alignment: WrapAlignment.center,
+            children: segments.map((segment) {
+              final isHighlighted =
+                  _highlightedChartCategory == segment.categoryKey;
+              final hasActiveHighlight = _highlightedChartCategory != null;
+              final percentage =
+                  totalValue == 0 ? 0 : (segment.value / totalValue) * 100;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _highlightedChartCategory =
+                        isHighlighted ? null : segment.categoryKey;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 132,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? colorScheme.primary.withValues(alpha: 0.14)
+                        : colorScheme.surface.withValues(alpha: 0.0),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isHighlighted
+                          ? colorScheme.primary.withValues(alpha: 0.4)
+                          : colorScheme.border.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: hasActiveHighlight && !isHighlighted
+                              ? segment.color.withValues(alpha: 0.45)
+                              : segment.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${segment.label} ${percentage.toStringAsFixed(0)}%',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isHighlighted
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: hasActiveHighlight && !isHighlighted
+                                ? colorScheme.foreground.withValues(alpha: 0.65)
+                                : colorScheme.foreground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -1473,7 +1725,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         expense.userId == currentUserId;
 
     final isSelected = _selectedIds.contains(expense.id);
-    final isProjectedRecurring = expense.id.startsWith('recurring_');
+    final projectedRecurringTransaction =
+        _findRecurringTransactionForExpense(expense);
+    final isProjectedRecurring = projectedRecurringTransaction != null;
 
     return Slidable(
       key: ValueKey(expense.id),
@@ -1508,7 +1762,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 }
               });
             } else {
-              if (!isProjectedRecurring) {
+              if (isProjectedRecurring) {
+                _openRecurringTransactionEditor(projectedRecurringTransaction);
+              } else {
                 showUnifiedTransactionSheet(context,
                     existingExpense: expense, contact: contact);
               }
@@ -1588,8 +1844,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,
                           showYouLabel: isYou,
-                          showRecurringChip:
-                              expense.id.startsWith('recurring_'),
+                          showRecurringChip: isProjectedRecurring,
                         ),
                       ),
                     ],
@@ -1733,6 +1988,20 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       },
     );
   }
+}
+
+class _PieChartSegment {
+  final String categoryKey;
+  final String label;
+  final double value;
+  final Color color;
+
+  const _PieChartSegment({
+    required this.categoryKey,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 }
 
 class _TransactionListItem {

@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
   group('normalizeCategory', () {
@@ -333,6 +335,67 @@ void main() {
       final sorted = List<String>.from(categories)..sort();
 
       expect(categories, equals(sorted));
+    });
+  });
+
+  group('resolveBuiltinCategoryKey', () {
+    Future<String?> resolveForLocale(
+      WidgetTester tester,
+      String value, {
+      Locale locale = const Locale('en'),
+    }) async {
+      String? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) {
+              result = resolveBuiltinCategoryKey(context, value);
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return result;
+    }
+
+    testWidgets('returns canonical key for canonical category', (tester) async {
+      expect(await resolveForLocale(tester, 'groceries'), 'groceries');
+    });
+
+    testWidgets('returns canonical key for localized builtin category',
+        (tester) async {
+      late String localizedGroceries;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) {
+              localizedGroceries = getCategoryTranslation(context, 'groceries');
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        await resolveForLocale(
+          tester,
+          localizedGroceries,
+          locale: const Locale('zh'),
+        ),
+        'groceries',
+      );
+    });
+
+    testWidgets('returns null for non-builtin custom category', (tester) async {
+      expect(await resolveForLocale(tester, 'shopping'), isNull);
     });
   });
 }

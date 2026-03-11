@@ -11,6 +11,10 @@ class ImportWizardState {
   final String? fileName;
   final ImportTable? table;
   final ImportMapping? mapping;
+
+  /// Full mapping result with confidence scores. Null before auto-mapping runs.
+  final MappingResult? mappingResult;
+
   final List<ImportParsedRow> parsedRows;
   final bool skipDuplicates;
   final bool isParsing;
@@ -21,6 +25,10 @@ class ImportWizardState {
   final int failedCount;
   final String? targetHouseholdId;
   final bool targetIsPortfolio;
+  final Set<int> deletedRowIndices;
+
+  /// True when the map step was auto-skipped due to high confidence.
+  final bool didAutoSkipMapping;
 
   /// All sheets detected from an Excel file. Empty for CSV files.
   final List<ImportSheetResult> availableSheets;
@@ -33,6 +41,7 @@ class ImportWizardState {
     this.fileName,
     this.table,
     this.mapping,
+    this.mappingResult,
     this.parsedRows = const [],
     this.skipDuplicates = true,
     this.isParsing = false,
@@ -43,6 +52,8 @@ class ImportWizardState {
     this.failedCount = 0,
     this.targetHouseholdId,
     this.targetIsPortfolio = false,
+    this.deletedRowIndices = const {},
+    this.didAutoSkipMapping = false,
     this.availableSheets = const [],
     this.selectedSheetIndex = -1,
   });
@@ -52,6 +63,8 @@ class ImportWizardState {
     String? fileName,
     ImportTable? table,
     ImportMapping? mapping,
+    MappingResult? mappingResult,
+    bool clearMappingResult = false,
     List<ImportParsedRow>? parsedRows,
     bool? skipDuplicates,
     bool? isParsing,
@@ -64,7 +77,10 @@ class ImportWizardState {
     int? failedCount,
     String? targetHouseholdId,
     bool? targetIsPortfolio,
+    Set<int>? deletedRowIndices,
     bool clearTargetHouseholdId = false,
+    bool clearDeletedRowIndices = false,
+    bool? didAutoSkipMapping,
     List<ImportSheetResult>? availableSheets,
     int? selectedSheetIndex,
   }) {
@@ -73,6 +89,8 @@ class ImportWizardState {
       fileName: fileName ?? this.fileName,
       table: table ?? this.table,
       mapping: mapping ?? this.mapping,
+      mappingResult:
+          clearMappingResult ? null : (mappingResult ?? this.mappingResult),
       parsedRows: parsedRows ?? this.parsedRows,
       skipDuplicates: skipDuplicates ?? this.skipDuplicates,
       isParsing: isParsing ?? this.isParsing,
@@ -88,6 +106,10 @@ class ImportWizardState {
           ? null
           : (targetHouseholdId ?? this.targetHouseholdId),
       targetIsPortfolio: targetIsPortfolio ?? this.targetIsPortfolio,
+      deletedRowIndices: clearDeletedRowIndices
+          ? const {}
+          : (deletedRowIndices ?? this.deletedRowIndices),
+      didAutoSkipMapping: didAutoSkipMapping ?? this.didAutoSkipMapping,
       availableSheets: availableSheets ?? this.availableSheets,
       selectedSheetIndex: selectedSheetIndex ?? this.selectedSheetIndex,
     );

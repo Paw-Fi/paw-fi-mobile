@@ -1,33 +1,41 @@
-import 'dart:async';
+// ignore_for_file: unused_element
 
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/shared/widgets/moneko_rich_text.dart';
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
-import 'package:moneko/features/households/presentation/pages/create_space_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_finish_page.dart';
+import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
+import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
+import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_header_card.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/import/domain/import_source_app.dart';
+import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -36,26 +44,840 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
 
-class OnboardingFlowPage extends HookConsumerWidget {
-  const OnboardingFlowPage({super.key, this.fromSettings = false});
+String _importSourceLabel(ImportSourceApp source) {
+  switch (source) {
+    case ImportSourceApp.ynab:
+      return 'YNAB';
+    case ImportSourceApp.monarch:
+      return 'Monarch';
+    case ImportSourceApp.copilot:
+      return 'Copilot';
+    case ImportSourceApp.pocketGuard:
+      return 'PocketGuard';
+    case ImportSourceApp.splitwise:
+      return 'Splitwise';
+    case ImportSourceApp.everyDollar:
+      return 'EveryDollar';
+    case ImportSourceApp.cashew:
+      return 'Cashew';
+    case ImportSourceApp.mint:
+      return 'Mint';
+    case ImportSourceApp.goodbudget:
+      return 'Goodbudget';
+    case ImportSourceApp.spendee:
+      return 'Spendee';
+    case ImportSourceApp.other:
+      return 'Other';
+  }
+}
 
-  final bool fromSettings;
+String _guestIntroPageId() => 'onboarding_intro';
+
+String _authenticatedOnboardingPageId(int stepIndex) {
+  switch (stepIndex) {
+    case 0:
+      return 'onboarding_setup_notifications';
+    case 1:
+      return 'onboarding_setup_import';
+    case 2:
+      return 'onboarding_setup_ai_log';
+    default:
+      return 'onboarding_setup_unknown';
+  }
+}
+
+String _authenticatedOnboardingStepKey(int stepIndex) {
+  switch (stepIndex) {
+    case 0:
+      return 'notifications';
+    case 1:
+      return 'import';
+    case 2:
+      return 'ai_log';
+    default:
+      return 'unknown';
+  }
+}
+
+class _GuestOnboardingFlow extends HookConsumerWidget {
+  const _GuestOnboardingFlow();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final currentPage = useState(0);
+    final isBusy = useState(false);
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+
+    final introSlides = [
+      (
+        title: context.l10n.onboardingIntroSlide1Title,
+        body: context.l10n.onboardingIntroSlide1Body
+      ),
+      (title: context.l10n.onboardingIntroSlide2Title, body: ''),
+      (
+        title: context.l10n.onboardingIntroSlide3Title,
+        body: context.l10n.onboardingIntroSlide3Body
+      ),
+      (title: context.l10n.onboardingIntroSlide4Title, body: ''),
+    ];
+
+    final totalPages = introSlides.length;
+    final isFinalIntroSlide = currentPage.value == introSlides.length - 1;
+
+    // Ambient glow controller morphs based on page progress
+    final glowController = useAnimationController(
+      duration: const Duration(seconds: 4),
+    );
+
+    useEffect(() {
+      glowController.repeat(reverse: true);
+      return glowController.stop;
+    }, []);
+
+    final glowAnimation = useAnimation(
+      CurvedAnimation(parent: glowController, curve: Curves.easeInOut),
+    );
+
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex: currentPage.value,
+          properties: <String, Object?>{'entry_path': 'guest_intro'},
+        ),
+      );
+      return null;
+    }, [currentPage.value]);
+
+    Future<void> goToPreAuthQuestions() async {
+      if (isBusy.value) return;
+      isBusy.value = true;
+      try {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex: currentPage.value,
+          actionId: 'intro_completed',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        );
+        await analytics.endPage(
+          reason: 'intro_completed',
+          transitionTo: 'preauth_housing_situation',
+        );
+        final store = ref.read(onboardingPreauthDraftStoreProvider);
+        final current = store.load();
+        await store.save(current.copyWith(currentStep: 0));
+        if (!context.mounted) return;
+        context.go('/onboarding?stage=pre');
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
+    void goNext() {
+      if (currentPage.value == totalPages - 1) {
+        unawaited(goToPreAuthQuestions());
+        return;
+      }
+      unawaited(
+        analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex: currentPage.value,
+          actionId: 'intro_next',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        ),
+      );
+      currentPage.value++;
+    }
+
+    void goBack() {
+      if (currentPage.value <= 0) return;
+      unawaited(
+        analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex: currentPage.value,
+          actionId: 'intro_back',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        ),
+      );
+      currentPage.value--;
+    }
+
+    return AdaptiveScaffold(
+      appBar: null,
+      body: Material(
+        color: colorScheme.appBackground,
+        child: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              // Ambient glow background layer (persists and morphs across slides)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: MediaQuery.sizeOf(context).height * 0.6,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 650),
+                    opacity: isFinalIntroSlide ? 1.0 : 0.0,
+                    child: Transform(
+                      transform: Matrix4.identity()
+                        ..scale(2.0, 1.0 + (glowAnimation * 0.05)),
+                      alignment: Alignment.bottomCenter,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment.bottomCenter,
+                            radius: 1.0,
+                            colors: [
+                              colorScheme.primary.withValues(
+                                alpha: 0.5 + (glowAnimation * 0.1),
+                              ),
+                              colorScheme.primary.withValues(
+                                alpha: 0.2 + (glowAnimation * 0.05),
+                              ),
+                              colorScheme.primary.withValues(alpha: 0.0),
+                            ],
+                            stops: const [0.0, 0.5, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Main Content
+              Column(
+                children: [
+                  if (kDebugMode)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: currentPage.value > 0 ? goBack : null,
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            tooltip: 'Debug back',
+                          ),
+                          IconButton(
+                            onPressed: goNext,
+                            icon: const Icon(Icons.skip_next_rounded),
+                            tooltip: 'Debug next',
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () =>
+                                context.go('/onboarding?stage=post&debug=post'),
+                            child: const Text('Debug post'),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go('/paywall?mode=trial'),
+                            child: const Text('Debug paywall'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 650),
+                      switchInCurve: Curves.easeInOut,
+                      switchOutCurve: Curves.easeInOut,
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        final inAnimation = Tween<Offset>(
+                          begin: const Offset(0.0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        final outAnimation = Tween<Offset>(
+                          begin: const Offset(0.0, -0.02),
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: child.key == ValueKey(currentPage.value)
+                                ? inAnimation
+                                : outAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(currentPage.value),
+                        child: Builder(builder: (context) {
+                          final index = currentPage.value;
+                          final slide = introSlides[index];
+                          return _IntroSlide(
+                            title: slide.title,
+                            body: slide.body,
+                            currentIndex: index,
+                            totalSlides: introSlides.length,
+                            isFinalSlide: index == introSlides.length - 1,
+                            onNext: goNext,
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16 + bottomPadding),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String? _colorToHex(Color? color) {
+  if (color == null) return null;
+  final hex = color.toARGB32().toRadixString(16).padLeft(8, '0');
+  return '#${hex.substring(2).toUpperCase()}';
+}
+
+class _IntroSlide extends HookWidget {
+  const _IntroSlide({
+    required this.title,
+    required this.body,
+    required this.currentIndex,
+    required this.totalSlides,
+    required this.isFinalSlide,
+    required this.onNext,
+  });
+
+  final String title;
+  final String body;
+  final int currentIndex;
+  final int totalSlides;
+  final bool isFinalSlide;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+
+    final text = body.isNotEmpty ? '$title\n$body' : title;
+
+    // Staggered entrance animation
+    final animationController = useAnimationController(
+      duration: const Duration(milliseconds: 650),
+    );
+
+    useEffect(() {
+      animationController.forward(from: 0.0);
+      return null;
+    }, [currentIndex]);
+
+    final fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final slideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final actionFadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    final actionSlideAnim =
+        Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(28, 20, 28, 20 + bottomPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Progress Dots (static, no entrance animation)
+          Padding(
+            padding: const EdgeInsets.only(top: 24, bottom: 40),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalSlides, (index) {
+                final isActive = index == currentIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  height: 8,
+                  width: 26,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? colorScheme.primary
+                        : colorScheme.border.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(5.33),
+                  ),
+                );
+              }),
+            ),
+          ),
+
+          if (!isFinalSlide)
+            Expanded(
+              child: FadeTransition(
+                opacity: fadeAnim,
+                child: SlideTransition(
+                  position: slideAnim,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: MonekoRichText(
+                      text: text,
+                      textAlign: TextAlign.start,
+                      style: TextStyle(
+                        fontSize: 31,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                      ),
+                      highlightStyle: TextStyle(
+                        fontSize: 31,
+                        height: 1.3,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            // Content column for final slide
+            Expanded(
+              child: FadeTransition(
+                opacity: fadeAnim,
+                child: SlideTransition(
+                  position: slideAnim,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Title text
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 0),
+                          child: MonekoRichText(
+                            text: text,
+                            style: TextStyle(
+                              fontSize: 31,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.foreground,
+                              height: 1.375,
+                              letterSpacing: 0,
+                            ),
+                            highlightStyle: TextStyle(
+                              fontSize: 31,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.primary,
+                              height: 1.375,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Orbit circle (takes remaining space)
+                      Expanded(
+                        child: FadeTransition(
+                          opacity: actionFadeAnim,
+                          child: SlideTransition(
+                            position: actionSlideAnim,
+                            child: const _OnboardingOrbitHero(),
+                          ),
+                        ),
+                      ),
+                      // Get Started button
+                      FadeTransition(
+                        opacity: actionFadeAnim,
+                        child: SlideTransition(
+                          position: actionSlideAnim,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24, top: 16),
+                            child: InkWell(
+                              onTap: onNext,
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: colorScheme.cardSurface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: colorScheme.border
+                                        .withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  context.l10n.getStarted,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          if (!isFinalSlide)
+            FadeTransition(
+              opacity: actionFadeAnim,
+              child: SlideTransition(
+                position: actionSlideAnim,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: InkWell(
+                      onTap: onNext,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: colorScheme.cardSurface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          color: colorScheme.onSurface.withValues(alpha: 0.8),
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingOrbitHero extends HookWidget {
+  const _OnboardingOrbitHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = useAnimationController(
+      duration: const Duration(seconds: 40),
+    )..repeat();
+
+    final innerBubbles = [
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense1,
+        icon: Icons.mic_rounded,
+        baseAngle: 0,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense2,
+        icon: Icons.account_balance_wallet_rounded,
+        baseAngle: 2 * math.pi / 3,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleExpense3,
+        icon: Icons.family_restroom_rounded,
+        baseAngle: 4 * math.pi / 3,
+      ),
+    ];
+
+    final outerBubbles = [
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight1,
+        icon: Icons.pie_chart_rounded,
+        baseAngle: math.pi / 6,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight2,
+        icon: Icons.chat_rounded,
+        baseAngle: math.pi / 6 + 2 * math.pi / 3,
+      ),
+      _OrbitBubbleData(
+        text: context.l10n.orbitBubbleInsight3,
+        icon: Icons.event_repeat_rounded,
+        baseAngle: math.pi / 6 + 4 * math.pi / 3,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = math.min(constraints.maxWidth, constraints.maxHeight) - 50;
+        final center = Offset(constraints.maxWidth / 2, size / 2 + 20);
+        final innerRadius = size * 0.28;
+        final outerRadius = size * 0.45;
+        const avatarSize = 60.0;
+
+        return AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final t = controller.value;
+            final innerAngleOffset = t * 2 * math.pi;
+            final outerAngleOffset = -t * 2 * math.pi;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Inner rings
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _OrbitRingsPainter(
+                      innerRadius: innerRadius,
+                      outerRadius: outerRadius,
+                      ringColor: colorScheme.border.withValues(alpha: 0.2),
+                      centerOffset: center,
+                    ),
+                  ),
+                ),
+
+                // Inner orbit bubbles
+                ...innerBubbles.map((bubble) {
+                  final angle = bubble.baseAngle + innerAngleOffset;
+                  final x = center.dx + innerRadius * math.cos(angle);
+                  final y = center.dy + innerRadius * math.sin(angle);
+                  return _buildBubble(
+                    x: x,
+                    y: y,
+                    bubble: bubble,
+                    colorScheme: colorScheme,
+                  );
+                }),
+
+                // Outer orbit bubbles
+                ...outerBubbles.map((bubble) {
+                  final angle = bubble.baseAngle + outerAngleOffset;
+                  final x = center.dx + outerRadius * math.cos(angle);
+                  final y = center.dy + outerRadius * math.sin(angle);
+                  return _buildBubble(
+                    x: x,
+                    y: y,
+                    bubble: bubble,
+                    colorScheme: colorScheme,
+                  );
+                }),
+
+                // Center avatar/icon
+                Positioned(
+                  left: center.dx - avatarSize / 2,
+                  top: center.dy - avatarSize / 2,
+                  child: Container(
+                    width: avatarSize,
+                    height: avatarSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colorScheme.card,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colorScheme.primary.withValues(alpha: 0.15),
+                          blurRadius: 24,
+                          spreadRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'lib/assets/mascots/moneko-avatar.gif',
+                        width: avatarSize,
+                        height: avatarSize,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Positioned _buildBubble({
+    required double x,
+    required double y,
+    required _OrbitBubbleData bubble,
+    required ColorScheme colorScheme,
+  }) {
+    return Positioned(
+      left: x - 65,
+      top: y - 20,
+      child: Container(
+        width: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colorScheme.card,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.shadow.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(
+            color: colorScheme.border.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              bubble.icon,
+              size: 16,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                bubble.text,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrbitRingsPainter extends CustomPainter {
+  const _OrbitRingsPainter({
+    required this.innerRadius,
+    required this.outerRadius,
+    required this.ringColor,
+    required this.centerOffset,
+  });
+
+  final double innerRadius;
+  final double outerRadius;
+  final Color ringColor;
+  final Offset centerOffset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = ringColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    canvas.drawCircle(centerOffset, innerRadius, paint);
+    canvas.drawCircle(centerOffset, outerRadius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbitRingsPainter oldDelegate) =>
+      oldDelegate.innerRadius != innerRadius ||
+      oldDelegate.outerRadius != outerRadius ||
+      oldDelegate.ringColor != ringColor ||
+      oldDelegate.centerOffset != centerOffset;
+}
+
+class _OrbitBubbleData {
+  const _OrbitBubbleData({
+    required this.text,
+    required this.icon,
+    required this.baseAngle,
+  });
+
+  final String text;
+  final IconData icon;
+  final double baseAngle;
+}
+
+class OnboardingFlowPage extends HookConsumerWidget {
+  const OnboardingFlowPage({
+    super.key,
+    this.fromSettings = false,
+    this.debugForcePostFlow = false,
+  });
+
+  final bool fromSettings;
+  final bool debugForcePostFlow;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    if (auth.isEmpty && !debugForcePostFlow) {
+      return const _GuestOnboardingFlow();
+    }
+
     final pageController = usePageController();
     final currentPage = useState(0);
     final colorScheme = Theme.of(context).colorScheme;
     final notificationFlowStarted = useState(false);
     final notificationFlowCompleted = useState(false);
+    final selectedImportSource = useState<ImportSourceApp?>(null);
     final aiLogSuccess = useState<AiLogSuccess?>(null);
-    // Step 4: editable group name captured here so footer CTA can pass it
-    final groupName = useState<String>('');
-    // Track whether user created a space in Step 3
-    final didCreateSpace = useState(false);
-    // Track whether user created a pocket in Step 4
-    final pocketCreated = useState(false);
-    const totalSteps = 6;
+    final isPrimaryBusy = useState(false);
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+    const totalSteps = 3;
+
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: _authenticatedOnboardingPageId(currentPage.value),
+          stepIndex: currentPage.value,
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{
+            'from_settings': fromSettings,
+            'step_key': _authenticatedOnboardingStepKey(currentPage.value),
+          },
+        ),
+      );
+      return null;
+    }, [currentPage.value, fromSettings]);
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -80,15 +902,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
     Future<void> showFinishPage() async {
       if (!context.mounted) return;
-      final done = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const OnboardingFinishPage(),
-          fullscreenDialog: true,
-        ),
-      );
-      if (done == true && context.mounted) {
-        await _completeOnboarding(context, ref);
-      }
+      await _completeOnboarding(context, ref);
     }
 
     void next() {
@@ -101,7 +915,29 @@ class OnboardingFlowPage extends HookConsumerWidget {
       }
     }
 
-    void skip() => next(); // Now skip goes to next step instead of exiting
+    Future<void> trackSkipAction() async {
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _authenticatedOnboardingPageId(currentPage.value),
+        stepIndex: currentPage.value,
+        actionId:
+            '${_authenticatedOnboardingStepKey(currentPage.value)}_skipped',
+        result: 'skipped',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'authenticated_onboarding',
+          'step_key': _authenticatedOnboardingStepKey(currentPage.value),
+          if (selectedImportSource.value != null)
+            'selected_import_source':
+                _importSourceLabel(selectedImportSource.value!),
+        },
+      );
+    }
+
+    void skip() {
+      unawaited(trackSkipAction());
+      next();
+    }
 
     Future<void> handleNotificationsFlow() async {
       if (!context.mounted) return;
@@ -132,6 +968,18 @@ class OnboardingFlowPage extends HookConsumerWidget {
         if (!context.mounted) return;
 
         notificationFlowCompleted.value = true;
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _authenticatedOnboardingPageId(0),
+          stepIndex: 0,
+          actionId: 'notifications_enabled',
+          result: 'used',
+          enableTracking: !fromSettings,
+          properties: const <String, Object?>{
+            'step_group': 'authenticated_onboarding',
+            'step_key': 'notifications',
+          },
+        );
         next();
       } finally {
         if (context.mounted) {
@@ -141,148 +989,128 @@ class OnboardingFlowPage extends HookConsumerWidget {
     }
 
     Future<void> primary() async {
-      if (currentPage.value == 0) {
-        // Step 1 (Currency): persist current selection (or USD) and advance immediately
-        final filter = ref.read(homeFilterProvider);
-        final selectedCurrency =
-            (filter.selectedCurrency ?? 'USD').toUpperCase();
-
-        // Update UI state first
-        ref
-            .read(homeFilterProvider.notifier)
-            .setSelectedCurrency(selectedCurrency);
-        ref
-            .read(analyticsProvider.notifier)
-            .updatePreferredCurrency(selectedCurrency);
-
-        // Navigate to next step immediately (do not block on IO)
-        next();
-
-        // Fire-and-forget local preference write and backend sync
-        unawaited(() async {
-          try {
-            await ref
-                .read(currencyPreferenceServiceProvider)
-                .setSelectedCurrency(selectedCurrency);
-          } catch (_) {}
-          if (supabase.auth.currentSession != null) {
-            try {
-              final userId = supabase.auth.currentSession?.user.id;
-              if (userId == null || userId.isEmpty) {
-                return;
-              }
-              final response = await supabase.functions.invoke(
-                'update-preferred-currency',
-                body: {
-                  'currency': selectedCurrency,
-                  'userId': userId,
-                },
-              );
-              if (response.status >= 400) {
-                debugPrint(
-                    'update-preferred-currency failed: ${response.status}');
-                return;
-              }
-              final payload = response.data;
-              final ok = payload is Map && payload['ok'] == true;
-              if (!ok) {
-                debugPrint(
-                    'update-preferred-currency returned unexpected payload: $payload');
-              }
-            } catch (_) {}
-          }
-        }());
-        return;
-      }
-
-      if (currentPage.value == 1) {
-        // Step 2: persist budget then continue
-        final now = DateTime.now();
-        final monthStart = DateTime(now.year, now.month, 1);
-        final scopeParams = PocketsScopeParams(
-            scope: PocketsScopeType.personal, periodMonth: monthStart);
-        await ref.read(pocketsProvider(scopeParams).notifier).saveChanges();
-        next();
-        return;
-      }
-
-      if (currentPage.value == 2) {
-        // Step 3: prompt notifications then advance to Step 4
-        await handleNotificationsFlow();
-        return;
-      }
-
-      if (currentPage.value == 3) {
-        final result = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => CreateSpacePage(
-              key: UniqueKey(),
-              initialName: groupName.value,
-              fromOnboarding: true,
-            ),
-            fullscreenDialog: true,
-          ),
-        );
-        // Always return to onboarding after space creation
-        if (result == true) {
-          didCreateSpace.value = true;
-          next();
-        }
-        return;
-      }
-
-      if (currentPage.value == 4) {
-        // Pockets intro step
-        if (pocketCreated.value) {
-          next();
+      if (isPrimaryBusy.value) return;
+      isPrimaryBusy.value = true;
+      try {
+        if (currentPage.value == 0) {
+          await handleNotificationsFlow();
           return;
         }
-        // Resolve scope based on whether user created a space
-        final selectedHousehold = ref.read(selectedHouseholdProvider);
-        final now = DateTime.now();
-        final monthStart = DateTime(now.year, now.month, 1);
-        final scopeParams = didCreateSpace.value &&
-                selectedHousehold.householdId != null
-            ? PocketsScopeParams(
-                scope: PocketsScopeType.household,
-                householdId: selectedHousehold.householdId,
-                periodMonth: monthStart,
-              )
-            : PocketsScopeParams(
-                scope: PocketsScopeType.personal,
-                periodMonth: monthStart,
-              );
 
-        // Open template sheet for pocket creation (it handles budget input too)
-        if (!context.mounted) return;
-        await showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          isDismissible: false,
-          enableDrag: false,
-          backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-          builder: (context) => CreateBudgetFromTemplateSheet(
-            scopeParams: scopeParams,
-          ),
-        );
-        // After sheet closes, check if pockets were created
-        final updatedState = ref.read(pocketsProvider(scopeParams));
-        if (updatedState.editing.isNotEmpty) {
-          pocketCreated.value = true;
+        if (currentPage.value == 1) {
+          final source = selectedImportSource.value;
+          if (source == null) {
+            await analytics.trackAction(
+              flowName: 'onboarding_funnel',
+              pageId: _authenticatedOnboardingPageId(1),
+              stepIndex: 1,
+              actionId: 'import_skipped_no_source',
+              result: 'skipped',
+              enableTracking: !fromSettings,
+              properties: const <String, Object?>{
+                'step_group': 'authenticated_onboarding',
+                'step_key': 'import',
+              },
+            );
+            next();
+            return;
+          }
+
+          await analytics.trackAction(
+            flowName: 'onboarding_funnel',
+            pageId: _authenticatedOnboardingPageId(1),
+            stepIndex: 1,
+            actionId: 'import_started',
+            result: 'used',
+            enableTracking: !fromSettings,
+            properties: <String, Object?>{
+              'step_group': 'authenticated_onboarding',
+              'step_key': 'import',
+              'selected_import_source': _importSourceLabel(source),
+            },
+          );
+
+          final imported = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => ImportWizardPage(
+                lockPersonalTarget: true,
+                sourceApp: source,
+              ),
+            ),
+          );
+
+          if (!context.mounted) return;
+          if (imported == true) {
+            await analytics.trackAction(
+              flowName: 'onboarding_funnel',
+              pageId: _authenticatedOnboardingPageId(1),
+              stepIndex: 1,
+              actionId: 'import_completed',
+              result: 'success',
+              enableTracking: !fromSettings,
+              properties: <String, Object?>{
+                'step_group': 'authenticated_onboarding',
+                'step_key': 'import',
+                'selected_import_source': _importSourceLabel(source),
+              },
+            );
+            next();
+            return;
+          }
+          await analytics.trackAction(
+            flowName: 'onboarding_funnel',
+            pageId: _authenticatedOnboardingPageId(1),
+            stepIndex: 1,
+            actionId: 'import_cancelled',
+            result: 'cancelled',
+            enableTracking: !fromSettings,
+            properties: <String, Object?>{
+              'step_group': 'authenticated_onboarding',
+              'step_key': 'import',
+              'selected_import_source': _importSourceLabel(source),
+            },
+          );
+          return;
         }
-        return;
-      }
 
-      // Default: advance to next step
-      next();
+        if (currentPage.value == 2) {
+          if (aiLogSuccess.value != null) {
+            next();
+            return;
+          }
+
+          await handleAiFreeFormText(
+            context,
+            ref,
+            onSuccess: (success) {
+              aiLogSuccess.value = success;
+              unawaited(
+                analytics.trackAction(
+                  flowName: 'onboarding_funnel',
+                  pageId: _authenticatedOnboardingPageId(2),
+                  stepIndex: 2,
+                  actionId: 'ai_log_completed',
+                  result: 'success',
+                  enableTracking: !fromSettings,
+                  properties: const <String, Object?>{
+                    'step_group': 'authenticated_onboarding',
+                    'step_key': 'ai_log',
+                  },
+                ),
+              );
+            },
+          );
+          return;
+        }
+
+        // Default: advance to next step
+        next();
+      } finally {
+        if (context.mounted) {
+          isPrimaryBusy.value = false;
+        }
+      }
     }
-
-    useEffect(() {
-      if (currentPage.value == 2) {
-        unawaited(handleNotificationsFlow());
-      }
-      return null;
-    }, [currentPage.value]);
 
     return AdaptiveScaffold(
       appBar: null,
@@ -291,6 +1119,33 @@ class OnboardingFlowPage extends HookConsumerWidget {
           color: colorScheme.appBackground,
           child: Column(
             children: [
+              if (kDebugMode)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: currentPage.value > 0
+                            ? () => goToPage(currentPage.value - 1)
+                            : null,
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        tooltip: 'Debug back',
+                      ),
+                      IconButton(
+                        onPressed: currentPage.value < totalSteps - 1
+                            ? () => goToPage(currentPage.value + 1)
+                            : () => unawaited(showFinishPage()),
+                        icon: const Icon(Icons.skip_next_rounded),
+                        tooltip: 'Debug next',
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => context.go('/paywall?mode=trial'),
+                        child: const Text('Debug paywall'),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: PageView(
                   controller: pageController,
@@ -302,27 +1157,33 @@ class OnboardingFlowPage extends HookConsumerWidget {
                     // can trigger heavy providers/services during tests and
                     // early onboarding frames.
                     currentPage.value == 0
-                        ? const _CurrencyStep()
-                        : const SizedBox.shrink(),
-                    currentPage.value == 1
-                        ? const _BudgetStep()
-                        : const SizedBox.shrink(),
-                    currentPage.value == 2
                         ? const _NotificationsStep()
                         : const SizedBox.shrink(),
-                    currentPage.value == 3
-                        ? _HouseholdStep(
-                            name: groupName.value,
-                            onNameChanged: (v) => groupName.value = v,
+                    currentPage.value == 1
+                        ? _DataImportSourceStep(
+                            selected: selectedImportSource.value,
+                            onSelected: (value) {
+                              selectedImportSource.value = value;
+                              unawaited(
+                                analytics.trackAction(
+                                  flowName: 'onboarding_funnel',
+                                  pageId: _authenticatedOnboardingPageId(1),
+                                  stepIndex: 1,
+                                  actionId: 'import_source_selected',
+                                  result: 'used',
+                                  enableTracking: !fromSettings,
+                                  properties: <String, Object?>{
+                                    'step_group': 'authenticated_onboarding',
+                                    'step_key': 'import',
+                                    'selected_import_source':
+                                        _importSourceLabel(value),
+                                  },
+                                ),
+                              );
+                            },
                           )
                         : const SizedBox.shrink(),
-                    currentPage.value == 4
-                        ? _PocketsIntroStep(
-                            didCreateSpace: didCreateSpace.value,
-                            pocketCreated: pocketCreated.value,
-                          )
-                        : const SizedBox.shrink(),
-                    currentPage.value == 5
+                    currentPage.value == 2
                         ? _AiLogStep(
                             onSuccess: (success) =>
                                 aiLogSuccess.value = success,
@@ -337,59 +1198,34 @@ class OnboardingFlowPage extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Page indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(totalSteps, (i) {
-                        final bool active = currentPage.value == i;
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: active ? 18 : 8,
-                          decoration: BoxDecoration(
-                            color: active
-                                ? colorScheme.primary
-                                : colorScheme.mutedForeground
-                                    .withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
                       child: PrimaryAdaptiveButton(
-                        onPressed: () {
-                          // Fire-and-forget call to async handler to avoid type mismatch
-                          // and ensure reliable button taps
-                          unawaited(primary());
-                        },
+                        onPressed: isPrimaryBusy.value
+                            ? null
+                            : () {
+                                // Fire-and-forget call to async handler to avoid type mismatch
+                                // and ensure reliable button taps
+                                unawaited(primary());
+                              },
                         child: Text(
                           currentPage.value == 0
-                              ? context.l10n.setCurrency
+                              ? context.l10n.turnOnNotifications
                               : currentPage.value == 1
-                                  ? context.l10n.setBudget
-                                  : currentPage.value == 2
-                                      ? context.l10n.turnOnNotifications
-                                      : currentPage.value == 3
-                                          ? context.l10n.createSpace
-                                          : currentPage.value == 4
-                                              ? (pocketCreated.value
-                                                  ? context.l10n.continueAction
-                                                  : context.l10n
-                                                      .pocketsIntroUseTemplate)
-                                              : (aiLogSuccess.value != null
-                                                  ? context.l10n.continueAction
-                                                  : context.l10n.tryNow),
+                                  ? (selectedImportSource.value == null
+                                      ? context.l10n.continueAction
+                                      : 'Import and continue')
+                                  : (aiLogSuccess.value != null
+                                      ? context.l10n.continueAction
+                                      : context.l10n.tryNow),
                         ),
                       ),
                     ),
                     const SizedBox(height: 8),
                     PlainAdaptiveButton(
                       onPressed:
-                          (currentPage.value == 5 && aiLogSuccess.value != null)
+                          (currentPage.value == 2 && aiLogSuccess.value != null)
                               ? null
                               : skip,
                       child: Text(
@@ -416,10 +1252,46 @@ class OnboardingFlowPage extends HookConsumerWidget {
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
     await _markOnboardingCompleted(ref);
     if (!context.mounted) return;
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     if (fromSettings) {
+      await analytics.endPage(
+        reason: 'settings_onboarding_closed',
+        transitionTo: '/settings',
+      );
       Navigator.of(context).pop();
     } else {
-      context.go('/dashboard');
+      const isWeb = kIsWeb;
+      final hasSubscription = ref.read(hasActiveSubscriptionProvider);
+      final isSubscriptionLoaded = ref.read(isSubscriptionLoadedProvider);
+      if (!isWeb && isSubscriptionLoaded && !hasSubscription) {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _authenticatedOnboardingPageId(2),
+          stepIndex: 2,
+          actionId: 'authenticated_onboarding_completed',
+          result: 'success',
+          properties: const <String, Object?>{
+            'step_group': 'authenticated_onboarding',
+            'step_key': 'ai_log',
+            'next_route': '/paywall',
+          },
+        );
+        await analytics.endPage(
+          reason: 'authenticated_onboarding_completed',
+          transitionTo: 'paywall',
+        );
+        context.go('/paywall');
+      } else {
+        await analytics.completeSession(
+          flowName: 'onboarding_funnel',
+          pageId: _authenticatedOnboardingPageId(2),
+          stepIndex: 2,
+          properties: const <String, Object?>{
+            'completion_target': 'dashboard',
+          },
+        );
+        context.go('/dashboard');
+      }
     }
   }
 }
@@ -718,6 +1590,136 @@ class _NotificationsStep extends HookConsumerWidget {
   }
 }
 
+class _DataImportSourceStep extends StatelessWidget {
+  const _DataImportSourceStep({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ImportSourceApp? selected;
+  final ValueChanged<ImportSourceApp> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Are you currently using other app?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Pick your source to see exactly which file to upload. We import into your personal account in the next step.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              color: colorScheme.mutedForeground,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final source in importSourceSpecs) ...[
+            _ImportSourceCard(
+              spec: source,
+              selected: selected == source.app,
+              onTap: () => onSelected(source.app),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportSourceCard extends StatelessWidget {
+  const _ImportSourceCard({
+    required this.spec,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ImportSourceSpec spec;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primary.withValues(alpha: 0.08)
+                : colorScheme.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.border.withValues(alpha: 0.2),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.cardSurface.withValues(alpha: 0.9),
+                ),
+                child: Icon(
+                  selected ? Icons.check_rounded : Icons.import_export_rounded,
+                  size: 16,
+                  color: selected
+                      ? colorScheme.onPrimary
+                      : colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _importSourceLabel(spec.app),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HouseholdStep extends HookConsumerWidget {
   const _HouseholdStep({required this.name, required this.onNameChanged});
 
@@ -758,14 +1760,15 @@ class _HouseholdStep extends HookConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // Visual create-a-group card with editable name
+            // Visual create-a-space card with editable name
             Container(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               decoration: BoxDecoration(
                 color: colorScheme.card,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                    color: colorScheme.border.withValues(alpha: 0.06), width: 1),
+                    color: colorScheme.border.withValues(alpha: 0.06),
+                    width: 1),
                 boxShadow: [
                   BoxShadow(
                     color: colorScheme.shadow.withValues(alpha: 0.08),
@@ -792,8 +1795,8 @@ class _HouseholdStep extends HookConsumerWidget {
                     decoration: InputDecoration(
                       hintText: context.l10n.householdNameHint,
                       hintStyle: TextStyle(
-                          color:
-                              colorScheme.mutedForeground.withValues(alpha: 0.6)),
+                          color: colorScheme.mutedForeground
+                              .withValues(alpha: 0.6)),
                       filled: true,
                       fillColor: colorScheme.cardSurface,
                       contentPadding: const EdgeInsets.symmetric(
@@ -847,8 +1850,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
     // Watch pockets state for success detection
     final selectedHousehold = ref.watch(selectedHouseholdProvider);
     final monthStart = DateTime(now.year, now.month, 1);
-    final scopeParams = didCreateSpace &&
-            selectedHousehold.householdId != null
+    final scopeParams = didCreateSpace && selectedHousehold.householdId != null
         ? PocketsScopeParams(
             scope: PocketsScopeType.household,
             householdId: selectedHousehold.householdId,
@@ -869,60 +1871,27 @@ class _PocketsIntroStep extends HookConsumerWidget {
       return null;
     }, []);
 
-    // Mock pocket data using user's currency
-    final mockPockets = useMemoized(
-      () => [
-      PocketEnvelope(
-          id: 'mock-1',
-          name: 'Groceries',
-          budgetAmountCents: 50000,
-          spent: 325,
-          currency: currency,
-          icon: 'shopping_bag',
-          color: '#FF2D55', // iOS System Pink (High energy, appetizing)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-2',
-          name: 'Dining Out',
-          budgetAmountCents: 30000,
-          spent: 120,
-          currency: currency,
-          icon: 'restaurant',
-          color: '#AF52DE', // iOS System Purple (Premium, social)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-3',
-          name: 'Transport',
-          budgetAmountCents: 20000,
-          spent: 160,
-          currency: currency,
-          icon: 'directions_car',
-          color: '#FF9500', // iOS System Orange (Warning/Action, fits travel)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-        PocketEnvelope(
-          id: 'mock-4',
-          name: 'Fun',
-          budgetAmountCents: 20000,
-          spent: 50,
-          currency: currency,
-          icon: 'celebration',
-          color: '#007AFF', // iOS System Blue (Trustworthy, clean)
-          budgetId: null,
-          householdId: null,
-          lastUpdated: now,
-        ),
-      ],
-      [currency],
+    final draft = derivePreauthBudgetProfile(
+      ref.read(onboardingPreauthDraftStoreProvider).load(),
     );
+    final recommendation = BudgetRecommender.recommend(context, draft);
+    final previewTotal = draft.monthlyBudget > 0 ? draft.monthlyBudget : 1.0;
+    final previewPockets = recommendation.pockets
+        .map(
+          (item) => PocketEnvelope(
+            id: 'preview-${item.name}',
+            name: item.name,
+            budgetAmountCents: (item.weight * previewTotal * 100).round(),
+            spent: 0,
+            currency: currency,
+            icon: item.iconName,
+            color: _colorToHex(item.color),
+            budgetId: null,
+            householdId: null,
+            lastUpdated: now,
+          ),
+        )
+        .toList(growable: false);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -981,7 +1950,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Mock pocket grid with staggered animation
+            // Recommender pocket grid with staggered animation
             if (!pocketCreated)
               GridView.count(
                 crossAxisCount: 2,
@@ -990,7 +1959,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
                 mainAxisSpacing: 14,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                children: List.generate(mockPockets.length, (index) {
+                children: List.generate(previewPockets.length, (index) {
                   final interval = Interval(
                     index * 0.15,
                     (index * 0.15 + 0.5).clamp(0.0, 1.0),
@@ -1010,9 +1979,9 @@ class _PocketsIntroStep extends HookConsumerWidget {
                     },
                     child: IgnorePointer(
                       child: PocketCard(
-                        pocket: mockPockets[index],
+                        pocket: previewPockets[index],
                         colorScheme: colorScheme,
-                        totalBudget: 1200,
+                        totalBudget: previewTotal,
                         envelopeMode: true,
                       ),
                     ),
@@ -1118,7 +2087,10 @@ List<ParsedExpense> _expandBreakdownItems(List<ParsedExpense> items) {
       // Description is everything before the amount match, stripped of
       // currency symbols and whitespace.
       final desc = match != null
-          ? line.substring(0, match.start).replaceAll(RegExp(r'[€\$£¥₹]'), '').trim()
+          ? line
+              .substring(0, match.start)
+              .replaceAll(RegExp(r'[€\$£¥₹]'), '')
+              .trim()
           : line.trim();
 
       result.add(item.copyWith(
@@ -1146,7 +2118,7 @@ class _AiLogStep extends HookConsumerWidget {
         : const <ParsedExpense>[];
     final hasSuccess = success != null;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1174,12 +2146,32 @@ class _AiLogStep extends HookConsumerWidget {
                       key: const ValueKey('ai-log-intro'),
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Center(
+                          child: Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    colorScheme.border.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'lib/assets/mascots/moneko-avatar.gif',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
                         Text(
                           context.l10n.tryAiLoggingTitle,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
                             color: colorScheme.foreground,
                           ),
                         ),
@@ -1191,84 +2183,7 @@ class _AiLogStep extends HookConsumerWidget {
                             color: colorScheme.mutedForeground,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: colorScheme.homeCardSurface,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: colorScheme.homeCardBorder,
-                              width: 1,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.homeCardShadow,
-                                blurRadius: 32,
-                                offset: const Offset(0, 8),
-                                spreadRadius: -4,
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _AiActionChip(
-                                    icon: Icons.edit_rounded,
-                                    label: context.l10n.freeFormText,
-                                    onTap: () async {
-                                      await handleAiFreeFormText(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                  _AiActionChip(
-                                    icon: Icons.camera_alt_rounded,
-                                    label: context.l10n.takePhoto,
-                                    onTap: () async {
-                                      await handleAiCameraCapture(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                  _AiActionChip(
-                                    icon: Icons.mic_rounded,
-                                    label: context.l10n.textAudio,
-                                    onTap: () async {
-                                      await handleAiFreeFormText(
-                                        context,
-                                        ref,
-                                        onSuccess: onSuccess,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _AiActionRow(
-                                icon: Icons.attach_file_rounded,
-                                label: context.l10n.files,
-                                subtitle: context.l10n.tryAiLoggingFilesHint,
-                                onTap: () async {
-                                  await handleAiFileOrGallery(
-                                    context,
-                                    ref,
-                                    onSuccess: onSuccess,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 35),
                         Text(
                           context.l10n.aiPromptExamplesTitle,
                           style: TextStyle(
@@ -1299,15 +2214,6 @@ class _AiLogStep extends HookConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                context.l10n.aiPromptExamplesDescription,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.mutedForeground,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
@@ -1324,6 +2230,17 @@ class _AiLogStep extends HookConsumerWidget {
                                 ],
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 20,
+                        ),
+                        Text(
+                          context.l10n.aiPromptExamplesDescription,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.mutedForeground,
+                            height: 1.4,
                           ),
                         ),
                       ],
@@ -1426,7 +2343,8 @@ class _AiLogStep extends HookConsumerWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: TransactionListTile(
                         category: items[i].category,
-                        title: getCategoryTranslation(context, items[i].category),
+                        title:
+                            getCategoryTranslation(context, items[i].category),
                         description: items[i].description,
                         subtitle: DateFormat.yMMMd(
                           intlSafeLocaleName(Localizations.localeOf(context)),
@@ -1453,7 +2371,8 @@ class _AiLogStep extends HookConsumerWidget {
               ),
             const SizedBox(height: 18),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0,vertical: 4.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1474,12 +2393,12 @@ class _AiLogStep extends HookConsumerWidget {
               ),
             ),
           ],
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 }
-
 
 class _AiPromptChip extends StatelessWidget {
   const _AiPromptChip({required this.text});
@@ -1492,7 +2411,7 @@ class _AiPromptChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Text(
-        '"'+text+'"',
+        '"$text"',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -1524,7 +2443,6 @@ class _AiActionChip extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12),
-          
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

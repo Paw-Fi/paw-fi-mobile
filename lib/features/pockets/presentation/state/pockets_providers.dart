@@ -8,7 +8,7 @@ import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -295,7 +295,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
       final isPortfolio = scopeType == PocketsScopeType.portfolio;
-      final householdId = params.householdId ?? (_isPreview ? 'preview-house-1' : null);
+      final householdId =
+          params.householdId ?? (_isPreview ? 'preview-house-1' : null);
 
       if (isHousehold && householdId == null) {
         if (!mounted) return;
@@ -450,24 +451,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             ((previousBudgetRow?['total_budget_cents'] as num?)?.toDouble() ??
                     0.0) /
                 100.0;
-      }
-
-      if (budgetRow == null) {
-        final insertPayload = <String, dynamic>{
-          'user_id': authUser.uid,
-          'household_id':
-              (scopeType == PocketsScopeType.personal) ? null : householdId,
-          'currency': selectedCurrency,
-          'period_month': periodMonth,
-          'total_budget_cents': 0,
-          'updated_at': DateTime.now().toIso8601String(),
-        };
-
-        budgetRow = await supabase
-            .from('budgets')
-            .upsert(insertPayload)
-            .select('id,total_budget_cents')
-            .maybeSingle();
       }
 
       final budgetId = budgetRow?['id'] as String?;
@@ -738,7 +721,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       );
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -750,7 +734,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       0,
       (sum, pocket) => sum + pocket.budgetAmountCents / 100.0,
     );
-    final totalSpent = savedPockets.fold<double>(0, (sum, pocket) => sum + pocket.spent);
+    final totalSpent =
+        savedPockets.fold<double>(0, (sum, pocket) => sum + pocket.spent);
     final now = DateTime.now();
 
     state = PocketsState(
@@ -1158,7 +1143,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -1375,7 +1361,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
@@ -1445,12 +1431,37 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (budgetId != null) {
         await supabase.from('budgets').update(budgetPayload).eq('id', budgetId);
       } else {
-        final res = await supabase
-            .from('budgets')
-            .insert(budgetPayload)
-            .select('id')
-            .single();
-        budgetId = res['id'] as String;
+        try {
+          final res = await supabase
+              .from('budgets')
+              .insert(budgetPayload)
+              .select('id')
+              .single();
+          budgetId = res['id'] as String;
+        } catch (e) {
+          if (_isConflictError(e)) {
+            _debugLog(
+                '[Pockets] Budget insert conflict in createBudgetFromTemplate, fetching existing row');
+            final existing = await _findBudgetRowForPeriod(
+              periodMonth: periodMonth,
+              isHousehold: isScopedToHousehold,
+              householdId: householdId,
+              userId: authUser.uid,
+              currency: null,
+            );
+            budgetId = existing?['id'] as String?;
+            if (budgetId != null) {
+              await supabase
+                  .from('budgets')
+                  .update(budgetPayload)
+                  .eq('id', budgetId);
+            } else {
+              rethrow;
+            }
+          } else {
+            rethrow;
+          }
+        }
       }
 
       // 2. Create Pockets & Links
@@ -1508,7 +1519,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
       rethrow;
     }
   }
@@ -1535,13 +1547,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: ErrorHandler.getUserFriendlyMessage(e));
     }
   }
 
   void _showPreviewModeToast() {
     if (!mounted) return;
-    
   }
 }
 

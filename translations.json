@@ -1,18 +1,18 @@
 {
-  "manualInputQuickActionLabel": {
-    "en": "Manual entry",
-    "de": "Manuelle Eingabe",
-    "es": "Registro manual",
-    "fr": "Saisie manuelle",
-    "it": "Inserimento manuale",
-    "ja": "手入力",
-    "kr": "직접 입력",
-    "nl": "Handmatig",
-    "ur": "دستی اندراج",
-    "ru": "Ручной ввод",
-    "uk": "Ручне введення",
-    "zh": "手动输入",
-    "zh_TW": "手動輸入",
-    "vi": "Nhập thủ công"
+"deleteIncome": {
+    "en": "Delete Income",
+    "zh": "删除收入",
+    "de": "Einkommen löschen",
+    "es": "Eliminar ingreso",
+    "fr": "Supprimer le revenu",
+    "it": "Elimina entrata",
+    "ja": "収入を削除",
+    "kr": "수입 삭제",
+    "nl": "Inkomsten verwijderen",
+    "ur": "آمدنی حذف کریں",
+    "ru": "Удалить доход",
+    "uk": "Видалити дохід",
+    "zh_TW": "刪除收入",
+    "vi": "Xóa thu nhập"
   }
 }

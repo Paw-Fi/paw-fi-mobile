@@ -510,6 +510,34 @@ void main() {
       expect(next.month, 4);
     });
 
+    test('six month interval calculates next occurrence', () {
+      final anchor = DateTime(2024, 1, 31);
+      final transaction = RecurringTransaction(
+        id: 'rec_6b',
+        date: anchor,
+        category: 'insurance',
+        amount: 600.0,
+        currency: 'USD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        type: 'expense',
+        attachments: [],
+        createdAt: anchor,
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: anchor,
+          interval: 6,
+        ),
+      );
+
+      final reference = DateTime(2024, 2, 1);
+      final next = transaction.getNextOccurrence(reference);
+
+      expect(next.year, 2024);
+      expect(next.month, 7);
+      expect(next.day, 31);
+    });
+
     test('returns anchor date when reference is before anchor', () {
       final anchor = DateTime(2024, 6, 1);
       final transaction = RecurringTransaction(
@@ -759,6 +787,28 @@ void main() {
       );
 
       expect(transaction.frequencyText, 'Every 3 months');
+    });
+
+    test('returns correct text for every 6 months', () {
+      final transaction = RecurringTransaction(
+        id: 'rec_4b',
+        date: DateTime.now(),
+        category: 'insurance',
+        amount: 600.0,
+        currency: 'USD',
+        ownerType: 'me',
+        privacyScope: 'full',
+        type: 'expense',
+        attachments: [],
+        createdAt: DateTime.now(),
+        recurrenceRule: RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: DateTime.now(),
+          interval: 6,
+        ),
+      );
+
+      expect(transaction.frequencyText, 'Every 6 months');
     });
 
     test('returns one-time for null recurrence rule', () {

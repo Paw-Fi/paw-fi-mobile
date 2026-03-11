@@ -3,7 +3,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/auth/presentation/widgets/apple_login_button.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -197,7 +196,7 @@ class _RegistrationFormView extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
 
                   // Modern elevated card with soft shadows
                   AnimatedContainer(
@@ -227,20 +226,20 @@ class _RegistrationFormView extends HookConsumerWidget {
                         children: [
                           // OAuth Sign Up
                           GoogleLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 12),
                           AppleLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 12),
                           WalletLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
 
                           // Modern Divider
                           Row(
@@ -643,8 +642,7 @@ class _OTPVerificationView extends HookConsumerWidget {
         } catch (_) {}
 
         if (context.mounted) {
-          // After successful registration, redirect to avatar customizer
-          context.go('/avatar');
+          context.go('/onboarding?stage=prepare');
         }
       } catch (e) {
         error.value = formatAuthErrorMessage(e);

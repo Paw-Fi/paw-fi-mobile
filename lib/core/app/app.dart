@@ -6,6 +6,7 @@ import 'package:moneko/features/home/presentation/state/widget_launch_provider.d
 import 'package:flutter/cupertino.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -27,10 +28,21 @@ class _AppState extends ConsumerState<App> {
   final DeepLinkService _deepLinkService = DeepLinkService();
   bool _deepLinkInitialized = false;
   StreamSubscription<Uri?>? _widgetClickSubscription;
+  AppLifecycleListener? _appLifecycleListener;
 
   @override
   void initState() {
     super.initState();
+    _appLifecycleListener = AppLifecycleListener(
+      onStateChange: (state) {
+        debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
+        unawaited(
+          ref.read(onboardingFlowAnalyticsServiceProvider).handleLifecycleState(
+                state,
+              ),
+        );
+      },
+    );
     // Initialize deep link service immediately to catch cold start links
     // Context will be available after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -85,6 +97,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   void dispose() {
+    _appLifecycleListener?.dispose();
     _widgetClickSubscription?.cancel();
     _deepLinkService.dispose();
     super.dispose();

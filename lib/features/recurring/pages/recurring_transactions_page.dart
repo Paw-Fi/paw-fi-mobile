@@ -551,36 +551,17 @@ class _RecurringTransactionsPageState
   }
 
   void _showAddSheet(String type) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: AddRecurringSheet(type: type),
-      ),
+    showAddRecurringSheet(
+      context,
+      type: type,
     );
   }
 
   void _showTransactionDetails(RecurringTransaction transaction) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Show the add sheet with prefilled data for editing
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: AddRecurringSheet(
-          type: transaction.type,
-          existingTransaction: transaction,
-        ),
-      ),
+    showAddRecurringSheet(
+      context,
+      type: transaction.type,
+      existingTransaction: transaction,
     );
   }
 

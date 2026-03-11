@@ -15,6 +15,7 @@ void main() {
         category: 'Food',
         createdAt: DateTime(2026, 2, 1),
         type: 'expense',
+        rawText: 'Lunch',
       ),
     ];
 

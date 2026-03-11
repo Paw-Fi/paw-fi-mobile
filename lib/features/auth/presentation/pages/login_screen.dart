@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/auth/presentation/widgets/apple_login_button.dart';
 import 'package:moneko/features/auth/presentation/widgets/wallet_login_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 
@@ -85,11 +83,12 @@ class LoginScreen extends HookConsumerWidget {
         } catch (_) {}
 
         if (context.mounted) {
-          context.go('/dashboard');
+          context.go('/onboarding?stage=prepare');
         }
       } catch (e) {
-        if (!context.mounted)
+        if (!context.mounted) {
           return; // Widget may have been disposed after navigation
+        }
         error.value = formatAuthErrorMessage(e);
         errorShake.value = true;
       } finally {
@@ -195,17 +194,17 @@ class LoginScreen extends HookConsumerWidget {
                         children: [
                           // OAuth Sign In
                           GoogleLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 12),
                           AppleLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 12),
                           WalletLoginButton(
-                            redirectUrl: '/dashboard',
+                            redirectUrl: '/onboarding?stage=prepare',
                             disabled: isLoading.value,
                           ),
                           const SizedBox(height: 24),

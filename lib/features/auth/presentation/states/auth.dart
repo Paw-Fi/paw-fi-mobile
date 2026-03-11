@@ -7,6 +7,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 
@@ -68,6 +69,12 @@ class Auth extends _$Auth {
           appLog('Device registration init failed: $e',
               name: 'Auth', error: e, stackTrace: st);
         }
+
+        unawaited(
+          ref.read(preferredLanguageSyncServiceProvider).syncForUserSafely(
+                userId: session.user.id,
+              ),
+        );
       }
 
       // On sign in, migrate guest data and sync Web3 profile (wallet address/name)

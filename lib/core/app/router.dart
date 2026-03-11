@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/avatar/presentation/pages/avatar_customizer_screen.dart';
-import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
+import 'package:moneko/features/subscription/presentation/pages/paywall_screen.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/main_shell.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
@@ -15,13 +16,15 @@ import 'package:moneko/features/households/presentation/pages/household_invites_
 import 'package:moneko/features/households/presentation/pages/household_join_page.dart';
 import 'package:moneko/features/households/presentation/pages/household_members_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_flow_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_post_auth_flow_page.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/features/onboarding/presentation/pages/onboarding_preview_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -38,8 +41,21 @@ GoRouter router(RouterRef ref) {
   final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
   final previewMode = ref.watch(previewModeProvider);
-  final hasSeenPreview =
-      prefs.getBool('preview_onboarding_seen') ?? false;
+  final hasCompletedPreauth =
+      prefs.getBool('onboarding_preauth_completed') ?? false;
+  final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
+      prefs.getString('onboarding_preauth_draft_v1');
+  final hasInProgressPreauthDraft = () {
+    if (draftRaw == null || draftRaw.isEmpty) return false;
+    try {
+      final decoded = jsonDecode(draftRaw);
+      if (decoded is! Map<String, dynamic>) return false;
+      final currentStep = (decoded['currentStep'] as num?)?.toInt() ?? 0;
+      return currentStep > 0;
+    } catch (_) {
+      return false;
+    }
+  }();
 
   // Use V2 initialization provider (cache-first, faster)
   final appInitStateV2 = ref.watch(appInitializationV2Provider);
@@ -101,12 +117,14 @@ GoRouter router(RouterRef ref) {
         },
       ),
 
-      // Subscription Routes
+      // Subscription / Paywall
       GoRoute(
         path: '/paywall',
         builder: (context, state) {
-          final mode = state.uri.queryParameters['mode'];
-          return PaywallScreen(mode: PaywallModeX.fromQuery(mode));
+          final modeStr = state.uri.queryParameters['mode'];
+          return PaywallScreen(
+            mode: PaywallModeX.fromQuery(modeStr),
+          );
         },
       ),
       GoRoute(
@@ -191,13 +209,22 @@ GoRouter router(RouterRef ref) {
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) => const OnboardingFlowPage(),
+        builder: (context, state) {
+          final stage = state.uri.queryParameters['stage'];
+          final debugPost =
+              kDebugMode && state.uri.queryParameters['debug'] == 'post';
+          if (stage == 'pre') {
+            return const OnboardingPreAuthFlowPage();
+          }
+          if (stage == 'prepare') {
+            return const OnboardingAccountPreparingPage();
+          }
+          if (stage == 'post') {
+            return const OnboardingPostAuthFlowPage();
+          }
+          return OnboardingFlowPage(debugForcePostFlow: debugPost);
+        },
       ),
-      GoRoute(
-        path: '/preview',
-        builder: (context, state) => const OnboardingPreviewPage(),
-      ),
-
       // Catch-all route for deep links with UUID patterns (expense, budget, split IDs)
       // This handles paths like /{uuid} that come from moneko://expense/{uuid}
       GoRoute(
@@ -222,17 +249,30 @@ GoRouter router(RouterRef ref) {
         }
 
         final isAuthenticated = !auth.isEmpty;
+        final isPreauthSynced = isAuthenticated
+            ? (prefs.getBool('onboarding_preauth_synced:${auth.uid}') ?? false)
+            : false;
         final hasOnboarded = !isAuthenticated
             ? true
             : (prefs.getBool('onboarding_completed:${auth.uid}') ?? false);
         final isPreview = previewMode.isActive;
+        final onboardingStage = state.uri.queryParameters['stage'];
+        final isDebugPostBypass =
+            kDebugMode && state.uri.queryParameters['debug'] == 'post';
         final isOnSplashPage = state.matchedLocation == '/splash';
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/auth/callback');
+        final isOnPreOnboardingPage =
+            state.matchedLocation == '/onboarding' && onboardingStage == 'pre';
+        final isOnPrepareOnboardingPage =
+            state.matchedLocation == '/onboarding' &&
+                onboardingStage == 'prepare';
+        final isOnPostOnboardingPage = state.matchedLocation == '/onboarding' &&
+            onboardingStage != 'pre' &&
+            onboardingStage != 'prepare';
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
-        final isOnPreviewPage = state.matchedLocation == '/preview';
         final isOnPaywallPage = state.matchedLocation == '/paywall';
         final isOnPlanSelectionPage =
             state.matchedLocation == '/plan-selection';
@@ -260,16 +300,16 @@ GoRouter router(RouterRef ref) {
           debugPrint(
               '🚀 [RouterV2] On splash, redirecting immediately based on auth');
           if (isPreview) {
-            if (!hasSeenPreview) {
-              prefs.setBool('preview_onboarding_seen', true);
-            }
             return '/dashboard';
           }
           // Redirect from splash to appropriate page
           if (isAuthenticated) {
+            if (hasCompletedPreauth && !isPreauthSynced) {
+              return '/onboarding?stage=prepare';
+            }
             // Always check onboarding first
             if (!hasOnboarded) {
-              return '/onboarding';
+              return '/onboarding?stage=post';
             }
             // On web: skip paywall and go straight to dashboard
             if (kIsWeb) {
@@ -282,18 +322,21 @@ GoRouter router(RouterRef ref) {
                 final everSubscribed =
                     prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
                 if (everSubscribed) {
-                  return '/plan-selection?mode=resubscribe';
+                  return '/paywall?mode=resubscribe';
                 } else {
-                  return '/plan-selection?mode=trial';
+                  return '/paywall?mode=trial';
                 }
               }
             }
             return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
-            if (hasSeenPreview) {
+            if (hasCompletedPreauth) {
               return '/login';
             }
-            return '/preview';
+            if (hasInProgressPreauthDraft) {
+              return '/onboarding?stage=pre';
+            }
+            return '/onboarding';
           }
         }
 
@@ -302,15 +345,38 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // Allow onboarding pages for both authenticated and unauthenticated users
-        if (isOnboardingPage) {
+        // Pre-auth onboarding is only for unauthenticated users.
+        if (!isAuthenticated && isOnPreOnboardingPage) {
           return null;
         }
 
-        // If authenticated and sitting on preview page, forward to onboarding/dashboard
-        if (isAuthenticated && isOnPreviewPage) {
-          if (!hasOnboarded) return '/onboarding';
-          return '/dashboard';
+        // Prepare onboarding is only for authenticated users.
+        if (isAuthenticated && isOnPrepareOnboardingPage) {
+          return null;
+        }
+
+        // Post-auth onboarding is only for authenticated users.
+        if (isAuthenticated && isOnPostOnboardingPage) {
+          return null;
+        }
+
+        if (!isAuthenticated && isOnPrepareOnboardingPage) {
+          return '/login';
+        }
+
+        if (!isAuthenticated && isOnPostOnboardingPage && !isDebugPostBypass) {
+          if (hasCompletedPreauth) return '/login';
+          if (hasInProgressPreauthDraft) return '/onboarding?stage=pre';
+          return null;
+        }
+
+        if (isAuthenticated &&
+            hasCompletedPreauth &&
+            !isPreauthSynced &&
+            !isOnPrepareOnboardingPage &&
+            !isOnAuthPage &&
+            !isOnSplashPage) {
+          return '/onboarding?stage=prepare';
         }
 
         // Allow paywall page for authenticated users (mobile only)
@@ -322,19 +388,28 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // If not authenticated and not on auth/onboarding page, redirect to preview once, then login thereafter
-        if (!isPreview && !isAuthenticated && !isOnAuthPage && !isOnPreviewPage) {
-          if (hasSeenPreview) {
+        // If not authenticated and not on auth/onboarding page, route into onboarding first.
+        if (!isPreview &&
+            !isAuthenticated &&
+            !isOnAuthPage &&
+            !isOnboardingPage) {
+          if (hasCompletedPreauth) {
             return '/login';
           }
-          return '/preview';
+          if (hasInProgressPreauthDraft) {
+            return '/onboarding?stage=pre';
+          }
+          return '/onboarding';
         }
 
         // If authenticated and on auth page, check onboarding then subscription then redirect
         if (!isPreview && isAuthenticated && isOnAuthPage) {
+          if (hasCompletedPreauth && !isPreauthSynced) {
+            return '/onboarding?stage=prepare';
+          }
           // Always prioritize onboarding
           if (!hasOnboarded) {
-            return '/onboarding';
+            return '/onboarding?stage=post';
           }
           // If subscription is still loading, allow navigation (don't redirect yet)
           if (!isSubscriptionLoaded) {
@@ -348,9 +423,9 @@ GoRouter router(RouterRef ref) {
             final everSubscribed =
                 prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
             if (everSubscribed) {
-              return '/plan-selection?mode=resubscribe';
+              return '/paywall?mode=resubscribe';
             } else {
-              return '/plan-selection?mode=trial';
+              return '/paywall?mode=trial';
             }
           }
           return '/dashboard';
@@ -361,19 +436,21 @@ GoRouter router(RouterRef ref) {
         if (!isPreview &&
             !kIsWeb &&
             isAuthenticated &&
+            isPreauthSynced &&
             hasOnboarded &&
             isSubscriptionLoaded &&
             !hasSubscription &&
             !isOnPaywallPage &&
             !isOnPlanSelectionPage &&
-            !isOnboardingPage) {
+            !isOnboardingPage &&
+            !isOnPrepareOnboardingPage) {
           // Check if user ever had a subscription to determine paywall mode
           final everSubscribed =
               prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
           if (everSubscribed) {
-            return '/plan-selection?mode=resubscribe';
+            return '/paywall?mode=resubscribe';
           } else {
-            return '/plan-selection?mode=trial';
+            return '/paywall?mode=trial';
           }
         }
 
@@ -427,6 +504,20 @@ class RouterNotifier extends ChangeNotifier {
     // Listen to app initialization state changes (V2)
     _ref.listen<AppInitializationState>(
       appInitializationV2Provider,
+      (_, __) => notifyListeners(),
+    );
+
+    // Keep routing reactive to subscription/preview changes while app is open.
+    _ref.listen<bool>(
+      hasActiveSubscriptionProvider,
+      (_, __) => notifyListeners(),
+    );
+    _ref.listen<bool>(
+      isSubscriptionLoadedProvider,
+      (_, __) => notifyListeners(),
+    );
+    _ref.listen<PreviewModeState>(
+      previewModeProvider,
       (_, __) => notifyListeners(),
     );
   }

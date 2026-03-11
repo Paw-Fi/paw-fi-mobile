@@ -19,12 +19,17 @@ import 'package:moneko/features/home/presentation/services/widget_sync_manager.d
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -36,9 +41,54 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
 
-    void exitPreviewMode() {
+    Future<void> clearPreviewDataCaches() async {
+      // Always reset shell navigation first.
       ref.read(mainShellTabIndexProvider.notifier).state = 0;
+
+      // Reset launch intent state.
+      ref.read(widgetLaunchProvider.notifier).state = const WidgetLaunchEvent();
+
+      // Reset view/scope state.
+      ref.read(viewModeProvider.notifier).setPersonalMode();
+      await ref.read(selectedHouseholdProvider.notifier).clearSelection();
+
+      // Invalidate providers that can surface preview mock data so the app
+      // reloads clean state after exiting preview.
+      ref.invalidate(selectedHouseholdProvider);
+      ref.invalidate(selectedHouseholdIdProvider);
+      ref.invalidate(selectedHouseholdObjectProvider);
+      ref.invalidate(userHouseholdsProvider);
+      ref.invalidate(householdProvider);
+      ref.invalidate(householdMembersProvider);
+      ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdInvitesProvider);
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(homeFilterProvider);
+      ref.invalidate(analyticsProvider);
+      ref.invalidate(currencyTransactionCountsProvider);
+      ref.invalidate(recurringTransactionsProvider);
+      ref.invalidate(pocketsProvider);
+    }
+
+    Future<String?> exitPreviewMode(
+        {required bool restorePreauthOnExit}) async {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final exitRoute = prefs.getString(kPreviewExitRouteKey);
+      final returnToPreauth =
+          prefs.getBool(kPreviewReturnToPreauthKey) ?? false;
+      await prefs.setBool(kPreviewModeActiveKey, false);
+      await prefs.setBool(kPreviewReturnToPreauthKey, false);
+      await prefs.remove(kPreviewExitRouteKey);
       ref.read(previewModeProvider.notifier).disable();
+      await clearPreviewDataCaches();
+      if (exitRoute != null && exitRoute.isNotEmpty) {
+        return exitRoute;
+      }
+      if (restorePreauthOnExit && returnToPreauth) {
+        return '/onboarding?stage=pre';
+      }
+      return null;
     }
 
     // One-time native notification prompt logic & listeners
@@ -122,7 +172,11 @@ class MainShell extends HookConsumerWidget {
         disposed = true;
         authSubscription.close();
         widgetLaunchSubscription.close();
-        navigationReadyController.state = false;
+        Future<void>.microtask(() {
+          try {
+            navigationReadyController.state = false;
+          } catch (_) {}
+        });
       };
     }, const []);
 
@@ -153,13 +207,22 @@ class MainShell extends HookConsumerWidget {
                   child: _PreviewModeBanner(
                     currentIndex: currentIndex,
                     onRegisterTap: () {
-                      exitPreviewMode();
-                      if (context.mounted) {
-                        context.go('/register');
-                      }
+                      unawaited(() async {
+                        await exitPreviewMode(restorePreauthOnExit: false);
+                        if (context.mounted) {
+                          context.go('/register');
+                        }
+                      }());
                     },
                     onExitTap: () {
-                      exitPreviewMode();
+                      unawaited(() async {
+                        final returnRoute = await exitPreviewMode(
+                          restorePreauthOnExit: true,
+                        );
+                        if (context.mounted) {
+                          context.go(returnRoute ?? '/paywall');
+                        }
+                      }());
                     },
                   ),
                 ),
