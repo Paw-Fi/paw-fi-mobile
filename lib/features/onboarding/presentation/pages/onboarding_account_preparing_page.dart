@@ -7,6 +7,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -27,6 +28,41 @@ import 'dart:io';
 const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
 
+class _ExistingAccountState {
+  const _ExistingAccountState({
+    required this.hasExpenses,
+    required this.hasBudgetAmounts,
+    required this.hasBudgetEnvelopes,
+    required this.hasHouseholdMembership,
+    required this.hasSubscriptionData,
+  });
+
+  const _ExistingAccountState.safeFallback()
+      : hasExpenses = true,
+        hasBudgetAmounts = true,
+        hasBudgetEnvelopes = true,
+        hasHouseholdMembership = true,
+        hasSubscriptionData = false;
+
+  final bool hasExpenses;
+  final bool hasBudgetAmounts;
+  final bool hasBudgetEnvelopes;
+  final bool hasHouseholdMembership;
+  final bool hasSubscriptionData;
+
+  bool get hasMeaningfulData => hasMeaningfulOnboardingData(
+        hasExpenses: hasExpenses,
+        hasBudgetAmounts: hasBudgetAmounts,
+        hasBudgetEnvelopes: hasBudgetEnvelopes,
+        hasHouseholdMembership: hasHouseholdMembership,
+      );
+
+  bool get hasBudgetData => hasBudgetAmounts || hasBudgetEnvelopes;
+
+  bool get isExternalSubscriptionNewUser =>
+      hasSubscriptionData && !hasMeaningfulData && !hasBudgetData;
+}
+
 class OnboardingAccountPreparingPage extends HookConsumerWidget {
   const OnboardingAccountPreparingPage({super.key});
 
@@ -38,8 +74,21 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final setupError = useState<String?>(null);
     final isDone = useState(false);
     final didStart = useState(false);
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
 
-    Future<bool> accountHasExistingData(String userId) async {
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: 'onboarding_account_preparing',
+          properties: const <String, Object?>{'entry_path': 'prepare'},
+        ),
+      );
+      return null;
+    }, const []);
+
+    Future<_ExistingAccountState> loadExistingAccountState(
+        String userId) async {
       try {
         final checks = await Future.wait<dynamic>([
           supabase
@@ -67,16 +116,23 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .eq('user_id', userId)
               .limit(1)
               .maybeSingle(),
+          supabase
+              .from('subscriptions')
+              .select('id')
+              .eq('user_id', userId)
+              .limit(1)
+              .maybeSingle(),
         ]);
 
-        return hasMeaningfulOnboardingData(
+        return _ExistingAccountState(
           hasExpenses: checks[0] != null,
           hasBudgetAmounts: checks[1] != null,
           hasBudgetEnvelopes: checks[2] != null,
           hasHouseholdMembership: checks[3] != null,
+          hasSubscriptionData: checks[4] != null,
         );
       } catch (_) {
-        return true;
+        return const _ExistingAccountState.safeFallback();
       }
     }
 
@@ -149,10 +205,37 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final draft = store.load();
       final prefs = ref.read(sharedPreferencesProvider);
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
-      final hasExistingData = await accountHasExistingData(user.uid);
+      final existingState = await loadExistingAccountState(user.uid);
+      final hasExistingData = existingState.hasMeaningfulData;
+      final isExternalSubscriptionNewUser =
+          existingState.isExternalSubscriptionNewUser;
       final shouldRunOnboardingPrep = !wasAlreadySynced || !hasExistingData;
       final shouldApplyStarterSync =
           draft.wantsStarterPockets && shouldRunOnboardingPrep;
+
+      await analytics.classifySession(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_account_preparing',
+        classification: hasExistingData
+            ? 'existing_user_reentry'
+            : isExternalSubscriptionNewUser
+                ? 'external_subscription_new_user'
+                : 'in_app_new_user',
+        excludedFromMetrics: hasExistingData,
+        properties: <String, Object?>{
+          'acquisition_source': hasExistingData
+              ? 'existing_user_reentry'
+              : isExternalSubscriptionNewUser
+                  ? 'external_prepaid'
+                  : 'app_onboarding',
+          'has_existing_data': hasExistingData,
+          'has_existing_subscription': existingState.hasSubscriptionData,
+          'has_existing_budget_data': existingState.hasBudgetData,
+          'has_existing_expenses': existingState.hasExpenses,
+          'has_existing_household_membership':
+              existingState.hasHouseholdMembership,
+        },
+      );
 
       setProgressState(
         label: 'Saving your preferences...',
@@ -164,6 +247,15 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           progressValue: 1.0,
           label: 'We found your existing data, so we kept your current setup.',
           done: true,
+        );
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: 'onboarding_account_preparing',
+          actionId: 'existing_user_detected',
+          result: 'excluded',
+          properties: <String, Object?>{
+            'classification': 'existing_user_reentry',
+          },
         );
         return;
       }

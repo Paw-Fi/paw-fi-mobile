@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -22,6 +23,32 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kTotalSteps = 3;
+
+String _postAuthPageId(int stepIndex) {
+  switch (stepIndex) {
+    case 0:
+      return 'post_auth_log_expense';
+    case 1:
+      return 'post_auth_import';
+    case 2:
+      return 'post_auth_notifications';
+    default:
+      return 'post_auth_unknown';
+  }
+}
+
+String _postAuthStepKey(int stepIndex) {
+  switch (stepIndex) {
+    case 0:
+      return 'log_expense';
+    case 1:
+      return 'import';
+    case 2:
+      return 'notifications';
+    default:
+      return 'unknown';
+  }
+}
 
 class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   const OnboardingPostAuthFlowPage({
@@ -43,6 +70,24 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final loggedExpensePreview =
         useState<OnboardingLoggedExpensePreview?>(null);
     final isPrimaryBusy = useState(false);
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(currentPage.value),
+          stepIndex: currentPage.value,
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{
+            'from_settings': fromSettings,
+            'step_group': 'post_auth',
+            'step_key': _postAuthStepKey(currentPage.value),
+          },
+        ),
+      );
+      return null;
+    }, [currentPage.value, fromSettings]);
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;
@@ -81,6 +126,20 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     void skip() {
+      unawaited(
+        analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(currentPage.value),
+          stepIndex: currentPage.value,
+          actionId: '${_postAuthStepKey(currentPage.value)}_skipped',
+          result: 'skipped',
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{
+            'step_group': 'post_auth',
+            'step_key': _postAuthStepKey(currentPage.value),
+          },
+        ),
+      );
       if (currentPage.value == _kTotalSteps - 1) {
         unawaited(showFinishPage());
         return;
@@ -105,6 +164,18 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
         if (!context.mounted) return;
 
         notificationFlowCompleted.value = true;
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(2),
+          stepIndex: 2,
+          actionId: 'notifications_enabled',
+          result: 'used',
+          enableTracking: !fromSettings,
+          properties: const <String, Object?>{
+            'step_group': 'post_auth',
+            'step_key': 'notifications',
+          },
+        );
         await showFinishPage();
       } finally {
         if (context.mounted) {
@@ -114,6 +185,19 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> handleLogExpense() async {
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _postAuthPageId(0),
+        stepIndex: 0,
+        actionId: 'log_expense_started',
+        result: 'used',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'post_auth',
+          'step_key': 'log_expense',
+          'capture_source': selectedExpenseSource.value.name,
+        },
+      );
       final preview =
           await ref.read(onboardingPostAuthLogExpenseActionProvider)(
         context,
@@ -123,15 +207,69 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       if (!context.mounted) return;
       if (preview != null) {
         loggedExpensePreview.value = preview;
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(0),
+          stepIndex: 0,
+          actionId: 'log_expense_completed',
+          result: 'success',
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{
+            'step_group': 'post_auth',
+            'step_key': 'log_expense',
+            'capture_source': selectedExpenseSource.value.name,
+            'item_count': preview.items.length,
+          },
+        );
         await _showLoggedExpenseResultSheet(context, preview);
+        return;
       }
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _postAuthPageId(0),
+        stepIndex: 0,
+        actionId: 'log_expense_cancelled',
+        result: 'cancelled',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'post_auth',
+          'step_key': 'log_expense',
+          'capture_source': selectedExpenseSource.value.name,
+        },
+      );
     }
 
     Future<void> handleImportExpenses() async {
       if (selectedImportApp.value == 'Not using an app') {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(1),
+          stepIndex: 1,
+          actionId: 'import_skipped',
+          result: 'skipped',
+          enableTracking: !fromSettings,
+          properties: const <String, Object?>{
+            'step_group': 'post_auth',
+            'step_key': 'import',
+          },
+        );
         next();
         return;
       }
+
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _postAuthPageId(1),
+        stepIndex: 1,
+        actionId: 'import_started',
+        result: 'used',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'post_auth',
+          'step_key': 'import',
+          'selected_import_app': selectedImportApp.value,
+        },
+      );
 
       ref.read(importWizardProvider.notifier).resetAfterImport();
       final imported = await Navigator.of(context).push<bool>(
@@ -145,8 +283,35 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
       if (!context.mounted) return;
       if (imported == true) {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _postAuthPageId(1),
+          stepIndex: 1,
+          actionId: 'import_completed',
+          result: 'success',
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{
+            'step_group': 'post_auth',
+            'step_key': 'import',
+            'selected_import_app': selectedImportApp.value,
+          },
+        );
         next();
+        return;
       }
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _postAuthPageId(1),
+        stepIndex: 1,
+        actionId: 'import_cancelled',
+        result: 'cancelled',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'post_auth',
+          'step_key': 'import',
+          'selected_import_app': selectedImportApp.value,
+        },
+      );
     }
 
     Future<void> primary() async {
@@ -180,11 +345,26 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     Future<void> handleSourceSelection(_ExpenseCaptureSource value) async {
       if (isPrimaryBusy.value) return;
       selectedExpenseSource.value = value;
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _postAuthPageId(0),
+        stepIndex: 0,
+        actionId: 'expense_source_selected',
+        result: 'used',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{
+          'step_group': 'post_auth',
+          'step_key': 'log_expense',
+          'capture_source': value.name,
+        },
+      );
       await primary();
     }
 
     final primaryLabel = switch (currentPage.value) {
-      0 => loggedExpensePreview.value == null ? context.l10n.addExpense : context.l10n.continueAction,
+      0 => loggedExpensePreview.value == null
+          ? context.l10n.addExpense
+          : context.l10n.continueAction,
       1 => selectedImportApp.value == 'Not using an app'
           ? context.l10n.continueAction
           : context.l10n.importExpenses,
@@ -223,6 +403,21 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       selectedApp: selectedImportApp.value,
                       onAppChanged: (value) {
                         selectedImportApp.value = value;
+                        unawaited(
+                          analytics.trackAction(
+                            flowName: 'onboarding_funnel',
+                            pageId: _postAuthPageId(1),
+                            stepIndex: 1,
+                            actionId: 'import_app_selected',
+                            result: 'used',
+                            enableTracking: !fromSettings,
+                            properties: <String, Object?>{
+                              'step_group': 'post_auth',
+                              'step_key': 'import',
+                              'selected_import_app': value,
+                            },
+                          ),
+                        );
                       },
                     ),
                     const _NotificationsStep(),
@@ -297,10 +492,31 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
     await _markOnboardingCompleted(ref);
     if (!context.mounted) return;
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     if (fromSettings) {
+      await analytics.endPage(
+        reason: 'settings_onboarding_closed',
+        transitionTo: '/settings',
+      );
       Navigator.of(context).pop();
       return;
     }
+    await analytics.trackAction(
+      flowName: 'onboarding_funnel',
+      pageId: _postAuthPageId(_kTotalSteps - 1),
+      stepIndex: _kTotalSteps - 1,
+      actionId: 'post_auth_completed',
+      result: 'success',
+      properties: const <String, Object?>{
+        'step_group': 'post_auth',
+        'step_key': 'notifications',
+        'next_route': '/paywall',
+      },
+    );
+    await analytics.endPage(
+      reason: 'post_auth_completed',
+      transitionTo: 'paywall',
+    );
     context.go('/paywall');
   }
 }
@@ -379,7 +595,6 @@ Future<void> _showLoggedExpenseResultSheet(
               const SizedBox(height: 24),
               Row(
                 children: [
-              
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -397,8 +612,11 @@ Future<void> _showLoggedExpenseResultSheet(
                         const SizedBox(height: 2),
                         Text(
                           preview.items.length > 1
-                              ? context.l10n.onboardingPostAuthExpenseExtractedMultiple(preview.items.length)
-                              : context.l10n.onboardingPostAuthExpenseExtractedSingle,
+                              ? context.l10n
+                                  .onboardingPostAuthExpenseExtractedMultiple(
+                                      preview.items.length)
+                              : context.l10n
+                                  .onboardingPostAuthExpenseExtractedSingle,
                           style: TextStyle(
                             fontSize: 14,
                             color: colorScheme.mutedForeground,
@@ -513,7 +731,9 @@ Future<void> _showLoggedExpenseResultSheet(
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                context.l10n.onboardingPostAuthAiExtractionCount(preview.items.length),
+                                context.l10n
+                                    .onboardingPostAuthAiExtractionCount(
+                                        preview.items.length),
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -694,7 +914,7 @@ class _LogExpenseStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 0),
             child: Text(
               context.l10n.onboardingPostAuthLogExpenseTitle,
               textAlign: TextAlign.start,
@@ -709,7 +929,7 @@ class _LogExpenseStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Padding(
-            padding: const EdgeInsets.fromLTRB(10,0,10,0),
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
             child: Text(
               context.l10n.onboardingPostAuthLogExpenseSubtitle,
               style: TextStyle(
@@ -883,7 +1103,7 @@ class _ImportExpensesStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 0),
             child: Text(
               context.l10n.onboardingPostAuthImportTitle,
               textAlign: TextAlign.start,
@@ -1000,7 +1220,7 @@ class _NotificationsStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10,20,10,0),
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 0),
             child: Text(
               context.l10n.onboardingPostAuthNotificationsTitle,
               textAlign: TextAlign.start,
@@ -1065,7 +1285,8 @@ class _NotificationsStep extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        context.l10n.onboardingPostAuthNotificationExampleSubtitle,
+                        context
+                            .l10n.onboardingPostAuthNotificationExampleSubtitle,
                         style: TextStyle(color: colorScheme.mutedForeground),
                       ),
                     ],
@@ -1137,11 +1358,11 @@ class _SourceOptionTile extends StatelessWidget {
 }
 
 List<String> _kImportApps(BuildContext context) => <String>[
-  'YNAB',
-  'Monarch',
-  'Copilot',
-  'PocketGuard',
-  'Splitwise',
-  'Other',
-  context.l10n.notUsingAnApp,
-];
+      'YNAB',
+      'Monarch',
+      'Copilot',
+      'PocketGuard',
+      'Splitwise',
+      'Other',
+      context.l10n.notUsingAnApp,
+    ];

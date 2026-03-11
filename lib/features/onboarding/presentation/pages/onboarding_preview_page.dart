@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -27,6 +28,20 @@ class OnboardingPreviewPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+
+    useEffect(() {
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: 'onboarding_preview',
+          startNewSession: !fromSettings,
+          enableTracking: !fromSettings,
+          properties: <String, Object?>{'from_settings': fromSettings},
+        ),
+      );
+      return null;
+    }, [fromSettings]);
 
     void markPreviewSeen() {
       final prefs = ref.read(sharedPreferencesProvider);
@@ -38,6 +53,18 @@ class OnboardingPreviewPage extends HookConsumerWidget {
 
     Future<void> startPreview() async {
       markPreviewSeen();
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_preview',
+        actionId: 'take_tour_tapped',
+        result: 'used',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{'from_settings': fromSettings},
+      );
+      await analytics.endPage(
+        reason: 'take_tour',
+        transitionTo: fromSettings ? 'post_auth_log_expense' : '/dashboard',
+      );
       if (fromSettings) {
         Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -58,6 +85,18 @@ class OnboardingPreviewPage extends HookConsumerWidget {
 
     Future<void> goToRegister() async {
       markPreviewSeen();
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_preview',
+        actionId: 'skip_preview',
+        result: 'skipped',
+        enableTracking: !fromSettings,
+        properties: <String, Object?>{'from_settings': fromSettings},
+      );
+      await analytics.endPage(
+        reason: 'skip_preview',
+        transitionTo: fromSettings ? '/settings' : 'preauth_housing_situation',
+      );
       if (fromSettings) {
         Navigator.of(context).pop();
         return;

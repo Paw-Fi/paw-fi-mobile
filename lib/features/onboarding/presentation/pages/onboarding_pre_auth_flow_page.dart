@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
@@ -93,6 +94,35 @@ int _normalizePreauthStepIndex(int step, int maxStep) {
   return normalized;
 }
 
+String _preauthPageId(int step) {
+  switch (step) {
+    case _kStepHousingSituation:
+      return 'preauth_housing_situation';
+    case _kStepBillSplit:
+      return 'preauth_bill_split';
+    case _kStepSubscriptions:
+      return 'preauth_subscriptions';
+    case _kStepEatingOut:
+      return 'preauth_eating_out';
+    case _kStepLifestyle:
+      return 'preauth_lifestyle';
+    case _kStepGoal:
+      return 'preauth_goal';
+    case _kStepSavingsTarget:
+      return 'preauth_savings_target';
+    case _kStepCurrency:
+      return 'preauth_currency';
+    case _kStepCalculating:
+      return 'preauth_calculating';
+    case _kStepStarter:
+      return 'preauth_starter_budget';
+    case _kStepCreateAccount:
+      return 'preauth_create_account';
+    default:
+      return 'preauth_unknown';
+  }
+}
+
 class OnboardingPreAuthFlowPage extends HookConsumerWidget {
   const OnboardingPreAuthFlowPage({super.key});
 
@@ -108,7 +138,21 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final answeredOptionSteps = useState<Set<int>>(<int>{});
     final isAutoAdvancing = useState(false);
     final budgetSliderDebounce = useRef<Timer?>(null);
+    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     const totalSteps = _kTotalPreAuthSteps;
+
+    useEffect(() {
+      if (!isLoaded.value) return null;
+      unawaited(
+        analytics.beginPage(
+          flowName: 'onboarding_funnel',
+          pageId: _preauthPageId(currentPage.value),
+          stepIndex: currentPage.value,
+          properties: const <String, Object?>{'entry_path': 'preauth'},
+        ),
+      );
+      return null;
+    }, [isLoaded.value, currentPage.value]);
 
     useEffect(() {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
@@ -189,6 +233,17 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
 
     Future<void> goBack() async {
       if (currentPage.value <= 0) return;
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _preauthPageId(currentPage.value),
+        stepIndex: currentPage.value,
+        actionId: 'preauth_back',
+        result: 'used',
+        properties: <String, Object?>{
+          'step_group': 'preauth',
+          'step_key': _preauthPageId(currentPage.value),
+        },
+      );
       var previousStep = currentPage.value - 1;
       while (previousStep > 0 && _kTransientSteps.contains(previousStep)) {
         previousStep -= 1;
@@ -197,6 +252,21 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> exploreAppInPreview() async {
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _preauthPageId(currentPage.value),
+        stepIndex: currentPage.value,
+        actionId: 'try_demo',
+        result: 'used',
+        properties: const <String, Object?>{
+          'step_group': 'preauth',
+          'step_key': 'create_account',
+        },
+      );
+      await analytics.endPage(
+        reason: 'try_demo',
+        transitionTo: '/dashboard',
+      );
       final prefs = ref.read(sharedPreferencesProvider);
       await persistDraft(
         draftState.value.copyWith(currentStep: totalSteps - 1),
@@ -231,6 +301,21 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
           context: context,
           colorScheme: colorScheme,
           onRegister: () async {
+            await analytics.trackAction(
+              flowName: 'onboarding_funnel',
+              pageId: _preauthPageId(_kStepCreateAccount),
+              stepIndex: _kStepCreateAccount,
+              actionId: 'register_from_preauth',
+              result: 'used',
+              properties: const <String, Object?>{
+                'step_group': 'preauth',
+                'step_key': 'create_account',
+              },
+            );
+            await analytics.endPage(
+              reason: 'register_from_preauth',
+              transitionTo: '/register',
+            );
             final store = ref.read(onboardingPreauthDraftStoreProvider);
             await store.markPreauthCompleted();
             ref.read(previewModeProvider.notifier).disable();
@@ -275,12 +360,25 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     Future<void> answerAndAdvance({
       required int stepIndex,
       required OnboardingPreauthDraft nextDraft,
+      String? selectedValue,
       VoidCallback? afterPersist,
     }) async {
       if (!context.mounted || isAutoAdvancing.value) return;
       HapticFeedback.lightImpact();
       markAnswered(stepIndex);
       await persistDraft(nextDraft);
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: _preauthPageId(stepIndex),
+        stepIndex: stepIndex,
+        actionId: 'preauth_answered',
+        result: 'used',
+        properties: <String, Object?>{
+          'step_group': 'preauth',
+          'step_key': _preauthPageId(stepIndex),
+          if (selectedValue != null) 'selected_value': selectedValue,
+        },
+      );
       afterPersist?.call();
       if (!context.mounted) return;
       isAutoAdvancing.value = true;
@@ -403,6 +501,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepHousingSituation,
                             nextDraft: nextDraft,
+                            selectedValue: living,
                           ),
                         );
                       },
@@ -420,6 +519,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepBillSplit,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -436,6 +536,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepSubscriptions,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -452,6 +553,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepEatingOut,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -468,6 +570,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepLifestyle,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -484,6 +587,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepGoal,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -502,6 +606,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepSavingsTarget,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
@@ -516,6 +621,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           answerAndAdvance(
                             stepIndex: _kStepCurrency,
                             nextDraft: nextDraft,
+                            selectedValue: value,
                           ),
                         );
                       },
