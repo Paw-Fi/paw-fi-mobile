@@ -1,9 +1,105 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+
+const localePreferenceStorageKey = 'moneko_locale';
+
+Locale normalizeAppLocale(Locale locale) {
+  final lc = locale.languageCode.toLowerCase();
+  final cc = (locale.countryCode ?? '').toUpperCase();
+  if (lc == 'cn') {
+    return const Locale('zh');
+  }
+  if (lc == 'zh' && cc.isEmpty) {
+    return const Locale('zh');
+  }
+  return Locale(lc, cc.isEmpty ? null : cc);
+}
+
+Locale resolveSupportedAppLocale(
+  Locale? locale, {
+  Iterable<Locale> supportedLocales = AppLocalizations.supportedLocales,
+}) {
+  if (locale == null) {
+    return supportedLocales.first;
+  }
+
+  final normalized = normalizeAppLocale(locale);
+
+  for (final supported in supportedLocales) {
+    if (supported.languageCode == normalized.languageCode &&
+        supported.countryCode == normalized.countryCode) {
+      return supported;
+    }
+  }
+
+  for (final supported in supportedLocales) {
+    if (supported.languageCode == normalized.languageCode &&
+        supported.countryCode == null) {
+      return supported;
+    }
+  }
+
+  for (final supported in supportedLocales) {
+    if (supported.languageCode == normalized.languageCode) {
+      return supported;
+    }
+  }
+
+  const aliasMap = <String, String>{'ko': 'kr'};
+  final alias = aliasMap[normalized.languageCode];
+  if (alias != null) {
+    for (final supported in supportedLocales) {
+      if (supported.languageCode == alias) {
+        return supported;
+      }
+    }
+  }
+
+  for (final supported in supportedLocales) {
+    if (supported.languageCode == 'en') {
+      return supported;
+    }
+  }
+
+  return supportedLocales.first;
+}
+
+Locale currentDeviceLocale() =>
+    resolveSupportedAppLocale(ui.PlatformDispatcher.instance.locale);
+
+String? preferredLanguageCodeFromLocale(Locale? locale) {
+  if (locale == null) return null;
+  final languageCode =
+      normalizeAppLocale(locale).languageCode.trim().toLowerCase();
+  if (languageCode.isEmpty) return null;
+  if (languageCode == 'cn') return 'zh';
+  if (languageCode == 'kr') return 'ko';
+  return languageCode;
+}
+
+Future<Locale?> loadStoredLocalePreference() async {
+  final prefs = await SharedPreferences.getInstance();
+  final value = prefs.getString(localePreferenceStorageKey);
+  if (value == null || value.isEmpty || value == 'system') {
+    return null;
+  }
+  final parts = value.split('_');
+  final loaded =
+      parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
+  return normalizeAppLocale(loaded);
+}
+
+Future<Locale> resolveEffectiveAppLocale() async {
+  final storedLocale = await loadStoredLocalePreference();
+  return storedLocale ?? currentDeviceLocale();
+}
 
 final localeProvider = StateNotifierProvider<LocaleNotifier, Locale?>((ref) {
   return LocaleNotifier();
@@ -14,33 +110,25 @@ class LocaleNotifier extends StateNotifier<Locale?> {
     _load();
   }
 
-  static const _key = 'moneko_locale';
-
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final value = prefs.getString(_key);
-    if (value == null || value.isEmpty || value == 'system') {
+    final loadedLocale = await loadStoredLocalePreference();
+    if (loadedLocale == null) {
       state = null; // system default
       return;
     }
-    // value format: language[_COUNTRY]
-    final parts = value.split('_');
-    Locale loaded =
-        parts.length == 2 ? Locale(parts[0], parts[1]) : Locale(parts[0]);
-    final normalized = _normalize(loaded);
-    state = normalized;
-    _syncIntlDefaultLocale(normalized);
+    state = loadedLocale;
+    _syncIntlDefaultLocale(loadedLocale);
   }
 
   Future<void> setSystem() async {
     state = null;
     _syncIntlDefaultLocale(null);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, 'system');
+    await prefs.setString(localePreferenceStorageKey, 'system');
   }
 
   Future<void> setLocale(Locale locale) async {
-    final normalized = _normalize(locale);
+    final normalized = normalizeAppLocale(locale);
     state = normalized;
     _syncIntlDefaultLocale(normalized);
     final prefs = await SharedPreferences.getInstance();
@@ -48,7 +136,7 @@ class LocaleNotifier extends StateNotifier<Locale?> {
         normalized.countryCode != null && normalized.countryCode!.isNotEmpty
             ? '${normalized.languageCode}_${normalized.countryCode}'
             : normalized.languageCode;
-    await prefs.setString(_key, code);
+    await prefs.setString(localePreferenceStorageKey, code);
   }
 
   void _syncIntlDefaultLocale(Locale? locale) {
@@ -65,20 +153,5 @@ class LocaleNotifier extends StateNotifier<Locale?> {
     } catch (_) {
       // Never crash during locale sync
     }
-  }
-
-  Locale _normalize(Locale locale) {
-    final lc = locale.languageCode.toLowerCase();
-    final cc = (locale.countryCode ?? '').toUpperCase();
-    // Map legacy/incorrect codes to proper BCP-47
-    if (lc == 'cn') {
-      // Use generic Chinese locale by default
-      return const Locale('zh');
-    }
-    if (lc == 'zh' && (cc.isEmpty)) {
-      // Keep generic zh when no region specified
-      return const Locale('zh');
-    }
-    return Locale(lc, cc.isEmpty ? null : cc);
   }
 }

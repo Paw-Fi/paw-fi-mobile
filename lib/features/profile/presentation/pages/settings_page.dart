@@ -59,6 +59,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_preview_page.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
@@ -889,14 +890,24 @@ class SettingsPage extends HookConsumerWidget {
                             ),
                           ],
                           onChanged: (value) async {
+                            final localeNotifier =
+                                ref.read(localeProvider.notifier);
                             if (value == null) {
-                              await ref
-                                  .read(localeProvider.notifier)
-                                  .setSystem();
+                              await localeNotifier.setSystem();
                             } else {
+                              await localeNotifier.setLocale(value);
+                            }
+
+                            if (authState.uid.isNotEmpty) {
                               await ref
-                                  .read(localeProvider.notifier)
-                                  .setLocale(value);
+                                  .read(preferredLanguageSyncServiceProvider)
+                                  .syncForUserSafely(
+                                    userId: authState.uid,
+                                    locale: value == null
+                                        ? await resolveEffectiveAppLocale()
+                                        : normalizeAppLocale(value),
+                                    force: true,
+                                  );
                             }
                           },
                         ),
