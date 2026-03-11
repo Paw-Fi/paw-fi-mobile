@@ -34,6 +34,7 @@ const Map<String, String> currencyOptions = {
   'MWK': 'MK',
   'NGN': '₦',
   'NOK': 'kr',
+  'NPR': 'रू',
   'NZD': 'NZ\$',
   'PHP': '₱',
   'PEN': 'S/',

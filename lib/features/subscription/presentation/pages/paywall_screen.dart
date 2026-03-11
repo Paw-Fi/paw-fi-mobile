@@ -497,7 +497,7 @@ class PaywallScreen extends HookConsumerWidget {
           billingInterval: null,
           name: context.l10n.lifetime,
           storePrice: null,
-          displayPriceUsd: 19.99,
+          displayPriceUsd: 29.99,
           tagline: context.l10n.paywallPlanLifetimeTagline,
           badgeText: context.l10n.paywallBadgeLimited,
         ),

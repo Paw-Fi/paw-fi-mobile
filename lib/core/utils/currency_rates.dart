@@ -40,6 +40,7 @@ static const Map<String, double> rates = {
     'MWK': 1743.78,
     'NGN': 1373.66,  // Updated
     'NOK': 10.85,    // Updated
+    'NPR': 147.04,   // Updated
     'NZD': 1.7240,   // Updated
     'PHP': 58.25,    // Updated
     'PEN': 3.78,     // Updated

@@ -476,7 +476,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           billingInterval: null,
           name: 'Lifetime',
           storePrice: null,
-          displayPriceUsd: 19.99,
+          displayPriceUsd: 29.99,
           tagline: 'Pay once, own it forever.',
           badgeText: 'LIMITED',
         ),
