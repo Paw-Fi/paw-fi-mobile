@@ -2223,5 +2223,12 @@
   "categoryElectronics": "전자기기",
   "categoryConvenienceStore": "편의점",
   "deleteIncome": "수입 삭제",
-  "paywallCompetitorPromoText": "다른 가계부 앱을 사용 중이신가요? hello@Moneko.io로 문의하고 평생 소장용 구매 50% 할인 혜택을 받으세요."
+  "paywallCompetitorPromoText": "다른 가계부 앱을 사용 중이신가요? hello@Moneko.io로 문의하고 평생 소장용 구매 50% 할인 혜택을 받으세요.",
+  "connectSocialBannerTitle": "Telegram 또는 WhatsApp 연결",
+  "connectSocialBannerDescription": "즐겨 사용하는 메시지 앱에서 AI와 대화하며 더욱 간편하게 지출을 기록해 보세요.",
+  "connectSocialBannerButton": "연결하기",
+  "connectSocialBottomSheetTitle": "메시지 앱 선택",
+  "connectSocialBottomSheetDescription": "AI와 연결할 앱을 선택해 주세요",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

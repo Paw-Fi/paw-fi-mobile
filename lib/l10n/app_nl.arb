@@ -2357,5 +2357,12 @@
   "categoryElectronics": "Elektronica",
   "categoryConvenienceStore": "Gemakswinkels",
   "deleteIncome": "Inkomsten verwijderen",
-  "paywallCompetitorPromoText": "Gebruik je een andere budget-app? Neem contact op met onze support via hello@moneko.io voor 50% korting op je levenslange aankoop."
+  "paywallCompetitorPromoText": "Gebruik je een andere budget-app? Neem contact op met onze support via hello@moneko.io voor 50% korting op je levenslange aankoop.",
+  "connectSocialBannerTitle": "Koppel Telegram of WhatsApp",
+  "connectSocialBannerDescription": "Gebruik je favoriete berichten-app om met onze AI te communiceren en je uitgaven nog eenvoudiger bij te houden.",
+  "connectSocialBannerButton": "Koppelen",
+  "connectSocialBottomSheetTitle": "Kies een berichten-app",
+  "connectSocialBottomSheetDescription": "Selecteer een app om te koppelen aan onze AI",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

@@ -2429,5 +2429,12 @@
   "categoryElectronics": "Electronics",
   "categoryConvenienceStore": "Convenience Store",
   "deleteIncome": "Delete Income",
-  "paywallCompetitorPromoText": "Using another budgeting app? Contact our support through hello@moneko.io to get 50% off on your lifetime purchases"
+  "paywallCompetitorPromoText": "Using another budgeting app? Contact our support through hello@moneko.io to get 50% off on your lifetime purchases",
+  "connectSocialBannerTitle": "Connect Telegram or WhatsApp",
+  "connectSocialBannerDescription": "Interact with our AI using your favorite messaging app for an easier logging experience.",
+  "connectSocialBannerButton": "Connect",
+  "connectSocialBottomSheetTitle": "Choose a Messaging App",
+  "connectSocialBottomSheetDescription": "Select an app to connect with our AI",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

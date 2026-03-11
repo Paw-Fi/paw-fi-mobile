@@ -2357,5 +2357,12 @@
   "categoryElectronics": "Elettronica",
   "categoryConvenienceStore": "Minimarket",
   "deleteIncome": "Elimina entrata",
-  "paywallCompetitorPromoText": "Usi un'altra app per il budget? Contatta il nostro supporto a hello@moneko.io per ottenere il 50% di sconto sul tuo acquisto a vita."
+  "paywallCompetitorPromoText": "Usi un'altra app per il budget? Contatta il nostro supporto a hello@moneko.io per ottenere il 50% di sconto sul tuo acquisto a vita.",
+  "connectSocialBannerTitle": "Collega Telegram o WhatsApp",
+  "connectSocialBannerDescription": "Interagisci con la nostra IA sulla tua app di messaggistica preferita per registrare le spese in un attimo.",
+  "connectSocialBannerButton": "Collega",
+  "connectSocialBottomSheetTitle": "Scegli un'app di messaggistica",
+  "connectSocialBottomSheetDescription": "Seleziona un'app da collegare alla nostra IA",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

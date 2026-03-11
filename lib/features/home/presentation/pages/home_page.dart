@@ -23,6 +23,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
@@ -30,10 +31,13 @@ import 'package:moneko/features/home/presentation/state/user_categories_provider
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
@@ -54,6 +58,7 @@ import 'package:moneko/core/utils/mounted_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 // ============================================================================
 // HOME PAGE
@@ -69,6 +74,8 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _textController = TextEditingController();
+  bool _hasCompletedThaiLanguagePromptCheck = false;
+  bool _isCheckingThaiLanguagePrompt = false;
 
   late final SpotlightTourController _fabTourController;
   String? _lastHomeDebugSignature;
@@ -219,6 +226,104 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref
           .read(homeFilterProvider.notifier)
           .setSelectedCurrency(selectedCurrency);
+    }
+  }
+
+  void _scheduleThaiLanguagePromptCheck(UserContact? contact) {
+    if (_hasCompletedThaiLanguagePromptCheck || _isCheckingThaiLanguagePrompt) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _hasCompletedThaiLanguagePromptCheck ||
+          _isCheckingThaiLanguagePrompt) {
+        return;
+      }
+
+      unawaited(_maybeShowThaiLanguagePrompt(contact));
+    });
+  }
+
+  Future<void> _maybeShowThaiLanguagePrompt(UserContact? contact) async {
+    if (_hasCompletedThaiLanguagePromptCheck || _isCheckingThaiLanguagePrompt) {
+      return;
+    }
+
+    if (ref.read(previewModeProvider).isActive) {
+      _hasCompletedThaiLanguagePromptCheck = true;
+      return;
+    }
+
+    _isCheckingThaiLanguagePrompt = true;
+
+    try {
+      final currentLocale = Localizations.localeOf(context);
+      final route = ModalRoute.of(context);
+      final authUserId = ref.read(authProvider).uid;
+      final promptScopeId = authUserId.isNotEmpty
+          ? authUserId
+          : (contact?.userId?.trim().isNotEmpty == true
+              ? contact!.userId!.trim()
+              : contact?.id ?? 'anonymous');
+      final prefs = ref.read(sharedPreferencesProvider);
+      final checkedPrefsKey =
+          thaiLanguagePromptCheckedPrefsKeyForUser(promptScopeId);
+      final decision = evaluateThaiLanguagePrompt(
+        hasChecked: prefs.getBool(checkedPrefsKey) ?? false,
+        contact: contact,
+        currentLocale: currentLocale,
+      );
+
+      switch (decision.action) {
+        case ThaiLanguagePromptAction.waitForContact:
+          return;
+        case ThaiLanguagePromptAction.skipForNow:
+          _hasCompletedThaiLanguagePromptCheck = true;
+          return;
+        case ThaiLanguagePromptAction.markCheckedAndSkip:
+          await prefs.setBool(checkedPrefsKey, true);
+          _hasCompletedThaiLanguagePromptCheck = true;
+          return;
+        case ThaiLanguagePromptAction.showPrompt:
+          break;
+      }
+
+      if (!mounted || route == null || !route.isCurrent) {
+        return;
+      }
+
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: 'สวัสดี!',
+        description:
+            'ตอนนี้ Moneko รองรับภาษาไทยแล้วนะ อยากเปลี่ยนแอปเป็นภาษาไทยเลยไหม',
+        confirmLabel: 'เปลี่ยนเป็นภาษาไทย',
+        cancelLabel: 'ไว้ก่อน',
+      );
+
+      await prefs.setBool(checkedPrefsKey, true);
+      _hasCompletedThaiLanguagePromptCheck = true;
+
+      if (result?.confirmed != true || !mounted) {
+        return;
+      }
+
+      const thaiLocale = Locale('th');
+      await ref.read(localeProvider.notifier).setLocale(thaiLocale);
+
+      final userId = ref.read(authProvider).uid;
+      if (userId.isEmpty) {
+        return;
+      }
+
+      await ref.read(preferredLanguageSyncServiceProvider).syncForUserSafely(
+            userId: userId,
+            locale: normalizeAppLocale(thaiLocale),
+            force: true,
+          );
+    } finally {
+      _isCheckingThaiLanguagePrompt = false;
     }
   }
 
@@ -893,6 +998,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false);
 
     final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
+
+    _scheduleThaiLanguagePromptCheck(analyticsData.contact);
 
     if (shouldShowFab && !user.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {

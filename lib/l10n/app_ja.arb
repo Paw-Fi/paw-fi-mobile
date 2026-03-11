@@ -2410,5 +2410,12 @@
   "categoryElectronics": "電化製品",
   "categoryConvenienceStore": "コンビニ",
   "deleteIncome": "収入を削除",
-  "paywallCompetitorPromoText": "他の家計簿アプリをお使いですか？ hello@moneko.io までご連絡いただければ、買い切りプランが50%オフになります。"
+  "paywallCompetitorPromoText": "他の家計簿アプリをお使いですか？ hello@moneko.io までご連絡いただければ、買い切りプランが50%オフになります。",
+  "connectSocialBannerTitle": "TelegramまたはWhatsAppと連携",
+  "connectSocialBannerDescription": "お気に入りのメッセージアプリでAIとやり取りして、支出をより手軽に記録しましょう。",
+  "connectSocialBannerButton": "連携する",
+  "connectSocialBottomSheetTitle": "メッセージアプリを選択",
+  "connectSocialBottomSheetDescription": "AIと連携するアプリを選択してください",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

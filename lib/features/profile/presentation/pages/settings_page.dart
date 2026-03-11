@@ -2901,6 +2901,7 @@ String _displayLocaleName(Locale locale) {
   if (lc == 'nl') return 'Nederlands';
   if (lc == 'ur' || lc == 'pk') return 'اردو';
   if (lc == 'ru') return 'Русский';
+  if (lc == 'th') return 'ไทย';
   if (lc == 'uk' || lc == 'ua') return 'Українська';
   if (lc == 'it') return 'Italiano';
   if (lc == 'vi') return 'Tiếng Việt';

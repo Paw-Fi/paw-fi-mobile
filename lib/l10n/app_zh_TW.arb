@@ -2354,5 +2354,12 @@
   "categoryElectronics": "數碼電子",
   "categoryConvenienceStore": "便利店",
   "deleteIncome": "刪除收入",
-  "paywallCompetitorPromoText": "正在使用其他理財應用？透過 hello@moneko.io 聯繫官方客服，即可享有終身版 50% 的特別折扣。"
+  "paywallCompetitorPromoText": "正在使用其他理財應用？透過 hello@moneko.io 聯繫官方客服，即可享有終身版 50% 的特別折扣。",
+  "connectSocialBannerTitle": "連結 Telegram 或 WhatsApp",
+  "connectSocialBannerDescription": "透過您常用的通訊軟體與 AI 互動，讓記帳變得更輕鬆。",
+  "connectSocialBannerButton": "立即連結",
+  "connectSocialBottomSheetTitle": "選擇通訊軟體",
+  "connectSocialBottomSheetDescription": "選擇一個應用程式以連結 AI",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

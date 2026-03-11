@@ -2412,5 +2412,12 @@
   "categoryElectronics": "Electrónica",
   "categoryConvenienceStore": "Tiendas de conveniencia",
   "deleteIncome": "Eliminar ingreso",
-  "paywallCompetitorPromoText": "¿Usas otra app de presupuesto? Contacta con soporte en hello@moneko.io para recibir un 50 % de descuento en tu compra de por vida."
+  "paywallCompetitorPromoText": "¿Usas otra app de presupuesto? Contacta con soporte en hello@moneko.io para recibir un 50 % de descuento en tu compra de por vida.",
+  "connectSocialBannerTitle": "Conecta Telegram o WhatsApp",
+  "connectSocialBannerDescription": "Interactúa con nuestra IA desde tu app de mensajería favorita para registrar tus gastos fácilmente.",
+  "connectSocialBannerButton": "Conectar",
+  "connectSocialBottomSheetTitle": "Elige una app de mensajería",
+  "connectSocialBottomSheetDescription": "Selecciona una aplicación para conectar con nuestra IA",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

@@ -2402,5 +2402,12 @@
   "categoryElectronics": "Електроніка",
   "categoryConvenienceStore": "Мінімаркети",
   "deleteIncome": "Видалити дохід",
-  "paywallCompetitorPromoText": "Користуєтеся іншим додатком для бюджету? Напишіть нам на hello@moneko.io, щоб отримати знижку 50% на безстрокову ліцензію."
+  "paywallCompetitorPromoText": "Користуєтеся іншим додатком для бюджету? Напишіть нам на hello@moneko.io, щоб отримати знижку 50% на безстрокову ліцензію.",
+  "connectSocialBannerTitle": "Підключити Telegram або WhatsApp",
+  "connectSocialBannerDescription": "Спілкуйтеся з нашим ШІ через улюблений месенджер для зручнішого обліку витрат.",
+  "connectSocialBannerButton": "Підключити",
+  "connectSocialBottomSheetTitle": "Виберіть месенджер",
+  "connectSocialBottomSheetDescription": "Виберіть додаток для зв’язку з нашим ШІ",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

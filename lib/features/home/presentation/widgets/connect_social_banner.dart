@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart'; // For sharedPreferencesProvider
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 final connectSocialBannerDismissedProvider = StateProvider<bool>((ref) {
   final prefs = ref.read(sharedPreferencesProvider);
@@ -70,7 +71,7 @@ class ConnectSocialBanner extends HookConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Connect Telegram or WhatsApp',
+                        context.l10n.connectSocialBannerTitle,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -81,7 +82,7 @@ class ConnectSocialBanner extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Interact with our AI using your favorite messaging app for an easier logging experience.',
+                    context.l10n.connectSocialBannerDescription,
                     style: TextStyle(
                       fontSize: 14,
                       color: colorScheme.mutedForeground,
@@ -99,7 +100,7 @@ class ConnectSocialBanner extends HookConsumerWidget {
                           builder: (context) => const ConnectSocialBottomSheet(),
                         );
                       },
-                      child: const Text('Connect'),
+                      child: Text(context.l10n.connectSocialBannerButton),
                     ),
                   ),
                 ],

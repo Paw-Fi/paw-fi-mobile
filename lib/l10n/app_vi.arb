@@ -2409,5 +2409,12 @@
   "categoryElectronics": "Đồ điện tử",
   "categoryConvenienceStore": "Cửa hàng tiện lợi",
   "deleteIncome": "Xóa thu nhập",
-  "paywallCompetitorPromoText": "Bạn đang dùng ứng dụng quản lý chi tiêu khác? Hãy liên hệ hỗ trợ qua hello@moneko.io để được giảm giá 50% cho gói trọn đời."
+  "paywallCompetitorPromoText": "Bạn đang dùng ứng dụng quản lý chi tiêu khác? Hãy liên hệ hỗ trợ qua hello@moneko.io để được giảm giá 50% cho gói trọn đời.",
+  "connectSocialBannerTitle": "Kết nối Telegram hoặc WhatsApp",
+  "connectSocialBannerDescription": "Tương tác với AI của chúng tôi qua ứng dụng nhắn tin yêu thích để ghi chép chi tiêu dễ dàng hơn.",
+  "connectSocialBannerButton": "Kết nối",
+  "connectSocialBottomSheetTitle": "Chọn ứng dụng nhắn tin",
+  "connectSocialBottomSheetDescription": "Chọn một ứng dụng để kết nối với AI của chúng tôi",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

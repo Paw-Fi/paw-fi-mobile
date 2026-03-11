@@ -2410,5 +2410,12 @@
   "categoryElectronics": "Électronique",
   "categoryConvenienceStore": "Supérettes",
   "deleteIncome": "Supprimer le revenu",
-  "paywallCompetitorPromoText": "Vous utilisez une autre app de budget ? Contactez notre support à hello@moneko.io pour obtenir 50 % de réduction sur votre achat à vie."
+  "paywallCompetitorPromoText": "Vous utilisez une autre app de budget ? Contactez notre support à hello@moneko.io pour obtenir 50 % de réduction sur votre achat à vie.",
+  "connectSocialBannerTitle": "Associer Telegram ou WhatsApp",
+  "connectSocialBannerDescription": "Utilisez notre IA via votre messagerie préférée pour suivre vos dépenses plus facilement.",
+  "connectSocialBannerButton": "Associer",
+  "connectSocialBottomSheetTitle": "Choisir une application",
+  "connectSocialBottomSheetDescription": "Sélectionnez une application pour la connecter à notre IA",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

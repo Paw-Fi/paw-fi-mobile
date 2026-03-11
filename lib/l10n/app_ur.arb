@@ -2356,5 +2356,12 @@
   "categoryElectronics": "الیکٹرونکس",
   "categoryConvenienceStore": "سہولت اسٹور",
   "deleteIncome": "آمدنی حذف کریں",
-  "paywallCompetitorPromoText": "کیا آپ کوئی اور بجٹنگ ایپ استعمال کر رہے ہیں؟ تاحیات خریداری پر 50% رعایت حاصل کرنے کے لیے hello@moneko.io پر ہماری سپورٹ سے رابطہ کریں۔"
+  "paywallCompetitorPromoText": "کیا آپ کوئی اور بجٹنگ ایپ استعمال کر رہے ہیں؟ تاحیات خریداری پر 50% رعایت حاصل کرنے کے لیے hello@moneko.io پر ہماری سپورٹ سے رابطہ کریں۔",
+  "connectSocialBannerTitle": "Telegram یا WhatsApp منسلک کریں",
+  "connectSocialBannerDescription": "آسان اندراج کے لیے اپنی پسندیدہ میسجنگ ایپ کے ذریعے ہماری AI کے ساتھ بات چیت کریں۔",
+  "connectSocialBannerButton": "منسلک کریں",
+  "connectSocialBottomSheetTitle": "میسجنگ ایپ منتخب کریں",
+  "connectSocialBottomSheetDescription": "ہماری AI سے منسلک ہونے کے لیے ایک ایپ منتخب کریں",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

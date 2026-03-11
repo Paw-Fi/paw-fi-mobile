@@ -2360,5 +2360,12 @@
   "categoryElectronics": "Электроника",
   "categoryConvenienceStore": "Минимаркеты",
   "deleteIncome": "Удалить доход",
-  "paywallCompetitorPromoText": "Пользуетесь другим приложением для бюджета? Напишите нам на hello@moneko.io, чтобы получить скидку 50% на бессрочную лицензию."
+  "paywallCompetitorPromoText": "Пользуетесь другим приложением для бюджета? Напишите нам на hello@moneko.io, чтобы получить скидку 50% на бессрочную лицензию.",
+  "connectSocialBannerTitle": "Подключить Telegram или WhatsApp",
+  "connectSocialBannerDescription": "Общайтесь с нашим ИИ в любимом мессенджере для более удобного учета транзакций.",
+  "connectSocialBannerButton": "Подключить",
+  "connectSocialBottomSheetTitle": "Выберите мессенджер",
+  "connectSocialBottomSheetDescription": "Выберите приложение для связи с нашим ИИ",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }

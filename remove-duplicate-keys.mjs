@@ -16,6 +16,7 @@ const localeToFile = {
   nl: 'app_nl.arb',
   ur: 'app_ur.arb',
   ru: 'app_ru.arb',
+  th: 'app_th.arb',
   uk: 'app_uk.arb',
   zh: 'app_zh.arb',
   zh_TW: 'app_zh_TW.arb',

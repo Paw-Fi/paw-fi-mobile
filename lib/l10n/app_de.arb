@@ -2410,5 +2410,12 @@
   "categoryElectronics": "Elektronik",
   "categoryConvenienceStore": "Kiosk & Minimarkt",
   "deleteIncome": "Einkommen löschen",
-  "paywallCompetitorPromoText": "Nutzt du eine andere Budget-App? Melde dich bei unserem Support unter hello@moneko.io und erhalte 50 % Rabatt auf deinen Lifetime-Kauf."
+  "paywallCompetitorPromoText": "Nutzt du eine andere Budget-App? Melde dich bei unserem Support unter hello@moneko.io und erhalte 50 % Rabatt auf deinen Lifetime-Kauf.",
+  "connectSocialBannerTitle": "Telegram oder WhatsApp verbinden",
+  "connectSocialBannerDescription": "Nutze unsere KI in deinem bevorzugten Messenger, um Ausgaben noch einfacher zu erfassen.",
+  "connectSocialBannerButton": "Verbinden",
+  "connectSocialBottomSheetTitle": "Messenger auswählen",
+  "connectSocialBottomSheetDescription": "Wähle eine App aus, um sie mit unserer KI zu verknüpfen",
+  "telegramAppName": "Telegram",
+  "whatsappAppName": "WhatsApp"
 }
