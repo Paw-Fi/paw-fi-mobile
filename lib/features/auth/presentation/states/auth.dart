@@ -10,6 +10,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 
 part 'auth.g.dart';
 
@@ -91,6 +92,8 @@ class Auth extends _$Auth {
       appLog('Auth state change error: $error', name: 'Auth', error: error);
       if (_isRefreshTokenNotFound(error)) {
         appLog('Auth session expired, clearing local session', name: 'Auth');
+        unawaited(SiriShortcutAuthService.instance.clearAuthContext());
+        unawaited(NotificationCaptureService.instance.clearAuthContext());
         unawaited(supabase.auth.signOut());
         return;
       }
@@ -115,14 +118,35 @@ class Auth extends _$Auth {
         return;
       }
 
+      if (session == null) {
+        await SiriShortcutAuthService.instance.clearAuthContext();
+        if (Platform.isAndroid) {
+          await NotificationCaptureService.instance.clearAuthContext();
+        }
+        return;
+      }
+
+      // iOS: Siri Shortcuts auth context
       await SiriShortcutAuthService.instance.syncAuthContext(
         supabaseUrl: Constants.supabaseUrl,
         supabaseAnonKey: Constants.supabaseAnon,
-        accessToken: session?.accessToken,
-        refreshToken: session?.refreshToken,
-        userId: session?.user.id,
-        expiresAt: session?.expiresAt,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        userId: session.user.id,
+        expiresAt: session.expiresAt,
       );
+
+      // Android: Notification capture auth context
+      if (Platform.isAndroid) {
+        await NotificationCaptureService.instance.syncAuthContext(
+          supabaseUrl: Constants.supabaseUrl,
+          supabaseAnonKey: Constants.supabaseAnon,
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken ?? '',
+          userId: session.user.id,
+          expiresAt: session.expiresAt ?? 0,
+        );
+      }
     } on MissingPluginException {
       return;
     } catch (error) {
@@ -360,6 +384,7 @@ class Auth extends _$Auth {
 
       await supabase.auth.signOut();
       await SiriShortcutAuthService.instance.clearAuthContext();
+      await NotificationCaptureService.instance.clearAuthContext();
     } on AuthException catch (error, stackTrace) {
       appLog('Sign out error: ${error.message}',
           name: 'Auth', error: error, stackTrace: stackTrace);
@@ -370,6 +395,8 @@ class Auth extends _$Auth {
         // Token is already invalid, clear local state and proceed with logout
         appLog('Refresh token already invalid, proceeding with logout',
             name: 'Auth');
+        await SiriShortcutAuthService.instance.clearAuthContext();
+        await NotificationCaptureService.instance.clearAuthContext();
         return; // Don't rethrow, allow logout to complete
       }
 
@@ -379,6 +406,8 @@ class Auth extends _$Auth {
           name: 'Auth', error: error, stackTrace: stackTrace);
       // For network errors during logout, still try to clear local state
       try {
+        await SiriShortcutAuthService.instance.clearAuthContext();
+        await NotificationCaptureService.instance.clearAuthContext();
         state = const AppUser(
             uid: '', email: '', displayName: null, photoUrl: null);
       } catch (_) {}

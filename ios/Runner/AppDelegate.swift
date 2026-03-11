@@ -1001,6 +1001,285 @@ struct AnalyzeSpendingWithSiriIntent: AppIntent {
   }
 }
 
+@available(iOS 16.0, watchOS 9.0, *)
+private func loadWalletCaptureScope() -> SiriShortcutScopeResolution? {
+  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+    return nil
+  }
+
+  guard defaults.bool(forKey: SiriShortcutKeys.walletCaptureEnabled) else {
+    return nil
+  }
+
+  let scopeId = (defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+  if scopeId.isEmpty || scopeId == "personal" {
+    return SiriShortcutScopeResolution(householdId: nil, isPortfolio: false)
+  }
+
+  let isPortfolio = defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio)
+  return SiriShortcutScopeResolution(householdId: scopeId, isPortfolio: isPortfolio)
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func makeWalletIdempotencyKey(
+  userId: String,
+  merchantName: String?,
+  amount: Double,
+  currencyCode: String?,
+  transactionDate: String?,
+  scope: SiriShortcutScopeResolution
+) -> String {
+  let normalizedMerchant = (merchantName ?? "")
+    .lowercased()
+    .components(separatedBy: .whitespacesAndNewlines)
+    .filter { !$0.isEmpty }
+    .joined(separator: " ")
+  let normalizedCurrency = (currencyCode ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+    .uppercased()
+  let normalizedDate = (transactionDate ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let scopeKey = scope.householdId ?? "personal"
+  let amountCents = Int(round(amount * 100))
+  let minuteBucket = Int(Date().timeIntervalSince1970 / 60)
+  let raw = "wallet|\(userId)|\(scopeKey)|\(normalizedMerchant)|\(amountCents)|\(normalizedCurrency)|\(normalizedDate)|\(minuteBucket)"
+  let digest = SHA256.hash(data: Data(raw.utf8))
+  return digest.map { String(format: "%02x", $0) }.joined()
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func reserveWalletIdempotencySlot(idempotencyKey: String) -> Bool {
+  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+    return true
+  }
+
+  let now = Int(Date().timeIntervalSince1970)
+  let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
+  let lastTimestamp = defaults.integer(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+
+  if lastHash == idempotencyKey && now - lastTimestamp <= 15 {
+    return false
+  }
+
+  defaults.set(idempotencyKey, forKey: SiriShortcutKeys.walletIdempotencyHash)
+  defaults.set(now, forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+  return true
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func clearWalletIdempotencySlot(idempotencyKey: String) {
+  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+    return
+  }
+  let lastHash = defaults.string(forKey: SiriShortcutKeys.walletIdempotencyHash)
+  if lastHash == idempotencyKey {
+    defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyHash)
+    defaults.removeObject(forKey: SiriShortcutKeys.walletIdempotencyTimestamp)
+  }
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func performWalletTransactionCapture(
+  merchantName: String?,
+  rawMerchant: String?,
+  amount: Double?,
+  currencyCode: String?,
+  transactionDate: String?,
+  cardLabel: String?,
+  externalSourceId: String?
+) async throws -> String {
+  guard let amount, amount > 0 else {
+    throw SiriShortcutIntentError.invalidInput
+  }
+
+  guard var context = SiriShortcutAuthContext.load() else {
+    throw SiriShortcutIntentError.notConfigured
+  }
+
+  guard let scope = loadWalletCaptureScope() else {
+    throw SiriShortcutIntentError.notConfigured
+  }
+
+  let idempotencyKey = makeWalletIdempotencyKey(
+    userId: context.userId,
+    merchantName: merchantName,
+    amount: amount,
+    currencyCode: currencyCode,
+    transactionDate: transactionDate,
+    scope: scope
+  )
+  if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
+    return "That wallet transaction was already captured in Moneko."
+  }
+
+  var shouldKeepIdempotencySlot = false
+  defer {
+    if !shouldKeepIdempotencySlot {
+      clearWalletIdempotencySlot(idempotencyKey: idempotencyKey)
+    }
+  }
+
+  if context.isAccessTokenExpired {
+    context = try await refreshSiriShortcutSession(context: context)
+    context.persist()
+  }
+
+  guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/save-wallet-transaction") else {
+    throw SiriShortcutIntentError.notConfigured
+  }
+
+  var request = URLRequest(url: url)
+  request.httpMethod = "POST"
+  request.timeoutInterval = 25
+  request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+  request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
+  request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
+
+  let normalizedCurrency = normalizeSiriCurrencyCode(currencyCode)
+
+  let dateFormatter = DateFormatter()
+  dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+  dateFormatter.timeZone = .current
+  dateFormatter.dateFormat = "yyyy-MM-dd"
+
+  let resolvedDate: String
+  if let transactionDate, !transactionDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    resolvedDate = transactionDate.trimmingCharacters(in: .whitespacesAndNewlines)
+  } else {
+    resolvedDate = dateFormatter.string(from: Date())
+  }
+
+  var transaction: [String: Any] = [
+    "amount": amount,
+    "date": resolvedDate
+  ]
+  if let merchantName, !merchantName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    transaction["merchantName"] = merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  if let rawMerchant, !rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    transaction["rawMerchant"] = rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  if let normalizedCurrency {
+    transaction["currency"] = normalizedCurrency
+  }
+  if let cardLabel, !cardLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    transaction["cardLabel"] = cardLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  if let externalSourceId, !externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+    transaction["externalSourceId"] = externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  transaction["locale"] = Locale.current.identifier
+
+  var body: [String: Any] = [
+    "captureSource": "ios_wallet_shortcut",
+    "idempotencyKey": idempotencyKey,
+    "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
+    "transaction": transaction
+  ]
+  if let householdId = scope.householdId {
+    body["householdId"] = householdId
+    body["isPortfolio"] = scope.isPortfolio
+  }
+
+  request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+  let data: Data
+  let response: URLResponse
+  do {
+    (data, response) = try await URLSession.shared.data(for: request)
+  } catch {
+    throw SiriShortcutIntentError.networkFailure
+  }
+  guard let httpResponse = response as? HTTPURLResponse else {
+    throw SiriShortcutIntentError.networkFailure
+  }
+
+  if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+    throw SiriShortcutIntentError.missingSession
+  }
+
+  if httpResponse.statusCode == 409 {
+    shouldKeepIdempotencySlot = true
+    return "That wallet transaction was already captured in Moneko."
+  }
+
+  guard (200...299).contains(httpResponse.statusCode) else {
+    throw SiriShortcutIntentError.saveFailed
+  }
+
+  guard
+    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+    (json["success"] as? Bool) == true
+  else {
+    throw SiriShortcutIntentError.saveFailed
+  }
+
+  shouldKeepIdempotencySlot = true
+
+  if (json["duplicate"] as? Bool) == true {
+    return "That wallet transaction was already captured in Moneko."
+  }
+
+  let displayMerchant = (merchantName ?? rawMerchant ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+  if !displayMerchant.isEmpty {
+    let formattedAmount = String(format: "%.2f", amount)
+    let currencyLabel = normalizedCurrency ?? ""
+    return "Captured \(formattedAmount) \(currencyLabel) at \(displayMerchant) in Moneko."
+  }
+
+  let formattedAmount = String(format: "%.2f", amount)
+  let currencyLabel = normalizedCurrency ?? ""
+  return "Captured \(formattedAmount) \(currencyLabel) wallet transaction in Moneko."
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+struct LogWalletTransactionIntent: AppIntent {
+  static var title: LocalizedStringResource = "Log Wallet Transaction"
+  static var description = IntentDescription("Automatically log an Apple Wallet transaction in Moneko.")
+
+  @available(*, deprecated, message: "Use supportedModes when available.")
+  static var openAppWhenRun: Bool { false }
+
+  @Parameter(title: "Merchant Name")
+  var merchantName: String?
+
+  @Parameter(title: "Raw Merchant")
+  var rawMerchant: String?
+
+  @Parameter(title: "Amount")
+  var amount: Double?
+
+  @Parameter(title: "Currency Code")
+  var currencyCode: String?
+
+  @Parameter(title: "Transaction Date")
+  var transactionDate: String?
+
+  @Parameter(title: "Card Label")
+  var cardLabel: String?
+
+  @Parameter(title: "External Source ID")
+  var externalSourceId: String?
+
+  func perform() async throws -> some IntentResult & ProvidesDialog {
+    let message = try await performWalletTransactionCapture(
+      merchantName: merchantName,
+      rawMerchant: rawMerchant,
+      amount: amount,
+      currencyCode: currencyCode,
+      transactionDate: transactionDate,
+      cardLabel: cardLabel,
+      externalSourceId: externalSourceId
+    )
+    return .result(dialog: IntentDialog(stringLiteral: message))
+  }
+}
+
+
 private enum SiriShortcutKeys {
   static let appGroupId = "group.moneko.mobile"
   static let supabaseUrl = "siri_supabase_url"
@@ -1014,6 +1293,13 @@ private enum SiriShortcutKeys {
 
   static let idempotencyHash = "siri_last_request_hash"
   static let idempotencyTimestamp = "siri_last_request_at"
+
+  static let walletCaptureEnabled = "wallet_capture_enabled"
+  static let walletDefaultScopeId = "wallet_default_scope_id"
+  static let walletDefaultScopeName = "wallet_default_scope_name"
+  static let walletDefaultIsPortfolio = "wallet_default_is_portfolio"
+  static let walletIdempotencyHash = "wallet_last_request_hash"
+  static let walletIdempotencyTimestamp = "wallet_last_request_at"
 }
 
 private struct SiriShortcutScopeResolution {
@@ -1920,6 +2206,15 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       shortTitle: "Analyze Spending",
       systemImageName: "sparkles"
     )
+    AppShortcut(
+      intent: LogWalletTransactionIntent(),
+      phrases: [
+        "Log wallet transaction with \(.applicationName)",
+        "Capture wallet payment in \(.applicationName)"
+      ],
+      shortTitle: "Log Wallet Transaction",
+      systemImageName: "wallet.pass.fill"
+    )
   }
 
   static var shortcutTileColor: ShortcutTileColor {
@@ -1955,6 +2250,10 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         self.handleGetStatus(result: result)
       case SiriShortcutChannel.clearAuthContext:
         self.handleClearAuthContext(result: result)
+      case "setWalletCaptureConfig":
+        self.handleSetWalletCaptureConfig(call: call, result: result)
+      case "getWalletCaptureConfig":
+        self.handleGetWalletCaptureConfig(result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -2023,5 +2322,47 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseAnonKey)
     SharedKeychainStore.shared.clearAll()
     result(nil)
+  }
+
+  private func handleSetWalletCaptureConfig(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      result(FlutterError(code: "invalid_args", message: "Invalid wallet config args", details: nil))
+      return
+    }
+
+    if let enabled = args["enabled"] as? Bool {
+      defaults.set(enabled, forKey: SiriShortcutKeys.walletCaptureEnabled)
+    }
+    if let scopeId = args["scopeId"] as? String {
+      defaults.set(scopeId, forKey: SiriShortcutKeys.walletDefaultScopeId)
+    }
+    if let scopeName = args["scopeName"] as? String {
+      defaults.set(scopeName, forKey: SiriShortcutKeys.walletDefaultScopeName)
+    }
+    if let isPortfolio = args["isPortfolio"] as? Bool {
+      defaults.set(isPortfolio, forKey: SiriShortcutKeys.walletDefaultIsPortfolio)
+    }
+
+    result(nil)
+  }
+
+  private func handleGetWalletCaptureConfig(result: @escaping FlutterResult) {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      result([
+        "enabled": false,
+        "scopeId": "personal",
+        "scopeName": "Personal",
+        "isPortfolio": false,
+      ])
+      return
+    }
+
+    result([
+      "enabled": defaults.bool(forKey: SiriShortcutKeys.walletCaptureEnabled),
+      "scopeId": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
+      "scopeName": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
+      "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
+    ])
   }
 }
