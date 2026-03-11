@@ -59,11 +59,11 @@ cd ios
 # Ensure pod command is available - try to source shell environment or use full path
 if ! command -v pod &> /dev/null; then
     print_warning "pod command not found, trying to source shell environment..."
-    # Try to source bash/zsh profile to get Ruby paths
+    # Try to source bash/zsh profile to get Ruby paths (ignore errors)
     if [ -f ~/.zshrc ]; then
-        source ~/.zshrc
+        source ~/.zshrc 2>/dev/null || true
     elif [ -f ~/.bash_profile ]; then
-        source ~/.bash_profile
+        source ~/.bash_profile 2>/dev/null || true
     fi
     
     # If still not found, try the common Homebrew path
