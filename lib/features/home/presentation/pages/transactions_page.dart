@@ -15,7 +15,6 @@ import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import '../widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -66,7 +65,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String selectedCategory = 'all';
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
-  String? _highlightedChartCategory;
 
   // Date Filter State
   DateRangeFilter _selectedDateFilter = DateRangeFilter.last7Days;
@@ -240,54 +238,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
 
     return _selectedDateFilter.getLabel(context);
-  }
-
-  List<_PieChartSegment> _buildPieChartSegments(
-    BuildContext context,
-    ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
-  ) {
-    final spendOnly = expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .toList();
-
-    final totalsByCategory = <String, double>{};
-    for (final expense in spendOnly) {
-      final rawCategory = expense.category?.trim();
-      final category = rawCategory == null || rawCategory.isEmpty
-          ? 'uncategorized'
-          : rawCategory.toLowerCase();
-      totalsByCategory[category] =
-          (totalsByCategory[category] ?? 0) + expense.amount.abs();
-    }
-
-    final sortedEntries = totalsByCategory.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final segments = sortedEntries.take(5).map((entry) {
-      return _PieChartSegment(
-        categoryKey: entry.key,
-        label: getCategoryTranslation(context, entry.key),
-        value: entry.value,
-        color: getCategoryColor(entry.key),
-      );
-    }).toList(growable: true);
-
-    final remainingValue = sortedEntries
-        .skip(5)
-        .fold<double>(0, (sum, entry) => sum + entry.value);
-    if (remainingValue > 0) {
-      segments.add(
-        _PieChartSegment(
-          categoryKey: 'other',
-          label: context.l10n.other,
-          value: remainingValue,
-          color: colorScheme.muted,
-        ),
-      );
-    }
-
-    return segments;
   }
 
   void _showRootBlockingDialog(String message) {
@@ -1198,31 +1148,34 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             ),
           ),
           const SizedBox(height: 20),
-          // Chart with aspect ratio for proper sizing
-          AspectRatio(
-            aspectRatio: 1.1, // Slightly wider than tall for better mobile fit
-            child: PageView(
-              controller: _chartPageController,
-              onPageChanged: (index) {
-                setState(() {
-                  currentChartIndex = index;
-                });
-              },
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _buildPieChart(colorScheme, expenses),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
+          _ExpandablePageView(
+            controller: _chartPageController,
+            currentPage: currentChartIndex,
+            onPageChanged: (index) {
+              setState(() {
+                currentChartIndex = index;
+              });
+            },
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildPieChart(colorScheme, expenses),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: AspectRatio(
+                  aspectRatio: 1.1,
                   child: _buildLineChart(colorScheme, expenses),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: AspectRatio(
+                  aspectRatio: 1.1,
                   child: _buildBarChart(colorScheme, expenses),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           // Carousel indicators
@@ -1260,159 +1213,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     ColorScheme colorScheme,
     List<ExpenseEntry> expenses,
   ) {
-    final segments = _buildPieChartSegments(context, colorScheme, expenses);
-
-    if (segments.isEmpty) {
-      return Center(
-        child: Text(
-          context.l10n.noData,
-          style: TextStyle(color: colorScheme.mutedForeground),
-        ),
-      );
-    }
-
-    final totalValue = segments.fold(0.0, (sum, item) => sum + item.value);
-
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Column(
-        children: [
-          Expanded(
-            child: PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (event, pieTouchResponse) {
-                    if (!mounted || event is! FlTapUpEvent) {
-                      return;
-                    }
-
-                    if (pieTouchResponse?.touchedSection == null) {
-                      setState(() => _highlightedChartCategory = null);
-                      return;
-                    }
-
-                    final touchedIndex =
-                        pieTouchResponse!.touchedSection!.touchedSectionIndex;
-                    if (touchedIndex < 0 || touchedIndex >= segments.length) {
-                      setState(() => _highlightedChartCategory = null);
-                      return;
-                    }
-
-                    setState(() {
-                      final touchedCategory =
-                          segments[touchedIndex].categoryKey;
-                      _highlightedChartCategory =
-                          _highlightedChartCategory == touchedCategory
-                              ? null
-                              : touchedCategory;
-                    });
-                  },
-                ),
-                centerSpaceRadius: 48,
-                sectionsSpace: 3,
-                borderData: FlBorderData(show: false),
-                sections: segments.map((segment) {
-                  final isHighlighted =
-                      _highlightedChartCategory == segment.categoryKey;
-                  final hasActiveHighlight = _highlightedChartCategory != null;
-                  final percentage =
-                      totalValue == 0 ? 0 : (segment.value / totalValue) * 100;
-
-                  return PieChartSectionData(
-                    value: segment.value,
-                    color: hasActiveHighlight && !isHighlighted
-                        ? segment.color.withValues(alpha: 0.45)
-                        : segment.color,
-                    radius: isHighlighted ? 68 : 62,
-                    showTitle: percentage >= 5,
-                    title: '${percentage.toStringAsFixed(0)}%',
-                    titleStyle: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: hasActiveHighlight && !isHighlighted
-                          ? colorScheme.foreground.withValues(alpha: 0.65)
-                          : colorScheme.foreground,
-                    ),
-                    borderSide: BorderSide(
-                      color: colorScheme.card,
-                      width: 2,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: segments.map((segment) {
-              final isHighlighted =
-                  _highlightedChartCategory == segment.categoryKey;
-              final hasActiveHighlight = _highlightedChartCategory != null;
-              final percentage =
-                  totalValue == 0 ? 0 : (segment.value / totalValue) * 100;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _highlightedChartCategory =
-                        isHighlighted ? null : segment.categoryKey;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  width: 132,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isHighlighted
-                        ? colorScheme.primary.withValues(alpha: 0.14)
-                        : colorScheme.surface.withValues(alpha: 0.0),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isHighlighted
-                          ? colorScheme.primary.withValues(alpha: 0.4)
-                          : colorScheme.border.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: hasActiveHighlight && !isHighlighted
-                              ? segment.color.withValues(alpha: 0.45)
-                              : segment.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${segment.label} ${percentage.toStringAsFixed(0)}%',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: isHighlighted
-                                ? FontWeight.w600
-                                : FontWeight.w500,
-                            color: hasActiveHighlight && !isHighlighted
-                                ? colorScheme.foreground.withValues(alpha: 0.65)
-                                : colorScheme.foreground,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+      child: CategoryPieChart(
+        colorScheme: colorScheme,
+        expenses: expenses,
+        selectedCurrency: ref.watch(homeFilterProvider).selectedCurrency,
+        chartSize: 220,
+        centerSpaceRadius: 48,
+        sectionRadius: 62,
+        touchedSectionRadius: 68,
+        legendAlignment: WrapAlignment.center,
+        legendPadding: const EdgeInsets.only(top: 16),
       ),
     );
   }
@@ -1990,20 +1802,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 }
 
-class _PieChartSegment {
-  final String categoryKey;
-  final String label;
-  final double value;
-  final Color color;
-
-  const _PieChartSegment({
-    required this.categoryKey,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-}
-
 class _TransactionListItem {
   final MonthTransactionGroup? monthGroup;
   final DayTransactionGroup? dayGroup;
@@ -2055,5 +1853,93 @@ class _TransactionListItem {
       isFirst: isFirst,
       isLast: isLast,
     );
+  }
+}
+
+class _ExpandablePageView extends StatefulWidget {
+  final PageController controller;
+  final int currentPage;
+  final ValueChanged<int> onPageChanged;
+  final List<Widget> children;
+
+  const _ExpandablePageView({
+    required this.controller,
+    required this.currentPage,
+    required this.onPageChanged,
+    required this.children,
+  });
+
+  @override
+  State<_ExpandablePageView> createState() => _ExpandablePageViewState();
+}
+
+class _ExpandablePageViewState extends State<_ExpandablePageView> {
+  late final List<double> _heights = List.filled(widget.children.length, 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final targetHeight = _heights[widget.currentPage];
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      child: SizedBox(
+        height: targetHeight,
+        child: PageView(
+          controller: widget.controller,
+          onPageChanged: widget.onPageChanged,
+          children: widget.children.asMap().entries.map((entry) {
+            final index = entry.key;
+            final child = entry.value;
+            return OverflowBox(
+              minHeight: 0,
+              maxHeight: double.infinity,
+              alignment: Alignment.topCenter,
+              child: _SizeReportingWidget(
+                onSizeChange: (size) {
+                  final height = size.height;
+                  if (_heights[index] != height) {
+                    setState(() {
+                      _heights[index] = height;
+                    });
+                  }
+                },
+                child: child,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _SizeReportingWidget extends StatefulWidget {
+  final Widget child;
+  final ValueChanged<Size> onSizeChange;
+
+  const _SizeReportingWidget({
+    required this.child,
+    required this.onSizeChange,
+  });
+
+  @override
+  State<_SizeReportingWidget> createState() => _SizeReportingWidgetState();
+}
+
+class _SizeReportingWidgetState extends State<_SizeReportingWidget> {
+  Size? _oldSize;
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final contextSize = context.size;
+      if (contextSize == null || contextSize == _oldSize) return;
+      _oldSize = contextSize;
+      widget.onSizeChange(contextSize);
+    });
+
+    return widget.child;
   }
 }

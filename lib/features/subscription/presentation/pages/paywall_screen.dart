@@ -1147,6 +1147,27 @@ class PaywallScreen extends HookConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 24),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.primary.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Text(
+                                context.l10n.paywallCompetitorPromoText,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.onSurface,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
                           ],
                         ),
                       ),

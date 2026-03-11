@@ -2409,5 +2409,6 @@
   "categoryClothing": "ファッション",
   "categoryElectronics": "電化製品",
   "categoryConvenienceStore": "コンビニ",
-  "deleteIncome": "収入を削除"
+  "deleteIncome": "収入を削除",
+  "paywallCompetitorPromoText": "他の家計簿アプリをお使いですか？ hello@moneko.io までご連絡いただければ、買い切りプランが50%オフになります。"
 }

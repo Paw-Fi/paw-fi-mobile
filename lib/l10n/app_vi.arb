@@ -2408,5 +2408,6 @@
   "categoryClothing": "Quần áo",
   "categoryElectronics": "Đồ điện tử",
   "categoryConvenienceStore": "Cửa hàng tiện lợi",
-  "deleteIncome": "Xóa thu nhập"
+  "deleteIncome": "Xóa thu nhập",
+  "paywallCompetitorPromoText": "Bạn đang dùng ứng dụng quản lý chi tiêu khác? Hãy liên hệ hỗ trợ qua hello@moneko.io để được giảm giá 50% cho gói trọn đời."
 }

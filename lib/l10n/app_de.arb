@@ -2409,5 +2409,6 @@
   "categoryClothing": "Kleidung",
   "categoryElectronics": "Elektronik",
   "categoryConvenienceStore": "Kiosk & Minimarkt",
-  "deleteIncome": "Einkommen löschen"
+  "deleteIncome": "Einkommen löschen",
+  "paywallCompetitorPromoText": "Nutzt du eine andere Budget-App? Melde dich bei unserem Support unter hello@moneko.io und erhalte 50 % Rabatt auf deinen Lifetime-Kauf."
 }

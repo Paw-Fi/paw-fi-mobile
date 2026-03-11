@@ -64,7 +64,12 @@ class _ExistingAccountState {
 }
 
 class OnboardingAccountPreparingPage extends HookConsumerWidget {
-  const OnboardingAccountPreparingPage({super.key});
+  const OnboardingAccountPreparingPage({
+    super.key,
+    this.autoStart = true,
+  });
+
+  final bool autoStart;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -75,6 +80,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final isDone = useState(false);
     final didStart = useState(false);
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
+    final isPrimaryActionEnabled = isDone.value || setupError.value != null;
 
     useEffect(() {
       unawaited(
@@ -508,9 +514,12 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     }
 
     useEffect(() {
+      if (!autoStart) {
+        return null;
+      }
       unawaited(runSync());
       return null;
-    }, const []);
+    }, [autoStart]);
 
     return AdaptiveScaffold(
       appBar: null,
@@ -590,20 +599,23 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 const Spacer(),
                 SizedBox(
                   height: 52,
-                  child: PrimaryAdaptiveButton(
-                    onPressed: isDone.value
-                        ? () => context.go('/onboarding?stage=post')
-                        : setupError.value == 'budget_validation_failed'
-                            ? () => context.go('/dashboard')
+                  child: IgnorePointer(
+                    ignoring: !isPrimaryActionEnabled,
+                    child: PrimaryAdaptiveButton(
+                      onPressed: isDone.value
+                          ? () => context.go('/onboarding?stage=post')
+                          : setupError.value == 'budget_validation_failed'
+                              ? () => context.go('/dashboard')
+                              : setupError.value != null
+                                  ? () => unawaited(runSync())
+                                  : null,
+                      child: Text(
+                        setupError.value == 'budget_validation_failed'
+                            ? 'Open dashboard'
                             : setupError.value != null
-                                ? () => unawaited(runSync())
-                                : null,
-                    child: Text(
-                      setupError.value == 'budget_validation_failed'
-                          ? 'Open dashboard'
-                          : setupError.value != null
-                              ? 'Try again'
-                              : 'Continue',
+                                ? 'Try again'
+                                : 'Continue',
+                      ),
                     ),
                   ),
                 ),

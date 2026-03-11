@@ -2356,5 +2356,6 @@
   "categoryClothing": "Kleding",
   "categoryElectronics": "Elektronica",
   "categoryConvenienceStore": "Gemakswinkels",
-  "deleteIncome": "Inkomsten verwijderen"
+  "deleteIncome": "Inkomsten verwijderen",
+  "paywallCompetitorPromoText": "Gebruik je een andere budget-app? Neem contact op met onze support via hello@moneko.io voor 50% korting op je levenslange aankoop."
 }

@@ -115,17 +115,7 @@ class TransactionListTile extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
-                  const SizedBox(width: 3),
-                  Text(
-                    context.l10n.recurring,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.tertiary,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
+                  Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),                 
                 ],
               ),
             ),

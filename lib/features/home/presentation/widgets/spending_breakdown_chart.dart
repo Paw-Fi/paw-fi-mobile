@@ -10,6 +10,350 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
+class CategoryPieChart extends StatefulWidget {
+  final ColorScheme colorScheme;
+  final List<ExpenseEntry> expenses;
+  final String? selectedCurrency;
+  final bool showCenterSummary;
+  final double chartSize;
+  final double centerSpaceRadius;
+  final double sectionRadius;
+  final double touchedSectionRadius;
+  final WrapAlignment legendAlignment;
+  final int legendItemLimit;
+  final EdgeInsetsGeometry legendPadding;
+  final double? legendViewportHeight;
+
+  const CategoryPieChart({
+    super.key,
+    required this.colorScheme,
+    required this.expenses,
+    this.selectedCurrency,
+    this.showCenterSummary = false,
+    this.chartSize = 200,
+    this.centerSpaceRadius = 60,
+    this.sectionRadius = 52,
+    this.touchedSectionRadius = 58,
+    this.legendAlignment = WrapAlignment.start,
+    this.legendItemLimit = 6,
+    this.legendPadding = const EdgeInsets.only(top: 24),
+    this.legendViewportHeight,
+  });
+
+  @override
+  State<CategoryPieChart> createState() => _CategoryPieChartState();
+}
+
+class _CategoryPieChartState extends State<CategoryPieChart> {
+  int? _touchedIndex;
+
+  List<CategorySummary> _buildChartSummaries(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<ExpenseEntry> expenses,
+  ) {
+    final summaries = _getCategorySummaries(expenses);
+    if (summaries.length <= widget.legendItemLimit) {
+      return summaries;
+    }
+
+    final visibleCount = widget.legendItemLimit - 1;
+    final visible = summaries.take(visibleCount).toList(growable: true);
+    final otherItems = summaries.skip(visibleCount);
+    final otherAmount =
+        otherItems.fold<double>(0, (sum, item) => sum + item.amount);
+    final otherCount =
+        otherItems.fold<int>(0, (sum, item) => sum + item.transactionCount);
+
+    visible.add(
+      CategorySummary(
+        category: 'other',
+        amount: otherAmount,
+        transactionCount: otherCount,
+        color: colorScheme.muted,
+      ),
+    );
+    return visible;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = widget.colorScheme;
+    final spendOnly = widget.expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
+    final categorySummaries =
+        _buildChartSummaries(context, colorScheme, spendOnly);
+    final totalSpent = _getTotalSpent(spendOnly);
+    final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
+    final selected = (_touchedIndex != null &&
+            _touchedIndex! >= 0 &&
+            _touchedIndex! < categorySummaries.length)
+        ? categorySummaries[_touchedIndex!]
+        : null;
+
+    final currencyCode = widget.selectedCurrency ?? 'USD';
+    final symbol = resolveCurrencySymbol(currencyCode);
+
+    String displayAmount(double amount) =>
+        '$symbol${formatLocalizedNumber(context, amount)}';
+
+    if (!hasData && !widget.showCenterSummary) {
+      return Center(
+        child: Text(
+          context.l10n.noData,
+          style: TextStyle(color: colorScheme.mutedForeground),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: widget.chartSize,
+          child: Stack(
+            children: [
+              Center(
+                child: SizedBox(
+                  width: widget.chartSize,
+                  height: widget.chartSize,
+                  child: PieChart(
+                    PieChartData(
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          if (!event.isInterestedForInteractions ||
+                              response?.touchedSection == null) {
+                            setState(() => _touchedIndex = null);
+                            return;
+                          }
+                          setState(() {
+                            final nextIndex =
+                                response!.touchedSection!.touchedSectionIndex;
+                            _touchedIndex =
+                                _touchedIndex == nextIndex ? null : nextIndex;
+                          });
+                        },
+                      ),
+                      sectionsSpace: 2,
+                      centerSpaceRadius: widget.centerSpaceRadius,
+                      sections: hasData
+                          ? categorySummaries.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final category = entry.value;
+                              final isTouched = idx == _touchedIndex;
+                              final percent = totalSpent > 0
+                                  ? (category.amount / totalSpent) * 100
+                                  : 0.0;
+                              return PieChartSectionData(
+                                color: category.color,
+                                value: category.amount,
+                                title: percent > 4
+                                    ? '${percent.toStringAsFixed(0)}%'
+                                    : '',
+                                radius: isTouched
+                                    ? widget.touchedSectionRadius
+                                    : widget.sectionRadius,
+                                titleStyle: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onPrimary,
+                                ),
+                              );
+                            }).toList()
+                          : [
+                              PieChartSectionData(
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.15),
+                                value: 1,
+                                title: '',
+                                radius: widget.sectionRadius,
+                              ),
+                            ],
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.showCenterSummary)
+                Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: hasData
+                        ? selected != null
+                            ? SizedBox(
+                                width: 110,
+                                child: Column(
+                                  key: const ValueKey('selected'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      getCategoryTranslation(
+                                          context, selected.category),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        displayAmount(selected.amount),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.8,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : SizedBox(
+                                width: 110,
+                                child: Column(
+                                  key: const ValueKey('total'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        displayAmount(totalSpent),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: -1.0,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      context.l10n.spent,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                        : Column(
+                            key: const ValueKey('empty'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.pie_chart_outline_rounded,
+                                color: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.8),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                context.l10n.noData,
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        _buildLegend(context, colorScheme, categorySummaries),
+      ],
+    );
+  }
+
+  Widget _buildLegend(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<CategorySummary> categorySummaries,
+  ) {
+    final legend = Wrap(
+      spacing: 16,
+      runSpacing: 12,
+      alignment: widget.legendAlignment,
+      children: categorySummaries.toList().asMap().entries.map((entry) {
+        final index = entry.key;
+        final category = entry.value;
+        final isSelected = _touchedIndex == index;
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _touchedIndex = isSelected ? null : index;
+            });
+          },
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 180),
+            opacity: _touchedIndex == null || isSelected ? 1 : 0.55,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: category.color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colorScheme.surface,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    getCategoryTranslation(context, category.category),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w400,
+                      color: colorScheme.foreground,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+
+    if (widget.legendViewportHeight == null) {
+      return Padding(
+        padding: widget.legendPadding,
+        child: legend,
+      );
+    }
+
+    return Padding(
+      padding: widget.legendPadding,
+      child: SizedBox(
+        height: widget.legendViewportHeight,
+        child: SingleChildScrollView(
+          child: legend,
+        ),
+      ),
+    );
+  }
+}
+
 class SpendingBreakdownChart extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<ExpenseEntry> expenses;
@@ -37,8 +381,6 @@ class SpendingBreakdownChart extends StatefulWidget {
 }
 
 class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
-  int? _touchedIndex;
-
   @override
   Widget build(BuildContext context) {
     // Resolve this card's date range and filter the full lists locally.
@@ -61,29 +403,6 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       final isSpend = type != 'income';
       return dateOk && currencyOk && isSpend;
     }).toList();
-
-    final categorySummaries = _getCategorySummaries(filteredExpenses);
-    final totalSpent = _getTotalSpent(filteredExpenses);
-
-    // selectedCurrency is never null (defaults to USD)
-    final currencyCode = widget.selectedCurrency ?? 'USD';
-    final symbol = resolveCurrencySymbol(currencyCode);
-
-    final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
-    final selected = (_touchedIndex != null &&
-            _touchedIndex! >= 0 &&
-            _touchedIndex! < categorySummaries.length)
-        ? categorySummaries[_touchedIndex!]
-        : null;
-
-    String displayAmount(double amount) =>
-        '$symbol${formatLocalizedNumber(context, amount)}';
-
-    // percentOfTotal function kept for potential future use
-    // String percentOfTotal(double amount) {
-    //   if (totalSpent <= 0) return '0%';
-    //   return '${((amount / totalSpent) * 100).toStringAsFixed(0)}%';
-    // }
 
     return Container(
       decoration: BoxDecoration(
@@ -124,204 +443,11 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
             ),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            height: 220,
-            child: Stack(
-              children: [
-                Center(
-                  child: SizedBox(
-                    width: 200,
-                    height: 200,
-                    child: PieChart(
-                      PieChartData(
-                        pieTouchData: PieTouchData(
-                          touchCallback: (event, response) {
-                            if (!event.isInterestedForInteractions ||
-                                response?.touchedSection == null) {
-                              setState(() => _touchedIndex = null);
-                              return;
-                            }
-                            setState(() => _touchedIndex =
-                                response!.touchedSection!.touchedSectionIndex);
-                          },
-                        ),
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 60,
-                        sections: hasData
-                            ? categorySummaries.asMap().entries.map((entry) {
-                                final idx = entry.key;
-                                final category = entry.value;
-                                final isTouched = idx == _touchedIndex;
-                                final percent = totalSpent > 0
-                                    ? (category.amount / totalSpent) * 100
-                                    : 0.0;
-                                return PieChartSectionData(
-                                  color: category.color,
-                                  value: category.amount,
-                                  title: percent > 4
-                                      ? '${percent.toStringAsFixed(0)}%'
-                                      : '',
-                                  radius: isTouched ? 58 : 52,
-                                  titleStyle: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: widget.colorScheme.onPrimary,
-                                  ),
-                                );
-                              }).toList()
-                            : [
-                                PieChartSectionData(
-                                  color: widget.colorScheme.mutedForeground
-                                      .withValues(alpha: 0.15),
-                                  value: 1,
-                                  title: '',
-                                  radius: 52,
-                                ),
-                              ],
-                      ),
-                    ),
-                  ),
-                ),
-                Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: hasData
-                        ? selected != null
-                            ? SizedBox(
-                                width: 110,
-                                child: Column(
-                                  key: const ValueKey('selected'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      getCategoryTranslation(
-                                          context, selected.category),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: widget.colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        displayAmount(selected.amount),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -0.8,
-                                          color: widget.colorScheme.foreground,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      // percent calculated but not used - keep for potential future use
-                                      // percentOfTotal(selected.amount),
-                                      '',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: widget.colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : SizedBox(
-                                width: 110,
-                                child: Column(
-                                  key: const ValueKey('total'),
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        displayAmount(totalSpent),
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: -1.0,
-                                          color: widget.colorScheme.foreground,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      context.l10n.spent,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: widget.colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                        : Column(
-                            key: const ValueKey('empty'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.pie_chart_outline_rounded,
-                                color: widget.colorScheme.mutedForeground
-                                    .withValues(alpha: 0.8),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                context.l10n.noData,
-                                style: TextStyle(
-                                  color: widget.colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.start,
-            children: categorySummaries.take(6).map((category) {
-              // percent calculated but not used - keep for potential future use
-              // final percent = percentOfTotal(category.amount);
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: category.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: widget.colorScheme.surface,
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        getCategoryTranslation(context, category.category),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: widget.colorScheme.foreground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            }).toList(),
+          CategoryPieChart(
+            colorScheme: widget.colorScheme,
+            expenses: filteredExpenses,
+            selectedCurrency: widget.selectedCurrency,
+            showCenterSummary: true,
           ),
         ],
       ),

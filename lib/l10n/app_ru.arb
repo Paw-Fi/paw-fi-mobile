@@ -2359,5 +2359,6 @@
   "categoryClothing": "Одежда",
   "categoryElectronics": "Электроника",
   "categoryConvenienceStore": "Минимаркеты",
-  "deleteIncome": "Удалить доход"
+  "deleteIncome": "Удалить доход",
+  "paywallCompetitorPromoText": "Пользуетесь другим приложением для бюджета? Напишите нам на hello@moneko.io, чтобы получить скидку 50% на бессрочную лицензию."
 }

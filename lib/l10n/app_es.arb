@@ -2411,5 +2411,6 @@
   "categoryClothing": "Ropa",
   "categoryElectronics": "Electrónica",
   "categoryConvenienceStore": "Tiendas de conveniencia",
-  "deleteIncome": "Eliminar ingreso"
+  "deleteIncome": "Eliminar ingreso",
+  "paywallCompetitorPromoText": "¿Usas otra app de presupuesto? Contacta con soporte en hello@moneko.io para recibir un 50 % de descuento en tu compra de por vida."
 }

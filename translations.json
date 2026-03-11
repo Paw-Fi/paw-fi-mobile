@@ -1,18 +1,18 @@
 {
-"deleteIncome": {
-    "en": "Delete Income",
-    "zh": "删除收入",
-    "de": "Einkommen löschen",
-    "es": "Eliminar ingreso",
-    "fr": "Supprimer le revenu",
-    "it": "Elimina entrata",
-    "ja": "収入を削除",
-    "kr": "수입 삭제",
-    "nl": "Inkomsten verwijderen",
-    "ur": "آمدنی حذف کریں",
-    "ru": "Удалить доход",
-    "uk": "Видалити дохід",
-    "zh_TW": "刪除收入",
-    "vi": "Xóa thu nhập"
+  "paywallCompetitorPromoText": {
+    "en": "Using another budgeting app? Contact our support through hello@moneko.io to get 50% off on your lifetime purchases",
+    "de": "Nutzt du eine andere Budget-App? Melde dich bei unserem Support unter hello@moneko.io und erhalte 50 % Rabatt auf deinen Lifetime-Kauf.",
+    "es": "¿Usas otra app de presupuesto? Contacta con soporte en hello@moneko.io para recibir un 50 % de descuento en tu compra de por vida.",
+    "fr": "Vous utilisez une autre app de budget ? Contactez notre support à hello@moneko.io pour obtenir 50 % de réduction sur votre achat à vie.",
+    "it": "Usi un'altra app per il budget? Contatta il nostro supporto a hello@moneko.io per ottenere il 50% di sconto sul tuo acquisto a vita.",
+    "ja": "他の家計簿アプリをお使いですか？ hello@moneko.io までご連絡いただければ、買い切りプランが50%オフになります。",
+    "kr": "다른 가계부 앱을 사용 중이신가요? hello@Moneko.io로 문의하고 평생 소장용 구매 50% 할인 혜택을 받으세요.",
+    "nl": "Gebruik je een andere budget-app? Neem contact op met onze support via hello@moneko.io voor 50% korting op je levenslange aankoop.",
+    "ur": "کیا آپ کوئی اور بجٹنگ ایپ استعمال کر رہے ہیں؟ تاحیات خریداری پر 50% رعایت حاصل کرنے کے لیے hello@moneko.io پر ہماری سپورٹ سے رابطہ کریں۔",
+    "ru": "Пользуетесь другим приложением для бюджета? Напишите нам на hello@moneko.io, чтобы получить скидку 50% на бессрочную лицензию.",
+    "uk": "Користуєтеся іншим додатком для бюджету? Напишіть нам на hello@moneko.io, щоб отримати знижку 50% на безстрокову ліцензію.",
+    "zh": "正在使用其他理财应用？通过 hello@moneko.io 联系官方客服，即可享受终身版 50% 的特别折扣。",
+    "zh_TW": "正在使用其他理財應用？透過 hello@moneko.io 聯繫官方客服，即可享有終身版 50% 的特別折扣。",
+    "vi": "Bạn đang dùng ứng dụng quản lý chi tiêu khác? Hãy liên hệ hỗ trợ qua hello@moneko.io để được giảm giá 50% cho gói trọn đời."
   }
 }

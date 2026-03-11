@@ -2353,5 +2353,6 @@
   "categoryClothing": "服飾鞋包",
   "categoryElectronics": "數碼電子",
   "categoryConvenienceStore": "便利店",
-  "deleteIncome": "刪除收入"
+  "deleteIncome": "刪除收入",
+  "paywallCompetitorPromoText": "正在使用其他理財應用？透過 hello@moneko.io 聯繫官方客服，即可享有終身版 50% 的特別折扣。"
 }

@@ -2356,5 +2356,6 @@
   "categoryClothing": "Abbigliamento",
   "categoryElectronics": "Elettronica",
   "categoryConvenienceStore": "Minimarket",
-  "deleteIncome": "Elimina entrata"
+  "deleteIncome": "Elimina entrata",
+  "paywallCompetitorPromoText": "Usi un'altra app per il budget? Contatta il nostro supporto a hello@moneko.io per ottenere il 50% di sconto sul tuo acquisto a vita."
 }

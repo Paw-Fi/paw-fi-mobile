@@ -2409,5 +2409,6 @@
   "categoryClothing": "Vêtements",
   "categoryElectronics": "Électronique",
   "categoryConvenienceStore": "Supérettes",
-  "deleteIncome": "Supprimer le revenu"
+  "deleteIncome": "Supprimer le revenu",
+  "paywallCompetitorPromoText": "Vous utilisez une autre app de budget ? Contactez notre support à hello@moneko.io pour obtenir 50 % de réduction sur votre achat à vie."
 }

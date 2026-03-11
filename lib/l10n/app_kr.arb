@@ -2222,5 +2222,6 @@
   "categoryClothing": "의류/패션",
   "categoryElectronics": "전자기기",
   "categoryConvenienceStore": "편의점",
-  "deleteIncome": "수입 삭제"
+  "deleteIncome": "수입 삭제",
+  "paywallCompetitorPromoText": "다른 가계부 앱을 사용 중이신가요? hello@Moneko.io로 문의하고 평생 소장용 구매 50% 할인 혜택을 받으세요."
 }
