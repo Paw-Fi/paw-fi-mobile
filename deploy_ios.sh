@@ -55,6 +55,23 @@ print_success "Localizations generated"
 # Step 4: Navigate to iOS directory and install pods
 print_step "Step 4/6: Installing iOS pods..."
 cd ios
+
+# Ensure pod command is available - try to source shell environment or use full path
+if ! command -v pod &> /dev/null; then
+    print_warning "pod command not found, trying to source shell environment..."
+    # Try to source bash/zsh profile to get Ruby paths
+    if [ -f ~/.zshrc ]; then
+        source ~/.zshrc
+    elif [ -f ~/.bash_profile ]; then
+        source ~/.bash_profile
+    fi
+    
+    # If still not found, try the common Homebrew path
+    if ! command -v pod &> /dev/null; then
+        export PATH="/opt/homebrew/lib/ruby/gems/3.2.0/bin:$PATH"
+    fi
+fi
+
 pod install
 print_success "iOS pods installed"
 
