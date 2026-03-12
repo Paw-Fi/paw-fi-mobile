@@ -3,6 +3,7 @@ import 'package:flutter/material.dart' as material;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -46,6 +47,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           isLoading.value = false;
         }
       }
+
       loadConfig();
       return null;
     }, []);
@@ -164,18 +166,18 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: 'Apple Wallet Capture'),
+        appBar: AdaptiveAppBar(title: 'Wallet Link'),
         body: const Center(child: CircularProgressIndicator.adaptive()),
       );
     }
 
     return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: 'Apple Wallet Capture'),
+      appBar: AdaptiveAppBar(title: 'Wallet Link'),
       body: Material(
         color: colorScheme.appBackground,
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            padding:  EdgeInsets.fromLTRB(16, 16+getSubPageTopPadding(context),16,16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -205,7 +207,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       material.Text(
-                        'Apple Wallet Capture',
+                        'Wallet Link',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -215,7 +217,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       material.Text(
-                        'Automatically log transactions every time you pay with Apple Pay. Moneko captures the merchant name, amount, and currency — then AI categorizes it for you.',
+                        'Connect Apple Wallet to Moneko so Apple Pay transactions can be logged into your chosen space automatically.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -248,7 +250,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: material.Text(
-                              'Enable Wallet Capture',
+                              'Enable Wallet Link',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -404,6 +406,34 @@ class IosWalletCapturePage extends HookConsumerWidget {
                   ),
                 ),
 
+                const SizedBox(height: 24),
+
+                _SectionTitle(title: 'Privacy'),
+                const SizedBox(height: 8),
+                _SectionCard(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.shield_rounded,
+                        size: 20,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: material.Text(
+                          'Only you can access it. Moneko never sells or shares your financial data.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.mutedForeground,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -452,9 +482,8 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
-        border: isDarkMode
-            ? Border.all(color: colorScheme.surfaceBorder)
-            : null,
+        border:
+            isDarkMode ? Border.all(color: colorScheme.surfaceBorder) : null,
         boxShadow: isDarkMode
             ? null
             : [

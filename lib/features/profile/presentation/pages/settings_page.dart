@@ -1138,7 +1138,7 @@ class SettingsPage extends HookConsumerWidget {
                   ),
                   _SettingsTile(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: 'Auto Capture',
+                    label: 'Wallet Link',
                     value: (() {
                       // Show a brief status — actual check is platform-dependent
                       if (Platform.isIOS) {
@@ -1152,8 +1152,7 @@ class SettingsPage extends HookConsumerWidget {
                       if (Platform.isIOS) {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (context) =>
-                                const IosWalletCapturePage(),
+                            builder: (context) => const IosWalletCapturePage(),
                           ),
                         );
                       } else if (Platform.isAndroid) {

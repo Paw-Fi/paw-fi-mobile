@@ -52,6 +52,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           isLoading.value = false;
         }
       }
+
       loadAll();
       return null;
     }, []);
@@ -70,6 +71,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             }
           } catch (_) {}
         }
+
         recheck();
       }
     });
@@ -179,8 +181,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         await NotificationCaptureService.instance.openNotificationSettings();
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(
-              context, 'Could not open notification settings');
+          AppToast.error(context, 'Could not open notification settings');
         }
       }
     }
@@ -223,13 +224,13 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: 'Notification Capture'),
+        appBar: AdaptiveAppBar(title: 'Wallet Link'),
         body: const Center(child: CircularProgressIndicator.adaptive()),
       );
     }
 
     return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: 'Notification Capture'),
+      appBar: AdaptiveAppBar(title: 'Wallet Link'),
       body: Material(
         color: colorScheme.appBackground,
         child: SafeArea(
@@ -264,7 +265,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 16),
                       material.Text(
-                        'Notification Capture',
+                        'Wallet Link',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
@@ -274,7 +275,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       material.Text(
-                        'Automatically log transactions from your banking app notifications. Moneko reads the notification, extracts the amount and merchant — then AI categorizes it for you.',
+                        'Connect supported notification apps to Moneko so transaction alerts can be logged into your chosen space automatically.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -301,10 +302,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                             height: 40,
                             decoration: BoxDecoration(
                               color: hasAccess.value
-                                  ? colorScheme.success
-                                      .withValues(alpha: 0.12)
-                                  : colorScheme.error
-                                      .withValues(alpha: 0.12),
+                                  ? colorScheme.success.withValues(alpha: 0.12)
+                                  : colorScheme.error.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
@@ -384,7 +383,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: material.Text(
-                              'Enable Notification Capture',
+                              'Enable Wallet Link',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
@@ -581,30 +580,44 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                     children: const [
                       _StepItem(
                         step: 1,
-                        title: 'Grant Notification Access',
+                        title: 'Choose your destination space',
                         description:
-                            'Allow Moneko to read notifications from your device. This is required for detecting banking transaction alerts.',
+                            'Start by choosing the personal, shared, or portfolio space where linked transactions should be saved. Moneko will use this destination whenever a supported notification is captured.',
                       ),
                       SizedBox(height: 16),
                       _StepItem(
                         step: 2,
-                        title: 'Enable Banking Apps',
+                        title: 'Grant Notification Access',
                         description:
-                            'As banking notifications arrive, the sending apps appear in the list above. Toggle on the ones you want Moneko to monitor.',
+                            'Allow Moneko to read notifications from your device. This is required before Moneko can detect transaction alerts from apps you choose to link.',
                       ),
                       SizedBox(height: 16),
                       _StepItem(
                         step: 3,
-                        title: 'Transactions are Captured',
+                        title: 'Wait for apps to appear in the list',
                         description:
-                            'When a matching notification arrives, Moneko extracts the merchant, amount, and currency, then sends it to the cloud for AI categorization.',
+                            'After access is granted, your banking or wallet apps appear above as notifications arrive. All apps stay off by default until you decide which ones Moneko should process.',
                       ),
                       SizedBox(height: 16),
                       _StepItem(
                         step: 4,
-                        title: 'Review in Moneko',
+                        title: 'Enable only the apps you trust',
                         description:
-                            'Captured transactions appear in your timeline just like manually-added ones. You can edit the category or details anytime.',
+                            'Toggle on only the apps you want Moneko to listen to. Moneko ignores notifications from every other app, even though Android grants access at the system level.',
+                      ),
+                      SizedBox(height: 16),
+                      _StepItem(
+                        step: 5,
+                        title: 'Transactions are captured automatically',
+                        description:
+                            'When a matching notification arrives, Moneko extracts the merchant, amount, and currency, then sends it securely to the cloud for categorization and saving.',
+                      ),
+                      SizedBox(height: 16),
+                      _StepItem(
+                        step: 6,
+                        title: 'Review and edit anytime',
+                        description:
+                            'Captured transactions appear in your timeline like manually added ones. You can review, recategorize, or edit details whenever you want.',
                       ),
                     ],
                   ),
@@ -627,7 +640,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: material.Text(
-                          'Moneko only processes notifications from the apps you enable above. Notification content is analyzed on-device to extract transaction details, then sent securely to Moneko\'s servers for AI categorization. No other notification data is stored or transmitted.',
+                          'Only you can access it. Moneko never sells or shares your financial data. Moneko only processes notifications from the apps you enable above, and no other notification data is stored or transmitted.',
                           style: TextStyle(
                             fontSize: 13,
                             color: colorScheme.mutedForeground,
@@ -647,9 +660,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                   child: _SecondaryButton(
                     onPressed: isSyncing.value ? null : syncCredentials,
                     icon: Icons.sync_rounded,
-                    label: isSyncing.value
-                        ? 'Syncing...'
-                        : 'Sync Credentials',
+                    label: isSyncing.value ? 'Syncing...' : 'Sync Credentials',
                   ),
                 ),
 
@@ -701,9 +712,8 @@ class _SectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.card,
         borderRadius: BorderRadius.circular(12),
-        border: isDarkMode
-            ? Border.all(color: colorScheme.surfaceBorder)
-            : null,
+        border:
+            isDarkMode ? Border.all(color: colorScheme.surfaceBorder) : null,
         boxShadow: isDarkMode
             ? null
             : [
