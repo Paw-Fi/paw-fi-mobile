@@ -1239,7 +1239,7 @@ private func performWalletTransactionCapture(
 @available(iOS 16.0, watchOS 9.0, *)
 struct LogWalletTransactionIntent: AppIntent {
   static var title: LocalizedStringResource = "Log Wallet Transaction"
-  static var description = IntentDescription("Automatically log an Apple Wallet transaction in Moneko.")
+  static var description = IntentDescription("Automatically log a Wallet transaction in Moneko.")
 
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
