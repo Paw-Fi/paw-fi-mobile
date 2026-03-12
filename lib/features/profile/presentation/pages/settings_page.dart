@@ -63,6 +63,9 @@ import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
+import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
+import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 
 import 'package:crypto/crypto.dart';
 
@@ -299,6 +302,21 @@ class SettingsPage extends HookConsumerWidget {
           expiresAt: session?.expiresAt,
         );
         siriStatusReloadKey.value++;
+        // Also sync Android notification capture credentials
+        if (Platform.isAndroid) {
+          try {
+            await NotificationCaptureService.instance.syncAuthContext(
+              supabaseUrl: Constants.supabaseUrl,
+              supabaseAnonKey: Constants.supabaseAnon,
+              accessToken: session?.accessToken ?? '',
+              refreshToken: session?.refreshToken ?? '',
+              userId: session?.user.id ?? '',
+              expiresAt: session?.expiresAt ?? 0,
+            );
+          } catch (_) {
+            // Silently ignore — Android sync is best-effort here
+          }
+        }
       } catch (error) {
         if (context.mounted) {
           AppToast.error(
@@ -1115,6 +1133,36 @@ class SettingsPage extends HookConsumerWidget {
                         if (result == true) {
                           ref.invalidate(whatsAppBindingProvider);
                         }
+                      }
+                    },
+                  ),
+                  _SettingsTile(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: 'Auto Capture',
+                    value: (() {
+                      // Show a brief status — actual check is platform-dependent
+                      if (Platform.isIOS) {
+                        return 'Apple Pay';
+                      } else if (Platform.isAndroid) {
+                        return 'Notifications';
+                      }
+                      return null;
+                    })(),
+                    onTap: () {
+                      if (Platform.isIOS) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const IosWalletCapturePage(),
+                          ),
+                        );
+                      } else if (Platform.isAndroid) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const AndroidNotificationCapturePage(),
+                          ),
+                        );
                       }
                     },
                   ),
