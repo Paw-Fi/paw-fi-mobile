@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/material.dart' as material;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -16,6 +15,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class IosWalletCapturePage extends HookConsumerWidget {
   const IosWalletCapturePage({super.key});
@@ -166,401 +166,306 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-        appBar: AdaptiveAppBar(title: 'Wallet Link'),
-        body: const Center(child: CircularProgressIndicator.adaptive()),
-      );
+          appBar: const AdaptiveAppBar(title: 'Wallet Link'),
+          body: Container(
+            color: colorScheme.appBackground,
+            child: const Center(child: CircularProgressIndicator.adaptive()),
+          ));
     }
 
     return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(title: 'Wallet Link'),
+      appBar: const AdaptiveAppBar(title: 'Wallet Link'),
       body: Material(
-        color: colorScheme.appBackground,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding:  EdgeInsets.fromLTRB(16, 16+getSubPageTopPadding(context),16,16),
+        child: Container(
+          color: colorScheme.appBackground,
+          child: SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ─── Header ───
-                _SectionCard(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppTheme.monekoPrimary,
-                              AppTheme.monekoSecondary,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(
+                      top: getSubPageTopPadding(context),
+                      left: 20,
+                      right: 20,
+                      bottom: 40,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHero(colorScheme),
+                        _SettingsGroup(
+                          title: 'Configuration',
+                          children: [
+                            _SettingsTile(
+                              icon: Icons.power_settings_new_rounded,
+                              iconColor: Colors.white,
+                              iconBackgroundColor: config.value.enabled
+                                  ? colorScheme.success
+                                  : colorScheme.mutedForeground,
+                              title: 'Enable Wallet Link',
+                              trailing: AdaptiveSwitch(
+                                value: config.value.enabled,
+                                onChanged: toggleEnabled,
+                              ),
+                            ),
+                            _SettingsTile(
+                              icon: Icons.folder_rounded,
+                              iconColor: Colors.white,
+                              iconBackgroundColor: colorScheme.primary,
+                              title: 'Destination Space',
+                              subtitle: config.value.scopeName,
+                              trailing: Icon(Icons.chevron_right_rounded,
+                                  color: colorScheme.mutedForeground, size: 20),
+                              onTap: pickDestinationSpace,
+                              showDivider: false,
+                            ),
+                          ],
                         ),
-                        child: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      material.Text(
-                        'Wallet Link',
+                        const SizedBox(height: 36),
+                        _buildHowItWorks(colorScheme),
+                        const SizedBox(height: 36),
+                        _buildPrivacyFooter(colorScheme),
+                        const SizedBox(
+                            height: 80), // Extra padding for bottom bar
+                      ],
+                    ),
+                  ),
+                ),
+                _buildBottomBar(context, colorScheme, isSyncing.value,
+                    openShortcuts, syncCredentials),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHero(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.monekoPrimary, AppTheme.monekoSecondary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.monekoPrimary.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                )
+              ],
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Colors.white,
+              size: 38,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Wallet Link',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+              letterSpacing: -0.8,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Connect Apple Wallet to Moneko so Apple Pay transactions can be logged into your chosen space automatically.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHowItWorks(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 16),
+          child: Text(
+            'HOW IT WORKS',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        const _FeatureItem(
+          icon: Icons.auto_awesome_rounded,
+          title: 'Create an Automation',
+          description:
+              'In the Shortcuts app, create a new Personal Automation with a "Transaction" trigger.',
+        ),
+        const _FeatureItem(
+          icon: Icons.add_circle_outline_rounded,
+          title: 'Add the Moneko Action',
+          description:
+              'Search for "Log Wallet Transaction" in the actions list and add it to your automation.',
+        ),
+        const _FeatureItem(
+          icon: Icons.bolt_rounded,
+          title: 'Run Immediately',
+          description:
+              'Turn on "Run Immediately" so the automation runs silently without asking.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrivacyFooter(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.lock_rounded,
+              size: 20, color: colorScheme.mutedForeground),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Only you can access it. Moneko never sells or shares your financial data.',
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context, ColorScheme colorScheme,
+      bool isSyncing, VoidCallback onOpen, VoidCallback onSync) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.0),
+            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
+            Theme.of(context).scaffoldBackgroundColor,
+          ],
+          stops: const [0.0, 0.4, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: PrimaryAdaptiveButton(
+                onPressed: isSyncing ? null : onOpen,
+                child: isSyncing
+                    ? const CircularProgressIndicator.adaptive()
+                    : const Text(
+                        'Open Apple Shortcuts',
                         style: TextStyle(
-                          fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
+                          fontSize: 17,
                           letterSpacing: -0.3,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      material.Text(
-                        'Connect Apple Wallet to Moneko so Apple Pay transactions can be logged into your chosen space automatically.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ─── Configuration ───
-                _SectionTitle(title: 'Configuration'),
-                const SizedBox(height: 8),
-                _SectionCard(
-                  child: Column(
-                    children: [
-                      // Enable toggle
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.power_settings_new_rounded,
-                            size: 20,
-                            color: config.value.enabled
-                                ? colorScheme.success
-                                : colorScheme.mutedForeground,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: material.Text(
-                              'Enable Wallet Link',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                          AdaptiveSwitch(
-                            value: config.value.enabled,
-                            onChanged: (v) => toggleEnabled(v),
-                          ),
-                        ],
-                      ),
-                      Divider(
-                        height: 24,
-                        thickness: 0.5,
-                        color: colorScheme.border,
-                      ),
-                      // Destination space
-                      InkWell(
-                        onTap: pickDestinationSpace,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.folder_rounded,
-                                size: 20,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    material.Text(
-                                      'Destination Space',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    material.Text(
-                                      config.value.scopeName,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: colorScheme.mutedForeground,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                Icons.chevron_right_rounded,
-                                size: 20,
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ─── Connect ───
-                _SectionTitle(title: 'Connect'),
-                const SizedBox(height: 8),
-                _SectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      material.Text(
-                        'Tap the button below to sync your credentials and open the Shortcuts app. You\'ll need to create an automation that uses the "Log Wallet Transaction" action.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.mutedForeground,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: _PrimaryButton(
-                          onPressed: isSyncing.value ? null : openShortcuts,
-                          icon: Icons.launch_rounded,
-                          label: isSyncing.value
-                              ? 'Syncing...'
-                              : 'Open Apple Shortcuts',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: _SecondaryButton(
-                          onPressed: isSyncing.value ? null : syncCredentials,
-                          icon: Icons.sync_rounded,
-                          label: 'Sync Credentials Only',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ─── How it Works ───
-                _SectionTitle(title: 'How it Works'),
-                const SizedBox(height: 8),
-                _SectionCard(
-                  child: Column(
-                    children: const [
-                      _StepItem(
-                        step: 1,
-                        title: 'Create an Automation',
-                        description:
-                            'In the Apple Shortcuts app, tap the Automations tab, then tap "+" to create a new Personal Automation.',
-                      ),
-                      SizedBox(height: 16),
-                      _StepItem(
-                        step: 2,
-                        title: 'Choose "Transaction" Trigger',
-                        description:
-                            'Select "Transaction" as the trigger type. You can choose to run it for all cards or filter by a specific card in your Wallet.',
-                      ),
-                      SizedBox(height: 16),
-                      _StepItem(
-                        step: 3,
-                        title: 'Add the Moneko Action',
-                        description:
-                            'Tap "New Blank Automation", then search for "Log Wallet Transaction" in the actions list. Select it to add it to your automation.',
-                      ),
-                      SizedBox(height: 16),
-                      _StepItem(
-                        step: 4,
-                        title: 'Enable "Run Immediately"',
-                        description:
-                            'Important: Turn on "Run Immediately" (or "Run Without Asking") so the automation runs silently in the background without requiring confirmation each time.',
-                      ),
-                      SizedBox(height: 16),
-                      _StepItem(
-                        step: 5,
-                        title: 'You\'re All Set!',
-                        description:
-                            'Every Apple Pay transaction will now be automatically logged in Moneko. AI will categorize each transaction based on the merchant name.',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                _SectionTitle(title: 'Privacy'),
-                const SizedBox(height: 8),
-                _SectionCard(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.shield_rounded,
-                        size: 20,
-                        color: colorScheme.mutedForeground,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: material.Text(
-                          'Only you can access it. Moneko never sells or shares your financial data.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.mutedForeground,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Shared Widgets ────────────────────────────────────────────────────────
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey.shade600,
-          letterSpacing: -0.2,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(12),
-        border:
-            isDarkMode ? Border.all(color: colorScheme.surfaceBorder) : null,
-        boxShadow: isDarkMode
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: isSyncing ? null : onSync,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Sync Credentials Only',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.primary,
+                  ),
                 ),
-              ],
+              ),
+            ),
+          ],
+        ),
       ),
-      child: child,
     );
   }
 }
 
-class _StepItem extends StatelessWidget {
-  const _StepItem({
-    required this.step,
-    required this.title,
-    required this.description,
-  });
-
-  final int step;
+class _SettingsGroup extends StatelessWidget {
   final String title;
-  final String description;
+  final List<Widget> children;
+
+  const _SettingsGroup({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.monekoPrimary, AppTheme.monekoSecondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
           child: Text(
-            '$step',
-            style: const TextStyle(
+            title.toUpperCase(),
+            style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+              letterSpacing: 0.5,
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                  height: 1.5,
-                ),
-              ),
-            ],
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.card,
+            borderRadius: BorderRadius.circular(16),
+            border:
+                isDark ? Border.all(color: colorScheme.surfaceBorder) : null,
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              children: children,
+            ),
           ),
         ),
       ],
@@ -568,69 +473,142 @@ class _StepItem extends StatelessWidget {
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.onPressed,
-    required this.icon,
-    required this.label,
-  });
-
-  final VoidCallback? onPressed;
+class _SettingsTile extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final Color iconColor;
+  final Color iconBackgroundColor;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool showDivider;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackgroundColor,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.showDivider = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppTheme.monekoPrimary,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
+    Widget content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: iconBackgroundColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 18, color: iconColor),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).colorScheme.foreground,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Theme.of(context).colorScheme.mutedForeground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
       ),
+    );
+
+    if (onTap != null) {
+      content = InkWell(onTap: onTap, child: content);
+    }
+
+    return Column(
+      children: [
+        content,
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.only(left: 64),
+            child: Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Theme.of(context).colorScheme.border),
+          ),
+      ],
     );
   }
 }
 
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({
-    required this.onPressed,
-    required this.icon,
-    required this.label,
-  });
-
-  final VoidCallback? onPressed;
+class _FeatureItem extends StatelessWidget {
   final IconData icon;
-  final String label;
+  final String title;
+  final String description;
+
+  const _FeatureItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: colorScheme.onSurface,
-        side: BorderSide(color: colorScheme.border),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 28, color: colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.mutedForeground,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
