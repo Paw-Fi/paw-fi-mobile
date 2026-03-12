@@ -22,6 +22,7 @@ import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -33,6 +34,7 @@ class PocketsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final viewMode = ref.watch(viewModeProvider);
+    final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
@@ -398,6 +400,16 @@ class PocketsPage extends HookConsumerWidget {
                                         if (isSavingChanges.value) return;
                                         isSavingChanges.value = true;
                                         try {
+                                          if (isPreviewMode) {
+                                            if (context.mounted) {
+                                              AppToast.info(
+                                                context,
+                                                context.l10n
+                                                    .previewMockUpdatesApplied,
+                                              );
+                                            }
+                                            return;
+                                          }
                                           await currentPocketsNotifier
                                               .saveChanges();
                                           if (context.mounted) {
@@ -537,8 +549,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                     final result = await MonekoAlertDialog.show(
                       context: context,
                       title: context.l10n.pocketsCopyDialogTitle,
-                      description:
-                          context.l10n.pocketsCopyDialogDesc,
+                      description: context.l10n.pocketsCopyDialogDesc,
                       confirmLabel: context.l10n.pocketsCopyConfirm,
                       cancelLabel: context.l10n.cancel,
                     );
@@ -671,7 +682,9 @@ class _CopyBudgetBanner extends StatelessWidget {
             child: PrimaryAdaptiveButton(
               onPressed: isCopying ? null : onCopyPockets,
               child: Text(
-                isCopying ? context.l10n.pocketsCopyingAction : context.l10n.pocketsCopyLastMonthAction,
+                isCopying
+                    ? context.l10n.pocketsCopyingAction
+                    : context.l10n.pocketsCopyLastMonthAction,
               ),
             ),
           ),

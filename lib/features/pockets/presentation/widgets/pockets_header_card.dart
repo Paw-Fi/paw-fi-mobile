@@ -84,7 +84,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final VoidCallback? onReusePrevious;
   final ColorScheme colorScheme;
   final ValueChanged<double> onTotalChanged;
-  final VoidCallback? onSave;
+  final Future<void> Function()? onSave;
   final String currency;
   final ValueChanged<DateTime>? onDateSelected;
   final bool isSkeleton;
@@ -312,7 +312,7 @@ class PocketsHeaderCard extends StatelessWidget {
     final val = double.tryParse(normalized);
     if (val != null && val >= 0) {
       onTotalChanged(val.roundToDouble());
-      onSave?.call();
+      await onSave?.call();
     }
   }
 

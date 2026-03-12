@@ -2,6 +2,38 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_timezone/flutter_timezone.dart';
 
+String currentDeviceTimezoneOffsetLabel() {
+  final offset = DateTime.now().timeZoneOffset;
+  if (offset.inMinutes == 0) return 'UTC';
+
+  return 'UTC${_formatSignedOffsetMinutes(offset.inMinutes)}';
+}
+
+String? canonicalTimezoneValue(String? timezone) {
+  final trimmed = timezone?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+
+  final offset = tryParseTimezoneOffsetMinutes(trimmed);
+  if (offset == null) return trimmed;
+  if (offset == 0) return 'UTC';
+
+  return 'UTC${_formatSignedOffsetMinutes(offset)}';
+}
+
+Future<String> resolveCanonicalDeviceTimezone() async {
+  final resolved =
+      canonicalTimezoneValue(await resolveDeviceTimezoneIdentifier());
+  final isValidResolvedTimezone = resolved != null &&
+      resolved.isNotEmpty &&
+      (resolved.contains('/') ||
+          tryParseTimezoneOffsetMinutes(resolved) != null);
+  if (isValidResolvedTimezone) {
+    return resolved;
+  }
+
+  return currentDeviceTimezoneOffsetLabel();
+}
+
 int? tryParseTimezoneOffsetMinutes(String timezone) {
   if (timezone == 'UTC' || timezone == 'GMT') return 0;
 
@@ -215,4 +247,12 @@ String _formatUtcOffset(Duration offset) {
   final hours = (totalMinutes ~/ 60).toString().padLeft(2, '0');
   final minutes = (totalMinutes % 60).toString().padLeft(2, '0');
   return 'GMT$sign$hours:$minutes';
+}
+
+String _formatSignedOffsetMinutes(int offsetMinutes) {
+  final sign = offsetMinutes >= 0 ? '+' : '-';
+  final absMinutes = offsetMinutes.abs();
+  final hours = (absMinutes ~/ 60).toString().padLeft(2, '0');
+  final minutes = (absMinutes % 60).toString().padLeft(2, '0');
+  return '$sign$hours:$minutes';
 }

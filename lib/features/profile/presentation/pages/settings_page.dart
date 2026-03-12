@@ -191,7 +191,11 @@ class SettingsPage extends HookConsumerWidget {
       ),
     );
     final nameReloadKey = useState(0);
-    final deviceTimezone = _currentDeviceTimezone();
+    final deviceTimezoneFuture = useFuture(
+      useMemoized(resolveCanonicalDeviceTimezone),
+    );
+    final deviceTimezone =
+        deviceTimezoneFuture.data ?? currentDeviceTimezoneOffsetLabel();
     final deviceOffsetMinutes = DateTime.now().timeZoneOffset.inMinutes;
 
     useEffect(() {
@@ -402,7 +406,7 @@ class SettingsPage extends HookConsumerWidget {
     const supportedLocales = AppLocalizations.supportedLocales;
     final dropdownValue = _coerceToSupported(selectedLocale, supportedLocales);
     final canonicalSelectedTimezone =
-        _canonicalTimezoneValue(selectedTimezone.value);
+        canonicalTimezoneValue(selectedTimezone.value);
     final isLegacyTimezone =
         _isLegacyTimezoneValue(selectedTimezone.value ?? '');
     final timezoneValue = isLegacyTimezone
@@ -448,17 +452,25 @@ class SettingsPage extends HookConsumerWidget {
     Future<void> handleTimezoneChange(String timezone) async {
       final previous = selectedTimezone.value;
       final isDeviceMode = timezone == _deviceTimezoneSentinel;
-      final timezoneToPersist =
-          isDeviceMode ? null : _canonicalTimezoneValue(timezone);
+      final timezoneToPersist = isDeviceMode
+          ? canonicalTimezoneValue(deviceTimezone)
+          : canonicalTimezoneValue(timezone);
       selectedTimezone.value = timezoneToPersist;
       try {
-        await Supabase.instance.client.functions.invoke(
+        final response = await Supabase.instance.client.functions.invoke(
           'update-preferred-timezone',
           body: {
             'userId': authState.uid,
             'timezone': timezoneToPersist,
           },
         );
+        final data = response.data;
+        final isSuccessful = response.status < 400 &&
+            data is Map<String, dynamic> &&
+            (data['ok'] == true || data['success'] == true);
+        if (!isSuccessful) {
+          throw Exception('Failed to update timezone');
+        }
         // Update the contact in-place so the useEffect doesn't reset
         // selectedTimezone to null during the transient empty state that
         // ref.invalidate would cause.
@@ -939,7 +951,7 @@ class SettingsPage extends HookConsumerWidget {
                         final normalizedSelection =
                             selection?.value == _deviceTimezoneSentinel
                                 ? null
-                                : _canonicalTimezoneValue(selection?.value);
+                                : canonicalTimezoneValue(selection?.value);
                         if (selection != null &&
                             normalizedSelection != selectedTimezone.value) {
                           await handleTimezoneChange(selection.value);
@@ -2583,20 +2595,6 @@ class _SettingsTile extends StatelessWidget {
   }
 }
 
-String _currentDeviceTimezone() {
-  try {
-    final now = DateTime.now();
-    final offset = now.timeZoneOffset;
-    if (offset.inMinutes == 0) return 'UTC';
-    final sign = offset.isNegative ? '-' : '+';
-    final hours = offset.inHours.abs().toString().padLeft(2, '0');
-    final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
-    return 'UTC$sign$hours:$minutes';
-  } catch (_) {
-    return 'UTC';
-  }
-}
-
 String _formatOffsetMinutes(int offsetMinutes) {
   final sign = offsetMinutes >= 0 ? '+' : '-';
   final absMinutes = offsetMinutes.abs();
@@ -2726,7 +2724,7 @@ List<_TimezoneOption> _buildTimezoneOptionsList({
   }
 
   if (hideMatchingDeviceOffsetOption) {
-    final canonicalDeviceTimezone = _canonicalTimezoneValue(deviceTimezone);
+    final canonicalDeviceTimezone = canonicalTimezoneValue(deviceTimezone);
     if (canonicalDeviceTimezone != null) {
       options.remove(canonicalDeviceTimezone);
     }
@@ -2752,15 +2750,6 @@ bool _isLegacyTimezoneValue(String timezone) {
   final trimmed = timezone.trim();
   if (trimmed.isEmpty) return false;
   return !_isValidFixedOffsetTimezone(trimmed);
-}
-
-String? _canonicalTimezoneValue(String? timezone) {
-  final trimmed = timezone?.trim();
-  if (trimmed == null || trimmed.isEmpty) return null;
-  final offset = tryParseTimezoneOffsetMinutes(trimmed);
-  if (offset == null) return trimmed;
-  if (offset == 0) return 'UTC';
-  return 'UTC${_formatOffsetMinutes(offset)}';
 }
 
 Future<void> _showEditNameSheet({

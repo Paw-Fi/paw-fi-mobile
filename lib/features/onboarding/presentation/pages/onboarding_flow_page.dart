@@ -118,7 +118,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       (title: context.l10n.onboardingIntroSlide2Title, body: ''),
       (
         title: context.l10n.onboardingIntroSlide3Title,
-        body: context.l10n.onboardingIntroSlide3Body
+        body: ""
       ),
       (title: context.l10n.onboardingIntroSlide4Title, body: ''),
     ];

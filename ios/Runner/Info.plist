@@ -87,6 +87,8 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
     <!-- Enable background remote notifications -->
     <key>UIBackgroundModes</key>
     <array>

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -247,7 +248,17 @@ class PocketsGridSection extends HookConsumerWidget {
                 : null,
             colorScheme: colorScheme,
             onTotalChanged: notifier.updateTotalBudget,
-            onSave: notifier.saveChanges,
+            onSave: () async {
+              if (ref.read(previewModeProvider).isActive) {
+                AppToast.info(
+                  context,
+                  context.l10n.previewMockUpdatesApplied,
+                );
+                return;
+              }
+
+              await notifier.saveChanges();
+            },
             currency: selectedCurrency,
             onDateSelected: onDateSelected,
             isSkeleton: isLoading,
