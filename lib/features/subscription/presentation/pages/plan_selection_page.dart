@@ -26,6 +26,8 @@ void _debugLog(Object? message) {
 void print(Object? message) => _debugLog(message);
 
 const bool forceUseStripeCheckout = false;
+const String purchaseOwnedByAnotherAccountCode =
+    'PURCHASE_OWNED_BY_ANOTHER_ACCOUNT';
 
 enum PlanSelectionMode {
   trial,
@@ -145,6 +147,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final iapProcessing = iapStateAsync.valueOrNull?.isProcessing ?? false;
     final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
+    final iapLastErrorCode = iapStateAsync.valueOrNull?.lastErrorCode;
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
 
@@ -173,9 +176,16 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    String humanizePurchaseError(String raw) {
+    String humanizePurchaseError(String raw, [String? code]) {
       final message = raw.trim();
       final lower = message.toLowerCase();
+      if (code == purchaseOwnedByAnotherAccountCode ||
+          lower.contains('linked to another moneko account') ||
+          lower.contains('belongs to another account')) {
+        return message.isNotEmpty
+            ? message
+            : 'This App Store purchase is already linked to another Moneko account.';
+      }
       if (lower.contains('cancel')) return 'Purchase cancelled.';
       if (lower.contains('subscription_managed_in_app') ||
           lower.contains('managed through an in-app purchase')) {
@@ -193,16 +203,19 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (lower.contains('verification')) {
         return 'Purchase verification failed. Please try again.';
       }
-      return 'Purchase failed. Please try again.';
+      return message.isNotEmpty
+          ? message
+          : 'Purchase failed. Please try again.';
     }
 
-    void showIapError(String message, String source) {
+    void showIapError(String message, String source, [String? code]) {
       if (message.isEmpty) return;
-      if (message == lastIapErrorShown.value) return;
-      lastIapErrorShown.value = message;
+      final dedupeKey = '${code ?? ''}:$message';
+      if (dedupeKey == lastIapErrorShown.value) return;
+      lastIapErrorShown.value = dedupeKey;
       runAfterBuild(() {
         dismissProcessingDialog('iap error $source');
-        AppToast.error(context, humanizePurchaseError(message));
+        AppToast.error(context, humanizePurchaseError(message, code));
       });
     }
 
@@ -226,12 +239,16 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (next.hasError) {
           dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
-          showIapError('Purchase failed. Please try again.', 'provider error');
+          showIapError(
+            'Purchase failed. Please try again.',
+            'provider error',
+          );
           return;
         }
 
         final nextError = nextState?.lastError;
         final prevError = prevState?.lastError;
+        final nextErrorCode = nextState?.lastErrorCode;
         _debugLog(
             '🔍 Error check: nextError="$nextError" prevError="$prevError"');
         if (nextError != null &&
@@ -239,7 +256,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             nextError != prevError) {
           _debugLog('🚨 IAP purchase error detected: $nextError');
           _debugLog('🚨 Calling showIapError...');
-          showIapError(nextError, 'lastError');
+          showIapError(nextError, 'lastError', nextErrorCode);
           _debugLog('🚨 showIapError called');
         }
 
@@ -360,6 +377,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       useIap,
       iapProcessing,
       iapLastError,
+      iapLastErrorCode,
       processingDialogOpen.value,
       processingDialogKind.value,
     ]);
@@ -824,9 +842,49 @@ class PlanSelectionPage extends HookConsumerWidget {
           await ref.read(iapControllerProvider.notifier).restorePurchases();
         }
         await ref.read(subscriptionManagementProvider.notifier).refresh();
-        if (context.mounted) {
-          AppToast.success(context, 'Subscription status restored');
+
+        var refreshedSubscription =
+            ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+        var refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
+        var restoreError = refreshedIapState?.lastError ?? '';
+        var restoreErrorCode = refreshedIapState?.lastErrorCode;
+        var isRestored = refreshedSubscription?.isSubscribed ?? false;
+
+        if (useIap && !isRestored && restoreError.isEmpty) {
+          for (var attempt = 0; attempt < 5; attempt++) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            refreshedSubscription = ref
+                .read(subscriptionManagementProvider)
+                .valueOrNull
+                ?.subscription;
+            refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
+            restoreError = refreshedIapState?.lastError ?? '';
+            restoreErrorCode = refreshedIapState?.lastErrorCode;
+            isRestored = refreshedSubscription?.isSubscribed ?? false;
+            if (isRestored || restoreError.isNotEmpty) {
+              break;
+            }
+          }
         }
+
+        if (!context.mounted) return;
+
+        if (isRestored) {
+          AppToast.success(context, 'Subscription status restored');
+          return;
+        }
+
+        if (restoreError.isNotEmpty) {
+          AppToast.error(
+            context,
+            humanizePurchaseError(restoreError, restoreErrorCode),
+          );
+          return;
+        }
+
+        AppToast.error(
+            context, 'Failed to restore: Purchase failed. Please try again.');
       } catch (e) {
         if (context.mounted) {
           AppToast.error(context, 'Failed to restore: ${e.toString()}');

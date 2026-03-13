@@ -34,6 +34,8 @@ void _debugLog(Object? message) {
 void print(Object? message) => _debugLog(message);
 
 const bool forceUseStripeCheckout = false;
+const String purchaseOwnedByAnotherAccountCode =
+    'PURCHASE_OWNED_BY_ANOTHER_ACCOUNT';
 
 enum PaywallMode {
   trial,
@@ -150,6 +152,7 @@ class PaywallScreen extends HookConsumerWidget {
 
     final iapProcessing = iapStateAsync.valueOrNull?.isProcessing ?? false;
     final iapLastError = iapStateAsync.valueOrNull?.lastError ?? '';
+    final iapLastErrorCode = iapStateAsync.valueOrNull?.lastErrorCode;
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
     final didInitiateCheckout = useRef(false);
@@ -193,11 +196,19 @@ class PaywallScreen extends HookConsumerWidget {
       }
     }
 
-    String humanizePurchaseError(String raw) {
+    String humanizePurchaseError(String raw, [String? code]) {
       final message = raw.trim();
       final lower = message.toLowerCase();
-      if (lower.contains('cancel'))
+      if (code == purchaseOwnedByAnotherAccountCode ||
+          lower.contains('linked to another moneko account') ||
+          lower.contains('belongs to another account')) {
+        return message.isNotEmpty
+            ? message
+            : 'This App Store purchase is already linked to another Moneko account.';
+      }
+      if (lower.contains('cancel')) {
         return context.l10n.paywallErrorPurchaseCancelled;
+      }
       if (lower.contains('subscription_managed_in_app') ||
           lower.contains('managed through an in-app purchase')) {
         return context.l10n.paywallErrorManagedInStore;
@@ -214,16 +225,17 @@ class PaywallScreen extends HookConsumerWidget {
       if (lower.contains('verification')) {
         return context.l10n.paywallErrorVerificationFailed;
       }
-      return context.l10n.paywallErrorGeneric;
+      return message.isNotEmpty ? message : context.l10n.paywallErrorGeneric;
     }
 
-    void showIapError(String message, String source) {
+    void showIapError(String message, String source, [String? code]) {
       if (message.isEmpty) return;
-      if (message == lastIapErrorShown.value) return;
-      lastIapErrorShown.value = message;
+      final dedupeKey = '${code ?? ''}:$message';
+      if (dedupeKey == lastIapErrorShown.value) return;
+      lastIapErrorShown.value = dedupeKey;
       runAfterBuild(() {
         dismissProcessingDialog('iap error $source');
-        AppToast.error(context, humanizePurchaseError(message));
+        AppToast.error(context, humanizePurchaseError(message, code));
       });
     }
 
@@ -247,7 +259,10 @@ class PaywallScreen extends HookConsumerWidget {
         if (next.hasError) {
           dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
-          showIapError(context.l10n.paywallErrorGeneric, 'provider error');
+          showIapError(
+            context.l10n.paywallErrorGeneric,
+            'provider error',
+          );
           return;
         }
 
@@ -381,6 +396,7 @@ class PaywallScreen extends HookConsumerWidget {
       useIap,
       iapProcessing,
       iapLastError,
+      iapLastErrorCode,
       processingDialogOpen.value,
       processingDialogKind.value,
     ]);
@@ -802,8 +818,9 @@ class PaywallScreen extends HookConsumerWidget {
           final catalog = activePlanOption.catalogProduct;
           print(
               '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
-          if (catalog == null)
+          if (catalog == null) {
             throw Exception(context.l10n.paywallErrorMissingProductMapping);
+          }
 
           print('✅ catalogProduct is valid, proceeding...');
 
@@ -969,15 +986,61 @@ class PaywallScreen extends HookConsumerWidget {
         if (useIap) {
           await ref.read(iapControllerProvider.notifier).restorePurchases();
         }
+
         await ref.read(subscriptionManagementProvider.notifier).refresh();
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.paywallRestoreSuccess);
+
+        var refreshedSubscription =
+            ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+        var refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
+        var restoreError = refreshedIapState?.lastError ?? '';
+        var restoreErrorCode = refreshedIapState?.lastErrorCode;
+        var isRestored = refreshedSubscription?.isSubscribed ?? false;
+
+        if (useIap && !isRestored && restoreError.isEmpty) {
+          for (var attempt = 0; attempt < 5; attempt++) {
+            await Future<void>.delayed(const Duration(seconds: 1));
+            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            refreshedSubscription = ref
+                .read(subscriptionManagementProvider)
+                .valueOrNull
+                ?.subscription;
+            refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
+            restoreError = refreshedIapState?.lastError ?? '';
+            restoreErrorCode = refreshedIapState?.lastErrorCode;
+            isRestored = refreshedSubscription?.isSubscribed ?? false;
+            if (isRestored || restoreError.isNotEmpty) {
+              break;
+            }
+          }
         }
+
+        if (!context.mounted) return;
+
+        if (isRestored) {
+          AppToast.success(context, context.l10n.paywallRestoreSuccess);
+          return;
+        }
+
+        didInitiateRestore.value = false;
+        if (restoreError.isNotEmpty) {
+          AppToast.error(
+            context,
+            humanizePurchaseError(restoreError, restoreErrorCode),
+          );
+          return;
+        }
+
+        AppToast.error(
+          context,
+          context.l10n.paywallRestoreFailed(context.l10n.paywallErrorGeneric),
+        );
       } catch (e) {
         didInitiateRestore.value = false;
         if (context.mounted) {
           AppToast.error(
-              context, context.l10n.paywallRestoreFailed(e.toString()));
+            context,
+            context.l10n.paywallRestoreFailed(e.toString()),
+          );
         }
       } finally {
         dismissProcessingDialog('restore purchases');
@@ -1148,12 +1211,15 @@ class PaywallScreen extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 24),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: colorScheme.primary.withValues(alpha: 0.2),
+                                  color: colorScheme.primary
+                                      .withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Text(
