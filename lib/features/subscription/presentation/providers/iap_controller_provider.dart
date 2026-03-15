@@ -26,6 +26,7 @@ class IapState {
   final bool storeAvailable;
   final Map<String, ProductDetails> productDetailsById;
   final String? lastError;
+  final String? lastErrorCode;
   final bool isProcessing;
 
   /// The product ID that the user initiated a purchase for in this session.
@@ -41,6 +42,7 @@ class IapState {
     required this.storeAvailable,
     required this.productDetailsById,
     required this.lastError,
+    this.lastErrorCode,
     this.isProcessing = false,
     this.initiatedProductId,
     this.lastCompletedProductId,
@@ -50,6 +52,7 @@ class IapState {
     bool? storeAvailable,
     Map<String, ProductDetails>? productDetailsById,
     String? lastError,
+    String? lastErrorCode,
     bool? isProcessing,
     String? initiatedProductId,
     String? lastCompletedProductId,
@@ -60,6 +63,7 @@ class IapState {
       storeAvailable: storeAvailable ?? this.storeAvailable,
       productDetailsById: productDetailsById ?? this.productDetailsById,
       lastError: lastError,
+      lastErrorCode: lastErrorCode,
       isProcessing: isProcessing ?? this.isProcessing,
       initiatedProductId: clearInitiatedProductId
           ? null
@@ -74,6 +78,7 @@ class IapState {
 class IapController extends AsyncNotifier<IapState> {
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   Timer? _processingTimeout;
+  Completer<void>? _restoreAttemptCompleter;
   bool _didReceivePurchaseUpdateForCurrentAttempt = false;
 
   static const _processingTimeoutDuration = Duration(minutes: 2);
@@ -82,12 +87,21 @@ class IapController extends AsyncNotifier<IapState> {
         storeAvailable: false,
         productDetailsById: {},
         lastError: null,
+        lastErrorCode: null,
       );
+
+  void _completeRestoreAttempt() {
+    final completer = _restoreAttemptCompleter;
+    if (completer == null || completer.isCompleted) return;
+    completer.complete();
+    _restoreAttemptCompleter = null;
+  }
 
   void _setState({
     bool? storeAvailable,
     Map<String, ProductDetails>? productDetailsById,
     String? lastError,
+    String? lastErrorCode,
     bool? isProcessing,
     String? initiatedProductId,
     String? lastCompletedProductId,
@@ -99,6 +113,7 @@ class IapController extends AsyncNotifier<IapState> {
       storeAvailable: storeAvailable,
       productDetailsById: productDetailsById,
       lastError: lastError,
+      lastErrorCode: lastErrorCode,
       isProcessing: isProcessing,
       initiatedProductId: initiatedProductId,
       lastCompletedProductId: lastCompletedProductId,
@@ -107,7 +122,7 @@ class IapController extends AsyncNotifier<IapState> {
     );
 
     print(
-        '📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}');
+        '📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}, lastErrorCode=${next.lastErrorCode}');
 
     // Safety: never allow the UI to be stuck forever.
     if (next.isProcessing) {
@@ -120,6 +135,7 @@ class IapController extends AsyncNotifier<IapState> {
           latest.copyWith(
             isProcessing: false,
             lastError: 'Purchase timed out. Please try again.',
+            lastErrorCode: null,
           ),
         );
       });
@@ -132,6 +148,22 @@ class IapController extends AsyncNotifier<IapState> {
     print('📊 State updated successfully');
   }
 
+  ({String message, String? code}) _extractFunctionError(Object? value) {
+    if (value is Map) {
+      final rawMessage = value['error'];
+      final rawCode = value['code'];
+      final message = rawMessage is String && rawMessage.trim().isNotEmpty
+          ? rawMessage.trim()
+          : 'Verification failed';
+      final code = rawCode is String && rawCode.trim().isNotEmpty
+          ? rawCode.trim()
+          : null;
+      return (message: message, code: code);
+    }
+
+    return (message: 'Verification failed', code: null);
+  }
+
   @override
   Future<IapState> build() async {
     print('🏗️ IapController.build() called');
@@ -140,7 +172,11 @@ class IapController extends AsyncNotifier<IapState> {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
       print('⚠️ IAP not supported on this platform');
       return const IapState(
-          storeAvailable: false, productDetailsById: {}, lastError: null);
+        storeAvailable: false,
+        productDetailsById: {},
+        lastError: null,
+        lastErrorCode: null,
+      );
     }
 
     final products = ref.watch(subscriptionProductsProvider).value ??
@@ -152,7 +188,11 @@ class IapController extends AsyncNotifier<IapState> {
       print('⚠️ No products loaded from catalog');
       _ensurePurchaseListener();
       return const IapState(
-          storeAvailable: false, productDetailsById: {}, lastError: null);
+        storeAvailable: false,
+        productDetailsById: {},
+        lastError: null,
+        lastErrorCode: null,
+      );
     }
 
     _ensurePurchaseListener();
@@ -164,7 +204,11 @@ class IapController extends AsyncNotifier<IapState> {
     if (!isAvailable) {
       print('❌ Store not available');
       return const IapState(
-          storeAvailable: false, productDetailsById: {}, lastError: null);
+        storeAvailable: false,
+        productDetailsById: {},
+        lastError: null,
+        lastErrorCode: null,
+      );
     }
 
     final ids = products.map((p) => p.storeProductId).toSet();
@@ -178,6 +222,7 @@ class IapController extends AsyncNotifier<IapState> {
         storeAvailable: true,
         productDetailsById: const {},
         lastError: response.error!.message,
+        lastErrorCode: null,
       );
     }
 
@@ -319,7 +364,11 @@ class IapController extends AsyncNotifier<IapState> {
 
         if (!product.isLifetime && (offerToken == null || offerToken.isEmpty)) {
           print('❌ No offer token available for Android subscription');
-          _setState(isProcessing: false, lastError: 'No subscription offer');
+          _setState(
+            isProcessing: false,
+            lastError: 'No subscription offer',
+            lastErrorCode: null,
+          );
           throw Exception('No subscription offer available for this product');
         }
         purchaseParam = GooglePlayPurchaseParam(
@@ -376,6 +425,7 @@ class IapController extends AsyncNotifier<IapState> {
         _setState(
           isProcessing: false,
           lastError: 'Purchase cancelled.',
+          lastErrorCode: null,
           clearInitiatedProductId: true,
         );
       }
@@ -391,6 +441,7 @@ class IapController extends AsyncNotifier<IapState> {
       _setState(
         isProcessing: false,
         lastError: error.toString(),
+        lastErrorCode: null,
       );
       rethrow;
     } finally {
@@ -405,14 +456,41 @@ class IapController extends AsyncNotifier<IapState> {
       throw Exception('User not logged in');
     }
 
+    _setState(
+      isProcessing: true,
+      lastError: null,
+      lastErrorCode: null,
+      clearLastCompletedProductId: true,
+    );
+
+    final completer = Completer<void>();
+    _restoreAttemptCompleter = completer;
+
     await InAppPurchase.instance
         .restorePurchases(applicationUserName: user.uid);
+
+    await completer.future.timeout(
+      const Duration(seconds: 12),
+      onTimeout: () {
+        final current = state.valueOrNull ?? _fallbackState();
+        if (current.isProcessing) {
+          _setState(
+            isProcessing: false,
+            lastError: current.lastError,
+            lastErrorCode: current.lastErrorCode,
+          );
+        }
+        _completeRestoreAttempt();
+      },
+    );
   }
 
   Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchases) async {
     print('🔔 _onPurchaseUpdated called with ${purchases.length} purchase(s)');
     print(
         '🧭 _onPurchaseUpdated at ${DateTime.now().toIso8601String()} processing=${state.valueOrNull?.isProcessing}');
+
+    var sawTerminalPurchaseUpdate = false;
 
     for (final purchase in purchases) {
       print(
@@ -425,11 +503,14 @@ class IapController extends AsyncNotifier<IapState> {
           continue;
         }
 
+        sawTerminalPurchaseUpdate = true;
+
         if (purchase.status == PurchaseStatus.canceled) {
           print('🚫 Purchase cancelled by store');
           _setState(
             isProcessing: false,
             lastError: 'Purchase cancelled.',
+            lastErrorCode: null,
             clearInitiatedProductId: true,
           );
           continue;
@@ -440,6 +521,7 @@ class IapController extends AsyncNotifier<IapState> {
           _setState(
             isProcessing: false,
             lastError: purchase.error?.message ?? 'Purchase error',
+            lastErrorCode: null,
             clearInitiatedProductId: true,
           );
           continue;
@@ -459,6 +541,7 @@ class IapController extends AsyncNotifier<IapState> {
             _setState(
               isProcessing: false,
               lastError: 'Unknown product purchased',
+              lastErrorCode: null,
               clearInitiatedProductId: true,
             );
             continue;
@@ -529,20 +612,15 @@ class IapController extends AsyncNotifier<IapState> {
               print('❌ Verification failed with status ${response.status}');
               print('📡 Response data: ${response.data}');
 
-              // Extract error message from response body
-              String errorMessage = 'Verification failed';
-              final data = response.data;
-              if (data is Map && data['error'] is String) {
-                final backendError = (data['error'] as String).trim();
-                if (backendError.isNotEmpty) {
-                  errorMessage = backendError;
-                }
-              }
-              print('🔍 Extracted error message: $errorMessage');
+              final extractedError = _extractFunctionError(response.data);
+              print('🔍 Extracted error message: ${extractedError.message}');
+              print(
+                  '🔍 Extracted error code: ${extractedError.code ?? "none"}');
 
               _setState(
                 isProcessing: false,
-                lastError: errorMessage,
+                lastError: extractedError.message,
+                lastErrorCode: extractedError.code,
                 clearInitiatedProductId: true,
               );
 
@@ -566,6 +644,7 @@ class IapController extends AsyncNotifier<IapState> {
               _setState(
                 isProcessing: false,
                 lastError: null,
+                lastErrorCode: null,
                 lastCompletedProductId: purchase.productID,
                 clearInitiatedProductId: true,
               );
@@ -578,13 +657,18 @@ class IapController extends AsyncNotifier<IapState> {
                 isProcessing: false,
                 lastError:
                     'You already own this subscription. It has been restored.',
+                lastErrorCode: null,
                 clearInitiatedProductId: true,
               );
             } else {
               print(
                   'ℹ️ Background purchase processed (not user-initiated): ${purchase.productID}');
               // For non-user-initiated purchases, just clear processing without triggering navigation
-              _setState(isProcessing: false, lastError: null);
+              _setState(
+                isProcessing: false,
+                lastError: null,
+                lastErrorCode: null,
+              );
             }
           } catch (error, stackTrace) {
             final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
@@ -593,23 +677,23 @@ class IapController extends AsyncNotifier<IapState> {
 
             // Extract actual error message from FunctionException
             String errorMessage = 'Verification failed';
+            String? errorCode;
             if (error is FunctionException) {
               final details = error.details;
-              if (details is Map && details['error'] is String) {
-                final backendError = (details['error'] as String).trim();
-                if (backendError.isNotEmpty) {
-                  errorMessage = backendError;
-                }
-              }
+              final extractedError = _extractFunctionError(details);
+              errorMessage = extractedError.message;
+              errorCode = extractedError.code;
               print('🔍 FunctionException details: $details');
               print('🔍 Extracted error message: $errorMessage');
+              print('🔍 Extracted error code: ${errorCode ?? "none"}');
             }
 
             print(
-                '🚨 Setting error state: isProcessing=false, lastError=$errorMessage');
+                '🚨 Setting error state: isProcessing=false, lastError=$errorMessage, lastErrorCode=${errorCode ?? "none"}');
             _setState(
               isProcessing: false,
               lastError: errorMessage,
+              lastErrorCode: errorCode,
               clearInitiatedProductId: true,
             );
             print('✅ Error state set successfully');
@@ -621,6 +705,7 @@ class IapController extends AsyncNotifier<IapState> {
         _setState(
           isProcessing: false,
           lastError: e.toString(),
+          lastErrorCode: null,
           clearInitiatedProductId: true,
         );
       } finally {
@@ -632,6 +717,10 @@ class IapController extends AsyncNotifier<IapState> {
           }
         }
       }
+    }
+
+    if (sawTerminalPurchaseUpdate) {
+      _completeRestoreAttempt();
     }
   }
 }
