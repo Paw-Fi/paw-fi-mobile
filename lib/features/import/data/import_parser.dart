@@ -139,8 +139,7 @@ int _countOutsideQuotes(String line, String needle) {
 // ---------------------------------------------------------------------------
 
 ImportTable parseImportTable(String content, {bool hasHeader = true}) {
-  final sanitized =
-      content.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
+  final sanitized = _normalizeImportCsvContent(content);
   if (sanitized.isEmpty) {
     return const ImportTable(headers: [], rows: []);
   }
@@ -189,6 +188,60 @@ ImportTable parseImportTable(String content, {bool hasHeader = true}) {
     detectedDelimiter: delimiter,
     formatHint: formatHint,
   );
+}
+
+String _normalizeImportCsvContent(String content) {
+  final normalized = content
+      .replaceAll('\uFEFF', '')
+      .replaceAll('\x00', '')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
+
+  final buffer = StringBuffer();
+  final pendingWhitespace = StringBuffer();
+  var inQuotes = false;
+
+  void flushPendingWhitespace() {
+    if (pendingWhitespace.isEmpty) return;
+    buffer.write(pendingWhitespace.toString());
+    pendingWhitespace.clear();
+  }
+
+  for (var i = 0; i < normalized.length; i++) {
+    final char = normalized[i];
+
+    if (char == '"') {
+      if (inQuotes && i + 1 < normalized.length && normalized[i + 1] == '"') {
+        flushPendingWhitespace();
+        buffer.write('""');
+        i += 1;
+        continue;
+      }
+
+      flushPendingWhitespace();
+      inQuotes = !inQuotes;
+      buffer.write(char);
+      continue;
+    }
+
+    if (!inQuotes && (char == ' ' || char == '\t')) {
+      pendingWhitespace.write(char);
+      continue;
+    }
+
+    if (!inQuotes &&
+        (char == ',' || char == ';' || char == '|' || char == '\n')) {
+      pendingWhitespace.clear();
+      buffer.write(char);
+      continue;
+    }
+
+    flushPendingWhitespace();
+    buffer.write(char);
+  }
+
+  flushPendingWhitespace();
+  return buffer.toString().trim();
 }
 
 /// Returns the index of the first "real" header row. Some bank exports prepend
@@ -286,6 +339,13 @@ ImportParsedRow parseRow(
   final currencyValue = valueFor(ImportField.currency);
   final typeValue = valueFor(ImportField.type);
   final referenceValue = valueFor(ImportField.reference);
+  final balanceValue = valueFor(ImportField.balance);
+  final amountValue =
+      mapping.hasSplitDebitCredit ? null : valueFor(ImportField.amount);
+  final debitValue =
+      mapping.hasSplitDebitCredit ? valueFor(ImportField.debit) : null;
+  final creditValue =
+      mapping.hasSplitDebitCredit ? valueFor(ImportField.credit) : null;
 
   final parsedDate = parseDateValue(dateValue);
   if (parsedDate == null) {
@@ -295,11 +355,8 @@ ImportParsedRow parseRow(
   // Amount resolution: support both single-column and split debit/credit.
   int? parsedAmount;
   if (mapping.hasSplitDebitCredit) {
-    final debitValue = valueFor(ImportField.debit);
-    final creditValue = valueFor(ImportField.credit);
     parsedAmount = _resolveDebitCreditAmount(debitValue, creditValue);
   } else {
-    final amountValue = valueFor(ImportField.amount);
     parsedAmount = parseAmountCents(amountValue);
   }
 
@@ -309,8 +366,13 @@ ImportParsedRow parseRow(
 
   final normalizedCategory =
       categoryValue?.isNotEmpty == true ? categoryValue : 'uncategorized';
-  final normalizedCurrency =
-      currencyValue?.isNotEmpty == true ? currencyValue!.toUpperCase() : null;
+  final normalizedCurrency = _normalizeCurrencyCode(currencyValue) ??
+      _inferCurrencyCodeFromCandidates([
+        amountValue,
+        debitValue,
+        creditValue,
+        balanceValue,
+      ]);
   final normalizedType = _resolveType(typeValue, parsedAmount);
 
   // Compose description: prefer explicit description, fall back to reference.
@@ -328,6 +390,59 @@ ImportParsedRow parseRow(
     errors: errors,
     rawValues: row,
   );
+}
+
+String? _normalizeCurrencyCode(String? value) {
+  if (value == null) return null;
+  final trimmed = value.trim().replaceAll(RegExp("[\"']"), '');
+  if (trimmed.isEmpty) return null;
+
+  final upper = trimmed.toUpperCase();
+  const directAliases = <String, String>{
+    r'$': 'USD',
+    'US\$': 'USD',
+    'USD': 'USD',
+    '€': 'EUR',
+    'EUR': 'EUR',
+    '£': 'GBP',
+    'GBP': 'GBP',
+    '¥': 'JPY',
+    'JPY': 'JPY',
+    '₹': 'INR',
+    'INR': 'INR',
+    '₨': 'PKR',
+    'PKR': 'PKR',
+    '₽': 'RUB',
+    'RUB': 'RUB',
+    '₩': 'KRW',
+    'KRW': 'KRW',
+    '₺': 'TRY',
+    'TRY': 'TRY',
+    '₴': 'UAH',
+    'UAH': 'UAH',
+    '₫': 'VND',
+    'VND': 'VND',
+    '฿': 'THB',
+    'THB': 'THB',
+  };
+
+  final aliasMatch = directAliases[upper];
+  if (aliasMatch != null) return aliasMatch;
+
+  final codeMatch = RegExp(r'(?<![A-Z])([A-Z]{3})(?![A-Z])').firstMatch(upper);
+  if (codeMatch != null) {
+    return codeMatch.group(1);
+  }
+
+  return null;
+}
+
+String? _inferCurrencyCodeFromCandidates(Iterable<String?> candidates) {
+  for (final candidate in candidates) {
+    final normalized = _normalizeCurrencyCode(candidate);
+    if (normalized != null) return normalized;
+  }
+  return null;
 }
 
 /// Resolves a net amount from separate debit and credit columns.
@@ -388,8 +503,23 @@ final List<String> _kDateFormats = [
   "yyyy-MM-dd HH:mm:ss",
   "yyyy-MM-dd HH:mm",
   'MM/dd/yyyy HH:mm:ss',
+  'MM/dd/yyyy h:mm a',
   'dd/MM/yyyy HH:mm:ss',
+  'dd/MM/yyyy h:mm a',
   'dd.MM.yyyy HH:mm:ss',
+  'dd.MM.yyyy h:mm a',
+  'MMM dd, yyyy h:mm a',
+  'MMM d, yyyy h:mm a',
+  'MMMM dd, yyyy h:mm a',
+  'MMMM d, yyyy h:mm a',
+  'dd MMM yyyy h:mm a',
+  'd MMM yyyy h:mm a',
+  'dd MMMM yyyy h:mm a',
+  'd MMMM yyyy h:mm a',
+  'MMM dd, yyyy HH:mm',
+  'MMM d, yyyy HH:mm',
+  'MMMM dd, yyyy HH:mm',
+  'MMMM d, yyyy HH:mm',
 ];
 
 DateTime? parseDateValue(String? value) {
@@ -420,10 +550,14 @@ DateTime? parseDateValue(String? value) {
 
   // Try each date format.
   for (final format in _kDateFormats) {
-    try {
-      final parsed = DateFormat(format).parseStrict(stripped);
-      return DateTime(parsed.year, parsed.month, parsed.day);
-    } catch (_) {}
+    for (final locale in [null, 'en_US']) {
+      try {
+        final parsed = locale == null
+            ? DateFormat(format).parseStrict(stripped)
+            : DateFormat(format, locale).parseStrict(stripped);
+        return DateTime(parsed.year, parsed.month, parsed.day);
+      } catch (_) {}
+    }
   }
   return null;
 }

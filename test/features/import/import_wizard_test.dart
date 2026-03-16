@@ -20,15 +20,15 @@ void main() {
       overrides: [
         importWizardProvider.overrideWith((ref) => mockNotifier),
       ],
-      child: MaterialApp(
-        localizationsDelegates: const [
+      child: const MaterialApp(
+        localizationsDelegates: [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: AppLocalizations.supportedLocales,
-        home: const ImportWizardPage(),
+        home: ImportWizardPage(),
       ),
     );
   }
@@ -51,5 +51,17 @@ void main() {
     expect(find.text('Select File'), findsOneWidget); // Instruction Card Title
     expect(find.text('FILE'), findsOneWidget); // Section Title
     expect(find.text('No file selected'), findsOneWidget);
+  });
+
+  testWidgets('ImportWizardPage disposes cleanly', (WidgetTester tester) async {
+    final mockNotifier = MockImportWizardNotifier();
+
+    await tester.pumpWidget(createWidgetUnderTest(mockNotifier));
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
   });
 }

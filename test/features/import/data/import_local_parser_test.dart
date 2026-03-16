@@ -37,6 +37,29 @@ void main() {
     ]);
   });
 
+  test(
+      'parseLocalImportTable preserves rows for quoted CSV with trailing spaces',
+      () async {
+    final csvBytes = Uint8List.fromList(
+      utf8.encode(
+        '"TIME","TYPE","AMOUNT","CATEGORY","ACCOUNT","NOTES" \n'
+        '"Feb 05, 2025 7:08 AM","(-) Expense","200.00","Food","Cash","chanay aur dahi" \n'
+        '"Apr 14, 2025 1:10 PM","(*) Transfer","5000.00","  -  ","Cash->Meezan","mama withdraw" \n'
+        '"Apr 14, 2025 6:03 PM","(+) Income","222407.00","Direct","Meezan","Andre" ',
+      ),
+    );
+
+    final table = await parseLocalImportTable(
+      LocalImportParseRequest(bytes: csvBytes, extension: 'csv'),
+    );
+
+    expect(table.headers,
+        ['TIME', 'TYPE', 'AMOUNT', 'CATEGORY', 'ACCOUNT', 'NOTES']);
+    expect(table.rows.length, 3);
+    expect(table.rows.first.first, 'Feb 05, 2025 7:08 AM');
+    expect(table.rows[1][5], 'mama withdraw');
+  });
+
   test('parseLocalImportTable parses xlsx bytes', () async {
     final xlsxBytes = _buildWorkbookBytes();
 

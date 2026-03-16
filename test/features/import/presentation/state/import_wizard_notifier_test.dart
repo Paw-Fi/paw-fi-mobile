@@ -6,9 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
+import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
 
 class FakeAnalyticsNotifier extends AnalyticsNotifier {
   FakeAnalyticsNotifier(super.ref) {
@@ -198,5 +200,87 @@ void main() {
     final rows = container.read(importWizardProvider).parsedRows;
     expect(rows.any((row) => row.index == 0), isFalse);
     expect(rows.any((row) => row.index == 1), isTrue);
+  });
+
+  test('reparse falls back to selected home currency when file has none',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    container.read(homeFilterProvider.notifier).setSelectedCurrency('PKR');
+
+    const table = ImportTable(
+      headers: ['date', 'amount', 'description'],
+      rows: [
+        ['2024-01-01', '12.00', 'Lunch'],
+      ],
+    );
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.description: 2,
+      },
+    );
+
+    notifier.state = notifier.state.copyWith(
+      table: table,
+      mapping: mapping,
+    );
+
+    notifier.updateMapping(ImportField.amount, 1);
+
+    final row = container.read(importWizardProvider).parsedRows.single;
+    expect(row.currency, 'PKR');
+    expect(row.issues, isNot(contains(RowIssue.missingCurrency)));
+  });
+
+  test('reset clears wizard state back to initial step', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    notifier.state = notifier.state.copyWith(
+      step: ImportStep.preview,
+      fileName: 'sample.csv',
+      parsedRows: const [
+        ImportParsedRow(
+          index: 0,
+          date: null,
+          amountCents: null,
+          category: null,
+          description: null,
+          currency: null,
+          type: null,
+          errors: [],
+        ),
+      ],
+      errorMessage: 'bad file',
+    );
+
+    notifier.reset();
+
+    final state = container.read(importWizardProvider);
+    expect(state.step, ImportStep.selectFile);
+    expect(state.fileName, isNull);
+    expect(state.parsedRows, isEmpty);
+    expect(state.errorMessage, isNull);
   });
 }

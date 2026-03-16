@@ -24,27 +24,44 @@ import 'package:moneko/features/import/presentation/state/import_wizard_state.da
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final importWizardProvider =
-    StateNotifierProvider<ImportWizardNotifier, ImportWizardState>((ref) {
+    StateNotifierProvider.autoDispose<ImportWizardNotifier, ImportWizardState>(
+        (ref) {
   return ImportWizardNotifier(ref);
 });
 
 class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
-  ImportWizardNotifier(this._ref) : super(const ImportWizardState()) {
-    _initializeTargetAccount();
-  }
+  ImportWizardNotifier(this._ref) : super(_initialStateFromRef(_ref));
 
   final Ref _ref;
   static const int _maxPdfImportBytes = 20 * 1024 * 1024;
   static const int _batchSize = 500;
 
-  void _initializeTargetAccount() {
-    final scope = _ref.read(householdScopeProvider);
-    state = state.copyWith(
+  static ImportWizardState _initialStateFromRef(Ref ref) {
+    final scope = ref.read(householdScopeProvider);
+    return ImportWizardState(
       targetHouseholdId: scope.activeAccountHouseholdId,
       targetIsPortfolio: scope.activeAccountType == ActiveAccountType.portfolio,
-      clearTargetHouseholdId: scope.activeAccountHouseholdId == null ||
-          scope.activeAccountHouseholdId!.isEmpty,
     );
+  }
+
+  ImportWizardState _initialStateFromScope() {
+    return _initialStateFromRef(_ref);
+  }
+
+  ImportWizardState _initialStateForTarget({
+    String? householdId,
+    required bool isPortfolio,
+  }) {
+    final trimmed = householdId?.trim();
+    final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
+    return ImportWizardState(
+      targetHouseholdId: normalized,
+      targetIsPortfolio: normalized == null ? false : isPortfolio,
+    );
+  }
+
+  void reset() {
+    state = _initialStateFromScope();
   }
 
   Future<void> pickFile({List<String>? allowedExtensions}) async {
@@ -532,12 +549,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }
 
   void resetAfterImport() {
-    final targetHouseholdId = state.targetHouseholdId;
-    final targetIsPortfolio = state.targetIsPortfolio;
-    state = ImportWizardState(
-      step: ImportStep.selectFile,
-      targetHouseholdId: targetHouseholdId,
-      targetIsPortfolio: targetIsPortfolio,
+    state = _initialStateForTarget(
+      householdId: state.targetHouseholdId,
+      isPortfolio: state.targetIsPortfolio,
     );
   }
 
@@ -545,7 +559,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final rows = [...state.parsedRows];
     final pos = rows.indexWhere((r) => r.index == updated.index);
     if (pos < 0) return;
-    rows[pos] = _validateRow(updated);
+    rows[pos] = _applyImportDefaults(updated);
     final deduped = markDuplicates(
         rows, _existingExpensesForTarget(state.targetHouseholdId));
     state = state.copyWith(parsedRows: deduped);
@@ -704,7 +718,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       {Set<int>? deletedRowIndices}) {
     final rows = <ImportParsedRow>[];
     for (var i = 0; i < table.rows.length; i++) {
-      rows.add(parseRow(table.rows[i], mapping, index: i));
+      rows.add(
+          _applyImportDefaults(parseRow(table.rows[i], mapping, index: i)));
     }
 
     final effectiveDeletedRowIndices =
@@ -754,6 +769,31 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       issues.add(RowIssue.unknownType);
     }
     return row.copyWith(errors: errors, issues: issues);
+  }
+
+  ImportParsedRow _applyImportDefaults(ImportParsedRow row) {
+    final normalizedCurrency = row.currency?.trim().toUpperCase();
+    final effectiveCurrency =
+        normalizedCurrency != null && normalizedCurrency.isNotEmpty
+            ? normalizedCurrency
+            : _fallbackImportCurrency();
+    return _validateRow(row.copyWith(currency: effectiveCurrency));
+  }
+
+  String _fallbackImportCurrency() {
+    final filterState = _ref.read(homeFilterProvider);
+    final selectedCurrency = filterState.selectedCurrency?.trim().toUpperCase();
+    if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+      return selectedCurrency;
+    }
+
+    final preferredCurrency =
+        _ref.read(analyticsProvider).preferredCurrency?.trim().toUpperCase();
+    if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
+      return preferredCurrency;
+    }
+
+    return 'USD';
   }
 }
 
