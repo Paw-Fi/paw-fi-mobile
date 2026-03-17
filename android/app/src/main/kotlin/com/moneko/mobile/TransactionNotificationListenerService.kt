@@ -28,6 +28,11 @@ import java.util.concurrent.Executors
  */
 class TransactionNotificationListenerService : NotificationListenerService() {
 
+    private data class BackendCaptureResponse(
+        val statusCode: Int,
+        val responseBody: String
+    )
+
     companion object {
         private const val TAG = "MonekoCaptureService"
         private const val DEDUP_WINDOW_MS = 60_000L  // 60-second local dedup window
@@ -115,7 +120,18 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         packageName: String,
         dedupKey: String
     ) {
+        if (!config.isAuthStorageAvailable) {
+            Log.w(TAG, "Secure auth storage unavailable - skipping capture")
+            return
+        }
+
         val supabaseUrl = config.supabaseUrl
+        val anonKey = config.supabaseAnonKey
+        if (supabaseUrl.isBlank() || anonKey.isBlank()) {
+            Log.w(TAG, "Supabase config missing - skipping capture")
+            return
+        }
+
         val accessToken = getValidAccessToken(config) ?: run {
             Log.w(TAG, "No valid access token available — skipping capture")
             return
@@ -130,7 +146,11 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             put("idempotencyKey", buildRequestIdempotencyKey(dedupKey, scopeId, isPortfolio))
             put("clientCreatedAt", java.time.Instant.now().toString())
             put("transaction", JSONObject().apply {
-                put("merchantName", parsed.merchantName ?: "")
+                if (!parsed.merchantName.isNullOrBlank()) {
+                    put("merchantName", parsed.merchantName)
+                } else {
+                    put("rawMerchant", parsed.rawText)
+                }
                 put("amount", parsed.amount)
                 put("currency", parsed.currencyCode)
                 put("date", parsed.transactionDate)
@@ -144,13 +164,69 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         }
 
         val url = URL("$supabaseUrl/functions/v1/save-wallet-transaction")
+        val initialResponse = executeCaptureRequest(url, accessToken, anonKey, body)
+
+        when (initialResponse.statusCode) {
+            200, 201 -> {
+                Log.d(TAG, "Transaction captured successfully from $packageName")
+            }
+            409 -> {
+                if (isRequestInProgressResponse(initialResponse.responseBody)) {
+                    Log.w(TAG, "Capture still in progress for $packageName - releasing local dedup for retry")
+                    recentHashes.remove(dedupKey)
+                } else {
+                    Log.d(TAG, "Duplicate transaction detected server-side for $packageName")
+                }
+            }
+            401 -> {
+                Log.w(TAG, "Auth rejected - attempting token refresh")
+                val refreshedToken = refreshAccessToken(config)
+                if (!refreshedToken.isNullOrBlank()) {
+                    val retryResponse = executeCaptureRequest(url, refreshedToken, anonKey, body)
+                    when (retryResponse.statusCode) {
+                        200, 201 -> {
+                            Log.d(TAG, "Transaction captured successfully after token refresh from $packageName")
+                        }
+                        409 -> {
+                            if (isRequestInProgressResponse(retryResponse.responseBody)) {
+                                Log.w(TAG, "Capture still in progress after token refresh for $packageName - releasing local dedup for retry")
+                                recentHashes.remove(dedupKey)
+                            } else {
+                                Log.d(TAG, "Duplicate transaction detected server-side after token refresh for $packageName")
+                            }
+                        }
+                        401 -> {
+                            Log.w(TAG, "Retry after token refresh still unauthorized - clearing session tokens")
+                            config.clearSessionTokens()
+                        }
+                        else -> {
+                            Log.w(TAG, "Backend error after token refresh ${retryResponse.statusCode}: ${retryResponse.responseBody}")
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "Token refresh unavailable - clearing session tokens")
+                    config.clearSessionTokens()
+                }
+            }
+            else -> {
+                Log.w(TAG, "Backend error ${initialResponse.statusCode}: ${initialResponse.responseBody}")
+            }
+        }
+    }
+
+    private fun executeCaptureRequest(
+        url: URL,
+        accessToken: String,
+        anonKey: String,
+        body: JSONObject
+    ): BackendCaptureResponse {
         val conn = url.openConnection() as HttpURLConnection
 
-        try {
+        return try {
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("Authorization", "Bearer $accessToken")
-            conn.setRequestProperty("apikey", config.supabaseAnonKey)
+            conn.setRequestProperty("apikey", anonKey)
             conn.doOutput = true
             conn.connectTimeout = 15_000
             conn.readTimeout = 15_000
@@ -161,32 +237,24 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
             val responseCode = conn.responseCode
             val responseBody = try {
-                BufferedReader(InputStreamReader(
-                    if (responseCode in 200..299) conn.inputStream else conn.errorStream,
-                    Charsets.UTF_8
-                )).use { it.readText() }
-            } catch (_: Exception) { "" }
-
-            when (responseCode) {
-                200, 201 -> {
-                    Log.d(TAG, "Transaction captured successfully from $packageName")
-                }
-                409 -> {
-                    Log.d(TAG, "Duplicate transaction detected server-side for $packageName")
-                }
-                401 -> {
-                    Log.w(TAG, "Auth rejected — clearing tokens")
-                    config.accessToken = ""
-                    config.refreshToken = ""
-                    config.expiresAt = 0L
-                }
-                else -> {
-                    Log.w(TAG, "Backend error $responseCode: $responseBody")
-                }
+                BufferedReader(
+                    InputStreamReader(
+                        if (responseCode in 200..299) conn.inputStream else conn.errorStream,
+                        Charsets.UTF_8
+                    )
+                ).use { it.readText() }
+            } catch (_: Exception) {
+                ""
             }
+
+            BackendCaptureResponse(responseCode, responseBody)
         } finally {
             conn.disconnect()
         }
+    }
+
+    private fun isRequestInProgressResponse(responseBody: String): Boolean {
+        return responseBody.contains("REQUEST_IN_PROGRESS", ignoreCase = true)
     }
 
     // ── Auth helpers ─────────────────────────────────────────────────────
@@ -245,11 +313,14 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 val expiresIn = json.optLong("expires_in", 3600)
 
                 if (newAccess.isNotBlank()) {
-                    config.accessToken = newAccess
-                    if (newRefresh.isNotBlank()) {
-                        config.refreshToken = newRefresh
+                    val didPersistSession = config.updateRefreshedSession(
+                        accessToken = newAccess,
+                        refreshToken = newRefresh,
+                        expiresAt = (System.currentTimeMillis() / 1000) + expiresIn,
+                    )
+                    if (!didPersistSession) {
+                        Log.w(TAG, "Token refreshed but could not persist secure session state")
                     }
-                    config.expiresAt = (System.currentTimeMillis() / 1000) + expiresIn
                     Log.d(TAG, "Token refreshed successfully")
                     return newAccess
                 }

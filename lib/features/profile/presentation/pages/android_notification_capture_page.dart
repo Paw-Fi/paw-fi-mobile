@@ -78,16 +78,31 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     });
 
     Future<void> syncCredentials() async {
+      final session = Supabase.instance.client.auth.currentSession;
+      final accessToken = session?.accessToken ?? '';
+      final refreshToken = session?.refreshToken ?? '';
+      final userId = session?.user.id ?? '';
+      final expiresAt = session?.expiresAt ?? 0;
+
+      if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            'Sign in again to sync notification capture credentials.',
+          );
+        }
+        return;
+      }
+
       isSyncing.value = true;
       try {
-        final session = Supabase.instance.client.auth.currentSession;
         await NotificationCaptureService.instance.syncAuthContext(
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
-          accessToken: session?.accessToken ?? '',
-          refreshToken: session?.refreshToken ?? '',
-          userId: session?.user.id ?? '',
-          expiresAt: session?.expiresAt ?? 0,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          userId: userId,
+          expiresAt: expiresAt,
         );
         if (context.mounted) {
           AppToast.success(context, 'Credentials synced successfully');
@@ -250,6 +265,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHero(colorScheme),
+                        if (!config.value.hasAuthStorage) ...[
+                          _buildAuthStorageWarning(colorScheme),
+                          const SizedBox(height: 16),
+                        ],
                         if (!hasAccess.value) ...[
                           _buildAccessWarning(
                               colorScheme, grantNotificationAccess),
@@ -267,7 +286,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                               title: 'Enable Auto-Capture',
                               trailing: AdaptiveSwitch(
                                 value: config.value.enabled,
-                                onChanged: hasAccess.value ? toggleEnabled : null,
+                                onChanged: hasAccess.value &&
+                                        config.value.hasAuthStorage
+                                    ? toggleEnabled
+                                    : null,
                               ),
                             ),
                             _SettingsTile(
@@ -314,8 +336,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 ]
                               : [
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                    padding: const EdgeInsets.fromLTRB(
+                                        16, 16, 16, 8),
                                     child: Text(
                                       'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
                                       style: TextStyle(
@@ -353,7 +375,12 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                   ),
                 ),
                 _buildBottomBar(
-                    context, colorScheme, isSyncing.value, syncCredentials),
+                  context,
+                  colorScheme,
+                  isSyncing.value,
+                  config.value.hasAuthStorage,
+                  syncCredentials,
+                ),
               ],
             ),
           ),
@@ -460,6 +487,50 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         ]));
   }
 
+  Widget _buildAuthStorageWarning(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.warning.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.sd_card_alert_rounded,
+              color: colorScheme.warning, size: 28),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Secure Storage Unavailable',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 17,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Moneko cannot securely store background sync credentials on this device, so notification capture will not stay connected.',
+                  style: TextStyle(
+                    color: colorScheme.foreground.withValues(alpha: 0.8),
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHowItWorks(ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,7 +594,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
   }
 
   Widget _buildBottomBar(BuildContext context, ColorScheme colorScheme,
-      bool isSyncing, VoidCallback onSync) {
+      bool isSyncing, bool canSync, VoidCallback onSync) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
       decoration: BoxDecoration(
@@ -544,7 +615,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           width: double.infinity,
           height: 56,
           child: PrimaryAdaptiveButton(
-            onPressed: isSyncing ? null : onSync,
+            onPressed: isSyncing || !canSync ? null : onSync,
             child: isSyncing
                 ? const CircularProgressIndicator.adaptive()
                 : const Text(

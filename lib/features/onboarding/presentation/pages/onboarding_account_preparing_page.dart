@@ -27,6 +27,7 @@ import 'dart:io';
 
 const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
+const _kCurrencySyncTimeout = Duration(seconds: 8);
 
 class _ExistingAccountState {
   const _ExistingAccountState({
@@ -92,6 +93,73 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
       return null;
     }, const []);
+
+    Future<void> applyCurrencyDefaults({
+      required String fallbackUserId,
+      required OnboardingPreauthDraft draft,
+    }) async {
+      try {
+        final selectedCurrency = draft.selectedCurrency.trim().toUpperCase();
+        if (selectedCurrency.isEmpty) {
+          debugPrint(
+            '[OnboardingPrep] No preauth currency selected, skipping currency sync',
+          );
+          return;
+        }
+
+        ref
+            .read(homeFilterProvider.notifier)
+            .setSelectedCurrency(selectedCurrency);
+        ref
+            .read(analyticsProvider.notifier)
+            .updatePreferredCurrency(selectedCurrency);
+        await ref
+            .read(currencyPreferenceServiceProvider)
+            .setSelectedCurrency(selectedCurrency);
+
+        final userId = supabase.auth.currentSession?.user.id ?? fallbackUserId;
+        if (userId.isEmpty) {
+          debugPrint(
+            '[OnboardingPrep] Missing user id, skipping backend currency sync',
+          );
+          return;
+        }
+
+        final response = await supabase.functions.invoke(
+          'update-preferred-currency',
+          body: {
+            'currency': selectedCurrency,
+            'userId': userId,
+          },
+        ).timeout(_kCurrencySyncTimeout);
+
+        if (response.status >= 400) {
+          throw Exception(
+            'Preferred currency sync returned ${response.status}',
+          );
+        }
+
+        final payloadData = response.data;
+        if (payloadData is! Map) {
+          throw Exception('Preferred currency sync returned invalid payload');
+        }
+
+        final payload = Map<String, dynamic>.from(payloadData);
+        if (payload['ok'] != true) {
+          throw Exception(
+            'Preferred currency sync response was not ok: ${payload['error'] ?? 'unknown_error'}',
+          );
+        }
+      } on TimeoutException {
+        debugPrint(
+          '[OnboardingPrep] Preferred currency sync timed out after $_kCurrencySyncTimeout',
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] Preferred currency sync failed: $error\n$stackTrace',
+        );
+      }
+    }
 
     Future<_ExistingAccountState> loadExistingAccountState(
         String userId) async {
@@ -271,29 +339,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         progressValue: 0.55,
       );
 
-      try {
-        final selectedCurrency = draft.selectedCurrency.toUpperCase();
-        ref
-            .read(homeFilterProvider.notifier)
-            .setSelectedCurrency(selectedCurrency);
-        ref
-            .read(analyticsProvider.notifier)
-            .updatePreferredCurrency(selectedCurrency);
-        await ref
-            .read(currencyPreferenceServiceProvider)
-            .setSelectedCurrency(selectedCurrency);
-
-        final userId = supabase.auth.currentSession?.user.id;
-        if (userId != null && userId.isNotEmpty) {
-          await supabase.functions.invoke(
-            'update-preferred-currency',
-            body: {
-              'currency': selectedCurrency,
-              'userId': userId,
-            },
-          );
-        }
-      } catch (_) {}
+      await applyCurrencyDefaults(
+        fallbackUserId: user.uid,
+        draft: draft,
+      );
       if (!context.mounted) return;
 
       // If user selected a shared space in pre-auth onboarding,

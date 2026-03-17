@@ -37,6 +37,9 @@ class NotificationCaptureConfig(context: Context) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val authPrefs: SharedPreferences? = createEncryptedPreferences(context)
 
+    val isAuthStorageAvailable: Boolean
+        get() = authPrefs != null
+
     var isEnabled: Boolean
         get() = prefs.getBoolean(KEY_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_ENABLED, value).apply()
@@ -53,29 +56,23 @@ class NotificationCaptureConfig(context: Context) {
         get() = prefs.getBoolean(KEY_IS_PORTFOLIO, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_PORTFOLIO, value).apply()
 
-    var supabaseUrl: String
+    val supabaseUrl: String
         get() = authPrefs?.getString(KEY_SUPABASE_URL, "") ?: ""
-        set(value) = authPrefs?.edit()?.putString(KEY_SUPABASE_URL, value)?.apply() ?: Unit
 
-    var supabaseAnonKey: String
+    val supabaseAnonKey: String
         get() = authPrefs?.getString(KEY_SUPABASE_ANON_KEY, "") ?: ""
-        set(value) = authPrefs?.edit()?.putString(KEY_SUPABASE_ANON_KEY, value)?.apply() ?: Unit
 
-    var accessToken: String
+    val accessToken: String
         get() = authPrefs?.getString(KEY_ACCESS_TOKEN, "") ?: ""
-        set(value) = authPrefs?.edit()?.putString(KEY_ACCESS_TOKEN, value)?.apply() ?: Unit
 
-    var refreshToken: String
+    val refreshToken: String
         get() = authPrefs?.getString(KEY_REFRESH_TOKEN, "") ?: ""
-        set(value) = authPrefs?.edit()?.putString(KEY_REFRESH_TOKEN, value)?.apply() ?: Unit
 
-    var userId: String
+    val userId: String
         get() = authPrefs?.getString(KEY_USER_ID, "") ?: ""
-        set(value) = authPrefs?.edit()?.putString(KEY_USER_ID, value)?.apply() ?: Unit
 
-    var expiresAt: Long
+    val expiresAt: Long
         get() = authPrefs?.getLong(KEY_EXPIRES_AT, 0L) ?: 0L
-        set(value) = authPrefs?.edit()?.putLong(KEY_EXPIRES_AT, value)?.apply() ?: Unit
 
     val isAccessTokenExpired: Boolean
         get() {
@@ -172,6 +169,7 @@ class NotificationCaptureConfig(context: Context) {
             "scopeId" to scopeId,
             "scopeName" to scopeName,
             "isPortfolio" to isPortfolio,
+            "hasAuthStorage" to isAuthStorageAvailable,
             "hasNotificationAccess" to false,
             "enabledPackages" to getEnabledPackages().toList(),
             "recentApps" to getRecentApps().map { app ->
@@ -185,8 +183,55 @@ class NotificationCaptureConfig(context: Context) {
         )
     }
 
-    fun clearAuthContext() {
+    fun syncAuthContext(
+        supabaseUrl: String,
+        supabaseAnonKey: String,
+        accessToken: String,
+        refreshToken: String,
+        userId: String,
+        expiresAt: Long
+    ) {
+        val prefs = requireAuthPrefs()
+        prefs.edit().apply {
+            putString(KEY_SUPABASE_URL, supabaseUrl)
+            putString(KEY_SUPABASE_ANON_KEY, supabaseAnonKey)
+            putString(KEY_ACCESS_TOKEN, accessToken)
+            putString(KEY_REFRESH_TOKEN, refreshToken)
+            putString(KEY_USER_ID, userId)
+            putLong(KEY_EXPIRES_AT, expiresAt)
+            apply()
+        }
+    }
+
+    fun updateRefreshedSession(
+        accessToken: String,
+        refreshToken: String?,
+        expiresAt: Long
+    ): Boolean {
+        val prefs = authPrefs ?: return false
+        prefs.edit().apply {
+            putString(KEY_ACCESS_TOKEN, accessToken)
+            if (!refreshToken.isNullOrBlank()) {
+                putString(KEY_REFRESH_TOKEN, refreshToken)
+            }
+            putLong(KEY_EXPIRES_AT, expiresAt)
+            apply()
+        }
+        return true
+    }
+
+    fun clearSessionTokens() {
         authPrefs?.edit()?.apply {
+            remove(KEY_ACCESS_TOKEN)
+            remove(KEY_REFRESH_TOKEN)
+            remove(KEY_EXPIRES_AT)
+            apply()
+        }
+    }
+
+    fun clearAuthContext(): Boolean {
+        val prefs = authPrefs ?: return false
+        prefs.edit().apply {
             remove(KEY_SUPABASE_URL)
             remove(KEY_SUPABASE_ANON_KEY)
             remove(KEY_ACCESS_TOKEN)
@@ -195,6 +240,11 @@ class NotificationCaptureConfig(context: Context) {
             remove(KEY_EXPIRES_AT)
             apply()
         }
+        return true
+    }
+
+    private fun requireAuthPrefs(): SharedPreferences {
+        return authPrefs ?: throw IllegalStateException("AUTH_STORAGE_UNAVAILABLE")
     }
 
     private fun createEncryptedPreferences(context: Context): SharedPreferences? {

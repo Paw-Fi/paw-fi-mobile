@@ -37,19 +37,30 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "Expected map argument", null)
                         return@setMethodCallHandler
                     }
-                    config.supabaseUrl = args["supabaseUrl"] as? String ?: ""
-                    config.supabaseAnonKey = args["supabaseAnonKey"] as? String ?: ""
-                    config.accessToken = args["accessToken"] as? String ?: ""
-                    config.refreshToken = args["refreshToken"] as? String ?: ""
-                    config.userId = args["userId"] as? String ?: ""
                     val expiresAt = args["expiresAt"]
-                    config.expiresAt = when (expiresAt) {
+                    val expiresAtValue = when (expiresAt) {
                         is Long -> expiresAt
                         is Int -> expiresAt.toLong()
                         is Double -> expiresAt.toLong()
                         else -> 0L
                     }
-                    result.success(true)
+                    try {
+                        config.syncAuthContext(
+                            supabaseUrl = args["supabaseUrl"] as? String ?: "",
+                            supabaseAnonKey = args["supabaseAnonKey"] as? String ?: "",
+                            accessToken = args["accessToken"] as? String ?: "",
+                            refreshToken = args["refreshToken"] as? String ?: "",
+                            userId = args["userId"] as? String ?: "",
+                            expiresAt = expiresAtValue,
+                        )
+                        result.success(true)
+                    } catch (e: IllegalStateException) {
+                        result.error(
+                            "AUTH_STORAGE_UNAVAILABLE",
+                            "Secure auth storage is unavailable on this device.",
+                            null
+                        )
+                    }
                 }
 
                 "getConfig" -> {

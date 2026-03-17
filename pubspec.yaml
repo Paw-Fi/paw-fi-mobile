@@ -138,6 +138,7 @@ flutter:
     - lib/assets/images/flags/
     - lib/assets/images/household/
     - lib/assets/images/paywall/
+    - lib/assets/images/wallet_sync/
     - lib/assets/images/whatsapp/text.png
     - lib/assets/images/audio-message.png
     - lib/assets/gifs/loading-anim.gif

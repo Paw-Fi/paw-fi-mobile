@@ -1,6 +1,7 @@
 package com.moneko.mobile
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -42,5 +43,19 @@ class NotificationTransactionParserTest {
         )
 
         assertNull(parsed)
+    }
+
+    @Test
+    fun parsesMerchantlessTransactionNotificationForRawFallback() {
+        val parsed = NotificationTransactionParser.parse(
+            "Debit alert",
+            "Card debited USD 14.50 for your ride payment",
+            null,
+        )
+
+        assertNotNull(parsed)
+        assertEquals("USD", parsed!!.currencyCode)
+        assertEquals(14.50, parsed.amount, 0.001)
+        assertTrue(parsed.rawText.contains("Card debited USD 14.50 for your ride payment"))
     }
 }

@@ -1138,7 +1138,7 @@ class SettingsPage extends HookConsumerWidget {
                   ),
                   _SettingsTile(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: 'Wallet Link',
+                    label: 'Wallet Sync',
                     value: (() {
                       // Show a brief status — actual check is platform-dependent
                       if (Platform.isIOS) {

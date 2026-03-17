@@ -1090,17 +1090,26 @@ private func performWalletTransactionCapture(
   cardLabel: String?,
   externalSourceId: String?
 ) async throws -> String {
+  NSLog("[MonekoCap] performWalletTransactionCapture called — merchant=%@, rawMerchant=%@, amount=%@, currency=%@, date=%@, card=%@",
+    merchantName ?? "<nil>", rawMerchant ?? "<nil>", amount.map { String($0) } ?? "<nil>",
+    currencyCode ?? "<nil>", transactionDate ?? "<nil>", cardLabel ?? "<nil>")
+
   guard let amount, amount > 0 else {
+    NSLog("[MonekoCap] invalidInput — amount is nil or <= 0")
     throw SiriShortcutIntentError.invalidInput
   }
 
   guard var context = SiriShortcutAuthContext.load() else {
+    NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
     throw SiriShortcutIntentError.notConfigured
   }
+  NSLog("[MonekoCap] Auth context loaded — userId=%@, tokenExpired=%d", context.userId, context.isAccessTokenExpired ? 1 : 0)
 
   guard let scope = loadWalletCaptureScope() else {
+    NSLog("[MonekoCap] notConfigured — loadWalletCaptureScope() returned nil")
     throw SiriShortcutIntentError.notConfigured
   }
+  NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
 
   let idempotencyKey = makeWalletIdempotencyKey(
     userId: context.userId,
@@ -1122,8 +1131,10 @@ private func performWalletTransactionCapture(
   }
 
   if context.isAccessTokenExpired {
+    NSLog("[MonekoCap] Access token expired, refreshing…")
     context = try await refreshSiriShortcutSession(context: context)
     context.persist()
+    NSLog("[MonekoCap] Token refreshed successfully, new expiresAt=%d", context.expiresAt)
   }
 
   guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/save-wallet-transaction") else {
@@ -1137,18 +1148,58 @@ private func performWalletTransactionCapture(
   request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
   request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
 
-  let normalizedCurrency = normalizeSiriCurrencyCode(currencyCode)
+  let normalizedCurrency: String
+  if let nc = normalizeSiriCurrencyCode(currencyCode) {
+    normalizedCurrency = nc
+  } else if #available(iOS 16, *), let deviceCurrency = Locale.current.currency?.identifier {
+    normalizedCurrency = deviceCurrency.uppercased()
+    NSLog("[MonekoCap] Currency not provided, using device locale: %@", normalizedCurrency)
+  } else {
+    normalizedCurrency = Locale.current.currencyCode?.uppercased() ?? "USD"
+    NSLog("[MonekoCap] Currency not provided, using legacy fallback: %@", normalizedCurrency)
+  }
 
-  let dateFormatter = DateFormatter()
-  dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-  dateFormatter.timeZone = .current
-  dateFormatter.dateFormat = "yyyy-MM-dd"
+  let outputDateFormatter = DateFormatter()
+  outputDateFormatter.locale = Locale(identifier: "en_US_POSIX")
+  outputDateFormatter.timeZone = .current
+  outputDateFormatter.dateFormat = "yyyy-MM-dd"
 
   let resolvedDate: String
   if let transactionDate, !transactionDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    resolvedDate = transactionDate.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmedDate = transactionDate.trimmingCharacters(in: .whitespacesAndNewlines)
+    // Already YYYY-MM-DD — pass through
+    if trimmedDate.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
+      resolvedDate = trimmedDate
+    } else {
+      // Try common date formats the Shortcut might provide
+      let inputFormatter = DateFormatter()
+      inputFormatter.locale = Locale(identifier: "en_US_POSIX")
+      inputFormatter.timeZone = .current
+      let formats = [
+        "dd/MM/yyyy", "MM/dd/yyyy", "dd-MM-yyyy", "MM-dd-yyyy",
+        "dd.MM.yyyy", "MM.dd.yyyy",
+        "yyyy/MM/dd", "yyyy.MM.dd",
+        "d/M/yyyy", "M/d/yyyy", "d-M-yyyy", "M-d-yyyy",
+        "MMM d, yyyy", "d MMM yyyy", "MMMM d, yyyy", "d MMMM yyyy",
+      ]
+      var parsed: Date?
+      for fmt in formats {
+        inputFormatter.dateFormat = fmt
+        if let d = inputFormatter.date(from: trimmedDate) {
+          parsed = d
+          break
+        }
+      }
+      if let parsed {
+        resolvedDate = outputDateFormatter.string(from: parsed)
+      } else {
+        // Last resort: try the system's flexible date parsing
+        resolvedDate = outputDateFormatter.string(from: Date())
+        NSLog("[MonekoCap] Could not parse date '%@', falling back to today", trimmedDate)
+      }
+    }
   } else {
-    resolvedDate = dateFormatter.string(from: Date())
+    resolvedDate = outputDateFormatter.string(from: Date())
   }
 
   var transaction: [String: Any] = [
@@ -1161,14 +1212,22 @@ private func performWalletTransactionCapture(
   if let rawMerchant, !rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
     transaction["rawMerchant"] = rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines)
   }
-  if let normalizedCurrency {
-    transaction["currency"] = normalizedCurrency
-  }
+  transaction["currency"] = normalizedCurrency
   if let cardLabel, !cardLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
     transaction["cardLabel"] = cardLabel.trimmingCharacters(in: .whitespacesAndNewlines)
   }
   if let externalSourceId, !externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
     transaction["externalSourceId"] = externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+  // Fallback: when automation provides no merchant, add a note so the edge function
+  // has at least one descriptor (it accepts merchantName | rawMerchant | note).
+  if transaction["merchantName"] == nil && transaction["rawMerchant"] == nil {
+    let trimmedCard = (cardLabel ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let fallbackNote = trimmedCard.isEmpty
+      ? "Apple Wallet transaction"
+      : "Wallet transaction via \(trimmedCard)"
+    transaction["note"] = fallbackNote
+    NSLog("[MonekoCap] No merchant provided, using note fallback: %@", fallbackNote)
   }
   transaction["locale"] = Locale.current.identifier
 
@@ -1185,16 +1244,24 @@ private func performWalletTransactionCapture(
 
   request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
+  NSLog("[MonekoCap] Calling save-wallet-transaction, url=%@", url.absoluteString)
+  NSLog("[MonekoCap] Request body=%@", String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "<nil>")
+
   let data: Data
   let response: URLResponse
   do {
     (data, response) = try await URLSession.shared.data(for: request)
   } catch {
+    NSLog("[MonekoCap] Network error: %@", error.localizedDescription)
     throw SiriShortcutIntentError.networkFailure
   }
   guard let httpResponse = response as? HTTPURLResponse else {
+    NSLog("[MonekoCap] Response is not HTTPURLResponse")
     throw SiriShortcutIntentError.networkFailure
   }
+
+  let responseBody = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+  NSLog("[MonekoCap] HTTP %d — body: %@", httpResponse.statusCode, responseBody)
 
   if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
     throw SiriShortcutIntentError.missingSession
@@ -1206,6 +1273,7 @@ private func performWalletTransactionCapture(
   }
 
   guard (200...299).contains(httpResponse.statusCode) else {
+    NSLog("[MonekoCap] saveFailed — non-2xx status %d", httpResponse.statusCode)
     throw SiriShortcutIntentError.saveFailed
   }
 
@@ -1213,6 +1281,7 @@ private func performWalletTransactionCapture(
     let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
     (json["success"] as? Bool) == true
   else {
+    NSLog("[MonekoCap] saveFailed — response JSON missing success:true, body: %@", responseBody)
     throw SiriShortcutIntentError.saveFailed
   }
 
@@ -1227,13 +1296,11 @@ private func performWalletTransactionCapture(
 
   if !displayMerchant.isEmpty {
     let formattedAmount = String(format: "%.2f", amount)
-    let currencyLabel = normalizedCurrency ?? ""
-    return "Captured \(formattedAmount) \(currencyLabel) at \(displayMerchant) in Moneko."
+    return "Captured \(formattedAmount) \(normalizedCurrency) at \(displayMerchant) in Moneko."
   }
 
   let formattedAmount = String(format: "%.2f", amount)
-  let currencyLabel = normalizedCurrency ?? ""
-  return "Captured \(formattedAmount) \(currencyLabel) wallet transaction in Moneko."
+  return "Captured \(formattedAmount) \(normalizedCurrency) wallet transaction in Moneko."
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -1286,6 +1353,9 @@ private enum SiriShortcutKeys {
   static let supabaseAnonKey = "siri_supabase_anon_key"
 
   static let keychainService = "com.moneko.mobile.siri-shortcut-auth"
+  // Shared keychain access group — must match the keychain-access-groups entitlement.
+  // $(AppIdentifierPrefix) expands to the Team ID at build time; at runtime use the literal value.
+  static let keychainAccessGroup = "GW28HYRJ9H.group.moneko.mobile"
   static let accessTokenAccount = "access_token"
   static let refreshTokenAccount = "refresh_token"
   static let userIdAccount = "user_id"
@@ -1504,6 +1574,7 @@ private final class SharedKeychainStore {
       kSecClass as String: kSecClassGenericPassword,
       kSecAttrService as String: SiriShortcutKeys.keychainService,
       kSecAttrAccount as String: account,
+      kSecAttrAccessGroup as String: SiriShortcutKeys.keychainAccessGroup,
     ]
   }
 

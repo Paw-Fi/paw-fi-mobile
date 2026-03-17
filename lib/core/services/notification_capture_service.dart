@@ -33,6 +33,7 @@ class NotificationCaptureConfig {
     required this.scopeId,
     required this.scopeName,
     required this.isPortfolio,
+    required this.hasAuthStorage,
     required this.hasNotificationAccess,
     required this.enabledPackages,
     required this.recentApps,
@@ -42,6 +43,7 @@ class NotificationCaptureConfig {
   final String scopeId;
   final String scopeName;
   final bool isPortfolio;
+  final bool hasAuthStorage;
   final bool hasNotificationAccess;
   final List<String> enabledPackages;
   final List<RecentNotificationApp> recentApps;
@@ -55,6 +57,7 @@ class NotificationCaptureConfig {
       scopeId: map['scopeId'] as String? ?? 'personal',
       scopeName: map['scopeName'] as String? ?? 'Personal',
       isPortfolio: map['isPortfolio'] as bool? ?? false,
+      hasAuthStorage: map['hasAuthStorage'] as bool? ?? true,
       hasNotificationAccess: map['hasNotificationAccess'] as bool? ?? false,
       enabledPackages: rawPackages.cast<String>().toList(),
       recentApps: rawApps
@@ -71,6 +74,7 @@ class NotificationCaptureConfig {
     String? scopeId,
     String? scopeName,
     bool? isPortfolio,
+    bool? hasAuthStorage,
     bool? hasNotificationAccess,
     List<String>? enabledPackages,
     List<RecentNotificationApp>? recentApps,
@@ -80,6 +84,7 @@ class NotificationCaptureConfig {
       scopeId: scopeId ?? this.scopeId,
       scopeName: scopeName ?? this.scopeName,
       isPortfolio: isPortfolio ?? this.isPortfolio,
+      hasAuthStorage: hasAuthStorage ?? this.hasAuthStorage,
       hasNotificationAccess:
           hasNotificationAccess ?? this.hasNotificationAccess,
       enabledPackages: enabledPackages ?? this.enabledPackages,
@@ -92,6 +97,7 @@ class NotificationCaptureConfig {
     scopeId: 'personal',
     scopeName: 'Personal',
     isPortfolio: false,
+    hasAuthStorage: true,
     hasNotificationAccess: false,
     enabledPackages: [],
     recentApps: [],
