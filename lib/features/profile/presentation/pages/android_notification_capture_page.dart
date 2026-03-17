@@ -30,23 +30,52 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final isSyncing = useState(false);
     final hasAccess = useState(false);
     final recentApps = useState<List<RecentNotificationApp>>([]);
+    // The PK of the user's user_contacts row — used for targeted updates.
+    final contactId = useState<String?>(null);
 
     // Load households
     final householdsAsync = authState.uid.isNotEmpty
         ? ref.watch(userHouseholdsProvider(authState.uid))
         : const AsyncValue<List<Household>>.data([]);
 
-    // Load config + access status on mount
+    // Load config + access status on mount — merges native config with Supabase flag.
     useEffect(() {
       Future<void> loadAll() async {
         try {
           final svc = NotificationCaptureService.instance;
+
+          // 1. Load local Android config (enabled, scopeId, scopeName, etc.).
           final loaded = await svc.getConfig();
           final access = await svc.checkNotificationAccess();
           final apps = await svc.getRecentApps();
-          config.value = loaded;
+
+          // 2. Fetch the authoritative enabled flag from Supabase.
+          bool remoteEnabled = false;
+          if (authState.uid.isNotEmpty) {
+            final response = await Supabase.instance.client
+                .from('user_contacts')
+                .select('id, wallet_capture_enabled')
+                .eq('user_id', authState.uid)
+                .maybeSingle();
+            if (response != null) {
+              contactId.value = response['id'] as String?;
+              remoteEnabled =
+                  (response['wallet_capture_enabled'] as bool?) ?? false;
+              debugPrint(
+                  '[NotificationCapture] loadAll: contactId=${contactId.value} remoteEnabled=$remoteEnabled');
+            } else {
+              debugPrint(
+                  '[NotificationCapture] loadAll: no user_contacts row found for uid=${authState.uid}');
+            }
+          }
+
+          // Reconcile: trust Supabase for enabled, native for the rest.
+          config.value = loaded.copyWith(enabled: remoteEnabled);
           hasAccess.value = access;
           recentApps.value = apps;
+
+          // Keep native config in sync with Supabase value.
+          await svc.setConfig(enabled: remoteEnabled);
         } catch (e) {
           debugPrint('Failed to load notification capture config: $e');
         } finally {
@@ -116,13 +145,44 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       }
     }
 
+    /// Persists the enabled flag to both Android native (SharedPreferences)
+    /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
       final previous = config.value;
       config.value = config.value.copyWith(enabled: enabled);
+
+      debugPrint(
+          '[NotificationCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
+
       try {
+        // Write to Android native layer.
+        debugPrint('[NotificationCapture] Writing to Android native...');
         await NotificationCaptureService.instance.setConfig(enabled: enabled);
+        debugPrint('[NotificationCapture] Android native write succeeded');
+
+        // Write to Supabase via the update-wallet-capture-setting edge function
+        // (service role bypasses RLS — same pattern as iOS wallet capture).
+        debugPrint('[NotificationCapture] Calling edge function...');
+        final fnResponse = await Supabase.instance.client.functions.invoke(
+          'update-wallet-capture-setting',
+          body: {'enabled': enabled},
+        );
+        if (fnResponse.status != 200) {
+          throw Exception(
+              'Edge function returned ${fnResponse.status}: ${fnResponse.data}');
+        }
+        final newContactId = fnResponse.data?['contactId'] as String?;
+        if (newContactId != null) {
+          contactId.value = newContactId;
+        }
+        debugPrint(
+            '[NotificationCapture] Edge function OK — contactId=${contactId.value}');
+
         if (enabled) await syncCredentials();
-      } catch (e) {
+      } catch (e, st) {
+        debugPrint('[NotificationCapture] toggleEnabled error: $e');
+        debugPrint('[NotificationCapture] Stack trace: $st');
+        // Roll back optimistic update on failure.
         config.value = previous;
         if (context.mounted) {
           AppToast.error(context, 'Failed to update setting');

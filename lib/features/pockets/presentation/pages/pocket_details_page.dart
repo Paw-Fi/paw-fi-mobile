@@ -679,7 +679,7 @@ class _TransactionsListCard extends StatelessWidget {
                           )
                         : DateTime.fromMillisecondsSinceEpoch(0));
                 final category = tx['category'] as String?;
-                final description = tx['description'] ?? context.l10n.expense;
+                final description = tx['raw_text'] ?? context.l10n.expense;
                 final amountDisplay =
                     _formatLocalizedCurrency(context, amount, currency);
 
