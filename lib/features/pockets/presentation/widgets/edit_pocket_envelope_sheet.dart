@@ -18,7 +18,6 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/category_picker_bottom_sheet.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
@@ -86,8 +85,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isEditing = existingEnvelope != null;
-    final selectedCurrency =
-        ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
+    final selectedCurrency = scopeParams.currency?.trim().isNotEmpty == true
+        ? scopeParams.currency!.trim()
+        : 'USD';
 
     final nameController = useTextEditingController(
       text: existingEnvelope?.name ?? template?.name ?? '',
@@ -147,7 +147,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final selectedIcon =
         useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final isLoading = useState<bool>(false);
-    final isMounted = useIsMounted();
     final currency = selectedCurrency;
     final totalBudgetCents = (totalBudget * 100).round();
     final maxBudgetCents = math.max(0, totalBudgetCents);
@@ -283,7 +282,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         return;
       }
 
-      if (isMounted()) {
+      if (context.mounted) {
         isLoading.value = true;
       }
 
@@ -386,7 +385,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
         }
       } finally {
-        if (isMounted()) {
+        if (context.mounted) {
           isLoading.value = false;
         }
       }
@@ -408,7 +407,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       final confirmed = await _confirmDelete(context, l10n);
       if (confirmed != true) return;
 
-      if (isMounted()) {
+      if (context.mounted) {
         isLoading.value = true;
       }
       try {
@@ -448,7 +447,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.error(context, l10n.failedToDeletePocket);
         }
       } finally {
-        if (isMounted()) {
+        if (context.mounted) {
           isLoading.value = false;
         }
       }

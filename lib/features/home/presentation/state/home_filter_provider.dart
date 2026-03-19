@@ -8,18 +8,24 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 /// Local filter state for home page only (currency)
 class HomeFilterState {
   final String? selectedCurrency; // null = "All Currencies"
+  final bool hasExplicitCurrency;
 
   HomeFilterState({
     this.selectedCurrency,
+    this.hasExplicitCurrency = false,
   });
 
   HomeFilterState copyWith({
     String? selectedCurrency,
+    bool? hasExplicitCurrency,
     bool clearCurrency = false,
   }) {
     return HomeFilterState(
       selectedCurrency:
           clearCurrency ? null : (selectedCurrency ?? this.selectedCurrency),
+      hasExplicitCurrency: clearCurrency
+          ? false
+          : (hasExplicitCurrency ?? this.hasExplicitCurrency),
     );
   }
 }
@@ -31,7 +37,15 @@ class HomeFilterNotifier extends StateNotifier<HomeFilterState> {
   void setSelectedCurrency(String? currency) {
     state = state.copyWith(
       selectedCurrency: currency,
+      hasExplicitCurrency: currency != null,
       clearCurrency: currency == null,
+    );
+  }
+
+  void bootstrapSelectedCurrency(String currency) {
+    state = state.copyWith(
+      selectedCurrency: currency,
+      hasExplicitCurrency: false,
     );
   }
 }
@@ -40,6 +54,22 @@ class HomeFilterNotifier extends StateNotifier<HomeFilterState> {
 final homeFilterProvider =
     StateNotifierProvider<HomeFilterNotifier, HomeFilterState>((ref) {
   return HomeFilterNotifier();
+});
+
+final selectedHomeCurrencyCodeProvider = Provider<String>((ref) {
+  final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency;
+  final normalized = selectedCurrency?.trim().toUpperCase();
+  if (normalized != null && normalized.isNotEmpty) {
+    return normalized;
+  }
+
+  final preferredCurrency = ref.watch(analyticsProvider).preferredCurrency;
+  final preferredNormalized = preferredCurrency?.trim().toUpperCase();
+  if (preferredNormalized != null && preferredNormalized.isNotEmpty) {
+    return preferredNormalized;
+  }
+
+  return 'USD';
 });
 
 /// Filtered expenses for home page based on local filter (date + currency + view mode)
@@ -157,14 +187,14 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   final scope = ref.watch(householdScopeProvider);
   final scopedExpenses = _resolveScopeAwareExpenses(ref, data, scope);
 
-  String? _normalizeHouseholdId(String? raw) {
+  String? normalizeHouseholdId(String? raw) {
     if (raw == null) return null;
     final trimmed = raw.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
 
   bool matchesScope(String? householdId) {
-    final normalizedId = _normalizeHouseholdId(householdId);
+    final normalizedId = normalizeHouseholdId(householdId);
     switch (scope.activeAccountType) {
       case ActiveAccountType.personal:
         // Personal view should only include personal (non-household) entries.

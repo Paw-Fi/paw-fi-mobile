@@ -174,6 +174,14 @@ class DeepLinks {
         uri.pathSegments.isNotEmpty;
   }
 
+  /// Check if a URI opens the recurring page root
+  /// Format: moneko://recurring
+  static bool isRecurringPageLink(Uri uri) {
+    return uri.scheme == appScheme &&
+        uri.host == 'recurring' &&
+        uri.pathSegments.isEmpty;
+  }
+
   /// Check if a URI is a log-expense deep link
   /// Format: moneko://expenses/log
   static bool isLogExpenseLink(Uri uri) {
@@ -207,6 +215,12 @@ class DeepLinks {
   /// Format: moneko://home
   static bool isHomeLink(Uri uri) {
     return uri.scheme == appScheme && uri.host == 'home';
+  }
+
+  /// Check if a URI is an insights deep link
+  /// Format: moneko://insights
+  static bool isInsightsLink(Uri uri) {
+    return uri.scheme == appScheme && uri.host == 'insights';
   }
 
   static bool isPlaidCallback(Uri uri) {

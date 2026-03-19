@@ -12,8 +12,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 
 part 'app_initialization_provider_v2.g.dart';
 
@@ -211,6 +210,62 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     );
   }
 
+  Future<void> _initializeSelectedCurrency(
+    UserContact? user, {
+    required bool preferExistingState,
+  }) async {
+    final existing = ref.read(homeFilterProvider).selectedCurrency;
+    final existingNormalized = existing?.trim().toUpperCase();
+    final service = ref.read(currencyPreferenceServiceProvider);
+    String? storedCurrency;
+
+    try {
+      final normalized =
+          (await service.getSelectedCurrency())?.trim().toUpperCase();
+      if (normalized != null && normalized.isNotEmpty) {
+        storedCurrency = normalized;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [InitV2] Failed to load stored currency: $e');
+    }
+
+    if (storedCurrency != null) {
+      final latestFilterState = ref.read(homeFilterProvider);
+      if (latestFilterState.hasExplicitCurrency) {
+        return;
+      }
+      if (existingNormalized != storedCurrency) {
+        ref
+            .read(homeFilterProvider.notifier)
+            .bootstrapSelectedCurrency(storedCurrency);
+      }
+      return;
+    }
+
+    if (preferExistingState &&
+        existingNormalized != null &&
+        existingNormalized.isNotEmpty) {
+      return;
+    }
+
+    final preferredCurrency = user?.preferredCurrency?.trim().toUpperCase();
+    final selectedCurrency =
+        (preferredCurrency != null && preferredCurrency.isNotEmpty)
+            ? preferredCurrency
+            : (existingNormalized != null && existingNormalized.isNotEmpty
+                ? existingNormalized
+                : 'USD');
+
+    final latestFilterState = ref.read(homeFilterProvider);
+    if (latestFilterState.hasExplicitCurrency) {
+      return;
+    }
+
+    ref
+        .read(homeFilterProvider.notifier)
+        .bootstrapSelectedCurrency(selectedCurrency);
+  }
+
   /// Initialize app with cache-first strategy
   Future<void> _initialize() async {
     final operationId = ++_operationId;
@@ -260,6 +315,11 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             state: AppInitState.initialized,
             data: initData,
             clearError: true,
+          );
+
+          await _initializeSelectedCurrency(
+            initData.user,
+            preferExistingState: true,
           );
 
           debugPrint(
@@ -315,6 +375,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       // Parse response
       final data = response as Map<String, dynamic>;
       final initData = _parseInitData(data);
+      await _initializeSelectedCurrency(
+        initData.user,
+        preferExistingState: false,
+      );
 
       // Update state with fresh data
       stopwatch.stop();

@@ -116,10 +116,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         body: context.l10n.onboardingIntroSlide1Body
       ),
       (title: context.l10n.onboardingIntroSlide2Title, body: ''),
-      (
-        title: context.l10n.onboardingIntroSlide3Title,
-        body: ""
-      ),
+      (title: context.l10n.onboardingIntroSlide3Title, body: ""),
       (title: context.l10n.onboardingIntroSlide4Title, body: ''),
     ];
 
@@ -1980,6 +1977,7 @@ class _PocketsIntroStep extends HookConsumerWidget {
                     child: IgnorePointer(
                       child: PocketCard(
                         pocket: previewPockets[index],
+                        currency: currency,
                         colorScheme: colorScheme,
                         totalBudget: previewTotal,
                         envelopeMode: true,

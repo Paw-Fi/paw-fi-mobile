@@ -131,6 +131,18 @@ void main() {
       expect(intent.action, NotificationIntentAction.openExpenseSheet);
       expect(intent.raw['expense_data'], isA<Map<String, dynamic>>());
     });
+
+    test('preserves payload household context when deep link overrides action',
+        () {
+      final intent = parser.fromData(<String, dynamic>{
+        'event_type': 'member_joined',
+        'household_id': 'hh-1',
+        'deep_link': 'moneko://pockets',
+      });
+
+      expect(intent.action, NotificationIntentAction.openPocketsPage);
+      expect(intent.householdId, 'hh-1');
+    });
   });
 
   group('deep link parsing', () {
@@ -172,9 +184,29 @@ void main() {
       expect(intent?.recurringId, 'rec-1');
     });
 
+    test('maps recurring root deep link to recurring page intent', () {
+      final intent = parser.fromUri(Uri.parse('moneko://recurring'));
+      expect(intent?.action, NotificationIntentAction.openRecurringPage);
+    });
+
     test('maps log deep link to quick entry intent', () {
       final intent = parser.fromUri(Uri.parse('moneko://expenses/log'));
       expect(intent?.action, NotificationIntentAction.openLogExpenseQuickEntry);
+    });
+
+    test('maps home deep link to dashboard intent', () {
+      final intent = parser.fromUri(Uri.parse('moneko://home'));
+      expect(intent?.action, NotificationIntentAction.openHouseholdDashboard);
+    });
+
+    test('maps pockets deep link to pockets page intent', () {
+      final intent = parser.fromUri(Uri.parse('moneko://pockets'));
+      expect(intent?.action, NotificationIntentAction.openPocketsPage);
+    });
+
+    test('maps insights deep link to insights page intent', () {
+      final intent = parser.fromUri(Uri.parse('moneko://insights'));
+      expect(intent?.action, NotificationIntentAction.openInsightsPage);
     });
 
     test('maps household settings tab=2 deep link to invites intent', () {

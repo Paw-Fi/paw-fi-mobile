@@ -87,12 +87,26 @@ class IosWalletCapturePage extends HookConsumerWidget {
       isSyncing.value = true;
       try {
         final session = Supabase.instance.client.auth.currentSession;
+        final accessToken = session?.accessToken ?? '';
+        final refreshToken = session?.refreshToken ?? '';
+        final userId = session?.user.id ?? '';
+
+        if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+          if (context.mounted) {
+            AppToast.error(
+              context,
+              'Sign in again to sync wallet capture credentials.',
+            );
+          }
+          return;
+        }
+
         await SiriShortcutAuthService.instance.syncAuthContext(
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
-          accessToken: session?.accessToken,
-          refreshToken: session?.refreshToken,
-          userId: session?.user.id,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          userId: userId,
           expiresAt: session?.expiresAt,
         );
         if (context.mounted) {

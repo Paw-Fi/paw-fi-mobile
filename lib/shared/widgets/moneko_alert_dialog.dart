@@ -338,10 +338,13 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
             ],
             const SizedBox(height: 24),
             // Actions
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end, // Right align actions
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                if (widget.cancelLabel != null) ...[
+                if (widget.cancelLabel != null)
                   TextButton(
                     onPressed: _handleCancel,
                     child: Text(
@@ -351,9 +354,7 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                ],
-                if (widget.secondaryLabel != null) ...[
+                if (widget.secondaryLabel != null)
                   TextButton(
                     onPressed: _canConfirm ? _handleSecondary : null,
                     child: Text(
@@ -363,8 +364,6 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                ],
                 FilledButton.tonal(
                   style: FilledButton.styleFrom(
                     backgroundColor:

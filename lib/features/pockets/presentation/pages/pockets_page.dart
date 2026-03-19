@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -33,12 +34,18 @@ class PocketsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final isActiveTab = currentTabIndex == 2;
     final viewMode = ref.watch(viewModeProvider);
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final user = ref.watch(authProvider);
+    final filterState = ref.watch(homeFilterProvider);
+    final resolvedSelectedCurrency =
+        ref.watch(selectedHomeCurrencyCodeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
+    final isBootstrapCurrency = !filterState.hasExplicitCurrency;
 
     // Track save/reset operations
     final isSavingChanges = useState(false);
@@ -98,6 +105,10 @@ class PocketsPage extends HookConsumerWidget {
       selectedHouseholdState.household?.id,
       user.uid,
     ]);
+
+    if (!isActiveTab) {
+      return const SizedBox.shrink();
+    }
 
     if (householdScope.activeAccountType == ActiveAccountType.household) {
       if (householdsAsync.isLoading) {
@@ -200,22 +211,30 @@ class PocketsPage extends HookConsumerWidget {
       ActiveAccountType.personal => PocketsScopeParams(
           scope: PocketsScopeType.personal,
           periodMonth: currentMonthState.value,
+          currency: resolvedSelectedCurrency,
+          isBootstrapCurrency: isBootstrapCurrency,
         ),
       ActiveAccountType.portfolio =>
         householdScope.activeAccountHouseholdId == null
             ? PocketsScopeParams(
                 scope: PocketsScopeType.personal,
                 periodMonth: currentMonthState.value,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
               )
             : PocketsScopeParams(
                 scope: PocketsScopeType.portfolio,
                 householdId: householdScope.activeAccountHouseholdId,
                 periodMonth: currentMonthState.value,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
               ),
       ActiveAccountType.household => PocketsScopeParams(
           scope: PocketsScopeType.household,
           householdId: resolvedHouseholdId,
           periodMonth: currentMonthState.value,
+          currency: resolvedSelectedCurrency,
+          isBootstrapCurrency: isBootstrapCurrency,
         ),
     };
 
@@ -246,22 +265,30 @@ class PocketsPage extends HookConsumerWidget {
                 ActiveAccountType.personal => PocketsScopeParams(
                     scope: PocketsScopeType.personal,
                     periodMonth: month,
+                    currency: resolvedSelectedCurrency,
+                    isBootstrapCurrency: isBootstrapCurrency,
                   ),
                 ActiveAccountType.portfolio =>
                   householdScope.activeAccountHouseholdId == null
                       ? PocketsScopeParams(
                           scope: PocketsScopeType.personal,
                           periodMonth: month,
+                          currency: resolvedSelectedCurrency,
+                          isBootstrapCurrency: isBootstrapCurrency,
                         )
                       : PocketsScopeParams(
                           scope: PocketsScopeType.portfolio,
                           householdId: householdScope.activeAccountHouseholdId,
                           periodMonth: month,
+                          currency: resolvedSelectedCurrency,
+                          isBootstrapCurrency: isBootstrapCurrency,
                         ),
                 ActiveAccountType.household => PocketsScopeParams(
                     scope: PocketsScopeType.household,
                     householdId: resolvedHouseholdId,
                     periodMonth: month,
+                    currency: resolvedSelectedCurrency,
+                    isBootstrapCurrency: isBootstrapCurrency,
                   ),
               };
 

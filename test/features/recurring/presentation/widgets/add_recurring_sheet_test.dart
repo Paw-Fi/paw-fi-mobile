@@ -82,6 +82,47 @@ class _MockAuth extends Auth {
   AppUser build() => const AppUser(uid: 'user_1', email: 'test@example.com');
 }
 
+class _TestRecurringTransactionsNotifier extends RecurringTransactionsNotifier {
+  _TestRecurringTransactionsNotifier(
+    super.ref,
+    super.householdId,
+    RecurringTransaction transaction,
+  ) {
+    state = state.copyWith(
+      data: AsyncValue.data([transaction]),
+      hasLoadedOnce: true,
+    );
+  }
+
+  bool deleteCalled = false;
+  bool skipCalled = false;
+  String? deletedTransactionId;
+  String? skippedTransactionId;
+  DateTime? skippedDate;
+
+  @override
+  Future<DeleteRecurringResult> deleteRecurring(
+    String userId,
+    String transactionId,
+  ) async {
+    deleteCalled = true;
+    deletedTransactionId = transactionId;
+    return const DeleteRecurringResult.success();
+  }
+
+  @override
+  Future<DeleteRecurringResult> skipOccurrence(
+    String userId,
+    String transactionId,
+    DateTime dateToSkip,
+  ) async {
+    skipCalled = true;
+    skippedTransactionId = transactionId;
+    skippedDate = dateToSkip;
+    return const DeleteRecurringResult.success();
+  }
+}
+
 class _FakeHouseholdRepository implements HouseholdRepository {
   _FakeHouseholdRepository({required this.members, required this.splits});
 
@@ -592,5 +633,189 @@ void main() {
     expect(saveNotifier, isNotNull);
     expect(saveNotifier!.updateCalled, isTrue);
     await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Delete button opens choice dialog and deletes entire series',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+
+    _TestRecurringTransactionsNotifier? recurringNotifier;
+    final transaction = _recurringExpense(id: 'exp_delete', householdId: 'h1');
+
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        recurringTransactionsProvider('h1').overrideWith((ref) {
+          recurringNotifier = _TestRecurringTransactionsNotifier(
+            ref,
+            'h1',
+            transaction,
+          );
+          return recurringNotifier!;
+        }),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+        ),
+      ],
+    );
+
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AddRecurringSheet(
+              type: 'expense',
+              existingTransaction: transaction,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(AddRecurringSheet));
+    final l10n = AppLocalizations.of(context)!;
+    final deleteButton =
+        find.widgetWithText(OutlinedButton, l10n.deleteRecurringTransaction);
+
+    await tester.scrollUntilVisible(
+      deleteButton,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text(l10n.deleteEntireSeries), findsOneWidget);
+    expect(find.text(l10n.skipNextOccurrence), findsOneWidget);
+
+    await tester.tap(find.text(l10n.deleteEntireSeries));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(recurringNotifier, isNotNull);
+    expect(recurringNotifier!.deleteCalled, isTrue);
+    expect(recurringNotifier!.deletedTransactionId, transaction.id);
+    expect(recurringNotifier!.skipCalled, isFalse);
+    await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('Delete dialog can skip the next occurrence', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: const [],
+      splits: const [],
+    );
+
+    _TestRecurringTransactionsNotifier? recurringNotifier;
+    final transaction = _recurringExpense(id: 'exp_skip', householdId: 'h1');
+    final expectedSkippedDate = transaction.getNextSkippableOccurrence();
+
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        recurringTransactionsProvider('h1').overrideWith((ref) {
+          recurringNotifier = _TestRecurringTransactionsNotifier(
+            ref,
+            'h1',
+            transaction,
+          );
+          return recurringNotifier!;
+        }),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+        ),
+      ],
+    );
+
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AddRecurringSheet(
+              type: 'expense',
+              existingTransaction: transaction,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(AddRecurringSheet));
+    final l10n = AppLocalizations.of(context)!;
+    final deleteButton =
+        find.widgetWithText(OutlinedButton, l10n.deleteRecurringTransaction);
+
+    await tester.scrollUntilVisible(
+      deleteButton,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l10n.skipNextOccurrence));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(recurringNotifier, isNotNull);
+    expect(recurringNotifier!.skipCalled, isTrue);
+    expect(recurringNotifier!.skippedTransactionId, transaction.id);
+    expect(recurringNotifier!.skippedDate, expectedSkippedDate);
+    expect(recurringNotifier!.deleteCalled, isFalse);
+    await tester.pump(const Duration(seconds: 4));
   });
 }

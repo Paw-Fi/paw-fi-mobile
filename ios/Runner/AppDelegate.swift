@@ -1081,21 +1081,46 @@ private func clearWalletIdempotencySlot(idempotencyKey: String) {
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-private func performWalletTransactionCapture(
+private func performWalletPaymentIntegrationCapture(
+  transactionText: String?,
+  cardOrPass: String?,
   merchantName: String?,
-  rawMerchant: String?,
   amount: Double?,
-  currencyCode: String?,
-  transactionDate: String?,
-  cardLabel: String?,
-  externalSourceId: String?
+  name: String?
 ) async throws -> String {
-  NSLog("[MonekoCap] performWalletTransactionCapture called — merchant=%@, rawMerchant=%@, amount=%@, currency=%@, date=%@, card=%@",
-    merchantName ?? "<nil>", rawMerchant ?? "<nil>", amount.map { String($0) } ?? "<nil>",
-    currencyCode ?? "<nil>", transactionDate ?? "<nil>", cardLabel ?? "<nil>")
+  NSLog(
+    "[MonekoCap] performWalletPaymentIntegrationCapture called — transaction=%@, cardOrPass=%@, merchant=%@, amount=%@, name=%@",
+    transactionText ?? "<nil>",
+    cardOrPass ?? "<nil>",
+    merchantName ?? "<nil>",
+    amount.map(String.init(describing:)) ?? "<nil>",
+    name ?? "<nil>"
+  )
 
   guard let amount, amount > 0 else {
-    NSLog("[MonekoCap] invalidInput — amount is nil or <= 0")
+    NSLog("[MonekoCap] invalidInput — amount missing or <= 0")
+    throw SiriShortcutIntentError.invalidInput
+  }
+
+  let normalizedTransactionText = transactionText?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let normalizedCardOrPass = cardOrPass?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let normalizedMerchantName = merchantName?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let normalizedName = name?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let resolvedMerchantName: String?
+  if let normalizedMerchantName, !normalizedMerchantName.isEmpty {
+    resolvedMerchantName = normalizedMerchantName
+  } else if let normalizedName, !normalizedName.isEmpty {
+    resolvedMerchantName = normalizedName
+  } else {
+    resolvedMerchantName = nil
+  }
+
+  guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
+    NSLog("[MonekoCap] invalidInput — no usable merchant/name value")
     throw SiriShortcutIntentError.invalidInput
   }
 
@@ -1113,10 +1138,10 @@ private func performWalletTransactionCapture(
 
   let idempotencyKey = makeWalletIdempotencyKey(
     userId: context.userId,
-    merchantName: merchantName,
+    merchantName: resolvedMerchantName,
     amount: amount,
-    currencyCode: currencyCode,
-    transactionDate: transactionDate,
+    currencyCode: nil,
+    transactionDate: nil,
     scope: scope
   )
   if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
@@ -1149,87 +1174,52 @@ private func performWalletTransactionCapture(
   request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
 
   let normalizedCurrency: String
-  if let nc = normalizeSiriCurrencyCode(currencyCode) {
-    normalizedCurrency = nc
-  } else if #available(iOS 16, *), let deviceCurrency = Locale.current.currency?.identifier {
+  if #available(iOS 16, *), let deviceCurrency = Locale.current.currency?.identifier {
     normalizedCurrency = deviceCurrency.uppercased()
-    NSLog("[MonekoCap] Currency not provided, using device locale: %@", normalizedCurrency)
   } else {
     normalizedCurrency = Locale.current.currencyCode?.uppercased() ?? "USD"
-    NSLog("[MonekoCap] Currency not provided, using legacy fallback: %@", normalizedCurrency)
   }
 
   let outputDateFormatter = DateFormatter()
   outputDateFormatter.locale = Locale(identifier: "en_US_POSIX")
   outputDateFormatter.timeZone = .current
   outputDateFormatter.dateFormat = "yyyy-MM-dd"
-
-  let resolvedDate: String
-  if let transactionDate, !transactionDate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    let trimmedDate = transactionDate.trimmingCharacters(in: .whitespacesAndNewlines)
-    // Already YYYY-MM-DD — pass through
-    if trimmedDate.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
-      resolvedDate = trimmedDate
-    } else {
-      // Try common date formats the Shortcut might provide
-      let inputFormatter = DateFormatter()
-      inputFormatter.locale = Locale(identifier: "en_US_POSIX")
-      inputFormatter.timeZone = .current
-      let formats = [
-        "dd/MM/yyyy", "MM/dd/yyyy", "dd-MM-yyyy", "MM-dd-yyyy",
-        "dd.MM.yyyy", "MM.dd.yyyy",
-        "yyyy/MM/dd", "yyyy.MM.dd",
-        "d/M/yyyy", "M/d/yyyy", "d-M-yyyy", "M-d-yyyy",
-        "MMM d, yyyy", "d MMM yyyy", "MMMM d, yyyy", "d MMMM yyyy",
-      ]
-      var parsed: Date?
-      for fmt in formats {
-        inputFormatter.dateFormat = fmt
-        if let d = inputFormatter.date(from: trimmedDate) {
-          parsed = d
-          break
-        }
-      }
-      if let parsed {
-        resolvedDate = outputDateFormatter.string(from: parsed)
-      } else {
-        // Last resort: try the system's flexible date parsing
-        resolvedDate = outputDateFormatter.string(from: Date())
-        NSLog("[MonekoCap] Could not parse date '%@', falling back to today", trimmedDate)
-      }
-    }
-  } else {
-    resolvedDate = outputDateFormatter.string(from: Date())
-  }
+  let resolvedDate = outputDateFormatter.string(from: Date())
 
   var transaction: [String: Any] = [
     "amount": amount,
-    "date": resolvedDate
+    "date": resolvedDate,
+    "merchantName": resolvedMerchantName
   ]
-  if let merchantName, !merchantName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    transaction["merchantName"] = merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-  if let rawMerchant, !rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    transaction["rawMerchant"] = rawMerchant.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
   transaction["currency"] = normalizedCurrency
-  if let cardLabel, !cardLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    transaction["cardLabel"] = cardLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-  if let externalSourceId, !externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-    transaction["externalSourceId"] = externalSourceId.trimmingCharacters(in: .whitespacesAndNewlines)
-  }
-  // Fallback: when automation provides no merchant, add a note so the edge function
-  // has at least one descriptor (it accepts merchantName | rawMerchant | note).
-  if transaction["merchantName"] == nil && transaction["rawMerchant"] == nil {
-    let trimmedCard = (cardLabel ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    let fallbackNote = trimmedCard.isEmpty
-      ? "Apple Wallet transaction"
-      : "Wallet transaction via \(trimmedCard)"
-    transaction["note"] = fallbackNote
-    NSLog("[MonekoCap] No merchant provided, using note fallback: %@", fallbackNote)
-  }
   transaction["locale"] = Locale.current.identifier
+  if let normalizedTransactionText, !normalizedTransactionText.isEmpty {
+    transaction["shortcutTransaction"] = normalizedTransactionText
+  }
+  if let normalizedCardOrPass, !normalizedCardOrPass.isEmpty {
+    transaction["shortcutCardOrPass"] = normalizedCardOrPass
+    transaction["cardLabel"] = normalizedCardOrPass
+  }
+  if let normalizedName, !normalizedName.isEmpty {
+    transaction["shortcutName"] = normalizedName
+  }
+  if let normalizedMerchantName, !normalizedMerchantName.isEmpty {
+    transaction["shortcutMerchant"] = normalizedMerchantName
+  }
+
+  var noteParts: [String] = []
+  if let normalizedTransactionText, !normalizedTransactionText.isEmpty {
+    noteParts.append(normalizedTransactionText)
+  }
+  if let normalizedCardOrPass, !normalizedCardOrPass.isEmpty {
+    noteParts.append(normalizedCardOrPass)
+  }
+  if let normalizedName, !normalizedName.isEmpty {
+    noteParts.append(normalizedName)
+  }
+  if !noteParts.isEmpty {
+    transaction["note"] = noteParts.joined(separator: " | ")
+  }
 
   var body: [String: Any] = [
     "captureSource": "ios_wallet_shortcut",
@@ -1291,56 +1281,46 @@ private func performWalletTransactionCapture(
     return "That wallet transaction was already captured in Moneko."
   }
 
-  let displayMerchant = (merchantName ?? rawMerchant ?? "")
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-
-  if !displayMerchant.isEmpty {
-    let formattedAmount = String(format: "%.2f", amount)
-    return "Captured \(formattedAmount) \(normalizedCurrency) at \(displayMerchant) in Moneko."
-  }
-
   let formattedAmount = String(format: "%.2f", amount)
-  return "Captured \(formattedAmount) \(normalizedCurrency) wallet transaction in Moneko."
+  return "Captured \(formattedAmount) \(normalizedCurrency) at \(resolvedMerchantName) in Moneko."
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
-struct LogWalletTransactionIntent: AppIntent {
-  static var title: LocalizedStringResource = "Log Wallet Transaction"
-  static var description = IntentDescription("Automatically log a Wallet transaction in Moneko.")
+struct CaptureWalletTransactionIntent: AppIntent {
+  static var title: LocalizedStringResource = "Capture Wallet Transaction"
+  static var description = IntentDescription("Capture a wallet transaction in Moneko using the merchant and amount from Shortcuts.")
 
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
 
-  @Parameter(title: "Merchant Name")
+  @Parameter(title: "Transaction")
+  var transactionText: String?
+
+  @Parameter(title: "Card or Pass")
+  var cardOrPass: String?
+
+  @Parameter(
+    title: "Merchant",
+    requestValueDialog: IntentDialog("Where did you spend?")
+  )
   var merchantName: String?
 
-  @Parameter(title: "Raw Merchant")
-  var rawMerchant: String?
-
-  @Parameter(title: "Amount")
+  @Parameter(
+    title: "Amount",
+    requestValueDialog: IntentDialog("How much did you spend?")
+  )
   var amount: Double?
 
-  @Parameter(title: "Currency Code")
-  var currencyCode: String?
-
-  @Parameter(title: "Transaction Date")
-  var transactionDate: String?
-
-  @Parameter(title: "Card Label")
-  var cardLabel: String?
-
-  @Parameter(title: "External Source ID")
-  var externalSourceId: String?
+  @Parameter(title: "Name")
+  var name: String?
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    let message = try await performWalletTransactionCapture(
+    let message = try await performWalletPaymentIntegrationCapture(
+      transactionText: transactionText,
+      cardOrPass: cardOrPass,
       merchantName: merchantName,
-      rawMerchant: rawMerchant,
       amount: amount,
-      currencyCode: currencyCode,
-      transactionDate: transactionDate,
-      cardLabel: cardLabel,
-      externalSourceId: externalSourceId
+      name: name
     )
     return .result(dialog: IntentDialog(stringLiteral: message))
   }
@@ -2278,12 +2258,12 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       systemImageName: "sparkles"
     )
     AppShortcut(
-      intent: LogWalletTransactionIntent(),
+      intent: CaptureWalletTransactionIntent(),
       phrases: [
-        "Log wallet transaction with \(.applicationName)",
-        "Capture wallet payment in \(.applicationName)"
+        "Capture wallet transaction in \(.applicationName)",
+        "Run wallet transaction capture with \(.applicationName)"
       ],
-      shortTitle: "Log Wallet Transaction",
+      shortTitle: "Capture Wallet Transaction",
       systemImageName: "wallet.pass.fill"
     )
   }

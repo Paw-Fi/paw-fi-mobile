@@ -60,12 +60,13 @@ final pocketDetailsProvider =
     FutureProvider.family<PocketDetailsData, PocketTransactionsParams>(
         (ref, params) async {
   final authUser = ref.read(authProvider);
-  final filter = ref.read(homeFilterProvider);
   final periodSelection = ref.read(periodFilterProvider);
-  final selectedCurrency = filter.selectedCurrency ?? 'USD';
-  final range = resolvePeriodDateRange(periodSelection);
-
-  final end = range.end;
+  final selectedCurrency =
+      params.scopeParams.currency?.trim().isNotEmpty == true
+          ? params.scopeParams.currency!.trim()
+          : 'USD';
+  final end = params.scopeParams.periodMonth ??
+      resolvePeriodDateRange(periodSelection).end;
   final monthStart = DateTime(end.year, end.month, 1);
   final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
 

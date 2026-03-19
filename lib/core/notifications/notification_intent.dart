@@ -5,7 +5,10 @@ enum NotificationIntentAction {
   openHouseholdInvites,
   openSettlementHistory,
   openRecurringEditor,
+  openRecurringPage,
   openLogExpenseQuickEntry,
+  openPocketsPage,
+  openInsightsPage,
   openHouseholdInviteAcceptance,
   unknown,
 }

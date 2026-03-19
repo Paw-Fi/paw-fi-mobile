@@ -166,8 +166,17 @@ class NotificationDispatcher {
       case NotificationIntentAction.openRecurringEditor:
         await _openRecurringEditor(intent);
         return;
+      case NotificationIntentAction.openRecurringPage:
+        await _openRecurringPage(intent);
+        return;
       case NotificationIntentAction.openLogExpenseQuickEntry:
         await _openLogExpenseDrawer(intent);
+        return;
+      case NotificationIntentAction.openPocketsPage:
+        await _openPocketsPage(intent);
+        return;
+      case NotificationIntentAction.openInsightsPage:
+        await _openInsightsPage(intent);
         return;
       case NotificationIntentAction.openHouseholdInviteAcceptance:
         await _openHouseholdInvitation(intent);
@@ -198,11 +207,7 @@ class NotificationDispatcher {
   Future<void> _openExpenseSheet(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
-
-    final context = rootNavigatorKey.currentContext;
-    if (context == null || !context.mounted) {
-      return;
-    }
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 0;
 
     final user = _ref?.read(authProvider);
     if (user == null) {
@@ -210,6 +215,11 @@ class NotificationDispatcher {
     }
     if (user.uid.isNotEmpty) {
       await _ref?.read(analyticsProvider.notifier).loadData(user.uid);
+    }
+
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) {
+      return;
     }
 
     final expenseId = intent.expenseId;
@@ -244,6 +254,7 @@ class NotificationDispatcher {
   Future<void> _openBudgetStatus(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 0;
 
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) {
@@ -278,6 +289,7 @@ class NotificationDispatcher {
   Future<void> _openHouseholdDashboard(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 0;
 
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) {
@@ -341,6 +353,12 @@ class NotificationDispatcher {
     );
   }
 
+  Future<void> _openRecurringPage(NotificationIntent intent) async {
+    await _ensureDashboard();
+    await _selectHouseholdIfNeeded(intent.householdId);
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 1;
+  }
+
   Future<void> _openLogExpenseDrawer(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
@@ -350,6 +368,18 @@ class NotificationDispatcher {
     _ref?.read(homePageCommandProvider.notifier).state = HomePageCommand(
         HomePageCommandType.showLogExpenseDrawer,
         requestId: _requestCounter);
+  }
+
+  Future<void> _openPocketsPage(NotificationIntent intent) async {
+    await _ensureDashboard();
+    await _selectHouseholdIfNeeded(intent.householdId);
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 2;
+  }
+
+  Future<void> _openInsightsPage(NotificationIntent intent) async {
+    await _ensureDashboard();
+    await _selectHouseholdIfNeeded(intent.householdId);
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 3;
   }
 
   Future<void> _openHouseholdInvitation(NotificationIntent intent) async {

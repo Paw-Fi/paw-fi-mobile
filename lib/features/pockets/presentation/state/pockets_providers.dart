@@ -29,22 +29,29 @@ class PocketsScopeParams {
     required this.scope,
     this.householdId,
     this.periodMonth,
+    this.currency,
+    this.isBootstrapCurrency = false,
   });
 
   final PocketsScopeType scope;
   final String? householdId;
   final DateTime? periodMonth;
+  final String? currency;
+  final bool isBootstrapCurrency;
 
   @override
   bool operator ==(Object other) {
     return other is PocketsScopeParams &&
         other.scope == scope &&
         other.householdId == householdId &&
-        other.periodMonth == periodMonth;
+        other.periodMonth == periodMonth &&
+        other.currency == currency &&
+        other.isBootstrapCurrency == isBootstrapCurrency;
   }
 
   @override
-  int get hashCode => Object.hash(scope, householdId, periodMonth);
+  int get hashCode => Object.hash(
+      scope, householdId, periodMonth, currency, isBootstrapCurrency);
 }
 
 class PocketsState {
@@ -57,6 +64,7 @@ class PocketsState {
     required this.periodMonth,
     required this.previousBudget,
     required this.hasPreviousMonthPockets,
+    required this.currency,
     required this.totalBudget,
     required this.savedTotalBudget,
     required this.unallocatedSpend,
@@ -72,6 +80,7 @@ class PocketsState {
   final DateTime periodMonth;
   final double previousBudget;
   final bool hasPreviousMonthPockets;
+  final String currency;
   final double totalBudget;
   final double savedTotalBudget; // Track original budget for change detection
   final double unallocatedSpend;
@@ -114,6 +123,7 @@ class PocketsState {
     DateTime? periodMonth,
     double? previousBudget,
     bool? hasPreviousMonthPockets,
+    String? currency,
     double? totalBudget,
     double? savedTotalBudget,
     double? unallocatedSpend,
@@ -131,6 +141,7 @@ class PocketsState {
       previousBudget: previousBudget ?? this.previousBudget,
       hasPreviousMonthPockets:
           hasPreviousMonthPockets ?? this.hasPreviousMonthPockets,
+      currency: currency ?? this.currency,
       totalBudget: totalBudget ?? this.totalBudget,
       savedTotalBudget: savedTotalBudget ?? this.savedTotalBudget,
       unallocatedSpend: unallocatedSpend ?? this.unallocatedSpend,
@@ -149,6 +160,7 @@ class PocketsState {
         periodMonth: DateTime(1970, 1, 1),
         previousBudget: 0,
         hasPreviousMonthPockets: false,
+        currency: 'USD',
         totalBudget: 0,
         savedTotalBudget: 0,
         unallocatedSpend: 0,
@@ -277,7 +289,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     try {
       final authUser = ref.read(authProvider);
-      final filter = ref.read(homeFilterProvider);
       final periodSelection = ref.read(periodFilterProvider);
 
       final DateTime targetDate;
@@ -309,6 +320,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           periodMonth: monthStart,
           previousBudget: 0,
           hasPreviousMonthPockets: false,
+          currency: params.currency ?? 'USD',
           totalBudget: 0,
           savedTotalBudget: 0,
           unallocatedSpend: 0,
@@ -329,6 +341,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           periodMonth: monthStart,
           previousBudget: 0,
           hasPreviousMonthPockets: false,
+          currency: params.currency ?? 'USD',
           totalBudget: 0,
           savedTotalBudget: 0,
           unallocatedSpend: 0,
@@ -343,17 +356,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // 1. Home filter's selectedCurrency (set by HomePage + currency selector)
       // 2. Analytics preferred currency
       // 3. Fallback to USD
-      final analytics = ref.read(analyticsProvider);
-      final hasExplicitCurrency = filter.selectedCurrency != null &&
-          filter.selectedCurrency!.trim().isNotEmpty;
-      final initialCurrency = (filter.selectedCurrency?.toUpperCase() ??
-              analytics.preferredCurrency?.toUpperCase() ??
-              'USD')
-          .toUpperCase();
+      final fallbackCurrency = ref.read(selectedHomeCurrencyCodeProvider);
+      final requestedCurrency = params.currency?.trim().toUpperCase();
+      final allowCurrencyFallback = params.isBootstrapCurrency;
+      final initialCurrency =
+          (requestedCurrency ?? fallbackCurrency).toUpperCase();
       var selectedCurrency = initialCurrency;
 
       _debugLog(
-          '[Pockets] Using currency: $selectedCurrency (filter: ${filter.selectedCurrency}, analytics: ${analytics.preferredCurrency}, hasLoaded: ${analytics.hasLoadedOnce})');
+          '[Pockets] Using currency: $selectedCurrency (params: ${params.currency}, fallback: $fallbackCurrency, allowFallback: $allowCurrencyFallback)');
 
       // Fetch or create budget for the current month/scope
       final budgetQueryBase = supabase
@@ -374,7 +385,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       // If no budget was found with the selected currency, fall back to any
       // budget for this scope/month (unique constraint is on scope+period).
-      if (budgetRow == null && !hasExplicitCurrency) {
+      if (budgetRow == null && allowCurrencyFallback) {
         var fallbackBudgetQuery = supabase
             .from('budgets')
             .select('id,total_budget_cents,household_id,user_id,currency')
@@ -529,6 +540,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           periodMonth: monthStart,
           previousBudget: previousBudget,
           hasPreviousMonthPockets: hasPreviousMonthPockets,
+          currency: selectedCurrency,
           totalBudget: totalBudget,
           savedTotalBudget: totalBudget,
           unallocatedSpend: 0,
@@ -713,6 +725,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         periodMonth: monthStart,
         previousBudget: previousBudget,
         hasPreviousMonthPockets: hasPreviousMonthPockets,
+        currency: selectedCurrency,
         totalBudget: totalBudget,
         savedTotalBudget: totalBudget, // Initialize saved budget
         unallocatedSpend: unallocatedSpend,
@@ -747,6 +760,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       periodMonth: DateTime(now.year, now.month, 1),
       previousBudget: totalBudget,
       hasPreviousMonthPockets: true,
+      currency:
+          PreviewMockData.contact.preferredCurrency?.toUpperCase() ?? 'USD',
       totalBudget: totalBudget,
       savedTotalBudget: totalBudget,
       unallocatedSpend: math.max(totalBudget - totalSpent, 0),
@@ -801,6 +816,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
 
+    final explicitCurrency = params.isBootstrapCurrency
+        ? null
+        : params.currency?.trim().toUpperCase();
     final filter = ref.read(homeFilterProvider);
 
     _debugLog(
@@ -828,13 +846,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     // Currency resolution:
     // - If user explicitly selected a currency, use that.
-    // - Otherwise, use the currency of the *current* budget row (so we don't copy from the wrong currency).
-    // - Fall back to analytics/"USD" if budget lookup fails.
-    final hasExplicitCurrency = filter.selectedCurrency != null &&
-        filter.selectedCurrency!.trim().isNotEmpty;
+    // - Otherwise, prefer the currently loaded/header currency for reads.
+    // - Only fall back to the current budget row if we still have no currency.
+    // - Last resort: analytics/"USD".
+    final hasExplicitCurrency =
+        explicitCurrency != null && explicitCurrency.isNotEmpty;
 
-    var effectiveCurrency = (filter.selectedCurrency?.toUpperCase() ?? '');
-    if (!hasExplicitCurrency) {
+    var effectiveCurrency = state.currency.trim().toUpperCase();
+    if (effectiveCurrency.isEmpty) {
+      effectiveCurrency = explicitCurrency ?? '';
+    }
+    if (effectiveCurrency.isEmpty) {
+      effectiveCurrency = ref.read(selectedHomeCurrencyCodeProvider);
+    }
+
+    if (!hasExplicitCurrency && effectiveCurrency.trim().isEmpty) {
       try {
         final currentBudgetId = state.budgetId;
         if (currentBudgetId != null && currentBudgetId.isNotEmpty) {
@@ -1198,6 +1224,27 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     return false;
   }
 
+  String _resolveWriteCurrency() {
+    final explicitCurrency = params.isBootstrapCurrency
+        ? null
+        : params.currency?.trim().toUpperCase();
+    if (explicitCurrency != null && explicitCurrency.isNotEmpty) {
+      return explicitCurrency;
+    }
+
+    final loadedCurrency = state.currency.trim().toUpperCase();
+    if (loadedCurrency.isNotEmpty) {
+      return loadedCurrency;
+    }
+
+    final filter = ref.read(homeFilterProvider);
+    final analytics = ref.read(analyticsProvider);
+    return (filter.selectedCurrency?.trim().toUpperCase() ??
+            analytics.preferredCurrency?.trim().toUpperCase() ??
+            'USD')
+        .toUpperCase();
+  }
+
   Future<void> saveChanges() async {
     if (!mounted) return;
     if (!state.hasChanges) return;
@@ -1207,12 +1254,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
     try {
       final authUser = ref.read(authProvider);
-      final filter = ref.read(homeFilterProvider);
-      final analytics = ref.read(analyticsProvider);
-      final selectedCurrency = (filter.selectedCurrency?.toUpperCase() ??
-              analytics.preferredCurrency?.toUpperCase() ??
-              'USD')
-          .toUpperCase();
+      final selectedCurrency = _resolveWriteCurrency();
       // Persist against the month being viewed, not the global filter window
       final viewedMonth = params.periodMonth ?? DateTime.now();
       final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
@@ -1384,12 +1426,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final filter = ref.read(homeFilterProvider);
-      final analytics = ref.read(analyticsProvider);
-      final selectedCurrency = (filter.selectedCurrency?.toUpperCase() ??
-              analytics.preferredCurrency?.toUpperCase() ??
-              'USD')
-          .toUpperCase();
+      final selectedCurrency = _resolveWriteCurrency();
 
       final viewedMonth = params.periodMonth ?? DateTime.now();
       final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
@@ -1567,6 +1604,9 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
       PocketsScopeParams(
         scope: PocketsScopeType.household,
         householdId: selected.householdId,
+        periodMonth: params.periodMonth,
+        currency: params.currency,
+        isBootstrapCurrency: params.isBootstrapCurrency,
       ),
     );
   }

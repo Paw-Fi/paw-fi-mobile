@@ -7,7 +7,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
@@ -87,8 +86,9 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
     final isSubmitting = useState(false);
 
     // Get selected currency
-    final currencyCode =
-        ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
+    final currencyCode = scopeParams.currency?.trim().isNotEmpty == true
+        ? scopeParams.currency!.trim()
+        : 'USD';
     final currencySymbol = resolveCurrencySymbol(currencyCode);
 
     // We store the editable pockets here
@@ -225,10 +225,14 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
         if (context.mounted) {
           Navigator.of(context).pop();
         }
-        AppToast.success(toastContext, l10n.budgetCreatedSuccessfully);
+        if (toastContext.mounted) {
+          AppToast.success(toastContext, l10n.budgetCreatedSuccessfully);
+        }
       } catch (e) {
         closeDialog();
-        AppToast.error(toastContext, ErrorHandler.getUserFriendlyMessage(e));
+        if (toastContext.mounted) {
+          AppToast.error(toastContext, ErrorHandler.getUserFriendlyMessage(e));
+        }
       } finally {
         closeDialog();
         if (context.mounted) {
@@ -442,7 +446,6 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
 
                       // List of editable pockets
                       ...pockets.value.asMap().entries.map((entry) {
-                        final index = entry.key;
                         final pocket = entry.value;
 
                         return _PocketRow(
@@ -664,7 +667,7 @@ IconData _getIconData(String name) {
       return Icons.fitness_center;
     case 'sports_esports':
       return Icons.sports_esports;
-    
+
     // Missing mappings from templates
     case 'house':
       return Icons.home;
@@ -732,7 +735,7 @@ IconData _getIconData(String name) {
       return Icons.policy;
     case 'spa':
       return Icons.spa;
-      
+
     default:
       return Icons.help_outline;
   }

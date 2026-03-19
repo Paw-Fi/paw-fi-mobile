@@ -258,8 +258,6 @@ class RecurringTransactionsNotifier
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
     try {
-
-
       // Optimistic update
       if (!mounted) {
         return const DeleteRecurringResult.failure('Provider unmounted');
@@ -791,6 +789,209 @@ class RecurringTransactionSaveNotifier
     }
   }
 
+  Future<RecurringTransaction?> updateSingleExpenseOccurrence({
+    required String userId,
+    required RecurringTransaction recurringSeries,
+    required DateTime occurrenceDateToSkip,
+    required double amount,
+    required String category,
+    required String currency,
+    required DateTime date,
+    String? description,
+    String? householdId,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
+  }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
+    state = const AsyncValue.loading();
+
+    try {
+      final dateFormatter = DateFormat('yyyy-MM-dd');
+      final formattedAccountingDate = dateFormatter.format(date);
+
+      final requestBody = <String, dynamic>{
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': formattedAccountingDate,
+        'clientCreatedAt': _buildClientCreatedAtIso(ref),
+        if (description != null && description.trim().isNotEmpty)
+          'description': description.trim(),
+        'ownerType': recurringSeries.ownerType,
+        'privacyScope': recurringSeries.privacyScope,
+        'isRecurring': false,
+      };
+
+      if (householdId != null) {
+        final isPortfolio =
+            ref.read(householdScopeProvider).isPortfolioId(householdId);
+        requestBody['householdId'] = householdId;
+        requestBody['isPortfolio'] = isPortfolio;
+
+        if (!isPortfolio &&
+            customSplitType != null &&
+            customSplits != null &&
+            customSplits.isNotEmpty) {
+          final splitTypeStr = customSplitType.toString().split('.').last;
+          requestBody['customSplits'] = {
+            'splitType': splitTypeStr,
+            'memberSplits': customSplits.map((split) {
+              final memberData = <String, dynamic>{
+                'userId': split.member.userId,
+              };
+
+              switch (customSplitType) {
+                case SplitType.amount:
+                  memberData['amount'] = split.amount;
+                  break;
+                case SplitType.percentage:
+                  memberData['percentage'] = split.percentage;
+                  break;
+                case SplitType.shares:
+                  memberData['shares'] = split.shares;
+                  break;
+                case SplitType.equal:
+                  break;
+              }
+              return memberData;
+            }).toList(),
+          };
+        }
+
+        if (!isPortfolio && payerUserId != null && payerUserId.isNotEmpty) {
+          requestBody['payerUserId'] = payerUserId;
+        }
+      }
+
+      final createResponse = await supabase.functions.invoke(
+        'save-expense',
+        body: requestBody,
+      );
+
+      if (createResponse.data['success'] != true) {
+        final errorPayload = _buildFunctionErrorPayload(
+          createResponse.data,
+          fallback: 'Failed to save single expense occurrence',
+        );
+        state = AsyncValue.error(errorPayload, StackTrace.current);
+        return null;
+      }
+
+      final created = RecurringTransaction.fromJson(
+          createResponse.data['data'] as Map<String, dynamic>);
+
+      final skipSucceeded = await _excludeOccurrenceFromSeries(
+        userId: userId,
+        recurringSeries: recurringSeries,
+        occurrenceDateToSkip: occurrenceDateToSkip,
+      );
+
+      if (!skipSucceeded) {
+        await _deleteExpenseById(userId: userId, expenseId: created.id);
+        state = AsyncValue.error(
+          const {
+            'error': 'Failed to update recurring series for single occurrence',
+            'code': 'SERIES_UPDATE_FAILED',
+          },
+          StackTrace.current,
+        );
+        return null;
+      }
+
+      state = AsyncValue.data(created);
+      return created;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
+  Future<RecurringTransaction?> updateSingleIncomeOccurrence({
+    required String userId,
+    required RecurringTransaction recurringSeries,
+    required DateTime occurrenceDateToSkip,
+    required double amount,
+    required String category,
+    required String currency,
+    required DateTime date,
+    String? description,
+    String? source,
+    String? householdId,
+  }) async {
+    if (_guardPreviewWrites()) {
+      return null;
+    }
+    state = const AsyncValue.loading();
+
+    try {
+      final dateFormatter = DateFormat('yyyy-MM-dd');
+      final formattedAccountingDate = dateFormatter.format(date);
+
+      final createResponse = await supabase.functions.invoke(
+        'save-income',
+        body: {
+          'userId': userId,
+          'amount': amount,
+          'category': category,
+          'currency': currency,
+          'date': formattedAccountingDate,
+          'clientCreatedAt': _buildClientCreatedAtIso(ref),
+          if (description != null && description.trim().isNotEmpty)
+            'description': description.trim(),
+          if (source != null && source.trim().isNotEmpty)
+            'source': source.trim(),
+          'ownerType': recurringSeries.ownerType,
+          'privacyScope': recurringSeries.privacyScope,
+          if (householdId != null) 'householdId': householdId,
+          if (householdId != null)
+            'isPortfolio':
+                ref.read(householdScopeProvider).isPortfolioId(householdId),
+          'isRecurring': false,
+        },
+      );
+
+      if (createResponse.data['success'] != true) {
+        final errorPayload = _buildFunctionErrorPayload(
+          createResponse.data,
+          fallback: 'Failed to save single income occurrence',
+        );
+        state = AsyncValue.error(errorPayload, StackTrace.current);
+        return null;
+      }
+
+      final created = RecurringTransaction.fromJson(
+          createResponse.data['data'] as Map<String, dynamic>);
+
+      final skipSucceeded = await _excludeOccurrenceFromSeries(
+        userId: userId,
+        recurringSeries: recurringSeries,
+        occurrenceDateToSkip: occurrenceDateToSkip,
+      );
+
+      if (!skipSucceeded) {
+        await _deleteExpenseById(userId: userId, expenseId: created.id);
+        state = AsyncValue.error(
+          const {
+            'error': 'Failed to update recurring series for single occurrence',
+            'code': 'SERIES_UPDATE_FAILED',
+          },
+          StackTrace.current,
+        );
+        return null;
+      }
+
+      state = AsyncValue.data(created);
+      return created;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return null;
+    }
+  }
+
   /// Update recurring expense
   Future<RecurringTransaction?> updateRecurringExpense({
     required String userId,
@@ -1100,6 +1301,78 @@ class RecurringTransactionSaveNotifier
 
   void reset() {
     state = const AsyncValue.data(null);
+  }
+
+  Future<bool> _excludeOccurrenceFromSeries({
+    required String userId,
+    required RecurringTransaction recurringSeries,
+    required DateTime occurrenceDateToSkip,
+  }) async {
+    final rule = recurringSeries.recurrenceRule;
+    if (rule == null) {
+      return false;
+    }
+
+    final skipDate = DateTime(
+      occurrenceDateToSkip.year,
+      occurrenceDateToSkip.month,
+      occurrenceDateToSkip.day,
+    );
+
+    final alreadyExcluded = rule.excludedDates.any(
+      (entry) =>
+          entry.year == skipDate.year &&
+          entry.month == skipDate.month &&
+          entry.day == skipDate.day,
+    );
+
+    final updatedExcludedDates = alreadyExcluded
+        ? rule.excludedDates
+        : [...rule.excludedDates, skipDate];
+
+    final updatedRule = rule.copyWith(excludedDates: updatedExcludedDates);
+
+    final response = await supabase.functions.invoke(
+      'update-expense',
+      body: {
+        'userId': userId,
+        'expenseId': recurringSeries.id,
+        'updates': {
+          'recurrence_rule': updatedRule.toJson(),
+        },
+      },
+    );
+
+    if (response.data is! Map<String, dynamic> ||
+        (response.data as Map<String, dynamic>)['success'] != true) {
+      return false;
+    }
+
+    try {
+      ref
+          .read(recurringTransactionsProvider(recurringSeries.householdId)
+              .notifier)
+          .updateRecurring(
+            recurringSeries.copyWith(recurrenceRule: updatedRule),
+          );
+    } catch (_) {}
+
+    return true;
+  }
+
+  Future<void> _deleteExpenseById({
+    required String userId,
+    required String expenseId,
+  }) async {
+    try {
+      await supabase.functions.invoke(
+        'delete-expense',
+        body: {
+          'userId': userId,
+          'expenseIds': expenseId,
+        },
+      );
+    } catch (_) {}
   }
 
   Map<String, dynamic> _buildFunctionErrorPayload(

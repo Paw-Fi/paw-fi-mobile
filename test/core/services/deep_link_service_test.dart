@@ -157,6 +157,16 @@ void main() {
       final uri = Uri.parse('moneko://dashboard');
       expect(DeepLinks.isHomeLink(uri), false);
     });
+
+    test('detects insights link', () {
+      final uri = Uri.parse('moneko://insights');
+      expect(DeepLinks.isInsightsLink(uri), true);
+    });
+
+    test('detects recurring page link without id', () {
+      final uri = Uri.parse('moneko://recurring');
+      expect(DeepLinks.isRecurringPageLink(uri), true);
+    });
   });
 
   group('DeepLinkService - Plaid Callback Detection', () {

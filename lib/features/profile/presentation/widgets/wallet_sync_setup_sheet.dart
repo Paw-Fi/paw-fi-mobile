@@ -57,18 +57,32 @@ class WalletSyncSetupSheet extends StatelessWidget {
                   step: 3,
                   title: 'Select the Transaction trigger',
                   description:
-                      'Scroll down to Wallet & Apple Pay and tap Transaction.',
+                      'Scroll down to Wallet & Apple Pay, tap Transaction, then configure When I tap for the cards you want to track.',
                 ),
                 _buildStep(
                   context: context,
                   step: 4,
-                  title: 'Add the Moneko action',
+                  title: 'Create new shortcut and add Moneko action',
                   description:
-                      'Tap New Blank Automation, then search for "Log Wallet Transaction" and add it.',
+                      'Tap Next, then tap Create New Shortcut (or New Blank Automation). Tap Add Action, search Moneko, and select "Log Wallet Transaction".',
                 ),
                 _buildStep(
                   context: context,
                   step: 5,
+                  title: 'Map Amount from Shortcut Input',
+                  description:
+                      'In Amount, tap the field and choose Shortcut Input. Tap the inserted Shortcut Input token again, then select nested property Amount.',
+                ),
+                _buildStep(
+                  context: context,
+                  step: 6,
+                  title: 'Map Merchant from Shortcut Input',
+                  description:
+                      'In Merchant, tap the field and choose Shortcut Input. Tap the token again, then select nested property Merchant.',
+                ),
+                _buildStep(
+                  context: context,
+                  step: 7,
                   title: 'Enable Run Immediately',
                   description:
                       'Turn on Run Immediately so transactions are logged silently, without confirmation.',

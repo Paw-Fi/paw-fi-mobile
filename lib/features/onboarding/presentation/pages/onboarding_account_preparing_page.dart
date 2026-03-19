@@ -175,7 +175,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
               .from('budgets')
               .select('id')
               .eq('user_id', userId)
-              .gt('total_budget_cents', 0)
               .limit(1)
               .maybeSingle(),
           supabase
@@ -317,11 +316,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
 
       if (!shouldRunOnboardingPrep) {
-        setProgressState(
-          progressValue: 1.0,
-          label: 'We found your existing data, so we kept your current setup.',
-          done: true,
-        );
         await analytics.trackAction(
           flowName: 'onboarding_funnel',
           pageId: 'onboarding_account_preparing',
@@ -331,6 +325,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             'classification': 'existing_user_reentry',
           },
         );
+        if (context.mounted) {
+          context.go('/dashboard');
+        }
         return;
       }
 

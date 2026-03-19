@@ -202,9 +202,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final spotlightController = ref.read(homeSpotlightControllerProvider);
-    // Move currency state reading here
-    final currencyCode =
-        ref.watch(homeFilterProvider).selectedCurrency ?? 'USD';
+    final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
 
     Future<void> handleBankSyncResult(BankSyncResult next) async {
@@ -231,12 +229,15 @@ class HomeHeaderSliver extends ConsumerWidget {
     Future<void> refreshHomeDataForSelectedAccount({
       bool refreshCurrenciesNow = false,
     }) async {
-      // No-op: all downstream providers (homeFilteredTransactionsProvider,
-      // currencySummariesProvider, currencyTransactionCountsProvider, etc.)
-      // reactively watch analyticsProvider + householdScopeProvider +
-      // homeFilterProvider. When space/currency changes, they auto-recompute
-      // without a network round-trip. Pockets is scope-parameterized and
-      // creates new instances per scope that auto-load.
+      // Intentionally a no-op.
+      //
+      // Home analytics is loaded once during app initialization and filtered
+      // locally by `householdScopeProvider` + `homeFilterProvider`, so space /
+      // currency changes recompute immediately without a refetch.
+      //
+      // Recurring and pockets pages lazy-load off their active tab using the
+      // current scope/currency, so changing the header selection updates the
+      // parameters they will use the next time those tabs become visible.
     }
 
     ref.listen<BankSyncResult?>(bankSyncResultProvider, (previous, next) {

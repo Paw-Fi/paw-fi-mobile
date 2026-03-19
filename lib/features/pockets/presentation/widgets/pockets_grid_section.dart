@@ -8,7 +8,6 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/pages/pocket_details_page.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -51,15 +50,11 @@ class PocketsGridSection extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pocketsProvider(scopeParams));
     final notifier = ref.read(pocketsProvider(scopeParams).notifier);
-    final filter = ref.watch(homeFilterProvider);
-    final analytics = ref.watch(analyticsProvider);
-    final rawCurrency = (filter.selectedCurrency?.trim().isNotEmpty == true
-            ? filter.selectedCurrency!.trim()
-            : (analytics.preferredCurrency?.trim().isNotEmpty == true
-                ? analytics.preferredCurrency!.trim()
-                : 'USD'))
-        .toUpperCase();
-    final selectedCurrency = rawCurrency;
+    final effectiveCurrency = state.currency.trim().isNotEmpty
+        ? state.currency.trim()
+        : (scopeParams.currency?.trim().isNotEmpty == true
+            ? scopeParams.currency!.trim()
+            : 'USD');
 
     // Local state for Envelope Mode
     final envelopeMode = useState(true);
@@ -207,7 +202,7 @@ class PocketsGridSection extends HookConsumerWidget {
     }
 
     final pocketsForDisplay = isLoading && sortedPockets.isEmpty
-        ? _buildFakePockets(context, selectedCurrency)
+        ? _buildFakePockets(context, effectiveCurrency)
         : sortedPockets;
 
     final totalAllocated = pocketsForDisplay.fold<double>(
@@ -229,7 +224,7 @@ class PocketsGridSection extends HookConsumerWidget {
           if (uncategorized.isNotEmpty) ...[
             UncategorizedBanner(
               colorScheme: colorScheme,
-              currency: selectedCurrency,
+              currency: effectiveCurrency,
               uncategorized: uncategorized,
               uncategorizedExpenses: uncategorizedExpenses,
               availablePockets: pocketsForDisplay,
@@ -259,7 +254,7 @@ class PocketsGridSection extends HookConsumerWidget {
 
               await notifier.saveChanges();
             },
-            currency: selectedCurrency,
+            currency: effectiveCurrency,
             onDateSelected: onDateSelected,
             isSkeleton: isLoading,
             amountSpotlightKey: amountSpotlightKey,
@@ -385,6 +380,7 @@ class PocketsGridSection extends HookConsumerWidget {
                     key: ValueKey(pocket.id),
                     child: PocketCard(
                       pocket: pocket,
+                      currency: effectiveCurrency,
                       colorScheme: colorScheme,
                       totalBudget: totalBudget,
                       envelopeMode: true,
@@ -462,6 +458,7 @@ class PocketsGridSection extends HookConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: PocketListTile(
                       pocket: pocket,
+                      currency: effectiveCurrency,
                       colorScheme: colorScheme,
                       totalBudget: totalBudget,
                       onTap: () {
@@ -507,7 +504,7 @@ class PocketsGridSection extends HookConsumerWidget {
               pockets: pocketsForDisplay,
               totalSpent: totalSpent,
               colorScheme: colorScheme,
-              currency: selectedCurrency,
+              currency: effectiveCurrency,
             ),
           ],
         ],

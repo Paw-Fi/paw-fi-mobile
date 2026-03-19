@@ -108,7 +108,7 @@ class SimpleSpendingList extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    formatCurrency(pocket.spent, pocket.currency),
+                    formatCurrency(pocket.spent, currency),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,

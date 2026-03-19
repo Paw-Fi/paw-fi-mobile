@@ -28,8 +28,8 @@ class ConnectSocialBanner extends HookConsumerWidget {
     final whatsAppAsync = ref.watch(whatsAppBindingProvider);
     final telegramAsync = ref.watch(telegramBindingProvider);
 
-    final isWhatsAppConnected = whatsAppAsync.valueOrNull == true;
-    final isTelegramConnected = telegramAsync.valueOrNull == true;
+    final isWhatsAppConnected = whatsAppAsync.valueOrNull ?? true;
+    final isTelegramConnected = telegramAsync.valueOrNull ?? true;
 
     if (isDismissed || isWhatsAppConnected || isTelegramConnected) {
       return const SizedBox.shrink();

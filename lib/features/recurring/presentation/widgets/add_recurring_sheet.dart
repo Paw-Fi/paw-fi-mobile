@@ -63,8 +63,6 @@ String _normalizeCategoryRemapKey(String? category) {
   return raw;
 }
 
-/// Modern bottom sheet for adding/editing recurring transactions
-/// Apple-inspired design with clean animations and intuitive UX
 class AddRecurringSheet extends HookConsumerWidget {
   final String type; // 'expense' or 'income'
   final RecurringTransaction? existingTransaction; // For editing
@@ -82,7 +80,6 @@ class AddRecurringSheet extends HookConsumerWidget {
         useState<String>(type == 'income' ? 'income' : 'expense');
     final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
-
     // Ensure custom category style overrides are loaded for display widgets.
     ref.watch(userCategoryConfigProvider);
 
@@ -679,7 +676,6 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         if (isExpense) {
           if (isEditing) {
-            // UPDATE existing expense
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringExpense(
@@ -742,7 +738,6 @@ class AddRecurringSheet extends HookConsumerWidget {
           }
         } else {
           if (isEditing) {
-            // UPDATE existing income
             result = await ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .updateRecurringIncome(
@@ -949,7 +944,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           );
 
           final msg = ErrorHandler.getUserFriendlyMessage(
-            saveError ?? context.l10n.failedToSaveRecurringTransaction,
+            saveError ?? l10n.failedToSaveRecurringTransaction,
             context: BackendErrorContext.saveRecurring,
           );
 
@@ -982,6 +977,127 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         closeDialog();
         AppToast.error(toastContext, msg);
+      } finally {
+        closeDialog();
+      }
+    }
+
+    Future<void> handleDelete() async {
+      if (!isEditing || existingTransaction == null) return;
+
+      final l10n = context.l10n;
+      final deleteEntireSeriesLabel = l10n.deleteEntireSeries.trim().isEmpty
+          ? l10n.delete
+          : l10n.deleteEntireSeries;
+      final skipNextOccurrenceLabel = l10n.skipNextOccurrence.trim().isEmpty
+          ? l10n.skip
+          : l10n.skipNextOccurrence;
+
+      final choice = await MonekoAlertDialog.show(
+        context: context,
+        title: l10n.deleteRecurringTransaction,
+        description: l10n.deleteRecurringChoiceDescription,
+        confirmLabel: deleteEntireSeriesLabel,
+        secondaryLabel: skipNextOccurrenceLabel,
+        cancelLabel: l10n.cancel,
+        isDestructive: true,
+        barrierDismissible: true,
+      );
+
+      if (choice == null || choice.action == MonekoAlertDialogAction.cancel) {
+        return;
+      }
+
+      if (!context.mounted) return;
+
+      final user = ref.read(authProvider);
+      if (user.uid.isEmpty) {
+        AppToast.error(context, l10n.userNotAuthenticated);
+        return;
+      }
+
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      final toastContext = rootNavigator.context;
+      var dialogOpen = false;
+
+      void closeDialog() {
+        if (!dialogOpen) return;
+        if (rootNavigator.canPop()) rootNavigator.pop();
+        dialogOpen = false;
+      }
+
+      final isSkipOccurrence =
+          choice.action == MonekoAlertDialogAction.secondary;
+
+      showBlockingProcessingDialog(
+        context: toastContext,
+        message: isSkipOccurrence
+            ? '${l10n.skipNextOccurrence}...'
+            : '${l10n.delete}...',
+      );
+      dialogOpen = true;
+
+      try {
+        final notifier = ref.read(
+          recurringTransactionsProvider(existingTransaction!.householdId)
+              .notifier,
+        );
+
+        late final DeleteRecurringResult result;
+        if (isSkipOccurrence) {
+          final preferredTimezone =
+              ref.read(analyticsProvider).contact?.preferredTimezone;
+          final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+          final nextDate =
+              existingTransaction!.getNextSkippableOccurrence(userNow);
+          if (nextDate == null) {
+            closeDialog();
+            AppToast.error(
+                toastContext, l10n.failedToDeleteRecurringTransaction);
+            return;
+          }
+          result = await notifier.skipOccurrence(
+            user.uid,
+            existingTransaction!.id,
+            nextDate,
+          );
+        } else {
+          result = await notifier.deleteRecurring(
+            user.uid,
+            existingTransaction!.id,
+          );
+        }
+
+        if (!context.mounted) return;
+
+        closeDialog();
+
+        if (result.success) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+          AppToast.success(
+            toastContext,
+            isSkipOccurrence
+                ? l10n.occurrenceSkipped
+                : l10n.recurringTransactionDeleted,
+          );
+          return;
+        }
+
+        if (result.error == 'preview_mode_blocked') {
+          return;
+        }
+
+        final message =
+            (result.error != null && result.error!.trim().isNotEmpty)
+                ? result.error!
+                : l10n.failedToDeleteRecurringTransaction;
+        AppToast.error(toastContext, message);
+      } catch (e) {
+        closeDialog();
+        if (!context.mounted) return;
+        AppToast.error(toastContext, ErrorHandler.getUserFriendlyMessage(e));
       } finally {
         closeDialog();
       }
@@ -1796,6 +1912,35 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   ),
                           ),
                         ),
+
+                        if (isEditing) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: isLoading.value ? null : handleDelete,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colorScheme.destructive,
+                                side: BorderSide(
+                                  color: colorScheme.destructive
+                                      .withValues(alpha: 0.35),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: Text(
+                                context.l10n.deleteRecurringTransaction,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

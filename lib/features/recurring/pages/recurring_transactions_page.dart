@@ -110,6 +110,7 @@ class _RecurringTransactionsPageState
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final isActiveTab = currentTabIndex == 1;
     final preview = ref.watch(previewModeProvider);
 
     // Use householdScopeProvider to properly handle portfolio households
@@ -120,6 +121,19 @@ class _RecurringTransactionsPageState
       ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
       ActiveAccountType.household => householdScope.selectedHouseholdId,
     };
+
+    ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
+        (previous, next) {
+      if (next == null) {
+        return;
+      }
+
+      Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
+    });
+
+    if (!isActiveTab) {
+      return const SizedBox.shrink();
+    }
 
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     _debugPrint('🏠 [RecurringPage] BUILD');
@@ -163,26 +177,16 @@ class _RecurringTransactionsPageState
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
-    ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
-        (previous, next) {
-      if (next == null) {
-        return;
-      }
-
-      Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
-    });
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     final preferredTimezone = ref
         .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
-    if (currentTabIndex == 1) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _startRecurringTourIfNeeded(currentTabIndex);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startRecurringTourIfNeeded(currentTabIndex);
+    });
 
     return AdaptiveScaffold(
       body: Column(
@@ -572,13 +576,21 @@ class _RecurringTransactionsPageState
     _debugPrint(
         '   txId=${transaction.id} type=${transaction.type} txHouseholdId=${transaction.householdId} scopeHouseholdId=$householdId');
 
+    final l10n = context.l10n;
+    final deleteEntireSeriesLabel = l10n.deleteEntireSeries.trim().isEmpty
+        ? l10n.delete
+        : l10n.deleteEntireSeries;
+    final skipNextOccurrenceLabel = l10n.skipNextOccurrence.trim().isEmpty
+        ? l10n.skip
+        : l10n.skipNextOccurrence;
+
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: context.l10n.deleteRecurringTransaction,
-      description: context.l10n.deleteRecurringChoiceDescription,
-      confirmLabel: context.l10n.deleteEntireSeries,
-      secondaryLabel: context.l10n.skipNextOccurrence,
-      cancelLabel: context.l10n.cancel,
+      title: l10n.deleteRecurringTransaction,
+      description: l10n.deleteRecurringChoiceDescription,
+      confirmLabel: deleteEntireSeriesLabel,
+      secondaryLabel: skipNextOccurrenceLabel,
+      cancelLabel: l10n.cancel,
       isDestructive: true,
       barrierDismissible: true,
     );
@@ -589,20 +601,25 @@ class _RecurringTransactionsPageState
       return;
     }
 
+    if (!mounted) return;
+
+    final failedDeleteMessage = l10n.failedToDeleteRecurringTransaction;
+    final skipNextOccurrenceMessage = '${l10n.skipNextOccurrence}...';
+    final deleteMessage = '${l10n.delete}...';
+    final occurrenceSkippedMessage = l10n.occurrenceSkipped;
+    final recurringDeletedMessage = l10n.recurringTransactionDeleted;
+    final unauthenticatedMessage = l10n.userNotAuthenticated;
+
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) {
       _debugPrint('⚠️  [RecurringPage] Delete aborted: user is empty');
-      if (mounted) {
-        final l10n = context.l10n;
-        AppToast.error(context, l10n.userNotAuthenticated);
-      }
+      AppToast.error(context, unauthenticatedMessage);
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       return;
     }
 
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
-    final l10n = context.l10n;
     var dialogOpen = false;
     void closeDialog() {
       if (!dialogOpen) return;
@@ -612,12 +629,12 @@ class _RecurringTransactionsPageState
 
     final isSkipOccurrence = result.action == MonekoAlertDialogAction.secondary;
 
+    if (!toastContext.mounted) return;
+
     // Show loading dialog
     showBlockingProcessingDialog(
       context: toastContext,
-      message: isSkipOccurrence
-          ? '${l10n.skipNextOccurrence}...'
-          : '${l10n.delete}...',
+      message: isSkipOccurrence ? skipNextOccurrenceMessage : deleteMessage,
     );
     dialogOpen = true;
 
@@ -632,7 +649,13 @@ class _RecurringTransactionsPageState
         final preferredTimezone =
             ref.read(analyticsProvider).contact?.preferredTimezone;
         final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-        final nextDate = transaction.getNextOccurrence(userNow);
+        final nextDate = transaction.getNextSkippableOccurrence(userNow);
+        if (nextDate == null) {
+          closeDialog();
+          if (!toastContext.mounted) return;
+          AppToast.error(toastContext, failedDeleteMessage);
+          return;
+        }
         operationResult = await notifier.skipOccurrence(
           user.uid,
           transaction.id,
@@ -649,22 +672,26 @@ class _RecurringTransactionsPageState
       closeDialog();
 
       if (operationResult.success) {
+        if (!toastContext.mounted) return;
         AppToast.success(
           toastContext,
-          isSkipOccurrence
-              ? l10n.occurrenceSkipped
-              : l10n.recurringTransactionDeleted,
+          isSkipOccurrence ? occurrenceSkippedMessage : recurringDeletedMessage,
         );
       } else {
+        if (operationResult.error == 'preview_mode_blocked') {
+          return;
+        }
         final message = (operationResult.error != null &&
                 operationResult.error!.trim().isNotEmpty)
             ? operationResult.error!
-            : l10n.failedToDeleteRecurringTransaction;
+            : failedDeleteMessage;
+        if (!toastContext.mounted) return;
         AppToast.error(toastContext, message);
       }
     } catch (e) {
       closeDialog();
       if (!mounted) return;
+      if (!toastContext.mounted) return;
 
       AppToast.error(
         toastContext,

@@ -54,7 +54,6 @@ import 'package:moneko/features/insights/presentation/widgets/category_guide_dia
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
-import 'package:moneko/core/utils/mounted_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
@@ -108,14 +107,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
           ref
               .read(homeFilterProvider.notifier)
-              .setSelectedCurrency(preferredCurrency);
+              .bootstrapSelectedCurrency(preferredCurrency);
         }
-      }
-      // Initialize currency filter on first load (one-time)
-      // Check provider state instead of local flag to prevent race conditions
-      final currentCurrency = ref.read(homeFilterProvider).selectedCurrency;
-      if (currentCurrency == null) {
-        await _initializeCurrencyFilter();
       }
       // Initialize date range filter from local storage
     });
@@ -185,48 +178,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     _debugPrint(
         '🧭 [HomePageDebug] derived personalExpensesAll=${personalExpensesAll.length}');
     _debugPrint('🧭 [HomePageDebug] ====================');
-  }
-
-  Future<void> _initializeCurrencyFilter() async {
-    // Early exit if already initialized (idempotency check)
-    if (!mounted) return;
-    if (ref.read(homeFilterProvider).selectedCurrency != null) {
-      return;
-    }
-
-    // Read current analytics data once (not listening to changes)
-    final analyticsData = ref.read(analyticsProvider);
-    final service = ref.read(currencyPreferenceServiceProvider);
-
-    String selectedCurrency = 'USD'; // Default to USD
-
-    // 1. Try local storage first
-    try {
-      final storedCurrency = await runIfMounted(
-        isMounted: () => mounted,
-        action: service.getSelectedCurrency,
-      );
-      if (!mounted) return;
-      if (storedCurrency != null && storedCurrency.isNotEmpty) {
-        selectedCurrency = storedCurrency;
-      }
-    } catch (e) {
-      _debugPrint('Error loading currency from storage: $e');
-    }
-
-    // 2. If no stored currency, use preferred currency if available
-    if (selectedCurrency == 'USD' &&
-        analyticsData.contact?.preferredCurrency != null) {
-      selectedCurrency =
-          analyticsData.contact!.preferredCurrency!.toUpperCase();
-    }
-
-    // Always set the currency (never null, always defaults to USD)
-    if (mounted) {
-      ref
-          .read(homeFilterProvider.notifier)
-          .setSelectedCurrency(selectedCurrency);
-    }
   }
 
   void _scheduleThaiLanguagePromptCheck(UserContact? contact) {

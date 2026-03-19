@@ -50,9 +50,33 @@ class NotificationIntentParser {
       );
     }
 
+    if (DeepLinks.isRecurringPageLink(uri)) {
+      return const NotificationIntent(
+        action: NotificationIntentAction.openRecurringPage,
+      );
+    }
+
     if (DeepLinks.isLogExpenseLink(uri)) {
       return const NotificationIntent(
         action: NotificationIntentAction.openLogExpenseQuickEntry,
+      );
+    }
+
+    if (DeepLinks.isWidgetPocketsLink(uri)) {
+      return const NotificationIntent(
+        action: NotificationIntentAction.openPocketsPage,
+      );
+    }
+
+    if (DeepLinks.isHomeLink(uri)) {
+      return const NotificationIntent(
+        action: NotificationIntentAction.openHouseholdDashboard,
+      );
+    }
+
+    if (DeepLinks.isInsightsLink(uri)) {
+      return const NotificationIntent(
+        action: NotificationIntentAction.openInsightsPage,
       );
     }
 
@@ -86,26 +110,6 @@ class NotificationIntentParser {
     final notificationId = normalized['notification_id']?.toString() ??
         normalized['event_id']?.toString();
 
-    final deepLink = normalized['deep_link']?.toString();
-    if (deepLink != null && deepLink.isNotEmpty) {
-      final uri = Uri.tryParse(deepLink);
-      if (uri != null) {
-        final deepLinkIntent = fromUri(uri, raw: normalized);
-        if (deepLinkIntent != null &&
-            eventType != 'invite_reminder_inviter' &&
-            eventType != 'settlement_completed' &&
-            eventType != 'split_settled' &&
-            eventType != 'log_expense_reminder' &&
-            eventType != 'recurring_reminder') {
-          return deepLinkIntent.copyWith(
-            eventType: eventType,
-            notificationId: notificationId,
-            raw: normalized,
-          );
-        }
-      }
-    }
-
     final args = <String, dynamic>{
       if (_readId(normalized, 'household_id') != null)
         'household_id': _readId(normalized, 'household_id'),
@@ -125,6 +129,31 @@ class NotificationIntentParser {
         'recurring_type': _readId(normalized, 'type'),
       ..._pickBudgetNumbers(normalized),
     };
+
+    final deepLink = normalized['deep_link']?.toString();
+    if (deepLink != null && deepLink.isNotEmpty) {
+      final uri = Uri.tryParse(deepLink);
+      if (uri != null) {
+        final deepLinkIntent = fromUri(uri, raw: normalized);
+        if (deepLinkIntent != null &&
+            eventType != 'invite_reminder_inviter' &&
+            eventType != 'settlement_completed' &&
+            eventType != 'split_settled' &&
+            eventType != 'log_expense_reminder' &&
+            eventType != 'recurring_reminder') {
+          final mergedArgs = <String, dynamic>{
+            ...args,
+            ...deepLinkIntent.args,
+          };
+          return deepLinkIntent.copyWith(
+            eventType: eventType,
+            notificationId: notificationId,
+            args: mergedArgs,
+            raw: normalized,
+          );
+        }
+      }
+    }
 
     switch (eventType) {
       case 'expense_added':

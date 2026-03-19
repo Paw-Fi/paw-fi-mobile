@@ -1970,6 +1970,7 @@ class _PreAuthStarterStep extends StatelessWidget {
                   return IgnorePointer(
                     child: PocketCard(
                       pocket: previewPockets[index],
+                      currency: currency,
                       colorScheme: colorScheme,
                       totalBudget: totalBudget,
                       envelopeMode: true,

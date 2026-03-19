@@ -470,6 +470,45 @@ class RecurringTransaction {
         return 'Unknown';
     }
   }
+
+  DateTime? getNextSkippableOccurrence([DateTime? from]) {
+    if (recurrenceRule == null) {
+      return date;
+    }
+
+    final rule = recurrenceRule!;
+    final endDate = rule.endDate == null
+        ? null
+        : DateTime(rule.endDate!.year, rule.endDate!.month, rule.endDate!.day);
+    final excludedDateKeys =
+        rule.excludedDates.map((date) => formatDateOnlyYmd(date)).toSet();
+
+    var searchFrom = from ?? DateTime.now();
+    DateTime? previousCandidate;
+
+    for (var attempt = 0; attempt < 1000; attempt++) {
+      final candidate = getNextOccurrence(searchFrom);
+      final candidateDay =
+          DateTime(candidate.year, candidate.month, candidate.day);
+
+      if (endDate != null && candidateDay.isAfter(endDate)) {
+        return null;
+      }
+
+      if (previousCandidate != null && !candidate.isAfter(previousCandidate)) {
+        return null;
+      }
+
+      if (!excludedDateKeys.contains(formatDateOnlyYmd(candidate))) {
+        return candidate;
+      }
+
+      previousCandidate = candidate;
+      searchFrom = candidate.add(const Duration(microseconds: 1));
+    }
+
+    return null;
+  }
 }
 
 /// Recurrence rule for recurring transactions

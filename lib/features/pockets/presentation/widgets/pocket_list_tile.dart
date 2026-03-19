@@ -10,12 +10,14 @@ class PocketListTile extends StatelessWidget {
   const PocketListTile({
     super.key,
     required this.pocket,
+    required this.currency,
     required this.colorScheme,
     required this.totalBudget,
     required this.onTap,
   });
 
   final PocketEnvelope pocket;
+  final String currency;
   final ColorScheme colorScheme;
   final double totalBudget;
   final VoidCallback onTap;
@@ -48,7 +50,7 @@ class PocketListTile extends StatelessWidget {
     final titleColor = colorScheme.pocketTitle;
     final subtitleColor = colorScheme.pocketSubtitle;
 
-    final currencySymbol = resolveCurrencySymbol(pocket.currency);
+    final currencySymbol = resolveCurrencySymbol(currency);
     final spentNormalized = double.parse(formatAmount(pocket.spent));
     final spentLocalized = formatLocalizedNumber(context, spentNormalized);
     final spentDisplay = '$currencySymbol$spentLocalized';

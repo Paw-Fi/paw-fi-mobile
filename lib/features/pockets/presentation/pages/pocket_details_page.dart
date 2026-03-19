@@ -94,6 +94,18 @@ class PocketDetailsPage extends HookConsumerWidget {
     final totalBudget = state.totalBudget;
     final limit = pocket.getLimit(totalBudget);
     final progress = pocket.getProgress(totalBudget);
+    final effectiveCurrency = state.currency.trim().isNotEmpty
+        ? state.currency.trim()
+        : (scopeParams.currency?.trim().isNotEmpty == true
+            ? scopeParams.currency!.trim()
+            : pocket.currency);
+    final detailScopeParams = PocketsScopeParams(
+      scope: scopeParams.scope,
+      householdId: scopeParams.householdId,
+      periodMonth: state.periodMonth,
+      currency: effectiveCurrency,
+      isBootstrapCurrency: false,
+    );
 
     // Calculate unallocated budget for the edit sheet based on the effective
     // limits shown in the UI (supports fixed allocations).
@@ -174,7 +186,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                         backgroundColor:
                             colorScheme.surface.withValues(alpha: 0.0),
                         builder: (sheetContext) => EditPocketEnvelopeSheet(
-                          scopeParams: scopeParams,
+                          scopeParams: detailScopeParams,
                           existingEnvelope: pocket,
                           totalBudget: totalBudget,
                           unallocatedBudget: unallocatedBudget,
@@ -240,7 +252,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                             _formatLocalizedCurrency(
                               context,
                               limit - pocket.spent,
-                              pocket.currency,
+                              effectiveCurrency,
                             ),
                             style: TextStyle(
                               fontSize: 48,
@@ -252,7 +264,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           const SizedBox(height: 8),
                           // Allocated
                           Text(
-                            '${_formatLocalizedCurrency(context, limit, pocket.currency)} allocated',
+                            '${_formatLocalizedCurrency(context, limit, effectiveCurrency)} allocated',
                             style: TextStyle(
                               fontSize: 16,
                               color: secondaryTextColor,
@@ -296,7 +308,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           pocketDetailsProvider(
                             PocketTransactionsParams(
                               pocketId: pocketId,
-                              scopeParams: scopeParams,
+                              scopeParams: detailScopeParams,
                             ),
                           ),
                         );
@@ -319,7 +331,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                                   spent: pocket.spent,
                                   dailyAverage: data.dailyAverage,
                                   allowance: limit,
-                                  currency: pocket.currency,
+                                  currency: effectiveCurrency,
                                 ),
                                 const SizedBox(height: 24),
 
@@ -327,7 +339,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 if (data.categorySpending.isNotEmpty) ...[
                                   _SpendingBreakdownCard(
                                     categorySpending: data.categorySpending,
-                                    currency: pocket.currency,
+                                    currency: effectiveCurrency,
                                   ),
                                   const SizedBox(height: 24),
                                 ],
@@ -335,7 +347,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 // 4. Recent Transactions
                                 _TransactionsListCard(
                                   transactions: data.transactions,
-                                  currency: pocket.currency,
+                                  currency: effectiveCurrency,
                                 ),
                                 // Add extra padding at bottom for scrolling
                                 const SizedBox(height: 40),
