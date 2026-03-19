@@ -13,7 +13,6 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
-import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 class AndroidNotificationCapturePage extends HookConsumerWidget {
   const AndroidNotificationCapturePage({super.key});
@@ -28,6 +27,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         useState<NotificationCaptureConfig>(NotificationCaptureConfig.disabled);
     final isLoading = useState(true);
     final isSyncing = useState(false);
+    final isUpdatingDestination = useState(false);
     final hasAccess = useState(false);
     final recentApps = useState<List<RecentNotificationApp>>([]);
     // The PK of the user's user_contacts row — used for targeted updates.
@@ -37,6 +37,60 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final householdsAsync = authState.uid.isNotEmpty
         ? ref.watch(userHouseholdsProvider(authState.uid))
         : const AsyncValue<List<Household>>.data([]);
+
+    Future<bool> syncCredentials({bool showError = false}) async {
+      final session = Supabase.instance.client.auth.currentSession;
+      final accessToken = session?.accessToken ?? '';
+      final refreshToken = session?.refreshToken ?? '';
+      final userId = session?.user.id ?? '';
+      final expiresAt = session?.expiresAt ?? 0;
+
+      if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
+        if (showError && context.mounted) {
+          AppToast.error(
+            context,
+            'Sign in again to enable notification capture.',
+          );
+        }
+        return false;
+      }
+
+      isSyncing.value = true;
+      try {
+        await NotificationCaptureService.instance.syncAuthContext(
+          supabaseUrl: Constants.supabaseUrl,
+          supabaseAnonKey: Constants.supabaseAnon,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          userId: userId,
+          expiresAt: expiresAt,
+        );
+
+        final refreshedConfig =
+            await NotificationCaptureService.instance.getConfig();
+        config.value = config.value.copyWith(
+          hasAuthStorage: refreshedConfig.hasAuthStorage,
+          hasCredentials: refreshedConfig.hasCredentials,
+          isReady: refreshedConfig.isReady,
+        );
+
+        if (!refreshedConfig.isReady && showError && context.mounted) {
+          AppToast.error(
+            context,
+            'Could not prepare notification capture on this device.',
+          );
+        }
+
+        return refreshedConfig.isReady;
+      } catch (e) {
+        if (showError && context.mounted) {
+          AppToast.error(context, 'Failed to enable notification capture: $e');
+        }
+        return false;
+      } finally {
+        isSyncing.value = false;
+      }
+    }
 
     // Load config + access status on mount — merges native config with Supabase flag.
     useEffect(() {
@@ -76,6 +130,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
           // Keep native config in sync with Supabase value.
           await svc.setConfig(enabled: remoteEnabled);
+
+          if (loaded.hasAuthStorage && !loaded.isReady) {
+            await syncCredentials();
+          }
         } catch (e) {
           debugPrint('Failed to load notification capture config: $e');
         } finally {
@@ -99,6 +157,17 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               final apps = await svc.getRecentApps();
               recentApps.value = apps;
             }
+
+            final refreshedConfig = await svc.getConfig();
+            config.value = config.value.copyWith(
+              hasAuthStorage: refreshedConfig.hasAuthStorage,
+              hasCredentials: refreshedConfig.hasCredentials,
+              isReady: refreshedConfig.isReady,
+            );
+
+            if (refreshedConfig.hasAuthStorage && !refreshedConfig.isReady) {
+              await syncCredentials();
+            }
           } catch (_) {}
         }
 
@@ -106,55 +175,27 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       }
     });
 
-    Future<void> syncCredentials() async {
-      final session = Supabase.instance.client.auth.currentSession;
-      final accessToken = session?.accessToken ?? '';
-      final refreshToken = session?.refreshToken ?? '';
-      final userId = session?.user.id ?? '';
-      final expiresAt = session?.expiresAt ?? 0;
-
-      if (accessToken.isEmpty || refreshToken.isEmpty || userId.isEmpty) {
-        if (context.mounted) {
-          AppToast.error(
-            context,
-            'Sign in again to sync notification capture credentials.',
-          );
-        }
-        return;
-      }
-
-      isSyncing.value = true;
-      try {
-        await NotificationCaptureService.instance.syncAuthContext(
-          supabaseUrl: Constants.supabaseUrl,
-          supabaseAnonKey: Constants.supabaseAnon,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-          userId: userId,
-          expiresAt: expiresAt,
-        );
-        if (context.mounted) {
-          AppToast.success(context, 'Credentials synced successfully');
-        }
-      } catch (e) {
-        if (context.mounted) {
-          AppToast.error(context, 'Failed to sync credentials: $e');
-        }
-      } finally {
-        isSyncing.value = false;
-      }
-    }
-
     /// Persists the enabled flag to both Android native (SharedPreferences)
     /// and Supabase (user_contacts.wallet_capture_enabled).
     Future<void> toggleEnabled(bool enabled) async {
       final previous = config.value;
+      final previousEnabled = previous.enabled;
       config.value = config.value.copyWith(enabled: enabled);
 
       debugPrint(
           '[NotificationCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
 
       try {
+        if (enabled) {
+          final didSync = config.value.isReady
+              ? true
+              : await syncCredentials(showError: true);
+          if (!didSync) {
+            config.value = previous;
+            return;
+          }
+        }
+
         // Write to Android native layer.
         debugPrint('[NotificationCapture] Writing to Android native...');
         await NotificationCaptureService.instance.setConfig(enabled: enabled);
@@ -177,13 +218,17 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
         debugPrint(
             '[NotificationCapture] Edge function OK — contactId=${contactId.value}');
-
-        if (enabled) await syncCredentials();
       } catch (e, st) {
         debugPrint('[NotificationCapture] toggleEnabled error: $e');
         debugPrint('[NotificationCapture] Stack trace: $st');
+        try {
+          await NotificationCaptureService.instance
+              .setConfig(enabled: previousEnabled);
+        } catch (_) {}
+        final refreshedConfig =
+            await NotificationCaptureService.instance.getConfig();
         // Roll back optimistic update on failure.
-        config.value = previous;
+        config.value = refreshedConfig.copyWith(enabled: previousEnabled);
         if (context.mounted) {
           AppToast.error(context, 'Failed to update setting');
         }
@@ -231,12 +276,14 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
       if (result == null || result['cancelled'] == true) return;
 
+      final previous = config.value;
       final updated = config.value.copyWith(
         scopeId: result['scopeId'] as String,
         scopeName: result['scopeName'] as String,
         isPortfolio: result['isPortfolio'] as bool,
       );
       config.value = updated;
+      isUpdatingDestination.value = true;
       try {
         await NotificationCaptureService.instance.setDestinationScope(
           scopeId: result['scopeId'] as String,
@@ -244,14 +291,16 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           isPortfolio: result['isPortfolio'] as bool,
         );
       } catch (e) {
+        config.value = previous;
         if (context.mounted) {
           AppToast.error(context, 'Failed to update destination');
         }
+      } finally {
+        isUpdatingDestination.value = false;
       }
     }
 
     Future<void> grantNotificationAccess() async {
-      await syncCredentials();
       try {
         await NotificationCaptureService.instance.openNotificationSettings();
       } catch (e) {
@@ -310,138 +359,147 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         child: Container(
           color: colorScheme.appBackground,
           child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      top: getSubPageTopPadding(context),
-                      left: 20,
-                      right: 20,
-                      bottom: 40,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHero(colorScheme),
-                        if (!config.value.hasAuthStorage) ...[
-                          _buildAuthStorageWarning(colorScheme),
-                          const SizedBox(height: 16),
-                        ],
-                        if (!hasAccess.value) ...[
-                          _buildAccessWarning(
-                              colorScheme, grantNotificationAccess),
-                          const SizedBox(height: 32),
-                        ],
-                        _SettingsGroup(
-                          title: 'Configuration',
-                          children: [
-                            _SettingsTile(
-                              icon: Icons.power_settings_new_rounded,
-                              iconColor: Colors.white,
-                              iconBackgroundColor: config.value.enabled
-                                  ? colorScheme.success
-                                  : colorScheme.mutedForeground,
-                              title: 'Enable Auto-Capture',
-                              trailing: AdaptiveSwitch(
-                                value: config.value.enabled,
-                                onChanged: hasAccess.value &&
-                                        config.value.hasAuthStorage
-                                    ? toggleEnabled
-                                    : null,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.only(
+                top: getSubPageTopPadding(context),
+                left: 20,
+                right: 20,
+                bottom: 40,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHero(colorScheme),
+                  if (!config.value.hasAuthStorage) ...[
+                    _buildAuthStorageWarning(colorScheme),
+                    const SizedBox(height: 16),
+                  ],
+                  _SettingsGroup(
+                    title: 'Configuration',
+                    children: [
+                      _SettingsTile(
+                        icon: Icons.power_settings_new_rounded,
+                        iconColor: Colors.white,
+                        iconBackgroundColor: config.value.enabled
+                            ? colorScheme.success
+                            : colorScheme.mutedForeground,
+                        title: 'Enable Auto-Capture',
+                        trailing: AdaptiveSwitch(
+                          value: config.value.enabled,
+                          onChanged: isSyncing.value
+                              ? null
+                              : (value) {
+                                  if (!value) {
+                                    toggleEnabled(false);
+                                    return;
+                                  }
+
+                                  if (!config.value.hasAuthStorage) {
+                                    AppToast.error(
+                                      context,
+                                      'Notification capture is unavailable on this device.',
+                                    );
+                                    return;
+                                  }
+
+                                  if (!hasAccess.value) {
+                                    grantNotificationAccess();
+                                    return;
+                                  }
+
+                                  toggleEnabled(true);
+                                },
+                        ),
+                      ),
+                      _SettingsTile(
+                        icon: Icons.folder_rounded,
+                        iconColor: Colors.white,
+                        iconBackgroundColor: colorScheme.primary,
+                        title: 'Destination Space',
+                        subtitle: config.value.scopeName,
+                        trailing: isUpdatingDestination.value
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2),
+                              )
+                            : Icon(Icons.chevron_right_rounded,
+                                color: colorScheme.mutedForeground, size: 20),
+                        onTap: isUpdatingDestination.value
+                            ? null
+                            : pickDestinationSpace,
+                        showDivider: false,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 36),
+                  _SettingsGroup(
+                    title: 'Supported Apps',
+                    children: recentApps.value.isEmpty
+                        ? [
+                            Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.notifications_off_rounded,
+                                        size: 48,
+                                        color: colorScheme.mutedForeground
+                                            .withValues(alpha: 0.4)),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      hasAccess.value
+                                          ? 'Waiting for notifications...'
+                                          : 'Grant access to see apps here.',
+                                      style: TextStyle(
+                                          color: colorScheme.mutedForeground,
+                                          fontSize: 15),
+                                    )
+                                  ],
+                                ),
+                              ),
+                            )
+                          ]
+                        : [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              child: Text(
+                                'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: colorScheme.mutedForeground,
+                                  height: 1.4,
+                                ),
                               ),
                             ),
-                            _SettingsTile(
-                              icon: Icons.folder_rounded,
-                              iconColor: Colors.white,
-                              iconBackgroundColor: colorScheme.primary,
-                              title: 'Destination Space',
-                              subtitle: config.value.scopeName,
-                              trailing: Icon(Icons.chevron_right_rounded,
-                                  color: colorScheme.mutedForeground, size: 20),
-                              onTap: pickDestinationSpace,
-                              showDivider: false,
-                            ),
+                            ...recentApps.value.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final app = entry.value;
+                              return _AppToggleTile(
+                                appLabel: app.appLabel,
+                                packageName: app.packageName,
+                                enabled: app.enabled,
+                                onChanged: (v) =>
+                                    toggleAppEnabled(app.packageName, v),
+                                showDivider:
+                                    index < recentApps.value.length - 1,
+                              );
+                            }),
                           ],
-                        ),
-                        const SizedBox(height: 36),
-                        _SettingsGroup(
-                          title: 'Supported Apps',
-                          children: recentApps.value.isEmpty
-                              ? [
-                                  Padding(
-                                    padding: const EdgeInsets.all(32),
-                                    child: Center(
-                                      child: Column(
-                                        children: [
-                                          Icon(Icons.notifications_off_rounded,
-                                              size: 48,
-                                              color: colorScheme.mutedForeground
-                                                  .withValues(alpha: 0.4)),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            hasAccess.value
-                                                ? 'Waiting for notifications...'
-                                                : 'Grant access to see apps here.',
-                                            style: TextStyle(
-                                                color:
-                                                    colorScheme.mutedForeground,
-                                                fontSize: 15),
-                                          )
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                ]
-                              : [
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                        16, 16, 16, 8),
-                                    child: Text(
-                                      'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: colorScheme.mutedForeground,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                  ...recentApps.value
-                                      .asMap()
-                                      .entries
-                                      .map((entry) {
-                                    final index = entry.key;
-                                    final app = entry.value;
-                                    return _AppToggleTile(
-                                      appLabel: app.appLabel,
-                                      packageName: app.packageName,
-                                      enabled: app.enabled,
-                                      onChanged: (v) =>
-                                          toggleAppEnabled(app.packageName, v),
-                                      showDivider:
-                                          index < recentApps.value.length - 1,
-                                    );
-                                  }),
-                                ],
-                        ),
-                        const SizedBox(height: 36),
-                        _buildHowItWorks(colorScheme),
-                        const SizedBox(height: 36),
-                        _buildPrivacyFooter(colorScheme),
-                        const SizedBox(height: 80),
-                      ],
-                    ),
                   ),
-                ),
-                _buildBottomBar(
-                  context,
-                  colorScheme,
-                  isSyncing.value,
-                  config.value.hasAuthStorage,
-                  syncCredentials,
-                ),
-              ],
+                  const SizedBox(height: 36),
+                  _buildHowItWorks(
+                    context,
+                    colorScheme,
+                    hasAccess.value,
+                    grantNotificationAccess,
+                  ),
+                  const SizedBox(height: 36),
+                  _buildPrivacyFooter(colorScheme),
+                ],
+              ),
             ),
           ),
         ),
@@ -503,50 +561,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAccessWarning(ColorScheme colorScheme, VoidCallback onGrant) {
-    return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.errorSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.error.withValues(alpha: 0.3)),
-        ),
-        child: Row(children: [
-          Icon(Icons.warning_rounded, color: colorScheme.error, size: 32),
-          const SizedBox(width: 16),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text('Access Required',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 17,
-                        color: colorScheme.foreground,
-                        letterSpacing: -0.4)),
-                const SizedBox(height: 4),
-                Text('Grant notification access to detect alerts.',
-                    style: TextStyle(
-                        color: colorScheme.foreground.withValues(alpha: 0.8),
-                        fontSize: 15)),
-              ])),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: onGrant,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: const Text('Grant',
-                style: TextStyle(fontWeight: FontWeight.w600)),
-          )
-        ]));
-  }
-
   Widget _buildAuthStorageWarning(ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -591,7 +605,12 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildHowItWorks(ColorScheme colorScheme) {
+  Widget _buildHowItWorks(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool hasAccess,
+    VoidCallback onGrant,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -607,23 +626,97 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
         ),
-        const _FeatureItem(
-          icon: Icons.check_circle_outline_rounded,
-          title: 'Grant access',
-          description:
-              'Allow Moneko to securely read notifications on your device.',
+        _FeatureItem(
+          icon: hasAccess
+              ? Icons.check_circle_outline_rounded
+              : Icons.notifications_active_rounded,
+          title: 'Step 1: Grant access',
+          description: hasAccess
+              ? 'Notification access is already enabled for Moneko.'
+              : 'Allow Moneko to read notifications on your device so capture can work in the background.',
+          action: hasAccess
+              ? null
+              : ElevatedButton(
+                  onPressed: onGrant,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    'Grant Access',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
         ),
+        if (!hasAccess) ...[
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: colorScheme.surfaceBorder),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Step 2: Turn on Moneko in Android settings',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'In Notification read, reply & control, select Moneko and switch on Allow notification access.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: colorScheme.mutedForeground,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'lib/assets/images/wallet_sync/android_wallet_1.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'lib/assets/images/wallet_sync/android_wallet_2.png',
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const _FeatureItem(
-          icon: Icons.app_registration_rounded,
-          title: 'Enable trusted apps',
+          icon: Icons.tune_rounded,
+          title: 'Step 3: Choose which notifications to read',
           description:
-              'Turn on monitoring for specific banking or wallet apps as they appear.',
+              'After access is granted, turn on only the apps you want Moneko to monitor in the Supported Apps section.',
         ),
         const _FeatureItem(
           icon: Icons.auto_awesome_rounded,
-          title: 'Automatic capture',
+          title: 'Step 4: Automatic capture',
           description:
-              'Moneko extracts merchant, amount, and currency when alerts arrive.',
+              'Moneko extracts merchant, amount, and currency when notifications arrive.',
         ),
       ],
     );
@@ -649,45 +742,6 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(BuildContext context, ColorScheme colorScheme,
-      bool isSyncing, bool canSync, VoidCallback onSync) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.0),
-            Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.8),
-            Theme.of(context).scaffoldBackgroundColor,
-          ],
-          stops: const [0.0, 0.4, 1.0],
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: PrimaryAdaptiveButton(
-            onPressed: isSyncing || !canSync ? null : onSync,
-            child: isSyncing
-                ? const CircularProgressIndicator.adaptive()
-                : const Text(
-                    'Sync Credentials',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 17,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-          ),
-        ),
       ),
     );
   }
@@ -924,11 +978,13 @@ class _FeatureItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String description;
+  final Widget? action;
 
   const _FeatureItem({
     required this.icon,
     required this.title,
     required this.description,
+    this.action,
   });
 
   @override
@@ -963,6 +1019,10 @@ class _FeatureItem extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
+                if (action != null) ...[
+                  const SizedBox(height: 12),
+                  action!,
+                ],
               ],
             ),
           ),

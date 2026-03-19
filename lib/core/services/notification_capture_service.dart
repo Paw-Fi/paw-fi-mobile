@@ -34,6 +34,8 @@ class NotificationCaptureConfig {
     required this.scopeName,
     required this.isPortfolio,
     required this.hasAuthStorage,
+    required this.hasCredentials,
+    required this.isReady,
     required this.hasNotificationAccess,
     required this.enabledPackages,
     required this.recentApps,
@@ -44,6 +46,8 @@ class NotificationCaptureConfig {
   final String scopeName;
   final bool isPortfolio;
   final bool hasAuthStorage;
+  final bool hasCredentials;
+  final bool isReady;
   final bool hasNotificationAccess;
   final List<String> enabledPackages;
   final List<RecentNotificationApp> recentApps;
@@ -58,6 +62,8 @@ class NotificationCaptureConfig {
       scopeName: map['scopeName'] as String? ?? 'Personal',
       isPortfolio: map['isPortfolio'] as bool? ?? false,
       hasAuthStorage: map['hasAuthStorage'] as bool? ?? true,
+      hasCredentials: map['hasCredentials'] as bool? ?? false,
+      isReady: map['isReady'] as bool? ?? false,
       hasNotificationAccess: map['hasNotificationAccess'] as bool? ?? false,
       enabledPackages: rawPackages.cast<String>().toList(),
       recentApps: rawApps
@@ -75,6 +81,8 @@ class NotificationCaptureConfig {
     String? scopeName,
     bool? isPortfolio,
     bool? hasAuthStorage,
+    bool? hasCredentials,
+    bool? isReady,
     bool? hasNotificationAccess,
     List<String>? enabledPackages,
     List<RecentNotificationApp>? recentApps,
@@ -85,6 +93,8 @@ class NotificationCaptureConfig {
       scopeName: scopeName ?? this.scopeName,
       isPortfolio: isPortfolio ?? this.isPortfolio,
       hasAuthStorage: hasAuthStorage ?? this.hasAuthStorage,
+      hasCredentials: hasCredentials ?? this.hasCredentials,
+      isReady: isReady ?? this.isReady,
       hasNotificationAccess:
           hasNotificationAccess ?? this.hasNotificationAccess,
       enabledPackages: enabledPackages ?? this.enabledPackages,
@@ -98,6 +108,8 @@ class NotificationCaptureConfig {
     scopeName: 'Personal',
     isPortfolio: false,
     hasAuthStorage: true,
+    hasCredentials: false,
+    isReady: false,
     hasNotificationAccess: false,
     enabledPackages: [],
     recentApps: [],

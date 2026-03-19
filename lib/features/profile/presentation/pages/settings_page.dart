@@ -46,7 +46,6 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
-import 'package:moneko/core/services/wallet_capture_service.dart';
 import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -65,7 +64,6 @@ import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
-import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 
@@ -1140,14 +1138,18 @@ class SettingsPage extends HookConsumerWidget {
                   ),
                   _SettingsTile(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: Platform.isIOS ? 'Apple Pay Integration' : 'Auto Transaction Capture',
+                    label: Platform.isIOS
+                        ? 'Apple Pay Integration'
+                        : 'Auto Transaction Capture',
                     value: null,
                     valueWidget: FutureBuilder<bool>(
                       future: _getWalletCaptureEnabled(ref),
                       builder: (context, snapshot) {
                         final isEnabled = snapshot.data ?? false;
                         return Text(
-                          isEnabled ? context.l10n.activeStatus : context.l10n.tapToSet,
+                          isEnabled
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 14,
@@ -1380,7 +1382,7 @@ class SettingsPage extends HookConsumerWidget {
           .select('wallet_capture_enabled')
           .eq('user_id', authState.uid)
           .maybeSingle();
-      
+
       return (response?['wallet_capture_enabled'] as bool?) ?? false;
     } catch (e) {
       debugPrint('Error checking wallet capture enabled status: $e');

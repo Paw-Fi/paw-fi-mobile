@@ -82,6 +82,16 @@ class NotificationCaptureConfig(context: Context) {
             return now >= (exp - 30)
         }
 
+    val hasCredentials: Boolean
+        get() = supabaseUrl.isNotBlank() &&
+            supabaseAnonKey.isNotBlank() &&
+            accessToken.isNotBlank() &&
+            refreshToken.isNotBlank() &&
+            userId.isNotBlank()
+
+    val isReady: Boolean
+        get() = isAuthStorageAvailable && hasCredentials
+
     fun getEnabledPackages(): Set<String> {
         val json = prefs.getString(KEY_ENABLED_PACKAGES, "[]") ?: "[]"
         return try {
@@ -170,6 +180,8 @@ class NotificationCaptureConfig(context: Context) {
             "scopeName" to scopeName,
             "isPortfolio" to isPortfolio,
             "hasAuthStorage" to isAuthStorageAvailable,
+            "hasCredentials" to hasCredentials,
+            "isReady" to isReady,
             "hasNotificationAccess" to false,
             "enabledPackages" to getEnabledPackages().toList(),
             "recentApps" to getRecentApps().map { app ->

@@ -1082,19 +1082,13 @@ private func clearWalletIdempotencySlot(idempotencyKey: String) {
 
 @available(iOS 16.0, watchOS 9.0, *)
 private func performWalletPaymentIntegrationCapture(
-  transactionText: String?,
-  cardOrPass: String?,
   merchantName: String?,
-  amount: Double?,
-  name: String?
+  amount: Double?
 ) async throws -> String {
   NSLog(
-    "[MonekoCap] performWalletPaymentIntegrationCapture called — transaction=%@, cardOrPass=%@, merchant=%@, amount=%@, name=%@",
-    transactionText ?? "<nil>",
-    cardOrPass ?? "<nil>",
+    "[MonekoCap] performWalletPaymentIntegrationCapture called — merchant=%@, amount=%@",
     merchantName ?? "<nil>",
-    amount.map(String.init(describing:)) ?? "<nil>",
-    name ?? "<nil>"
+    amount.map(String.init(describing:)) ?? "<nil>"
   )
 
   guard let amount, amount > 0 else {
@@ -1102,25 +1096,12 @@ private func performWalletPaymentIntegrationCapture(
     throw SiriShortcutIntentError.invalidInput
   }
 
-  let normalizedTransactionText = transactionText?
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-  let normalizedCardOrPass = cardOrPass?
-    .trimmingCharacters(in: .whitespacesAndNewlines)
   let normalizedMerchantName = merchantName?
     .trimmingCharacters(in: .whitespacesAndNewlines)
-  let normalizedName = name?
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-  let resolvedMerchantName: String?
-  if let normalizedMerchantName, !normalizedMerchantName.isEmpty {
-    resolvedMerchantName = normalizedMerchantName
-  } else if let normalizedName, !normalizedName.isEmpty {
-    resolvedMerchantName = normalizedName
-  } else {
-    resolvedMerchantName = nil
-  }
+  let resolvedMerchantName = normalizedMerchantName
 
   guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
-    NSLog("[MonekoCap] invalidInput — no usable merchant/name value")
+    NSLog("[MonekoCap] invalidInput — no usable merchant value")
     throw SiriShortcutIntentError.invalidInput
   }
 
@@ -1173,54 +1154,10 @@ private func performWalletPaymentIntegrationCapture(
   request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
   request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
 
-  let normalizedCurrency: String
-  if #available(iOS 16, *), let deviceCurrency = Locale.current.currency?.identifier {
-    normalizedCurrency = deviceCurrency.uppercased()
-  } else {
-    normalizedCurrency = Locale.current.currencyCode?.uppercased() ?? "USD"
-  }
-
-  let outputDateFormatter = DateFormatter()
-  outputDateFormatter.locale = Locale(identifier: "en_US_POSIX")
-  outputDateFormatter.timeZone = .current
-  outputDateFormatter.dateFormat = "yyyy-MM-dd"
-  let resolvedDate = outputDateFormatter.string(from: Date())
-
   var transaction: [String: Any] = [
     "amount": amount,
-    "date": resolvedDate,
     "merchantName": resolvedMerchantName
   ]
-  transaction["currency"] = normalizedCurrency
-  transaction["locale"] = Locale.current.identifier
-  if let normalizedTransactionText, !normalizedTransactionText.isEmpty {
-    transaction["shortcutTransaction"] = normalizedTransactionText
-  }
-  if let normalizedCardOrPass, !normalizedCardOrPass.isEmpty {
-    transaction["shortcutCardOrPass"] = normalizedCardOrPass
-    transaction["cardLabel"] = normalizedCardOrPass
-  }
-  if let normalizedName, !normalizedName.isEmpty {
-    transaction["shortcutName"] = normalizedName
-  }
-  if let normalizedMerchantName, !normalizedMerchantName.isEmpty {
-    transaction["shortcutMerchant"] = normalizedMerchantName
-  }
-
-  var noteParts: [String] = []
-  if let normalizedTransactionText, !normalizedTransactionText.isEmpty {
-    noteParts.append(normalizedTransactionText)
-  }
-  if let normalizedCardOrPass, !normalizedCardOrPass.isEmpty {
-    noteParts.append(normalizedCardOrPass)
-  }
-  if let normalizedName, !normalizedName.isEmpty {
-    noteParts.append(normalizedName)
-  }
-  if !noteParts.isEmpty {
-    transaction["note"] = noteParts.joined(separator: " | ")
-  }
-
   var body: [String: Any] = [
     "captureSource": "ios_wallet_shortcut",
     "idempotencyKey": idempotencyKey,
@@ -1282,7 +1219,7 @@ private func performWalletPaymentIntegrationCapture(
   }
 
   let formattedAmount = String(format: "%.2f", amount)
-  return "Captured \(formattedAmount) \(normalizedCurrency) at \(resolvedMerchantName) in Moneko."
+  return "Captured \(formattedAmount) at \(resolvedMerchantName) in Moneko."
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -1292,12 +1229,6 @@ struct CaptureWalletTransactionIntent: AppIntent {
 
   @available(*, deprecated, message: "Use supportedModes when available.")
   static var openAppWhenRun: Bool { false }
-
-  @Parameter(title: "Transaction")
-  var transactionText: String?
-
-  @Parameter(title: "Card or Pass")
-  var cardOrPass: String?
 
   @Parameter(
     title: "Merchant",
@@ -1311,16 +1242,10 @@ struct CaptureWalletTransactionIntent: AppIntent {
   )
   var amount: Double?
 
-  @Parameter(title: "Name")
-  var name: String?
-
   func perform() async throws -> some IntentResult & ProvidesDialog {
     let message = try await performWalletPaymentIntegrationCapture(
-      transactionText: transactionText,
-      cardOrPass: cardOrPass,
       merchantName: merchantName,
-      amount: amount,
-      name: name
+      amount: amount
     )
     return .result(dialog: IntentDialog(stringLiteral: message))
   }
@@ -1487,7 +1412,6 @@ private struct SiriShortcutAuthContext {
   let refreshToken: String
   let userId: String
   let expiresAt: Int
-
   var isAccessTokenExpired: Bool {
     guard expiresAt > 0 else { return false }
     let now = Int(Date().timeIntervalSince1970)
@@ -1717,7 +1641,8 @@ struct LogExpenseWithSiriIntent: AppIntent {
       accessToken: accessToken,
       refreshToken: refreshToken,
       userId: userId,
-      expiresAt: expiresAt
+      expiresAt: expiresAt,
+      preferredCurrency: context.preferredCurrency
     )
   }
 
@@ -2326,7 +2251,6 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     if !supabaseAnonKey.isEmpty {
       defaults.set(supabaseAnonKey, forKey: SiriShortcutKeys.supabaseAnonKey)
     }
-
     SharedKeychainStore.shared.write(
       value: args["accessToken"] as? String,
       account: SiriShortcutKeys.accessTokenAccount
