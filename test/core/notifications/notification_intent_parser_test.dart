@@ -143,6 +143,19 @@ void main() {
       expect(intent.action, NotificationIntentAction.openPocketsPage);
       expect(intent.householdId, 'hh-1');
     });
+
+    test('maps wallet capture notification payload to expense sheet intent',
+        () {
+      final intent = parser.fromData(<String, dynamic>{
+        'event_type': 'expense_added',
+        'notification_type': 'wallet_pocket_update',
+        'expense_id': 'exp-wallet-1',
+        'deep_link': 'moneko://expense/exp-wallet-1',
+      });
+
+      expect(intent.action, NotificationIntentAction.openExpenseSheet);
+      expect(intent.expenseId, 'exp-wallet-1');
+    });
   });
 
   group('deep link parsing', () {

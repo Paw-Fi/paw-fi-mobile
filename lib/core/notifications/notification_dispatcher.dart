@@ -12,6 +12,7 @@ import 'package:moneko/core/notifications/notification_intent_resolver.dart';
 import 'package:moneko/core/notifications/notification_pending_store.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -230,25 +231,54 @@ class NotificationDispatcher {
       return;
     }
 
-    final analytics = _ref?.read(analyticsProvider);
-    if (analytics == null) {
+    final expense = await _findExpenseWithRetry(
+      expenseId: expenseId,
+      userId: user.uid,
+    );
+
+    final currentContext = rootNavigatorKey.currentContext;
+    if (currentContext == null || !currentContext.mounted) {
       return;
     }
-    final expense = analytics.allExpenses.cast<dynamic>().firstWhere(
-          (entry) => entry.id == expenseId,
-          orElse: () => null,
-        );
 
     if (expense == null) {
       if (intent.eventType == 'expense_deleted') {
-        AppToast.info(context, 'Expense was deleted');
+        AppToast.info(currentContext, 'Expense was deleted');
       } else {
-        AppToast.info(context, 'Expense not found or deleted');
+        AppToast.info(currentContext, 'Expense not found or deleted');
       }
       return;
     }
 
-    await showUnifiedTransactionSheet(context, existingExpense: expense);
+    await showUnifiedTransactionSheet(
+      currentContext,
+      existingExpense: expense,
+    );
+  }
+
+  Future<ExpenseEntry?> _findExpenseWithRetry({
+    required String expenseId,
+    required String userId,
+  }) async {
+    for (var attempt = 0; attempt < 4; attempt++) {
+      final analytics = _ref?.read(analyticsProvider);
+      if (analytics != null) {
+        for (final entry in analytics.allExpenses) {
+          if (entry.id == expenseId) {
+            return entry;
+          }
+        }
+      }
+
+      if (attempt < 3) {
+        await _ref?.read(analyticsProvider.notifier).loadData(userId);
+        await Future<void>.delayed(
+          Duration(milliseconds: 250 * (attempt + 1)),
+        );
+      }
+    }
+
+    return null;
   }
 
   Future<void> _openBudgetStatus(NotificationIntent intent) async {

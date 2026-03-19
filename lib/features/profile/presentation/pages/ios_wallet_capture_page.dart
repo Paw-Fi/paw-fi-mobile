@@ -259,7 +259,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-          appBar: const AdaptiveAppBar(title: 'Wallet Sync'),
+          appBar: const AdaptiveAppBar(title: 'Apple Pay Integration'),
           body: Container(
             color: colorScheme.appBackground,
             child: const Center(child: CircularProgressIndicator.adaptive()),
@@ -285,7 +285,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     return AdaptiveScaffold(
       appBar: const AdaptiveAppBar(
-        title: 'Wallet Sync',
+        title: 'Apple Pay Integration',
       ),
       body: Container(
         color: colorScheme.appBackground,
@@ -313,7 +313,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // Top Card: Icon + Selection — disabled until Wallet Sync is on.
+                // Top Card: Icon + Selection — disabled until Apple Pay Integration is on.
                 AnimatedOpacity(
                   opacity: isEnabled ? 1.0 : 0.4,
                   duration: const Duration(milliseconds: 200),
@@ -425,7 +425,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                   children: [
                                     Flexible(
                                       child: Text(
-                                        'Turn On Apple Wallet Sync',
+                                        'Turn On Apple Pay Integration',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,

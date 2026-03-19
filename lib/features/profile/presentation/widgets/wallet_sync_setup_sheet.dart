@@ -138,7 +138,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Set Up Wallet Sync',
+                'Set Up Apple Pay Integration',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,

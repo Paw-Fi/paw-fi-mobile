@@ -46,6 +46,8 @@ import 'package:moneko/features/income/presentation/providers/income_providers.d
 import 'package:moneko/features/goals/presentation/providers/goals_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
+import 'package:moneko/core/services/wallet_capture_service.dart';
+import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -1138,16 +1140,24 @@ class SettingsPage extends HookConsumerWidget {
                   ),
                   _SettingsTile(
                     icon: Icons.account_balance_wallet_rounded,
-                    label: 'Wallet Sync',
-                    value: (() {
-                      // Show a brief status — actual check is platform-dependent
-                      if (Platform.isIOS) {
-                        return 'Apple Pay';
-                      } else if (Platform.isAndroid) {
-                        return 'Notifications';
-                      }
-                      return null;
-                    })(),
+                    label: Platform.isIOS ? 'Apple Pay Integration' : 'Auto Transaction Capture',
+                    value: null,
+                    valueWidget: FutureBuilder<bool>(
+                      future: _getWalletCaptureEnabled(ref),
+                      builder: (context, snapshot) {
+                        final isEnabled = snapshot.data ?? false;
+                        return Text(
+                          isEnabled ? context.l10n.activeStatus : context.l10n.tapToSet,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        );
+                      },
+                    ),
                     onTap: () {
                       if (Platform.isIOS) {
                         Navigator.of(context).push(
@@ -1357,6 +1367,25 @@ class SettingsPage extends HookConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Checks if wallet capture is enabled by querying Supabase for the wallet_capture_enabled flag
+  Future<bool> _getWalletCaptureEnabled(WidgetRef ref) async {
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.uid.isEmpty) return false;
+
+      final response = await Supabase.instance.client
+          .from('user_contacts')
+          .select('wallet_capture_enabled')
+          .eq('user_id', authState.uid)
+          .maybeSingle();
+      
+      return (response?['wallet_capture_enabled'] as bool?) ?? false;
+    } catch (e) {
+      debugPrint('Error checking wallet capture enabled status: $e');
+      return false;
+    }
   }
 }
 

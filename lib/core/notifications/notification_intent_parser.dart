@@ -127,6 +127,8 @@ class NotificationIntentParser {
         'toast_message': _readId(normalized, 'sender_name'),
       if (_readId(normalized, 'type') != null)
         'recurring_type': _readId(normalized, 'type'),
+      if (_readId(normalized, 'notification_type') != null)
+        'notification_type': _readId(normalized, 'notification_type'),
       ..._pickBudgetNumbers(normalized),
     };
 

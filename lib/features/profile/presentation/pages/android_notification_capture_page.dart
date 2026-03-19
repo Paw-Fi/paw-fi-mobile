@@ -297,7 +297,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-          appBar: const AdaptiveAppBar(title: 'Notification Capture'),
+          appBar: const AdaptiveAppBar(title: 'Auto Transaction Capture'),
           body: Container(
             color: colorScheme.appBackground,
             child: const Center(child: CircularProgressIndicator.adaptive()),
@@ -305,7 +305,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     }
 
     return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: 'Notification Capture'),
+      appBar: const AdaptiveAppBar(title: 'Auto Transaction Capture'),
       body: Material(
         child: Container(
           color: colorScheme.appBackground,
