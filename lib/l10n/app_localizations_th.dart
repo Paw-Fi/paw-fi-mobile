@@ -6301,4 +6301,124 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get whatsappAppName => 'WhatsApp';
+
+  @override
+  String get autoCapture => 'บันทึกอัตโนมัติ';
+
+  @override
+  String get autoCaptureDescription => 'บันทึกรายการธุรกรรมจาก Apple Wallet หรือการแจ้งเตือนของแอปธนาคารโดยอัตโนมัติ';
+
+  @override
+  String get grantNotificationAccess => 'อนุญาตการเข้าถึง';
+
+  @override
+  String get destinationSpace => 'พื้นที่ปลายทาง';
+
+  @override
+  String get legacySettingDetected => '(ตรวจพบการตั้งค่าแบบเก่า)';
+
+  @override
+  String get previewAccountDeletionDisabled => 'ตัวอย่าง: การลบบัญชีถูกปิดใช้งานในโหมดสาธิต';
+
+  @override
+  String get previewSignOutDisabled => 'ตัวอย่าง: การออกจากระบบถูกปิดใช้งานในโหมดสาธิต';
+
+  @override
+  String get applePayIntegration => 'การเชื่อมต่อ Apple Pay';
+
+  @override
+  String get autoTransactionCapture => 'บันทึกธุรกรรมอัตโนมัติ';
+
+  @override
+  String get signInAgainToSyncWalletCaptureCredentials => 'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อซิงค์ข้อมูลประจำตัวสำหรับการบันทึก Wallet';
+
+  @override
+  String get credentialsSyncedSuccessfully => 'ซิงค์ข้อมูลประจำตัวสำเร็จแล้ว';
+
+  @override
+  String get failedToSyncCredentials => 'ซิงค์ข้อมูลประจำตัวไม่สำเร็จ';
+
+  @override
+  String get couldNotOpenShortcutsApp => 'ไม่สามารถเปิดแอปคำสั่งลัดได้';
+
+  @override
+  String get chooseWhereAutoCapturedTransactionsWillBeSaved => 'เลือกที่เก็บรายการธุรกรรมที่บันทึกโดยอัตโนมัติ';
+
+  @override
+  String get failedToUpdateDestination => 'อัปเดตปลายทางไม่สำเร็จ';
+
+  @override
+  String get logTransactionsTo => 'บันทึกธุรกรรมไปยัง';
+
+  @override
+  String get applePaySync => 'ซิงค์ Apple Pay';
+
+  @override
+  String get startSetup => 'เริ่มการตั้งค่า';
+
+  @override
+  String get transactionDataStoredSecurely => 'ข้อมูลธุรกรรมของคุณถูกเก็บไว้อย่างปลอดภัยในบัญชีของคุณ และจะไม่มีการขายหรือแชร์ให้กับบุคคลที่สาม';
+
+  @override
+  String get signInAgainToEnableNotificationCapture => 'กรุณาลงชื่อเข้าใช้อีกครั้งเพื่อเปิดใช้งานการบันทึกจากการแจ้งเตือน';
+
+  @override
+  String get couldNotPrepareNotificationCaptureOnThisDevice => 'ไม่สามารถเตรียมการบันทึกจากการแจ้งเตือนบนอุปกรณ์นี้ได้';
+
+  @override
+  String get failedToEnableNotificationCapture => 'เปิดใช้งานการบันทึกจากการแจ้งเตือนไม่สำเร็จ';
+
+  @override
+  String get enableAutoCapture => 'เปิดใช้งานการบันทึกอัตโนมัติ';
+
+  @override
+  String get supportedApps => 'แอปที่รองรับ';
+
+  @override
+  String get waitingForNotifications => 'กำลังรอการแจ้งเตือน...';
+
+  @override
+  String get grantAccessToSeeAppsHere => 'อนุญาตการเข้าถึงเพื่อดูแอปที่นี่';
+
+  @override
+  String get toggleAppsMonekoShouldMonitor => 'เลือกแอปที่ต้องการให้ Moneko ตรวจสอบ แอปใหม่จะปรากฏขึ้นโดยอัตโนมัติเมื่อมีการส่งการแจ้งเตือน';
+
+  @override
+  String get connectSupportedNotificationApps => 'เชื่อมต่อแอปการแจ้งเตือนที่รองรับกับ Moneko เพื่อให้การแจ้งเตือนธุรกรรมถูกบันทึกลงในพื้นที่ที่คุณเลือกโดยอัตโนมัติ';
+
+  @override
+  String get enableMonekoInsideAndroidSettings => 'เปิดใช้งาน Moneko ในการตั้งค่า Android';
+
+  @override
+  String get showSteps => 'แสดงขั้นตอน';
+
+  @override
+  String get chooseWhichNotificationsToRead => 'เลือกการแจ้งเตือนที่จะอ่าน';
+
+  @override
+  String get automaticCapture => 'บันทึกอัตโนมัติ';
+
+  @override
+  String get couldNotOpenNotificationSettings => 'ไม่สามารถเปิดการตั้งค่าการแจ้งเตือนได้';
+
+  @override
+  String get failedToUpdateAppSetting => 'อัปเดตการตั้งค่าแอปไม่สำเร็จ';
+
+  @override
+  String get androidSettingsWalkthrough => 'คำแนะนำการตั้งค่า Android';
+
+  @override
+  String get notificationAccessIsAlreadyEnabledForMoneko => 'Moneko ได้รับอนุญาตให้เข้าถึงการแจ้งเตือนแล้ว';
+
+  @override
+  String get goToSettingsNotificationsNotificationReadReplyAndControl => 'ไปที่ การตั้งค่า → การแจ้งเตือน → \"การอ่าน การตอบกลับ และการควบคุมการแจ้งเตือน\" เลือก Moneko แล้วเปิด อนุญาตการเข้าถึงการแจ้งเตือน';
+
+  @override
+  String get afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor => 'หลังจากอนุญาตการเข้าถึงแล้ว ให้เปิดเฉพาะแอปที่คุณต้องการให้ Moneko ตรวจสอบในส่วนแอปที่รองรับ';
+
+  @override
+  String get secureStorageUnavailable => 'พื้นที่จัดเก็บข้อมูลที่ปลอดภัยไม่พร้อมใช้งาน';
+
+  @override
+  String get failedToUpdateSetting => 'อัปเดตการตั้งค่าไม่สำเร็จ';
 }

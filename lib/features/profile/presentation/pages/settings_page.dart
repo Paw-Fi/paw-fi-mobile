@@ -431,9 +431,9 @@ class SettingsPage extends HookConsumerWidget {
         ? _deviceTimezoneSentinel
         : (canonicalSelectedTimezone ?? _deviceTimezoneSentinel);
     final timezoneDisplay = isLegacyTimezone
-        ? '(GMT ${_formatOffsetMinutes(deviceOffsetMinutes)}) ${context.l10n.deviceLabel} (legacy setting detected)'
+        ? '(GMT ${_formatOffsetMinutes(deviceOffsetMinutes)}) ${context.l10n.deviceLabel} ${context.l10n.legacySettingDetected}'
         : (timezoneValue == _deviceTimezoneSentinel
-            ? '${_formatTimezoneLabel(_resolveTimezoneOption(timezone: deviceTimezone, fallbackOffsetMinutes: deviceOffsetMinutes, preferFallback: true))} (Current timezone)'
+            ? '${_formatTimezoneLabel(_resolveTimezoneOption(timezone: deviceTimezone, fallbackOffsetMinutes: deviceOffsetMinutes, preferFallback: true))} ${context.l10n.currentTimezone}'
             : _formatTimezoneLabel(
                 _resolveTimezoneOption(
                   timezone: timezoneValue,
@@ -516,7 +516,7 @@ class SettingsPage extends HookConsumerWidget {
         if (context.mounted) {
           AppToast.info(
             context,
-            'Preview: account deletion is disabled in demo mode.',
+            context.l10n.previewAccountDeletionDisabled,
           );
         }
         return;
@@ -1139,8 +1139,8 @@ class SettingsPage extends HookConsumerWidget {
                   _SettingsTile(
                     icon: Icons.account_balance_wallet_rounded,
                     label: Platform.isIOS
-                        ? 'Apple Pay Integration'
-                        : 'Auto Transaction Capture',
+                        ? context.l10n.applePayIntegration
+                        : context.l10n.autoTransactionCapture,
                     value: null,
                     valueWidget: FutureBuilder<bool>(
                       future: _getWalletCaptureEnabled(ref),
@@ -1205,7 +1205,7 @@ class SettingsPage extends HookConsumerWidget {
                             ? context.l10n.premium
                             : context.l10n.free,
                         loading: () => '...',
-                        error: (_, __) => 'Error',
+                        error: (_, __) => context.l10n.error,
                       ),
                       onTap: () async {
                         Navigator.of(context).push(
@@ -1330,7 +1330,7 @@ class SettingsPage extends HookConsumerWidget {
                           if (context.mounted) {
                             AppToast.info(
                               context,
-                              'Preview: sign out is disabled in demo mode.',
+                              context.l10n.previewSignOutDisabled,
                             );
                           }
                         } else {

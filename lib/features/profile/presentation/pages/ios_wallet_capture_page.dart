@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -18,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/profile/presentation/widgets/wallet_sync_setup_sheet.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class IosWalletCapturePage extends HookConsumerWidget {
   const IosWalletCapturePage({super.key});
@@ -95,7 +97,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           if (context.mounted) {
             AppToast.error(
               context,
-              'Sign in again to sync wallet capture credentials.',
+              context.l10n.signInAgainToSyncWalletCaptureCredentials,
             );
           }
           return;
@@ -110,11 +112,12 @@ class IosWalletCapturePage extends HookConsumerWidget {
           expiresAt: session?.expiresAt,
         );
         if (context.mounted) {
-          AppToast.success(context, 'Credentials synced successfully');
+          AppToast.success(context, context.l10n.credentialsSyncedSuccessfully);
         }
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, 'Failed to sync credentials: $e');
+          AppToast.error(
+              context, '${context.l10n.failedToSyncCredentials}: $e');
         }
       } finally {
         isSyncing.value = false;
@@ -131,11 +134,11 @@ class IosWalletCapturePage extends HookConsumerWidget {
           mode: LaunchMode.externalApplication,
         );
         if (!launched && context.mounted) {
-          AppToast.error(context, 'Could not open Shortcuts app');
+          AppToast.error(context, context.l10n.couldNotOpenShortcutsApp);
         }
       } catch (_) {
         if (context.mounted) {
-          AppToast.error(context, 'Could not open Shortcuts app');
+          AppToast.error(context, context.l10n.couldNotOpenShortcutsApp);
         }
       }
     }
@@ -196,7 +199,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
         // Roll back optimistic update on failure.
         config.value = previous;
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update setting');
+          AppToast.error(context, context.l10n.failedToUpdateSetting);
         }
       }
     }
@@ -206,7 +209,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
       final actions = <MonekoActionSheetAction<Map<String, dynamic>>>[
         MonekoActionSheetAction(
-          label: 'Personal',
+          label: context.l10n.personal,
           value: {
             'scopeId': 'personal',
             'scopeName': 'Personal',
@@ -231,11 +234,11 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
       final result = await MonekoActionSheet.show<Map<String, dynamic>>(
         context: context,
-        title: 'Destination Space',
-        message: 'Choose where auto-captured transactions will be saved.',
+        title: context.l10n.destinationSpace,
+        message: context.l10n.chooseWhereAutoCapturedTransactionsWillBeSaved,
         actions: actions,
         cancelAction: MonekoActionSheetAction(
-          label: 'Cancel',
+          label: context.l10n.cancel,
           value: {'cancelled': true},
         ),
       );
@@ -252,14 +255,14 @@ class IosWalletCapturePage extends HookConsumerWidget {
         await WalletCaptureService.instance.setConfig(updated);
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update destination');
+          AppToast.error(context, context.l10n.failedToUpdateDestination);
         }
       }
     }
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-          appBar: const AdaptiveAppBar(title: 'Apple Pay Integration'),
+          appBar: AdaptiveAppBar(title: context.l10n.applePayIntegration),
           body: Container(
             color: colorScheme.appBackground,
             child: const Center(child: CircularProgressIndicator.adaptive()),
@@ -284,8 +287,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final isEnabled = config.value.enabled;
 
     return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(
-        title: 'Apple Pay Integration',
+      appBar: AdaptiveAppBar(
+        title: context.l10n.applePayIntegration,
       ),
       body: Container(
         color: colorScheme.appBackground,
@@ -302,7 +305,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Automatically track Apple Pay purchases and sync them to your account.',
+                  context.l10n.autoCaptureDescription,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -344,7 +347,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                           ),
                           const SizedBox(height: 32),
                           Text(
-                            'Log Transactions To',
+                            context.l10n.logTransactionsTo,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -425,7 +428,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                   children: [
                                     Flexible(
                                       child: Text(
-                                        'Apple Pay Sync',
+                                        context.l10n.applePaySync,
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -447,7 +450,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Your transactions are added automatically',
+                                  context.l10n
+                                      .yourTransactionsAreAddedAutomatically,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: colorScheme.mutedForeground,
@@ -471,8 +475,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
                           height: 52,
                           child: PrimaryAdaptiveButton(
                             onPressed: showSetupSheet,
-                            child: const Text(
-                              'Start Setup',
+                            child: Text(
+                              context.l10n.startSetup,
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
@@ -497,7 +501,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Your transaction data is stored securely in your account and is never sold or shared with third parties.',
+                        context.l10n.transactionDataStoredSecurely,
                         style: TextStyle(
                           fontSize: 12,
                           color: colorScheme.mutedForeground,

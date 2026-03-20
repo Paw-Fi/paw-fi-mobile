@@ -14,6 +14,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class AndroidNotificationCapturePage extends HookConsumerWidget {
   const AndroidNotificationCapturePage({super.key});
@@ -50,7 +51,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         if (showError && context.mounted) {
           AppToast.error(
             context,
-            'Sign in again to enable notification capture.',
+            context.l10n.signInAgainToEnableNotificationCapture,
           );
         }
         return false;
@@ -78,14 +79,15 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         if (!refreshedConfig.isReady && showError && context.mounted) {
           AppToast.error(
             context,
-            'Could not prepare notification capture on this device.',
+            context.l10n.couldNotPrepareNotificationCaptureOnThisDevice,
           );
         }
 
         return refreshedConfig.isReady;
       } catch (e) {
         if (showError && context.mounted) {
-          AppToast.error(context, 'Failed to enable notification capture: $e');
+          AppToast.error(
+              context, '${context.l10n.failedToEnableNotificationCapture}: $e');
         }
         return false;
       } finally {
@@ -231,7 +233,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         // Roll back optimistic update on failure.
         config.value = refreshedConfig.copyWith(enabled: previousEnabled);
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update setting');
+          AppToast.error(context, context.l10n.failedToUpdateSetting);
         }
       }
     }
@@ -241,7 +243,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
       final actions = <MonekoActionSheetAction<Map<String, dynamic>>>[
         MonekoActionSheetAction(
-          label: 'Personal',
+          label: context.l10n.personal,
           value: {
             'scopeId': 'personal',
             'scopeName': 'Personal',
@@ -266,11 +268,11 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
       final result = await MonekoActionSheet.show<Map<String, dynamic>>(
         context: context,
-        title: 'Destination Space',
-        message: 'Choose where auto-captured transactions will be saved.',
+        title: context.l10n.destinationSpace,
+        message: context.l10n.chooseWhereAutoCapturedTransactionsWillBeSaved,
         actions: actions,
         cancelAction: MonekoActionSheetAction(
-          label: 'Cancel',
+          label: context.l10n.cancel,
           value: {'cancelled': true},
         ),
       );
@@ -294,7 +296,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       } catch (e) {
         config.value = previous;
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update destination');
+          AppToast.error(context, context.l10n.failedToUpdateDestination);
         }
       } finally {
         isUpdatingDestination.value = false;
@@ -306,7 +308,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         await NotificationCaptureService.instance.openNotificationSettings();
       } catch (e) {
         if (context.mounted) {
-          AppToast.error(context, 'Could not open notification settings');
+          AppToast.error(
+              context, context.l10n.couldNotOpenNotificationSettings);
         }
       }
     }
@@ -340,14 +343,14 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                 : a)
             .toList();
         if (context.mounted) {
-          AppToast.error(context, 'Failed to update app setting');
+          AppToast.error(context, context.l10n.failedToUpdateAppSetting);
         }
       }
     }
 
     if (isLoading.value) {
       return AdaptiveScaffold(
-          appBar: const AdaptiveAppBar(title: 'Auto Transaction Capture'),
+          appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
           body: Container(
             color: colorScheme.appBackground,
             child: const Center(child: CircularProgressIndicator.adaptive()),
@@ -371,13 +374,13 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHero(colorScheme),
+                  _buildHero(context, colorScheme),
                   if (!config.value.hasAuthStorage) ...[
-                    _buildAuthStorageWarning(colorScheme),
+                    _buildAuthStorageWarning(context, colorScheme),
                     const SizedBox(height: 16),
                   ],
                   _SettingsGroup(
-                    title: 'Configuration',
+                    title: context.l10n.configuration,
                     children: [
                       _SettingsTile(
                         icon: Icons.power_settings_new_rounded,
@@ -385,7 +388,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                         iconBackgroundColor: config.value.enabled
                             ? colorScheme.success
                             : colorScheme.mutedForeground,
-                        title: 'Enable Auto-Capture',
+                        title: context.l10n.enableAutoCapture,
                         trailing: AdaptiveSwitch(
                           value: config.value.enabled,
                           onChanged: isSyncing.value
@@ -399,7 +402,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                   if (!config.value.hasAuthStorage) {
                                     AppToast.error(
                                       context,
-                                      'Notification capture is unavailable on this device.',
+                                      context.l10n
+                                          .notificationCaptureIsUnavailableOnThisDevice,
                                     );
                                     return;
                                   }
@@ -417,7 +421,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                         icon: Icons.folder_rounded,
                         iconColor: Colors.white,
                         iconBackgroundColor: colorScheme.primary,
-                        title: 'Destination Space',
+                        title: context.l10n.destinationSpace,
                         subtitle: config.value.scopeName,
                         enabled: config.value.enabled,
                         trailing: isUpdatingDestination.value
@@ -443,7 +447,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                   if (config.value.enabled) ...[
                     const SizedBox(height: 36),
                     _SettingsGroup(
-                      title: 'Supported Apps',
+                      title: context.l10n.supportedApps,
                       children: recentApps.value.isEmpty
                           ? [
                               Padding(
@@ -458,8 +462,10 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                       const SizedBox(height: 16),
                                       Text(
                                         hasAccess.value
-                                            ? 'Waiting for notifications...'
-                                            : 'Grant access to see apps here.',
+                                            ? context
+                                                .l10n.waitingForNotifications
+                                            : context
+                                                .l10n.grantAccessToSeeAppsHere,
                                         style: TextStyle(
                                             color: colorScheme.mutedForeground,
                                             fontSize: 15),
@@ -474,7 +480,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 padding:
                                     const EdgeInsets.fromLTRB(16, 16, 16, 8),
                                 child: Text(
-                                  'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
+                                  context.l10n.toggleAppsMonekoShouldMonitor,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: colorScheme.mutedForeground,
@@ -506,7 +512,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                     grantNotificationAccess,
                   ),
                   const SizedBox(height: 36),
-                  _buildPrivacyFooter(colorScheme),
+                  _buildPrivacyFooter(context, colorScheme),
                 ],
               ),
             ),
@@ -516,7 +522,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildHero(ColorScheme colorScheme) {
+  Widget _buildHero(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
@@ -550,7 +556,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'Auto-Capture',
+                context.l10n.autoCapture,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -564,7 +570,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Connect supported notification apps to Moneko so transaction alerts can be logged into your chosen space automatically.',
+            context.l10n.connectSupportedNotificationApps,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -577,7 +583,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildAuthStorageWarning(ColorScheme colorScheme) {
+  Widget _buildAuthStorageWarning(
+      BuildContext context, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -596,7 +603,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Secure Storage Unavailable',
+                  context.l10n.secureStorageUnavailable,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 17,
@@ -606,7 +613,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Moneko cannot securely store background sync credentials on this device, so notification capture will not stay connected.',
+                  context.l10n
+                      .monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice,
                   style: TextStyle(
                     color: colorScheme.foreground.withValues(alpha: 0.8),
                     fontSize: 15,
@@ -653,7 +661,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Android Settings Walkthrough',
+                  context.l10n.androidSettingsWalkthrough,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -663,7 +671,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Follow these screens to turn on notification access for Moneko.',
+                  context.l10n
+                      .followTheseScreensToTurnOnNotificationAccessForMoneko,
                   style: TextStyle(
                     fontSize: 14,
                     color: colorScheme.mutedForeground,
@@ -696,7 +705,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         Padding(
           padding: const EdgeInsets.only(left: 16, bottom: 16),
           child: Text(
-            'HOW IT WORKS',
+            context.l10n.howItWorksTitle,
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -707,10 +716,11 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         ),
         _HowItWorksCard(
           step: 1,
-          title: 'Grant notification access',
+          title: context.l10n.grantNotificationAccess,
           description: hasAccess
-              ? 'Notification access is already enabled for Moneko.'
-              : 'Tap Grant Access or open Android Settings so Moneko can read notifications in the background.',
+              ? context.l10n.notificationAccessIsAlreadyEnabledForMoneko
+              : context.l10n
+                  .tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground,
           action: hasAccess
               ? null
               : ElevatedButton(
@@ -728,7 +738,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                     ),
                   ),
                   child: const Text(
-                    'Grant Access',
+                    context.l10n.grantAccess,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -736,14 +746,14 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         const SizedBox(height: 12),
         _HowItWorksCard(
           step: 2,
-          title: 'Enable Moneko inside Android settings',
-          description:
-              'Go to Settings → Notifications → "Notification read, reply & control", pick Moneko, then switch on Allow notification access.',
+          title: context.l10n.enableMonekoInsideAndroidSettings,
+          description: context
+              .l10n.goToSettingsNotificationsNotificationReadReplyAndControl,
           action: TextButton.icon(
             onPressed: showScreenshotGallery,
             icon: Icon(Icons.photo_library_rounded, color: colorScheme.primary),
             label: Text(
-              'Show steps',
+              context.l10n.showSteps,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: colorScheme.primary,
@@ -754,22 +764,22 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         const SizedBox(height: 12),
         const _HowItWorksCard(
           step: 3,
-          title: 'Choose which notifications to read',
-          description:
-              'After access is granted, turn on only the apps you want Moneko to monitor in the Supported Apps section.',
+          title: context.l10n.chooseWhichNotificationsToRead,
+          description: context
+              .l10n.afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor,
         ),
         const SizedBox(height: 12),
         const _HowItWorksCard(
           step: 4,
-          title: 'Automatic capture',
-          description:
-              'Moneko extracts merchant, amount, and currency when notifications arrive.',
+          title: context.l10n.automaticCapture,
+          description: context.l10n
+              .monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive,
         ),
       ],
     );
   }
 
-  Widget _buildPrivacyFooter(ColorScheme colorScheme) {
+  Widget _buildPrivacyFooter(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -780,7 +790,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Only you can access it. Moneko never sells or shares your financial data.',
+              context.l10n
+                  .onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData,
               style: TextStyle(
                 fontSize: 14,
                 color: colorScheme.mutedForeground,
@@ -880,12 +891,10 @@ class _SettingsTile extends StatelessWidget {
     final effectiveSubtitle = enabled
         ? colorScheme.mutedForeground
         : colorScheme.mutedForeground.withValues(alpha: 0.5);
-    final effectiveIconBg = enabled
-        ? iconBackgroundColor
-        : colorScheme.surfaceVariant;
-    final effectiveIconColor = enabled
-        ? iconColor
-        : colorScheme.mutedForeground;
+    final effectiveIconBg =
+        enabled ? iconBackgroundColor : colorScheme.surfaceVariant;
+    final effectiveIconColor =
+        enabled ? iconColor : colorScheme.mutedForeground;
 
     Widget content = Opacity(
       opacity: enabled ? 1 : 0.6,
