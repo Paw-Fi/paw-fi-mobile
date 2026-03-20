@@ -12,6 +12,7 @@ import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 
 class AndroidNotificationCapturePage extends HookConsumerWidget {
@@ -418,6 +419,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                         iconBackgroundColor: colorScheme.primary,
                         title: 'Destination Space',
                         subtitle: config.value.scopeName,
+                        enabled: config.value.enabled,
                         trailing: isUpdatingDestination.value
                             ? const SizedBox(
                                 width: 20,
@@ -425,70 +427,77 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 child: CircularProgressIndicator.adaptive(
                                     strokeWidth: 2),
                               )
-                            : Icon(Icons.chevron_right_rounded,
-                                color: colorScheme.mutedForeground, size: 20),
-                        onTap: isUpdatingDestination.value
+                            : Icon(
+                                Icons.chevron_right_rounded,
+                                color: colorScheme.mutedForeground,
+                                size: 20,
+                              ),
+                        onTap: (!config.value.enabled ||
+                                isUpdatingDestination.value)
                             ? null
                             : pickDestinationSpace,
                         showDivider: false,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 36),
-                  _SettingsGroup(
-                    title: 'Supported Apps',
-                    children: recentApps.value.isEmpty
-                        ? [
-                            Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Center(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.notifications_off_rounded,
-                                        size: 48,
-                                        color: colorScheme.mutedForeground
-                                            .withValues(alpha: 0.4)),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      hasAccess.value
-                                          ? 'Waiting for notifications...'
-                                          : 'Grant access to see apps here.',
-                                      style: TextStyle(
-                                          color: colorScheme.mutedForeground,
-                                          fontSize: 15),
-                                    )
-                                  ],
+                  if (config.value.enabled) ...[
+                    const SizedBox(height: 36),
+                    _SettingsGroup(
+                      title: 'Supported Apps',
+                      children: recentApps.value.isEmpty
+                          ? [
+                              Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.notifications_off_rounded,
+                                          size: 48,
+                                          color: colorScheme.mutedForeground
+                                              .withValues(alpha: 0.4)),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        hasAccess.value
+                                            ? 'Waiting for notifications...'
+                                            : 'Grant access to see apps here.',
+                                        style: TextStyle(
+                                            color: colorScheme.mutedForeground,
+                                            fontSize: 15),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              )
+                            ]
+                          : [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                                child: Text(
+                                  'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                    height: 1.4,
+                                  ),
                                 ),
                               ),
-                            )
-                          ]
-                        : [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                              child: Text(
-                                'Toggle which apps Moneko should monitor. New apps appear automatically when they send a notification.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.mutedForeground,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                            ...recentApps.value.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final app = entry.value;
-                              return _AppToggleTile(
-                                appLabel: app.appLabel,
-                                packageName: app.packageName,
-                                enabled: app.enabled,
-                                onChanged: (v) =>
-                                    toggleAppEnabled(app.packageName, v),
-                                showDivider:
-                                    index < recentApps.value.length - 1,
-                              );
-                            }),
-                          ],
-                  ),
+                              ...recentApps.value.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final app = entry.value;
+                                return _AppToggleTile(
+                                  appLabel: app.appLabel,
+                                  packageName: app.packageName,
+                                  enabled: app.enabled,
+                                  onChanged: (v) =>
+                                      toggleAppEnabled(app.packageName, v),
+                                  showDivider:
+                                      index < recentApps.value.length - 1,
+                                );
+                              }),
+                            ],
+                    ),
+                  ],
                   const SizedBox(height: 36),
                   _buildHowItWorks(
                     context,
@@ -537,14 +546,21 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Auto-Capture',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-              letterSpacing: -0.8,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Auto-Capture',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const BetaPill(),
+            ],
           ),
           const SizedBox(height: 12),
           Text(
@@ -611,6 +627,69 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     bool hasAccess,
     VoidCallback onGrant,
   ) {
+    Future<void> showScreenshotGallery() async {
+      const assets = [
+        'lib/assets/images/wallet_sync/android_wallet_1.png',
+        'lib/assets/images/wallet_sync/android_wallet_2.png',
+      ];
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: colorScheme.sheetBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (modalContext) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 24,
+              bottom: MediaQuery.of(modalContext).padding.bottom + 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Android Settings Walkthrough',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Follow these screens to turn on notification access for Moneko.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                GridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 9 / 16,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: assets
+                      .map(
+                        (asset) => _HowItWorksScreenshot(asset: asset),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -626,14 +705,12 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
         ),
-        _FeatureItem(
-          icon: hasAccess
-              ? Icons.check_circle_outline_rounded
-              : Icons.notifications_active_rounded,
-          title: 'Step 1: Grant access',
+        _HowItWorksCard(
+          step: 1,
+          title: 'Grant notification access',
           description: hasAccess
               ? 'Notification access is already enabled for Moneko.'
-              : 'Allow Moneko to read notifications on your device so capture can work in the background.',
+              : 'Tap Grant Access or open Android Settings so Moneko can read notifications in the background.',
           action: hasAccess
               ? null
               : ElevatedButton(
@@ -656,65 +733,35 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                   ),
                 ),
         ),
-        if (!hasAccess) ...[
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: colorScheme.card,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: colorScheme.surfaceBorder),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Step 2: Turn on Moneko in Android settings',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'In Notification read, reply & control, select Moneko and switch on Allow notification access.',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.mutedForeground,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'lib/assets/images/wallet_sync/android_wallet_1.png',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'lib/assets/images/wallet_sync/android_wallet_2.png',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ],
+        const SizedBox(height: 12),
+        _HowItWorksCard(
+          step: 2,
+          title: 'Enable Moneko inside Android settings',
+          description:
+              'Go to Settings → Notifications → "Notification read, reply & control", pick Moneko, then switch on Allow notification access.',
+          action: TextButton.icon(
+            onPressed: showScreenshotGallery,
+            icon: Icon(Icons.photo_library_rounded, color: colorScheme.primary),
+            label: Text(
+              'Show steps',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: colorScheme.primary,
+              ),
             ),
           ),
-        ],
-        const _FeatureItem(
-          icon: Icons.tune_rounded,
-          title: 'Step 3: Choose which notifications to read',
+        ),
+        const SizedBox(height: 12),
+        const _HowItWorksCard(
+          step: 3,
+          title: 'Choose which notifications to read',
           description:
               'After access is granted, turn on only the apps you want Moneko to monitor in the Supported Apps section.',
         ),
-        const _FeatureItem(
-          icon: Icons.auto_awesome_rounded,
-          title: 'Step 4: Automatic capture',
+        const SizedBox(height: 12),
+        const _HowItWorksCard(
+          step: 4,
+          title: 'Automatic capture',
           description:
               'Moneko extracts merchant, amount, and currency when notifications arrive.',
         ),
@@ -810,6 +857,7 @@ class _SettingsTile extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool showDivider;
+  final bool enabled;
 
   const _SettingsTile({
     required this.icon,
@@ -820,53 +868,71 @@ class _SettingsTile extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.showDivider = true,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: iconBackgroundColor,
-              borderRadius: BorderRadius.circular(8),
+    final colorScheme = Theme.of(context).colorScheme;
+    final effectiveForeground = enabled
+        ? colorScheme.foreground
+        : colorScheme.mutedForeground.withValues(alpha: 0.6);
+    final effectiveSubtitle = enabled
+        ? colorScheme.mutedForeground
+        : colorScheme.mutedForeground.withValues(alpha: 0.5);
+    final effectiveIconBg = enabled
+        ? iconBackgroundColor
+        : colorScheme.surfaceVariant;
+    final effectiveIconColor = enabled
+        ? iconColor
+        : colorScheme.mutedForeground;
+
+    Widget content = Opacity(
+      opacity: enabled ? 1 : 0.6,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: effectiveIconBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 18, color: effectiveIconColor),
             ),
-            child: Icon(icon, size: 18, color: iconColor),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.foreground,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    subtitle!,
+                    title,
                     style: TextStyle(
-                      fontSize: 15,
-                      color: Theme.of(context).colorScheme.mutedForeground,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: effectiveForeground,
+                      letterSpacing: -0.4,
                     ),
                   ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: effectiveSubtitle,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          if (trailing != null) trailing!,
-        ],
+            if (trailing != null) trailing!,
+          ],
+        ),
       ),
     );
 
@@ -974,14 +1040,14 @@ class _AppToggleTile extends StatelessWidget {
   }
 }
 
-class _FeatureItem extends StatelessWidget {
-  final IconData icon;
+class _HowItWorksCard extends StatelessWidget {
+  final int step;
   final String title;
   final String description;
   final Widget? action;
 
-  const _FeatureItem({
-    required this.icon,
+  const _HowItWorksCard({
+    required this.step,
     required this.title,
     required this.description,
     this.action,
@@ -990,44 +1056,90 @@ class _FeatureItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.surfaceBorder),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 28, color: colorScheme.primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.foreground,
-                    letterSpacing: -0.4,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
+                alignment: Alignment.center,
+                child: Text(
+                  '$step',
                   style: TextStyle(
                     fontSize: 15,
-                    color: colorScheme.mutedForeground,
-                    height: 1.4,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.primary,
                   ),
                 ),
-                if (action != null) ...[
-                  const SizedBox(height: 12),
-                  action!,
-                ],
-              ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 15,
+              color: colorScheme.mutedForeground,
+              height: 1.5,
             ),
           ),
+          if (action != null) ...[
+            const SizedBox(height: 16),
+            action!,
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _HowItWorksScreenshot extends StatelessWidget {
+  final String asset;
+
+  const _HowItWorksScreenshot({required this.asset});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Image.asset(asset, fit: BoxFit.cover),
     );
   }
 }

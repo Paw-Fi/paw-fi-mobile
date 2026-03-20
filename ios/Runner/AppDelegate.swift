@@ -1641,8 +1641,7 @@ struct LogExpenseWithSiriIntent: AppIntent {
       accessToken: accessToken,
       refreshToken: refreshToken,
       userId: userId,
-      expiresAt: expiresAt,
-      preferredCurrency: context.preferredCurrency
+      expiresAt: expiresAt
     )
   }
 

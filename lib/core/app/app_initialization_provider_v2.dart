@@ -16,6 +16,47 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 
 part 'app_initialization_provider_v2.g.dart';
 
+String? _normalizeCurrencyCode(String? currency) {
+  final normalized = currency?.trim().toUpperCase();
+  if (normalized == null || normalized.isEmpty) {
+    return null;
+  }
+  return normalized;
+}
+
+@visibleForTesting
+HomeFilterState resolveInitializedCurrencyFilterState({
+  required HomeFilterState existingState,
+  required String? storedCurrency,
+  required String? preferredCurrency,
+  required bool preferExistingState,
+}) {
+  if (existingState.hasExplicitCurrency) {
+    return existingState;
+  }
+
+  final existingNormalized =
+      _normalizeCurrencyCode(existingState.selectedCurrency);
+  final storedNormalized = _normalizeCurrencyCode(storedCurrency);
+  final preferredNormalized = _normalizeCurrencyCode(preferredCurrency);
+
+  if (storedNormalized != null) {
+    return HomeFilterState(
+      selectedCurrency: storedNormalized,
+      hasExplicitCurrency: true,
+    );
+  }
+
+  if (preferExistingState && existingNormalized != null) {
+    return existingState;
+  }
+
+  return HomeFilterState(
+    selectedCurrency: preferredNormalized ?? existingNormalized ?? 'USD',
+    hasExplicitCurrency: false,
+  );
+}
+
 /// Initialization state for the app
 ///
 /// States:
@@ -214,8 +255,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     UserContact? user, {
     required bool preferExistingState,
   }) async {
-    final existing = ref.read(homeFilterProvider).selectedCurrency;
-    final existingNormalized = existing?.trim().toUpperCase();
+    final existingState = ref.read(homeFilterProvider);
     final service = ref.read(currencyPreferenceServiceProvider);
     String? storedCurrency;
 
@@ -229,41 +269,37 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint('⚠️ [InitV2] Failed to load stored currency: $e');
     }
 
-    if (storedCurrency != null) {
-      final latestFilterState = ref.read(homeFilterProvider);
-      if (latestFilterState.hasExplicitCurrency) {
-        return;
-      }
-      if (existingNormalized != storedCurrency) {
-        ref
-            .read(homeFilterProvider.notifier)
-            .bootstrapSelectedCurrency(storedCurrency);
-      }
-      return;
-    }
-
-    if (preferExistingState &&
-        existingNormalized != null &&
-        existingNormalized.isNotEmpty) {
-      return;
-    }
-
-    final preferredCurrency = user?.preferredCurrency?.trim().toUpperCase();
-    final selectedCurrency =
-        (preferredCurrency != null && preferredCurrency.isNotEmpty)
-            ? preferredCurrency
-            : (existingNormalized != null && existingNormalized.isNotEmpty
-                ? existingNormalized
-                : 'USD');
-
     final latestFilterState = ref.read(homeFilterProvider);
+    final resolvedState = resolveInitializedCurrencyFilterState(
+      existingState: existingState,
+      storedCurrency: storedCurrency,
+      preferredCurrency: user?.preferredCurrency,
+      preferExistingState: preferExistingState,
+    );
+
     if (latestFilterState.hasExplicitCurrency) {
       return;
     }
 
-    ref
-        .read(homeFilterProvider.notifier)
-        .bootstrapSelectedCurrency(selectedCurrency);
+    if (resolvedState.selectedCurrency == latestFilterState.selectedCurrency &&
+        resolvedState.hasExplicitCurrency ==
+            latestFilterState.hasExplicitCurrency) {
+      return;
+    }
+
+    if (resolvedState.hasExplicitCurrency) {
+      ref
+          .read(homeFilterProvider.notifier)
+          .setSelectedCurrency(resolvedState.selectedCurrency);
+      return;
+    }
+
+    final selectedCurrency = resolvedState.selectedCurrency;
+    if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
+      ref
+          .read(homeFilterProvider.notifier)
+          .bootstrapSelectedCurrency(selectedCurrency);
+    }
   }
 
   /// Initialize app with cache-first strategy

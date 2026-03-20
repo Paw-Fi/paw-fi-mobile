@@ -425,7 +425,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                   children: [
                                     Flexible(
                                       child: Text(
-                                        'Turn On Apple Pay Integration',
+                                        'Apple Pay Sync',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -472,7 +472,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                           child: PrimaryAdaptiveButton(
                             onPressed: showSetupSheet,
                             child: const Text(
-                              'Set Up Apple Pay Sync',
+                              'Start Setup',
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,

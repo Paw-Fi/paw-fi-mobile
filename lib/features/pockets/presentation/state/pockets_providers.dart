@@ -21,6 +21,127 @@ void _debugLog(String message) {
   }
 }
 
+@foundation.visibleForTesting
+String normalizePocketTemplateName(String name) => name.trim();
+
+@foundation.visibleForTesting
+List<Map<String, dynamic>> buildUniqueEnvelopeCategoryLinks({
+  required String envelopeId,
+  required List<String> categories,
+}) {
+  final seen = <String>{};
+  final payload = <Map<String, dynamic>>[];
+
+  for (final category in categories) {
+    final normalized = category.toLowerCase().trim();
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    payload.add({
+      'envelope_id': envelopeId,
+      'category': normalized,
+    });
+  }
+
+  return payload;
+}
+
+@foundation.visibleForTesting
+List<int> rebalancePocketBudgetAmounts({
+  required List<int> currentAmountsCents,
+  required int newTotalBudgetCents,
+}) {
+  if (currentAmountsCents.isEmpty) {
+    return const <int>[];
+  }
+
+  final sanitizedTarget = math.max(0, newTotalBudgetCents);
+  final sanitizedCurrent = currentAmountsCents
+      .map((amount) => math.max(0, amount))
+      .toList(growable: false);
+  final currentTotal =
+      sanitizedCurrent.fold<int>(0, (sum, amount) => sum + amount);
+
+  if (sanitizedTarget == 0) {
+    return List<int>.filled(sanitizedCurrent.length, 0, growable: false);
+  }
+
+  if (currentTotal == 0) {
+    final baseShare = sanitizedTarget ~/ sanitizedCurrent.length;
+    final remainder = sanitizedTarget % sanitizedCurrent.length;
+    return List<int>.generate(
+      sanitizedCurrent.length,
+      (index) => baseShare + (index < remainder ? 1 : 0),
+      growable: false,
+    );
+  }
+
+  final scaled = <({int index, int floorAmount, double remainder})>[];
+  var assigned = 0;
+
+  for (var index = 0; index < sanitizedCurrent.length; index++) {
+    final exact = sanitizedCurrent[index] * sanitizedTarget / currentTotal;
+    final floorAmount = exact.floor();
+    assigned += floorAmount;
+    scaled.add((
+      index: index,
+      floorAmount: floorAmount,
+      remainder: exact - floorAmount,
+    ));
+  }
+
+  final result =
+      scaled.map((entry) => entry.floorAmount).toList(growable: false);
+  var remaining = sanitizedTarget - assigned;
+
+  if (remaining > 0) {
+    final byRemainder = [...scaled]..sort((a, b) {
+        final compareRemainder = b.remainder.compareTo(a.remainder);
+        if (compareRemainder != 0) return compareRemainder;
+        return a.index.compareTo(b.index);
+      });
+
+    for (var i = 0; i < byRemainder.length && remaining > 0; i++) {
+      result[byRemainder[i].index] += 1;
+      remaining -= 1;
+      if (i == byRemainder.length - 1 && remaining > 0) {
+        i = -1;
+      }
+    }
+  }
+
+  return result;
+}
+
+@foundation.visibleForTesting
+PocketsState applyRebalancedBudgetToPocketsState({
+  required PocketsState state,
+  required double newTotalBudget,
+}) {
+  final newTotalBudgetCents = (newTotalBudget * 100).round();
+  final rebalancedAmounts = rebalancePocketBudgetAmounts(
+    currentAmountsCents: state.editing
+        .map((pocket) => pocket.budgetAmountCents)
+        .toList(growable: false),
+    newTotalBudgetCents: newTotalBudgetCents,
+  );
+
+  final rebalancedEditing = state.editing.isEmpty
+      ? state.editing
+      : List<PocketEnvelope>.generate(
+          state.editing.length,
+          (index) => state.editing[index].copyWith(
+            budgetAmountCents: rebalancedAmounts[index],
+          ),
+          growable: false,
+        );
+
+  return state.copyWith(
+    totalBudget: newTotalBudgetCents / 100.0,
+    editing: rebalancedEditing,
+  );
+}
+
 /// Scope for pockets: personal or household.
 enum PocketsScopeType { personal, portfolio, household }
 
@@ -789,20 +910,20 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         .toList(growable: false);
   }
 
-  /// Update total budget - amounts stay the same!
   void updateTotalBudget(double newTotal) {
     if (newTotal < 0) return;
     _debugLog(
         'updateTotalBudget: $newTotal (saved: ${state.savedTotalBudget})');
-    state = state.copyWith(
-      totalBudget: newTotal,
+    state = applyRebalancedBudgetToPocketsState(
+      state: state,
+      newTotalBudget: newTotal,
     );
     _debugLog('After update - hasChanges: ${state.hasChanges}');
   }
 
   void reusePreviousBudget(double amount) {
     if (amount <= 0) return;
-    state = state.copyWith(totalBudget: amount);
+    updateTotalBudget(amount);
   }
 
   Future<void> copyPocketsFromMonth(DateTime sourceMonth) async {
@@ -1451,18 +1572,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'updated_at': nowIso,
       };
 
-      // Check if we already have a budget ID in state or DB
-      String? budgetId = state.budgetId;
-      if (budgetId == null) {
-        final existing = await _findBudgetRowForPeriod(
-          periodMonth: periodMonth,
-          isHousehold: isScopedToHousehold,
-          householdId: householdId,
-          userId: authUser.uid,
-          currency: null,
-        );
-        budgetId = existing?['id'] as String?;
-      }
+      // Always resolve the budget row for this exact month/scope/currency.
+      // This avoids reusing a stale budget id from another currency selection.
+      final existing = await _findBudgetRowForPeriod(
+        periodMonth: periodMonth,
+        isHousehold: isScopedToHousehold,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: selectedCurrency,
+      );
+      String? budgetId = existing?['id'] as String?;
 
       // Use upsert-like logic
       if (budgetId != null) {
@@ -1484,7 +1603,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               isHousehold: isScopedToHousehold,
               householdId: householdId,
               userId: authUser.uid,
-              currency: null,
+              currency: selectedCurrency,
             );
             budgetId = existing?['id'] as String?;
             if (budgetId != null) {
@@ -1506,21 +1625,25 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       for (final template in pockets) {
         final amountCents = (totalBudget * template.weight * 100).round();
+        final envelopeName = normalizePocketTemplateName(template.name);
         final insertRes = await supabase
             .from('budget_envelopes')
-            .insert(<String, dynamic>{
-              'user_id': authUser.uid,
-              'budget_id': budgetId,
-              'name': template.name,
-              'budget_amount_cents': amountCents,
-              'household_id': isScopedToHousehold ? householdId : null,
-              'currency': selectedCurrency,
-              'color': template.color != null
-                  ? '#${(template.color!.r * 255).round().toRadixString(16).padLeft(2, '0')}${(template.color!.g * 255).round().toRadixString(16).padLeft(2, '0')}${(template.color!.b * 255).round().toRadixString(16).padLeft(2, '0')}'
-                  : null,
-              'icon': template.iconName,
-              'updated_at': nowIso,
-            })
+            .upsert(
+              <String, dynamic>{
+                'user_id': authUser.uid,
+                'budget_id': budgetId,
+                'name': envelopeName,
+                'budget_amount_cents': amountCents,
+                'household_id': isScopedToHousehold ? householdId : null,
+                'currency': selectedCurrency,
+                'color': template.color != null
+                    ? '#${(template.color!.r * 255).round().toRadixString(16).padLeft(2, '0')}${(template.color!.g * 255).round().toRadixString(16).padLeft(2, '0')}${(template.color!.b * 255).round().toRadixString(16).padLeft(2, '0')}'
+                    : null,
+                'icon': template.iconName,
+                'updated_at': nowIso,
+              },
+              onConflict: 'budget_id,name',
+            )
             .select('id')
             .single();
 
@@ -1538,16 +1661,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
 
         // 3. Prepare Links
-        for (final cat in template.suggestedCategories) {
-          linksPayload.add({
-            'envelope_id': newEnvId,
-            'category': cat.toLowerCase(),
-          });
-        }
+        linksPayload.addAll(buildUniqueEnvelopeCategoryLinks(
+          envelopeId: newEnvId,
+          categories: template.suggestedCategories,
+        ));
       }
 
       if (linksPayload.isNotEmpty) {
-        await supabase.from('envelope_category_links').insert(linksPayload);
+        await supabase.from('envelope_category_links').upsert(
+              linksPayload,
+              onConflict: 'envelope_id,category',
+            );
       }
 
       // 4. Refresh
