@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 import 'package:chewie/chewie.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:video_player/video_player.dart';
@@ -19,6 +20,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final mediaQuery = MediaQuery.of(context);
+    final l10n = context.l10n;
 
     return SafeArea(
       top: false,
@@ -60,18 +62,18 @@ class WalletSyncSetupSheet extends StatelessWidget {
                           _buildStep(
                             context: context,
                             step: 1,
-                            title: 'Open the Shortcuts app',
+                            title: l10n.openTheShortcutsApp,
                             description:
-                                'Open Shortcuts and tap the **Automations** tab at the bottom.',
+                                l10n.openShortcutsAndTapTheAutomationsTabAtTheBottom,
                             action: SizedBox(
                               height: 48,
                               child: PrimaryAdaptiveButton(
                                 onPressed: isSyncing ? null : onFinish,
                                 child: isSyncing
                                     ? const CircularProgressIndicator.adaptive()
-                                    : const Text(
-                                        'Open Shortcuts',
-                                        style: TextStyle(
+                                    : Text(
+                                        l10n.openShortcuts,
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 16,
                                           letterSpacing: -0.2,
@@ -83,51 +85,51 @@ class WalletSyncSetupSheet extends StatelessWidget {
                           _buildStep(
                             context: context,
                             step: 2,
-                            title: 'Create a Personal Automation',
+                            title: l10n.createAPersonalAutomation,
                             description:
-                                'Tap **+**, choose **Wallet**, and tap **Next** to continue.',
+                                l10n.tapPlusChooseWalletAndTapNextToContinue,
                           ),
                           _buildStep(
                             context: context,
                             step: 3,
-                            title: 'Add Moneko Action',
+                            title: l10n.addMonekoAction,
                             description:
-                                'Tap **New Blank Automation**, search **Moneko**, and select **"Capture Wallet Transaction"**.',
+                                l10n.tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction,
                           ),
                           _buildStep(
                             context: context,
                             step: 4,
-                            title: 'Map Amount from Shortcut Input',
+                            title: l10n.mapAmountFromShortcutInput,
                             description:
-                                'Tap **Amount**, choose **Select Variable**, and pick **Shortcut Input**. Tap the token again to select **Amount**.',
+                                l10n.tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount,
                           ),
                           _buildStep(
                             context: context,
                             step: 5,
-                            title: 'Map Merchant from Shortcut Input',
+                            title: l10n.mapMerchantFromShortcutInput,
                             description:
-                                'Tap **Merchant**, choose **Select Variable**, and pick **Shortcut Input**. Tap the token again to select **Merchant**.',
+                                l10n.tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant,
                           ),
                           _buildStep(
                             context: context,
                             step: 6,
-                            title: 'Save and Re-open',
+                            title: l10n.saveAndReopen,
                             description:
-                                'Tap the **Check icon** (top right) to save. Then, tap the automation you just created to edit it.',
+                                l10n.tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt,
                           ),
                           _buildStep(
                             context: context,
                             step: 7,
-                            title: 'Enable Run Immediately',
+                            title: l10n.enableRunImmediately,
                             description:
-                                'Select **Run Immediately** so transactions log automatically without needing confirmation.',
+                                l10n.selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation,
                           ),
                           const SizedBox(height: 16),
                           _TutorialVideoButton(onPressed: () {
                             _showTutorialVideo(context);
                           }),
                           const SizedBox(height: 12),
-                          _buildFooter(colorScheme),
+                          _buildFooter(context, colorScheme),
                         ],
                       ),
                     ),
@@ -169,6 +171,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 16, 16),
       child: Row(
@@ -178,7 +181,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Set Up Apple Pay Integration',
+                l10n.setUpApplePayIntegration,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -188,7 +191,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Follow these steps in the Shortcuts app.',
+                l10n.followTheseStepsInTheShortcutsApp,
                 style: TextStyle(
                   fontSize: 14,
                   color: colorScheme.mutedForeground,
@@ -285,7 +288,8 @@ class WalletSyncSetupSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(ColorScheme colorScheme) {
+  Widget _buildFooter(BuildContext context, ColorScheme colorScheme) {
+    final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,7 +297,8 @@ class WalletSyncSetupSheet extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Your credentials are stored securely in the iOS Keychain and only used to authenticate with your Moneko account. Moneko never accesses your bank, card, or wallet data directly.',
+            l10n
+                .yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly,
             style: TextStyle(
               fontSize: 12,
               color: colorScheme.mutedForeground,
@@ -314,6 +319,7 @@ class _TutorialVideoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return TextButton.icon(
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -321,9 +327,9 @@ class _TutorialVideoButton extends StatelessWidget {
       ),
       onPressed: onPressed,
       icon: const Icon(Icons.play_circle_fill_rounded),
-      label: const Text(
-        'Watch tutorial video',
-        style: TextStyle(fontWeight: FontWeight.w600),
+      label: Text(
+        l10n.watchTutorialVideo,
+        style: const TextStyle(fontWeight: FontWeight.w600),
       ),
     );
   }

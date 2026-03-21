@@ -326,7 +326,7 @@ class _SettlementSuggestionsCardState
             ),
             const SizedBox(height: 16),
             Text(
-              'All settled up!',
+              context.l10n.allSettledUp,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -336,7 +336,7 @@ class _SettlementSuggestionsCardState
             ),
             const SizedBox(height: 4),
             Text(
-              'No pending settlements',
+              context.l10n.noPendingSettlements,
               style: TextStyle(
                 fontSize: 15,
                 color: colorScheme.mutedForeground,

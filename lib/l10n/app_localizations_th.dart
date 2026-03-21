@@ -6448,4 +6448,70 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get yourTransactionsAreAddedAutomatically => 'ธุรกรรมของคุณจะถูกบันทึกโดยอัตโนมัติ';
+
+  @override
+  String get test => 'ทดสอบ';
+
+  @override
+  String get openTheShortcutsApp => 'เปิดแอปคำสั่งลัด';
+
+  @override
+  String get openShortcutsAndTapTheAutomationsTabAtTheBottom => 'เปิดแอปคำสั่งลัดและแตะแถบ **การทำงานอัตโนมัติ** ที่ด้านล่าง';
+
+  @override
+  String get openShortcuts => 'เปิดคำสั่งลัด';
+
+  @override
+  String get createAPersonalAutomation => 'สร้างการทำงานอัตโนมัติส่วนบุคคล';
+
+  @override
+  String get tapPlusChooseWalletAndTapNextToContinue => 'แตะ **+** เลือก **Wallet** และแตะ **ถัดไป** เพื่อดำเนินการต่อ';
+
+  @override
+  String get addMonekoAction => 'เพิ่มการดำเนินการของ Moneko';
+
+  @override
+  String get tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction => 'แตะ **การทำงานอัตโนมัติว่างใหม่** ค้นหา **Moneko** และเลือก **\"บันทึกรายการธุรกรรม Wallet\"**';
+
+  @override
+  String get mapAmountFromShortcutInput => 'กำหนดค่าจำนวนเงินจากข้อมูลเข้าของคำสั่งลัด';
+
+  @override
+  String get tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount => 'แตะ **จำนวนเงิน** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แตะที่โทเค็นอีกครั้งเพื่อเลือก **จำนวนเงิน**';
+
+  @override
+  String get mapMerchantFromShortcutInput => 'กำหนดค่าร้านค้าจากข้อมูลเข้าของคำสั่งลัด';
+
+  @override
+  String get tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant => 'แตะ **ร้านค้า** เลือก **เลือกตัวแปร** และเลือก **ข้อมูลเข้าของคำสั่งลัด** แแตะที่โทเค็นอีกครั้งเพื่อเลือก **ร้านค้า**';
+
+  @override
+  String get saveAndReopen => 'บันทึกและเปิดใหม่อีกครั้ง';
+
+  @override
+  String get tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt => 'แตะที่ **ไอคอนเครื่องหมายถูก** (มุมขวาบน) เพื่อบันทึก จากนั้นแตะการทำงานอัตโนมัติที่คุณเพิ่งสร้างขึ้นเพื่อแก้ไข';
+
+  @override
+  String get enableRunImmediately => 'เปิดใช้งาน ทำงานทันที';
+
+  @override
+  String get selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation => 'เลือก **ทำงานทันที** เพื่อให้รายการธุรกรรมบันทึกโดยอัตโนมัติโดยไม่ต้องรอการยืนยัน';
+
+  @override
+  String get setUpApplePayIntegration => 'ตั้งค่าการเชื่อมต่อ Apple Pay';
+
+  @override
+  String get followTheseStepsInTheShortcutsApp => 'ทำตามขั้นตอนเหล่านี้ในแอปคำสั่งลัด';
+
+  @override
+  String get yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly => 'ข้อมูลประจำตัวของคุณถูกจัดเก็บอย่างปลอดภัยใน iOS Keychain และใช้เพื่อยืนยันตัวตนกับบัญชี Moneko ของคุณเท่านั้น Moneko จะไม่เข้าถึงข้อมูลธนาคาร บัตร หรือ Wallet ของคุณโดยตรง';
+
+  @override
+  String get watchTutorialVideo => 'ดูวิดีโอสอนการใช้งาน';
+
+  @override
+  String get allSettledUp => 'ชำระเงินเรียบร้อยแล้ว!';
+
+  @override
+  String get noPendingSettlements => 'ไม่มีรายการรอชำระ';
 }
