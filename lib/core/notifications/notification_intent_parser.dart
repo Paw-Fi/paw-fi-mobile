@@ -37,7 +37,10 @@ class NotificationIntentParser {
     if (DeepLinks.isSplitLink(uri)) {
       return NotificationIntent(
         action: NotificationIntentAction.openExpenseSheet,
-        args: <String, dynamic>{'split_id': uri.pathSegments.first},
+        args: <String, dynamic>{
+          'split_id': uri.pathSegments.first,
+          'split_group_id': uri.pathSegments.first,
+        },
         raw: raw ?? const <String, dynamic>{},
       );
     }
@@ -109,26 +112,28 @@ class NotificationIntentParser {
     final eventType = normalized['event_type']?.toString();
     final notificationId = normalized['notification_id']?.toString() ??
         normalized['event_id']?.toString();
+    final nested = _nestedMaps(normalized);
 
     final args = <String, dynamic>{
-      if (_readId(normalized, 'household_id') != null)
-        'household_id': _readId(normalized, 'household_id'),
-      if (_readId(normalized, 'expense_id') != null)
-        'expense_id': _readId(normalized, 'expense_id'),
-      if (_readId(normalized, 'budget_id') != null)
-        'budget_id': _readId(normalized, 'budget_id'),
-      if (_readId(normalized, 'split_id') != null)
-        'split_id': _readId(normalized, 'split_id'),
-      if (_readId(normalized, 'split_group_id') != null)
-        'split_group_id': _readId(normalized, 'split_group_id'),
-      if (_readId(normalized, 'invite_token') != null)
-        'invite_token': _readId(normalized, 'invite_token'),
-      if (_readId(normalized, 'sender_name') != null)
-        'toast_message': _readId(normalized, 'sender_name'),
-      if (_readId(normalized, 'type') != null)
-        'recurring_type': _readId(normalized, 'type'),
-      if (_readId(normalized, 'notification_type') != null)
-        'notification_type': _readId(normalized, 'notification_type'),
+      if (_readIdFromAny(normalized, nested, 'household_id') != null)
+        'household_id': _readIdFromAny(normalized, nested, 'household_id'),
+      if (_readIdFromAny(normalized, nested, 'expense_id') != null)
+        'expense_id': _readIdFromAny(normalized, nested, 'expense_id'),
+      if (_readIdFromAny(normalized, nested, 'budget_id') != null)
+        'budget_id': _readIdFromAny(normalized, nested, 'budget_id'),
+      if (_readIdFromAny(normalized, nested, 'split_id') != null)
+        'split_id': _readIdFromAny(normalized, nested, 'split_id'),
+      if (_readIdFromAny(normalized, nested, 'split_group_id') != null)
+        'split_group_id': _readIdFromAny(normalized, nested, 'split_group_id'),
+      if (_readIdFromAny(normalized, nested, 'invite_token') != null)
+        'invite_token': _readIdFromAny(normalized, nested, 'invite_token'),
+      if (_readIdFromAny(normalized, nested, 'sender_name') != null)
+        'toast_message': _readIdFromAny(normalized, nested, 'sender_name'),
+      if (_readIdFromAny(normalized, nested, 'type') != null)
+        'recurring_type': _readIdFromAny(normalized, nested, 'type'),
+      if (_readIdFromAny(normalized, nested, 'notification_type') != null)
+        'notification_type':
+            _readIdFromAny(normalized, nested, 'notification_type'),
       ..._pickBudgetNumbers(normalized),
     };
 
@@ -307,6 +312,35 @@ class NotificationIntentParser {
       return null;
     }
     return value;
+  }
+
+  List<Map<String, dynamic>> _nestedMaps(Map<String, dynamic> source) {
+    final nested = <Map<String, dynamic>>[];
+    for (final key in const <String>['expense_data', 'payload', 'data']) {
+      final value = source[key];
+      if (value is Map<String, dynamic>) {
+        nested.add(value);
+      }
+    }
+    return nested;
+  }
+
+  String? _readIdFromAny(
+    Map<String, dynamic> source,
+    List<Map<String, dynamic>> nested,
+    String key,
+  ) {
+    final direct = _readId(source, key);
+    if (direct != null) {
+      return direct;
+    }
+    for (final map in nested) {
+      final nestedValue = _readId(map, key);
+      if (nestedValue != null) {
+        return nestedValue;
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic> _pickBudgetNumbers(Map<String, dynamic> source) {

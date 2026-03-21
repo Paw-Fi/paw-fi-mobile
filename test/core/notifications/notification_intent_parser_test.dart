@@ -125,11 +125,12 @@ void main() {
     test('handles nested json-stringified payload values', () {
       final intent = parser.fromData(<String, dynamic>{
         'event_type': 'expense_added',
-        'expense_data': '{"amount_cents":4500}',
+        'expense_data': '{"amount_cents":4500,"expense_id":"exp-nested-1"}',
       });
 
       expect(intent.action, NotificationIntentAction.openExpenseSheet);
       expect(intent.raw['expense_data'], isA<Map<String, dynamic>>());
+      expect(intent.expenseId, 'exp-nested-1');
     });
 
     test('preserves payload household context when deep link overrides action',
@@ -189,6 +190,7 @@ void main() {
       final intent = parser.fromUri(Uri.parse('moneko://split/sg-1'));
       expect(intent?.action, NotificationIntentAction.openExpenseSheet);
       expect(intent?.splitId, 'sg-1');
+      expect(intent?.splitGroupId, 'sg-1');
     });
 
     test('maps recurring deep link to recurring editor intent', () {

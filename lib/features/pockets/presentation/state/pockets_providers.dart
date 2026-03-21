@@ -706,7 +706,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // Fetch all expenses for this month and scope
       var expenseQuery = supabase
           .from('expenses')
-          .select('amount_cents,category,type,household_id,currency,date')
+          .select('id,amount_cents,category,type,household_id,currency,date,raw_text')
           .eq('currency', selectedCurrency)
           .gte('date', formatDateOnlyYmd(monthStart))
           .lt('date', formatDateOnlyYmd(monthEnd));

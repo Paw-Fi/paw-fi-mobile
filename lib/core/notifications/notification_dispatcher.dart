@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/router.dart';
@@ -10,6 +11,7 @@ import 'package:moneko/core/notifications/notification_dedupe_store.dart';
 import 'package:moneko/core/notifications/notification_intent.dart';
 import 'package:moneko/core/notifications/notification_intent_resolver.dart';
 import 'package:moneko/core/notifications/notification_pending_store.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -33,13 +35,22 @@ class NotificationDispatcher {
     Future<void> Function(NotificationIntent intent)? executorOverride,
     Future<NotificationIntent> Function(NotificationIntent intent)?
         resolverOverride,
+    ExpenseEntry? Function(String expenseId)? cacheLookupOverride,
+    Future<void> Function(String userId)? analyticsReloadOverride,
+    Future<ExpenseEntry?> Function(String expenseId)?
+        directExpenseFetchOverride,
+    void Function(ExpenseEntry expense)? cacheInjectionOverride,
   })  : _resolver = resolver ?? NotificationIntentResolver(),
         _dedupeStore = dedupeStore ?? NotificationDedupeStore(),
         _pendingStore = pendingStore ?? NotificationPendingStore(),
         _readinessOverride = readinessOverride,
         _userIdOverride = userIdOverride,
         _executorOverride = executorOverride,
-        _resolverOverride = resolverOverride;
+        _resolverOverride = resolverOverride,
+        _cacheLookupOverride = cacheLookupOverride,
+        _analyticsReloadOverride = analyticsReloadOverride,
+        _directExpenseFetchOverride = directExpenseFetchOverride,
+        _cacheInjectionOverride = cacheInjectionOverride;
 
   final Ref? _ref;
   final NotificationIntentResolver _resolver;
@@ -50,6 +61,11 @@ class NotificationDispatcher {
   final Future<void> Function(NotificationIntent intent)? _executorOverride;
   final Future<NotificationIntent> Function(NotificationIntent intent)?
       _resolverOverride;
+  final ExpenseEntry? Function(String expenseId)? _cacheLookupOverride;
+  final Future<void> Function(String userId)? _analyticsReloadOverride;
+  final Future<ExpenseEntry?> Function(String expenseId)?
+      _directExpenseFetchOverride;
+  final void Function(ExpenseEntry expense)? _cacheInjectionOverride;
 
   final Queue<NotificationIntent> _queue = Queue<NotificationIntent>();
   bool _isProcessing = false;
@@ -63,14 +79,21 @@ class NotificationDispatcher {
 
   Future<void> replayPendingIntents() async {
     final pending = await _pendingStore.loadAll();
-    if (pending.isEmpty) {
-      return;
-    }
-    await _pendingStore.clear();
-    for (final intent in pending) {
-      _queue.add(intent);
+    if (pending.isNotEmpty) {
+      await _pendingStore.clear();
+      for (final intent in pending) {
+        _queue.add(intent);
+      }
     }
     await _drainQueue();
+  }
+
+  @visibleForTesting
+  Future<ExpenseEntry?> resolveExpenseForNotification({
+    required String expenseId,
+    required String userId,
+  }) {
+    return _findExpenseWithRetry(expenseId: expenseId, userId: userId);
   }
 
   Future<void> _drainQueue() async {
@@ -216,6 +239,7 @@ class NotificationDispatcher {
     }
     if (user.uid.isNotEmpty) {
       await _ref?.read(analyticsProvider.notifier).loadData(user.uid);
+      await _waitForAnalyticsIdle();
     }
 
     final context = rootNavigatorKey.currentContext;
@@ -260,25 +284,107 @@ class NotificationDispatcher {
     required String expenseId,
     required String userId,
   }) async {
+    final fromCache = _findExpenseInAnalyticsCache(expenseId);
+    if (fromCache != null) {
+      return fromCache;
+    }
+
     for (var attempt = 0; attempt < 4; attempt++) {
-      final analytics = _ref?.read(analyticsProvider);
-      if (analytics != null) {
-        for (final entry in analytics.allExpenses) {
-          if (entry.id == expenseId) {
-            return entry;
-          }
-        }
+      final refreshed = _findExpenseInAnalyticsCache(expenseId);
+      if (refreshed != null) {
+        return refreshed;
       }
 
       if (attempt < 3) {
-        await _ref?.read(analyticsProvider.notifier).loadData(userId);
+        if (_analyticsReloadOverride != null) {
+          await _analyticsReloadOverride!(userId);
+        } else {
+          await _ref?.read(analyticsProvider.notifier).loadData(userId);
+          await _waitForAnalyticsIdle();
+        }
         await Future<void>.delayed(
           Duration(milliseconds: 250 * (attempt + 1)),
         );
       }
     }
 
+    final directFetch = await _fetchExpenseDirectly(expenseId);
+    if (directFetch != null) {
+      if (_cacheInjectionOverride != null) {
+        _cacheInjectionOverride!(directFetch);
+      } else {
+        _ref
+            ?.read(analyticsProvider.notifier)
+            .addOptimisticTransaction(directFetch);
+      }
+      return directFetch;
+    }
+
     return null;
+  }
+
+  ExpenseEntry? _findExpenseInAnalyticsCache(String expenseId) {
+    if (_cacheLookupOverride != null) {
+      return _cacheLookupOverride!(expenseId);
+    }
+
+    final analytics = _ref?.read(analyticsProvider);
+    if (analytics == null) {
+      return null;
+    }
+
+    for (final entry in analytics.allExpenses) {
+      if (entry.id == expenseId) {
+        return entry;
+      }
+    }
+
+    return null;
+  }
+
+  Future<ExpenseEntry?> _fetchExpenseDirectly(String expenseId) async {
+    if (_directExpenseFetchOverride != null) {
+      return _directExpenseFetchOverride!(expenseId);
+    }
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final response = await supabase
+            .from('expenses')
+            .select(
+                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,bank_account_id,type,is_recurring')
+            .eq('id', expenseId)
+            .maybeSingle();
+
+        if (response == null) {
+          return null;
+        }
+
+        return ExpenseEntry.fromJson(response);
+      } catch (e) {
+        debugPrint(
+            '[NotificationDispatcher] Direct expense fetch attempt $attempt failed: $e');
+        if (attempt < 2) {
+          await Future<void>.delayed(
+              Duration(milliseconds: 500 * (attempt + 1)));
+        }
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _waitForAnalyticsIdle({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    if (_analyticsReloadOverride != null) return;
+
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final analyticsState = _ref?.read(analyticsProvider);
+      if (analyticsState == null || !analyticsState.isLoading) return;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   Future<void> _openBudgetStatus(NotificationIntent intent) async {
