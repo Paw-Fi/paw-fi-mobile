@@ -654,7 +654,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryHomeInsurance,
           context.l10n.categoryRentersInsurance,
         ],
-        color: Color(0xFFEF4444),
+        color: const Color(0xFFEF4444),
       ),
       context.l10n.categoryUtilities: _PocketMeta(
         iconName: 'bolt',
@@ -667,7 +667,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryTrashRecycling,
           context.l10n.categoryHomeSecurity,
         ],
-        color: Color(0xFF3B82F6),
+        color: const Color(0xFF3B82F6),
       ),
       context.l10n.categoryDebtPayments: _PocketMeta(
         iconName: 'credit_card',
@@ -675,7 +675,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryDebtPayments,
           context.l10n.categoryLoanPayments,
         ],
-        color: Color(0xFFB91C1C),
+        color: const Color(0xFFB91C1C),
       ),
       context.l10n.categorySavingsFuture: _PocketMeta(
         iconName: 'savings',
@@ -683,7 +683,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categorySavings,
           context.l10n.categoryInvestments,
         ],
-        color: Color(0xFF10B981),
+        color: const Color(0xFF10B981),
       ),
       context.l10n.categorySharedBills: const _PocketMeta(
         iconName: 'groups',
@@ -700,7 +700,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryToysGames,
           context.l10n.categoryBabySupplies,
         ],
-        color: Color(0xFFF59E0B),
+        color: const Color(0xFFF59E0B),
       ),
       context.l10n.categoryGroceries: _PocketMeta(
         iconName: 'local_grocery_store',
@@ -709,7 +709,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryHouseholdSupplies,
           context.l10n.categoryCleaningSupplies,
         ],
-        color: Color(0xFF14B8A6),
+        color: const Color(0xFF14B8A6),
       ),
       context.l10n.categoryRestaurants: _PocketMeta(
         iconName: 'restaurant',
@@ -719,7 +719,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryCoffeeTea,
           context.l10n.categoryBarsDrinks,
         ],
-        color: Color(0xFFEC4899),
+        color: const Color(0xFFEC4899),
       ),
       context.l10n.categoryTransport: _PocketMeta(
         iconName: 'directions_car',
@@ -734,7 +734,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryCarRental,
           context.l10n.categoryBikeScooter,
         ],
-        color: Color(0xFF6366F1),
+        color: const Color(0xFF6366F1),
       ),
       context.l10n.categorySubscriptions: _PocketMeta(
         iconName: 'subscriptions',
@@ -744,7 +744,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryFitnessGym,
           context.l10n.categoryCloudStorage,
         ],
-        color: Color(0xFF8B5CF6),
+        color: const Color(0xFF8B5CF6),
       ),
       context.l10n.categoryPets: _PocketMeta(
         iconName: 'pets',
@@ -755,7 +755,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryPetGrooming,
           context.l10n.categoryPetInsurance,
         ],
-        color: Color(0xFFEAB308),
+        color: const Color(0xFFEAB308),
       ),
       context.l10n.categoryTravelEventFund: _PocketMeta(
         iconName: 'flight',
@@ -765,7 +765,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryConcertsEvents,
           context.l10n.categoryGifts,
         ],
-        color: Color(0xFF06B6D4),
+        color: const Color(0xFF06B6D4),
       ),
       context.l10n.categoryTrueExpenses: _PocketMeta(
         iconName: 'calendar_today',
@@ -777,7 +777,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryMedicalCare,
           context.l10n.categoryCoursesClasses,
         ],
-        color: Color(0xFF6366F1),
+        color: const Color(0xFF6366F1),
       ),
       context.l10n.categoryEverydaySpending: _PocketMeta(
         iconName: 'coffee',
@@ -788,7 +788,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryMiscellaneous,
           context.l10n.categoryPharmacy,
         ],
-        color: Color(0xFFEA580C),
+        color: const Color(0xFFEA580C),
       ),
       context.l10n.fun: _PocketMeta(
         iconName: 'celebration',
@@ -802,7 +802,7 @@ Map<String, _PocketMeta> _metaByPocketName(BuildContext context) => {
           context.l10n.categoryPartiesHosting,
           context.l10n.categoryCollectibles,
         ],
-        color: Color(0xFFA855F7),
+        color: const Color(0xFFA855F7),
       ),
       context.l10n.categoryBuffer: const _PocketMeta(
         iconName: 'account_balance_wallet',

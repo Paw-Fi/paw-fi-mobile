@@ -1092,7 +1092,7 @@ class PaywallScreen extends HookConsumerWidget {
                             const SizedBox(height: 24),
                             const _HeroAppIcon(),
                             const SizedBox(height: 24),
-                            _AppRatingBadge(),
+                            const _AppRatingBadge(),
                             const SizedBox(height: 32),
                             // --- SUBSCRIPTION PLANS ---
                             _UnifiedPlanCard(

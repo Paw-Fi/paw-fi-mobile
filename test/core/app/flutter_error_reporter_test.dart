@@ -6,7 +6,7 @@ import 'package:moneko/core/app/flutter_error_reporter.dart';
 void main() {
   test('shouldReportFatalFlutterError returns false for HttpException', () {
     final result = shouldReportFatalFlutterError(
-      HttpException('Connection closed before full header was received'),
+      const HttpException('Connection closed before full header was received'),
     );
 
     expect(result, isFalse);

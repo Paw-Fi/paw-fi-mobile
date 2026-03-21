@@ -98,7 +98,7 @@ class DashboardAccountsSection extends StatelessWidget {
       );
     }
 
-    return DashboardSectionCard(children: accountTiles, onTap: onTap);
+    return DashboardSectionCard(onTap: onTap, children: accountTiles);
   }
 }
 

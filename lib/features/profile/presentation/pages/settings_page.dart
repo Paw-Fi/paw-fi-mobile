@@ -152,7 +152,7 @@ Future<bool> _showWhatsAppRestrictedRegionDialog({
     context: context,
     title: context.l10n.whatsAppAccessLimitedTitle,
     description: context.l10n.whatsAppAccessLimitedDescription(
-      countryName ?? context.l10n.yourCountry,
+      countryName,
     ),
     confirmLabel: context.l10n.acknowledge,
     cancelLabel: context.l10n.continueAnyway,
@@ -1205,7 +1205,7 @@ class SettingsPage extends HookConsumerWidget {
                             ? context.l10n.premium
                             : context.l10n.free,
                         loading: () => '...',
-                        error: (_, __) => context.l10n.error,
+                        error: (_, __) => context.l10n.error('unknown'),
                       ),
                       onTap: () async {
                         Navigator.of(context).push(
@@ -1761,12 +1761,11 @@ class _SupportSheet extends HookConsumerWidget {
                         CupertinoButton(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
-                          minSize: 0,
                           borderRadius: BorderRadius.circular(999),
                           color: colorScheme.primary,
                           disabledColor:
                               colorScheme.primary.withValues(alpha: 0.4),
-                          onPressed: isSubmitDisabled ? null : handleSubmit,
+                          onPressed: isSubmitDisabled ? null : handleSubmit, minimumSize: const Size(0, 0),
                           child: isSubmitting.value
                               ? const SizedBox(
                                   width: 16,

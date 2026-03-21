@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -365,7 +364,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? colorScheme.surfaceContainer
-                                    : colorScheme.surfaceVariant
+                                    : colorScheme.surfaceContainerHighest
                                         .withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
@@ -477,7 +476,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                             onPressed: showSetupSheet,
                             child: Text(
                               context.l10n.startSetup,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
                               ),

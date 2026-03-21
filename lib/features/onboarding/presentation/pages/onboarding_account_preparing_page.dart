@@ -27,6 +27,7 @@ import 'dart:io';
 
 const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
+const _kBudgetSyncFailurePrefix = 'onboarding_budget_sync_failures:';
 const _kCurrencySyncTimeout = Duration(seconds: 8);
 
 class _ExistingAccountState {
@@ -210,11 +211,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     }
 
     Future<bool> hasExistingBudgetPockets({
+      required String userId,
       required String periodMonth,
       required String currency,
       required String? householdId,
     }) async {
-      final currentUser = ref.read(authProvider);
       final budgetQuery = supabase
           .from('budgets')
           .select('id')
@@ -223,7 +224,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       final budgetRow = householdId == null
           ? await budgetQuery
-              .eq('user_id', currentUser.uid)
+              .eq('user_id', userId)
               .isFilter('household_id', null)
               .limit(1)
               .maybeSingle()
@@ -245,6 +246,113 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           .maybeSingle();
 
       return envelopeRow != null;
+    }
+
+    Future<bool> hasCompleteBudgetSetup({
+      required String userId,
+      required String periodMonth,
+      required String currency,
+      required String? householdId,
+      required int? expectedPocketCount,
+    }) async {
+      final budgetQuery = supabase
+          .from('budgets')
+          .select('id')
+          .eq('period_month', periodMonth)
+          .eq('currency', currency);
+
+      final budgetRow = householdId == null
+          ? await budgetQuery
+              .eq('user_id', userId)
+              .isFilter('household_id', null)
+              .limit(1)
+              .maybeSingle()
+          : await budgetQuery
+              .eq('household_id', householdId)
+              .limit(1)
+              .maybeSingle();
+
+      final budgetId = budgetRow?['id'] as String?;
+      if (budgetId == null || budgetId.isEmpty) {
+        return false;
+      }
+
+      final envelopeRows = await supabase
+          .from('budget_envelopes')
+          .select('id')
+          .eq('budget_id', budgetId);
+      final envelopeIds = (envelopeRows as List?)
+              ?.cast<Map<String, dynamic>>()
+              .map((row) => row['id'] as String?)
+              .whereType<String>()
+              .toList() ??
+          const <String>[];
+      if (envelopeIds.isEmpty) {
+        return false;
+      }
+
+      final minimumExpectedEnvelopes =
+          expectedPocketCount != null && expectedPocketCount > 0
+              ? expectedPocketCount
+              : 1;
+      if (envelopeIds.length < minimumExpectedEnvelopes) {
+        return false;
+      }
+
+      final allocationRows = await supabase
+          .from('envelope_allocations')
+          .select('envelope_id')
+          .eq('period_month', periodMonth)
+          .inFilter('envelope_id', envelopeIds);
+
+      final allocatedEnvelopeIds = (allocationRows as List?)
+              ?.cast<Map<String, dynamic>>()
+              .map((row) => row['envelope_id'] as String?)
+              .whereType<String>()
+              .toSet() ??
+          const <String>{};
+      return allocatedEnvelopeIds.length >= minimumExpectedEnvelopes;
+    }
+
+    Future<bool> hasRequiredStarterBudgets({
+      required String userId,
+      required OnboardingPreauthDraft preparedDraft,
+      required String? createdHouseholdId,
+      required bool shouldApplyStarterSync,
+      required int? expectedPocketCount,
+    }) async {
+      if (!shouldApplyStarterSync || preparedDraft.monthlyBudget <= 0) {
+        return true;
+      }
+
+      final now = DateTime.now();
+      final monthStart = DateTime(now.year, now.month, 1);
+      final periodMonth =
+          '${monthStart.year.toString().padLeft(4, '0')}-${monthStart.month.toString().padLeft(2, '0')}-01';
+      final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
+
+      final hasPersonalBudgetPockets = await hasCompleteBudgetSetup(
+        userId: userId,
+        periodMonth: periodMonth,
+        currency: selectedCurrency,
+        householdId: null,
+        expectedPocketCount: expectedPocketCount,
+      );
+      if (!hasPersonalBudgetPockets) {
+        return false;
+      }
+
+      if (createdHouseholdId == null || createdHouseholdId.isEmpty) {
+        return true;
+      }
+
+      return hasCompleteBudgetSetup(
+        userId: userId,
+        periodMonth: periodMonth,
+        currency: selectedCurrency,
+        householdId: createdHouseholdId,
+        expectedPocketCount: expectedPocketCount,
+      );
     }
 
     Future<void> runSync() async {
@@ -277,6 +385,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       final draft = store.load();
       final prefs = ref.read(sharedPreferencesProvider);
+      final now = DateTime.now();
+      final budgetSyncScope =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}:${draft.selectedCurrency.trim().toUpperCase()}:${draft.wantsSharedSpace}:${draft.wantsStarterPockets}';
+      final budgetSyncFailureKey =
+          '$_kBudgetSyncFailurePrefix${user.uid}:$budgetSyncScope';
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
       final existingState = await loadExistingAccountState(user.uid);
       final hasExistingData = existingState.hasMeaningfulData;
@@ -439,10 +552,12 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
 
       final preparedDraft = derivePreauthBudgetProfile(draft);
+      int? expectedPocketCount;
 
       try {
         final recommendation =
             BudgetRecommender.recommend(context, preparedDraft);
+        expectedPocketCount = recommendation.pockets.length;
         final builtinRecommendationCategories = recommendation.pockets
             .expand((pocket) => pocket.suggestedCategories)
             .where((category) =>
@@ -469,6 +584,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           );
           final selectedCurrency = preparedDraft.selectedCurrency.toUpperCase();
           final hasPersonalBudgetPockets = await hasExistingBudgetPockets(
+            userId: user.uid,
             periodMonth: periodMonth,
             currency: selectedCurrency,
             householdId: null,
@@ -491,6 +607,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
           if (createdHouseholdId != null && createdHouseholdId.isNotEmpty) {
             final hasHouseholdBudgetPockets = await hasExistingBudgetPockets(
+              userId: user.uid,
               periodMonth: periodMonth,
               currency: selectedCurrency,
               householdId: createdHouseholdId,
@@ -521,19 +638,67 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         debugPrint(
           'Onboarding starter budget sync failed: $error\n$stackTrace',
         );
-        setProgressState(
-          progressValue: 0.85,
-          label:
-              'Almost done - we hit a small hiccup creating your starter pockets. Tap try again.',
-          done: false,
-        );
-        setupError.value = 'budget_setup_failed';
-        didStart.value = false;
-        return;
+
+        bool hasRequiredBudgets = false;
+        try {
+          hasRequiredBudgets = await hasRequiredStarterBudgets(
+            userId: user.uid,
+            preparedDraft: preparedDraft,
+            createdHouseholdId: createdHouseholdId,
+            shouldApplyStarterSync: shouldApplyStarterSync,
+            expectedPocketCount: expectedPocketCount,
+          );
+        } catch (verificationError, verificationStack) {
+          debugPrint(
+            'Onboarding starter budget verification failed: $verificationError\n$verificationStack',
+          );
+        }
+
+        if (hasRequiredBudgets) {
+          debugPrint(
+            '[OnboardingPrep] Starter budget verification passed after sync error, continuing setup.',
+          );
+        } else {
+          final previousFailures = prefs.getInt(budgetSyncFailureKey) ?? 0;
+          final nextFailures = previousFailures + 1;
+          try {
+            await prefs.setInt(budgetSyncFailureKey, nextFailures);
+          } catch (_) {}
+
+          final shouldAllowDashboardFallback = nextFailures >= 2;
+          var canUseDashboardFallback = shouldAllowDashboardFallback;
+          if (shouldAllowDashboardFallback) {
+            try {
+              await store.markSyncedForUser(user.uid, preparedDraft);
+            } catch (syncMarkError, syncMarkStack) {
+              debugPrint(
+                'Onboarding fallback sync marker failed: $syncMarkError\n$syncMarkStack',
+              );
+              canUseDashboardFallback = false;
+            }
+          }
+          setProgressState(
+            progressValue: 0.85,
+            label: canUseDashboardFallback
+                ? 'We could not finish starter pockets right now. Open dashboard to continue.'
+                : 'Almost done - we hit a small hiccup creating your starter pockets. Tap try again.',
+            done: false,
+          );
+          setupError.value = canUseDashboardFallback
+              ? 'budget_validation_failed'
+              : 'budget_setup_failed';
+          didStart.value = false;
+          return;
+        }
+
+        try {
+          await prefs.remove(budgetSyncFailureKey);
+        } catch (_) {}
       }
 
       try {
         await store.markSyncedForUser(user.uid, preparedDraft);
+        await prefs.remove(budgetSyncFailureKey);
         await prefs.setString(
           'onboarding_profile:${user.uid}',
           jsonEncode(

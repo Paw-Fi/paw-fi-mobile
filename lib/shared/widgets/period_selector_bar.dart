@@ -134,8 +134,9 @@ class PeriodSelectorBar extends ConsumerWidget {
 
   DateTimeRange? _resolveCustomRange(PeriodSelection selection) {
     if (selection.kind != PeriodSelectionKind.custom) return null;
-    if (selection.customStart == null || selection.customEnd == null)
+    if (selection.customStart == null || selection.customEnd == null) {
       return null;
+    }
     return DateTimeRange(
       start: selection.customStart!,
       end: selection.customEnd!,

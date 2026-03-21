@@ -214,7 +214,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
     Widget? action,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final cardColor = const Color(0xFFF4F4F4);
+    const cardColor = Color(0xFFF4F4F4);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

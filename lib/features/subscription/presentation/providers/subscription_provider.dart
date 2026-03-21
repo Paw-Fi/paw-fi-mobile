@@ -1,5 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart' show AutoDisposeRef;
+import 'package:hooks_riverpod/hooks_riverpod.dart' show Ref;
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -108,7 +108,7 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
 
 // Helper provider to check if user has active subscription
 @riverpod
-bool hasActiveSubscription(AutoDisposeRef ref) {
+bool hasActiveSubscription(Ref ref) {
   final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
   final result = subscriptionAsync.maybeWhen(
     data: (subscription) {
@@ -130,7 +130,7 @@ bool hasActiveSubscription(AutoDisposeRef ref) {
 // Helper provider to check subscription loading state
 // Returns true if subscription check is complete (loaded or error)
 @riverpod
-bool isSubscriptionLoaded(AutoDisposeRef ref) {
+bool isSubscriptionLoaded(Ref ref) {
   final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
   return subscriptionAsync.maybeWhen(
     data: (_) => true,

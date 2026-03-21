@@ -10,7 +10,6 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
-import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 

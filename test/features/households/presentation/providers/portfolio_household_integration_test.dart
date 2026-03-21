@@ -177,7 +177,7 @@ void main() {
         household: null,
       );
 
-      final scope = HouseholdScope(
+      const scope = HouseholdScope(
         viewMode: ViewMode.personal,
         selected: selectedState,
         portfolioHouseholdIds: {},

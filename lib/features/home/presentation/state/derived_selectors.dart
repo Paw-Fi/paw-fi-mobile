@@ -1,7 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/state/period_filter_provider.dart';
-import 'package:moneko/features/home/presentation/state/period_selection.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
@@ -58,8 +56,9 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
     if (e.isRecurring) continue;
     // Expense-only
     if ((e.type ?? 'expense').toLowerCase() == 'income') continue;
-    if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency))
+    if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency)) {
       continue;
+    }
     final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
     if (map.containsKey(key)) {
       map[key] = (map[key] ?? 0) + e.amount.abs();
@@ -74,8 +73,9 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
         if (item.type != 'expense') continue;
         // Only include active recurring transactions as of now
         if (!_isActiveNow(item, now)) continue;
-        if (setCurrency != null && item.currency.toUpperCase() != setCurrency)
+        if (setCurrency != null && item.currency.toUpperCase() != setCurrency) {
           continue;
+        }
         for (final month in months) {
           final start = DateTime(month.year, month.month, 1);
           final end = DateTime(month.year, month.month + 1, 0);

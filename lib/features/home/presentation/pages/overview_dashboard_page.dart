@@ -1187,7 +1187,6 @@ class _MetricDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final bool showCategories;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
-  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
   final String currencyCode;
 
   const _MetricDetail({
@@ -1197,7 +1196,6 @@ class _MetricDetail extends StatelessWidget {
     required this.transactions,
     required this.showCategories,
     this.amountResolver,
-    this.accountLabelResolver,
     required this.currencyCode,
   });
 
@@ -1344,7 +1342,7 @@ class _AverageDetail extends StatelessWidget {
             _DashboardTile(
               label: context.l10n.averageDailySpend,
               value: currencyFormatter.format(avgDaily),
-              subtitle: '${daysTracked} ${context.l10n.daysTracked}',
+              subtitle: '$daysTracked ${context.l10n.daysTracked}',
               showChevron: false,
             ),
           ],
@@ -1381,7 +1379,6 @@ class _TrendDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1485,7 +1482,6 @@ class _InsightDetail extends StatelessWidget {
   final double amount;
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
-  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
   final String currencyCode;
 
   const _InsightDetail({
@@ -1495,7 +1491,6 @@ class _InsightDetail extends StatelessWidget {
     required this.amount,
     required this.transactions,
     this.amountResolver,
-    this.accountLabelResolver,
     required this.currencyCode,
   });
 
@@ -1536,7 +1531,6 @@ class _InsightDetail extends StatelessWidget {
         DashboardTransactionsList(
           transactions: filtered,
           amountResolver: amountResolver,
-          accountLabelResolver: accountLabelResolver,
           currency: currencyCode,
         ),
       ],
@@ -1547,13 +1541,11 @@ class _InsightDetail extends StatelessWidget {
 class _TransactionsDetail extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
-  final String Function(ConsolidatedTransaction tx)? accountLabelResolver;
   final String currencyCode;
 
   const _TransactionsDetail({
     required this.transactions,
     this.amountResolver,
-    this.accountLabelResolver,
     required this.currencyCode,
   });
 

@@ -58,8 +58,9 @@ class _DashboardHeroState extends State<DashboardHero> {
 
     // Add currencies from budgets
     for (final b in widget.personalBudgets) {
-      if (b.currency != null && b.currency!.isNotEmpty)
+      if (b.currency != null && b.currency!.isNotEmpty) {
         currencies.add(b.currency!.toUpperCase());
+      }
     }
     for (final list in widget.householdBudgets.values) {
       for (final b in list) {

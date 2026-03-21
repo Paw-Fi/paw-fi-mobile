@@ -249,10 +249,6 @@ void main() {
       label: 'shared_preferences',
       timeout: const Duration(seconds: 10),
       action: SharedPreferences.getInstance,
-      fallback: () async {
-        SharedPreferences.setMockInitialValues({});
-        return SharedPreferences.getInstance();
-      },
       onError: (error, stack) {
         _debugPrint('[ERR] SharedPreferences init failed');
         if (!kIsWeb) {

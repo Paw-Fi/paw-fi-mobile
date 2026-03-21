@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -13,7 +12,6 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/presentation/widgets/member_avatars.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/utils/household_ui_utils.dart';
 
@@ -64,10 +62,6 @@ class _HouseholdMembersSectionState
     final pendingInvites = invites
         .where((invite) => invite.status == InviteStatus.pending)
         .toList();
-    final historyInvites = invites
-        .where((invite) => invite.status != InviteStatus.pending)
-        .toList();
-
     // Permissions
     final currentUserMember = membersAsync.value!.firstWhere(
       (m) => m.userId == currentUserId,
@@ -258,41 +252,6 @@ class _HouseholdMembersSectionState
     );
   }
 
-  Widget _buildInvitationsList(
-    BuildContext context,
-    List<HouseholdInvite> historyInvites,
-  ) {
-    if (historyInvites.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        _buildSettingsSection(
-          context,
-          title: context.l10n.invitationHistory,
-          children: historyInvites.map((invite) {
-            final colorScheme = Theme.of(context).colorScheme;
-
-            return _buildSettingsTile(
-              context: context,
-              title: Text(
-                invite.invitedEmail ?? context.l10n.anyoneWithLink,
-                style: TextStyle(color: colorScheme.mutedForeground),
-              ),
-              trailing: Text(
-                _inviteStatusLabel(context, invite.status),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
   // Helpers & Logic
 
   Widget _buildSettingsSection(
@@ -439,19 +398,6 @@ class _HouseholdMembersSectionState
       ),
       child: Icon(icon, size: 20, color: iconColor),
     );
-  }
-
-  String _inviteStatusLabel(BuildContext context, InviteStatus status) {
-    switch (status) {
-      case InviteStatus.accepted:
-        return context.l10n.accepted;
-      case InviteStatus.revoked:
-        return context.l10n.revoked;
-      case InviteStatus.expired:
-        return context.l10n.expired;
-      case InviteStatus.pending:
-        return context.l10n.pending;
-    }
   }
 
   String _memberRoleLabel(BuildContext context, HouseholdRole role) {

@@ -33,7 +33,7 @@ class AccountSpendListChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final palette = AppTheme.pocketChartPalette;
+    const palette = AppTheme.pocketChartPalette;
     final displayCurrency =
         currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
     final formatter = NumberFormat.compactSimpleCurrency(name: displayCurrency);
@@ -290,7 +290,7 @@ class AccountSpendDonutChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final palette = AppTheme.pocketChartPalette;
+    const palette = AppTheme.pocketChartPalette;
     final total = data.fold<double>(0.0, (sum, item) => sum + item.expense);
     final chartSections = <PieChartSectionData>[];
 
@@ -386,7 +386,7 @@ class AccountTrendGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final palette = AppTheme.pocketChartPalette;
+    const palette = AppTheme.pocketChartPalette;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -482,7 +482,7 @@ class AccountChartLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppTheme.pocketChartPalette;
+    const palette = AppTheme.pocketChartPalette;
     final colorScheme = Theme.of(context).colorScheme;
     final displayCurrency =
         currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;

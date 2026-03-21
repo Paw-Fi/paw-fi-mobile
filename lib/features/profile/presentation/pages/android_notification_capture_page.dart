@@ -737,7 +737,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     context.l10n.grantAccess,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
@@ -761,14 +761,14 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _HowItWorksCard(
           step: 3,
           title: context.l10n.chooseWhichNotificationsToRead,
           description: context
               .l10n.afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor,
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _HowItWorksCard(
           step: 4,
           title: context.l10n.automaticCapture,
@@ -892,7 +892,7 @@ class _SettingsTile extends StatelessWidget {
         ? colorScheme.mutedForeground
         : colorScheme.mutedForeground.withValues(alpha: 0.5);
     final effectiveIconBg =
-        enabled ? iconBackgroundColor : colorScheme.surfaceVariant;
+        enabled ? iconBackgroundColor : colorScheme.surfaceContainerHighest;
     final effectiveIconColor =
         enabled ? iconColor : colorScheme.mutedForeground;
 
