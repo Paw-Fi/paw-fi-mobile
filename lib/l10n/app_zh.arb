@@ -2453,5 +2453,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "前往 设置 → 通知 → “通知读取、回复与控制”，选择 Moneko，然后开启“允许访问通知”。",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "授予权限后，在“支持的应用”部分仅开启您希望 Moneko 监控的应用。",
   "secureStorageUnavailable": "安全存储不可用",
-  "failedToUpdateSetting": "更新设置失败"
+  "failedToUpdateSetting": "更新设置失败",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "收到通知时，Moneko 会提取商家、金额和货币信息。",
+  "configuration": "配置",
+  "notificationCaptureIsUnavailableOnThisDevice": "此设备不支持通知记录功能。",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko 无法在此设备上安全地存储后台同步凭证。",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "按照这些步骤为 Moneko 开启通知访问权限。",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "点击“授予权限”或打开 Android 设置，以便 Moneko 可以在后台读取通知。",
+  "grantAccess": "授予权限",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "只有您可以访问。Moneko 绝不会出售或共享您的财务数据。",
+  "yourTransactionsAreAddedAutomatically": "您的交易会自动记录。"
 }

@@ -2407,5 +2407,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "Перейдите в Настройки → Уведомления → «Чтение, ответ и управление уведомлениями», выберите Moneko и включите доступ.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "После предоставления доступа включите только те приложения, которые Moneko должен отслеживать, в разделе «Поддерживаемые приложения».",
   "secureStorageUnavailable": "Безопасное хранилище недоступно",
-  "failedToUpdateSetting": "Не удалось обновить настройку"
+  "failedToUpdateSetting": "Не удалось обновить настройку",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko извлекает данные о продавце, сумме и валюте при поступлении уведомлений.",
+  "configuration": "Конфигурация",
+  "notificationCaptureIsUnavailableOnThisDevice": "Захват уведомлений недоступен на этом устройстве.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko не может безопасно сохранить данные для фоновой синхронизации на этом устройстве.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Следуйте этим шагам, чтобы включить доступ к уведомлениям для Moneko.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Нажмите «Разрешить доступ» или откройте настройки Android, чтобы Moneko мог читать уведомления в фоновом режиме.",
+  "grantAccess": "Разрешить доступ",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "Доступ есть только у вас. Moneko никогда не продает и не передает ваши финансовые данные.",
+  "yourTransactionsAreAddedAutomatically": "Ваши транзакции записываются автоматически."
 }

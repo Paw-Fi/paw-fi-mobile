@@ -761,15 +761,15 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        const _HowItWorksCard(
+        SizedBox(height: 12),
+        _HowItWorksCard(
           step: 3,
           title: context.l10n.chooseWhichNotificationsToRead,
           description: context
               .l10n.afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor,
         ),
-        const SizedBox(height: 12),
-        const _HowItWorksCard(
+        SizedBox(height: 12),
+        _HowItWorksCard(
           step: 4,
           title: context.l10n.automaticCapture,
           description: context.l10n

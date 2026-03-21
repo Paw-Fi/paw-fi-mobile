@@ -6421,4 +6421,31 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get failedToUpdateSetting => 'อัปเดตการตั้งค่าไม่สำเร็จ';
+
+  @override
+  String get monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive => 'Moneko จะดึงชื่อร้านค้า จำนวนเงิน และสกุลเงินเมื่อมีการแจ้งเตือนเข้ามา';
+
+  @override
+  String get configuration => 'การกำหนดค่า';
+
+  @override
+  String get notificationCaptureIsUnavailableOnThisDevice => 'การบันทึกการแจ้งเตือนไม่สามารถใช้งานได้บนอุปกรณ์นี้';
+
+  @override
+  String get monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice => 'Moneko ไม่สามารถจัดเก็บข้อมูลประจำตัวสำหรับการซิงค์เบื้องหลังได้อย่างปลอดภัยบนอุปกรณ์นี้';
+
+  @override
+  String get followTheseScreensToTurnOnNotificationAccessForMoneko => 'ทำตามขั้นตอนเหล่านี้เพื่อเปิดใช้งานการเข้าถึงการแจ้งเตือนสำหรับ Moneko';
+
+  @override
+  String get tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground => 'แตะ \'อนุญาตการเข้าถึง\' หรือเปิดการตั้งค่า Android เพื่อให้ Moneko สามารถอ่านการแจ้งเตือนในเบื้องหลังได้';
+
+  @override
+  String get grantAccess => 'อนุญาตการเข้าถึง';
+
+  @override
+  String get onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData => 'มีเพียงคุณเท่านั้นที่เข้าถึงได้ Moneko จะไม่มีการขายหรือแชร์ข้อมูลทางการเงินของคุณ';
+
+  @override
+  String get yourTransactionsAreAddedAutomatically => 'ธุรกรรมของคุณจะถูกบันทึกโดยอัตโนมัติ';
 }

@@ -2456,5 +2456,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "Đi tới Cài đặt → Thông báo → \"Đọc, trả lời và kiểm soát thông báo\", chọn Moneko, sau đó bật Cho phép truy cập thông báo.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "Sau khi cấp quyền truy cập, chỉ bật các ứng dụng bạn muốn Moneko theo dõi trong phần Ứng dụng được hỗ trợ.",
   "secureStorageUnavailable": "Bộ nhớ an toàn không khả dụng",
-  "failedToUpdateSetting": "Cập nhật cài đặt thất bại"
+  "failedToUpdateSetting": "Cập nhật cài đặt thất bại",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko trích xuất tên người bán, số tiền và loại tiền tệ khi có thông báo đến.",
+  "configuration": "Cấu hình",
+  "notificationCaptureIsUnavailableOnThisDevice": "Tính năng ghi lại thông báo không khả dụng trên thiết bị này.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko không thể lưu trữ an toàn thông tin xác thực đồng bộ hóa nền trên thiết bị này.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Làm theo các bước này để bật quyền truy cập thông báo cho Moneko.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Nhấn 'Cấp quyền truy cập' hoặc mở Cài đặt Android để Moneko có thể đọc thông báo trong nền.",
+  "grantAccess": "Cấp quyền truy cập",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "Chỉ bạn mới có thể truy cập. Moneko không bao giờ bán hoặc chia sẻ dữ liệu tài chính của bạn.",
+  "yourTransactionsAreAddedAutomatically": "Các giao dịch của bạn được ghi lại tự động."
 }

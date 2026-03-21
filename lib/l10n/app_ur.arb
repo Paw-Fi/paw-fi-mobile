@@ -2403,5 +2403,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "سیٹنگز → نوٹیفکیشنز → \"نوٹیفکیشن پڑھنا، جواب دینا اور کنٹرول\" پر جائیں، Moneko کو منتخب کریں، پھر نوٹیفکیشن تک رسائی کی اجازت دیں۔",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "رسائی ملنے کے بعد، 'تعاون یافتہ ایپس' سیکشن میں صرف ان ایپس کو آن کریں جن کی آپ Moneko سے نگرانی کروانا چاہتے ہیں۔",
   "secureStorageUnavailable": "محفوظ اسٹوریج دستیاب نہیں ہے",
-  "failedToUpdateSetting": "سیٹنگ اپ ڈیٹ کرنے میں ناکامی"
+  "failedToUpdateSetting": "سیٹنگ اپ ڈیٹ کرنے میں ناکامی",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "جب نوٹیفیکیشنز موصول ہوتے ہیں تو Moneko مرچنٹ، رقم اور کرنسی کی تفصیلات نکال لیتا ہے۔",
+  "configuration": "کنفیگریشن",
+  "notificationCaptureIsUnavailableOnThisDevice": "اس ڈیوائس پر نوٹیفکیشن کیپچر دستیاب نہیں ہے۔",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko اس ڈیوائس پر بیک گراؤنڈ سنک کی اسناد کو محفوظ طریقے سے اسٹور نہیں کر سکتا۔",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Moneko کے لیے نوٹیفکیشن تک رسائی آن کرنے کے لیے ان اسکرینز پر عمل کریں۔",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Grant Access پر ٹیپ کریں یا Android سیٹنگز کھولیں تاکہ Moneko بیک گراؤنڈ میں نوٹیفیکیشنز پڑھ سکے۔",
+  "grantAccess": "رسائی دیں",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "صرف آپ اس تک رسائی حاصل کر سکتے ہیں۔ Moneko آپ کا مالی ڈیٹا کبھی نہیں بیچتا اور نہ ہی شیئر کرتا ہے۔",
+  "yourTransactionsAreAddedAutomatically": "آپ کی ٹرانزیکشنز خود بخود درج ہو جاتی ہیں۔"
 }

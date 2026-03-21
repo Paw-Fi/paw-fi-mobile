@@ -2270,5 +2270,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "설정 → 알림 → \"알림 읽기, 답장 및 제어\"로 이동하여 Moneko를 선택한 다음 알림 접근 허용을 켜세요.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "권한 허용 후, '지원되는 앱' 섹션에서 Moneko가 모니터링할 앱만 켜주세요.",
   "secureStorageUnavailable": "보안 저장소를 사용할 수 없음",
-  "failedToUpdateSetting": "설정 업데이트 실패"
+  "failedToUpdateSetting": "설정 업데이트 실패",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "알림이 오면 Moneko가 가맹점, 금액, 통화 정보를 추출합니다.",
+  "configuration": "구성",
+  "notificationCaptureIsUnavailableOnThisDevice": "이 기기에서는 알림 기록을 사용할 수 없습니다.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko는 이 기기에서 백그라운드 동기화 인증 정보를 안전하게 저장할 수 없습니다.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "다음 단계에 따라 Moneko의 알림 접근 권한을 켜주세요.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "'권한 허용'을 누르거나 Android 설정을 열어 Moneko가 백그라운드에서 알림을 읽을 수 있도록 해주세요.",
+  "grantAccess": "권한 허용",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "사용자 본인만 접근할 수 있습니다. Moneko는 귀하의 금융 데이터를 판매하거나 공유하지 않습니다.",
+  "yourTransactionsAreAddedAutomatically": "결제 내역이 자동으로 기록됩니다."
 }

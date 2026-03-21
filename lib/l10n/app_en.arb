@@ -2476,5 +2476,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "Go to Settings → Notifications → \"Notification read, reply & control\", pick Moneko, then switch on Allow notification access.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "After access is granted, turn on only the apps you want Moneko to monitor in the Supported Apps section.",
   "secureStorageUnavailable": "Secure Storage Unavailable",
-  "failedToUpdateSetting": "Failed to update setting"
+  "failedToUpdateSetting": "Failed to update setting",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko extracts merchant, amount, and currency when notifications arrive.",
+  "configuration": "Configuration",
+  "notificationCaptureIsUnavailableOnThisDevice": "Notification capture is unavailable on this device.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko cannot securely store background sync credentials on this device.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Follow these screens to turn on notification access for Moneko.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Tap Grant Access or open Android Settings so Moneko can read notifications in the background.",
+  "grantAccess": "Grant Access",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "Only you can access it. Moneko never sells or shares your financial data.",
+  "yourTransactionsAreAddedAutomatically": "Your transactions are added automatically."
 }

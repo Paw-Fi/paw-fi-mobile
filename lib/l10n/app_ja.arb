@@ -2457,5 +2457,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "設定 → 通知 → 「通知の読み取り、返信、制御」へ進み、Monekoを選択して「通知へのアクセスを許可」をオンにします。",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "アクセス許可後、「対応アプリ」セクションでMonekoに監視させたいアプリのみをオンにしてください。",
   "secureStorageUnavailable": "セキュアストレージが利用不可",
-  "failedToUpdateSetting": "設定の更新に失敗しました"
+  "failedToUpdateSetting": "設定の更新に失敗しました",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "通知が届くと、Monekoが店名、金額、通貨を抽出します。",
+  "configuration": "設定",
+  "notificationCaptureIsUnavailableOnThisDevice": "このデバイスでは通知の取得を利用できません。",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Monekoは、このデバイスにバックグラウンド同期の認証情報を安全に保存できません。",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "以下の画面の案内に従って、Monekoの通知アクセスをオンにしてください。",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "「アクセスを許可」をタップするか、Androidの設定を開いて、Monekoがバックグラウンドで通知を読み取れるようにしてください。",
+  "grantAccess": "アクセスを許可",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "アクセスできるのはあなただけです。Monekoがお客様の金融情報を販売・共有することはありません。",
+  "yourTransactionsAreAddedAutomatically": "取引は自動的に記録されます。"
 }

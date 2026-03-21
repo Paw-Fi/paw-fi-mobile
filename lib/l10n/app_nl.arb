@@ -2404,5 +2404,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "Ga naar Instellingen → Meldingen → \"Meldingen lezen, beantwoorden en beheren\", kies Moneko en schakel Toegang tot meldingen in.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "Nadat toegang is verleend, schakel je in de sectie Ondersteunde apps alleen de apps in die Moneko moet controleren.",
   "secureStorageUnavailable": "Beveiligde opslag niet beschikbaar",
-  "failedToUpdateSetting": "Instelling bijwerken mislukt"
+  "failedToUpdateSetting": "Instelling bijwerken mislukt",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko extraheert de naam van de winkelier, het bedrag en de valuta zodra er meldingen binnenkomen.",
+  "configuration": "Configuratie",
+  "notificationCaptureIsUnavailableOnThisDevice": "Meldingen vastleggen is niet beschikbaar op dit apparaat.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko kan de inloggegevens voor achtergrondsynchronisatie niet veilig opslaan op dit apparaat.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Volg deze stappen om toegang tot meldingen voor Moneko in te schakelen.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Tik op 'Toegang verlenen' of open de Android-instellingen zodat Moneko meldingen op de achtergrond kan lezen.",
+  "grantAccess": "Toegang verlenen",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "Alleen jij hebt toegang. Moneko verkoopt of deelt je financiële gegevens nooit.",
+  "yourTransactionsAreAddedAutomatically": "Je transacties worden automatisch geregistreerd."
 }

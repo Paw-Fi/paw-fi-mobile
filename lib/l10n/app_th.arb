@@ -2474,5 +2474,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "ไปที่ การตั้งค่า → การแจ้งเตือน → \"การอ่าน การตอบกลับ และการควบคุมการแจ้งเตือน\" เลือก Moneko แล้วเปิด อนุญาตการเข้าถึงการแจ้งเตือน",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "หลังจากอนุญาตการเข้าถึงแล้ว ให้เปิดเฉพาะแอปที่คุณต้องการให้ Moneko ตรวจสอบในส่วนแอปที่รองรับ",
   "secureStorageUnavailable": "พื้นที่จัดเก็บข้อมูลที่ปลอดภัยไม่พร้อมใช้งาน",
-  "failedToUpdateSetting": "อัปเดตการตั้งค่าไม่สำเร็จ"
+  "failedToUpdateSetting": "อัปเดตการตั้งค่าไม่สำเร็จ",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko จะดึงชื่อร้านค้า จำนวนเงิน และสกุลเงินเมื่อมีการแจ้งเตือนเข้ามา",
+  "configuration": "การกำหนดค่า",
+  "notificationCaptureIsUnavailableOnThisDevice": "การบันทึกการแจ้งเตือนไม่สามารถใช้งานได้บนอุปกรณ์นี้",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko ไม่สามารถจัดเก็บข้อมูลประจำตัวสำหรับการซิงค์เบื้องหลังได้อย่างปลอดภัยบนอุปกรณ์นี้",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "ทำตามขั้นตอนเหล่านี้เพื่อเปิดใช้งานการเข้าถึงการแจ้งเตือนสำหรับ Moneko",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "แตะ 'อนุญาตการเข้าถึง' หรือเปิดการตั้งค่า Android เพื่อให้ Moneko สามารถอ่านการแจ้งเตือนในเบื้องหลังได้",
+  "grantAccess": "อนุญาตการเข้าถึง",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "มีเพียงคุณเท่านั้นที่เข้าถึงได้ Moneko จะไม่มีการขายหรือแชร์ข้อมูลทางการเงินของคุณ",
+  "yourTransactionsAreAddedAutomatically": "ธุรกรรมของคุณจะถูกบันทึกโดยอัตโนมัติ"
 }

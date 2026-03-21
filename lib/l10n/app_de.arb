@@ -2457,5 +2457,14 @@
   "goToSettingsNotificationsNotificationReadReplyAndControl": "Gehe zu Einstellungen → Benachrichtigungen → „Benachrichtigungen lesen, antworten & steuern“, wähle Moneko und aktiviere den Zugriff.",
   "afterAccessIsGrantedTurnOnOnlyTheAppsYouWantMonekoToMonitor": "Aktiviere nach der Freigabe im Bereich „Unterstützte Apps“ nur die Apps, die Moneko überwachen soll.",
   "secureStorageUnavailable": "Sicherer Speicher nicht verfügbar",
-  "failedToUpdateSetting": "Fehler beim Aktualisieren der Einstellung"
+  "failedToUpdateSetting": "Fehler beim Aktualisieren der Einstellung",
+  "monekoExtractsMerchantAmountAndCurrencyWhenNotificationsArrive": "Moneko extrahiert Händler, Betrag und Währung, sobald Benachrichtigungen eingehen.",
+  "configuration": "Konfiguration",
+  "notificationCaptureIsUnavailableOnThisDevice": "Die Benachrichtigungserfassung ist auf diesem Gerät nicht verfügbar.",
+  "monekoCannotSecurelyStoreBackgroundSyncCredentialsOnThisDevice": "Moneko kann die Anmeldedaten für die Hintergrundsynchronisierung auf diesem Gerät nicht sicher speichern.",
+  "followTheseScreensToTurnOnNotificationAccessForMoneko": "Folge diesen Schritten, um den Benachrichtigungszugriff für Moneko zu aktivieren.",
+  "tapGrantAccessOrOpenAndroidSettingsSoMonekoCanReadNotificationsInTheBackground": "Tippe auf „Zugriff gewähren“ oder öffne die Android-Einstellungen, damit Moneko Benachrichtigungen im Hintergrund lesen kann.",
+  "grantAccess": "Zugriff gewähren",
+  "onlyYouCanAccessItMonekoNeverSellsOrSharesYourFinancialData": "Nur du hast Zugriff. Moneko verkauft deine Finanzdaten niemals und gibt sie nicht weiter.",
+  "yourTransactionsAreAddedAutomatically": "Deine Transaktionen werden automatisch erfasst."
 }
