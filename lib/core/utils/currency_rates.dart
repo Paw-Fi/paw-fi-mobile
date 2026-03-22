@@ -29,6 +29,7 @@ static const Map<String, double> rates = {
     'HKD': 7.8210,   // Updated
     'HUF': 365.40,   // Updated
     'IDR': 15845.0,  // Updated
+    'ILS': 3.6625,   // Updated
     'INR': 84.45,    // Updated
     'JPY': 150.12,   // Updated
     'JMD': 158.40,   // Updated

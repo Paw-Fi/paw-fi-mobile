@@ -18,6 +18,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'JPY': 'jp',
     'JMD': 'jamaica',
     'HKD': 'hk',
+    'ILS': 'israel',
     'SGD': 'sg',
     'NZD': 'nz',
     'CZK': 'cz',

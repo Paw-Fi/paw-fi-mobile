@@ -1136,6 +1136,18 @@ class PaywallScreen extends HookConsumerWidget {
                             GestureDetector(
                               onTap: () {
                                 unawaited(() async {
+                                  await analytics.trackEvent(
+                                    eventName: 'onboarding_preview_clicked',
+                                    flowName: 'onboarding_funnel',
+                                    pageId: 'paywall',
+                                    properties: <String, Object?>{
+                                      'paywall_mode': mode.queryValue,
+                                      'selected_plan':
+                                          activePlanOption.serverPlanId,
+                                      'billing_interval':
+                                          activePlanOption.billingInterval,
+                                    },
+                                  );
                                   await analytics.trackAction(
                                     flowName: 'onboarding_funnel',
                                     pageId: 'paywall',

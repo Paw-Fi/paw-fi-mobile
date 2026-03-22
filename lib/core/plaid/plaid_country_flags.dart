@@ -91,6 +91,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'KE': 'KES',
     'ZA': 'ZAR',
     'AE': 'AED',
+    'IL': 'ILS',
     'SA': 'SAR',
     'MW': 'MWK',
     'TR': 'TRY',

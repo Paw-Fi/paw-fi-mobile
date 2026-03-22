@@ -9,6 +9,7 @@ void main() {
       expect(getCurrencyFlagPath('GBP'), 'lib/assets/images/flags/uk.png');
       expect(getCurrencyFlagPath('AED'),
           'lib/assets/images/flags/uae.png'); // Fixed typo!
+      expect(getCurrencyFlagPath('ILS'), 'lib/assets/images/flags/israel.png');
       expect(getCurrencyFlagPath('JPY'), 'lib/assets/images/flags/jp.png');
       expect(getCurrencyFlagPath('CNY'), 'lib/assets/images/flags/cn.png');
       expect(getCurrencyFlagPath('AUD'), 'lib/assets/images/flags/au.png');
@@ -29,6 +30,7 @@ void main() {
       expect(getCurrencyFlagPath('Eur'), 'lib/assets/images/flags/europe.png');
       expect(getCurrencyFlagPath('GbP'), 'lib/assets/images/flags/uk.png');
       expect(getCurrencyFlagPath('aed'), 'lib/assets/images/flags/uae.png');
+      expect(getCurrencyFlagPath('ils'), 'lib/assets/images/flags/israel.png');
       expect(getCurrencyFlagPath('jmd'), 'lib/assets/images/flags/jamaica.png');
       expect(getCurrencyFlagPath('mwk'), 'lib/assets/images/flags/malawi.png');
       expect(getCurrencyFlagPath('zmw'), 'lib/assets/images/flags/zambia.png');
@@ -50,6 +52,7 @@ void main() {
         'JPY': 'jp',
         'JMD': 'jamaica',
         'HKD': 'hk',
+        'ILS': 'israel',
         'SGD': 'sg',
         'NZD': 'nz',
         'CZK': 'cz',

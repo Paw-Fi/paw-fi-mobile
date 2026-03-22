@@ -15,6 +15,16 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
   Future<void> _exploreAppInPreview(BuildContext context, WidgetRef ref) async {
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
 
+    await analytics.trackEvent(
+      eventName: 'onboarding_preview_clicked',
+      flowName: 'onboarding_funnel',
+      pageId: 'onboarding_save_budget',
+      properties: const <String, Object?>{
+        'step_group': 'preauth',
+        'step_key': 'create_account',
+      },
+    );
+
     await analytics.trackAction(
       flowName: 'onboarding_funnel',
       pageId: 'onboarding_save_budget',

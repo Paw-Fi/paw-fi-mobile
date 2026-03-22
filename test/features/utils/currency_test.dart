@@ -11,6 +11,7 @@ void main() {
       expect(resolveCurrencySymbol('AUD'), 'A\$');
       expect(resolveCurrencySymbol('CAD'), 'C\$');
       expect(resolveCurrencySymbol('AED'), 'د.إ');
+      expect(resolveCurrencySymbol('ILS'), '₪');
       expect(resolveCurrencySymbol('INR'), '₹');
       expect(resolveCurrencySymbol('ZMW'), 'ZK');
     });
@@ -49,6 +50,7 @@ void main() {
       expect(isSupportedCurrencyCode('EUR'), true);
       expect(isSupportedCurrencyCode('GBP'), true);
       expect(isSupportedCurrencyCode('AED'), true);
+      expect(isSupportedCurrencyCode('ILS'), true);
       expect(isSupportedCurrencyCode('JPY'), true);
       expect(isSupportedCurrencyCode('CNY'), true);
     });
@@ -107,6 +109,7 @@ void main() {
       expect(options.containsKey('EUR'), true);
       expect(options.containsKey('GBP'), true);
       expect(options.containsKey('AED'), true);
+      expect(options.containsKey('ILS'), true);
       expect(options.containsKey('JPY'), true);
       expect(options.containsKey('CNY'), true);
       expect(options.containsKey('SGD'), true);
@@ -123,6 +126,7 @@ void main() {
       expect(options['CNY'], '¥');
       expect(options['INR'], '₹');
       expect(options['AED'], 'د.إ');
+      expect(options['ILS'], '₪');
       expect(options['ZMW'], 'ZK');
     });
   });

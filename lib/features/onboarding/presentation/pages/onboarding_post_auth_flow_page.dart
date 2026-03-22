@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
@@ -22,7 +23,28 @@ import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
+const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
 const _kTotalSteps = 3;
+
+Future<void> _maybeShowOnboardingReviewPrompt(
+  WidgetRef ref, {
+  required bool fromSettings,
+}) async {
+  if (fromSettings) return;
+
+  final prefs = ref.read(sharedPreferencesProvider);
+  final hasPrompted = prefs.getBool(_kOnboardingReviewPromptShownKey) ?? false;
+  if (hasPrompted) return;
+
+  final inAppReview = InAppReview.instance;
+  final isAvailable = await inAppReview.isAvailable();
+  if (!isAvailable) return;
+
+  await prefs.setBool(_kOnboardingReviewPromptShownKey, true);
+  try {
+    await inAppReview.requestReview();
+  } catch (_) {}
+}
 
 String _postAuthPageId(int stepIndex) {
   switch (stepIndex) {
@@ -88,6 +110,11 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       );
       return null;
     }, [currentPage.value, fromSettings]);
+
+    useEffect(() {
+      unawaited(_maybeShowOnboardingReviewPrompt(ref, fromSettings: fromSettings));
+      return null;
+    }, [fromSettings]);
 
     void goToPage(int targetPage) {
       if (!context.mounted) return;

@@ -23,6 +23,7 @@ const Map<String, String> currencyOptions = {
   'HKD': 'HK\$',
   'HUF': 'Ft',
   'IDR': 'Rp',
+  'ILS': '₪',
   'INR': '₹',
   'JPY': '¥',
   'JMD': 'J\$',
@@ -85,6 +86,7 @@ String? canonicalizeCurrencyCode(String? code) {
     'NZ\$': 'NZD',
     'MX\$': 'MXN',
     'R\$': 'BRL',
+    '₪': 'ILS',
     // South African Rand often saved as just 'R'
     'R': 'ZAR',
     // Kenyan Shilling
