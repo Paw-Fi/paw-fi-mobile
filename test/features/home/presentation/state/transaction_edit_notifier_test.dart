@@ -35,6 +35,7 @@ class _FakeAnalyticsNotifier extends AnalyticsNotifier {
   Future<void> loadData(
     String userId, {
     int retryCount = 0,
+    bool forceReload = false,
   }) async {
     loadedUserId = userId;
   }

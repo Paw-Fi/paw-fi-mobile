@@ -144,8 +144,7 @@ void main() {
     expect(executed, <String>['queued-before-ready']);
   });
 
-  test('falls back to direct expense fetch after cache/reload misses',
-      () async {
+  test('resolves expense via direct fetch (primary path)', () async {
     final fetched = ExpenseEntry(
       id: 'exp-direct-1',
       date: DateTime(2026, 1, 1),
@@ -156,15 +155,11 @@ void main() {
       type: 'expense',
     );
 
-    var reloadCalls = 0;
     ExpenseEntry? injected;
 
     final dispatcher = NotificationDispatcher(
       null,
       cacheLookupOverride: (_) => null,
-      analyticsReloadOverride: (_) async {
-        reloadCalls += 1;
-      },
       directExpenseFetchOverride: (_) async => fetched,
       cacheInjectionOverride: (expense) {
         injected = expense;
@@ -177,7 +172,59 @@ void main() {
     );
 
     expect(resolved?.id, 'exp-direct-1');
-    expect(reloadCalls, 3);
     expect(injected?.id, 'exp-direct-1');
+  });
+
+  test('falls back to RPC fetch when direct fetch returns null', () async {
+    final rpcExpense = ExpenseEntry(
+      id: 'exp-rpc-1',
+      date: DateTime(2026, 1, 1),
+      amountCents: 3200,
+      createdAt: DateTime(2026, 1, 1, 12, 0),
+      currency: 'USD',
+      category: 'transport',
+      type: 'expense',
+    );
+
+    ExpenseEntry? injected;
+    var rpcCalls = 0;
+
+    final dispatcher = NotificationDispatcher(
+      null,
+      cacheLookupOverride: (_) => null,
+      directExpenseFetchOverride: (_) async => null,
+      rpcFetchOverride: (expenseId, userId) async {
+        rpcCalls += 1;
+        return expenseId == 'exp-rpc-1' ? rpcExpense : null;
+      },
+      cacheInjectionOverride: (expense) {
+        injected = expense;
+      },
+    );
+
+    final resolved = await dispatcher.resolveExpenseForNotification(
+      expenseId: 'exp-rpc-1',
+      userId: 'user-1',
+    );
+
+    expect(resolved?.id, 'exp-rpc-1');
+    expect(rpcCalls, 1);
+    expect(injected?.id, 'exp-rpc-1');
+  });
+
+  test('returns null when all fetch paths fail', () async {
+    final dispatcher = NotificationDispatcher(
+      null,
+      cacheLookupOverride: (_) => null,
+      directExpenseFetchOverride: (_) async => null,
+      rpcFetchOverride: (_, __) async => null,
+    );
+
+    final resolved = await dispatcher.resolveExpenseForNotification(
+      expenseId: 'exp-missing',
+      userId: 'user-1',
+    );
+
+    expect(resolved, isNull);
   });
 }

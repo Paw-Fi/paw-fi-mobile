@@ -47,6 +47,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   Future<void> loadData(
     String userId, {
     int retryCount = 0,
+    bool forceReload = false,
   }) async {
     final previewMode = ref.read(previewModeProvider);
     if (previewMode.isActive) {
@@ -69,9 +70,13 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
     // Prevent concurrent loads - if already loading, skip this request.
     // Exception: retries should continue (same operation).
+    // Exception: forceReload bypasses the guard (used by notification deep links).
     // If we have no data yet, allow the new request to proceed so we don't
     // get stuck with an empty home screen.
-    if (state.isLoading && retryCount == 0 && state.allExpenses.isNotEmpty) {
+    if (state.isLoading &&
+        retryCount == 0 &&
+        !forceReload &&
+        state.allExpenses.isNotEmpty) {
       debugPrint('[Analytics] Skipping load - already in progress');
       return;
     }
@@ -830,7 +835,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     required Duration timeout,
   }) async {
     var query = supabase.from('expenses').select(
-        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,bank_account_id,type,is_recurring');
+        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
       final orFilter =

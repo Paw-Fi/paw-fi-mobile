@@ -36,10 +36,11 @@ class NotificationDispatcher {
     Future<NotificationIntent> Function(NotificationIntent intent)?
         resolverOverride,
     ExpenseEntry? Function(String expenseId)? cacheLookupOverride,
-    Future<void> Function(String userId)? analyticsReloadOverride,
     Future<ExpenseEntry?> Function(String expenseId)?
         directExpenseFetchOverride,
     void Function(ExpenseEntry expense)? cacheInjectionOverride,
+    Future<ExpenseEntry?> Function(String expenseId, String userId)?
+        rpcFetchOverride,
   })  : _resolver = resolver ?? NotificationIntentResolver(),
         _dedupeStore = dedupeStore ?? NotificationDedupeStore(),
         _pendingStore = pendingStore ?? NotificationPendingStore(),
@@ -48,9 +49,9 @@ class NotificationDispatcher {
         _executorOverride = executorOverride,
         _resolverOverride = resolverOverride,
         _cacheLookupOverride = cacheLookupOverride,
-        _analyticsReloadOverride = analyticsReloadOverride,
         _directExpenseFetchOverride = directExpenseFetchOverride,
-        _cacheInjectionOverride = cacheInjectionOverride;
+        _cacheInjectionOverride = cacheInjectionOverride,
+        _rpcFetchOverride = rpcFetchOverride;
 
   final Ref? _ref;
   final NotificationIntentResolver _resolver;
@@ -62,10 +63,11 @@ class NotificationDispatcher {
   final Future<NotificationIntent> Function(NotificationIntent intent)?
       _resolverOverride;
   final ExpenseEntry? Function(String expenseId)? _cacheLookupOverride;
-  final Future<void> Function(String userId)? _analyticsReloadOverride;
   final Future<ExpenseEntry?> Function(String expenseId)?
       _directExpenseFetchOverride;
   final void Function(ExpenseEntry expense)? _cacheInjectionOverride;
+  final Future<ExpenseEntry?> Function(String expenseId, String userId)?
+      _rpcFetchOverride;
 
   final Queue<NotificationIntent> _queue = Queue<NotificationIntent>();
   bool _isProcessing = false;
@@ -237,10 +239,6 @@ class NotificationDispatcher {
     if (user == null) {
       return;
     }
-    if (user.uid.isNotEmpty) {
-      await _ref?.read(analyticsProvider.notifier).loadData(user.uid);
-      await _waitForAnalyticsIdle();
-    }
 
     final context = rootNavigatorKey.currentContext;
     if (context == null || !context.mounted) {
@@ -254,6 +252,8 @@ class NotificationDispatcher {
       }
       return;
     }
+
+    await _ensureValidSession();
 
     final expense = await _findExpenseWithRetry(
       expenseId: expenseId,
@@ -274,6 +274,14 @@ class NotificationDispatcher {
       return;
     }
 
+    if (user.uid.isNotEmpty) {
+      unawaited(
+        _ref
+            ?.read(analyticsProvider.notifier)
+            .loadData(user.uid, forceReload: true),
+      );
+    }
+
     await showUnifiedTransactionSheet(
       currentContext,
       existingExpense: expense,
@@ -289,38 +297,29 @@ class NotificationDispatcher {
       return fromCache;
     }
 
-    for (var attempt = 0; attempt < 4; attempt++) {
-      final refreshed = _findExpenseInAnalyticsCache(expenseId);
-      if (refreshed != null) {
-        return refreshed;
-      }
-
-      if (attempt < 3) {
-        if (_analyticsReloadOverride != null) {
-          await _analyticsReloadOverride!(userId);
-        } else {
-          await _ref?.read(analyticsProvider.notifier).loadData(userId);
-          await _waitForAnalyticsIdle();
-        }
-        await Future<void>.delayed(
-          Duration(milliseconds: 250 * (attempt + 1)),
-        );
-      }
-    }
-
     final directFetch = await _fetchExpenseDirectly(expenseId);
     if (directFetch != null) {
-      if (_cacheInjectionOverride != null) {
-        _cacheInjectionOverride!(directFetch);
-      } else {
-        _ref
-            ?.read(analyticsProvider.notifier)
-            .addOptimisticTransaction(directFetch);
-      }
+      _injectIntoCache(directFetch);
       return directFetch;
     }
 
+    final rpcFetch = await _fetchExpenseViaRpc(expenseId, userId);
+    if (rpcFetch != null) {
+      _injectIntoCache(rpcFetch);
+      return rpcFetch;
+    }
+
     return null;
+  }
+
+  void _injectIntoCache(ExpenseEntry expense) {
+    if (_cacheInjectionOverride != null) {
+      _cacheInjectionOverride!(expense);
+    } else {
+      _ref
+          ?.read(analyticsProvider.notifier)
+          .addOptimisticTransaction(expense);
+    }
   }
 
   ExpenseEntry? _findExpenseInAnalyticsCache(String expenseId) {
@@ -347,26 +346,25 @@ class NotificationDispatcher {
       return _directExpenseFetchOverride!(expenseId);
     }
 
-    for (var attempt = 0; attempt < 3; attempt++) {
+    for (var attempt = 0; attempt < 2; attempt++) {
       try {
         final response = await supabase
             .from('expenses')
             .select(
-                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,bank_account_id,type,is_recurring')
+                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,type,is_recurring')
             .eq('id', expenseId)
             .maybeSingle();
 
-        if (response == null) {
-          return null;
+        if (response != null) {
+          return ExpenseEntry.fromJson(response);
         }
 
-        return ExpenseEntry.fromJson(response);
+        if (attempt < 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
       } catch (e) {
-        debugPrint(
-            '[NotificationDispatcher] Direct expense fetch attempt $attempt failed: $e');
-        if (attempt < 2) {
-          await Future<void>.delayed(
-              Duration(milliseconds: 500 * (attempt + 1)));
+        if (attempt < 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
         }
       }
     }
@@ -374,16 +372,53 @@ class NotificationDispatcher {
     return null;
   }
 
-  Future<void> _waitForAnalyticsIdle({
-    Duration timeout = const Duration(seconds: 8),
-  }) async {
-    if (_analyticsReloadOverride != null) return;
+  Future<ExpenseEntry?> _fetchExpenseViaRpc(
+      String expenseId, String userId) async {
+    if (_rpcFetchOverride != null) {
+      return _rpcFetchOverride!(expenseId, userId);
+    }
 
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      final analyticsState = _ref?.read(analyticsProvider);
-      if (analyticsState == null || !analyticsState.isLoading) return;
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final rpcResponse = await supabase.rpc(
+          'get_user_analytics',
+          params: {'p_user_id': userId},
+        );
+
+        if (rpcResponse == null) {
+          continue;
+        }
+
+        final data = rpcResponse as Map<String, dynamic>;
+        final expensesData = data['expenses'] as List<dynamic>?;
+        if (expensesData == null || expensesData.isEmpty) {
+          continue;
+        }
+
+        for (final e in expensesData) {
+          final map = e as Map<String, dynamic>;
+          if (map['id'] == expenseId) {
+            return ExpenseEntry.fromJson(map);
+          }
+        }
+
+        return null;
+      } catch (e) {
+        if (attempt < 1) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await _ensureValidSession();
+        }
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _ensureValidSession() async {
+    try {
+      await supabase.auth.refreshSession();
+    } catch (_) {
+      // Non-blocking: session refresh failure is not fatal.
     }
   }
 
