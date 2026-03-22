@@ -86,7 +86,7 @@ class MainShell extends HookConsumerWidget {
         return exitRoute;
       }
       if (restorePreauthOnExit && returnToPreauth) {
-        return '/onboarding?stage=pre';
+        return '/onboarding?stage=save_budget';
       }
       return null;
     }

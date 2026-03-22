@@ -17,7 +17,14 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 final registeredEmailProvider = StateProvider<String?>((ref) => null);
 
 class RegisterScreen extends HookConsumerWidget {
-  const RegisterScreen({super.key});
+  final Widget? header;
+  final Widget? footer;
+
+  const RegisterScreen({
+    super.key,
+    this.header,
+    this.footer,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,14 +32,16 @@ class RegisterScreen extends HookConsumerWidget {
     final registeredEmail = ref.watch(registeredEmailProvider);
 
     return verificationSent.value && registeredEmail != null
-        ? _OTPVerificationView(
+        ? OTPVerificationView(
             email: registeredEmail,
             onBack: () {
               verificationSent.value = false;
               ref.read(registeredEmailProvider.notifier).state = null;
             },
           )
-        : _RegistrationFormView(
+        : RegistrationFormView(
+            header: header,
+            footer: footer,
             onVerificationSent: (email) {
               ref.read(registeredEmailProvider.notifier).state = email;
               verificationSent.value = true;
@@ -41,10 +50,17 @@ class RegisterScreen extends HookConsumerWidget {
   }
 }
 
-class _RegistrationFormView extends HookConsumerWidget {
+class RegistrationFormView extends HookConsumerWidget {
   final void Function(String email) onVerificationSent;
+  final Widget? header;
+  final Widget? footer;
 
-  const _RegistrationFormView({required this.onVerificationSent});
+  const RegistrationFormView({
+    super.key,
+    required this.onVerificationSent,
+    this.header,
+    this.footer,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -157,45 +173,47 @@ class _RegistrationFormView extends HookConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Modern Logo with subtle animation
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      return Opacity(
-                        opacity: value,
-                        child: Transform.translate(
-                          offset: Offset(0, 20 * (1 - value)),
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: Column(
-                      children: [
-                        Text(
-                          context.l10n.appTitle,
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -1.5,
-                            color: theme.colorScheme.primary,
+                  if (header != null)
+                    header!
+                  else
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 20 * (1 - value)),
+                            child: child,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          context.l10n.createYourAccount,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: theme.colorScheme.mutedForeground,
+                        );
+                      },
+                      child: Column(
+                        children: [
+                          Text(
+                            context.l10n.appTitle,
+                            style: TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -1.5,
+                              color: theme.colorScheme.primary,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            context.l10n.createYourAccount,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: theme.colorScheme.mutedForeground,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 32),
 
                   // Modern elevated card with soft shadows
@@ -556,31 +574,33 @@ class _RegistrationFormView extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Sign In Link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${context.l10n.alreadyHaveAccount} ',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: theme.colorScheme.mutedForeground,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap:
-                            isLoading.value ? null : () => context.go('/login'),
-                        child: Text(
-                          context.l10n.signInLower,
+                  if (footer != null)
+                    footer!
+                  else
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '${context.l10n.alreadyHaveAccount} ',
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
+                            color: theme.colorScheme.mutedForeground,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                        GestureDetector(
+                          onTap:
+                              isLoading.value ? null : () => context.go('/login'),
+                          child: Text(
+                            context.l10n.signInLower,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -591,11 +611,12 @@ class _RegistrationFormView extends HookConsumerWidget {
   }
 }
 
-class _OTPVerificationView extends HookConsumerWidget {
+class OTPVerificationView extends HookConsumerWidget {
   final String email;
   final VoidCallback onBack;
 
-  const _OTPVerificationView({
+  const OTPVerificationView({
+    super.key,
     required this.email,
     required this.onBack,
   });

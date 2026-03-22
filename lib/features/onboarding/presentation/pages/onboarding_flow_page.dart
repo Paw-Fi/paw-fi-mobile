@@ -519,30 +519,59 @@ class _IntroSlide extends HookWidget {
                           position: actionSlideAnim,
                           child: Padding(
                             padding: const EdgeInsets.only(bottom: 24, top: 16),
-                            child: InkWell(
-                              onTap: onNext,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: colorScheme.cardSurface,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: onNext,
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: colorScheme.border
-                                        .withValues(alpha: 0.15),
-                                    width: 1,
+                                  child: Container(
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.cardSurface,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: colorScheme.border
+                                            .withValues(alpha: 0.15),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      context.l10n.getStarted,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  context.l10n.getStarted,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.foreground,
-                                  ),
+                                const SizedBox(height: 24),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${context.l10n.alreadyHaveAccount} ',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => context.go('/login'),
+                                      child: Text(
+                                        context.l10n.signInLower,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                              ],
                             ),
                           ),
                         ),

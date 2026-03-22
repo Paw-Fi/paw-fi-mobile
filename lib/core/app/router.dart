@@ -25,6 +25,7 @@ import 'package:moneko/features/import/presentation/pages/import_wizard_page.dar
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_account_preparing_page.dart';
+import 'package:moneko/features/onboarding/presentation/pages/onboarding_save_budget_page.dart';
 
 import '../ui/pages/error_page.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -216,6 +217,9 @@ GoRouter router(RouterRef ref) {
           if (stage == 'pre') {
             return const OnboardingPreAuthFlowPage();
           }
+          if (stage == 'save_budget') {
+            return const OnboardingSaveBudgetPage();
+          }
           if (stage == 'prepare') {
             return const OnboardingAccountPreparingPage();
           }
@@ -264,12 +268,13 @@ GoRouter router(RouterRef ref) {
             state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/auth/callback');
         final isOnPreOnboardingPage =
-            state.matchedLocation == '/onboarding' && onboardingStage == 'pre';
+            state.matchedLocation == '/onboarding' && (onboardingStage == 'pre' || onboardingStage == 'save_budget');
         final isOnPrepareOnboardingPage =
             state.matchedLocation == '/onboarding' &&
                 onboardingStage == 'prepare';
         final isOnPostOnboardingPage = state.matchedLocation == '/onboarding' &&
             onboardingStage != 'pre' &&
+            onboardingStage != 'save_budget' &&
             onboardingStage != 'prepare';
         final isOnboardingPage = state.matchedLocation == '/avatar' ||
             state.matchedLocation == '/onboarding';
@@ -331,7 +336,7 @@ GoRouter router(RouterRef ref) {
             return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
             if (hasCompletedPreauth) {
-              return '/login';
+              return '/onboarding?stage=save_budget';
             }
             if (hasInProgressPreauthDraft) {
               return '/onboarding?stage=pre';
@@ -388,13 +393,12 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // If not authenticated and not on auth/onboarding page, route into onboarding first.
         if (!isPreview &&
             !isAuthenticated &&
             !isOnAuthPage &&
             !isOnboardingPage) {
           if (hasCompletedPreauth) {
-            return '/login';
+            return '/onboarding?stage=save_budget';
           }
           if (hasInProgressPreauthDraft) {
             return '/onboarding?stage=pre';

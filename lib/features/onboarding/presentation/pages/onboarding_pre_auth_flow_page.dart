@@ -12,10 +12,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
-import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_amounts.dart';
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
@@ -40,9 +38,8 @@ const _kStepSavingsTarget = 6;
 const _kStepCurrency = 7;
 const _kStepCalculating = 8;
 const _kStepStarter = 9;
-const _kStepCreateAccount = 10;
 const _kQuestionStepCount = 8;
-const _kTotalPreAuthSteps = 11;
+const _kTotalPreAuthSteps = 10;
 
 int _migratePreauthStepIndex(int legacyStep) {
   switch (legacyStep) {
@@ -73,7 +70,7 @@ int _migratePreauthStepIndex(int legacyStep) {
       return _kStepCalculating;
     case 16:
     case 17:
-      return _kStepCreateAccount;
+      return _kStepStarter;
     default:
       return _kStepCurrency;
   }
@@ -116,8 +113,6 @@ String _preauthPageId(int step) {
       return 'preauth_calculating';
     case _kStepStarter:
       return 'preauth_starter_budget';
-    case _kStepCreateAccount:
-      return 'preauth_create_account';
     default:
       return 'preauth_unknown';
   }
@@ -130,9 +125,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final pageController = usePageController();
-    final readyCarouselController = usePageController();
     final currentPage = useState(0);
-    final readyCarouselPage = useState(0);
     final isLoaded = useState(false);
     final draftState = useState(OnboardingPreauthDraft.initial());
     final answeredOptionSteps = useState<Set<int>>(<int>{});
@@ -251,83 +244,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       await goToPage(previousStep);
     }
 
-    Future<void> exploreAppInPreview() async {
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _preauthPageId(currentPage.value),
-        stepIndex: currentPage.value,
-        actionId: 'try_demo',
-        result: 'used',
-        properties: const <String, Object?>{
-          'step_group': 'preauth',
-          'step_key': 'create_account',
-        },
-      );
-      await analytics.endPage(
-        reason: 'try_demo',
-        transitionTo: '/dashboard',
-      );
-      final prefs = ref.read(sharedPreferencesProvider);
-      await persistDraft(
-        draftState.value.copyWith(currentStep: totalSteps - 1),
-      );
-      await prefs.setBool(kPreviewModeActiveKey, true);
-      await prefs.setBool(kPreviewReturnToPreauthKey, true);
-      await prefs.setString(kPreviewExitRouteKey, '/onboarding?stage=pre');
-      ref.read(previewModeProvider.notifier).enable();
-      if (!context.mounted) return;
-      context.go('/dashboard');
-    }
-
     Future<void> next() async {
-      if (currentPage.value == _kStepCreateAccount) {
-        await flushPendingBudgetDraft();
-        if (!context.mounted) return;
-        final lastReadySlide = _readyCarouselItems.length - 1;
-        if (readyCarouselPage.value < lastReadySlide) {
-          final targetPage = readyCarouselPage.value + 1;
-          if (readyCarouselController.hasClients) {
-            await readyCarouselController.animateToPage(
-              targetPage,
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeInOut,
-            );
-          } else {
-            readyCarouselPage.value = targetPage;
-          }
-          return;
-        }
-        await _showSaveBudgetModal(
-          context: context,
-          colorScheme: colorScheme,
-          onRegister: () async {
-            await analytics.trackAction(
-              flowName: 'onboarding_funnel',
-              pageId: _preauthPageId(_kStepCreateAccount),
-              stepIndex: _kStepCreateAccount,
-              actionId: 'register_from_preauth',
-              result: 'used',
-              properties: const <String, Object?>{
-                'step_group': 'preauth',
-                'step_key': 'create_account',
-              },
-            );
-            await analytics.endPage(
-              reason: 'register_from_preauth',
-              transitionTo: '/register',
-            );
-            final store = ref.read(onboardingPreauthDraftStoreProvider);
-            await store.markPreauthCompleted();
-            ref.read(previewModeProvider.notifier).disable();
-            if (!context.mounted) return;
-            context.go('/register');
-          },
-          onTryDemo: () async {
-            await exploreAppInPreview();
-          },
-        );
-        return;
-      }
 
       if (currentPage.value < totalSteps - 1) {
         if (currentPage.value == _kStepStarter) {
@@ -353,7 +270,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       await store.markPreauthCompleted();
       if (context.mounted) {
-        context.go('/register');
+        context.go('/onboarding?stage=save_budget');
       }
     }
 
@@ -637,13 +554,6 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                           monthlyBudget: value,
                         );
                         persistBudgetDraftDebounced(nextDraft);
-                      },
-                    ),
-                    _PreAuthReadyCarouselStep(
-                      controller: readyCarouselController,
-                      currentIndex: readyCarouselPage.value,
-                      onSlideChanged: (value) {
-                        readyCarouselPage.value = value;
                       },
                     ),
                   ],
@@ -2085,305 +1995,6 @@ double _niceSliderNumber(double rawStep) {
   }
 
   return math.max(1, niceFraction * magnitude);
-}
-
-class _PreAuthReadyCarouselStep extends StatelessWidget {
-  const _PreAuthReadyCarouselStep({
-    required this.controller,
-    required this.currentIndex,
-    required this.onSlideChanged,
-  });
-
-  final PageController controller;
-  final int currentIndex;
-  final ValueChanged<int> onSlideChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            context.l10n.onboardingPreAuthAlmostReadyTitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.onboardingPreAuthAlmostReadySubtitle,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 39),
-          Expanded(
-            child: PageView.builder(
-              controller: controller,
-              itemCount: _readyCarouselItems.length,
-              onPageChanged: onSlideChanged,
-              itemBuilder: (context, index) {
-                final item = _readyCarouselItems[index];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: const BoxDecoration(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(24)),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.asset(
-                              item.assetPath,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
-                            ),
-                            Positioned.fill(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      colorScheme.appBackground
-                                          .withValues(alpha: 0.0),
-                                      colorScheme.appBackground
-                                          .withValues(alpha: 0.0),
-                                      colorScheme.appBackground,
-                                    ],
-                                    stops: const [0.0, 0.65, 1.0],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Text(
-                      item.getTitle(context),
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.getDescription(context),
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: colorScheme.mutedForeground,
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _readyCarouselItems.length,
-              (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: index == currentIndex ? 24 : 8,
-                height: 8,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: index == currentIndex
-                      ? colorScheme.primary
-                      : colorScheme.mutedForeground.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-}
-
-Future<void> _showSaveBudgetModal({
-  required BuildContext context,
-  required ColorScheme colorScheme,
-  required Future<void> Function() onRegister,
-  required Future<void> Function() onTryDemo,
-}) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    builder: (dialogContext) {
-      return Dialog(
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-          decoration: BoxDecoration(
-            color: colorScheme.sheetBackground,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: colorScheme.sheetBorder),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.l10n.onboardingPreAuthSaveBudgetTitle,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(dialogContext).pop(),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 20,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.onboardingPreAuthSaveBudgetSubtitle,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colorScheme.mutedForeground,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                child: PrimaryAdaptiveButton(
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
-                    await onRegister();
-                  },
-                  child: Text(context.l10n.onboardingPreAuthSaveBudgetConfirm),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 48,
-                child: Material(
-                  color: colorScheme.card,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () async {
-                      Navigator.of(dialogContext).pop();
-                      await onTryDemo();
-                    },
-                    child: Container(
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colorScheme.border),
-                      ),
-                      child: Text(
-                        context.l10n.onboardingPreAuthSaveBudgetPreview,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-const _readyCarouselItems = <_ReadyCarouselItem>[
-  _ReadyCarouselItem(
-    assetPath: 'lib/assets/images/onboarding/ready/ready1.png',
-    titleKey: 'onboardingCarouselLogTitle',
-    descriptionKey: 'onboardingCarouselLogDesc',
-  ),
-  _ReadyCarouselItem(
-    assetPath: 'lib/assets/images/onboarding/ready/ready2.png',
-    titleKey: 'onboardingCarouselSnapTitle',
-    descriptionKey: 'onboardingCarouselSnapDesc',
-  ),
-  _ReadyCarouselItem(
-    assetPath: 'lib/assets/images/onboarding/ready/ready3.png',
-    titleKey: 'onboardingCarouselShareTitle',
-    descriptionKey: 'onboardingCarouselShareDesc',
-  ),
-  _ReadyCarouselItem(
-    assetPath: 'lib/assets/images/onboarding/ready/ready4.png',
-    titleKey: 'onboardingCarouselEnvelopeTitle',
-    descriptionKey: 'onboardingCarouselEnvelopeDesc',
-  ),
-];
-
-class _ReadyCarouselItem {
-  const _ReadyCarouselItem({
-    required this.assetPath,
-    required this.titleKey,
-    required this.descriptionKey,
-  });
-
-  final String assetPath;
-  final String titleKey;
-  final String descriptionKey;
-
-  String getTitle(BuildContext context) {
-    return switch (titleKey) {
-      'onboardingCarouselLogTitle' => context.l10n.onboardingCarouselLogTitle,
-      'onboardingCarouselSnapTitle' => context.l10n.onboardingCarouselSnapTitle,
-      'onboardingCarouselShareTitle' =>
-        context.l10n.onboardingCarouselShareTitle,
-      'onboardingCarouselEnvelopeTitle' =>
-        context.l10n.onboardingCarouselEnvelopeTitle,
-      _ => titleKey,
-    };
-  }
-
-  String getDescription(BuildContext context) {
-    return switch (descriptionKey) {
-      'onboardingCarouselLogDesc' => context.l10n.onboardingCarouselLogDesc,
-      'onboardingCarouselSnapDesc' => context.l10n.onboardingCarouselSnapDesc,
-      'onboardingCarouselShareDesc' => context.l10n.onboardingCarouselShareDesc,
-      'onboardingCarouselEnvelopeDesc' =>
-        context.l10n.onboardingCarouselEnvelopeDesc,
-      _ => descriptionKey,
-    };
-  }
 }
 
 BudgetTemplate _recommendTemplate(OnboardingPreauthDraft draft) {
