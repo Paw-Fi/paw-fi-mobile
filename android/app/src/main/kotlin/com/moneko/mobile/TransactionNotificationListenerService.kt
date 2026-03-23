@@ -143,7 +143,15 @@ class TransactionNotificationListenerService : NotificationListenerService() {
         // Build request body
         val body = JSONObject().apply {
             put("captureSource", "android_notification_listener")
-            put("idempotencyKey", buildRequestIdempotencyKey(dedupKey, scopeId, isPortfolio))
+            put(
+                "idempotencyKey",
+                buildRequestIdempotencyKey(
+                    dedupKey,
+                    scopeId,
+                    isPortfolio,
+                    parsed.transactionType,
+                )
+            )
             put("clientCreatedAt", java.time.Instant.now().toString())
             put("transaction", JSONObject().apply {
                 if (!parsed.merchantName.isNullOrBlank()) {
@@ -151,6 +159,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
                 } else {
                     put("rawMerchant", parsed.rawText)
                 }
+                put("type", parsed.transactionType)
                 put("amount", parsed.amount)
                 put("currency", parsed.currencyCode)
                 put("date", parsed.transactionDate)
@@ -352,10 +361,11 @@ class TransactionNotificationListenerService : NotificationListenerService() {
     private fun buildRequestIdempotencyKey(
         dedupKey: String,
         scopeId: String,
-        isPortfolio: Boolean
+        isPortfolio: Boolean,
+        transactionType: String,
     ): String {
         val scopeKey = if (scopeId == "personal") "personal" else "$scopeId|$isPortfolio"
-        return "android_notification_listener|$scopeKey|$dedupKey"
+        return "android_notification_listener|$scopeKey|$transactionType|$dedupKey"
     }
 
     private fun isDuplicate(key: String): Boolean {

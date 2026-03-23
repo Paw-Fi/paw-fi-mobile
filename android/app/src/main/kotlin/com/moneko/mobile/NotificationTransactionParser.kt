@@ -7,6 +7,7 @@ import java.util.TimeZone
 
 data class ParsedTransaction(
     val merchantName: String?,
+    val transactionType: String,
     val amount: Double,
     val currencyCode: String,
     val transactionDate: String,
@@ -60,9 +61,32 @@ object NotificationTransactionParser {
         "spent", "transaction", "withdrawal", "transfer",
         "paid", "bought", "order", "receipt", "billing",
         "charge", "sale", "pos", "ecom", "online",
+        "credited", "received", "deposit", "salary", "refund",
+        "income", "incoming",
         // Common non-English equivalents
         "pagamento", "compra", "pago", "achat", "zahlung",
         "pembayaran", "transaksi"
+    )
+
+    private val INCOME_KEYWORDS = listOf(
+        "credited", "receive", "received", "deposit",
+        "salary", "income", "incoming", "refund", "reversal",
+        "cash in", "cashin", "top up received", "transfer in"
+    )
+
+    private val INCOME_PATTERNS = listOf(
+        Regex("""\bcredit(?:ed)?\s+to\b""", RegexOption.IGNORE_CASE),
+        Regex("""\baccount\s+credit(?:ed)?\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bcredited\b""", RegexOption.IGNORE_CASE),
+        Regex("""\breceived\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bdeposit(?:ed)?\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bsalary\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bincome\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bincoming\b""", RegexOption.IGNORE_CASE),
+        Regex("""\brefund\b""", RegexOption.IGNORE_CASE),
+        Regex("""\breversal\b""", RegexOption.IGNORE_CASE),
+        Regex("""\bcash[\s-]?in\b""", RegexOption.IGNORE_CASE),
+        Regex("""\btransfer\s+in\b""", RegexOption.IGNORE_CASE)
     )
 
     // ── Merchant extraction patterns (order matters — first match wins) ─
@@ -89,7 +113,6 @@ object NotificationTransactionParser {
         Regex("""(?:OTP|otp|one.time.password|verification.code|security.code)"""),
         Regex("""(?:balance|available|remaining)\s*(?:is|:)\s""", RegexOption.IGNORE_CASE),
         Regex("""(?:reminder|due\s+date|bill\s+due|pay\s+by)""", RegexOption.IGNORE_CASE),
-        Regex("""(?:credit(?:ed)?|received|refund)""", RegexOption.IGNORE_CASE),
         Regex("""(?:promo|offer|cashback|reward|coupon|discount)""", RegexOption.IGNORE_CASE),
         Regex("""(?:login|log\s*in|sign\s*in|password|reset)""", RegexOption.IGNORE_CASE)
     )
@@ -139,15 +162,29 @@ object NotificationTransactionParser {
 
         // Date: try to extract from text, fall back to now
         val dateStr = extractDate(combined)
+        val transactionType = determineTransactionType(combined)
 
         return ParsedTransaction(
             merchantName = merchant,
+            transactionType = transactionType,
             amount = amount,
             currencyCode = currencyCode,
             transactionDate = dateStr,
             confidence = confidence,
             rawText = combined
         )
+    }
+
+    private fun determineTransactionType(text: String): String {
+        val normalized = text.lowercase(Locale.ROOT)
+        return if (
+            INCOME_KEYWORDS.any { keyword -> normalized.contains(keyword) } ||
+            INCOME_PATTERNS.any { pattern -> pattern.containsMatchIn(text) }
+        ) {
+            "income"
+        } else {
+            "expense"
+        }
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────

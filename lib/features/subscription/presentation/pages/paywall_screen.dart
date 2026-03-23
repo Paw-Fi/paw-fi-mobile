@@ -16,6 +16,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -702,72 +703,66 @@ class PaywallScreen extends HookConsumerWidget {
       _debugLog(
         '🧾 Stripe checkout start | plan=${option.serverPlanId} interval=${option.billingInterval}',
       );
+      final noSessionError = context.l10n.paywallErrorNoSession;
+      final startCheckoutError = context.l10n.paywallErrorStartCheckout;
+      final noCheckoutUrlError = context.l10n.paywallErrorNoCheckoutUrl;
+      final paymentCanceledMessage = context.l10n.paymentCanceled;
+      final paymentFailedMessage = context.l10n.paymentFailed;
+      final notActivatedMessage = context.l10n.paywallErrorNotActivated;
 
-      final session = supabase.auth.currentSession;
-      if (session == null) {
-        print('❌ No active session found');
-        throw Exception(context.l10n.paywallErrorNoSession);
+      final result = await startMobileStripeCheckout(
+        context: context,
+        supabaseClient: supabase,
+        plan: option.serverPlanId,
+        billingInterval: option.billingInterval,
+        noSessionError: noSessionError,
+        startCheckoutError: startCheckoutError,
+        noCheckoutUrlError: noCheckoutUrlError,
+      );
+
+      if (result.isCanceled) {
+        throw Exception(paymentCanceledMessage);
       }
-      print('✅ Session validated for user: ${session.user.id}');
 
-      // IMPORTANT: Do not URI-encode the Stripe placeholder.
-      final successBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
-        'status': 'success',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': option.serverPlanId,
-        if (option.billingInterval != null) 'billing': option.billingInterval,
-      }).toString();
+      if (result.isFailed) {
+        throw Exception(result.errorMessage ?? paymentFailedMessage);
+      }
 
-      final cancelBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
-        'status': 'canceled',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': option.serverPlanId,
-        if (option.billingInterval != null) 'billing': option.billingInterval,
-      }).toString();
+      if (result.sessionId != null && result.sessionId!.isNotEmpty) {
+        try {
+          await supabase.functions.invoke(
+            'verify-payment',
+            body: {
+              'sessionId': result.sessionId,
+              if (result.verificationNonce != null &&
+                  result.verificationNonce!.isNotEmpty)
+                'v': result.verificationNonce,
+            },
+          );
+        } catch (_) {}
+      }
 
-      print('🌐 Calling Supabase function: create-checkout-session');
-      print('📋 Checkout URL base: ${Constants.checkoutBaseUrl}');
-
-      final response = await supabase.functions.invoke(
-        'create-checkout-session',
-        body: {
-          'plan': option.serverPlanId,
-          if (option.serverPlanId != 'lifetime')
-            'billingInterval': option.billingInterval,
-          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
-          'userId': session.user.id,
+      final isActive = await waitForMobileStripeSubscriptionActivation(
+        refreshSubscription: () async {
+          await ref.read(subscriptionManagementProvider.notifier).refresh();
+        },
+        hasActiveSubscription: () {
+          final subscriptionData = ref
+              .read(subscriptionManagementProvider)
+              .valueOrNull
+              ?.subscription;
+          return subscriptionData?.isSubscribed ?? false;
         },
       );
 
-      print('📦 Response status: ${response.status}');
-      print('📦 Response data: ${response.data}');
+      if (!context.mounted) return;
 
-      if (response.status >= 400) {
-        final data = response.data;
-        final code = data is Map ? data['code'] : null;
-        final message = data is Map && data['error'] is String
-            ? data['error'] as String
-            : context.l10n.paywallErrorStartCheckout;
-        throw Exception(
-            code is String && code.isNotEmpty ? '$code: $message' : message);
+      if (isActive) {
+        context.go('/dashboard');
+        return;
       }
 
-      if (response.data != null && response.data['checkoutUrl'] != null) {
-        final checkoutUrl = response.data['checkoutUrl'] as String;
-        print('🚀 Launching checkout URL: $checkoutUrl');
-
-        await launchUrl(
-          Uri.parse(checkoutUrl),
-          mode: LaunchMode.externalApplication,
-        );
-        print('✅ Checkout URL launched successfully');
-      } else {
-        print('❌ No checkout URL received from Supabase function');
-        throw Exception(context.l10n.paywallErrorNoCheckoutUrl);
-      }
+      throw Exception(notActivatedMessage);
     }
 
     // Action Logic
@@ -777,11 +772,24 @@ class PaywallScreen extends HookConsumerWidget {
       );
       print(
           '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
+      final infoAlreadyOnPlanMessage = context.l10n.paywallInfoAlreadyOnPlan;
+      final storeUnavailableMessage =
+          context.l10n.paywallErrorStoreUnavailableShort;
+      final missingProductMappingMessage =
+          context.l10n.paywallErrorMissingProductMapping;
+      final processingPurchaseMessage = context.l10n.paywallProcessingPurchase;
+      final manageSubscriptionTitle =
+          context.l10n.paywallManageSubscriptionPlayStore;
+      final manageSubscriptionDescription =
+          context.l10n.paywallErrorManagedInPlayStore;
+      final openPlayStoreLabel = context.l10n.paywallOpenPlayStore;
+      final cancelLabel = context.l10n.cancel;
+      final paymentCanceledMessage = context.l10n.paymentCanceled;
 
       if (isCurrentPlan(activePlanOption)) {
         print('⚠️ User already on this plan');
         // Already on this plan
-        AppToast.info(context, context.l10n.paywallInfoAlreadyOnPlan);
+        AppToast.info(context, infoAlreadyOnPlanMessage);
         return;
       }
 
@@ -812,14 +820,14 @@ class PaywallScreen extends HookConsumerWidget {
           // Don't allow purchase attempts until the store/products are ready.
           final iapState = iapStateAsync.valueOrNull;
           if (iapState == null || !iapState.storeAvailable) {
-            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+            throw Exception(storeUnavailableMessage);
           }
 
           final catalog = activePlanOption.catalogProduct;
           print(
               '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
           if (catalog == null) {
-            throw Exception(context.l10n.paywallErrorMissingProductMapping);
+            throw Exception(missingProductMappingMessage);
           }
 
           print('✅ catalogProduct is valid, proceeding...');
@@ -835,7 +843,7 @@ class PaywallScreen extends HookConsumerWidget {
                 '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
             showBlockingProcessingDialog(
               context: context,
-              message: context.l10n.paywallProcessingPurchase,
+              message: processingPurchaseMessage,
             );
             print('✅ Processing dialog shown');
           } else {
@@ -871,17 +879,6 @@ class PaywallScreen extends HookConsumerWidget {
 
           isStripeProcessing.value = true;
 
-          // Show processing dialog for Stripe
-          if (context.mounted) {
-            processingDialogOpen.value = true;
-            _debugLog(
-                '🧾 Dialog open set to true (stripe). plan=${activePlanOption.id}');
-            showBlockingProcessingDialog(
-              context: context,
-              message: context.l10n.paywallRedirectingCheckout,
-            );
-          }
-
           try {
             await analytics.trackEvent(
               eventName: 'paywall_checkout_started',
@@ -911,6 +908,7 @@ class PaywallScreen extends HookConsumerWidget {
 
           final raw = e.toString();
           final lower = raw.toLowerCase();
+          final isCanceled = lower.contains('cancel');
           final isManagedInApp =
               lower.contains('subscription_managed_in_app') ||
                   lower.contains('managed through an in-app purchase');
@@ -928,13 +926,15 @@ class PaywallScreen extends HookConsumerWidget {
                 'failure_reason': 'managed_in_store',
               },
             );
+            if (!context.mounted) return;
             final result = await MonekoAlertDialog.show(
               context: context,
-              title: context.l10n.paywallManageSubscriptionPlayStore,
-              description: context.l10n.paywallErrorManagedInPlayStore,
-              confirmLabel: context.l10n.paywallOpenPlayStore,
-              cancelLabel: context.l10n.cancel,
+              title: manageSubscriptionTitle,
+              description: manageSubscriptionDescription,
+              confirmLabel: openPlayStoreLabel,
+              cancelLabel: cancelLabel,
             );
+            if (!context.mounted) return;
             if (result?.confirmed == true) {
               await onManageStoreSubscription();
             }
@@ -942,7 +942,7 @@ class PaywallScreen extends HookConsumerWidget {
           }
 
           await analytics.trackEvent(
-            eventName: lower.contains('cancel')
+            eventName: isCanceled
                 ? 'paywall_purchase_cancelled'
                 : 'paywall_purchase_failed',
             flowName: 'onboarding_funnel',
@@ -956,6 +956,12 @@ class PaywallScreen extends HookConsumerWidget {
             },
           );
           didInitiateCheckout.value = false;
+          if (!context.mounted) return;
+
+          if (isCanceled) {
+            AppToast.info(context, paymentCanceledMessage);
+            return;
+          }
 
           AppToast.error(context, humanizePurchaseError(raw));
         }

@@ -87,7 +87,7 @@
   "goToHome": "Go to Home",
   "paymentSuccessfulCheckingSubscription": "✅ Payment successful! Checking subscription...",
   "paymentFailed": "Payment failed",
-  "paymentCanceled": "ℹ️ Payment canceled",
+  "paymentCanceled": "Payment canceled",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp verified successfully!",
   "settings": "Settings",
   "enableNotificationsInSettings": "Enable notifications for Moneko in your device settings",

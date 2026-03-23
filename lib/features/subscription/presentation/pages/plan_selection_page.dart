@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -634,72 +636,66 @@ class PlanSelectionPage extends HookConsumerWidget {
       _debugLog(
         '🧾 Stripe checkout start | plan=${option.serverPlanId} interval=${option.billingInterval}',
       );
+      final noSessionError = context.l10n.paywallErrorNoSession;
+      final startCheckoutError = context.l10n.paywallErrorStartCheckout;
+      final noCheckoutUrlError = context.l10n.paywallErrorNoCheckoutUrl;
+      final paymentCanceledMessage = context.l10n.paymentCanceled;
+      final paymentFailedMessage = context.l10n.paymentFailed;
+      final notActivatedMessage = context.l10n.paywallErrorNotActivated;
 
-      final session = supabase.auth.currentSession;
-      if (session == null) {
-        print('❌ No active session found');
-        throw Exception('No active session');
+      final result = await startMobileStripeCheckout(
+        context: context,
+        supabaseClient: supabase,
+        plan: option.serverPlanId,
+        billingInterval: option.billingInterval,
+        noSessionError: noSessionError,
+        startCheckoutError: startCheckoutError,
+        noCheckoutUrlError: noCheckoutUrlError,
+      );
+
+      if (result.isCanceled) {
+        throw Exception(paymentCanceledMessage);
       }
-      print('✅ Session validated for user: ${session.user.id}');
 
-      // IMPORTANT: Do not URI-encode the Stripe placeholder.
-      final successBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
-        'status': 'success',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': option.serverPlanId,
-        if (option.billingInterval != null) 'billing': option.billingInterval,
-      }).toString();
+      if (result.isFailed) {
+        throw Exception(result.errorMessage ?? paymentFailedMessage);
+      }
 
-      final cancelBase = Uri.https(Constants.checkoutBaseUrl, '/checkout', {
-        'status': 'canceled',
-        'source': 'mobile',
-        'redirectUrl': DeepLinks.paymentCallback,
-        'plan': option.serverPlanId,
-        if (option.billingInterval != null) 'billing': option.billingInterval,
-      }).toString();
+      if (result.sessionId != null && result.sessionId!.isNotEmpty) {
+        try {
+          await supabase.functions.invoke(
+            'verify-payment',
+            body: {
+              'sessionId': result.sessionId,
+              if (result.verificationNonce != null &&
+                  result.verificationNonce!.isNotEmpty)
+                'v': result.verificationNonce,
+            },
+          );
+        } catch (_) {}
+      }
 
-      print('🌐 Calling Supabase function: create-checkout-session');
-      print('📋 Checkout URL base: ${Constants.checkoutBaseUrl}');
-
-      final response = await supabase.functions.invoke(
-        'create-checkout-session',
-        body: {
-          'plan': option.serverPlanId,
-          if (option.serverPlanId != 'lifetime')
-            'billingInterval': option.billingInterval,
-          'successUrl': '$successBase&session_id={CHECKOUT_SESSION_ID}',
-          'cancelUrl': '$cancelBase&session_id={CHECKOUT_SESSION_ID}',
-          'userId': session.user.id,
+      final isActive = await waitForMobileStripeSubscriptionActivation(
+        refreshSubscription: () async {
+          await ref.read(subscriptionManagementProvider.notifier).refresh();
+        },
+        hasActiveSubscription: () {
+          final subscriptionData = ref
+              .read(subscriptionManagementProvider)
+              .valueOrNull
+              ?.subscription;
+          return subscriptionData?.isSubscribed ?? false;
         },
       );
 
-      print('📦 Response status: ${response.status}');
-      print('📦 Response data: ${response.data}');
+      if (!context.mounted) return;
 
-      if (response.status >= 400) {
-        final data = response.data;
-        final code = data is Map ? data['code'] : null;
-        final message = data is Map && data['error'] is String
-            ? data['error'] as String
-            : 'Failed to start checkout';
-        throw Exception(
-            code is String && code.isNotEmpty ? '$code: $message' : message);
+      if (isActive) {
+        context.go('/dashboard');
+        return;
       }
 
-      if (response.data != null && response.data['checkoutUrl'] != null) {
-        final checkoutUrl = response.data['checkoutUrl'] as String;
-        print('🚀 Launching checkout URL: $checkoutUrl');
-
-        await launchUrl(
-          Uri.parse(checkoutUrl),
-          mode: LaunchMode.externalApplication,
-        );
-        print('✅ Checkout URL launched successfully');
-      } else {
-        print('❌ No checkout URL received from Supabase function');
-        throw Exception('No checkout URL received');
-      }
+      throw Exception(notActivatedMessage);
     }
 
     // Action Logic
@@ -775,17 +771,6 @@ class PlanSelectionPage extends HookConsumerWidget {
 
           isStripeProcessing.value = true;
 
-          // Show processing dialog for Stripe
-          if (context.mounted) {
-            processingDialogOpen.value = true;
-            _debugLog(
-                '🧾 Dialog open set to true (stripe). plan=${activePlanOption.id}');
-            showBlockingProcessingDialog(
-              context: context,
-              message: 'Redirecting to checkout...',
-            );
-          }
-
           try {
             await startStripeCheckout(activePlanOption);
           } finally {
@@ -803,6 +788,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
           final raw = e.toString();
           final lower = raw.toLowerCase();
+          final isCanceled = lower.contains('cancel');
           final isManagedInApp =
               lower.contains('subscription_managed_in_app') ||
                   lower.contains('managed through an in-app purchase');
@@ -819,6 +805,11 @@ class PlanSelectionPage extends HookConsumerWidget {
             if (result?.confirmed == true) {
               await onManageStoreSubscription();
             }
+            return;
+          }
+
+          if (isCanceled) {
+            AppToast.info(context, context.l10n.paymentCanceled);
             return;
           }
 
