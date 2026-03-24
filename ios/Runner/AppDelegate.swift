@@ -1224,7 +1224,7 @@ private func performWalletPaymentIntegrationCapture(
 
 @available(iOS 16.0, watchOS 9.0, *)
 struct CaptureWalletTransactionIntent: AppIntent {
-  static var title: LocalizedStringResource = "Capture Wallet Transaction"
+  static var title: LocalizedStringResource = "capture_wallet_transaction_title"
   static var description = IntentDescription("Capture a wallet transaction in Moneko using the merchant and amount from Shortcuts.")
 
   @available(*, deprecated, message: "Use supportedModes when available.")
@@ -2187,7 +2187,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         "Capture wallet transaction in \(.applicationName)",
         "Run wallet transaction capture with \(.applicationName)"
       ],
-      shortTitle: "Capture Wallet Transaction",
+      shortTitle: "capture_wallet_transaction_title",
       systemImageName: "wallet.pass.fill"
     )
   }
