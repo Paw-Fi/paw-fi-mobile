@@ -8,7 +8,9 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/models/payment_plan.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/providers/payment_plan_providers.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -80,6 +82,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         useState<String>(type == 'income' ? 'income' : 'expense');
     final isExpense = selectedType.value == 'expense';
     final isEditing = existingTransaction != null;
+    final selectedPlanType = useState<String>('recurring');
     // Ensure custom category style overrides are loaded for display widgets.
     ref.watch(userCategoryConfigProvider);
 
@@ -92,6 +95,8 @@ class AddRecurringSheet extends HookConsumerWidget {
     final sourceController = useTextEditingController(
       text: existingTransaction?.source ?? '',
     );
+    final financeFeeController = useTextEditingController(text: '0');
+    final installmentCountController = useTextEditingController(text: '12');
     final amountFocusNode = useFocusNode();
 
     // Rebuild when amount changes so splits can use the latest value
@@ -156,6 +161,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       existingRule?.reminderUnit ?? 'days',
     );
     final isLoading = useState<bool>(false);
+    final allowPartialPayments = useState<bool>(true);
 
     // View mode / household selection for default sharing behaviour
     final viewMode = ref.watch(viewModeProvider);
@@ -631,6 +637,70 @@ class AddRecurringSheet extends HookConsumerWidget {
         }
 
         RecurringTransaction? result;
+
+        if (!isEditing && selectedPlanType.value == 'installment') {
+          final principalCents = amountCents;
+          final feeCents =
+              tryParseMoneyToCents(financeFeeController.text.trim()) ?? 0;
+          final installmentCount =
+              int.tryParse(installmentCountController.text.trim());
+
+          if (installmentCount == null || installmentCount <= 0) {
+            closeDialog();
+            AppToast.error(
+                toastContext, 'Please enter a valid installment count');
+            isLoading.value = false;
+            return;
+          }
+
+          final recurrenceRule = RecurrenceRuleDto(
+            frequency: selectedFrequency.value,
+            interval: customInterval.value,
+            anchorDate: startDate.value,
+            endDate: hasEndDate.value ? endDate.value : null,
+            reminderValue: hasReminder.value ? reminderValue.value : null,
+            reminderUnit: hasReminder.value ? reminderUnit.value : null,
+          );
+
+          final totalCents = principalCents + feeCents;
+          final createInstallmentResponse = await ref
+              .read(paymentPlanMutationProvider.notifier)
+              .createInstallmentPlan(
+                userId: userId,
+                type: selectedType.value,
+                category: selectedCategory.value!,
+                currency: selectedCurrency.value,
+                principalAmountCents: principalCents,
+                interestFeeAmountCents: feeCents,
+                totalPayableAmountCents: totalCents,
+                recurrenceRule: recurrenceRule,
+                installmentCount: installmentCount,
+                allowPartialPayments: allowPartialPayments.value,
+              );
+
+          isLoading.value = false;
+          if (createInstallmentResponse == null) {
+            closeDialog();
+            final mutationState = ref.read(paymentPlanMutationProvider);
+            AppToast.error(
+              toastContext,
+              mutationState.error ?? 'Failed to create installment plan',
+            );
+            return;
+          }
+
+          await ref
+              .read(recurringTransactionsProvider(selectedHouseholdId.value)
+                  .notifier)
+              .refresh(userId);
+          ref.invalidate(scheduledListItemsProvider(selectedHouseholdId.value));
+          closeDialog();
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            AppToast.success(toastContext, 'Installment plan created');
+          }
+          return;
+        }
 
         final forcedPortfolioHouseholdId =
             (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
@@ -1272,7 +1342,84 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         const SizedBox(height: 20),
 
-                        _buildLabel(context.l10n.amount, colorScheme),
+                        MonekoInput(
+                          padding: const EdgeInsets.all(4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      selectedPlanType.value = 'recurring',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          selectedPlanType.value == 'recurring'
+                                              ? colorScheme.primary
+                                              : colorScheme.surface
+                                                  .withValues(alpha: 0.0),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      context.l10n.recurring,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: selectedPlanType.value ==
+                                                'recurring'
+                                            ? colorScheme.primaryForeground
+                                            : colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: isEditing
+                                      ? null
+                                      : () => selectedPlanType.value =
+                                          'installment',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: selectedPlanType.value ==
+                                              'installment'
+                                          ? colorScheme.primary
+                                          : colorScheme.surface
+                                              .withValues(alpha: 0.0),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Installment',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: selectedPlanType.value ==
+                                                'installment'
+                                            ? colorScheme.primaryForeground
+                                            : colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _buildLabel(
+                          selectedPlanType.value == 'installment'
+                              ? 'Principal amount'
+                              : context.l10n.amount,
+                          colorScheme,
+                        ),
                         const SizedBox(height: 8),
                         MonekoInput(
                           child: TextField(
@@ -1494,6 +1641,77 @@ class AddRecurringSheet extends HookConsumerWidget {
                         ),
 
                         const SizedBox(height: 20),
+
+                        if (selectedPlanType.value == 'installment') ...[
+                          _buildLabel('Finance fee', colorScheme),
+                          const SizedBox(height: 8),
+                          MonekoInput(
+                            child: TextField(
+                              controller: financeFeeController,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: '0.00',
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          _buildLabel('Installment count', colorScheme),
+                          const SizedBox(height: 8),
+                          MonekoInput(
+                            child: TextField(
+                              controller: installmentCountController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText: '12',
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          MonekoInput(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Allow partial payments',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                                MonekoSwitch(
+                                  value: allowPartialPayments.value,
+                                  onChanged: (value) =>
+                                      allowPartialPayments.value = value,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
 
                         _buildDetailCard(
                           colorScheme: colorScheme,

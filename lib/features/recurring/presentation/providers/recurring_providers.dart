@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/payment_plan_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -286,6 +287,7 @@ class RecurringTransactionsNotifier
         ref.invalidate(pocketsProvider);
         ref.invalidate(currencyTransactionCountsProvider);
 
+        ref.invalidate(scheduledListItemsProvider(householdId));
         _debugPrint('✅ [RecurringTx] DELETE SUCCEEDED');
         _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
@@ -376,6 +378,7 @@ class RecurringTransactionsNotifier
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
+        ref.invalidate(scheduledListItemsProvider(householdId));
         _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
         _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();

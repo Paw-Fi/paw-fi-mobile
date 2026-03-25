@@ -6,10 +6,13 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_page_command_provider.dart';
+import 'package:moneko/features/recurring/presentation/providers/payment_plan_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
+import 'package:moneko/features/recurring/presentation/widgets/payment_plan_list_item_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/models/payment_plan.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -177,6 +180,19 @@ class _RecurringTransactionsPageState
     // Watch the filtered providers (they derive from the unified provider)
     final recurringExpenses = ref.watch(recurringExpensesProvider(householdId));
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
+    final scheduledPlans = ref.watch(scheduledListItemsProvider(householdId));
+    final installmentExpenseItems = scheduledPlans.valueOrNull
+            ?.where((item) =>
+                item.paymentPlanType == PaymentPlanType.installment &&
+                item.type == 'expense')
+            .toList(growable: false) ??
+        const <ScheduledListItemDto>[];
+    final installmentIncomeItems = scheduledPlans.valueOrNull
+            ?.where((item) =>
+                item.paymentPlanType == PaymentPlanType.installment &&
+                item.type == 'income')
+            .toList(growable: false) ??
+        const <ScheduledListItemDto>[];
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
     final preferredTimezone = ref
@@ -203,6 +219,7 @@ class _RecurringTransactionsPageState
                   colorScheme,
                   _buildExpensesSliver(
                     recurringExpenses,
+                    installmentExpenseItems,
                     colorScheme,
                     selectedCurrency,
                     householdId,
@@ -215,6 +232,7 @@ class _RecurringTransactionsPageState
                   colorScheme,
                   _buildIncomesSliver(
                     recurringIncomes,
+                    installmentIncomeItems,
                     colorScheme,
                     selectedCurrency,
                     householdId,
@@ -309,6 +327,7 @@ class _RecurringTransactionsPageState
 
   Widget _buildExpensesSliver(
     AsyncValue<List<dynamic>> recurringExpenses,
+    List<ScheduledListItemDto> installmentItems,
     ColorScheme colorScheme,
     String? selectedCurrency,
     String? householdId,
@@ -327,6 +346,7 @@ class _RecurringTransactionsPageState
 
         return _buildTransactionsListSliver(
           filtered,
+          installmentItems,
           colorScheme,
           'expense',
           householdId,
@@ -343,6 +363,7 @@ class _RecurringTransactionsPageState
 
         return _buildTransactionsListSliver(
           fakeExpenses,
+          const <ScheduledListItemDto>[],
           colorScheme,
           'expense',
           householdId,
@@ -356,6 +377,7 @@ class _RecurringTransactionsPageState
 
   Widget _buildIncomesSliver(
     AsyncValue<List<dynamic>> recurringIncomes,
+    List<ScheduledListItemDto> installmentItems,
     ColorScheme colorScheme,
     String? selectedCurrency,
     String? householdId,
@@ -374,6 +396,7 @@ class _RecurringTransactionsPageState
 
         return _buildTransactionsListSliver(
           filtered,
+          installmentItems,
           colorScheme,
           'income',
           householdId,
@@ -390,6 +413,7 @@ class _RecurringTransactionsPageState
 
         return _buildTransactionsListSliver(
           fakeIncomes,
+          const <ScheduledListItemDto>[],
           colorScheme,
           'income',
           householdId,
@@ -403,12 +427,13 @@ class _RecurringTransactionsPageState
 
   Widget _buildTransactionsListSliver(
     List<RecurringTransaction> transactions,
+    List<ScheduledListItemDto> installmentItems,
     ColorScheme colorScheme,
     String type,
     String? householdId, {
     required bool isLoading,
   }) {
-    if (!isLoading && transactions.isEmpty) {
+    if (!isLoading && transactions.isEmpty && installmentItems.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
@@ -428,17 +453,24 @@ class _RecurringTransactionsPageState
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            final transaction = transactions[index];
-            return RecurringTransactionCard(
-              transaction: transaction,
-              onTap:
-                  isLoading ? null : () => _showTransactionDetails(transaction),
-              onDelete: isLoading
-                  ? null
-                  : () => _deleteTransaction(transaction, householdId),
-            );
+            if (index < transactions.length) {
+              final transaction = transactions[index];
+              return RecurringTransactionCard(
+                transaction: transaction,
+                onTap: isLoading
+                    ? null
+                    : () => _showTransactionDetails(transaction),
+                onDelete: isLoading
+                    ? null
+                    : () => _deleteTransaction(transaction, householdId),
+              );
+            }
+
+            final installmentItem =
+                installmentItems[index - transactions.length];
+            return PaymentPlanListItemCard(item: installmentItem);
           },
-          childCount: transactions.length,
+          childCount: transactions.length + installmentItems.length,
         ),
       ),
     );

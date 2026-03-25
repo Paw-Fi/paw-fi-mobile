@@ -1,0 +1,1452 @@
+{
+  "document_type": "implementation_plan",
+  "document_version": "1.0.0",
+  "generated_on": "2026-03-25",
+  "target_project": "moneko-mobile",
+  "feature_name": "installment_payments_first_class_support",
+  "purpose": "Provide a single machine-readable execution plan for extending the existing recurring payments feature to support installment plans as a first-class concept in the Flutter + Supabase stack.",
+  "audience": [
+    "AI coding agents",
+    "product engineers",
+    "backend engineers",
+    "Flutter engineers"
+  ],
+  "current_context": {
+    "stack": {
+      "frontend": "Flutter",
+      "state_management": "hooks_riverpod / riverpod",
+      "backend": "Supabase",
+      "backend_components": [
+        "Postgres",
+        "Row Level Security",
+        "Supabase Edge Functions"
+      ]
+    },
+    "existing_behavior": {
+      "recurring_storage": "Recurring transactions are currently embedded in the existing expenses/transactions model using is_recurring + recurrence_rule JSONB.",
+      "recurring_skip_logic": "Skip next occurrence is currently implemented by adding a date to recurrence_rule.excluded_dates and updating the existing recurring expense row.",
+      "schedule_model": "recurrence_rule currently stores schedule semantics such as frequency, anchor_date, end_date, interval, reminder, and excluded_dates.",
+      "limitations": [
+        "Current recurring model is schedule-centric and does not model a fixed obligation.",
+        "Current skip logic is suitable for recurring plans but not suitable for installment defer behavior.",
+        "Current model does not support installment progress, partial payments, early payoff, visible skipped history, or custom amount schedules in a normalized way."
+      ]
+    },
+    "code_references": {
+      "ui_page": "moneko-mobile/lib/features/recurring/pages/recurring_transactions_page.dart",
+      "ui_sheet": "moneko-mobile/lib/features/recurring/presentation/widgets/add_recurring_sheet.dart",
+      "providers": "moneko-mobile/lib/features/recurring/presentation/providers/recurring_providers.dart",
+      "domain_model": "moneko-mobile/lib/features/recurring/domain/models/recurring_transaction.dart",
+      "relevant_backend_migration": "moneko-web/supabase/migrations/20251104_income_support.sql"
+    },
+    "verified_current_code_facts": [
+      {
+        "fact": "Recurring skip is implemented in Flutter by updating recurrence_rule.excluded_dates and invoking the update-expense Edge Function.",
+        "evidence": "moneko-mobile/lib/features/recurring/presentation/providers/recurring_providers.dart:314"
+      },
+      {
+        "fact": "Recurring creation currently invokes save-expense or save-income with isRecurring=true and recurrence_rule payload.",
+        "evidence": "moneko-mobile/lib/features/recurring/presentation/providers/recurring_providers.dart:558 and :696"
+      },
+      {
+        "fact": "Recurring update currently invokes update-expense or update-income and sends recurrence_rule in updates.",
+        "evidence": "moneko-mobile/lib/features/recurring/presentation/providers/recurring_providers.dart:996 and :1200"
+      },
+      {
+        "fact": "RecurringTransaction and RecurrenceRule models currently support excludedDates and next-occurrence calculation.",
+        "evidence": "moneko-mobile/lib/features/recurring/domain/models/recurring_transaction.dart:474 and :515"
+      },
+      {
+        "fact": "The existing database already has is_recurring, recurrence_rule, parent_recurring_id, privacy_scope, owner_type, acknowledged_by, normalized_amount_cents and related indexes on public.expenses.",
+        "evidence": "moneko-web/supabase/migrations/20251104_income_support.sql:156-256"
+      }
+    ]
+  },
+  "problem_statement": {
+    "goal": "Support two clearly distinct payment-plan types: recurring payments and installment payments.",
+    "required_distinction": {
+      "payment_plan_type_values": ["recurring", "installment", null],
+      "canonical_rule": "payment_plan_type is the canonical discriminator for plan behavior. null means no plan / one-off transaction. recurring means schedule-first repeated plan. installment means fixed-obligation plan."
+    },
+    "why_recurring_and_installment_must_be_separate": [
+      "Recurring is schedule-first and does not require preserving a total obligation.",
+      "Installment is obligation-first and must preserve the total payable amount until it is fully settled.",
+      "Recurring skip means omit one occurrence only. Installment skip means defer payment without reducing the obligation.",
+      "Installment requires progress, remaining balance, early payoff, partial payment handling, and visible skipped history."
+    ]
+  },
+  "recommended_architecture": {
+    "decision": "Use a hybrid architecture: preserve legacy recurring compatibility on public.expenses while introducing normalized plan tables for all new plan functionality, especially installment plans.",
+    "why_this_is_best": [
+      "It avoids breaking existing recurring flows in Flutter and Supabase.",
+      "It keeps installment obligation semantics out of recurrence_rule JSONB.",
+      "It gives the Flutter app stable DTOs for progress, occurrence history, and status badges.",
+      "It allows Postgres constraints and indexes to enforce monetary invariants.",
+      "It gives Edge Functions a clean place to own state transitions and idempotent workflow logic."
+    ],
+    "architecture_principles": [
+      "Keep schedule semantics separate from financial obligation semantics.",
+      "Keep posted transactions separate from plans and occurrences.",
+      "Treat installment skip and recurring skip as separate product and backend flows.",
+      "Generate installment occurrences explicitly upfront for auditability and simpler mutation behavior.",
+      "Do not overload recurrence_rule with principal, interest, payoff progress, or defer rules."
+    ],
+    "entity_separation": {
+      "posted_transaction_entity": "public.expenses",
+      "plan_entity": "public.payment_plans",
+      "occurrence_entity": "public.payment_plan_occurrences",
+      "payment_audit_entity": "public.payment_plan_payments"
+    },
+    "occurrence_generation_strategy": {
+      "recurring": "For MVP, keep current recurring generation dynamic from recurrence_rule for compatibility. Optional future enhancement: materialize recurring occurrence rows when user actions require audit visibility.",
+      "installment": "Generate all installment occurrences upfront at plan creation time.",
+      "why_installments_upfront": [
+        "Visible skipped installment history is required.",
+        "Partial payment and early payoff need stable occurrence rows.",
+        "Custom schedule support is much simpler when occurrences already exist.",
+        "Auditability is stronger with explicit rows than with on-the-fly projection."
+      ]
+    }
+  },
+  "data_model": {
+    "existing_table_changes": {
+      "table": "public.expenses",
+      "new_columns": [
+        {
+          "name": "payment_plan_type",
+          "type": "public.payment_plan_type_enum",
+          "nullable": true,
+          "purpose": "Canonical plan discriminator for booked transactions"
+        },
+        {
+          "name": "payment_plan_id",
+          "type": "uuid",
+          "nullable": true,
+          "purpose": "Link from booked transaction to plan"
+        },
+        {
+          "name": "payment_plan_occurrence_id",
+          "type": "uuid",
+          "nullable": true,
+          "purpose": "Link from booked transaction to specific occurrence"
+        }
+      ]
+    },
+    "new_tables": [
+      {
+        "name": "public.payment_plans",
+        "purpose": "Store shared metadata for recurring and installment plans",
+        "fields": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "required": true,
+            "notes": "primary key"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "required": true,
+            "notes": "owner user id"
+          },
+          {
+            "name": "household_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "shared household context"
+          },
+          {
+            "name": "contact_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "merchant/contact/counterparty"
+          },
+          {
+            "name": "category",
+            "type": "text",
+            "required": true,
+            "notes": "expense/income category"
+          },
+          {
+            "name": "type",
+            "type": "text",
+            "required": true,
+            "notes": "expense or income"
+          },
+          {
+            "name": "currency",
+            "type": "varchar(3)",
+            "required": true,
+            "notes": "plan currency"
+          },
+          {
+            "name": "payment_plan_type",
+            "type": "public.payment_plan_type_enum",
+            "required": true,
+            "notes": "recurring or installment"
+          },
+          {
+            "name": "plan_status",
+            "type": "public.payment_plan_status_enum",
+            "required": true,
+            "notes": "active, paused, completed, cancelled, defaulted"
+          },
+          {
+            "name": "privacy_scope",
+            "type": "public.privacy_scope",
+            "required": false,
+            "notes": "reuse existing privacy semantics"
+          },
+          {
+            "name": "owner_type",
+            "type": "public.transaction_owner",
+            "required": false,
+            "notes": "reuse existing owner semantics"
+          },
+          {
+            "name": "payer_user_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "default payer in household context"
+          },
+          {
+            "name": "split_group_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "links to existing household split group if applicable"
+          },
+          {
+            "name": "acknowledged_by",
+            "type": "uuid[]",
+            "required": false,
+            "notes": "reuse household acknowledgment semantics"
+          },
+          {
+            "name": "recurrence_rule",
+            "type": "jsonb",
+            "required": true,
+            "notes": "schedule semantics only; frequency, interval, anchor_date, end_date, reminder, day-of-month metadata"
+          },
+          {
+            "name": "principal_amount_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "installment only"
+          },
+          {
+            "name": "interest_fee_amount_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "installment only"
+          },
+          {
+            "name": "total_payable_amount_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "installment only"
+          },
+          {
+            "name": "installment_count",
+            "type": "integer",
+            "required": false,
+            "notes": "installment only"
+          },
+          {
+            "name": "installment_amount_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "equal mode default installment amount"
+          },
+          {
+            "name": "custom_schedule_mode",
+            "type": "boolean",
+            "required": true,
+            "notes": "true when custom occurrence lines are explicitly authored"
+          },
+          {
+            "name": "allow_custom_amounts",
+            "type": "boolean",
+            "required": true,
+            "notes": "future-proofing for plan edits"
+          },
+          {
+            "name": "allow_partial_payments",
+            "type": "boolean",
+            "required": true,
+            "notes": "controls partial payment support"
+          },
+          {
+            "name": "early_payoff_at",
+            "type": "timestamptz",
+            "required": false,
+            "notes": "timestamp of full early settlement"
+          },
+          {
+            "name": "remaining_balance_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "installment summary"
+          },
+          {
+            "name": "paid_installments_count",
+            "type": "integer",
+            "required": false,
+            "notes": "installment summary"
+          },
+          {
+            "name": "remaining_installments_count",
+            "type": "integer",
+            "required": false,
+            "notes": "installment summary"
+          },
+          {
+            "name": "metadata",
+            "type": "jsonb",
+            "required": true,
+            "notes": "safe for extensible non-critical UI metadata only"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "required": true,
+            "notes": "audit"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "required": true,
+            "notes": "audit"
+          },
+          {
+            "name": "deleted_at",
+            "type": "timestamptz",
+            "required": false,
+            "notes": "soft delete"
+          }
+        ]
+      },
+      {
+        "name": "public.payment_plan_occurrences",
+        "purpose": "Store explicit due/scheduled instances for installment plans and future recurring materialization",
+        "fields": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "required": true,
+            "notes": "primary key"
+          },
+          {
+            "name": "payment_plan_id",
+            "type": "uuid",
+            "required": true,
+            "notes": "parent plan"
+          },
+          {
+            "name": "occurrence_number",
+            "type": "integer",
+            "required": true,
+            "notes": "stable sequence number"
+          },
+          {
+            "name": "scheduled_date",
+            "type": "date",
+            "required": true,
+            "notes": "current due date"
+          },
+          {
+            "name": "original_scheduled_date",
+            "type": "date",
+            "required": true,
+            "notes": "preserve original due date if deferred"
+          },
+          {
+            "name": "due_amount_cents",
+            "type": "bigint",
+            "required": true,
+            "notes": "expected amount for this occurrence"
+          },
+          {
+            "name": "principal_component_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "optional installment breakdown"
+          },
+          {
+            "name": "interest_component_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "optional installment breakdown"
+          },
+          {
+            "name": "fee_component_cents",
+            "type": "bigint",
+            "required": false,
+            "notes": "optional installment breakdown"
+          },
+          {
+            "name": "status",
+            "type": "public.payment_plan_occurrence_status_enum",
+            "required": true,
+            "notes": "scheduled, paid, skipped, cancelled, overdue, partially_paid, settled_early"
+          },
+          {
+            "name": "paid_amount_cents",
+            "type": "bigint",
+            "required": true,
+            "notes": "sum of applied payments"
+          },
+          {
+            "name": "remaining_amount_cents",
+            "type": "bigint",
+            "required": true,
+            "notes": "outstanding amount on occurrence"
+          },
+          {
+            "name": "skipped_reason",
+            "type": "text",
+            "required": false,
+            "notes": "optional user-entered reason"
+          },
+          {
+            "name": "deferred_to_occurrence_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "links skipped occurrence to its replacement tail occurrence"
+          },
+          {
+            "name": "generated_from_skip",
+            "type": "boolean",
+            "required": true,
+            "notes": "true if this occurrence was appended due to defer"
+          },
+          {
+            "name": "transaction_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "linked booked expense/income if one canonical transaction exists"
+          },
+          {
+            "name": "metadata",
+            "type": "jsonb",
+            "required": true,
+            "notes": "safe for UI metadata only"
+          },
+          {
+            "name": "settled_at",
+            "type": "timestamptz",
+            "required": false,
+            "notes": "paid or settled-early timestamp"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "required": true,
+            "notes": "audit"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "required": true,
+            "notes": "audit"
+          },
+          {
+            "name": "deleted_at",
+            "type": "timestamptz",
+            "required": false,
+            "notes": "soft delete"
+          }
+        ]
+      },
+      {
+        "name": "public.payment_plan_payments",
+        "purpose": "Store settlement audit records and idempotent mutation trail",
+        "fields": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "required": true,
+            "notes": "primary key"
+          },
+          {
+            "name": "payment_plan_id",
+            "type": "uuid",
+            "required": true,
+            "notes": "parent plan"
+          },
+          {
+            "name": "occurrence_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "may be null for pure extra payment or global early payoff"
+          },
+          {
+            "name": "transaction_id",
+            "type": "uuid",
+            "required": false,
+            "notes": "linked booked transaction"
+          },
+          {
+            "name": "payment_kind",
+            "type": "public.payment_plan_payment_kind_enum",
+            "required": true,
+            "notes": "normal, partial, extra, early_payoff, correction"
+          },
+          {
+            "name": "amount_cents",
+            "type": "bigint",
+            "required": true,
+            "notes": "applied amount"
+          },
+          {
+            "name": "payment_date",
+            "type": "date",
+            "required": true,
+            "notes": "calendar date of payment"
+          },
+          {
+            "name": "notes",
+            "type": "text",
+            "required": false,
+            "notes": "optional note"
+          },
+          {
+            "name": "created_by",
+            "type": "uuid",
+            "required": true,
+            "notes": "actor user id"
+          },
+          {
+            "name": "idempotency_key",
+            "type": "text",
+            "required": false,
+            "notes": "used for retried mutation requests"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "required": true,
+            "notes": "audit"
+          }
+        ]
+      }
+    ],
+    "safe_json_usage": {
+      "allowed_in_json": [
+        "reminder configuration",
+        "schedule metadata such as anchor_date, frequency, interval, end_date",
+        "non-critical UI metadata",
+        "future extensibility flags that do not require relational filtering"
+      ],
+      "must_not_live_only_in_json": [
+        "principal amount",
+        "interest and fees",
+        "total payable amount",
+        "remaining balance",
+        "occurrence status",
+        "payment audit data",
+        "installment counts",
+        "early payoff state"
+      ]
+    }
+  },
+  "postgres_schema_proposal": {
+    "enum_types": [
+      {
+        "name": "public.payment_plan_type_enum",
+        "values": ["recurring", "installment"]
+      },
+      {
+        "name": "public.payment_plan_status_enum",
+        "values": ["active", "paused", "completed", "cancelled", "defaulted"]
+      },
+      {
+        "name": "public.payment_plan_occurrence_status_enum",
+        "values": [
+          "scheduled",
+          "paid",
+          "skipped",
+          "cancelled",
+          "overdue",
+          "partially_paid",
+          "settled_early"
+        ]
+      },
+      {
+        "name": "public.payment_plan_payment_kind_enum",
+        "values": ["normal", "partial", "extra", "early_payoff", "correction"]
+      }
+    ],
+    "constraints": [
+      "total_payable_amount_cents must be > 0 for installment plans",
+      "principal_amount_cents + interest_fee_amount_cents must equal total_payable_amount_cents for installment plans",
+      "occurrence_number must be unique within each plan",
+      "due_amount_cents must be > 0",
+      "paid_amount_cents and remaining_amount_cents must be >= 0",
+      "recurrence_rule must still be present for recurring plans and may also be present for installment cadence"
+    ],
+    "indexes": [
+      "idx_payment_plans_user_status(user_id, plan_status) where deleted_at is null",
+      "idx_payment_plans_household_status(household_id, plan_status) where household_id is not null and deleted_at is null",
+      "idx_payment_plans_type_status(payment_plan_type, plan_status) where deleted_at is null",
+      "idx_payment_plan_occurrences_plan_date(payment_plan_id, scheduled_date) where deleted_at is null",
+      "idx_payment_plan_occurrences_status_date(status, scheduled_date) where deleted_at is null",
+      "idx_payment_plan_payments_plan_date(payment_plan_id, payment_date)",
+      "unique idx_payment_plan_payments_idempotency(payment_plan_id, idempotency_key) where idempotency_key is not null"
+    ],
+    "triggers_and_functions": [
+      {
+        "name": "public.recalculate_installment_plan_summary",
+        "purpose": "Recompute remaining balance, paid installment count, remaining installment count, and auto-complete plan when balance reaches zero"
+      },
+      {
+        "name": "public.set_updated_at_timestamp",
+        "purpose": "Maintain updated_at on new plan tables if the project already uses this helper pattern"
+      },
+      {
+        "name": "public.mark_occurrence_overdue_if_needed",
+        "purpose": "Optional helper or scheduled job logic to transition scheduled installment occurrences to overdue when due date passes"
+      }
+    ]
+  },
+  "sql_migration_examples": {
+    "summary": "The following SQL is an implementation template and should be adapted to the existing migration ordering and shared helper functions.",
+    "snippets": [
+      "Create enum types for plan, occurrence, and payment status.",
+      "Alter public.expenses to add payment_plan_type, payment_plan_id, payment_plan_occurrence_id.",
+      "Create public.payment_plans with shared recurring/installment metadata.",
+      "Create public.payment_plan_occurrences with unique(payment_plan_id, occurrence_number).",
+      "Create public.payment_plan_payments with unique(payment_plan_id, idempotency_key) partial index.",
+      "Create recalculate_installment_plan_summary function."
+    ]
+  },
+  "dart_models_and_dtos": {
+    "enums": [
+      "PaymentPlanType { recurring, installment }",
+      "PaymentPlanStatus { active, paused, completed, cancelled, defaulted }",
+      "PaymentOccurrenceStatus { scheduled, paid, skipped, cancelled, overdue, partiallyPaid, settledEarly }",
+      "PaymentKind { normal, partial, extra, earlyPayoff, correction }"
+    ],
+    "required_models": [
+      {
+        "name": "RecurrenceRuleDto",
+        "purpose": "Shared schedule DTO for recurring and installment cadence",
+        "fields": [
+          "frequency",
+          "interval",
+          "anchorDate",
+          "endDate",
+          "reminderValue",
+          "reminderUnit",
+          "excludedDates"
+        ]
+      },
+      {
+        "name": "InstallmentScheduleLineDto",
+        "purpose": "Represents authored or generated installment schedule lines",
+        "fields": [
+          "occurrenceNumber",
+          "scheduledDate",
+          "dueAmountCents",
+          "principalComponentCents",
+          "interestComponentCents",
+          "feeComponentCents"
+        ]
+      },
+      {
+        "name": "PaymentPlanDto",
+        "purpose": "Main plan detail DTO for recurring and installment plans",
+        "fields": [
+          "id",
+          "paymentPlanType",
+          "planStatus",
+          "type",
+          "category",
+          "currency",
+          "householdId",
+          "contactId",
+          "privacyScope",
+          "ownerType",
+          "payerUserId",
+          "recurrenceRule",
+          "principalAmountCents",
+          "interestFeeAmountCents",
+          "totalPayableAmountCents",
+          "installmentCount",
+          "installmentAmountCents",
+          "remainingBalanceCents",
+          "paidInstallmentsCount",
+          "remainingInstallmentsCount",
+          "customScheduleMode",
+          "customSchedule"
+        ]
+      },
+      {
+        "name": "PaymentPlanOccurrenceDto",
+        "purpose": "Occurrence detail/list DTO",
+        "fields": [
+          "id",
+          "paymentPlanId",
+          "occurrenceNumber",
+          "scheduledDate",
+          "originalScheduledDate",
+          "dueAmountCents",
+          "paidAmountCents",
+          "remainingAmountCents",
+          "status",
+          "transactionId",
+          "generatedFromSkip",
+          "skippedReason"
+        ]
+      },
+      {
+        "name": "ScheduledListItemDto",
+        "purpose": "Unified list item DTO for recurring page rendering recurring and installment rows together",
+        "fields": [
+          "id",
+          "paymentPlanType",
+          "type",
+          "title",
+          "category",
+          "currency",
+          "displayAmountCents",
+          "nextDueDate",
+          "status",
+          "progressText",
+          "remainingBalanceCents",
+          "householdId"
+        ]
+      }
+    ],
+    "request_models": [
+      "CreateRecurringPlanRequest",
+      "CreateInstallmentPlanRequest",
+      "SkipNextRecurringOccurrenceRequest",
+      "SkipNextInstallmentOccurrenceRequest",
+      "MarkOccurrencePaidRequest",
+      "MarkOccurrencePartiallyPaidRequest",
+      "EarlyPayoffInstallmentPlanRequest",
+      "CancelPaymentPlanRequest"
+    ],
+    "serialization_guidance": [
+      "Keep all money fields in cents in transport payloads.",
+      "Use immutable DTOs and generated JSON serialization if the codebase already uses freezed/json_serializable patterns.",
+      "Expose formatted money/date strings in view models, not transport DTOs.",
+      "Use server-provided IDs and status enums as the source of truth for UI state."
+    ]
+  },
+  "supabase_edge_function_design": {
+    "design_principles": [
+      "Use Edge Functions for all mutation-heavy workflows.",
+      "Use direct table reads or RPC/views for retrieval where possible.",
+      "Perform all multi-table mutations inside a single Postgres transaction.",
+      "Every mutation request must include an idempotency key.",
+      "Functions must validate auth user, household membership, state transition legality, and monetary reconciliation before writing."
+    ],
+    "functions": [
+      {
+        "name": "create-recurring-plan",
+        "purpose": "Create a normalized recurring plan while preserving compatibility with existing recurring expense/income flows",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "type": "expense|income",
+          "category": "string",
+          "currency": "string",
+          "amountCents": "integer",
+          "contactId": "string|null",
+          "householdId": "string|null",
+          "privacyScope": "string",
+          "ownerType": "string",
+          "payerUserId": "string|null",
+          "recurrenceRule": "RecurrenceRuleDto"
+        },
+        "validation": [
+          "amountCents > 0",
+          "valid recurrence frequency",
+          "interval > 0",
+          "anchor date present",
+          "end date must not be before anchor date",
+          "household membership when householdId is provided"
+        ],
+        "database_operations": [
+          "insert payment_plans row with payment_plan_type='recurring'",
+          "optionally dual-write legacy recurring row in public.expenses during migration period",
+          "return plan detail DTO"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto"
+        }
+      },
+      {
+        "name": "create-installment-plan",
+        "purpose": "Create installment plan and generate explicit occurrence rows upfront",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "type": "expense|income",
+          "category": "string",
+          "currency": "string",
+          "contactId": "string|null",
+          "householdId": "string|null",
+          "privacyScope": "string",
+          "ownerType": "string",
+          "payerUserId": "string|null",
+          "principalAmountCents": "integer",
+          "interestFeeAmountCents": "integer",
+          "totalPayableAmountCents": "integer",
+          "recurrenceRule": "RecurrenceRuleDto",
+          "installmentAmountCents": "integer|null",
+          "installmentCount": "integer|null",
+          "customScheduleMode": "boolean",
+          "customSchedule": "InstallmentScheduleLineDto[]"
+        },
+        "validation": [
+          "principalAmountCents > 0",
+          "interestFeeAmountCents >= 0",
+          "principalAmountCents + interestFeeAmountCents == totalPayableAmountCents",
+          "either installmentCount or installmentAmountCents or customSchedule is supplied",
+          "if custom schedule mode is true, custom schedule sum must equal total payable",
+          "schedule dates must be increasing",
+          "household membership when householdId is provided"
+        ],
+        "database_operations": [
+          "insert payment_plans row with payment_plan_type='installment'",
+          "generate occurrence rows upfront",
+          "set remaining_balance_cents = totalPayableAmountCents",
+          "set paid_installments_count = 0",
+          "set remaining_installments_count = generated occurrence count"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto",
+          "occurrences": "PaymentPlanOccurrenceDto[]"
+        }
+      },
+      {
+        "name": "skip-next-recurring-occurrence",
+        "purpose": "Skip the next recurring occurrence only",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string"
+        },
+        "validation": [
+          "plan exists",
+          "plan belongs to caller or caller has household access",
+          "plan payment_plan_type is recurring",
+          "next occurrence exists and is not past end date"
+        ],
+        "database_operations": [
+          "compute next skippable date from recurrence rule",
+          "append date to recurrence_rule.excluded_dates",
+          "update payment_plans row and legacy recurring row if dual-write is enabled"
+        ],
+        "response_payload": {
+          "success": true,
+          "skippedDate": "date",
+          "plan": "PaymentPlanDto"
+        }
+      },
+      {
+        "name": "skip-next-installment-occurrence",
+        "purpose": "Defer the next pending installment while preserving obligation",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string",
+          "reason": "string|null"
+        },
+        "validation": [
+          "plan exists and is installment",
+          "plan status is active",
+          "find next pending occurrence with status in scheduled, overdue",
+          "occurrence is not already paid",
+          "for MVP, reject defer if occurrence is partially_paid"
+        ],
+        "database_operations": [
+          "mark target occurrence as skipped",
+          "store skipped_reason",
+          "append replacement tail occurrence with same remaining due amount",
+          "link skipped occurrence deferred_to_occurrence_id to replacement occurrence",
+          "recalculate plan summary"
+        ],
+        "response_payload": {
+          "success": true,
+          "skippedOccurrenceId": "string",
+          "replacementOccurrence": "PaymentPlanOccurrenceDto",
+          "plan": "PaymentPlanDto"
+        }
+      },
+      {
+        "name": "mark-plan-occurrence-paid",
+        "purpose": "Mark an occurrence as fully paid and optionally create/link a booked transaction",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string",
+          "occurrenceId": "string",
+          "amountCents": "integer",
+          "paymentDate": "date",
+          "createExpenseTransaction": "boolean",
+          "transactionPayload": "object|null"
+        },
+        "validation": [
+          "amountCents > 0",
+          "occurrence belongs to plan",
+          "occurrence is not cancelled, skipped, or already fully settled",
+          "full payment path expects amountCents to cover remaining_amount_cents unless partial mode is explicitly selected"
+        ],
+        "database_operations": [
+          "insert payment_plan_payments row",
+          "create or link booked expense/income row if requested",
+          "update occurrence paid_amount_cents, remaining_amount_cents, status, transaction_id",
+          "recalculate plan summary"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto",
+          "occurrence": "PaymentPlanOccurrenceDto"
+        }
+      },
+      {
+        "name": "mark-plan-occurrence-partially-paid",
+        "purpose": "Apply partial payment and keep occurrence visible as partially paid",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string",
+          "occurrenceId": "string",
+          "amountCents": "integer",
+          "paymentDate": "date",
+          "createExpenseTransaction": "boolean",
+          "transactionPayload": "object|null"
+        },
+        "validation": [
+          "amountCents > 0",
+          "amountCents < remaining_amount_cents for explicit partial mode",
+          "occurrence status is scheduled, overdue, or partially_paid"
+        ],
+        "database_operations": [
+          "insert payment_plan_payments row with payment_kind='partial'",
+          "update occurrence paid_amount_cents and remaining_amount_cents",
+          "set occurrence status to partially_paid unless remaining becomes zero",
+          "recalculate plan summary"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto",
+          "occurrence": "PaymentPlanOccurrenceDto"
+        }
+      },
+      {
+        "name": "early-payoff-installment-plan",
+        "purpose": "Settle the remaining balance early while preserving audit trail",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string",
+          "amountCents": "integer",
+          "paymentDate": "date",
+          "notes": "string|null"
+        },
+        "validation": [
+          "plan exists and is installment",
+          "plan status is active",
+          "remaining balance > 0",
+          "for MVP, amountCents must equal exact remaining balance"
+        ],
+        "database_operations": [
+          "insert payment_plan_payments row with payment_kind='early_payoff'",
+          "mark unpaid future occurrences as settled_early",
+          "set plan remaining_balance_cents to 0",
+          "set plan_status to completed",
+          "set early_payoff_at"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto",
+          "updatedOccurrences": "PaymentPlanOccurrenceDto[]"
+        }
+      },
+      {
+        "name": "cancel-payment-plan",
+        "purpose": "Cancel a recurring or installment plan according to business rules",
+        "input_payload": {
+          "idempotencyKey": "string",
+          "planId": "string",
+          "reason": "string|null"
+        },
+        "validation": [
+          "plan exists",
+          "caller has access",
+          "paid history must be preserved"
+        ],
+        "database_operations": [
+          "set plan_status = cancelled",
+          "mark future scheduled occurrences as cancelled where applicable",
+          "do not delete payments or historical occurrences"
+        ],
+        "response_payload": {
+          "success": true,
+          "plan": "PaymentPlanDto"
+        }
+      }
+    ],
+    "retrieval_strategy": {
+      "prefer_rpc_or_view_for": [
+        "get_plan_detail",
+        "get_upcoming_occurrences",
+        "get_transaction_history",
+        "get_installment_progress"
+      ],
+      "reason": "Reads should be simple, composable, and RLS-friendly. Mutations should remain in Edge Functions."
+    }
+  },
+  "backend_logic": {
+    "create_recurring_plan": {
+      "algorithm": [
+        "Validate recurrence inputs.",
+        "Insert payment_plans row with payment_plan_type='recurring'.",
+        "During migration phase, optionally also create/update the legacy recurring expense row so the existing recurring page continues to function.",
+        "Return normalized plan detail DTO."
+      ]
+    },
+    "create_installment_plan": {
+      "algorithm": [
+        "Validate principal, interest/fee, total payable, currency, schedule cadence, and household access.",
+        "If equal mode, derive installment count or installment amount as needed.",
+        "Distribute cents remainder deterministically across earliest installments.",
+        "If custom mode, require schedule line sum to equal total payable amount exactly.",
+        "Generate all occurrence rows upfront.",
+        "Initialize plan summary fields.",
+        "Return plan + occurrences."
+      ]
+    },
+    "equal_installment_distribution": {
+      "rule": "Use floor(total / count) as the base amount and distribute the remainder cents across the earliest installments.",
+      "example": {
+        "total": 1000,
+        "count": 3,
+        "result": [334, 333, 333]
+      }
+    },
+    "custom_schedule_support": {
+      "rule": "Allow user-authored installment lines only when the sum of due_amount_cents exactly equals total_payable_amount_cents.",
+      "notes": [
+        "Custom mode should still validate increasing dates.",
+        "Custom mode should preserve authored amounts exactly.",
+        "The system should not auto-round custom lines after validation."
+      ]
+    },
+    "mark_occurrence_paid": {
+      "algorithm": [
+        "Load occurrence and plan with lock/select-for-update semantics.",
+        "Insert payment_plan_payments row.",
+        "Update occurrence paid_amount_cents and remaining_amount_cents.",
+        "Set status to paid if remaining becomes zero; else set partially_paid.",
+        "Create or link booked transaction in public.expenses when user wants payment reflected in transaction history.",
+        "Recalculate plan summary."
+      ]
+    },
+    "partial_payment_handling": {
+      "rules": [
+        "Multiple payment rows may be applied to the same occurrence.",
+        "Occurrence remains partially_paid until remaining_amount_cents becomes zero.",
+        "For MVP, do not allow skipping/defer on partially_paid occurrences."
+      ]
+    },
+    "progress_and_remaining_balance": {
+      "calculation_rules": [
+        "remaining_balance_cents = total_payable_amount_cents - sum(all applied payment amounts except corrections that reverse prior rows)",
+        "paid_installments_count = count(occurrences with status in paid, settled_early)",
+        "remaining_installments_count = count(occurrences with status in scheduled, overdue, partially_paid)",
+        "plan_status becomes completed when remaining_balance_cents reaches zero"
+      ]
+    }
+  },
+  "flutter_ux_and_form_design": {
+    "high_level_approach": {
+      "recommendation": "Refactor the current add recurring sheet into a plan-aware form with a dedicated Riverpod form controller instead of growing local widget state further.",
+      "target_file_to_extend": "moneko-mobile/lib/features/recurring/presentation/widgets/add_recurring_sheet.dart",
+      "why": [
+        "The current sheet already contains substantial local form logic.",
+        "Installment-specific fields, preview schedules, validation summary, and household handling will make the current single-widget approach harder to maintain.",
+        "A form controller/provider gives cleaner separation for conditional UI and validation."
+      ]
+    },
+    "recommended_flutter_patterns": [
+      "Form + GlobalKey<FormState>",
+      "TextFormField for numeric and free-text fields",
+      "DropdownButtonFormField for frequency, interval unit, currency, category",
+      "full-width segmented controls for Expense/Income and Recurring/Installment",
+      "SwitchListTile or existing themed switch component for secondary toggles such as custom schedule mode, has end date, allow partial payments",
+      "Riverpod Notifier or AsyncNotifier for form draft and submit mutation states"
+    ],
+    "shared_fields": [
+      "type (expense or income)",
+      "payment plan type (recurring or installment)",
+      "category",
+      "currency",
+      "contact/merchant/counterparty",
+      "anchor/start date",
+      "household and split configuration",
+      "privacy scope and owner type when applicable"
+    ],
+    "recurring_form_fields": [
+      "amount",
+      "frequency",
+      "interval",
+      "anchor date",
+      "optional end date",
+      "reminder",
+      "household/split settings",
+      "optional skip-next action available on plan detail"
+    ],
+    "installment_form_fields": [
+      "principal amount",
+      "interest/finance fee amount",
+      "derived total payable amount",
+      "frequency",
+      "interval",
+      "anchor/start date",
+      "equal installments mode or custom schedule mode",
+      "installment count or installment amount (one drives the other in equal mode)",
+      "custom schedule line editor in advanced mode",
+      "allow partial payments toggle"
+    ],
+    "best_mvp_ux": {
+      "financial_input_strategy": "Ask user for principal amount and finance fee separately, then derive and display total payable as read-only.",
+      "why": [
+        "Makes plan math explicit.",
+        "Avoids ambiguity between principal and fees.",
+        "Scales better to future APR/amortization features."
+      ],
+      "default_schedule_mode": "equal installments",
+      "advanced_mode": "custom schedule toggle reveals editable occurrence rows and running total validation"
+    },
+    "installment_preview_ui": {
+      "components": [
+        "summary card with principal, fees, total payable",
+        "derived count/amount preview",
+        "scrollable list of generated installment lines",
+        "running total footer that must equal total payable before submit"
+      ]
+    },
+    "plan_detail_screen": {
+      "recurring": [
+        "next due date",
+        "schedule label",
+        "skip next action",
+        "edit plan",
+        "cancel plan"
+      ],
+      "installment": [
+        "header progress bar",
+        "paid installments / total installments",
+        "remaining balance",
+        "occurrence history list with status badges",
+        "actions: Mark paid, Record partial payment, Skip/defer, Pay off remaining, Cancel plan"
+      ]
+    },
+    "history_and_visibility": {
+      "statuses_to_show": [
+        "scheduled",
+        "paid",
+        "skipped",
+        "cancelled",
+        "overdue",
+        "partially paid",
+        "settled early"
+      ],
+      "presentation_rules": [
+        "Skipped installments must remain visible as explicit historical rows.",
+        "Replacement occurrences created by defer should appear as future schedule rows.",
+        "Recurring skipped occurrences may initially remain implicit unless a materialized occurrence model is added later."
+      ]
+    },
+    "household_support": {
+      "rules": [
+        "Plan creation must respect household_id, privacy_scope, owner_type, payer_user_id, acknowledged_by, and split-group semantics.",
+        "For installment payments, household/shared metadata lives at the plan level and actual cost-sharing continues to be applied on booked payment transactions.",
+        "Household viewers should see plan progress only if allowed by privacy rules.",
+        "Private plans in a household scope should not leak sensitive details to non-owners."
+      ]
+    }
+  },
+  "skip_logic_design": {
+    "critical_distinction": "Recurring skip and installment skip must remain separate at both product and backend logic levels.",
+    "recurring_skip": {
+      "product_meaning": "Skip the next occurrence only; future schedule remains unchanged.",
+      "current_implementation": "Append next date to recurrence_rule.excluded_dates and update the recurring expense row.",
+      "recommended_backend_behavior": [
+        "Compute next skippable date from recurrence rule.",
+        "Append to excluded_dates.",
+        "Persist update to payment_plans.recurrence_rule and legacy expenses.recurrence_rule during migration period."
+      ],
+      "auditability": "For MVP, excluded_dates is acceptable. Future enhancement can materialize skipped recurring occurrences for better timeline visibility."
+    },
+    "installment_skip": {
+      "product_meaning": "Defer the next payment without forgiving the debt.",
+      "core_rules": [
+        "The skipped installment remains visible in history.",
+        "The total payable obligation remains unchanged.",
+        "The required number of actual settled installments remains unchanged.",
+        "A replacement occurrence is appended at the tail.",
+        "Original sequence/history is preserved."
+      ],
+      "recommended_implementation": {
+        "identify_next_pending_occurrence": "First occurrence ordered by scheduled_date asc where status in scheduled, overdue and deleted_at is null.",
+        "mutations": [
+          "mark target occurrence status = skipped",
+          "set skipped_reason if provided",
+          "create replacement tail occurrence with same due_amount_cents",
+          "set replacement generated_from_skip = true",
+          "link skipped occurrence deferred_to_occurrence_id to replacement"
+        ],
+        "why_append_tail_not_shift_all_future_rows": [
+          "Preserves original due-date history",
+          "Avoids rewriting many rows on each defer",
+          "Keeps audit easier to understand",
+          "Produces deterministic household-visible history"
+        ]
+      },
+      "multiple_skips": "Each skip appends another replacement tail occurrence.",
+      "partial_payment_interaction": "For MVP, disallow skip/defer once an occurrence has any partial payment applied.",
+      "early_payoff_interaction": "Skipped and replacement future occurrences may later be marked settled_early when the user pays off the remaining balance."
+    }
+  },
+  "early_payoff_design": {
+    "business_behavior": [
+      "User can pay remaining balance before all scheduled occurrences have been reached.",
+      "Historical occurrence rows remain preserved.",
+      "Future unpaid occurrences are marked settled_early rather than deleted.",
+      "Plan status becomes completed and early_payoff_at is recorded."
+    ],
+    "mvp_rule": "Require payoff amount to equal exact remaining balance. Reject overpay for MVP.",
+    "backend_steps": [
+      "Load plan and verify it is active installment plan with remaining_balance_cents > 0.",
+      "Insert payment_plan_payments row with payment_kind='early_payoff'.",
+      "Mark all future unpaid occurrences as settled_early.",
+      "Set plan remaining_balance_cents = 0, plan_status = completed, early_payoff_at = now().",
+      "Optionally create a booked expense/income row for the payoff transaction."
+    ],
+    "flutter_ui": [
+      "Plan detail CTA named Pay off remaining",
+      "confirmation sheet showing exact remaining balance",
+      "optional note field",
+      "loading state during Edge Function call",
+      "on success, refetch plan detail and occurrence history"
+    ]
+  },
+  "validation_rules": {
+    "flutter_form_validation": {
+      "recurring": [
+        "amount > 0",
+        "interval must be positive",
+        "anchor date required",
+        "end date, if present, must be after or equal to start date",
+        "valid recurrence frequency required"
+      ],
+      "installment": [
+        "principal amount > 0",
+        "interest/fee amount >= 0",
+        "total payable = principal + interest/fee",
+        "either installment count or installment amount required in equal mode",
+        "installment count > 0 when provided",
+        "installment amount > 0 when provided",
+        "custom schedule amounts must sum exactly to total payable",
+        "custom schedule dates must be increasing",
+        "currency must be present and consistent"
+      ]
+    },
+    "edge_function_validation": [
+      "Repeat all client-side validation server-side",
+      "verify auth user and household membership",
+      "verify plan ownership and state transition legality",
+      "skip cannot target already paid or cancelled occurrence",
+      "early payoff cannot exceed remaining balance in MVP",
+      "custom schedule reconciliation must be exact before write"
+    ],
+    "database_constraints": [
+      "positive money amounts",
+      "enum validity",
+      "installment financial equality checks",
+      "occurrence uniqueness",
+      "non-negative paid and remaining amounts"
+    ]
+  },
+  "edge_cases": [
+    "equal installment mode versus custom schedule mode",
+    "changing installment amount after plan creation",
+    "changing schedule after some installments are paid",
+    "multiple skips",
+    "skipped installment later paid manually",
+    "partial payments",
+    "overpayments",
+    "underpayments",
+    "early full repayment",
+    "early partial payoff as future enhancement",
+    "overdue installments",
+    "timezone normalization for date-only fields",
+    "monthly cadence on the 31st and short-month handling",
+    "leap year yearly cadence",
+    "currency conversion and normalized_amount_cents handling on booked transactions",
+    "household/shared splits and privacy scope",
+    "soft deletion",
+    "idempotency under retries",
+    "audit trail completeness",
+    "backward compatibility with legacy recurring rows"
+  ],
+  "rls_and_security_considerations": {
+    "tables_requiring_rls": [
+      "public.payment_plans",
+      "public.payment_plan_occurrences",
+      "public.payment_plan_payments"
+    ],
+    "read_policy_model": [
+      "Owner user can read their own plans, occurrences, and payments.",
+      "Household members can read household-scoped plans only if privacy rules allow.",
+      "Soft-deleted rows are excluded from normal select policies."
+    ],
+    "write_policy_model": [
+      "Prefer all writes through Edge Functions.",
+      "Direct client writes to new plan tables should be disallowed for MVP.",
+      "Edge Functions must validate caller ownership and household membership even when running with elevated database access."
+    ],
+    "privacy_rules": [
+      "If privacy_scope is private, non-owner household members should not see sensitive installment details.",
+      "If privacy_scope is balances_only, household members may see limited summary but not line-item details depending on existing product semantics.",
+      "Installment occurrence lists should honor the same visibility rules as the parent plan."
+    ],
+    "security_notes": [
+      "Do not trust client-derived remaining balance values.",
+      "Always compute financial summaries server-side.",
+      "Use idempotency keys to prevent duplicate payment application.",
+      "Preserve audit history; do not hard-delete payment records."
+    ]
+  },
+  "migration_plan": {
+    "strategy": "Dual-read before dual-write. Introduce installment support without breaking existing recurring flows.",
+    "phases": [
+      {
+        "phase": 1,
+        "name": "Foundation",
+        "tasks": [
+          "Add new enum types and tables.",
+          "Add new payment_plan_* link columns to public.expenses.",
+          "Add indexes and RLS policies.",
+          "Add recalculate_installment_plan_summary function."
+        ]
+      },
+      {
+        "phase": 2,
+        "name": "Installment Backend",
+        "tasks": [
+          "Implement create-installment-plan Edge Function.",
+          "Implement skip-next-installment-occurrence Edge Function.",
+          "Implement mark-plan-occurrence-paid and partial-payment flows.",
+          "Implement early-payoff-installment-plan flow."
+        ]
+      },
+      {
+        "phase": 3,
+        "name": "Flutter Read Integration",
+        "tasks": [
+          "Introduce unified scheduled list DTO/provider.",
+          "Render recurring and installment rows in recurring page.",
+          "Add status badges and progress summary for installment plans."
+        ]
+      },
+      {
+        "phase": 4,
+        "name": "Flutter Write Integration",
+        "tasks": [
+          "Refactor add recurring sheet into plan-aware form.",
+          "Add recurring/installment segmented toggle.",
+          "Add installment preview and custom schedule editor.",
+          "Add plan detail screen actions for skip, partial payment, and early payoff."
+        ]
+      },
+      {
+        "phase": 5,
+        "name": "Recurring Normalization Optional",
+        "tasks": [
+          "Optionally create normalized payment_plans rows for new recurring plans.",
+          "Backfill legacy recurring rows into payment_plans when safe.",
+          "Keep current recurring expense row compatibility until UI and reads are fully migrated."
+        ]
+      }
+    ],
+    "backward_compatibility_rules": [
+      "Existing recurring rows must continue to load and skip correctly.",
+      "No existing recurrence_rule consumers should break during migration.",
+      "Installments should use only the new normalized tables from day one."
+    ]
+  },
+  "execution_checklist_for_ai_agents": {
+    "backend": [
+      "Create enum types and new tables in Supabase migration files.",
+      "Add new link columns to public.expenses.",
+      "Add indexes, foreign keys, and RLS policies.",
+      "Implement recalculate_installment_plan_summary SQL function.",
+      "Implement create-installment-plan Edge Function with upfront occurrence generation.",
+      "Implement skip-next-installment-occurrence Edge Function using defer + append-tail logic.",
+      "Implement payment and early payoff Edge Functions.",
+      "Create read RPCs or views for plan detail, upcoming occurrences, and unified list feed."
+    ],
+    "flutter": [
+      "Introduce PaymentPlan DTOs and enums.",
+      "Add plan-aware repository/service methods for Edge Function calls.",
+      "Refactor add_recurring_sheet.dart into shared form sections + installment-specific sections.",
+      "Add segmented control for recurring versus installment mode.",
+      "Add equal-installment preview and advanced custom schedule editor.",
+      "Add installment detail screen with progress summary and occurrence history.",
+      "Update recurring_transactions_page.dart to render installment rows and status badges."
+    ],
+    "testing": [
+      "Add SQL/Edge Function tests for schedule generation and money reconciliation.",
+      "Add Flutter provider tests for form validation and payload generation.",
+      "Add widget tests for recurring/installment form toggles and validation messages.",
+      "Add integration tests for skip recurring, skip installment, partial payment, and early payoff flows."
+    ]
+  },
+  "acceptance_criteria": [
+    "User can create a recurring plan without breaking existing recurring behavior.",
+    "User can create an installment plan with equal installments.",
+    "User can create an installment plan with custom schedule lines whose sum equals total payable.",
+    "Skipped recurring occurrence omits only one cycle and future cadence remains unchanged.",
+    "Skipped installment occurrence remains visible and creates a replacement tail occurrence.",
+    "Partial payment leaves installment occurrence visible as partially paid.",
+    "Early payoff marks future unpaid installments as settled early and completes the plan.",
+    "Household access and privacy rules are preserved across new tables.",
+    "Flutter list/detail screens can clearly distinguish recurring from installment plans.",
+    "All monetary invariants are validated server-side."
+  ],
+  "mvp_recommendation": {
+    "implement_now": [
+      "Normalized installment tables",
+      "payment_plan_type discriminator",
+      "equal-installment creation flow",
+      "custom schedule support",
+      "installment occurrence history UI",
+      "defer-style installment skip",
+      "partial payment support",
+      "exact early payoff support",
+      "unified list and plan detail reads"
+    ],
+    "defer_until_later": [
+      "amortized APR schedules",
+      "editing installment plan cadence after payments have started",
+      "automatic reallocation of overpayments across many future occurrences",
+      "full recurring occurrence materialization history"
+    ],
+    "technical_debt_to_avoid": [
+      "Do not store installment financial semantics only in recurrence_rule.",
+      "Do not reuse recurring skip logic for installments.",
+      "Do not rely only on dynamic occurrence projection for installment plans.",
+      "Do not store only aggregate remaining balance without payment audit rows."
+    ]
+  },
+  "future_enhancements": [
+    "APR/amortization schedule generation",
+    "reschedule wizard after missed payment",
+    "overpayment to principal rules",
+    "installment reminders per occurrence",
+    "analytics for payoff forecast and delinquency",
+    "normalized recurring occurrence materialization for richer timeline history"
+  ]
+}
