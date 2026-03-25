@@ -1365,19 +1365,6 @@ Future<void> _processExpense(
 
           final filtered = items.where((it) => !isTotalLike(it)).toList();
           if (filtered.isNotEmpty) items = filtered;
-          // Additional check: if any item equals sum of others, drop it
-          double amt(dynamic it) {
-            final a = (it is Map && it['amount'] != null)
-                ? (it['amount'] as num).toDouble()
-                : 0.0;
-            return a;
-          }
-
-          items = items.where((it) {
-            final others = items.where((x) => !identical(x, it)).toList();
-            final sumOthers = others.fold<double>(0.0, (s, x) => s + amt(x));
-            return (amt(it) - sumOthers).abs() > 1e-6;
-          }).toList();
         }
 
         if (items.isNotEmpty) {
