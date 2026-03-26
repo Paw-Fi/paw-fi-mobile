@@ -2479,5 +2479,20 @@
   "signInWithAppleCta": "Doorgaan met Apple",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "Gratis proefperiode wordt geactiveerd..."
+  "activatingFreeTrial": "Gratis proefperiode wordt geactiveerd...",
+  "setupChecklist": "Installatiechecklist",
+  "leftToDo": "Nog {count} te doen",
+  "createAccountDescription": "Meld je aan en krijg grip op je financiën",
+  "logExpense": "Uitgave toevoegen",
+  "logExpenseDescription": "Voeg je eerste uitgave toe en houd je uitgaven bij",
+  "logNow": "Nu toevoegen",
+  "setRecurring": "Terugkerende posten",
+  "setRecurringDescription": "Plan rekeningen en inkomsten en volg ze automatisch",
+  "setUp": "Instellen",
+  "connectChat": "Chat koppelen",
+  "connectChatDescription": "Koppel berichtenapps en chat met AI",
+  "connect": "Verbinden",
+  "autoCaptureDescriptionIos": "Schakel Apple Pay in en registreer transacties automatisch",
+  "autoCaptureDescriptionAndroid": "Schakel meldingen in en registreer transacties automatisch",
+  "enable": "Inschakelen"
 }

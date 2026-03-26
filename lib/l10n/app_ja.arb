@@ -2532,5 +2532,20 @@
   "signInWithAppleCta": "Appleで続ける",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "無料トライアルを有効にしています..."
+  "activatingFreeTrial": "無料トライアルを有効にしています...",
+  "setupChecklist": "セットアップチェックリスト",
+  "leftToDo": "残り{count}",
+  "createAccountDescription": "登録してお金の管理を始めましょう",
+  "logExpense": "支出を記録",
+  "logExpenseDescription": "最初の支出を記録して支出を管理しましょう",
+  "logNow": "今すぐ記録",
+  "setRecurring": "定期項目",
+  "setRecurringDescription": "請求や収入を設定して自動で追跡",
+  "setUp": "設定",
+  "connectChat": "チャット連携",
+  "connectChatDescription": "メッセージアプリを連携してAIとチャット",
+  "connect": "接続",
+  "autoCaptureDescriptionIos": "Apple Payを有効にして取引を自動記録",
+  "autoCaptureDescriptionAndroid": "通知を有効にして取引を自動記録",
+  "enable": "有効にする"
 }

@@ -2531,5 +2531,20 @@
   "signInWithAppleCta": "Tiếp tục với Apple",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "Đang kích hoạt bản dùng thử miễn phí..."
+  "activatingFreeTrial": "Đang kích hoạt bản dùng thử miễn phí...",
+  "setupChecklist": "Danh sách thiết lập",
+  "leftToDo": "Còn {count}",
+  "createAccountDescription": "Đăng ký và bắt đầu quản lý tài chính",
+  "logExpense": "Ghi chi tiêu",
+  "logExpenseDescription": "Ghi khoản chi đầu tiên và theo dõi chi tiêu",
+  "logNow": "Ghi ngay",
+  "setRecurring": "Khoản định kỳ",
+  "setRecurringDescription": "Lên lịch hóa đơn và thu nhập và theo dõi tự động",
+  "setUp": "Thiết lập",
+  "connectChat": "Kết nối chat",
+  "connectChatDescription": "Kết nối ứng dụng nhắn tin và trò chuyện với AI",
+  "connect": "Kết nối",
+  "autoCaptureDescriptionIos": "Bật Apple Pay và tự động ghi nhận giao dịch",
+  "autoCaptureDescriptionAndroid": "Bật thông báo và tự động ghi nhận giao dịch",
+  "enable": "Bật"
 }

@@ -2551,5 +2551,20 @@
   "signInWithAppleCta": "Continue with Apple",
   "pocketsForecastRecurringSpentTitle": "Count upcoming recurring payments as spent",
   "pocketsForecastRecurringSpentDescription": "Show this month's scheduled recurring expenses in pockets before the payment posts.",
-  "activatingFreeTrial": "Activating your free trial..."
+  "activatingFreeTrial": "Activating your free trial...",
+  "setupChecklist": "Setup Checklist",
+  "leftToDo": "{count} left",
+  "createAccountDescription": "Sign up to start managing your money",
+  "logExpense": "Log Expense",
+  "logExpenseDescription": "Record your first expense to track spending",
+  "logNow": "Log Now",
+  "setRecurring": "Set Recurring",
+  "setRecurringDescription": "Schedule bills and income for auto tracking",
+  "setUp": "Set Up",
+  "connectChat": "Connect Chat",
+  "connectChatDescription": "Link messaging apps to chat with AI",
+  "connect": "Connect",
+  "autoCaptureDescriptionIos": "Enable Apple Pay to auto-capture transactions",
+  "autoCaptureDescriptionAndroid": "Enable notifications to auto-capture transactions",
+  "enable": "Enable"
 }

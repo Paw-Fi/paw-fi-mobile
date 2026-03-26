@@ -2524,5 +2524,20 @@
   "signInWithAppleCta": "Продовжити з Apple",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "Активуємо безкоштовну пробну версію..."
+  "activatingFreeTrial": "Активуємо безкоштовну пробну версію...",
+  "setupChecklist": "Чек-лист налаштування",
+  "leftToDo": "Залишилось {count}",
+  "createAccountDescription": "Зареєструйтеся та керуйте своїми фінансами",
+  "logExpense": "Додати витрату",
+  "logExpenseDescription": "Додайте першу витрату та відстежуйте витрати",
+  "logNow": "Додати зараз",
+  "setRecurring": "Регулярні платежі",
+  "setRecurringDescription": "Заплануйте рахунки та доходи і відстежуйте їх автоматично",
+  "setUp": "Налаштувати",
+  "connectChat": "Підключити чат",
+  "connectChatDescription": "Підключіть месенджери та спілкуйтеся з AI",
+  "connect": "Підключити",
+  "autoCaptureDescriptionIos": "Увімкніть Apple Pay і автоматично записуйте транзакції",
+  "autoCaptureDescriptionAndroid": "Увімкніть сповіщення і автоматично записуйте транзакції",
+  "enable": "Увімкнути"
 }

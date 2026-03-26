@@ -27,6 +27,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
@@ -470,6 +471,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Modal Sheet Drag Handle
+                const ModalSheetHandle(),
                 Padding(
                   padding: const EdgeInsets.all(20),
                   child: Row(
@@ -565,7 +568,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: colorScheme.card,
+                              color: colorScheme.sheetElementBackground,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: colorScheme.border),
                             ),
@@ -833,7 +836,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: colorScheme.card,
+                            color: colorScheme.sheetElementBackground,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: colorScheme.border),
                           ),
@@ -1160,7 +1163,7 @@ class _BudgetDistributionPreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: colorScheme.border),
       ),

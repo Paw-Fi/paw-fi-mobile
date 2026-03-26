@@ -2478,5 +2478,20 @@
   "signInWithAppleCta": "Apple کے ساتھ سائن ان کریں",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "مفت ٹرائل فعال ہو رہا ہے..."
+  "activatingFreeTrial": "مفت ٹرائل فعال ہو رہا ہے...",
+  "setupChecklist": "سیٹ اپ چیک لسٹ",
+  "leftToDo": "{count} باقی",
+  "createAccountDescription": "سائن اپ کریں اور اپنی مالیات سنبھالنا شروع کریں",
+  "logExpense": "خرچ درج کریں",
+  "logExpenseDescription": "اپنا پہلا خرچ درج کریں اور اخراجات پر نظر رکھیں",
+  "logNow": "ابھی درج کریں",
+  "setRecurring": "باقاعدہ ادائیگیاں",
+  "setRecurringDescription": "بلز اور آمدنی شیڈول کریں اور خودکار ٹریک کریں",
+  "setUp": "سیٹ اپ",
+  "connectChat": "چیٹ کنیکٹ کریں",
+  "connectChatDescription": "میسجنگ ایپس لنک کریں اور AI سے چیٹ کریں",
+  "connect": "کنیکٹ",
+  "autoCaptureDescriptionIos": "Apple Pay فعال کریں اور ٹرانزیکشن خودکار ریکارڈ کریں",
+  "autoCaptureDescriptionAndroid": "نوٹیفکیشن فعال کریں اور ٹرانزیکشن خودکار ریکارڈ کریں",
+  "enable": "فعال کریں"
 }

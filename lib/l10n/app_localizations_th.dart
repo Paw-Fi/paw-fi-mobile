@@ -6646,4 +6646,51 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get activatingFreeTrial => 'กำลังเปิดใช้งานการทดลองใช้ฟรี...';
+
+  @override
+  String get setupChecklist => 'รายการตั้งค่า';
+
+  @override
+  String leftToDo(Object count) {
+    return 'เหลือ $count';
+  }
+
+  @override
+  String get createAccountDescription => 'สมัครและเริ่มจัดการการเงินของคุณ';
+
+  @override
+  String get logExpense => 'บันทึกรายจ่าย';
+
+  @override
+  String get logExpenseDescription => 'บันทึกรายจ่ายแรกและติดตามการใช้เงิน';
+
+  @override
+  String get logNow => 'บันทึกตอนนี้';
+
+  @override
+  String get setRecurring => 'รายการประจำ';
+
+  @override
+  String get setRecurringDescription => 'ตั้งค่ารายรับรายจ่ายและติดตามอัตโนมัติ';
+
+  @override
+  String get setUp => 'ตั้งค่า';
+
+  @override
+  String get connectChat => 'เชื่อมต่อแชท';
+
+  @override
+  String get connectChatDescription => 'เชื่อมแอปแชทและคุยกับ AI';
+
+  @override
+  String get connect => 'เชื่อมต่อ';
+
+  @override
+  String get autoCaptureDescriptionIos => 'เปิด Apple Pay และบันทึกรายการอัตโนมัติ';
+
+  @override
+  String get autoCaptureDescriptionAndroid => 'เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ';
+
+  @override
+  String get enable => 'เปิดใช้งาน';
 }

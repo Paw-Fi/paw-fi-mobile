@@ -19,6 +19,7 @@ import 'package:moneko/core/ui/widgets/transaction_frequency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -1108,11 +1109,11 @@ class AddRecurringSheet extends HookConsumerWidget {
         maxHeight: MediaQuery.of(context).size.height * 0.95,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Scaffold(
-        backgroundColor: colorScheme.appleGroupedBackground,
+        backgroundColor: Colors.transparent,
         body: PopScope(
           canPop: !isLoading.value,
           child: GestureDetector(
@@ -1121,7 +1122,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 12),
+                // Modal Sheet Drag Handle
+                const ModalSheetHandle(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
@@ -2330,11 +2332,12 @@ Future<void> showAddRecurringSheet(
   required String type,
   RecurringTransaction? existingTransaction,
 }) {
-  final colorScheme = Theme.of(context).colorScheme;
   return showModalBottomSheet<void>(
     context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.5),
+    enableDrag: false,
+    useSafeArea: true,
     isScrollControlled: true,
-    backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) => Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,

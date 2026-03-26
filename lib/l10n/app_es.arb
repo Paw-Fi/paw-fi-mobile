@@ -2534,5 +2534,20 @@
   "signInWithAppleCta": "Continuar con Apple",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "Activando tu prueba gratuita..."
+  "activatingFreeTrial": "Activando tu prueba gratuita...",
+  "setupChecklist": "Lista de configuración",
+  "leftToDo": "Quedan {count}",
+  "createAccountDescription": "Regístrate y empieza a gestionar tus finanzas",
+  "logExpense": "Registrar gasto",
+  "logExpenseDescription": "Registra tu primer gasto y controla tus gastos",
+  "logNow": "Registrar ahora",
+  "setRecurring": "Pagos recurrentes",
+  "setRecurringDescription": "Programa facturas e ingresos y haz seguimiento automático",
+  "setUp": "Configurar",
+  "connectChat": "Conectar chat",
+  "connectChatDescription": "Conecta apps de mensajería y chatea con IA",
+  "connect": "Conectar",
+  "autoCaptureDescriptionIos": "Activa Apple Pay y registra transacciones automáticamente",
+  "autoCaptureDescriptionAndroid": "Activa notificaciones y registra transacciones automáticamente",
+  "enable": "Activar"
 }

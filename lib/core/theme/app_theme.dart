@@ -76,6 +76,11 @@ extension AppColorScheme on ColorScheme {
   /// Bottom sheet and modal surface
   Color get sheetBackground => brightness == Brightness.dark
       ? AppTheme.darkSheetBg
+      : AppTheme.lightSheetBg;
+
+  /// Sheet element background (cards, tiles within sheets)
+  Color get sheetElementBackground => brightness == Brightness.dark
+      ? AppTheme.darkSheetElementBg
       : AppTheme.lightCardBg;
 
   /// Subtle border color
@@ -392,6 +397,11 @@ extension AppColorScheme on ColorScheme {
   Color get appleInputBackground => brightness == Brightness.dark
       ? AppTheme.iosInputDark
       : AppTheme.iosInputLight;
+
+  /// Modal sheet drag handle color
+  Color get sheetHandle => brightness == Brightness.dark
+      ? const Color(0xFF5D5D60)
+      : const Color(0xFFC4C4C7);
 }
 
 /// Moneko app theme configuration matching web's Tailwind design system
@@ -419,6 +429,7 @@ class AppTheme {
   static const Color lightBackground = Color(0xFFF9FAFB); // --moneko-background
   static const Color lightForeground = Color(0xFF1F2937); // --moneko-foreground
   static const Color lightCardBg = Color(0xFFFFFFFF); // --card-bg
+  static const Color lightSheetBg = Color(0xFFF5F5F5); // Sheet background
 
   // REVISED: Light input background is now distinct from card background (Affordance)
   static const Color lightInputBg = Color(0xFFF9FAFB); // Gray-50
@@ -444,7 +455,8 @@ class AppTheme {
   static const Color darkBackground = Color(0xFF0B0B0E); // Deep black base
   static const Color darkForeground = Color(0xFFF2F3F7); // High-contrast text
   static const Color darkCardBg = Color(0xFF17181D); // Card surface
-  static const Color darkSheetBg = Color(0xFF14151A); // Bottom sheets
+  static const Color darkSheetBg = Color(0xFF1D1D1D); // Sheet background
+  static const Color darkSheetElementBg = Color(0xFF252525); // Sheet element background
   static const Color darkInputBg = Color(0xFF1E1F25); // Input surface
   static const Color darkBorder = Color(0xFF40424A); // Primary outline
   static const Color darkBorderSubtle = Color(0xFF2B2D34); // Subtle outline
@@ -683,6 +695,15 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: darkBackground,
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: true),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: darkSheetBg,
+        modalBackgroundColor: darkSheetBg,
+        dragHandleColor: scheme.onSurface.withValues(alpha: 0.4),
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+      ),
     );
   }
 

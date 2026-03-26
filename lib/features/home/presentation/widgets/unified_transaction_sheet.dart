@@ -52,6 +52,7 @@ import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
 const bool _enableDebugLogs =
@@ -127,8 +128,9 @@ Future<void> showUnifiedTransactionSheet(
 
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor:
-        Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+    barrierColor: Colors.black.withValues(alpha: 0.5),
+    enableDrag: false,
+    useSafeArea: true,
     isScrollControlled: true,
     isDismissible: true,
     builder: (context) => _UnifiedTransactionSheet(
@@ -787,19 +789,19 @@ class _UnifiedTransactionSheetState
         maxHeight: MediaQuery.of(context).size.height * 0.95,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Scaffold(
         // Wrap content in Scaffold to get background color filling the sheet
-        backgroundColor: colorScheme.appleGroupedBackground,
+        backgroundColor: Colors.transparent,
         body: PopScope(
           canPop: !_isSaving && !_isDeleting,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Drag Handle (hidden for cleaner look or minimalist style)
-              const SizedBox(height: 12),
+              // Modal Sheet Drag Handle
+              const ModalSheetHandle(),
 
               // Header with Circle Icons
               Padding(
@@ -1932,7 +1934,7 @@ class _UnifiedTransactionSheetState
         context: context,
         isScrollControlled: true,
         backgroundColor:
-            Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
+            Theme.of(context).colorScheme.sheetBackground,
         builder: (context) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,

@@ -2476,5 +2476,20 @@
   "signInWithAppleCta": "使用 Apple 帳號繼續",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "正在啟用您的免費試用..."
+  "activatingFreeTrial": "正在啟用您的免費試用...",
+  "setupChecklist": "設定檢查清單",
+  "leftToDo": "剩餘 {count}",
+  "createAccountDescription": "註冊並開始管理你的財務",
+  "logExpense": "記錄支出",
+  "logExpenseDescription": "記錄第一筆支出並追蹤花費",
+  "logNow": "立即記錄",
+  "setRecurring": "定期項目",
+  "setRecurringDescription": "安排帳單與收入並自動追蹤",
+  "setUp": "設定",
+  "connectChat": "連接聊天",
+  "connectChatDescription": "連接通訊應用並與 AI 對話",
+  "connect": "連接",
+  "autoCaptureDescriptionIos": "啟用 Apple Pay 並自動記錄交易",
+  "autoCaptureDescriptionAndroid": "啟用通知並自動記錄交易",
+  "enable": "啟用"
 }

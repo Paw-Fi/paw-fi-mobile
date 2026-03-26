@@ -2549,5 +2549,20 @@
   "signInWithAppleCta": "เข้าสู่ระบบด้วย Apple",
   "pocketsForecastRecurringSpentTitle": "",
   "pocketsForecastRecurringSpentDescription": "",
-  "activatingFreeTrial": "กำลังเปิดใช้งานการทดลองใช้ฟรี..."
+  "activatingFreeTrial": "กำลังเปิดใช้งานการทดลองใช้ฟรี...",
+  "setupChecklist": "รายการตั้งค่า",
+  "leftToDo": "เหลือ {count}",
+  "createAccountDescription": "สมัครและเริ่มจัดการการเงินของคุณ",
+  "logExpense": "บันทึกรายจ่าย",
+  "logExpenseDescription": "บันทึกรายจ่ายแรกและติดตามการใช้เงิน",
+  "logNow": "บันทึกตอนนี้",
+  "setRecurring": "รายการประจำ",
+  "setRecurringDescription": "ตั้งค่ารายรับรายจ่ายและติดตามอัตโนมัติ",
+  "setUp": "ตั้งค่า",
+  "connectChat": "เชื่อมต่อแชท",
+  "connectChatDescription": "เชื่อมแอปแชทและคุยกับ AI",
+  "connect": "เชื่อมต่อ",
+  "autoCaptureDescriptionIos": "เปิด Apple Pay และบันทึกรายการอัตโนมัติ",
+  "autoCaptureDescriptionAndroid": "เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ",
+  "enable": "เปิดใช้งาน"
 }
