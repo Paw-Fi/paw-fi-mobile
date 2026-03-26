@@ -2527,5 +2527,7 @@
   "paywallPeriodMonth": "/Monat",
   "paywallPeriodYear": "/Jahr",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Play Store"
+  "paywallStoreLabelPlay": "Play Store",
+  "signInWithAppleLoading": "Anmeldung mit Apple läuft...",
+  "signInWithAppleCta": "Mit Apple fortfahren"
 }

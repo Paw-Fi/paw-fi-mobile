@@ -2473,5 +2473,7 @@
   "paywallPeriodMonth": "/ماہ",
   "paywallPeriodYear": "/سال",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Play Store"
+  "paywallStoreLabelPlay": "Play Store",
+  "signInWithAppleLoading": "Apple کے ساتھ سائن ان ہو رہا ہے...",
+  "signInWithAppleCta": "Apple کے ساتھ سائن ان کریں"
 }

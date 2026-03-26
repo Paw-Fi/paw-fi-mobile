@@ -2523,5 +2523,7 @@
   "paywallPeriodMonth": "/月",
   "paywallPeriodYear": "/年",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Google Play"
+  "paywallStoreLabelPlay": "Google Play",
+  "signInWithAppleLoading": "正在使用 Apple 账号登录...",
+  "signInWithAppleCta": "Apple 账号登录"
 }

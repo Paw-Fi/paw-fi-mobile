@@ -2477,5 +2477,7 @@
   "paywallPeriodMonth": "/мес",
   "paywallPeriodYear": "/год",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Play Маркет"
+  "paywallStoreLabelPlay": "Play Маркет",
+  "signInWithAppleLoading": "Вход через Apple...",
+  "signInWithAppleCta": "Войти через Apple"
 }

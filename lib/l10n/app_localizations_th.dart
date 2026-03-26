@@ -6631,4 +6631,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get paywallStoreLabelPlay => 'Play Store';
+
+  @override
+  String get signInWithAppleLoading => 'กำลังเข้าสู่ระบบด้วย Apple...';
+
+  @override
+  String get signInWithAppleCta => 'เข้าสู่ระบบด้วย Apple';
 }

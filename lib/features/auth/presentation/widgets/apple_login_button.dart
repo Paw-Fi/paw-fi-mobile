@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io' show Platform;
@@ -156,8 +157,8 @@ class AppleLoginButton extends HookConsumerWidget {
                 ),
           child: Text(
             isLoading.value
-                ? 'Signing in with Apple...'
-                : 'Continue with Apple',
+                  ? context.l10n.signInWithAppleLoading
+                  : context.l10n.signInWithAppleCta,
           ),
         ),
         if (error.value != null) ...[

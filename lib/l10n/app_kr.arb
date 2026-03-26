@@ -2340,5 +2340,7 @@
   "paywallPeriodMonth": "/월",
   "paywallPeriodYear": "/년",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Play 스토어"
+  "paywallStoreLabelPlay": "Play 스토어",
+  "signInWithAppleLoading": "Apple로 로그인 중...",
+  "signInWithAppleCta": "Apple로 계속하기"
 }

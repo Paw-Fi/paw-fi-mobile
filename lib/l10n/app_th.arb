@@ -2544,5 +2544,7 @@
   "paywallPeriodMonth": "/เดือน",
   "paywallPeriodYear": "/ปี",
   "paywallStoreLabelApple": "App Store",
-  "paywallStoreLabelPlay": "Play Store"
+  "paywallStoreLabelPlay": "Play Store",
+  "signInWithAppleLoading": "กำลังเข้าสู่ระบบด้วย Apple...",
+  "signInWithAppleCta": "เข้าสู่ระบบด้วย Apple"
 }
