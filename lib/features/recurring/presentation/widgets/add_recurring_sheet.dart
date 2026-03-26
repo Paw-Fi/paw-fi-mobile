@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -994,18 +995,41 @@ class AddRecurringSheet extends HookConsumerWidget {
           ? l10n.skip
           : l10n.skipNextOccurrence;
 
-      final choice = await MonekoAlertDialog.show(
+      MonekoAlertDialogAction? choice;
+      
+      await AdaptiveAlertDialog.show(
         context: context,
         title: l10n.deleteRecurringTransaction,
-        description: l10n.deleteRecurringChoiceDescription,
-        confirmLabel: deleteEntireSeriesLabel,
-        secondaryLabel: skipNextOccurrenceLabel,
-        cancelLabel: l10n.cancel,
-        isDestructive: true,
-        barrierDismissible: true,
+        message: l10n.deleteRecurringChoiceDescription,
+        actions: [
+          AlertAction(
+            title: skipNextOccurrenceLabel,
+            style: AlertActionStyle.destructive,
+            onPressed: () async {
+              choice = MonekoAlertDialogAction.secondary;
+              Navigator.pop(context);
+            },
+          ),
+          AlertAction(
+            title: deleteEntireSeriesLabel,
+            style: AlertActionStyle.cancel,
+            onPressed: () async {
+              choice = MonekoAlertDialogAction.confirm;
+              Navigator.pop(context);
+            },
+          ),
+          AlertAction(
+            title: l10n.cancel,
+            style: AlertActionStyle.secondary,
+            onPressed: () async {
+              choice = MonekoAlertDialogAction.cancel;
+              Navigator.pop(context);
+            },
+          ),
+        ],
       );
 
-      if (choice == null || choice.action == MonekoAlertDialogAction.cancel) {
+      if (choice == null || choice == MonekoAlertDialogAction.cancel) {
         return;
       }
 
@@ -1027,8 +1051,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         dialogOpen = false;
       }
 
-      final isSkipOccurrence =
-          choice.action == MonekoAlertDialogAction.secondary;
+      final isSkipOccurrence = choice == MonekoAlertDialogAction.secondary;
 
       showBlockingProcessingDialog(
         context: toastContext,

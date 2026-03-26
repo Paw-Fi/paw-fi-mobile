@@ -14,6 +14,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 Future<void> showTextInputDrawer(
   BuildContext parentContext,
@@ -26,6 +27,9 @@ Future<void> showTextInputDrawer(
 
   return showModalBottomSheet<void>(
     context: parentContext,
+    barrierColor: Colors.black.withValues(alpha: 0.5),
+    enableDrag: false,
+    useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: colorScheme.sheetBackground,
     builder: (modalContext) => _TextInputContent(
@@ -215,7 +219,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     return Container(
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: scheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
@@ -236,18 +240,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: scheme.outlineVariant,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            // Modal Sheet Drag Handle
+            const ModalSheetHandle(),
 
             // Header row
             Row(
@@ -315,7 +309,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                         borderSide: BorderSide(color: scheme.primary),
                       ),
                       filled: true,
-                      fillColor: scheme.surfaceContainerLow,
+                      fillColor: scheme.sheetElementBackground,
                     ),
                   ),
 
@@ -324,7 +318,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                     Positioned.fill(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: scheme.surface,
+                          color: scheme.sheetElementBackground,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: _RecordingVisualizer(
@@ -479,7 +473,7 @@ class _RecordingVisualizerState extends State<_RecordingVisualizer> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: widget.colorScheme.surfaceContainerLow,
+        color: widget.colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: widget.colorScheme.outlineVariant),
       ),

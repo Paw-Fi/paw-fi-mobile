@@ -8,6 +8,7 @@ import 'package:moneko/features/home/presentation/constants/category_constants.d
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 class CategoryPickerBottomSheet extends StatelessWidget {
   const CategoryPickerBottomSheet({
@@ -154,7 +155,7 @@ class CategoryPicker extends HookWidget {
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.appBackground,
+          color: Theme.of(context).colorScheme.sheetBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
@@ -164,6 +165,13 @@ class CategoryPicker extends HookWidget {
             onTap: () => FocusScope.of(context).unfocus(),
             child: Stack(
               children: [
+                // Modal Sheet Drag Handle
+                const Positioned(
+                  top: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: ModalSheetHandle()),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                   child: Column(
@@ -201,8 +209,7 @@ class CategoryPicker extends HookWidget {
                                       button: true,
                                       label: normalizedCreateKey,
                                       child: Material(
-                                        color: colorScheme.surface
-                                            .withValues(alpha: 0.0),
+                                        color: colorScheme.sheetElementBackground,
                                         borderRadius: BorderRadius.circular(14),
                                         child: InkWell(
                                           borderRadius:
@@ -227,8 +234,7 @@ class CategoryPicker extends HookWidget {
                                               vertical: 12,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.surface
-                                                  .withValues(alpha: 0.0),
+                                              color: colorScheme.sheetElementBackground,
                                               borderRadius:
                                                   BorderRadius.circular(14),
                                               border: Border.all(
@@ -595,7 +601,7 @@ class _CategoryTile extends StatelessWidget {
     );
 
     final circleColor =
-        isSelected ? color : colorScheme.surface.withValues(alpha: 0.0);
+        isSelected ? color : colorScheme.sheetElementBackground;
     final iconColor = isSelected
         ? colorScheme.primaryForeground
         : color.withValues(alpha: 0.4);

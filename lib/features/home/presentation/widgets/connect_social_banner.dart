@@ -15,12 +15,16 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/features/utils/currency.dart';
 
 final walletCaptureEnabledProvider =
@@ -42,8 +46,17 @@ final walletCaptureEnabledProvider =
   }
 });
 
-const double _bannerCardWidth = 200;
-const double _bannerCardHeight = 190;
+const double _bannerCardWidth = 195;
+const double _bannerCardHeight = 185;
+
+const bool _enableDebugLogs =
+    bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+void _debugPrint(String? message) {
+  if (kDebugMode && _enableDebugLogs) {
+    debugPrint(message);
+  }
+}
 
 class ConnectSocialBanner extends ConsumerWidget {
   const ConnectSocialBanner({super.key});
@@ -61,6 +74,57 @@ class ConnectSocialBanner extends ConsumerWidget {
     final telegramAsync = ref.watch(telegramBindingProvider);
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
     final selectedCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
+    final householdScope = ref.watch(householdScopeProvider);
+
+    final recurringHouseholdId = switch (householdScope.activeAccountType) {
+      ActiveAccountType.personal => null,
+      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveAccountType.household => householdScope.selectedHouseholdId,
+    };
+
+    final recurringState =
+        ref.watch(recurringTransactionsProvider(recurringHouseholdId));
+    final recurringExpensesAsync =
+        ref.watch(recurringExpensesProvider(recurringHouseholdId));
+
+    final shouldTriggerPreviewLoad = ref.watch(previewModeProvider).isActive &&
+        !recurringState.hasLoadedOnce &&
+        !recurringState.data.isLoading;
+
+    if ((authState.uid.isNotEmpty || shouldTriggerPreviewLoad) &&
+        !recurringState.hasLoadedOnce &&
+        !recurringState.data.isLoading) {
+      Future.microtask(() {
+        ref
+            .read(recurringTransactionsProvider(recurringHouseholdId).notifier)
+            .loadRecurringTransactions(
+              authState.uid.isNotEmpty
+                  ? authState.uid
+                  : PreviewMockData.contact.userId ?? 'preview-user',
+            );
+      });
+    }
+
+    final isBannerReady = analyticsData.hasLoadedOnce == true &&
+        !analyticsData.isLoading &&
+        !whatsappAsync.isLoading &&
+        !telegramAsync.isLoading &&
+        !walletCaptureAsync.isLoading &&
+        recurringState.hasLoadedOnce &&
+        !recurringState.data.isLoading;
+
+    if (!isBannerReady) {
+      _debugPrint(
+        '[ConnectSocialBanner] waiting analyticsLoaded=${analyticsData.hasLoadedOnce} '
+        'analyticsLoading=${analyticsData.isLoading} '
+        'whatsappLoading=${whatsappAsync.isLoading} '
+        'telegramLoading=${telegramAsync.isLoading} '
+        'walletLoading=${walletCaptureAsync.isLoading} '
+        'recurringLoaded=${recurringState.hasLoadedOnce} '
+        'recurringLoading=${recurringState.data.isLoading}',
+      );
+      return const SizedBox.shrink();
+    }
 
     final whatsappConnected = whatsappAsync.valueOrNull ?? false;
     final telegramConnected = telegramAsync.valueOrNull ?? false;
@@ -71,6 +135,7 @@ class ConnectSocialBanner extends ConsumerWidget {
       context: context,
       authState: authState,
       analyticsData: analyticsData,
+      recurringExpensesAsync: recurringExpensesAsync,
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
       onCreateAccount: () => _openRegister(context),
@@ -89,6 +154,15 @@ class ConnectSocialBanner extends ConsumerWidget {
         builder: (context) => const ConnectSocialBottomSheet(),
       ),
       onEnableCapture: () => _openCaptureFlow(context),
+    );
+
+    _debugPrint(
+      '[ConnectSocialBanner] scope=$recurringHouseholdId '
+      'loaded=${recurringState.hasLoadedOnce} '
+      'loading=${recurringState.data.isLoading} '
+      'stateCount=${recurringState.data.valueOrNull?.length ?? 0} '
+      'expensesCount=${recurringExpensesAsync.valueOrNull?.length ?? 0} '
+      'error=${recurringState.data.hasError}',
     );
 
     final incompleteCount = steps.where((step) => !step.completed).length;
@@ -117,10 +191,10 @@ class ConnectSocialBanner extends ConsumerWidget {
                 child: Text(
                   context.l10n.setupChecklist,
                   style: TextStyle(
-                   fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: colorScheme.foreground,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    color: colorScheme.foreground,
                   ),
                 ),
               ),
@@ -201,6 +275,7 @@ class ConnectSocialBanner extends ConsumerWidget {
     required BuildContext context,
     required AppUser authState,
     required AnalyticsData analyticsData,
+    required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
     required VoidCallback onCreateAccount,
@@ -212,8 +287,9 @@ class ConnectSocialBanner extends ConsumerWidget {
     final hasTransactionLogged = analyticsData.allExpenses.any(
       (transaction) => !transaction.isRecurring,
     );
-    final hasRecurringExpense = analyticsData.allExpenses.any(
-      (transaction) => transaction.isRecurring,
+    final hasRecurringExpense = recurringExpensesAsync.maybeWhen(
+      data: (transactions) => transactions.isNotEmpty,
+      orElse: () => false,
     );
     final createAccountCompleted = authState.uid.isNotEmpty;
     final captureTitle = defaultTargetPlatform == TargetPlatform.iOS ||
@@ -221,58 +297,58 @@ class ConnectSocialBanner extends ConsumerWidget {
         ? context.l10n.applePayIntegration
         : context.l10n.autoCapture;
 
-   return [
-  _ChecklistStep(
-    sortOrder: 0,
-    title: context.l10n.createAccount,
-    description: context.l10n.createAccountDescription,
-    buttonLabel: context.l10n.getStarted,
-    completed: createAccountCompleted,
-    icon: Icons.person_add_alt_1_rounded,
-    onTap: createAccountCompleted ? null : onCreateAccount,
-  ),
-  _ChecklistStep(
-    sortOrder: 1,
-    title: context.l10n.logExpense,
-    description: context.l10n.logExpenseDescription,
-    buttonLabel: context.l10n.logNow,
-    completed: hasTransactionLogged,
-    icon: Icons.receipt_long_rounded,
-    onTap: hasTransactionLogged ? null : onLogExpense,
-  ),
-  _ChecklistStep(
-    sortOrder: 2,
-    title: context.l10n.setRecurring,
-    description: context.l10n.setRecurringDescription,
-    buttonLabel: context.l10n.setUp,
-    completed: hasRecurringExpense,
-    icon: Icons.repeat_rounded,
-    onTap: hasRecurringExpense ? null : onRecurringExpense,
-  ),
-  _ChecklistStep(
-    sortOrder: 3,
-    title: context.l10n.connectChat,
-    description: context.l10n.connectChatDescription,
-    buttonLabel: context.l10n.connect,
-    completed: messagingConnected,
-    icon: Icons.chat_bubble_outline_rounded,
-    onTap: messagingConnected ? null : onConnectMessaging,
-  ),
-  _ChecklistStep(
-    sortOrder: 4,
-    title: context.l10n.autoCapture,
-    description: Platform.isIOS
-        ? context.l10n.autoCaptureDescriptionIos
-        : context.l10n.autoCaptureDescriptionAndroid,
-    buttonLabel: context.l10n.enable,
-    completed: walletCaptureEnabled,
-    icon: defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.macOS
-        ? Icons.account_balance_wallet_outlined
-        : Icons.notifications_active_outlined,
-    onTap: walletCaptureEnabled ? null : onEnableCapture,
-  ),
-];
+    return [
+      _ChecklistStep(
+        sortOrder: 0,
+        title: context.l10n.createAccount,
+        description: context.l10n.createAccountDescription,
+        buttonLabel: context.l10n.getStarted,
+        completed: createAccountCompleted,
+        icon: Icons.person_add_alt_1_rounded,
+        onTap: createAccountCompleted ? null : onCreateAccount,
+      ),
+      _ChecklistStep(
+        sortOrder: 1,
+        title: context.l10n.logExpense,
+        description: context.l10n.logExpenseDescription,
+        buttonLabel: context.l10n.logNow,
+        completed: hasTransactionLogged,
+        icon: Icons.receipt_long_rounded,
+        onTap: hasTransactionLogged ? null : onLogExpense,
+      ),
+      _ChecklistStep(
+        sortOrder: 2,
+        title: context.l10n.setRecurring,
+        description: context.l10n.setRecurringDescription,
+        buttonLabel: context.l10n.setUp,
+        completed: hasRecurringExpense,
+        icon: Icons.repeat_rounded,
+        onTap: hasRecurringExpense ? null : onRecurringExpense,
+      ),
+      _ChecklistStep(
+        sortOrder: 3,
+        title: context.l10n.connectChat,
+        description: context.l10n.connectChatDescription,
+        buttonLabel: context.l10n.connect,
+        completed: messagingConnected,
+        icon: Icons.chat_bubble_outline_rounded,
+        onTap: messagingConnected ? null : onConnectMessaging,
+      ),
+      _ChecklistStep(
+        sortOrder: 4,
+        title: captureTitle,
+        description: Platform.isIOS
+            ? context.l10n.autoCaptureDescriptionIos
+            : context.l10n.autoCaptureDescriptionAndroid,
+        buttonLabel: context.l10n.enable,
+        completed: walletCaptureEnabled,
+        icon: defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.macOS
+            ? Icons.account_balance_wallet_outlined
+            : Icons.notifications_active_outlined,
+        onTap: walletCaptureEnabled ? null : onEnableCapture,
+      ),
+    ];
   }
 }
 
@@ -332,21 +408,21 @@ class _ChecklistStepCard extends StatelessWidget {
             width: 55,
             height: 55,
             decoration: BoxDecoration(
-              color: step.completed 
+              color: step.completed
                   ? colorScheme.surface.withValues(alpha: 0.5)
                   : colorScheme.card,
               shape: BoxShape.circle,
               border: Border.all(
-                  color: step.completed 
+                  color: step.completed
                       ? colorScheme.border.withValues(alpha: 0.5)
-                      : colorScheme.border, 
+                      : colorScheme.border,
                   width: 1),
             ),
             alignment: Alignment.center,
             child: Icon(
               step.completed ? Icons.check_rounded : step.icon,
               size: 22,
-              color: step.completed 
+              color: step.completed
                   ? colorScheme.mutedForeground
                   : colorScheme.foreground,
             ),
@@ -360,7 +436,7 @@ class _ChecklistStepCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: step.completed 
+              color: step.completed
                   ? colorScheme.mutedForeground
                   : colorScheme.foreground,
               height: 1.08,
@@ -388,12 +464,13 @@ class _ChecklistStepCard extends StatelessWidget {
                     onPressed: null,
                     style: OutlinedButton.styleFrom(
                       side: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.5), 
+                          color: colorScheme.border.withValues(alpha: 0.5),
                           width: 1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      backgroundColor: colorScheme.surface.withValues(alpha: 0.5),
+                      backgroundColor:
+                          colorScheme.surface.withValues(alpha: 0.5),
                     ),
                     child: Text(
                       context.l10n.done,
@@ -405,7 +482,7 @@ class _ChecklistStepCard extends StatelessWidget {
                     ),
                   )
                 : ElevatedButton(
-                    onPressed: (){
+                    onPressed: () {
                       step.onTap?.call();
                       HapticFeedback.lightImpact();
                     },
