@@ -6,7 +6,7 @@ const rootDir = new URL('.', import.meta.url).pathname;
 const l10nDir = path.join(rootDir, 'lib', 'l10n');
 
 // Configuration: Set to true to replace existing keys, false to skip them
-const REPLACE_EXISTING_KEYS = false;
+const REPLACE_EXISTING_KEYS = true;
 
 const localeToFile = {
   de: 'app_de.arb',

@@ -19,6 +19,7 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
+import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:go_router/go_router.dart';
@@ -205,7 +206,7 @@ class PaywallScreen extends HookConsumerWidget {
           lower.contains('belongs to another account')) {
         return message.isNotEmpty
             ? message
-            : 'This App Store purchase is already linked to another Moneko account.';
+            : context.l10n.paywallErrorPurchaseOwnedByAnotherAccount;
       }
       if (lower.contains('cancel')) {
         return context.l10n.paywallErrorPurchaseCancelled;
@@ -1318,15 +1319,19 @@ class PaywallScreen extends HookConsumerWidget {
                                                 activePlanOption
                                                             .billingInterval ==
                                                         'monthly'
-                                                    ? '/month'
-                                                    : '/year')
+                                                    ? context
+                                                        .l10n.paywallPeriodMonth
+                                                    : context
+                                                        .l10n.paywallPeriodYear)
                                             : context.l10n.paywallSubTerms(
                                                 activePlanOption.priceDisplay,
                                                 activePlanOption
                                                             .billingInterval ==
                                                         'monthly'
-                                                    ? '/month'
-                                                    : '/year'),
+                                                    ? context
+                                                        .l10n.paywallPeriodMonth
+                                                    : context.l10n
+                                                        .paywallPeriodYear),
                                         style: TextStyle(
                                           color: colorScheme.mutedForeground,
                                           fontSize: 12,
@@ -1671,7 +1676,7 @@ class _AppRatingBadge extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${PlatformInfo.isIOS ? 'App Store' : 'Play Store'} ${context.l10n.paywallRatingSuffix}',
+                  '${PlatformInfo.isIOS ? context.l10n.paywallStoreLabelApple : context.l10n.paywallStoreLabelPlay} ${context.l10n.paywallRatingSuffix}',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -1787,8 +1792,8 @@ class _ReviewsSection extends StatelessWidget {
     final selectedReviews = [
       appStoreReviews.firstWhere((r) =>
           r.id == 'review-004'), // Really good budgeting app! Clean, simple.
-      appStoreReviews.firstWhere(
-          (r) => r.id == 'review-002'), // Shared expenses, simple, AI features
+      appStoreReviews
+          .firstWhere((r) => r.id == 'review-019'), // Envelope budgeting
       appStoreReviews.firstWhere((r) =>
           r.id ==
           'review-010'), // WhatsApp integration, AI automatically does everything
@@ -1806,71 +1811,14 @@ class _ReviewsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        ...selectedReviews.map((review) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: scheme.outlineVariant.withValues(alpha: 0.3),
+        ...selectedReviews
+            .map(
+              (review) => AppStoreReviewCard(
+                review: review,
+                margin: const EdgeInsets.only(bottom: 16),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        review.title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: List.generate(
-                        review.rating,
-                        (index) => const Icon(
-                          Icons.star_rounded,
-                          color: Color(0xFFFCB860),
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      review.reviewerNickname,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  review.body,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: scheme.onSurface.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
+            )
+            .toList(),
       ],
     );
   }

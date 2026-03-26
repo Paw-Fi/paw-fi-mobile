@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
-const kOnboardingPreauthFlowVersion = 5;
+const kOnboardingPreauthFlowVersion = 6;
 
 const _kPreauthDraftKey = 'onboarding_preauth_draft_v2';
 const _kPreauthCompletedKey = 'onboarding_preauth_completed';

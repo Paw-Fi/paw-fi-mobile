@@ -267,8 +267,8 @@ GoRouter router(RouterRef ref) {
         final isOnAuthPage = state.matchedLocation == '/login' ||
             state.matchedLocation == '/register' ||
             state.matchedLocation.startsWith('/auth/callback');
-        final isOnPreOnboardingPage =
-            state.matchedLocation == '/onboarding' && (onboardingStage == 'pre' || onboardingStage == 'save_budget');
+        final isOnPreOnboardingPage = state.matchedLocation == '/onboarding' &&
+            (onboardingStage == 'pre' || onboardingStage == 'save_budget');
         final isOnPrepareOnboardingPage =
             state.matchedLocation == '/onboarding' &&
                 onboardingStage == 'prepare';
@@ -314,7 +314,21 @@ GoRouter router(RouterRef ref) {
             }
             // Always check onboarding first
             if (!hasOnboarded) {
-              return '/onboarding?stage=post';
+              if (kIsWeb) {
+                return '/onboarding?stage=post';
+              }
+              if (!isSubscriptionLoaded) {
+                return null;
+              }
+              if (hasSubscription) {
+                return '/onboarding?stage=post';
+              }
+              final everSubscribed =
+                  prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+              if (everSubscribed) {
+                return '/paywall?mode=resubscribe';
+              }
+              return '/paywall?mode=trial';
             }
             // On web: skip paywall and go straight to dashboard
             if (kIsWeb) {
@@ -384,6 +398,36 @@ GoRouter router(RouterRef ref) {
           return '/onboarding?stage=prepare';
         }
 
+        if (!isPreview &&
+            isAuthenticated &&
+            isPreauthSynced &&
+            !hasOnboarded &&
+            !isOnPrepareOnboardingPage &&
+            !isOnPostOnboardingPage &&
+            !isOnAuthPage &&
+            !isOnSplashPage) {
+          if (kIsWeb) {
+            return '/onboarding?stage=post';
+          }
+
+          if (!isSubscriptionLoaded) {
+            return null;
+          }
+
+          if (!hasSubscription && !isOnPaywallPage && !isOnPlanSelectionPage) {
+            final everSubscribed =
+                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+            if (everSubscribed) {
+              return '/paywall?mode=resubscribe';
+            }
+            return '/paywall?mode=trial';
+          }
+
+          if (hasSubscription) {
+            return '/onboarding?stage=post';
+          }
+        }
+
         // Allow paywall page for authenticated users (mobile only)
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
           return null;
@@ -413,7 +457,21 @@ GoRouter router(RouterRef ref) {
           }
           // Always prioritize onboarding
           if (!hasOnboarded) {
-            return '/onboarding?stage=post';
+            if (kIsWeb) {
+              return '/onboarding?stage=post';
+            }
+            if (!isSubscriptionLoaded) {
+              return null;
+            }
+            if (hasSubscription) {
+              return '/onboarding?stage=post';
+            }
+            final everSubscribed =
+                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+            if (everSubscribed) {
+              return '/paywall?mode=resubscribe';
+            }
+            return '/paywall?mode=trial';
           }
           // If subscription is still loading, allow navigation (don't redirect yet)
           if (!isSubscriptionLoaded) {

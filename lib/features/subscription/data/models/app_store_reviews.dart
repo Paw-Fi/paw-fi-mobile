@@ -191,4 +191,24 @@ const List<AppStoreReview> appStoreReviews = [
     createdDate: "2026-02-03T16:45:00-08:00",
     territory: "VNM",
   ),
+  AppStoreReview(
+    id: "review-018",
+    rating: 5,
+    title: "Actively Developed",
+    body:
+        "This app actively receives updates, and the developer is extremely responsive over on Reddit. It's also a lot more budget friendly than other apps which charge exorbitant fees for anyone who doesn't have a lot of disposable income. There's even a lifetime plan for a fair price. My personal favorite thing though is that while it's not quite on par with other apps in terms of features like automation and syncing, it's moving very fast in that direction, and I have hope that it'll be a top option soon.",
+    reviewerNickname: "Maple382",
+    createdDate: "2026-03-14T12:00:00-08:00",
+    territory: "USA",
+  ),
+  AppStoreReview(
+    id: "review-019",
+    rating: 5,
+    title: "Envelope budgeting",
+    body:
+        "Really fantastic budgeting app — straightforward, easy to use and integrate, helpful. The interface is very natural and it all works very smoothly.",
+    reviewerNickname: "User34862",
+    createdDate: "2026-02-19T12:00:00-08:00",
+    territory: "USA",
+  ),
 ];

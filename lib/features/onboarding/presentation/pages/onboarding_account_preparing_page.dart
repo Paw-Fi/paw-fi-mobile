@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -77,7 +78,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final progress = useState(0.0);
-    final progressLabel = useState('Preparing your account...');
+    final progressLabel =
+        useState(context.l10n.onboardingPreparingProgressInitial);
     final setupError = useState<String?>(null);
     final isDone = useState(false);
     final didStart = useState(false);
@@ -424,7 +426,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
 
       setProgressState(
-        label: 'Saving your preferences...',
+        label: context.l10n.onboardingPreparingProgressSavingPreferences,
         progressValue: 0.2,
       );
 
@@ -445,7 +447,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
 
       setProgressState(
-        label: 'Applying currency and defaults...',
+        label: context.l10n.onboardingPreparingProgressApplyingDefaults,
         progressValue: 0.55,
       );
 
@@ -547,7 +549,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       if (!context.mounted) return;
 
       setProgressState(
-        label: 'Finalizing your setup...',
+        label: context.l10n.onboardingPreparingProgressFinalizing,
         progressValue: 0.85,
       );
 
@@ -567,8 +569,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         if (recommendation.hasBlockingError) {
           setProgressState(
             progressValue: 0.85,
-            label:
-                'Building your essentials-first plan from your fixed costs...',
+            label: context.l10n.onboardingPreparingProgressEssentialsFallback,
             done: false,
           );
         }
@@ -680,8 +681,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           setProgressState(
             progressValue: 0.85,
             label: canUseDashboardFallback
-                ? 'We could not finish starter pockets right now. Open dashboard to continue.'
-                : 'Almost done - we hit a small hiccup creating your starter pockets. Tap try again.',
+                ? context.l10n.onboardingPreparingProgressErrorDashboard
+                : context.l10n.onboardingPreparingProgressErrorRetry,
             done: false,
           );
           setupError.value = canUseDashboardFallback
@@ -719,7 +720,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
       setProgressState(
         progressValue: 1.0,
-        label: 'Your account is ready.',
+        label: context.l10n.onboardingPreparingProgressReady,
         done: true,
       );
     }
@@ -759,10 +760,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 const SizedBox(height: 18),
                 Text(
                   setupError.value != null
-                      ? 'Almost there!'
+                      ? context.l10n.onboardingPreparingTitleError
                       : isDone.value
-                          ? 'Setup complete'
-                          : 'Preparing your account',
+                          ? context.l10n.onboardingPreparingTitleDone
+                          : context.l10n.onboardingPreparingTitleLoading,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 26,
@@ -774,11 +775,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 Text(
                   setupError.value != null
                       ? (setupError.value == 'budget_validation_failed'
-                          ? 'Great start - your essentials plan is ready to refine. Open the dashboard and we will guide your next step.'
-                          : 'You are very close - tap try again and we will finish setting everything up.')
+                          ? context.l10n.onboardingPreparingBodyErrorDashboard
+                          : context.l10n.onboardingPreparingBodyErrorRetry)
                       : isDone.value
-                          ? 'We synced your choices and personalized your setup.'
-                          : 'Hang tight - we are syncing your choices and personalizing your setup.',
+                          ? context.l10n.onboardingPreparingBodyDone
+                          : context.l10n.onboardingPreparingBodyLoading,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -814,7 +815,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                     ignoring: !isPrimaryActionEnabled,
                     child: PrimaryAdaptiveButton(
                       onPressed: isDone.value
-                          ? () => context.go('/onboarding?stage=post')
+                          ? () => context.go('/dashboard')
                           : setupError.value == 'budget_validation_failed'
                               ? () => context.go('/dashboard')
                               : setupError.value != null
@@ -822,10 +823,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                                   : null,
                       child: Text(
                         setupError.value == 'budget_validation_failed'
-                            ? 'Open dashboard'
+                            ? context.l10n.onboardingPreparingCtaOpenDashboard
                             : setupError.value != null
-                                ? 'Try again'
-                                : 'Continue',
+                                ? context.l10n.onboardingPreparingCtaTryAgain
+                                : context.l10n.continueAction,
                       ),
                     ),
                   ),

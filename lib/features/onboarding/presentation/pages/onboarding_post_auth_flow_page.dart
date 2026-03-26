@@ -112,7 +112,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }, [currentPage.value, fromSettings]);
 
     useEffect(() {
-      unawaited(_maybeShowOnboardingReviewPrompt(ref, fromSettings: fromSettings));
+      unawaited(
+          _maybeShowOnboardingReviewPrompt(ref, fromSettings: fromSettings));
       return null;
     }, [fromSettings]);
 
@@ -267,7 +268,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> handleImportExpenses() async {
-      if (selectedImportApp.value == 'Not using an app') {
+      final notUsingAnApp = context.l10n.notUsingAnApp;
+      if (selectedImportApp.value == notUsingAnApp) {
         await analytics.trackAction(
           flowName: 'onboarding_funnel',
           pageId: _postAuthPageId(1),
@@ -392,7 +394,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       0 => loggedExpensePreview.value == null
           ? context.l10n.addExpense
           : context.l10n.continueAction,
-      1 => selectedImportApp.value == 'Not using an app'
+      1 => selectedImportApp.value == context.l10n.notUsingAnApp
           ? context.l10n.continueAction
           : context.l10n.importExpenses,
       2 => context.l10n.turnOnNotifications,
@@ -537,14 +539,14 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       properties: const <String, Object?>{
         'step_group': 'post_auth',
         'step_key': 'notifications',
-        'next_route': '/paywall',
+        'next_route': '/dashboard',
       },
     );
     await analytics.endPage(
       reason: 'post_auth_completed',
-      transitionTo: 'paywall',
+      transitionTo: 'dashboard',
     );
-    context.go('/paywall');
+    context.go('/dashboard');
   }
 }
 
@@ -812,7 +814,8 @@ Future<void> _showLoggedExpenseResultSheet(
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        item.description ?? 'Item ${index + 1}',
+                                        item.description ??
+                                            context.l10n.unknown,
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w600,
@@ -1025,7 +1028,7 @@ class _LoggedExpenseInlineSummary extends StatelessWidget {
 
     final itemCount = preview.items.length;
     final subtitleText = itemCount > 1
-        ? '$itemCount transactions extracted'
+        ? context.l10n.onboardingPostAuthExpenseExtractedMultiple(itemCount)
         : preview.description;
 
     return Container(
@@ -1390,6 +1393,6 @@ List<String> _kImportApps(BuildContext context) => <String>[
       'Copilot',
       'PocketGuard',
       'Splitwise',
-      'Other',
+      context.l10n.other,
       context.l10n.notUsingAnApp,
     ];

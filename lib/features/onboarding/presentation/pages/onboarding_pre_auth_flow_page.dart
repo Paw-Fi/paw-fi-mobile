@@ -7,6 +7,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -21,10 +22,12 @@ import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_question_steps.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pocket_card.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
@@ -32,16 +35,24 @@ const _kStepHousingSituation = 0;
 const _kStepBillSplit = 1;
 const _kStepSubscriptions = 2;
 const _kStepEatingOut = 3;
-const _kStepLifestyle = 4;
-const _kStepGoal = 5;
-const _kStepSavingsTarget = 6;
-const _kStepCurrency = 7;
-const _kStepCalculating = 8;
-const _kStepStarter = 9;
+const _kStepTestimonial = 4;
+const _kStepLifestyle = 5;
+const _kStepGoal = 6;
+const _kStepSavingsTarget = 7;
+const _kStepCurrency = 8;
+const _kStepCalculating = 9;
+const _kStepStarter = 10;
 const _kQuestionStepCount = 8;
-const _kTotalPreAuthSteps = 10;
+const _kTotalPreAuthSteps = 11;
 
-int _migratePreauthStepIndex(int legacyStep) {
+int _migratePreauthStepIndex(int legacyStep, int flowVersion) {
+  if (flowVersion == 5) {
+    if (legacyStep >= 4 && legacyStep <= 9) {
+      return legacyStep + 1;
+    }
+    return legacyStep.clamp(0, _kTotalPreAuthSteps - 1);
+  }
+
   switch (legacyStep) {
     case 0:
     case 1:
@@ -101,6 +112,8 @@ String _preauthPageId(int step) {
       return 'preauth_subscriptions';
     case _kStepEatingOut:
       return 'preauth_eating_out';
+    case _kStepTestimonial:
+      return 'preauth_testimonial';
     case _kStepLifestyle:
       return 'preauth_lifestyle';
     case _kStepGoal:
@@ -151,7 +164,8 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       final store = ref.read(onboardingPreauthDraftStoreProvider);
       var draft = store.load();
       if (draft.flowVersion < kOnboardingPreauthFlowVersion) {
-        final migratedStep = _migratePreauthStepIndex(draft.currentStep);
+        final migratedStep =
+            _migratePreauthStepIndex(draft.currentStep, draft.flowVersion);
         final shouldResetCurrency = draft.flowVersion < 5 &&
             draft.currentStep <= _kStepCurrency &&
             draft.selectedCurrency.trim().toUpperCase() == 'USD';
@@ -245,7 +259,6 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> next() async {
-
       if (currentPage.value < totalSteps - 1) {
         if (currentPage.value == _kStepStarter) {
           await flushPendingBudgetDraft();
@@ -372,8 +385,10 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(999),
                           child: LinearProgressIndicator(
-                            value: ((currentPage.value + 1) / progressStepCount)
-                                .clamp(0.0, 1.0),
+                            value:
+                                ((_preauthProgressStep(currentPage.value) + 1) /
+                                        progressStepCount)
+                                    .clamp(0.0, 1.0),
                             minHeight: 10,
                             backgroundColor: colorScheme.mutedForeground
                                 .withValues(alpha: 0.25),
@@ -475,6 +490,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                         );
                       },
                     ),
+                    const _PreAuthTestimonialStep(),
                     _PreAuthLifestyleStep(
                       selectedLifestyle: draftState.value.lifestyleFocus,
                       hasAnswered:
@@ -576,9 +592,9 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
                               ? () => unawaited(next())
                               : null,
                           child: Text(
-                            context.l10n.continueAction,
+                            context.l10n.next,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -618,6 +634,19 @@ bool _canContinuePreAuth({
     return draft.selectedCurrency.trim().isNotEmpty;
   }
   return true;
+}
+
+int _preauthProgressStep(int step) {
+  if (step <= _kStepEatingOut) {
+    return step;
+  }
+  if (step == _kStepTestimonial) {
+    return _kStepEatingOut;
+  }
+  if (step <= _kStepCurrency) {
+    return step - 1;
+  }
+  return _kQuestionStepCount - 1;
 }
 
 OnboardingQuestionStep _sharedQuestionStep(int index) =>
@@ -718,6 +747,54 @@ class _PreAuthSubscriptionsStep extends StatelessWidget {
       options: _sharedQuestionOptions(context, 2),
       selectedValue: hasAnswered ? selectedLevel : '',
       onChanged: onChanged,
+    );
+  }
+}
+
+class _PreAuthTestimonialStep extends StatelessWidget {
+  const _PreAuthTestimonialStep();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final sarahReview = appStoreReviews.firstWhere(
+      (review) => review.id == 'review-002',
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.onboardingPreauthTestimonialTitle,
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.onboardingPreauthTestimonialSubtitle,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: SvgPicture.asset(
+              'lib/assets/images/onboarding/testimonial.svg',
+              height: 190,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 24),
+          AppStoreReviewCard(
+            review: sarahReview,
+          ),
+        ],
+      ),
     );
   }
 }
