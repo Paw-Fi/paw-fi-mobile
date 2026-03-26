@@ -1282,7 +1282,14 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     Future<void> onRestorePurchases() async {
+      Future<void> refreshSubscriptionState() async {
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        await ref.read(subscriptionNotifierProvider.notifier).refresh();
+      }
+
       didInitiateRestore.value = true;
+      lastIapErrorShown.value = null;
+      didSeeIapProcessing.value = false;
       await analytics.trackAction(
         flowName: 'onboarding_funnel',
         pageId: 'paywall',
@@ -1303,10 +1310,15 @@ class PaywallScreen extends HookConsumerWidget {
 
       try {
         if (useIap) {
+          final iapState = iapStateAsync.valueOrNull;
+          if (iapState == null || !iapState.storeAvailable) {
+            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+          }
+
           await ref.read(iapControllerProvider.notifier).restorePurchases();
         }
 
-        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        await refreshSubscriptionState();
 
         var refreshedSubscription =
             ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
@@ -1318,7 +1330,7 @@ class PaywallScreen extends HookConsumerWidget {
         if (useIap && !isRestored && restoreError.isEmpty) {
           for (var attempt = 0; attempt < 5; attempt++) {
             await Future<void>.delayed(const Duration(seconds: 1));
-            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            await refreshSubscriptionState();
             refreshedSubscription = ref
                 .read(subscriptionManagementProvider)
                 .valueOrNull
