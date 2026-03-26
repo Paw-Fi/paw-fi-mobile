@@ -2546,5 +2546,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "กำลังเข้าสู่ระบบด้วย Apple...",
-  "signInWithAppleCta": "เข้าสู่ระบบด้วย Apple"
+  "signInWithAppleCta": "เข้าสู่ระบบด้วย Apple",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "กำลังเปิดใช้งานการทดลองใช้ฟรี..."
 }

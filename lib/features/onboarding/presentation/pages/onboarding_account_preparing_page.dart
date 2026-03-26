@@ -733,6 +733,39 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       return null;
     }, [autoStart]);
 
+    Future<void> onPrimaryActionTap() async {
+      final actionId = isDone.value
+          ? 'prepare_open_dashboard_tapped'
+          : setupError.value == 'budget_validation_failed'
+              ? 'prepare_open_dashboard_tapped'
+              : setupError.value != null
+                  ? 'prepare_try_again_tapped'
+                  : 'prepare_continue_tapped';
+
+      await analytics.trackAction(
+        flowName: 'onboarding_funnel',
+        pageId: 'onboarding_account_preparing',
+        actionId: actionId,
+        result: 'used',
+        properties: <String, Object?>{
+          'has_error': setupError.value != null,
+          'error_code': setupError.value,
+          'is_done': isDone.value,
+        },
+      );
+
+      if (isDone.value || setupError.value == 'budget_validation_failed') {
+        if (context.mounted) {
+          context.go('/dashboard');
+        }
+        return;
+      }
+
+      if (setupError.value != null) {
+        await runSync();
+      }
+    }
+
     return AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
@@ -814,13 +847,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                   child: IgnorePointer(
                     ignoring: !isPrimaryActionEnabled,
                     child: PrimaryAdaptiveButton(
-                      onPressed: isDone.value
-                          ? () => context.go('/dashboard')
-                          : setupError.value == 'budget_validation_failed'
-                              ? () => context.go('/dashboard')
-                              : setupError.value != null
-                                  ? () => unawaited(runSync())
-                                  : null,
+                      onPressed: isPrimaryActionEnabled
+                          ? () => unawaited(onPrimaryActionTap())
+                          : null,
                       child: Text(
                         setupError.value == 'budget_validation_failed'
                             ? context.l10n.onboardingPreparingCtaOpenDashboard

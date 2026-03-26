@@ -2528,5 +2528,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "Đang đăng nhập với Apple...",
-  "signInWithAppleCta": "Tiếp tục với Apple"
+  "signInWithAppleCta": "Tiếp tục với Apple",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "Đang kích hoạt bản dùng thử miễn phí..."
 }

@@ -2525,5 +2525,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Google Play",
   "signInWithAppleLoading": "正在使用 Apple 账号登录...",
-  "signInWithAppleCta": "Apple 账号登录"
+  "signInWithAppleCta": "Apple 账号登录",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "正在激活您的免费试用..."
 }

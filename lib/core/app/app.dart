@@ -1,4 +1,5 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:home_widget/home_widget.dart';
@@ -11,6 +12,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
@@ -36,6 +38,11 @@ class _AppState extends ConsumerState<App> {
     _appLifecycleListener = AppLifecycleListener(
       onStateChange: (state) {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
+        if (state == AppLifecycleState.resumed) {
+          unawaited(
+            ref.read(subscriptionManagementProvider.notifier).refresh(),
+          );
+        }
         unawaited(
           ref.read(onboardingFlowAnalyticsServiceProvider).handleLifecycleState(
                 state,

@@ -231,6 +231,32 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       }
     }
 
+    Future<void> goToLogin() async {
+      if (isBusy.value) return;
+      isBusy.value = true;
+      try {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
+          actionId: 'intro_sign_in_tapped',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        );
+        await analytics.endPage(
+          reason: 'intro_sign_in',
+          transitionTo: '/login',
+        );
+        if (!context.mounted) return;
+        context.go('/login');
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
     void goNext() {
       if (showOrbitPage.value) {
         unawaited(goToPreAuthQuestions());
@@ -342,6 +368,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                         ? _GuestOrbitPage(
                             onNext: goNext,
                             onPreview: () => unawaited(goToPreviewMode()),
+                            onSignIn: () => unawaited(goToLogin()),
                           )
                         : _GuestCarouselPage(
                             slides: introSlides,
@@ -553,10 +580,12 @@ class _GuestOrbitPage extends StatelessWidget {
   const _GuestOrbitPage({
     required this.onNext,
     required this.onPreview,
+    required this.onSignIn,
   });
 
   final VoidCallback onNext;
   final VoidCallback onPreview;
+  final VoidCallback onSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -624,7 +653,7 @@ class _GuestOrbitPage extends StatelessWidget {
           const SizedBox(height: 18),
           Center(
             child: GestureDetector(
-              onTap: () => context.go('/login'),
+              onTap: onSignIn,
               child: Text(
                 context.l10n.onboardingIntroAlreadyHaveAccount,
                 style: TextStyle(

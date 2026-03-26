@@ -115,53 +115,41 @@ class Subscription {
 
     // Case 4: Trialing status - user is in trial period
     if (status == 'trialing') {
-      appLog('TRIALING status - subscribed=true', name: 'Subscription');
-      return true;
-    }
-
-    // Case 6: Active status with household binding (shared subscription access)
-    if (status == 'active' && boundToUserId != null) {
-      appLog(
-          'ACTIVE status with household binding - subscribed=true (shared access)',
+      if (currentPeriodEnd == null) {
+        appLog(
+            'TRIALING status but no current_period_end - subscribed=false (FAIL-SAFE)',
+            name: 'Subscription');
+        return false;
+      }
+      final isTrialValid = currentPeriodEnd!.isAfter(DateTime.now());
+      appLog('TRIALING status - expires=$currentPeriodEnd valid=$isTrialValid',
           name: 'Subscription');
-      return true;
+      return isTrialValid;
     }
 
-    // Case 5: Active status with Stripe subscription ID
-    if (status == 'active' && stripeSubscriptionId != null) {
-      // Additional check: plan should not be explicitly free
+    // Case 5/6: Active status with valid entitlement window
+    if (status == 'active') {
       if (plan == 'free') {
         appLog('Active status but plan is "free" - subscribed=false',
             name: 'Subscription');
         return false;
       }
-      appLog('ACTIVE status with stripe_subscription_id - subscribed=true',
-          name: 'Subscription');
-      return true;
-    }
 
-    // Case: Active IAP subscription (App Store / Play Store)
-    if ((provider == 'app_store' || provider == 'play_store') &&
-        status == 'active') {
-      // Lifetime plan - always valid when active
       if (plan == 'lifetime') {
-        appLog('IAP subscription ($provider) - subscribed=true (lifetime)',
+        appLog('ACTIVE status with lifetime plan - subscribed=true',
             name: 'Subscription');
         return true;
       }
 
-      // For recurring subscriptions, expiry date is REQUIRED
       if (currentPeriodEnd == null) {
         appLog(
-            'IAP subscription ($provider) - MISSING expiry date for non-lifetime plan - subscribed=false (FAIL-SAFE)',
+            'ACTIVE status missing current_period_end - subscribed=false (FAIL-SAFE)',
             name: 'Subscription');
-        return false; // Fail-safe: deny access if expiry missing
+        return false;
       }
 
-      // Check if subscription is still valid
       final isValid = currentPeriodEnd!.isAfter(DateTime.now());
-      appLog(
-          'IAP subscription ($provider) - plan=$plan, expires=$currentPeriodEnd, valid=$isValid',
+      appLog('ACTIVE status - expires=$currentPeriodEnd valid=$isValid',
           name: 'Subscription');
       return isValid;
     }

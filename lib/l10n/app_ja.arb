@@ -2529,5 +2529,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play ストア",
   "signInWithAppleLoading": "Appleでログインしています...",
-  "signInWithAppleCta": "Appleで続ける"
+  "signInWithAppleCta": "Appleで続ける",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "無料トライアルを有効にしています..."
 }

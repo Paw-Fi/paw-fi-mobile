@@ -2475,5 +2475,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "Apple کے ساتھ سائن ان ہو رہا ہے...",
-  "signInWithAppleCta": "Apple کے ساتھ سائن ان کریں"
+  "signInWithAppleCta": "Apple کے ساتھ سائن ان کریں",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "مفت ٹرائل فعال ہو رہا ہے..."
 }

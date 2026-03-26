@@ -2529,5 +2529,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "Anmeldung mit Apple läuft...",
-  "signInWithAppleCta": "Mit Apple fortfahren"
+  "signInWithAppleCta": "Mit Apple fortfahren",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "Kostenlose Testversion wird aktiviert..."
 }

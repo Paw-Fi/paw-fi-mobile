@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
@@ -125,12 +126,43 @@ final pocketDetailsProvider =
   };
 
   final res = await query.order('date', ascending: false);
-  final transactions = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final actualTransactions = transactionRows
+      .map(ExpenseEntry.fromJson)
+      .where((expense) =>
+          !expense.isRecurring &&
+          (expense.type ?? 'expense').toLowerCase() != 'income')
+      .toList(growable: false);
+
+  final preferredTimezone =
+      ref.read(analyticsProvider).contact?.preferredTimezone;
+  final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+  final projectedTransactions = await loadProjectedUpcomingPocketExpenses(
+    userId: authUser.uid,
+    scope: scopeType,
+    householdId: householdId,
+    monthStart: monthStart,
+    selectedCurrency: selectedCurrency,
+    now: userNow,
+    includeUpcomingRecurring: params.scopeParams.includeUpcomingRecurring,
+    actualExpenses: actualTransactions,
+  );
+  final normalizedCategories =
+      categories.map((category) => category.toLowerCase()).toSet();
+  final filteredProjectedTransactions = projectedTransactions
+      .where((expense) => normalizedCategories.contains(
+            (expense.category ?? 'uncategorized').toLowerCase(),
+          ))
+      .toList(growable: false);
+  final transactions = <ExpenseEntry>[
+    ...actualTransactions,
+    ...filteredProjectedTransactions,
+  ]..sort((a, b) => b.date.compareTo(a.date));
 
   // 3. Fetch PREVIOUS month expenses (for comparison)
   var prevQuery = supabase
       .from('expenses')
-      .select('amount_cents')
+      .select('amount_cents,is_recurring,type')
       .eq('currency', selectedCurrency)
       .gte('date', prevMonthStart.toIso8601String())
       .lt('date', prevMonthEnd.toIso8601String())
@@ -148,7 +180,15 @@ final pocketDetailsProvider =
   final prevTransactions =
       (prevRes as List?)?.cast<Map<String, dynamic>>() ?? [];
   final totalSpentLastMonth = prevTransactions.fold<double>(
-      0, (sum, t) => sum + ((t['amount_cents'] as num).toDouble() / 100.0));
+    0,
+    (sum, transaction) {
+      if (transaction['is_recurring'] == true ||
+          (transaction['type'] as String?)?.toLowerCase() == 'income') {
+        return sum;
+      }
+      return sum + ((transaction['amount_cents'] as num).toDouble() / 100.0);
+    },
+  );
 
   // 4. Process Data
 
@@ -160,20 +200,9 @@ final pocketDetailsProvider =
   final dailyMap = <int, double>{};
 
   for (final tx in transactions) {
-    final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
-    final cat = tx['category'] as String;
-    final rawDate = tx['date']?.toString();
-    final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
-    final parsedDate = DateTime.tryParse(rawDate ?? '');
-    final date = parsedDateOnly != null
-        ? DateTime(
-            parsedDateOnly.year,
-            parsedDateOnly.month,
-            parsedDateOnly.day,
-          )
-        : (parsedDate != null
-            ? DateTime(parsedDate.year, parsedDate.month, parsedDate.day)
-            : DateTime.fromMillisecondsSinceEpoch(0));
+    final amount = tx.amount;
+    final cat = tx.category ?? 'uncategorized';
+    final date = DateTime(tx.date.year, tx.date.month, tx.date.day);
 
     totalSpent += amount;
     categoryMap.update(cat, (v) => v + amount, ifAbsent: () => amount);
@@ -195,18 +224,22 @@ final pocketDetailsProvider =
     ..sort((a, b) => a.day.compareTo(b.day));
 
   // Projections
-  final now = DateTime.now();
   final daysInMonth = DateTime(monthStart.year, monthStart.month + 1, 0).day;
   // If viewing a past month, use all days. If current month, use days passed so far.
   final isCurrentMonth =
-      now.year == monthStart.year && now.month == monthStart.month;
-  final daysPassed = isCurrentMonth ? now.day : daysInMonth;
+      userNow.year == monthStart.year && userNow.month == monthStart.month;
+  final daysPassed = isCurrentMonth ? userNow.day : daysInMonth;
 
-  final dailyAverage = daysPassed > 0 ? totalSpent / daysPassed : 0.0;
+  final actualSpent = actualTransactions.fold<double>(
+    0,
+    (sum, expense) => sum + expense.amount,
+  );
+
+  final dailyAverage = daysPassed > 0 ? actualSpent / daysPassed : 0.0;
   final projectedSpend = dailyAverage * daysInMonth;
 
   return PocketDetailsData(
-    transactions: transactions,
+    transactions: transactions.map((expense) => expense.toJson()).toList(),
     categorySpending: categorySpending,
     dailySpending: dailySpending,
     totalSpentLastMonth: totalSpentLastMonth,

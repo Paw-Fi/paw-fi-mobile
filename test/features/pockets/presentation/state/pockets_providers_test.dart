@@ -112,4 +112,23 @@ void main() {
       ]);
     });
   });
+
+  group('PocketsScopeParams', () {
+    test('toggle participates in equality so providers refresh on change', () {
+      final baseParams = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 3, 1),
+        currency: 'GBP',
+      );
+      final forecastParams = PocketsScopeParams(
+        scope: PocketsScopeType.personal,
+        periodMonth: DateTime(2026, 3, 1),
+        currency: 'GBP',
+        includeUpcomingRecurring: true,
+      );
+
+      expect(baseParams, isNot(forecastParams));
+      expect(baseParams.hashCode, isNot(forecastParams.hashCode));
+    });
+  });
 }

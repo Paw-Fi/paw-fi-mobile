@@ -10,9 +10,12 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 void _debugLog(String message) {
@@ -145,6 +148,12 @@ PocketsState applyRebalancedBudgetToPocketsState({
 /// Scope for pockets: personal or household.
 enum PocketsScopeType { personal, portfolio, household }
 
+const includeUpcomingRecurringInPocketsPreferenceKey =
+    'include_upcoming_recurring_in_pockets';
+
+final includeUpcomingRecurringInPocketsProvider =
+    StateProvider<bool>((ref) => false);
+
 class PocketsScopeParams {
   const PocketsScopeParams({
     required this.scope,
@@ -152,6 +161,7 @@ class PocketsScopeParams {
     this.periodMonth,
     this.currency,
     this.isBootstrapCurrency = false,
+    this.includeUpcomingRecurring = false,
   });
 
   final PocketsScopeType scope;
@@ -159,6 +169,7 @@ class PocketsScopeParams {
   final DateTime? periodMonth;
   final String? currency;
   final bool isBootstrapCurrency;
+  final bool includeUpcomingRecurring;
 
   @override
   bool operator ==(Object other) {
@@ -167,12 +178,101 @@ class PocketsScopeParams {
         other.householdId == householdId &&
         other.periodMonth == periodMonth &&
         other.currency == currency &&
-        other.isBootstrapCurrency == isBootstrapCurrency;
+        other.isBootstrapCurrency == isBootstrapCurrency &&
+        other.includeUpcomingRecurring == includeUpcomingRecurring;
   }
 
   @override
-  int get hashCode => Object.hash(
-      scope, householdId, periodMonth, currency, isBootstrapCurrency);
+  int get hashCode => Object.hash(scope, householdId, periodMonth, currency,
+      isBootstrapCurrency, includeUpcomingRecurring);
+}
+
+Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
+  required String userId,
+  required PocketsScopeType scope,
+  required String? householdId,
+  int limit = 250,
+}) async {
+  if (scope != PocketsScopeType.personal &&
+      (householdId == null || householdId.trim().isEmpty)) {
+    return const <RecurringTransaction>[];
+  }
+
+  dynamic scopedQuery = supabase
+      .from('expenses')
+      .select(
+        'id, date, category, raw_text, breakdown, source, amount_cents, '
+        'currency, owner_type, privacy_scope, household_id, is_recurring, '
+        'user_id, payer_user_id, split_group_id, recurrence_rule, type, '
+        'attachments, created_at, updated_at',
+      )
+      .eq('is_recurring', true);
+
+  switch (scope) {
+    case PocketsScopeType.personal:
+      scopedQuery =
+          scopedQuery.eq('user_id', userId).isFilter('household_id', null);
+      break;
+    case PocketsScopeType.portfolio:
+      scopedQuery =
+          scopedQuery.eq('user_id', userId).eq('household_id', householdId!);
+      break;
+    case PocketsScopeType.household:
+      scopedQuery = scopedQuery.eq('household_id', householdId!);
+      break;
+  }
+
+  final rows = await scopedQuery.order('date', ascending: false).limit(limit);
+  final transactions = <RecurringTransaction>[];
+
+  for (final item in (rows as List).cast<Map<String, dynamic>>()) {
+    try {
+      transactions.add(RecurringTransaction.fromJson(item));
+    } catch (error) {
+      _debugLog('[Pockets] Failed to parse recurring transaction: $error');
+    }
+  }
+
+  return transactions;
+}
+
+Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
+  required String userId,
+  required PocketsScopeType scope,
+  required String? householdId,
+  required DateTime monthStart,
+  required String selectedCurrency,
+  required DateTime now,
+  required bool includeUpcomingRecurring,
+  required List<ExpenseEntry> actualExpenses,
+}) async {
+  if (!includeUpcomingRecurring ||
+      now.year != monthStart.year ||
+      now.month != monthStart.month) {
+    return const <ExpenseEntry>[];
+  }
+
+  final recurringTransactions = await loadScopedRecurringTransactions(
+    userId: userId,
+    scope: scope,
+    householdId: householdId,
+  );
+  if (recurringTransactions.isEmpty) {
+    return const <ExpenseEntry>[];
+  }
+
+  final projectedExpenses =
+      projectUpcomingRecurringTransactionsAsExpenseEntries(
+    recurringTransactions: recurringTransactions,
+    monthStart: monthStart,
+    now: now,
+    selectedCurrency: selectedCurrency,
+  );
+
+  return dedupeProjectedRecurringExpenseEntries(
+    projectedExpenses: projectedExpenses,
+    actualExpenses: actualExpenses,
+  );
 }
 
 class PocketsState {
@@ -706,7 +806,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // Fetch all expenses for this month and scope
       var expenseQuery = supabase
           .from('expenses')
-          .select('id,amount_cents,category,type,household_id,currency,date,raw_text')
+          .select(
+              'id,amount_cents,category,type,household_id,currency,date,raw_text,'
+              'user_id,is_recurring,created_at,updated_at,split_group_id')
           .eq('currency', selectedCurrency)
           .gte('date', formatDateOnlyYmd(monthStart))
           .lt('date', formatDateOnlyYmd(monthEnd));
@@ -726,6 +828,33 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final expensesRes = await expenseQuery;
       final expensesRows =
           (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final actualExpenses = expensesRows
+          .map(ExpenseEntry.fromJson)
+          .where((expense) =>
+              !expense.isRecurring &&
+              (expense.type ?? 'expense').toLowerCase() != 'income')
+          .toList(growable: false);
+      final preferredTimezone =
+          ref.read(analyticsProvider).contact?.preferredTimezone;
+      final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+      final projectedRecurringExpenses =
+          await loadProjectedUpcomingPocketExpenses(
+        userId: authUser.uid,
+        scope: scopeType,
+        householdId: householdId,
+        monthStart: monthStart,
+        selectedCurrency: selectedCurrency,
+        now: userNow,
+        includeUpcomingRecurring: params.includeUpcomingRecurring,
+        actualExpenses: actualExpenses,
+      );
+      final monthlyExpenses = <ExpenseEntry>[
+        ...actualExpenses,
+        ...projectedRecurringExpenses,
+      ];
+      final monthlyExpenseRows = monthlyExpenses
+          .map((expense) => expense.toJson())
+          .toList(growable: false);
 
       // Calculate spent per envelope by filtering expenses by category
       final spentById = <String, double>{};
@@ -737,15 +866,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
 
         double totalSpent = 0.0;
-        for (final expense in expensesRows) {
-          final type = (expense['type'] as String?)?.toLowerCase();
-          if (type == 'income') continue;
-
-          final expenseCategory =
-              (expense['category'] as String? ?? '').toLowerCase();
+        for (final expense in monthlyExpenses) {
+          final expenseCategory = (expense.category ?? '').toLowerCase();
           if (categories.contains(expenseCategory)) {
-            final cents = (expense['amount_cents'] as num?)?.toDouble() ?? 0;
-            totalSpent += cents / 100.0;
+            totalSpent += expense.amount;
           }
         }
         spentById[envId] = totalSpent;
@@ -788,14 +912,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final expenseTotalsByCategory = <String, double>{};
       final uncategorizedExpensesMap = <String, List<Map<String, dynamic>>>{};
       var totalMonthlySpend = 0.0;
-      for (final row in expensesRows) {
-        final type = (row['type'] as String?)?.toLowerCase();
-        if (type == 'income') continue; // ignore incomes
-        final cents = (row['amount_cents'] as num?)?.toDouble() ?? 0;
-        final amount = cents / 100.0;
+      for (final expense in monthlyExpenses) {
+        final amount = expense.amount;
         totalMonthlySpend += amount;
-        final rawCategory =
-            (row['category'] as String? ?? 'uncategorized').toLowerCase();
+        final rawCategory = (expense.category ?? 'uncategorized').toLowerCase();
         expenseTotalsByCategory.update(
           rawCategory,
           (v) => v + amount,
@@ -817,10 +937,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             amount: amount,
           ));
           final key = cat.isEmpty ? 'uncategorized' : cat;
-          final matches = expensesRows.where((row) {
-            final rowCat =
+          final matches = monthlyExpenseRows.where((row) {
+            final rowCategory =
                 (row['category'] as String? ?? 'uncategorized').toLowerCase();
-            return rowCat == cat;
+            return rowCategory == cat;
           });
           for (final m in matches) {
             uncategorizedExpensesMap
@@ -1731,6 +1851,7 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
         periodMonth: params.periodMonth,
         currency: params.currency,
         isBootstrapCurrency: params.isBootstrapCurrency,
+        includeUpcomingRecurring: params.includeUpcomingRecurring,
       ),
     );
   }

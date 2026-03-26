@@ -105,6 +105,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       periodMonth: state.periodMonth,
       currency: effectiveCurrency,
       isBootstrapCurrency: false,
+      includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
 
     // Calculate unallocated budget for the edit sheet based on the effective

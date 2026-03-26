@@ -2548,5 +2548,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "Signing in with Apple...",
-  "signInWithAppleCta": "Continue with Apple"
+  "signInWithAppleCta": "Continue with Apple",
+  "pocketsForecastRecurringSpentTitle": "Count upcoming recurring payments as spent",
+  "pocketsForecastRecurringSpentDescription": "Show this month's scheduled recurring expenses in pockets before the payment posts.",
+  "activatingFreeTrial": "Activating your free trial..."
 }

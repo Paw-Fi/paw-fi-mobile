@@ -54,7 +54,7 @@ class TransactionListTile extends StatelessWidget {
       return '${context.l10n.today}, ${DateFormat.jm(localeName).format(localDate)}';
     }
     if (dateOnly == yesterday) {
-      return context.l10n.yesterday;
+      return '${context.l10n.yesterday}, ${DateFormat.jm(localeName).format(localDate)}';
     }
     if (localDate.year == now.year) {
       return DateFormat.MMMd(localeName).format(localDate);
@@ -115,7 +115,7 @@ class TransactionListTile extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),                 
+                  Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
                 ],
               ),
             ),

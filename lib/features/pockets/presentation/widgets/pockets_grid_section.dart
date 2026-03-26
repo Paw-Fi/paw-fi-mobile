@@ -55,6 +55,8 @@ class PocketsGridSection extends HookConsumerWidget {
         : (scopeParams.currency?.trim().isNotEmpty == true
             ? scopeParams.currency!.trim()
             : 'USD');
+    final includeUpcomingRecurring =
+        ref.watch(includeUpcomingRecurringInPocketsProvider);
 
     // Local state for Envelope Mode
     final envelopeMode = useState(true);
@@ -283,6 +285,20 @@ class PocketsGridSection extends HookConsumerWidget {
                       colorScheme,
                       envelopeMode.value,
                       (value) => envelopeMode.value = value,
+                      includeUpcomingRecurring,
+                      (value) async {
+                        ref
+                            .read(
+                              includeUpcomingRecurringInPocketsProvider
+                                  .notifier,
+                            )
+                            .state = value;
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool(
+                          includeUpcomingRecurringInPocketsPreferenceKey,
+                          value,
+                        );
+                      },
                     );
                     markHelpAsSeen();
                   },

@@ -6637,4 +6637,13 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get signInWithAppleCta => 'เข้าสู่ระบบด้วย Apple';
+
+  @override
+  String get pocketsForecastRecurringSpentTitle => '';
+
+  @override
+  String get pocketsForecastRecurringSpentDescription => '';
+
+  @override
+  String get activatingFreeTrial => 'กำลังเปิดใช้งานการทดลองใช้ฟรี...';
 }

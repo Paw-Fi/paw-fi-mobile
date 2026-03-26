@@ -2476,5 +2476,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Store",
   "signInWithAppleLoading": "Inloggen met Apple...",
-  "signInWithAppleCta": "Doorgaan met Apple"
+  "signInWithAppleCta": "Doorgaan met Apple",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "Gratis proefperiode wordt geactiveerd..."
 }

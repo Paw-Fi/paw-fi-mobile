@@ -37,6 +37,7 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -1529,6 +1530,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       BuildContext context, ExpenseEntry expense, UserContact? contact,
       {bool isLast = false}) {
     final colorScheme = Theme.of(context).colorScheme;
+    final displayDateTime = composeTransactionDisplayDateTime(
+      transactionDate: expense.date,
+      createdAt: expense.createdAt,
+      preferredTimezone: contact?.preferredTimezone,
+    );
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
     final currentUserId = ref.watch(authProvider).uid;
@@ -1651,7 +1657,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           title: getCategoryTranslation(
                               context, expense.category ?? 'uncategorized'),
                           description: expense.rawText,
-                          date: expense.date,
+                          date: displayDateTime,
                           amount: expense.amount,
                           currency: expense.currency ?? 'USD',
                           isIncome: isIncome,

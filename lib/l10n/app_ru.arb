@@ -2479,5 +2479,8 @@
   "paywallStoreLabelApple": "App Store",
   "paywallStoreLabelPlay": "Play Маркет",
   "signInWithAppleLoading": "Вход через Apple...",
-  "signInWithAppleCta": "Войти через Apple"
+  "signInWithAppleCta": "Войти через Apple",
+  "pocketsForecastRecurringSpentTitle": "",
+  "pocketsForecastRecurringSpentDescription": "",
+  "activatingFreeTrial": "Активируем бесплатную пробную версию..."
 }
