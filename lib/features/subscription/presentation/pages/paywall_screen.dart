@@ -716,6 +716,13 @@ class PaywallScreen extends HookConsumerWidget {
         debugPrint(
             '[PaywallReturnTrial] attempting grant uid=${auth.uid} elapsed=${elapsed.inSeconds}s');
 
+        // Re-sync the server marker with the original local exit timestamp.
+        // This handles cases where background mark did not reach backend
+        // (offline/background termination) but local marker still exists.
+        await ref
+            .read(subscriptionManagementProvider.notifier)
+            .markPaywallReturnExit(exitedAtUtc: exitedAt);
+
         showReturnTrialGrantingDialog();
 
         await ref

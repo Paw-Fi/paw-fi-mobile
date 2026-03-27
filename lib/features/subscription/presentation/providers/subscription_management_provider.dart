@@ -122,10 +122,13 @@ class SubscriptionManagementNotifier
     );
   }
 
-  Future<void> markPaywallReturnExit() async {
+  Future<void> markPaywallReturnExit({
+    DateTime? exitedAtUtc,
+  }) async {
     try {
       await _updateSubscription(
         action: 'mark_paywall_return_exit',
+        exitedAtUtc: exitedAtUtc,
         refreshAfterUpdate: false,
       );
     } catch (e, stack) {
@@ -140,6 +143,7 @@ class SubscriptionManagementNotifier
     String? billingInterval,
     int? prorationDate,
     int? trialDays,
+    DateTime? exitedAtUtc,
     bool refreshAfterUpdate = true,
   }) async {
     final user = ref.read(authProvider);
@@ -156,6 +160,8 @@ class SubscriptionManagementNotifier
           if (billingInterval != null) 'billingInterval': billingInterval,
           if (prorationDate != null) 'prorationDate': prorationDate,
           if (trialDays != null) 'trialDays': trialDays,
+          if (exitedAtUtc != null)
+            'exitAtIso': exitedAtUtc.toUtc().toIso8601String(),
         },
       );
 
