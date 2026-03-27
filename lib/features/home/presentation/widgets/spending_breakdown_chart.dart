@@ -47,6 +47,11 @@ class CategoryPieChart extends StatefulWidget {
 class _CategoryPieChartState extends State<CategoryPieChart> {
   int? _touchedIndex;
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   List<CategorySummary> _buildChartSummaries(
     BuildContext context,
     ColorScheme colorScheme,
@@ -121,17 +126,18 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                     PieChartData(
                       pieTouchData: PieTouchData(
                         touchCallback: (event, response) {
-                          if (!event.isInterestedForInteractions ||
-                              response?.touchedSection == null) {
+                          if (event is FlTapDownEvent) {
+                            if (response?.touchedSection != null) {
+                              setState(() {
+                                final nextIndex =
+                                    response!.touchedSection!.touchedSectionIndex;
+                                _touchedIndex =
+                                    _touchedIndex == nextIndex ? null : nextIndex;
+                              });
+                            }
+                          } else if (event is FlTapUpEvent || event is FlTapCancelEvent) {
                             setState(() => _touchedIndex = null);
-                            return;
                           }
-                          setState(() {
-                            final nextIndex =
-                                response!.touchedSection!.touchedSectionIndex;
-                            _touchedIndex =
-                                _touchedIndex == nextIndex ? null : nextIndex;
-                          });
                         },
                       ),
                       sectionsSpace: 2,

@@ -6514,4 +6514,183 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get noPendingSettlements => 'ไม่มีรายการรอชำระ';
+
+  @override
+  String get onboardingIntroSlide5Title => 'ไม่พลาดทุกความเคลื่อนไหวทางการเงิน';
+
+  @override
+  String get onboardingIntroSlide5AppleBody => 'ติดตามการซื้อผ่าน Apple Pay ให้คุณโดยอัตโนมัติ';
+
+  @override
+  String get onboardingIntroSlide5AndroidBody => 'บันทึกข้อมูลจากการแจ้งเตือนของแอปธนาคารให้อัตโนมัติ';
+
+  @override
+  String get onboardingIntroCarouselTitle => 'หมดกังวลเรื่องเงิน';
+
+  @override
+  String get onboardingIntroCarouselSubtitle => 'เราช่วยบันทึกทุกอย่างให้คุณ โดยที่คุณไม่ต้องทำเอง';
+
+  @override
+  String get onboardingIntroCarouselSlide1Title => 'บันทึกรายจ่ายในแบบของคุณ';
+
+  @override
+  String get onboardingIntroCarouselSlide1Body => 'พิมพ์ด้วยเสียง แชท หรือรูปภาพ ที่เหลือเราจัดการให้';
+
+  @override
+  String get onboardingIntroCarouselSlide2Title => 'ถ่ายรูปใบเสร็จ เสร็จเลย';
+
+  @override
+  String get onboardingIntroCarouselSlide2Body => 'แค่ถ่ายรูป เราจะบันทึกทุกอย่างให้คุณ';
+
+  @override
+  String get onboardingIntroCarouselSlide3Title => 'หมดความสับสนเรื่องเงิน';
+
+  @override
+  String get onboardingIntroCarouselSlide3Body => 'ไม่ต้องคำนวณเอง ทุกอย่างจัดการให้อัตโนมัติ';
+
+  @override
+  String get onboardingIntroCarouselSlide4Title => 'คุมงบได้โดยไม่ต้องคิดมาก';
+
+  @override
+  String get onboardingIntroCarouselSlide4Body => 'เราจัดการค่าใช้จ่ายของคุณเป็นงบง่าย ๆ เพื่อให้คุณควบคุมได้';
+
+  @override
+  String get onboardingIntroGetMyPlan => 'สร้างแผนของฉัน';
+
+  @override
+  String get onboardingIntroAlreadyHaveAccount => 'ฉันมีบัญชีอยู่แล้ว';
+
+  @override
+  String get onboardingPreauthTestimonialTitle => 'เราพร้อมดูแลคุณ';
+
+  @override
+  String get onboardingPreauthTestimonialSubtitle => 'เรื่องเงินไม่จำเป็นต้องเครียด';
+
+  @override
+  String get onboardingPreparingProgressInitial => 'กำลังเตรียมบัญชีของคุณ...';
+
+  @override
+  String get onboardingPreparingProgressSavingPreferences => 'กำลังบันทึกการตั้งค่าของคุณ...';
+
+  @override
+  String get onboardingPreparingProgressApplyingDefaults => 'กำลังตั้งค่าสกุลเงินและค่าเริ่มต้น...';
+
+  @override
+  String get onboardingPreparingProgressFinalizing => 'กำลังตั้งค่าให้เสร็จสมบูรณ์...';
+
+  @override
+  String get onboardingPreparingProgressEssentialsFallback => 'กำลังสร้างแผนพื้นฐานจากค่าใช้จ่ายประจำของคุณ...';
+
+  @override
+  String get onboardingPreparingProgressErrorDashboard => 'ไม่สามารถสร้างหมวดเริ่มต้นได้ เปิดแดชบอร์ดเพื่อดำเนินการต่อ';
+
+  @override
+  String get onboardingPreparingProgressErrorRetry => 'เกือบเสร็จแล้ว แต่เกิดข้อผิดพลาดเล็กน้อย ลองอีกครั้ง';
+
+  @override
+  String get onboardingPreparingProgressReady => 'บัญชีของคุณพร้อมแล้ว';
+
+  @override
+  String get onboardingPreparingTitleError => 'ใกล้เสร็จแล้ว!';
+
+  @override
+  String get onboardingPreparingTitleDone => 'ตั้งค่าเสร็จแล้ว';
+
+  @override
+  String get onboardingPreparingTitleLoading => 'กำลังเตรียมบัญชี';
+
+  @override
+  String get onboardingPreparingBodyErrorDashboard => 'เริ่มต้นได้ดี แผนพื้นฐานของคุณพร้อมให้ปรับเพิ่มเติมแล้ว เปิดแดชบอร์ด แล้วเราจะแนะนำขั้นตอนถัดไป';
+
+  @override
+  String get onboardingPreparingBodyErrorRetry => 'ใกล้เสร็จแล้ว แตะ “ลองอีกครั้ง” แล้วเราจะตั้งค่าที่เหลือให้เสร็จ';
+
+  @override
+  String get onboardingPreparingBodyDone => 'เราได้ซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณเรียบร้อยแล้ว';
+
+  @override
+  String get onboardingPreparingBodyLoading => 'กรุณารอสักครู่ เรากำลังซิงก์ตัวเลือกของคุณและปรับการตั้งค่าให้เหมาะกับคุณ';
+
+  @override
+  String get onboardingPreparingCtaOpenDashboard => 'เปิดแดชบอร์ด';
+
+  @override
+  String get onboardingPreparingCtaTryAgain => 'ลองอีกครั้ง';
+
+  @override
+  String get paywallErrorPurchaseOwnedByAnotherAccount => 'การซื้อนี้เชื่อมกับบัญชี Moneko อื่นแล้ว';
+
+  @override
+  String get paywallPeriodMonth => '/เดือน';
+
+  @override
+  String get paywallPeriodYear => '/ปี';
+
+  @override
+  String get paywallStoreLabelApple => 'App Store';
+
+  @override
+  String get paywallStoreLabelPlay => 'Play Store';
+
+  @override
+  String get signInWithAppleLoading => 'กำลังเข้าสู่ระบบด้วย Apple...';
+
+  @override
+  String get signInWithAppleCta => 'เข้าสู่ระบบด้วย Apple';
+
+  @override
+  String get pocketsForecastRecurringSpentTitle => '';
+
+  @override
+  String get pocketsForecastRecurringSpentDescription => '';
+
+  @override
+  String get activatingFreeTrial => 'กำลังเปิดใช้งานการทดลองใช้ฟรี...';
+
+  @override
+  String get setupChecklist => 'รายการตั้งค่า';
+
+  @override
+  String leftToDo(Object count) {
+    return 'เหลือ $count';
+  }
+
+  @override
+  String get createAccountDescription => 'สมัครและเริ่มจัดการการเงินของคุณ';
+
+  @override
+  String get logExpense => 'บันทึกรายจ่าย';
+
+  @override
+  String get logExpenseDescription => 'บันทึกรายจ่ายแรกและติดตามการใช้เงิน';
+
+  @override
+  String get logNow => 'บันทึกตอนนี้';
+
+  @override
+  String get setRecurring => 'รายการประจำ';
+
+  @override
+  String get setRecurringDescription => 'ตั้งค่ารายรับรายจ่ายและติดตามอัตโนมัติ';
+
+  @override
+  String get setUp => 'ตั้งค่า';
+
+  @override
+  String get connectChat => 'เชื่อมต่อแชท';
+
+  @override
+  String get connectChatDescription => 'เชื่อมแอปแชทและคุยกับ AI';
+
+  @override
+  String get connect => 'เชื่อมต่อ';
+
+  @override
+  String get autoCaptureDescriptionIos => 'เปิด Apple Pay และบันทึกรายการอัตโนมัติ';
+
+  @override
+  String get autoCaptureDescriptionAndroid => 'เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ';
+
+  @override
+  String get enable => 'เปิดใช้งาน';
 }

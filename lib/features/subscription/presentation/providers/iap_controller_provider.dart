@@ -586,12 +586,14 @@ class IapController extends AsyncNotifier<IapState> {
           print(
               '🧾 Receipt data prefix: server=$serverPrefix, local=$localPrefix');
           final startedAt = DateTime.now();
+          final authUser = ref.read(authProvider);
           try {
             final response = await supabase.functions.invoke(
               'verify-iap-purchase',
               body: {
                 'platform': platform,
                 'storeProductId': catalog.storeProductId,
+                'appAccountToken': authUser.uid,
                 'verificationData': {
                   'source': purchase.verificationData.source,
                   'localVerificationData':

@@ -4,6 +4,7 @@ import 'package:chewie/chewie.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:video_player/video_player.dart';
 
 class WalletSyncSetupSheet extends StatelessWidget {
@@ -37,16 +38,16 @@ class WalletSyncSetupSheet extends StatelessWidget {
           return ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
             child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: colorScheme.sheetBackground,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildHandle(colorScheme),
+                  // Modal Sheet Drag Handle
+                  const ModalSheetHandle(),
                   _buildHeader(context, colorScheme),
                   Flexible(
                     child: SingleChildScrollView(
@@ -156,20 +157,6 @@ class WalletSyncSetupSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildHandle(ColorScheme colorScheme) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.only(top: 12, bottom: 8),
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE0E0E0),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-
   Widget _buildHeader(BuildContext context, ColorScheme colorScheme) {
     final l10n = context.l10n;
     return Padding(
@@ -217,13 +204,12 @@ class WalletSyncSetupSheet extends StatelessWidget {
     Widget? action,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    const cardColor = Color(0xFFF4F4F4);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: cardColor,
+        color: colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(

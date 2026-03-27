@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -46,6 +47,9 @@ class PocketsPage extends HookConsumerWidget {
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
     final isBootstrapCurrency = !filterState.hasExplicitCurrency;
+    final includeUpcomingRecurring =
+        ref.watch(includeUpcomingRecurringInPocketsProvider);
+    final recurringPreferenceReady = useState(false);
 
     // Track save/reset operations
     final isSavingChanges = useState(false);
@@ -106,8 +110,46 @@ class PocketsPage extends HookConsumerWidget {
       user.uid,
     ]);
 
+    useEffect(() {
+      final initialValue = ref.read(includeUpcomingRecurringInPocketsProvider);
+      Future<void>(() async {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          if (!context.mounted) {
+            return;
+          }
+          final storedValue = prefs.getBool(
+                includeUpcomingRecurringInPocketsPreferenceKey,
+              ) ??
+              false;
+          final currentValue =
+              ref.read(includeUpcomingRecurringInPocketsProvider);
+          if (currentValue == initialValue && storedValue != currentValue) {
+            ref.read(includeUpcomingRecurringInPocketsProvider.notifier).state =
+                storedValue;
+          }
+        } finally {
+          if (context.mounted) {
+            recurringPreferenceReady.value = true;
+          }
+        }
+      });
+      return null;
+    }, const []);
+
     if (!isActiveTab) {
       return const SizedBox.shrink();
+    }
+
+    if (!recurringPreferenceReady.value) {
+      return AdaptiveScaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+          ),
+        ),
+      );
     }
 
     if (householdScope.activeAccountType == ActiveAccountType.household) {
@@ -213,6 +255,7 @@ class PocketsPage extends HookConsumerWidget {
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           isBootstrapCurrency: isBootstrapCurrency,
+          includeUpcomingRecurring: includeUpcomingRecurring,
         ),
       ActiveAccountType.portfolio =>
         householdScope.activeAccountHouseholdId == null
@@ -221,6 +264,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
                 isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
               )
             : PocketsScopeParams(
                 scope: PocketsScopeType.portfolio,
@@ -228,6 +272,7 @@ class PocketsPage extends HookConsumerWidget {
                 periodMonth: currentMonthState.value,
                 currency: resolvedSelectedCurrency,
                 isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
               ),
       ActiveAccountType.household => PocketsScopeParams(
           scope: PocketsScopeType.household,
@@ -235,6 +280,7 @@ class PocketsPage extends HookConsumerWidget {
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           isBootstrapCurrency: isBootstrapCurrency,
+          includeUpcomingRecurring: includeUpcomingRecurring,
         ),
     };
 
@@ -267,6 +313,7 @@ class PocketsPage extends HookConsumerWidget {
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     isBootstrapCurrency: isBootstrapCurrency,
+                    includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
                 ActiveAccountType.portfolio =>
                   householdScope.activeAccountHouseholdId == null
@@ -275,6 +322,7 @@ class PocketsPage extends HookConsumerWidget {
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
                           isBootstrapCurrency: isBootstrapCurrency,
+                          includeUpcomingRecurring: includeUpcomingRecurring,
                         )
                       : PocketsScopeParams(
                           scope: PocketsScopeType.portfolio,
@@ -282,6 +330,7 @@ class PocketsPage extends HookConsumerWidget {
                           periodMonth: month,
                           currency: resolvedSelectedCurrency,
                           isBootstrapCurrency: isBootstrapCurrency,
+                          includeUpcomingRecurring: includeUpcomingRecurring,
                         ),
                 ActiveAccountType.household => PocketsScopeParams(
                     scope: PocketsScopeType.household,
@@ -289,6 +338,7 @@ class PocketsPage extends HookConsumerWidget {
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     isBootstrapCurrency: isBootstrapCurrency,
+                    includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
               };
 

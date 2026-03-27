@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -123,7 +125,27 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => context.go('/login'),
+              onTap: () {
+                unawaited(() async {
+                  await analytics.trackAction(
+                    flowName: 'onboarding_funnel',
+                    pageId: 'onboarding_save_budget',
+                    stepIndex: 14,
+                    actionId: 'save_budget_sign_in_tapped',
+                    result: 'used',
+                    properties: const <String, Object?>{
+                      'step_group': 'preauth',
+                      'step_key': 'create_account',
+                    },
+                  );
+                  await analytics.endPage(
+                    reason: 'save_budget_sign_in',
+                    transitionTo: '/login',
+                  );
+                  if (!context.mounted) return;
+                  context.go('/login');
+                }());
+              },
               child: Text(
                 context.l10n.signInLower,
                 style: TextStyle(

@@ -145,8 +145,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
     void showSetupSheet() {
       showModalBottomSheet(
         context: context,
+        barrierColor: Colors.black.withValues(alpha: 0.5),
+        enableDrag: false,
+        useSafeArea: true,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
         builder: (context) {
           return WalletSyncSetupSheet(
             isSyncing: isSyncing.value,

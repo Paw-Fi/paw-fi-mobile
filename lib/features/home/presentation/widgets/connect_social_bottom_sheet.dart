@@ -19,7 +19,7 @@ class ConnectSocialBottomSheet extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
@@ -135,7 +135,7 @@ class _SocialButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         decoration: BoxDecoration(
-          border: Border.all(color: colorScheme.border),
+          color: colorScheme.sheetElementBackground,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(

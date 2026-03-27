@@ -2,6 +2,7 @@
   "sourceLanguage" : "en",
   "strings" : {
     "capture_wallet_transaction_title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {

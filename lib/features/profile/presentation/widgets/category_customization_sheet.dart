@@ -8,6 +8,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
@@ -47,7 +48,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+        backgroundColor: colorScheme.sheetBackground,
         builder: (sheetContext) {
           return _CategoryUpsertSheet(
             title: title,
@@ -107,8 +108,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
           child: CupertinoSegmentedControl<_CategoryScope>(
             groupValue: scope.value,
             selectedColor: colorScheme.primary,
-            unselectedColor: colorScheme.card,
-            borderColor: colorScheme.border,
+            unselectedColor: colorScheme.sheetElementBackground,
+            borderColor: Colors.transparent,
             pressedColor: colorScheme.muted,
             children: {
               _CategoryScope.expense: Padding(
@@ -150,9 +151,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: colorScheme.homeSearchFieldBackground,
+            color: colorScheme.sheetElementBackground,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.border),
           ),
           child: Row(
             children: [
@@ -206,7 +206,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.appBackground,
+          color: colorScheme.sheetBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
@@ -214,6 +214,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Modal Sheet Drag Handle
+              const ModalSheetHandle(),
               // Header
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -234,7 +236,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                         height: 32,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: colorScheme.card,
+                          color: colorScheme.sheetElementBackground,
                           border: Border.all(
                             color: colorScheme.border.withValues(alpha: 0.5),
                           ),
@@ -367,9 +369,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                             ),
                             Container(
                               decoration: BoxDecoration(
-                                color: colorScheme.card,
+                                color: colorScheme.sheetElementBackground,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: colorScheme.border),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -523,6 +524,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       horizontal: 16,
                                       vertical: 4,
                                     ),
+                                    tileColor: colorScheme.surface.withValues(alpha: 0.0),
                                     leading: CircleAvatar(
                                       radius: 18,
                                       backgroundColor: colorScheme.primary
@@ -580,9 +582,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                             ),
                             Container(
                               decoration: BoxDecoration(
-                                color: colorScheme.card,
+                                color: colorScheme.sheetElementBackground,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: colorScheme.border),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -621,6 +622,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                                   context, name),
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w500,
+                                                fontSize: 14,
                                                 color: colorScheme.foreground,
                                               ),
                                             ),
@@ -743,7 +745,7 @@ class _CategoryUpsertSheet extends HookWidget {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.appBackground,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
@@ -752,6 +754,8 @@ class _CategoryUpsertSheet extends HookWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Modal Sheet Drag Handle
+            const ModalSheetHandle(),
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
@@ -772,7 +776,7 @@ class _CategoryUpsertSheet extends HookWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: colorScheme.card,
+                        color: colorScheme.sheetElementBackground,
                         border: Border.all(
                           color: colorScheme.border.withValues(alpha: 0.5),
                         ),
@@ -795,9 +799,8 @@ class _CategoryUpsertSheet extends HookWidget {
                   // Form Fields Card
                   Container(
                     decoration: BoxDecoration(
-                      color: colorScheme.card,
+                      color: colorScheme.sheetElementBackground,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.border),
                     ),
                     child: Column(
                       children: [
@@ -840,7 +843,7 @@ class _CategoryUpsertSheet extends HookWidget {
                               CupertinoSegmentedControl<String>(
                                 groupValue: transactionType.value,
                                 selectedColor: colorScheme.primary,
-                                unselectedColor: colorScheme.card,
+                                unselectedColor: colorScheme.sheetElementBackground,
                                 borderColor: colorScheme.border,
                                 pressedColor: colorScheme.muted,
                                 children: {
@@ -1013,7 +1016,7 @@ class _CategoryUpsertSheet extends HookWidget {
                                       : isSelected
                                           ? colorScheme.primary
                                               .withValues(alpha: 0.15)
-                                          : colorScheme.card,
+                                          : colorScheme.sheetElementBackground,
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: isSelected &&

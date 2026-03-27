@@ -105,6 +105,7 @@ class PocketDetailsPage extends HookConsumerWidget {
       periodMonth: state.periodMonth,
       currency: effectiveCurrency,
       isBootstrapCurrency: false,
+      includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
 
     // Calculate unallocated budget for the edit sheet based on the effective
@@ -182,9 +183,10 @@ class PocketDetailsPage extends HookConsumerWidget {
 
                       showModalBottomSheet(
                         context: context,
+                        barrierColor: Colors.black.withValues(alpha: 0.5),
+                        enableDrag: false,
+                        useSafeArea: true,
                         isScrollControlled: true,
-                        backgroundColor:
-                            colorScheme.surface.withValues(alpha: 0.0),
                         builder: (sheetContext) => EditPocketEnvelopeSheet(
                           scopeParams: detailScopeParams,
                           existingEnvelope: pocket,

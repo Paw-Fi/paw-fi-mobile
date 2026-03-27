@@ -113,11 +113,38 @@ class SubscriptionManagementNotifier
     await _updateSubscription(action: 'resume');
   }
 
+  Future<void> grantPaywallReturnTrial({
+    int trialDays = 14,
+  }) async {
+    await _updateSubscription(
+      action: 'grant_paywall_return_trial',
+      trialDays: trialDays,
+    );
+  }
+
+  Future<void> markPaywallReturnExit({
+    DateTime? exitedAtUtc,
+  }) async {
+    try {
+      await _updateSubscription(
+        action: 'mark_paywall_return_exit',
+        exitedAtUtc: exitedAtUtc,
+        refreshAfterUpdate: false,
+      );
+    } catch (e, stack) {
+      appLog('Failed to mark paywall return exit',
+          name: 'SubscriptionManagement', error: e, stackTrace: stack);
+    }
+  }
+
   Future<void> _updateSubscription({
     required String action,
     String? plan,
     String? billingInterval,
     int? prorationDate,
+    int? trialDays,
+    DateTime? exitedAtUtc,
+    bool refreshAfterUpdate = true,
   }) async {
     final user = ref.read(authProvider);
     if (user.isEmpty) throw Exception('User not logged in');
@@ -132,6 +159,9 @@ class SubscriptionManagementNotifier
           if (plan != null) 'plan': plan,
           if (billingInterval != null) 'billingInterval': billingInterval,
           if (prorationDate != null) 'prorationDate': prorationDate,
+          if (trialDays != null) 'trialDays': trialDays,
+          if (exitedAtUtc != null)
+            'exitAtIso': exitedAtUtc.toUtc().toIso8601String(),
         },
       );
 
@@ -142,8 +172,10 @@ class SubscriptionManagementNotifier
         throw Exception(errorMsg);
       }
 
-      // Refresh state after successful update
-      await refresh();
+      if (refreshAfterUpdate) {
+        // Refresh state after successful update
+        await refresh();
+      }
     } catch (e, stack) {
       appLog('Error updating subscription',
           name: 'SubscriptionManagement', error: e, stackTrace: stack);

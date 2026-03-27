@@ -18,7 +18,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
 
 Widget buildRecentTransactionsCard(
   BuildContext context,
@@ -123,19 +123,11 @@ Widget buildRecentTransactionsCard(
                         // the time component comes from createdAt. This avoids
                         // showing 00:00 when the original transaction time was later
                         // in the day (e.g. 14:25).
-                        final createdAtWall = toEffectiveWallTime(
-                          utcOrLocalInstant: e.createdAt,
+                        final displayDateTime =
+                            composeTransactionDisplayDateTime(
+                          transactionDate: e.date,
+                          createdAt: e.createdAt,
                           preferredTimezone: contact?.preferredTimezone,
-                        );
-                        final displayDateTime = DateTime(
-                          e.date.year,
-                          e.date.month,
-                          e.date.day,
-                          createdAtWall.hour,
-                          createdAtWall.minute,
-                          createdAtWall.second,
-                          createdAtWall.millisecond,
-                          createdAtWall.microsecond,
                         );
 
                         return Slidable(

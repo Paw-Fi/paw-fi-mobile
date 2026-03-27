@@ -270,3 +270,61 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
 
   return result;
 }
+
+List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
+  required List<RecurringTransaction> recurringTransactions,
+  required DateTime monthStart,
+  required DateTime now,
+  String? selectedCurrency,
+}) {
+  final currentDay = _dateOnly(now);
+  final targetMonthStart = _dateOnly(monthStart);
+
+  if (currentDay.year != targetMonthStart.year ||
+      currentDay.month != targetMonthStart.month) {
+    return const <ExpenseEntry>[];
+  }
+
+  final monthEnd =
+      DateTime(targetMonthStart.year, targetMonthStart.month + 1, 0);
+  final rangeStart =
+      currentDay.isAfter(targetMonthStart) ? currentDay : targetMonthStart;
+
+  return projectRecurringTransactionsAsExpenseEntries(
+    recurringTransactions: recurringTransactions
+        .where((transaction) => transaction.type.toLowerCase() == 'expense')
+        .toList(growable: false),
+    rangeStart: rangeStart,
+    rangeEnd: monthEnd,
+    selectedCurrency: selectedCurrency,
+  );
+}
+
+List<ExpenseEntry> dedupeProjectedRecurringExpenseEntries({
+  required List<ExpenseEntry> projectedExpenses,
+  required List<ExpenseEntry> actualExpenses,
+}) {
+  if (projectedExpenses.isEmpty || actualExpenses.isEmpty) {
+    return projectedExpenses;
+  }
+
+  final actualKeys = actualExpenses
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .map(_projectedExpenseComparisonKey)
+      .toSet();
+
+  return projectedExpenses
+      .where((expense) =>
+          !actualKeys.contains(_projectedExpenseComparisonKey(expense)))
+      .toList(growable: false);
+}
+
+String _projectedExpenseComparisonKey(ExpenseEntry expense) {
+  final currency = expense.currency?.trim().toUpperCase() ?? '';
+  final category = expense.category?.trim().toLowerCase() ?? '';
+  final householdId = expense.householdId?.trim() ?? '';
+  final userId = expense.userId?.trim() ?? '';
+  final splitGroupId = expense.splitGroupId?.trim() ?? '';
+  final description = expense.rawText?.trim().toLowerCase() ?? '';
+  return '${_dateKey(_dateOnly(expense.date))}|$currency|$category|${expense.amountCents}|$householdId|$userId|$splitGroupId|$description';
+}

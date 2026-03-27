@@ -100,7 +100,7 @@ class _EditTransactionBottomSheetState
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.card,
+        color: colorScheme.sheetBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       padding: EdgeInsets.only(

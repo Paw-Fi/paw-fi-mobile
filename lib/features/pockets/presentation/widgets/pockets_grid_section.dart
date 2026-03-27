@@ -55,6 +55,8 @@ class PocketsGridSection extends HookConsumerWidget {
         : (scopeParams.currency?.trim().isNotEmpty == true
             ? scopeParams.currency!.trim()
             : 'USD');
+    final includeUpcomingRecurring =
+        ref.watch(includeUpcomingRecurringInPocketsProvider);
 
     // Local state for Envelope Mode
     final envelopeMode = useState(true);
@@ -283,6 +285,20 @@ class PocketsGridSection extends HookConsumerWidget {
                       colorScheme,
                       envelopeMode.value,
                       (value) => envelopeMode.value = value,
+                      includeUpcomingRecurring,
+                      (value) async {
+                        ref
+                            .read(
+                              includeUpcomingRecurringInPocketsProvider
+                                  .notifier,
+                            )
+                            .state = value;
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool(
+                          includeUpcomingRecurringInPocketsPreferenceKey,
+                          value,
+                        );
+                      },
                     );
                     markHelpAsSeen();
                   },
@@ -357,9 +373,10 @@ class PocketsGridSection extends HookConsumerWidget {
                           }
                           showModalBottomSheet<void>(
                             context: context,
+                            barrierColor: Colors.black.withValues(alpha: 0.5),
+                            enableDrag: false,
+                            useSafeArea: true,
                             isScrollControlled: true,
-                            backgroundColor:
-                                colorScheme.surface.withValues(alpha: 0.0),
                             builder: (sheetContext) {
                               return EditPocketEnvelopeSheet(
                                 scopeParams: scopeParams,
@@ -434,9 +451,10 @@ class PocketsGridSection extends HookConsumerWidget {
                           }
                           showModalBottomSheet<void>(
                             context: context,
+                            barrierColor: Colors.black.withValues(alpha: 0.5),
+                            enableDrag: false,
+                            useSafeArea: true,
                             isScrollControlled: true,
-                            backgroundColor:
-                                colorScheme.surface.withValues(alpha: 0.0),
                             builder: (sheetContext) {
                               return EditPocketEnvelopeSheet(
                                 scopeParams: scopeParams,

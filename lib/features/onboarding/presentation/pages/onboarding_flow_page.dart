@@ -14,6 +14,7 @@ import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -43,6 +44,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
+const _kReturnToOrbitPageKey = 'onboarding_return_to_orbit_once';
 
 String _importSourceLabel(ImportSourceApp source) {
   switch (source) {
@@ -106,48 +108,67 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final currentPage = useState(0);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final shouldReturnToOrbitFromPrefs =
+        prefs.getBool(_kReturnToOrbitPageKey) ?? false;
+    final initialShowOrbit =
+        GoRouterState.of(context).uri.queryParameters['entry'] == 'orbit' ||
+            shouldReturnToOrbitFromPrefs;
     final isBusy = useState(false);
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
-
+    final isApplePlatform = defaultTargetPlatform == TargetPlatform.iOS;
     final introSlides = [
       (
-        title: context.l10n.onboardingIntroSlide1Title,
-        body: context.l10n.onboardingIntroSlide1Body
+        imagePath: 'lib/assets/images/onboarding/ready/ready1.png',
+        title: context.l10n.onboardingIntroCarouselSlide1Title,
+        body: context.l10n.onboardingIntroCarouselSlide1Body,
       ),
-      (title: context.l10n.onboardingIntroSlide2Title, body: ''),
-      (title: context.l10n.onboardingIntroSlide3Title, body: ""),
-      (title: context.l10n.onboardingIntroSlide4Title, body: ''),
+      (
+        imagePath: 'lib/assets/images/onboarding/ready/ready2.png',
+        title: context.l10n.onboardingIntroCarouselSlide2Title,
+        body: context.l10n.onboardingIntroCarouselSlide2Body,
+      ),
+      (
+        imagePath: 'lib/assets/images/onboarding/ready/ready3.png',
+        title: context.l10n.onboardingIntroCarouselSlide3Title,
+        body: context.l10n.onboardingIntroCarouselSlide3Body,
+      ),
+      (
+        imagePath: 'lib/assets/images/onboarding/ready/ready4.png',
+        title: context.l10n.onboardingIntroCarouselSlide4Title,
+        body: context.l10n.onboardingIntroCarouselSlide4Body,
+      ),
+      (
+        imagePath: 'lib/assets/images/onboarding/ready/ready5.png',
+        title: context.l10n.onboardingIntroSlide5Title,
+        body: isApplePlatform
+            ? context.l10n.onboardingIntroSlide5AppleBody
+            : context.l10n.onboardingIntroSlide5AndroidBody,
+      ),
     ];
 
-    final totalPages = introSlides.length;
-    final isFinalIntroSlide = currentPage.value == introSlides.length - 1;
-
-    // Ambient glow controller morphs based on page progress
-    final glowController = useAnimationController(
-      duration: const Duration(seconds: 4),
-    );
+    final pageController = usePageController();
+    final carouselIndex = useState(0);
+    final showOrbitPage = useState(initialShowOrbit);
 
     useEffect(() {
-      glowController.repeat(reverse: true);
-      return glowController.stop;
-    }, []);
-
-    final glowAnimation = useAnimation(
-      CurvedAnimation(parent: glowController, curve: Curves.easeInOut),
-    );
+      if (!shouldReturnToOrbitFromPrefs) return null;
+      unawaited(prefs.remove(_kReturnToOrbitPageKey));
+      return null;
+    }, const []);
 
     useEffect(() {
       unawaited(
         analytics.beginPage(
           flowName: 'onboarding_funnel',
           pageId: _guestIntroPageId(),
-          stepIndex: currentPage.value,
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
           properties: <String, Object?>{'entry_path': 'guest_intro'},
         ),
       );
       return null;
-    }, [currentPage.value]);
+    }, [carouselIndex.value, showOrbitPage.value]);
 
     Future<void> goToPreAuthQuestions() async {
       if (isBusy.value) return;
@@ -156,7 +177,8 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         await analytics.trackAction(
           flowName: 'onboarding_funnel',
           pageId: _guestIntroPageId(),
-          stepIndex: currentPage.value,
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
           actionId: 'intro_completed',
           result: 'used',
           properties: const <String, Object?>{'step_group': 'guest_intro'},
@@ -177,8 +199,66 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       }
     }
 
+    Future<void> goToPreviewMode() async {
+      if (isBusy.value) return;
+      isBusy.value = true;
+      try {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
+          actionId: 'intro_preview_app',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        );
+        await analytics.endPage(
+          reason: 'intro_preview_app',
+          transitionTo: '/dashboard',
+        );
+        final prefs = ref.read(sharedPreferencesProvider);
+        await prefs.setBool(kPreviewModeActiveKey, true);
+        await prefs.setBool(kPreviewReturnToPreauthKey, false);
+        await prefs.setString(kPreviewExitRouteKey, '/onboarding?entry=orbit');
+        await prefs.setBool(_kReturnToOrbitPageKey, true);
+        ref.read(previewModeProvider.notifier).enable();
+        if (!context.mounted) return;
+        context.go('/dashboard');
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
+    Future<void> goToLogin() async {
+      if (isBusy.value) return;
+      isBusy.value = true;
+      try {
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
+          actionId: 'intro_sign_in_tapped',
+          result: 'used',
+          properties: const <String, Object?>{'step_group': 'guest_intro'},
+        );
+        await analytics.endPage(
+          reason: 'intro_sign_in',
+          transitionTo: '/login',
+        );
+        if (!context.mounted) return;
+        context.go('/login');
+      } finally {
+        if (context.mounted) {
+          isBusy.value = false;
+        }
+      }
+    }
+
     void goNext() {
-      if (currentPage.value == totalPages - 1) {
+      if (showOrbitPage.value) {
         unawaited(goToPreAuthQuestions());
         return;
       }
@@ -186,77 +266,71 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         analytics.trackAction(
           flowName: 'onboarding_funnel',
           pageId: _guestIntroPageId(),
-          stepIndex: currentPage.value,
+          stepIndex: carouselIndex.value,
           actionId: 'intro_next',
           result: 'used',
           properties: const <String, Object?>{'step_group': 'guest_intro'},
         ),
       );
-      currentPage.value++;
+      if (carouselIndex.value >= introSlides.length - 1) {
+        showOrbitPage.value = true;
+        return;
+      }
+      final nextPage = carouselIndex.value + 1;
+      if (pageController.hasClients) {
+        unawaited(pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+        ));
+      } else {
+        carouselIndex.value = nextPage;
+      }
     }
 
     void goBack() {
-      if (currentPage.value <= 0) return;
+      if (showOrbitPage.value) {
+        showOrbitPage.value = false;
+        if (pageController.hasClients) {
+          pageController.jumpToPage(introSlides.length - 1);
+        } else {
+          carouselIndex.value = introSlides.length - 1;
+        }
+        return;
+      }
+      if (carouselIndex.value <= 0) return;
       unawaited(
         analytics.trackAction(
           flowName: 'onboarding_funnel',
           pageId: _guestIntroPageId(),
-          stepIndex: currentPage.value,
+          stepIndex: carouselIndex.value,
           actionId: 'intro_back',
           result: 'used',
           properties: const <String, Object?>{'step_group': 'guest_intro'},
         ),
       );
-      currentPage.value--;
+      final previousPage = carouselIndex.value - 1;
+      if (pageController.hasClients) {
+        unawaited(pageController.animateToPage(
+          previousPage,
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeInOut,
+        ));
+      } else {
+        carouselIndex.value = previousPage;
+      }
     }
 
     return AdaptiveScaffold(
       appBar: null,
       body: Material(
         color: colorScheme.appBackground,
-        child: SafeArea(
-          bottom: false,
-          child: Stack(
-            children: [
-              // Ambient glow background layer (persists and morphs across slides)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: MediaQuery.sizeOf(context).height * 0.6,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 650),
-                    opacity: isFinalIntroSlide ? 1.0 : 0.0,
-                    child: Transform(
-                      transform: Matrix4.identity()
-                        ..scale(2.0, 1.0 + (glowAnimation * 0.05)),
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: RadialGradient(
-                            center: Alignment.bottomCenter,
-                            radius: 1.0,
-                            colors: [
-                              colorScheme.primary.withValues(
-                                alpha: 0.5 + (glowAnimation * 0.1),
-                              ),
-                              colorScheme.primary.withValues(
-                                alpha: 0.2 + (glowAnimation * 0.05),
-                              ),
-                              colorScheme.primary.withValues(alpha: 0.0),
-                            ],
-                            stops: const [0.0, 0.5, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Main Content
-              Column(
+        child: Stack(
+          children: [
+            const _OnboardingPaywallBackground(),
+            SafeArea(
+              bottom: false,
+              child: Column(
                 children: [
                   if (kDebugMode)
                     Padding(
@@ -264,7 +338,10 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                       child: Row(
                         children: [
                           IconButton(
-                            onPressed: currentPage.value > 0 ? goBack : null,
+                            onPressed:
+                                (showOrbitPage.value || carouselIndex.value > 0)
+                                    ? goBack
+                                    : null,
                             icon: const Icon(Icons.arrow_back_rounded),
                             tooltip: 'Debug back',
                           ),
@@ -287,55 +364,45 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                       ),
                     ),
                   Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 650),
-                      switchInCurve: Curves.easeInOut,
-                      switchOutCurve: Curves.easeInOut,
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                        final inAnimation = Tween<Offset>(
-                          begin: const Offset(0.0, 0.02),
-                          end: Offset.zero,
-                        ).animate(animation);
-
-                        final outAnimation = Tween<Offset>(
-                          begin: const Offset(0.0, -0.02),
-                          end: Offset.zero,
-                        ).animate(animation);
-
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: child.key == ValueKey(currentPage.value)
-                                ? inAnimation
-                                : outAnimation,
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey<int>(currentPage.value),
-                        child: Builder(builder: (context) {
-                          final index = currentPage.value;
-                          final slide = introSlides[index];
-                          return _IntroSlide(
-                            title: slide.title,
-                            body: slide.body,
-                            currentIndex: index,
-                            totalSlides: introSlides.length,
-                            isFinalSlide: index == introSlides.length - 1,
+                    child: showOrbitPage.value
+                        ? _GuestOrbitPage(
                             onNext: goNext,
-                          );
-                        }),
-                      ),
-                    ),
+                            onPreview: () => unawaited(goToPreviewMode()),
+                            onSignIn: () => unawaited(goToLogin()),
+                          )
+                        : _GuestCarouselPage(
+                            slides: introSlides,
+                            controller: pageController,
+                            currentIndex: carouselIndex.value,
+                            onPageChanged: (index) =>
+                                carouselIndex.value = index,
+                            onNext: goNext,
+                          ),
                   ),
                   SizedBox(height: 16 + bottomPadding),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _OnboardingPaywallBackground extends StatelessWidget {
+  const _OnboardingPaywallBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SvgPicture.asset(
+        'lib/assets/images/paywall/background-gradient.svg',
+        width: MediaQuery.sizeOf(context).width,
+        fit: BoxFit.cover,
       ),
     );
   }
@@ -347,29 +414,289 @@ String? _colorToHex(Color? color) {
   return '#${hex.substring(2).toUpperCase()}';
 }
 
-class _IntroSlide extends HookWidget {
-  const _IntroSlide({
-    required this.title,
-    required this.body,
+class _GuestCarouselPage extends StatelessWidget {
+  const _GuestCarouselPage({
+    required this.slides,
+    required this.controller,
     required this.currentIndex,
-    required this.totalSlides,
-    required this.isFinalSlide,
+    required this.onPageChanged,
     required this.onNext,
   });
 
-  final String title;
-  final String body;
+  final List<({String imagePath, String title, String body})> slides;
+  final PageController controller;
   final int currentIndex;
-  final int totalSlides;
-  final bool isFinalSlide;
+  final ValueChanged<int> onPageChanged;
   final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          Text(
+            context.l10n.onboardingIntroCarouselTitle,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: colorScheme.foreground,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.l10n.onboardingIntroCarouselSubtitle,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: PageView.builder(
+              controller: controller,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: onPageChanged,
+              itemCount: slides.length,
+              itemBuilder: (context, index) {
+                final slide = slides[index];
+                return _GuestCarouselItem(
+                  imagePath: slide.imagePath,
+                  title: slide.title,
+                  body: slide.body,
+                );
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(slides.length, (index) {
+              final isActive = index == currentIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                height: 8,
+                width: isActive ? 18 : 8,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? colorScheme.primary
+                      : colorScheme.border.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: PrimaryAdaptiveButton(
+              onPressed: onNext,
+              child: Text(context.l10n.next),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-    final text = body.isNotEmpty ? '$title\n$body' : title;
+class _GuestCarouselItem extends StatelessWidget {
+  const _GuestCarouselItem({
+    required this.imagePath,
+    required this.title,
+    required this.body,
+  });
+
+  final String imagePath;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Image.asset(
+            imagePath,
+            height: 320,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MonekoRichText(
+                text: title,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.foreground,
+                ),
+                highlightStyle: TextStyle(
+                  fontSize: 16,
+                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.primary,
+                ),
+              ),
+              if (body.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GuestOrbitPage extends StatelessWidget {
+  const _GuestOrbitPage({
+    required this.onNext,
+    required this.onPreview,
+    required this.onSignIn,
+  });
+
+  final VoidCallback onNext;
+  final VoidCallback onPreview;
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(28, 20, 28, 20 + bottomPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.topLeft,
+            child: MonekoRichText(
+              text: context.l10n.onboardingIntroSlide4Title,
+              style: TextStyle(
+                fontSize: 31,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                height: 1.375,
+                letterSpacing: 0,
+              ),
+              highlightStyle: TextStyle(
+                fontSize: 31,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.primary,
+                height: 1.375,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Expanded(child: _OnboardingOrbitHero()),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: PrimaryAdaptiveButton(
+              onPressed: onNext,
+              child: Text(context.l10n.onboardingIntroGetMyPlan),
+            ),
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: onPreview,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colorScheme.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.border),
+              ),
+              child: Text(
+                context.l10n.onboardingPreAuthSaveBudgetPreview,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Center(
+            child: GestureDetector(
+              onTap: onSignIn,
+              child: Text(
+                context.l10n.onboardingIntroAlreadyHaveAccount,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IntroSlide extends HookWidget {
+  const _IntroSlide({
+    required this.title,
+    required this.body,
+    required this.imagePath,
+    required this.currentIndex,
+    required this.totalSlides,
+    required this.indicatorSteps,
+    required this.isFinalSlide,
+    required this.onNext,
+    required this.onPreview,
+  });
+
+  final String title;
+  final String body;
+  final String? imagePath;
+  final int currentIndex;
+  final int totalSlides;
+  final int indicatorSteps;
+  final bool isFinalSlide;
+  final VoidCallback onNext;
+  final VoidCallback onPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     // Staggered entrance animation
     final animationController = useAnimationController(
@@ -416,53 +743,95 @@ class _IntroSlide extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Progress Dots (static, no entrance animation)
-          Padding(
-            padding: const EdgeInsets.only(top: 24, bottom: 40),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(totalSlides, (index) {
-                final isActive = index == currentIndex;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 8,
-                  width: 26,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? colorScheme.primary
-                        : colorScheme.border.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(5.33),
+          if (!isFinalSlide)
+            Padding(
+              padding: const EdgeInsets.only(top: 24, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n.onboardingIntroCarouselTitle,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                      color: colorScheme.foreground,
+                      height: 1.15,
+                    ),
                   ),
-                );
-              }),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.l10n.onboardingIntroCarouselSubtitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-
           if (!isFinalSlide)
             Expanded(
               child: FadeTransition(
                 opacity: fadeAnim,
                 child: SlideTransition(
                   position: slideAnim,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: MonekoRichText(
-                      text: text,
-                      textAlign: TextAlign.start,
-                      style: TextStyle(
-                        fontSize: 31,
-                        height: 1.3,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (imagePath != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            imagePath!,
+                            height: 320,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MonekoRichText(
+                                text: title,
+                                textAlign: TextAlign.start,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.foreground,
+                                ),
+                                highlightStyle: TextStyle(
+                                  fontSize: 16,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                              if (body.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  body,
+                                  textAlign: TextAlign.start,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                      highlightStyle: TextStyle(
-                        fontSize: 31,
-                        height: 1.3,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.primary,
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -483,7 +852,7 @@ class _IntroSlide extends HookWidget {
                         child: Padding(
                           padding: const EdgeInsets.only(top: 0),
                           child: MonekoRichText(
-                            text: text,
+                            text: context.l10n.onboardingIntroSlide4Title,
                             style: TextStyle(
                               fontSize: 31,
                               fontWeight: FontWeight.w800,
@@ -512,7 +881,7 @@ class _IntroSlide extends HookWidget {
                           ),
                         ),
                       ),
-                      // Get Started button
+                      // Final slide actions
                       FadeTransition(
                         opacity: actionFadeAnim,
                         child: SlideTransition(
@@ -521,24 +890,36 @@ class _IntroSlide extends HookWidget {
                             padding: const EdgeInsets.only(bottom: 24, top: 16),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 52,
+                                  child: PrimaryAdaptiveButton(
+                                    onPressed: onNext,
+                                    child: Text(
+                                      context.l10n.onboardingIntroGetMyPlan,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
                                 InkWell(
-                                  onTap: onNext,
-                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: onPreview,
+                                  borderRadius: BorderRadius.circular(12),
                                   child: Container(
-                                    height: 56,
+                                    width: double.infinity,
+                                    height: 52,
+                                    alignment: Alignment.center,
                                     decoration: BoxDecoration(
-                                      color: colorScheme.cardSurface,
-                                      borderRadius: BorderRadius.circular(16),
+                                      color: colorScheme.card,
+                                      borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: colorScheme.border
-                                            .withValues(alpha: 0.15),
-                                        width: 1,
+                                        color: colorScheme.border,
                                       ),
                                     ),
-                                    alignment: Alignment.center,
                                     child: Text(
-                                      context.l10n.getStarted,
+                                      context.l10n
+                                          .onboardingPreAuthSaveBudgetPreview,
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -547,29 +928,20 @@ class _IntroSlide extends HookWidget {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(height: 24),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '${context.l10n.alreadyHaveAccount} ',
+                                const SizedBox(height: 18),
+                                Center(
+                                  child: GestureDetector(
+                                    onTap: () => context.go('/login'),
+                                    child: Text(
+                                      context.l10n
+                                          .onboardingIntroAlreadyHaveAccount,
                                       style: TextStyle(
                                         fontSize: 15,
+                                        fontWeight: FontWeight.w600,
                                         color: colorScheme.mutedForeground,
                                       ),
                                     ),
-                                    GestureDetector(
-                                      onTap: () => context.go('/login'),
-                                      child: Text(
-                                        context.l10n.signInLower,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -582,37 +954,44 @@ class _IntroSlide extends HookWidget {
               ),
             ),
           ],
-
           if (!isFinalSlide)
             FadeTransition(
               opacity: actionFadeAnim,
               child: SlideTransition(
                 position: actionSlideAnim,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: InkWell(
-                      onTap: onNext,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: colorScheme.cardSurface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant,
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          color: colorScheme.onSurface.withValues(alpha: 0.8),
-                          size: 28,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(indicatorSteps, (index) {
+                          final isActive = index == currentIndex;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 8,
+                            width: isActive ? 18 : 8,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? colorScheme.primary
+                                  : colorScheme.border.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: PrimaryAdaptiveButton(
+                          onPressed: onNext,
+                          child: Text(context.l10n.next),
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
