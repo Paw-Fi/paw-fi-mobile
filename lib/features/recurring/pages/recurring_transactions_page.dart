@@ -9,6 +9,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_page_
 import 'package:moneko/features/recurring/presentation/providers/payment_plan_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/recurring_transaction_card.dart';
 import 'package:moneko/features/recurring/presentation/widgets/payment_plan_list_item_card.dart';
+import 'package:moneko/features/recurring/presentation/widgets/payment_plan_detail_sheet.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -468,7 +469,15 @@ class _RecurringTransactionsPageState
 
             final installmentItem =
                 installmentItems[index - transactions.length];
-            return PaymentPlanListItemCard(item: installmentItem);
+            return PaymentPlanListItemCard(
+              item: installmentItem,
+              onTap: isLoading
+                  ? null
+                  : () => showPaymentPlanDetailSheet(
+                        context,
+                        item: installmentItem,
+                      ),
+            );
           },
           childCount: transactions.length + installmentItems.length,
         ),

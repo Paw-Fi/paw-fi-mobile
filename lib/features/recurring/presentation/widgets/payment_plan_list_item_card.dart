@@ -10,9 +10,11 @@ class PaymentPlanListItemCard extends StatelessWidget {
   const PaymentPlanListItemCard({
     super.key,
     required this.item,
+    this.onTap,
   });
 
   final ScheduledListItemDto item;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +39,7 @@ class PaymentPlanListItemCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
         child: TransactionListTile(
+          onTap: onTap,
           category: item.category,
           title: item.title,
           description: categoryLabel,

@@ -41,6 +41,49 @@ void main() {
     });
   });
 
+  group('PaymentPlanDetailDto', () {
+    test('parses plan detail payload', () {
+      final detail = PaymentPlanDetailDto.fromJson({
+        'plan': {
+          'id': 'plan-1',
+          'payment_plan_type': 'installment',
+          'plan_status': 'active',
+          'type': 'expense',
+          'category': 'shopping',
+          'currency': 'USD',
+          'recurrence_rule': {
+            'frequency': 'monthly',
+            'anchor_date': '2026-03-25',
+          },
+          'remaining_balance_cents': 900,
+        },
+        'occurrences': [
+          {
+            'id': 'occ-1',
+            'payment_plan_id': 'plan-1',
+            'occurrence_number': 1,
+            'scheduled_date': '2026-03-25',
+            'original_scheduled_date': '2026-03-25',
+            'due_amount_cents': 300,
+            'paid_amount_cents': 0,
+            'remaining_amount_cents': 300,
+            'status': 'scheduled',
+          },
+        ],
+        'payments': [
+          {'id': 'pay-1', 'amount_cents': 100},
+        ],
+      });
+
+      expect(detail.plan.id, 'plan-1');
+      expect(detail.plan.paymentPlanType, PaymentPlanType.installment);
+      expect(detail.occurrences.single.id, 'occ-1');
+      expect(
+          detail.occurrences.single.status, PaymentOccurrenceStatus.scheduled);
+      expect(detail.payments.single['id'], 'pay-1');
+    });
+  });
+
   group('RecurrenceRuleDto', () {
     test('serializes expected recurrence payload', () {
       final dto = RecurrenceRuleDto(
