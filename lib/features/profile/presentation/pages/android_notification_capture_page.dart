@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -22,6 +23,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final authState = ref.watch(authProvider);
 
     // Local state
@@ -31,6 +33,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final isSyncing = useState(false);
     final isUpdatingDestination = useState(false);
     final hasAccess = useState(false);
+    final hasNotificationPermission = useState(true);
     final recentApps = useState<List<RecentNotificationApp>>([]);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
@@ -97,7 +100,13 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
     // Load config + access status on mount — merges native config with Supabase flag.
     useEffect(() {
+      Future<void> checkNotificationPermission() async {
+        final status = await Permission.notification.status;
+        hasNotificationPermission.value = status.isGranted;
+      }
+
       Future<void> loadAll() async {
+        await checkNotificationPermission();
         try {
           final svc = NotificationCaptureService.instance;
 
@@ -153,6 +162,9 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       if (current == AppLifecycleState.resumed) {
         Future<void> recheck() async {
           try {
+            final status = await Permission.notification.status;
+            hasNotificationPermission.value = status.isGranted;
+
             final svc = NotificationCaptureService.instance;
             final access = await svc.checkNotificationAccess();
             hasAccess.value = access;
@@ -417,6 +429,57 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 },
                         ),
                       ),
+                      if (config.value.enabled &&
+                          !hasNotificationPermission.value)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? colorScheme.warning.withValues(alpha: 0.1)
+                                : colorScheme.warning.withValues(alpha: 0.05),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline_rounded,
+                                  color: colorScheme.warning, size: 18),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Enable notifications to receive a summary every time a payment is captured.",
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDark
+                                            ? colorScheme.foreground
+                                            : colorScheme.foreground
+                                                .withValues(alpha: 0.8),
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    GestureDetector(
+                                      onTap: () => openAppSettings(),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Text(
+                                        "Open Settings to Enable",
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       _SettingsTile(
                         icon: Icons.folder_rounded,
                         iconColor: Colors.white,

@@ -6,6 +6,7 @@ import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/util/constants.dart';
@@ -33,6 +34,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final config = useState<WalletCaptureConfig>(WalletCaptureConfig.disabled);
     final isLoading = useState(true);
     final isSyncing = useState(false);
+    final hasNotificationPermission = useState(true);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
 
@@ -43,6 +45,11 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     // Load config on mount — merges iOS native config with Supabase flag.
     useEffect(() {
+      Future<void> checkNotificationPermission() async {
+        final status = await Permission.notification.status;
+        hasNotificationPermission.value = status.isGranted;
+      }
+
       Future<void> loadConfig() async {
         try {
           // 1. Load local iOS config (scopeId, scopeName, isPortfolio).
@@ -80,9 +87,24 @@ class IosWalletCapturePage extends HookConsumerWidget {
         }
       }
 
-      loadConfig();
+      Future<void> initAll() async {
+        await checkNotificationPermission();
+        await loadConfig();
+      }
+
+      initAll();
       return null;
     }, []);
+
+    useOnAppLifecycleStateChange((previous, current) {
+      if (current == AppLifecycleState.resumed) {
+        Future<void> recheck() async {
+          final status = await Permission.notification.status;
+          hasNotificationPermission.value = status.isGranted;
+        }
+        recheck();
+      }
+    });
 
     Future<void> syncCredentials() async {
       isSyncing.value = true;
@@ -470,6 +492,59 @@ class IosWalletCapturePage extends HookConsumerWidget {
                         ],
                       ),
                       if (isEnabled) ...[
+                        if (!hasNotificationPermission.value) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? colorScheme.warning.withValues(alpha: 0.1)
+                                  : colorScheme.warning
+                                      .withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.info_outline_rounded,
+                                    color: colorScheme.warning, size: 18),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Enable notifications to receive a summary every time a payment is captured.",
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isDark
+                                              ? colorScheme.foreground
+                                              : colorScheme.foreground
+                                                  .withValues(alpha: 0.8),
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      GestureDetector(
+                                        onTap: () => openAppSettings(),
+                                        behavior: HitTestBehavior.opaque,
+                                        child: Text(
+                                          "Open Settings to Enable",
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         SizedBox(
                           width: double.infinity,
