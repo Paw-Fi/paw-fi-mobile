@@ -24,6 +24,7 @@ import 'package:moneko/features/subscription/data/models/app_store_reviews.dart'
 import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -156,6 +157,7 @@ class PaywallScreen extends HookConsumerWidget {
     final currentInterval = currentSub?.subscription?.billingInterval;
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
+    final isNewUser = currentSub?.subscription == null;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
@@ -193,14 +195,12 @@ class PaywallScreen extends HookConsumerWidget {
     }, [mode]);
 
     void runAfterBuild(VoidCallback callback) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        callback();
-      });
+      runAfterBuildIfMounted(context, callback);
     }
 
     Future<void> markPaywallExitForTrialOffer() async {
       if (auth.uid.isEmpty) return;
+      if (!isNewUser) return;
       if (hasActiveSubscription) return;
       if (isProcessing ||
           processingDialogOpen.value ||
@@ -307,21 +307,13 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     void dismissProcessingDialog([String? reason]) {
-      _debugLog(
-        '🧹 Dismissing processing dialog${reason != null ? " - $reason" : ""} | open=${processingDialogOpen.value} mounted=${context.mounted}',
+      dismissProcessingDialogSafely<_ProcessingDialogKind>(
+        context: context,
+        dialogOpen: processingDialogOpen,
+        dialogKind: processingDialogKind,
+        reason: reason,
+        logger: _debugLog,
       );
-      if (!processingDialogOpen.value) return;
-      processingDialogOpen.value = false;
-      processingDialogKind.value = null;
-      if (!context.mounted) return;
-      final nav = Navigator.of(context, rootNavigator: true);
-      final canPop = nav.canPop();
-      _debugLog('🧭 root nav canPop=$canPop');
-      if (canPop) {
-        nav.pop();
-      } else {
-        _debugLog('⚠️ No route to pop for processing dialog');
-      }
     }
 
     String humanizePurchaseError(String raw, [String? code]) {
@@ -679,6 +671,7 @@ class PaywallScreen extends HookConsumerWidget {
     );
 
     Future<void> maybeGrantReturnTrial() async {
+      if (!isNewUser) return;
       if (auth.uid.isEmpty || hasActiveSubscription) return;
       if (isCheckingReturnTrial.value) return;
 

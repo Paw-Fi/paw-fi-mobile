@@ -12,10 +12,12 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
 import 'package:go_router/go_router.dart';
 
 void _debugLog(Object? message) {
@@ -132,6 +134,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
+    final hasActiveSubscription =
+        currentSub?.subscription?.isSubscribed ?? false;
 
     // Check if user is truly new (no subscription data exists)
     final isNewUser = currentSub?.subscription == null;
@@ -152,29 +156,37 @@ class PlanSelectionPage extends HookConsumerWidget {
     final iapLastErrorCode = iapStateAsync.valueOrNull?.lastErrorCode;
     final lastIapErrorShown = useRef<String?>(null);
     final didSeeIapProcessing = useRef(false);
+    final didInitiateCheckout = useRef(false);
+    final didInitiateRestore = useRef(false);
+    final didCompletePlanSelectionFlow = useRef(false);
 
     void runAfterBuild(VoidCallback callback) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        callback();
-      });
+      runAfterBuildIfMounted(context, callback);
     }
 
     void dismissProcessingDialog([String? reason]) {
-      _debugLog(
-        '🧹 Dismissing processing dialog${reason != null ? " - $reason" : ""} | open=${processingDialogOpen.value} mounted=${context.mounted}',
+      dismissProcessingDialogSafely<_ProcessingDialogKind>(
+        context: context,
+        dialogOpen: processingDialogOpen,
+        dialogKind: processingDialogKind,
+        reason: reason,
+        logger: _debugLog,
       );
-      if (!processingDialogOpen.value) return;
-      processingDialogOpen.value = false;
-      processingDialogKind.value = null;
-      if (!context.mounted) return;
-      final nav = Navigator.of(context, rootNavigator: true);
-      final canPop = nav.canPop();
-      _debugLog('🧭 root nav canPop=$canPop');
-      if (canPop) {
-        nav.pop();
-      } else {
-        _debugLog('⚠️ No route to pop for processing dialog');
+    }
+
+    Future<void> completePlanSelectionFlowToDashboard({
+      required PlanOption option,
+      required String source,
+      required String provider,
+      required bool includePurchaseEvent,
+    }) async {
+      if (didCompletePlanSelectionFlow.value) return;
+      didCompletePlanSelectionFlow.value = true;
+      didInitiateCheckout.value = false;
+      didInitiateRestore.value = false;
+
+      if (context.mounted) {
+        context.go('/dashboard');
       }
     }
 
@@ -323,12 +335,8 @@ class PlanSelectionPage extends HookConsumerWidget {
 
               if (isActive) {
                 _debugLog(
-                    '✅ Subscription confirmed active, navigating to dashboard');
-                if (context.mounted) {
-                  context.go('/dashboard');
-                }
+                    '✅ Subscription confirmed active, waiting for plan selection completion effect');
               } else {
-                // Subscription still not active - show error
                 _debugLog('❌ Subscription not active after purchase!');
                 AppToast.error(
                   context,
@@ -536,6 +544,26 @@ class PlanSelectionPage extends HookConsumerWidget {
       orElse: () => plans.first,
     );
 
+    useEffect(() {
+      if (didCompletePlanSelectionFlow.value) return null;
+      if (hasActiveSubscription) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          completePlanSelectionFlowToDashboard(
+            option: activePlanOption,
+            source: didInitiateRestore.value
+                ? 'restore'
+                : didInitiateCheckout.value
+                    ? 'checkout'
+                    : 'existing_subscription',
+            provider: useIap ? 'iap' : 'stripe',
+            includePurchaseEvent:
+                didInitiateCheckout.value || didInitiateRestore.value,
+          );
+        });
+      }
+      return null;
+    }, [hasActiveSubscription, useIap, activePlanOption.id]);
+
     final requiresAutoRenewAcknowledgement =
         activePlanOption.serverPlanId != 'lifetime';
     final canConfirmAutoRenew =
@@ -563,6 +591,17 @@ class PlanSelectionPage extends HookConsumerWidget {
         return true;
       }
       return false;
+    }
+
+    if (hasActiveSubscription) {
+      return AdaptiveScaffold(
+        body: Material(
+          color: colorScheme.appBackground,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
     }
 
     // DIRECT RETURN FOR LIFETIME USERS
@@ -691,7 +730,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (!context.mounted) return;
 
       if (isActive) {
-        context.go('/dashboard');
         return;
       }
 
@@ -721,6 +759,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
       );
       try {
+        didInitiateCheckout.value = true;
         print('🍎 Platform check - iOS: $isIos');
         if (useIap) {
           // Don't allow purchase attempts until the store/products are ready.
@@ -773,6 +812,12 @@ class PlanSelectionPage extends HookConsumerWidget {
 
           try {
             await startStripeCheckout(activePlanOption);
+            await completePlanSelectionFlowToDashboard(
+              option: activePlanOption,
+              source: 'checkout',
+              provider: 'stripe',
+              includePurchaseEvent: true,
+            );
           } finally {
             isStripeProcessing.value = false;
             dismissProcessingDialog('stripe flow completed');
@@ -782,6 +827,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         print('❌ Error in subscription flow: $e');
 
         dismissProcessingDialog('main action catch');
+        didInitiateCheckout.value = false;
 
         if (context.mounted) {
           _debugLog('Purchase flow threw: $e');
@@ -819,6 +865,12 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> onRestorePurchases() async {
+      Future<void> refreshSubscriptionState() async {
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        await ref.read(subscriptionNotifierProvider.notifier).refresh();
+      }
+
+      didInitiateRestore.value = true;
       if (context.mounted) {
         processingDialogOpen.value = true;
         _debugLog('🧾 Dialog open set to true (restore purchases)');
@@ -830,9 +882,15 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       try {
         if (useIap) {
+          final iapState = iapStateAsync.valueOrNull;
+          if (iapState == null || !iapState.storeAvailable) {
+            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+          }
+
           await ref.read(iapControllerProvider.notifier).restorePurchases();
         }
-        await ref.read(subscriptionManagementProvider.notifier).refresh();
+
+        await refreshSubscriptionState();
 
         var refreshedSubscription =
             ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
@@ -844,7 +902,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (useIap && !isRestored && restoreError.isEmpty) {
           for (var attempt = 0; attempt < 5; attempt++) {
             await Future<void>.delayed(const Duration(seconds: 1));
-            await ref.read(subscriptionManagementProvider.notifier).refresh();
+            await refreshSubscriptionState();
             refreshedSubscription = ref
                 .read(subscriptionManagementProvider)
                 .valueOrNull
@@ -862,10 +920,17 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (!context.mounted) return;
 
         if (isRestored) {
+          await completePlanSelectionFlowToDashboard(
+            option: activePlanOption,
+            source: 'restore',
+            provider: useIap ? 'iap' : 'stripe',
+            includePurchaseEvent: true,
+          );
           AppToast.success(context, 'Subscription status restored');
           return;
         }
 
+        didInitiateRestore.value = false;
         if (restoreError.isNotEmpty) {
           AppToast.error(
             context,
@@ -877,6 +942,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         AppToast.error(
             context, 'Failed to restore: Purchase failed. Please try again.');
       } catch (e) {
+        didInitiateRestore.value = false;
         if (context.mounted) {
           AppToast.error(context, 'Failed to restore: ${e.toString()}');
         }
