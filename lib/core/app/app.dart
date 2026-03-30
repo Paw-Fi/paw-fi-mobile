@@ -113,7 +113,8 @@ class _AppState extends ConsumerState<App> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
-    final themeMode = ref.watch(themeModeProvider);
+     final themeMode = ref.watch(themeModeProvider);
+    //final themeMode=ThemeMode.dark;
     final locale = ref.watch(localeProvider);
     final localizationsDelegates = <LocalizationsDelegate<dynamic>>[
       ...AppLocalizations.localizationsDelegates,

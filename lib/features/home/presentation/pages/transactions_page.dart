@@ -1000,82 +1000,85 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       DateRangeFilter.custom,
     ];
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = _selectedDateFilter == filter;
-
-          String label;
-          if (filter == DateRangeFilter.custom &&
-              _customStart != null &&
-              _customEnd != null &&
-              isSelected) {
-            final fmt = DateFormat('MMM d');
-            label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
-          } else {
-            label = filter.getLabel(context);
-          }
-
-          return GestureDetector(
-            onTap: () async {
-              if (filter == DateRangeFilter.custom) {
-                final result = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: effectiveNow(
-                    preferredTimezone:
-                        ref.read(analyticsProvider).contact?.preferredTimezone,
-                  ),
-                  initialDateRange: _customStart != null && _customEnd != null
-                      ? DateTimeRange(start: _customStart!, end: _customEnd!)
-                      : null,
-                );
-                if (result != null) {
+    return Padding(
+      padding: const EdgeInsets.only(top:8.0),
+      child: SizedBox(
+        height: 35,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: filters.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final filter = filters[index];
+            final isSelected = _selectedDateFilter == filter;
+      
+            String label;
+            if (filter == DateRangeFilter.custom &&
+                _customStart != null &&
+                _customEnd != null &&
+                isSelected) {
+              final fmt = DateFormat('MMM d');
+              label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+            } else {
+              label = filter.getLabel(context);
+            }
+      
+            return GestureDetector(
+              onTap: () async {
+                if (filter == DateRangeFilter.custom) {
+                  final result = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2000),
+                    lastDate: effectiveNow(
+                      preferredTimezone:
+                          ref.read(analyticsProvider).contact?.preferredTimezone,
+                    ),
+                    initialDateRange: _customStart != null && _customEnd != null
+                        ? DateTimeRange(start: _customStart!, end: _customEnd!)
+                        : null,
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _selectedDateFilter = DateRangeFilter.custom;
+                      _customStart = result.start;
+                      _customEnd = result.end;
+                    });
+                  }
+                } else {
                   setState(() {
-                    _selectedDateFilter = DateRangeFilter.custom;
-                    _customStart = result.start;
-                    _customEnd = result.end;
+                    _selectedDateFilter = filter;
+                    _customStart = null;
+                    _customEnd = null;
                   });
                 }
-              } else {
-                setState(() {
-                  _selectedDateFilter = filter;
-                  _customStart = null;
-                  _customEnd = null;
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? colorScheme.primary : colorScheme.card,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.border.withValues(alpha: 0.4),
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? colorScheme.primary : colorScheme.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.border.withValues(alpha: 0.4),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? colorScheme.primaryForeground
+                        : colorScheme.foreground,
+                  ),
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected
-                      ? colorScheme.primaryForeground
-                      : colorScheme.foreground,
-                ),
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1125,30 +1128,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            context.l10n.spent,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
-            ),
-          ),
-          Text(
-            periodLabel,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 20),
+       
           _ExpandablePageView(
             controller: _chartPageController,
             currentPage: currentChartIndex,
@@ -1216,16 +1196,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   ) {
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: CategoryPieChart(
+      child: TransactionsPieChart(
         colorScheme: colorScheme,
         expenses: expenses,
         selectedCurrency: ref.watch(homeFilterProvider).selectedCurrency,
-        chartSize: 220,
-        centerSpaceRadius: 48,
-        sectionRadius: 62,
-        touchedSectionRadius: 68,
-        legendAlignment: WrapAlignment.center,
-        legendPadding: const EdgeInsets.only(top: 16),
+        periodLabel: _selectedPeriodLabel(context),
       ),
     );
   }

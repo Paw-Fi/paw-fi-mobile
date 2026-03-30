@@ -31,9 +31,9 @@ class CategoryPieChart extends StatefulWidget {
     this.selectedCurrency,
     this.showCenterSummary = false,
     this.chartSize = 200,
-    this.centerSpaceRadius = 60,
-    this.sectionRadius = 52,
-    this.touchedSectionRadius = 58,
+    this.centerSpaceRadius = 75,
+    this.sectionRadius = 30,
+    this.touchedSectionRadius = 35,
     this.legendAlignment = WrapAlignment.start,
     this.legendItemLimit = 6,
     this.legendPadding = const EdgeInsets.only(top: 24),
@@ -140,7 +140,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                           }
                         },
                       ),
-                      sectionsSpace: 2,
+                      sectionsSpace: 4,
                       centerSpaceRadius: widget.centerSpaceRadius,
                       sections: hasData
                           ? categorySummaries.asMap().entries.map((entry) {
