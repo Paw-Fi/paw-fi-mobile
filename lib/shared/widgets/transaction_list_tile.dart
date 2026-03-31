@@ -23,6 +23,7 @@ class TransactionListTile extends StatelessWidget {
   final bool dense;
   final bool showYouLabel;
   final bool showRecurringChip;
+  final String? accountLabel;
 
   const TransactionListTile({
     super.key,
@@ -40,6 +41,7 @@ class TransactionListTile extends StatelessWidget {
     this.dense = true,
     this.showYouLabel = false,
     this.showRecurringChip = false,
+    this.accountLabel,
   });
 
   String? _formatDate(BuildContext context, DateTime date) {
@@ -117,6 +119,27 @@ class TransactionListTile extends StatelessWidget {
                 children: [
                   Icon(Icons.repeat, size: 10, color: colorScheme.tertiary),
                 ],
+              ),
+            ),
+          );
+        }
+        final trimmedAccountLabel = accountLabel?.trim() ?? '';
+        if (trimmedAccountLabel.isNotEmpty) {
+          chips.add(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.secondary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                trimmedAccountLabel,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.secondary,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
           );

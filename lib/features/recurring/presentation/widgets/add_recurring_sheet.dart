@@ -25,6 +25,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
@@ -216,6 +218,33 @@ class AddRecurringSheet extends HookConsumerWidget {
     final householdsAsync = currentUserId != null
         ? ref.watch(userHouseholdsProvider(currentUserId))
         : const AsyncValue<List<Household>>.data([]);
+
+    final scopedAccountsAsync = ref.watch(scopedAccountsProvider);
+    final scopedAccounts =
+        scopedAccountsAsync.valueOrNull ?? const <AccountEntity>[];
+    final selectedFinancialAccountId =
+        useState<String?>(existingTransaction?.accountId);
+
+    useEffect(() {
+      if (scopedAccounts.isEmpty) {
+        if (selectedFinancialAccountId.value != null) {
+          selectedFinancialAccountId.value = null;
+        }
+        return null;
+      }
+
+      final currentId = selectedFinancialAccountId.value;
+      final hasSelected = currentId != null &&
+          scopedAccounts.any((account) => account.id == currentId);
+      if (hasSelected) return null;
+
+      final fallback = scopedAccounts.firstWhere(
+        (account) => account.isDefault,
+        orElse: () => scopedAccounts.first,
+      );
+      selectedFinancialAccountId.value = fallback.id;
+      return null;
+    }, [scopedAccounts]);
 
     final membersAsync =
         (isSharedWithHousehold.value && selectedHouseholdId.value != null)
@@ -647,6 +676,8 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         final isPortfolioScope = effectiveHouseholdId != null &&
             householdScope.isPortfolioId(effectiveHouseholdId);
+        final selectedAccountId = selectedFinancialAccountId.value ??
+            ref.read(defaultScopedAccountProvider)?.id;
         // Only household-group accounts support shared splits.
         final shareWithHousehold = !isPortfolioScope &&
             isSharedWithHousehold.value &&
@@ -709,6 +740,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   payerUserId: shareWithHousehold
                       ? (selectedPayerUserId.value ?? userId)
                       : null,
+                  accountId: selectedAccountId,
                 );
           } else {
             // CREATE new expense
@@ -736,6 +768,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   payerUserId: shareWithHousehold
                       ? (selectedPayerUserId.value ?? userId)
                       : null,
+                  accountId: selectedAccountId,
                 );
           }
         } else {
@@ -762,6 +795,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
                   householdId: activeHouseholdId,
+                  accountId: selectedAccountId,
                 );
           } else {
             // CREATE new income
@@ -786,6 +820,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
                   householdId: activeHouseholdId,
+                  accountId: selectedAccountId,
                 );
           }
         }
@@ -996,7 +1031,7 @@ class AddRecurringSheet extends HookConsumerWidget {
           : l10n.skipNextOccurrence;
 
       MonekoAlertDialogAction? choice;
-      
+
       await AdaptiveAlertDialog.show(
         context: context,
         title: l10n.deleteRecurringTransaction,
@@ -1400,6 +1435,54 @@ class AddRecurringSheet extends HookConsumerWidget {
                             );
                             if (result != null) {
                               selectedCurrency.value = result;
+                            }
+                          },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
+                          label: context.l10n.account,
+                          value: () {
+                            if (scopedAccountsAsync.isLoading) {
+                              return context.l10n.loading;
+                            }
+                            if (scopedAccounts.isEmpty) {
+                              return context.l10n.tapToSet;
+                            }
+                            final currentId = selectedFinancialAccountId.value;
+                            if (currentId != null) {
+                              for (final account in scopedAccounts) {
+                                if (account.id == currentId) {
+                                  return account.name;
+                                }
+                              }
+                            }
+                            final fallback = scopedAccounts.firstWhere(
+                              (account) => account.isDefault,
+                              orElse: () => scopedAccounts.first,
+                            );
+                            return fallback.name;
+                          }(),
+                          isValuePlaceholder: scopedAccounts.isEmpty,
+                          onTap: () async {
+                            if (scopedAccounts.isEmpty) return;
+                            final currentId = selectedFinancialAccountId.value;
+                            final initial = scopedAccounts.firstWhere(
+                              (account) => account.id == currentId,
+                              orElse: () => scopedAccounts.first,
+                            );
+                            final selected =
+                                await showTransactionSelectionSheet<
+                                    AccountEntity>(
+                              context: context,
+                              items: scopedAccounts,
+                              getLabel: (account) => account.name,
+                              initial: initial,
+                            );
+                            if (selected != null) {
+                              selectedFinancialAccountId.value = selected.id;
                             }
                           },
                         ),

@@ -49,6 +49,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     updateCalled = true;
     return RecurringTransaction(

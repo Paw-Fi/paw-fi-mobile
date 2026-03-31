@@ -25,6 +25,10 @@ class ExpenseEntry {
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
   final String? bankAccountId;
+  final String? accountId;
+  final String? accountName;
+  final String? accountIcon;
+  final String? accountColor;
   final String? type; // 'expense' | 'income'
   final bool isRecurring;
 
@@ -47,6 +51,10 @@ class ExpenseEntry {
     this.sharedMemberIds,
     this.splitGroupId,
     this.bankAccountId,
+    this.accountId,
+    this.accountName,
+    this.accountIcon,
+    this.accountColor,
     this.type,
     this.isRecurring = false,
   });
@@ -109,6 +117,10 @@ class ExpenseEntry {
           : null,
       splitGroupId: json['split_group_id'] as String?,
       bankAccountId: json['bank_account_id'] as String?,
+      accountId: json['account_id'] as String?,
+      accountName: _sanitizeNullable(json['account_name'] as String?),
+      accountIcon: _sanitizeNullable(json['account_icon'] as String?),
+      accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
       isRecurring: json['is_recurring'] == true,
     );
@@ -134,6 +146,10 @@ class ExpenseEntry {
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
       'bank_account_id': bankAccountId,
+      'account_id': accountId,
+      'account_name': accountName,
+      'account_icon': accountIcon,
+      'account_color': accountColor,
       'type': type,
       'is_recurring': isRecurring,
     };
@@ -159,6 +175,10 @@ class ExpenseEntry {
     List<String>? sharedMemberIds,
     String? splitGroupId,
     String? bankAccountId,
+    String? accountId,
+    String? accountName,
+    String? accountIcon,
+    String? accountColor,
     String? type,
     bool? isRecurring,
   }) {
@@ -181,6 +201,10 @@ class ExpenseEntry {
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
+      accountId: accountId ?? this.accountId,
+      accountName: accountName ?? this.accountName,
+      accountIcon: accountIcon ?? this.accountIcon,
+      accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
       isRecurring: isRecurring ?? this.isRecurring,
     );

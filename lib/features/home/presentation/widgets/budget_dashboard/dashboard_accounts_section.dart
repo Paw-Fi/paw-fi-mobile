@@ -9,7 +9,7 @@ import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashb
 class DashboardAccountsSection extends StatelessWidget {
   final List<ConsolidatedTransaction> transactions;
   final List<Household> households;
-  final void Function(String name, double income, double expense)? onAccountTap;
+  final void Function(String name, double income, double expense)? onSpaceTap;
   final VoidCallback? onTap;
   final double Function(ConsolidatedTransaction tx)? amountResolver;
   final String? currencyCode;
@@ -18,7 +18,7 @@ class DashboardAccountsSection extends StatelessWidget {
     super.key,
     required this.transactions,
     required this.households,
-    this.onAccountTap,
+    this.onSpaceTap,
     this.onTap,
     this.amountResolver,
     this.currencyCode,
@@ -31,15 +31,15 @@ class DashboardAccountsSection extends StatelessWidget {
     final amountFormatter =
         NumberFormat.compactSimpleCurrency(name: displayCurrency);
 
-    Map<String, double> calcScopeStats(String? accountId) {
+    Map<String, double> calcScopeStats(String? spaceId) {
       double income = 0;
       double expense = 0;
 
       for (final tx in transactions) {
-        if (accountId == null) {
-          if (tx.accountId != null) continue;
+        if (spaceId == null) {
+          if (tx.spaceId != null) continue;
         } else {
-          if (tx.accountId != accountId) continue;
+          if (tx.spaceId != spaceId) continue;
         }
 
         final amount = tx.entry.amountCents / 100.0;
@@ -67,7 +67,7 @@ class DashboardAccountsSection extends StatelessWidget {
           isPersonal: true,
           stats: personalStats,
           amountFormatter: amountFormatter,
-          onTap: onAccountTap,
+          onTap: onSpaceTap,
         ),
       );
     }
@@ -81,7 +81,7 @@ class DashboardAccountsSection extends StatelessWidget {
           isPortfolio: household.isPortfolio,
           stats: stats,
           amountFormatter: amountFormatter,
-          onTap: onAccountTap,
+          onTap: onSpaceTap,
         ),
       );
     }
@@ -93,7 +93,7 @@ class DashboardAccountsSection extends StatelessWidget {
           isPersonal: true,
           stats: const {'income': 0, 'expense': 0},
           amountFormatter: amountFormatter,
-          onTap: onAccountTap,
+          onTap: onSpaceTap,
         ),
       );
     }

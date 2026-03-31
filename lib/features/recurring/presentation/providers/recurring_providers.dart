@@ -574,6 +574,7 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -615,6 +616,7 @@ class RecurringTransactionSaveNotifier
         'privacyScope': privacyScope,
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
+        if (accountId != null) 'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -710,6 +712,7 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -758,6 +761,7 @@ class RecurringTransactionSaveNotifier
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': true,
           'recurrence_rule': recurrenceRule,
+          if (accountId != null) 'accountId': accountId,
         },
       );
 
@@ -802,6 +806,7 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -824,6 +829,7 @@ class RecurringTransactionSaveNotifier
         'ownerType': recurringSeries.ownerType,
         'privacyScope': recurringSeries.privacyScope,
         'isRecurring': false,
+        if (accountId != null) 'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -921,6 +927,7 @@ class RecurringTransactionSaveNotifier
     String? description,
     String? source,
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -951,6 +958,7 @@ class RecurringTransactionSaveNotifier
             'isPortfolio':
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': false,
+          if (accountId != null) 'accountId': accountId,
         },
       );
 
@@ -1014,6 +1022,7 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -1051,6 +1060,7 @@ class RecurringTransactionSaveNotifier
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
         'household_id': householdId,
+        if (accountId != null) 'account_id': accountId,
       };
       if (description != null && description.trim().isNotEmpty) {
         updates['raw_text'] = description.trim();
@@ -1215,6 +1225,7 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -1250,6 +1261,7 @@ class RecurringTransactionSaveNotifier
         'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
+        if (accountId != null) 'account_id': accountId,
       };
       if (description != null && description.trim().isNotEmpty) {
         updatesIncome['raw_text'] = description.trim();

@@ -925,7 +925,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        tx.accountLabel,
+                                        tx.spaceLabel,
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -1673,7 +1673,7 @@ List<AccountChartData> _buildAccountChartData({
     );
     monthsCount = maxChartMonths;
   }
-  final accounts = <String, _AccountAccumulator>{
+  final spaces = <String, _AccountAccumulator>{
     'personal': _AccountAccumulator(
       id: 'personal',
       name: 'Personal',
@@ -1684,7 +1684,7 @@ List<AccountChartData> _buildAccountChartData({
   };
 
   for (final household in households) {
-    accounts[household.id] = _AccountAccumulator(
+    spaces[household.id] = _AccountAccumulator(
       id: household.id,
       name: household.name,
       income: 0,
@@ -1694,25 +1694,25 @@ List<AccountChartData> _buildAccountChartData({
   }
 
   for (final tx in transactions) {
-    final key = tx.accountId ?? 'personal';
-    final account = accounts[key];
-    if (account == null) continue;
+    final key = tx.spaceId ?? 'personal';
+    final space = spaces[key];
+    if (space == null) continue;
     final txDate = transactionUserDate(tx);
     final monthIndex =
         (txDate.year - startMonth.year) * 12 + txDate.month - startMonth.month;
     if (monthIndex < 0 || monthIndex >= monthsCount) continue;
 
     if (normalizeTransactionType(tx.entry.type) == 'income') {
-      account.income += amountResolver(tx);
+      space.income += amountResolver(tx);
     } else {
       final expenseAmount = amountResolver(tx).abs();
-      account.expense += expenseAmount;
-      account.dailyExpenses[monthIndex] += expenseAmount;
+      space.expense += expenseAmount;
+      space.dailyExpenses[monthIndex] += expenseAmount;
     }
   }
 
   final ordered = <AccountChartData>[];
-  final personal = accounts['personal'];
+  final personal = spaces['personal'];
   if (personal != null) {
     ordered.add(AccountChartData(
       id: personal.id,
@@ -1724,7 +1724,7 @@ List<AccountChartData> _buildAccountChartData({
   }
 
   for (final household in households) {
-    final acc = accounts[household.id];
+    final acc = spaces[household.id];
     if (acc == null) continue;
     ordered.add(AccountChartData(
       id: acc.id,

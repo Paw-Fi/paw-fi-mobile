@@ -91,7 +91,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       });
     }
 
-    if (currentTabIndex == 3 && currentInsightsTabIndex == 0) {
+    if (currentTabIndex == 4 && currentInsightsTabIndex == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _startInsightsTourIfNeeded(currentTabIndex);

@@ -30,6 +30,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/accounts/presentation/pages/accounts_page.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -69,6 +71,7 @@ class MainShell extends HookConsumerWidget {
       ref.invalidate(currencyTransactionCountsProvider);
       ref.invalidate(recurringTransactionsProvider);
       ref.invalidate(pocketsProvider);
+      ref.invalidate(scopedAccountsProvider);
     }
 
     Future<String?> exitPreviewMode(
@@ -184,6 +187,7 @@ class MainShell extends HookConsumerWidget {
       const HomePage(),
       const RecurringTransactionsPage(),
       const PocketsPage(),
+      const AccountsPage(),
       const AnalyticsPage(),
     ];
 
@@ -263,6 +267,12 @@ class MainShell extends HookConsumerWidget {
                 ? CupertinoIcons.creditcard
                 : Icons.account_balance_wallet_outlined,
             label: context.l10n.pockets,
+          ),
+          AdaptiveNavigationDestination(
+            icon: PlatformInfo.isIOS
+                ? CupertinoIcons.creditcard_fill
+                : Icons.account_balance_wallet,
+            label: 'Accounts',
           ),
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS

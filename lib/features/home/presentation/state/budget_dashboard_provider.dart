@@ -8,15 +8,15 @@ import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 
 class ConsolidatedTransaction {
   final ExpenseEntry entry;
-  final String accountLabel;
-  final String? accountId; // null = personal
+  final String spaceLabel;
+  final String? spaceId; // null = personal
   final bool isPortfolio;
   final String? householdName;
 
   const ConsolidatedTransaction({
     required this.entry,
-    required this.accountLabel,
-    this.accountId,
+    required this.spaceLabel,
+    this.spaceId,
     this.isPortfolio = false,
     this.householdName,
   });
@@ -78,8 +78,8 @@ final budgetDashboardProvider =
           if (e.householdId == null || e.householdId!.isEmpty) {
             add(ConsolidatedTransaction(
               entry: e,
-              accountLabel: 'Personal', // TODO: Localize
-              accountId: null,
+              spaceLabel: 'Personal', // TODO: Localize
+              spaceId: null,
             ));
           }
         }
@@ -114,8 +114,8 @@ final budgetDashboardProvider =
             if (e.isRecurring) continue;
             add(ConsolidatedTransaction(
               entry: e,
-              accountLabel: h.name,
-              accountId: h.id,
+              spaceLabel: h.name,
+              spaceId: h.id,
               isPortfolio: h.isPortfolio,
               householdName: h.name,
             ));

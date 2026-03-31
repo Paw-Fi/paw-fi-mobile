@@ -40,6 +40,8 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -183,6 +185,7 @@ class _UnifiedTransactionSheetState
   String? _selectedPayerUserId;
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
+  String? _selectedFinancialAccountId;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -220,6 +223,7 @@ class _UnifiedTransactionSheetState
   @override
   void initState() {
     super.initState();
+    _selectedFinancialAccountId = widget.existingExpense?.accountId;
     // Default payer to the expense owner (fallback to current user) so we don't
     // incorrectly show the viewer as the payer before loading split data.
     final currentUserId = ref.read(authProvider).uid;
@@ -717,6 +721,9 @@ class _UnifiedTransactionSheetState
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final scopedAccountsAsync = ref.watch(scopedAccountsProvider);
+    final scopedAccounts =
+        scopedAccountsAsync.valueOrNull ?? const <AccountEntity>[];
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -926,6 +933,22 @@ class _UnifiedTransactionSheetState
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
+                              label: context.l10n.account,
+                              value: scopedAccountsAsync.when(
+                                data: (_) => _selectedFinancialAccountLabel(
+                                  context,
+                                  scopedAccounts,
+                                ),
+                                loading: () => context.l10n.loading,
+                                error: (_, __) => context.l10n.tapToSet,
+                              ),
+                              onTap: () => _handleEditFinancialAccount(
+                                scopedAccounts,
+                              ),
+                              isValuePlaceholder: scopedAccounts.isEmpty,
+                            ),
+                            _buildDivider(colorScheme),
+                            MonekoDisclosureRow(
                               label: context.l10n.date,
                               value: DateFormat.yMMMMd(
                                 intlSafeLocaleName(
@@ -1050,7 +1073,9 @@ class _UnifiedTransactionSheetState
                                           colorScheme.error),
                                     ),
                                   )
-                                : Text(isIncomeMode ? context.l10n.deleteIncome : context.l10n.deleteExpense),
+                                : Text(isIncomeMode
+                                    ? context.l10n.deleteIncome
+                                    : context.l10n.deleteExpense),
                           ),
                         ),
 
@@ -1202,6 +1227,60 @@ class _UnifiedTransactionSheetState
         ],
       ),
     );
+  }
+
+  String? _resolveDefaultFinancialAccountId(List<AccountEntity> accounts) {
+    for (final account in accounts) {
+      if (account.isDefault) return account.id;
+    }
+    return accounts.isNotEmpty ? accounts.first.id : null;
+  }
+
+  String _selectedFinancialAccountLabel(
+    BuildContext context,
+    List<AccountEntity> accounts,
+  ) {
+    if (accounts.isEmpty) return context.l10n.tapToSet;
+
+    final selectedId = _selectedFinancialAccountId;
+    if (selectedId != null) {
+      for (final account in accounts) {
+        if (account.id == selectedId) return account.name;
+      }
+    }
+
+    final fallbackId = _resolveDefaultFinancialAccountId(accounts);
+    if (fallbackId != null) {
+      for (final account in accounts) {
+        if (account.id == fallbackId) return account.name;
+      }
+    }
+
+    return accounts.first.name;
+  }
+
+  Future<void> _handleEditFinancialAccount(List<AccountEntity> accounts) async {
+    if (accounts.isEmpty) return;
+
+    final initialId = _selectedFinancialAccountId ??
+        _resolveDefaultFinancialAccountId(accounts);
+    final initial = accounts.firstWhere(
+      (account) => account.id == initialId,
+      orElse: () => accounts.first,
+    );
+
+    final selected = await showTransactionSelectionSheet<AccountEntity>(
+      context: context,
+      items: accounts,
+      getLabel: (account) => account.name,
+      initial: initial,
+    );
+
+    if (selected == null || selected.id == _selectedFinancialAccountId) return;
+
+    setState(() {
+      _selectedFinancialAccountId = selected.id;
+    });
   }
 
   Widget _buildSharingSection(
@@ -1933,8 +2012,7 @@ class _UnifiedTransactionSheetState
       result = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
-        backgroundColor:
-            Theme.of(context).colorScheme.sheetBackground,
+        backgroundColor: Theme.of(context).colorScheme.sheetBackground,
         builder: (context) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -2506,6 +2584,18 @@ class _UnifiedTransactionSheetState
       final householdScope = ref.read(householdScopeProvider);
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
+      final availableAccounts = ref.read(scopedAccountsProvider).valueOrNull ??
+          const <AccountEntity>[];
+      var selectedFinancialAccountId =
+          _selectedFinancialAccountId ?? widget.existingExpense?.accountId;
+      final hasSelectedFinancialAccount = selectedFinancialAccountId != null &&
+          availableAccounts.any(
+            (account) => account.id == selectedFinancialAccountId,
+          );
+      if (!hasSelectedFinancialAccount) {
+        selectedFinancialAccountId =
+            _resolveDefaultFinancialAccountId(availableAccounts);
+      }
 
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
@@ -2561,6 +2651,7 @@ class _UnifiedTransactionSheetState
                 date: expenseDateTime,
                 description: expense.description,
                 householdId: effectiveHouseholdId,
+                accountId: selectedFinancialAccountId,
               );
 
           if (saved == null) {
@@ -2662,6 +2753,7 @@ class _UnifiedTransactionSheetState
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: effectiveHouseholdId,
+                accountId: selectedFinancialAccountId,
                 receiptImageUrl: receiptUrl,
                 customSplitType: _customSplitType,
                 customSplits: _customSplits,
@@ -2760,6 +2852,8 @@ class _UnifiedTransactionSheetState
         if (_editedDescription != null) {
           updates['raw_text'] = _editedDescription;
         }
+
+        updates['account_id'] = selectedFinancialAccountId;
 
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;

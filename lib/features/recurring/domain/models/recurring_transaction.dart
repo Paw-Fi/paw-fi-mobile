@@ -43,6 +43,7 @@ class RecurringTransaction {
   final String? householdId;
   final String? payerUserId; // Who paid (household sharing)
   final String? splitGroupId;
+  final String? accountId;
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -63,6 +64,7 @@ class RecurringTransaction {
     this.householdId,
     this.payerUserId,
     this.splitGroupId,
+    this.accountId,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -144,6 +146,7 @@ class RecurringTransaction {
           json['payerUserId'] as String? ?? json['payer_user_id'] as String?,
       splitGroupId:
           json['splitGroupId'] as String? ?? json['split_group_id'] as String?,
+      accountId: json['accountId'] as String? ?? json['account_id'] as String?,
       recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
@@ -211,6 +214,7 @@ class RecurringTransaction {
       'householdId': householdId,
       'payerUserId': payerUserId,
       'splitGroupId': splitGroupId,
+      'accountId': accountId,
       if (recurrenceRule != null)
         'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
@@ -234,6 +238,7 @@ class RecurringTransaction {
     String? householdId,
     String? payerUserId,
     String? splitGroupId,
+    String? accountId,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -254,6 +259,7 @@ class RecurringTransaction {
       householdId: householdId ?? this.householdId,
       payerUserId: payerUserId ?? this.payerUserId,
       splitGroupId: splitGroupId ?? this.splitGroupId,
+      accountId: accountId ?? this.accountId,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,

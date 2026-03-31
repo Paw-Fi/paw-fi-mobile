@@ -61,6 +61,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> saveExpense({
     required ParsedExpense expense,
     String? householdId,
+    String? accountId,
     String? receiptImageUrl,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
@@ -116,6 +117,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       if (householdId != null && householdId.trim().isNotEmpty) {
         requestBody['householdId'] = householdId;
+      }
+
+      if (accountId != null && accountId.trim().isNotEmpty) {
+        requestBody['accountId'] = accountId;
       }
 
       final isPortfolio = householdId != null &&
@@ -198,6 +203,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       _addOptimisticHouseholdData(
         expense: expense,
         householdId: householdId,
+        accountId: accountId,
         payerUserId: payerUserId ?? user.uid,
         receiptImageUrl: receiptImageUrl,
         customSplitType: customSplitType,
@@ -222,6 +228,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   void _addOptimisticHouseholdData({
     required ParsedExpense expense,
     required String? householdId,
+    required String? accountId,
     required String payerUserId,
     required String? receiptImageUrl,
     required SplitType? customSplitType,
@@ -268,6 +275,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       receiptImageUrl: receiptImageUrl,
       createdAt: createdAt ?? expense.date,
       splitGroupId: splitGroup?.id,
+      accountId: accountId,
     );
 
     ref
@@ -289,6 +297,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     required String? receiptImageUrl,
     required DateTime createdAt,
     String? splitGroupId,
+    String? accountId,
   }) {
     return ExpenseEntry(
       id: expenseId,
@@ -303,6 +312,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,
       splitGroupId: splitGroupId,
+      accountId: accountId,
       type: 'expense',
     );
   }

@@ -316,9 +316,7 @@ class NotificationDispatcher {
     if (_cacheInjectionOverride != null) {
       _cacheInjectionOverride!(expense);
     } else {
-      _ref
-          ?.read(analyticsProvider.notifier)
-          .addOptimisticTransaction(expense);
+      _ref?.read(analyticsProvider.notifier).addOptimisticTransaction(expense);
     }
   }
 
@@ -550,7 +548,7 @@ class NotificationDispatcher {
   Future<void> _openInsightsPage(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
-    _ref?.read(mainShellTabIndexProvider.notifier).state = 3;
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 4;
   }
 
   Future<void> _openHouseholdInvitation(NotificationIntent intent) async {

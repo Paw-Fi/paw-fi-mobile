@@ -38,6 +38,8 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/accounts/domain/entities/account.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -1001,7 +1003,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     ];
 
     return Padding(
-      padding: const EdgeInsets.only(top:8.0),
+      padding: const EdgeInsets.only(top: 8.0),
       child: SizedBox(
         height: 35,
         child: ListView.separated(
@@ -1012,18 +1014,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           itemBuilder: (context, index) {
             final filter = filters[index];
             final isSelected = _selectedDateFilter == filter;
-      
+
             String label;
             if (filter == DateRangeFilter.custom &&
                 _customStart != null &&
                 _customEnd != null &&
                 isSelected) {
               final fmt = DateFormat('MMM d');
-              label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+              label =
+                  '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
             } else {
               label = filter.getLabel(context);
             }
-      
+
             return GestureDetector(
               onTap: () async {
                 if (filter == DateRangeFilter.custom) {
@@ -1031,8 +1034,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     context: context,
                     firstDate: DateTime(2000),
                     lastDate: effectiveNow(
-                      preferredTimezone:
-                          ref.read(analyticsProvider).contact?.preferredTimezone,
+                      preferredTimezone: ref
+                          .read(analyticsProvider)
+                          .contact
+                          ?.preferredTimezone,
                     ),
                     initialDateRange: _customStart != null && _customEnd != null
                         ? DateTimeRange(start: _customStart!, end: _customEnd!)
@@ -1054,7 +1059,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 }
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected ? colorScheme.primary : colorScheme.card,
                   borderRadius: BorderRadius.circular(20),
@@ -1128,7 +1134,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-       
           _ExpandablePageView(
             controller: _chartPageController,
             currentPage: currentChartIndex,
@@ -1521,6 +1526,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final projectedRecurringTransaction =
         _findRecurringTransactionForExpense(expense);
     final isProjectedRecurring = projectedRecurringTransaction != null;
+    final scopedAccounts = ref.watch(scopedAccountsProvider).valueOrNull ??
+        const <AccountEntity>[];
+    String? accountLabel;
+    if (expense.accountId != null && expense.accountId!.isNotEmpty) {
+      for (final account in scopedAccounts) {
+        if (account.id == expense.accountId) {
+          accountLabel = account.name;
+          break;
+        }
+      }
+    }
+    accountLabel ??= expense.accountName;
 
     return Slidable(
       key: ValueKey(expense.id),
@@ -1638,6 +1655,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           isIncome: isIncome,
                           showYouLabel: isYou,
                           showRecurringChip: isProjectedRecurring,
+                          accountLabel: accountLabel,
                         ),
                       ),
                     ],
