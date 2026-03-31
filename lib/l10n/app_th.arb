@@ -2564,5 +2564,7 @@
   "connect": "เชื่อมต่อ",
   "autoCaptureDescriptionIos": "เปิด Apple Pay และบันทึกรายการอัตโนมัติ",
   "autoCaptureDescriptionAndroid": "เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ",
-  "enable": "เปิดใช้งาน"
+  "enable": "เปิดใช้งาน",
+  "enableNotificationsSummary": "เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน",
+  "openSettingsToEnable": "เปิดการตั้งค่าเพื่อเปิดใช้งาน"
 }

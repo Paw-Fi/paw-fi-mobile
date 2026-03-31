@@ -546,7 +546,9 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     useEffect(() {
       if (didCompletePlanSelectionFlow.value) return null;
-      if (hasActiveSubscription) {
+      final shouldExitAfterSubscriptionUpdate = hasActiveSubscription &&
+          (didInitiateCheckout.value || didInitiateRestore.value);
+      if (shouldExitAfterSubscriptionUpdate) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           completePlanSelectionFlowToDashboard(
             option: activePlanOption,
@@ -562,7 +564,13 @@ class PlanSelectionPage extends HookConsumerWidget {
         });
       }
       return null;
-    }, [hasActiveSubscription, useIap, activePlanOption.id]);
+    }, [
+      hasActiveSubscription,
+      useIap,
+      activePlanOption.id,
+      didInitiateCheckout.value,
+      didInitiateRestore.value,
+    ]);
 
     final requiresAutoRenewAcknowledgement =
         activePlanOption.serverPlanId != 'lifetime';
@@ -593,7 +601,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       return false;
     }
 
-    if (hasActiveSubscription) {
+    if (hasActiveSubscription && currentPlanId == 'lifetime') {
       return AdaptiveScaffold(
         body: Material(
           color: colorScheme.appBackground,

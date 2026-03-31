@@ -6693,4 +6693,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get enable => 'เปิดใช้งาน';
+
+  @override
+  String get enableNotificationsSummary => 'เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน';
+
+  @override
+  String get openSettingsToEnable => 'เปิดการตั้งค่าเพื่อเปิดใช้งาน';
 }

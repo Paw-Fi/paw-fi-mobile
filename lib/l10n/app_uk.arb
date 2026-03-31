@@ -2539,5 +2539,7 @@
   "connect": "Підключити",
   "autoCaptureDescriptionIos": "Увімкніть Apple Pay і автоматично записуйте транзакції",
   "autoCaptureDescriptionAndroid": "Увімкніть сповіщення і автоматично записуйте транзакції",
-  "enable": "Увімкнути"
+  "enable": "Увімкнути",
+  "enableNotificationsSummary": "Увімкніть сповіщення, щоб отримувати зведення щоразу, коли платіж фіксується.",
+  "openSettingsToEnable": "Відкрити налаштування, щоб увімкнути"
 }

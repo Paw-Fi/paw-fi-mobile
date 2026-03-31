@@ -2493,5 +2493,7 @@
   "connect": "کنیکٹ",
   "autoCaptureDescriptionIos": "Apple Pay فعال کریں اور ٹرانزیکشن خودکار ریکارڈ کریں",
   "autoCaptureDescriptionAndroid": "نوٹیفکیشن فعال کریں اور ٹرانزیکشن خودکار ریکارڈ کریں",
-  "enable": "فعال کریں"
+  "enable": "فعال کریں",
+  "enableNotificationsSummary": "نوٹیفیکیشنز فعال کریں تاکہ ہر بار ادائیگی ریکارڈ ہونے پر خلاصہ موصول ہو۔",
+  "openSettingsToEnable": "فعال کرنے کے لیے سیٹنگز کھولیں"
 }

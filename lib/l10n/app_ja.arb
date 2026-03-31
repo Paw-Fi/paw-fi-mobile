@@ -2547,5 +2547,7 @@
   "connect": "接続",
   "autoCaptureDescriptionIos": "Apple Payを有効にして取引を自動記録",
   "autoCaptureDescriptionAndroid": "通知を有効にして取引を自動記録",
-  "enable": "有効にする"
+  "enable": "有効にする",
+  "enableNotificationsSummary": "通知をオンにすると、支払いが記録されるたびに概要を受け取れます。",
+  "openSettingsToEnable": "設定を開いて有効にする"
 }

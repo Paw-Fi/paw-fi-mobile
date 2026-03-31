@@ -2543,5 +2543,7 @@
   "connect": "连接",
   "autoCaptureDescriptionIos": "启用 Apple Pay 并自动记录交易",
   "autoCaptureDescriptionAndroid": "启用通知并自动记录交易",
-  "enable": "启用"
+  "enable": "启用",
+  "enableNotificationsSummary": "开启通知，每次记录到付款时即可收到摘要。",
+  "openSettingsToEnable": "打开设置以启用"
 }

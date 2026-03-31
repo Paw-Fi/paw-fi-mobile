@@ -2547,5 +2547,7 @@
   "connect": "Verbinden",
   "autoCaptureDescriptionIos": "Aktiviere Apple Pay und erfasse Transaktionen automatisch",
   "autoCaptureDescriptionAndroid": "Aktiviere Benachrichtigungen und erfasse Transaktionen automatisch",
-  "enable": "Aktivieren"
+  "enable": "Aktivieren",
+  "enableNotificationsSummary": "Aktiviere Benachrichtigungen, um bei jeder erfassten Zahlung eine Zusammenfassung zu erhalten.",
+  "openSettingsToEnable": "Einstellungen öffnen, um dies zu aktivieren"
 }

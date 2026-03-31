@@ -2566,5 +2566,7 @@
   "connect": "Connect",
   "autoCaptureDescriptionIos": "Enable Apple Pay to auto-capture transactions",
   "autoCaptureDescriptionAndroid": "Enable notifications to auto-capture transactions",
-  "enable": "Enable"
+  "enable": "Enable",
+  "enableNotificationsSummary": "Enable notifications to receive a summary each time a payment is processed.",
+  "openSettingsToEnable": "Open Settings to enable"
 }

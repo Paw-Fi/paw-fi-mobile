@@ -2497,5 +2497,7 @@
   "connect": "Подключить",
   "autoCaptureDescriptionIos": "Включите Apple Pay и записывайте операции автоматически",
   "autoCaptureDescriptionAndroid": "Включите уведомления и автоматически записывайте операции",
-  "enable": "Включить"
+  "enable": "Включить",
+  "enableNotificationsSummary": "Включите уведомления, чтобы получать сводку при каждом зафиксированном платеже.",
+  "openSettingsToEnable": "Открыть настройки, чтобы включить"
 }

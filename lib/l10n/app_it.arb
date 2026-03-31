@@ -2494,5 +2494,7 @@
   "connect": "Connetti",
   "autoCaptureDescriptionIos": "Attiva Apple Pay e registra automaticamente le transazioni",
   "autoCaptureDescriptionAndroid": "Attiva le notifiche e registra automaticamente le transazioni",
-  "enable": "Attiva"
+  "enable": "Attiva",
+  "enableNotificationsSummary": "Attiva le notifiche per ricevere un riepilogo ogni volta che viene registrato un pagamento.",
+  "openSettingsToEnable": "Apri le impostazioni per attivare"
 }

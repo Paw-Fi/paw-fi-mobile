@@ -2546,5 +2546,7 @@
   "connect": "Kết nối",
   "autoCaptureDescriptionIos": "Bật Apple Pay và tự động ghi nhận giao dịch",
   "autoCaptureDescriptionAndroid": "Bật thông báo và tự động ghi nhận giao dịch",
-  "enable": "Bật"
+  "enable": "Bật",
+  "enableNotificationsSummary": "Bật thông báo để nhận bản tóm tắt mỗi khi có thanh toán được ghi nhận.",
+  "openSettingsToEnable": "Mở cài đặt để bật"
 }

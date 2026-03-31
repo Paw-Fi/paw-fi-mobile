@@ -370,7 +370,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     }
 
     return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: 'Auto Transaction Capture'),
+      appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
       body: Material(
         child: Container(
           color: colorScheme.appBackground,
@@ -451,7 +451,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      "Enable notifications to receive a summary every time a payment is captured.",
+                                      context.l10n.enableNotificationsSummary,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: isDark
@@ -466,7 +466,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                       onTap: () => openAppSettings(),
                                       behavior: HitTestBehavior.opaque,
                                       child: Text(
-                                        "Open Settings to Enable",
+                                        context.l10n.openSettingsToEnable,
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,

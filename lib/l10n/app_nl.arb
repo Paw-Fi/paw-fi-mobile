@@ -2494,5 +2494,7 @@
   "connect": "Verbinden",
   "autoCaptureDescriptionIos": "Schakel Apple Pay in en registreer transacties automatisch",
   "autoCaptureDescriptionAndroid": "Schakel meldingen in en registreer transacties automatisch",
-  "enable": "Inschakelen"
+  "enable": "Inschakelen",
+  "enableNotificationsSummary": "Schakel meldingen in om bij elke geregistreerde betaling een overzicht te ontvangen.",
+  "openSettingsToEnable": "Open instellingen om dit in te schakelen"
 }

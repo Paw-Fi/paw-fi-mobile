@@ -515,7 +515,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        "Enable notifications to receive a summary every time a payment is captured.",
+                                        context.l10n.enableNotificationsSummary,
                                         style: TextStyle(
                                           fontSize: 13,
                                           color: isDark
@@ -530,7 +530,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                         onTap: () => openAppSettings(),
                                         behavior: HitTestBehavior.opaque,
                                         child: Text(
-                                          "Open Settings to Enable",
+                                          context.l10n.openSettingsToEnable,
                                           style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w600,
