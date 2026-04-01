@@ -21,7 +21,6 @@ import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final importWizardProvider =
@@ -52,16 +51,12 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   ImportWizardState _initialStateForTarget({
     String? householdId,
     required bool isPortfolio,
-    String? accountId,
   }) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
-    final normalizedAccountId =
-        (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
     return ImportWizardState(
       targetHouseholdId: normalized,
       targetIsPortfolio: normalized == null ? false : isPortfolio,
-      targetAccountId: normalizedAccountId,
     );
   }
 
@@ -732,68 +727,14 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       targetHouseholdId: normalized,
       targetIsPortfolio: normalized == null ? false : isPortfolio,
       clearTargetHouseholdId: normalized == null,
-      clearTargetAccountId: true,
       parsedRows: updatedRows,
     );
-  }
-
-  void setTargetFinancialAccount(String? accountId) {
-    final normalized =
-        (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
-    state = state.copyWith(
-      targetAccountId: normalized,
-      clearTargetAccountId: normalized == null,
-    );
-  }
-
-  Future<String?> createAccountForTarget({
-    required String name,
-    required String icon,
-    required String color,
-    required int openingBalanceCents,
-    required int? goalAmountCents,
-    required bool isDefault,
-  }) async {
-    final targetHouseholdId = state.targetHouseholdId;
-    final response = await supabase.functions.invoke(
-      'save-account',
-      body: {
-        'name': name,
-        'icon': icon,
-        'color': color,
-        'openingBalanceCents': openingBalanceCents,
-        'goalAmountCents': goalAmountCents,
-        'isDefault': isDefault,
-        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
-          'householdId': targetHouseholdId,
-      },
-    );
-
-    final payload = response.data as Map<String, dynamic>?;
-    if (payload == null || payload['success'] != true) {
-      final message =
-          payload?['error']?.toString() ?? 'Failed to create account';
-      throw Exception(message);
-    }
-
-    final accountData = payload['data'] as Map<String, dynamic>?;
-    final accountId = (accountData?['id'] as String?)?.trim();
-
-    _ref.invalidate(accountsByHouseholdIdProvider(targetHouseholdId));
-
-    if (accountId != null && accountId.isNotEmpty) {
-      state = state.copyWith(targetAccountId: accountId);
-      return accountId;
-    }
-
-    return null;
   }
 
   void resetAfterImport() {
     state = _initialStateForTarget(
       householdId: state.targetHouseholdId,
       isPortfolio: state.targetIsPortfolio,
-      accountId: state.targetAccountId,
     );
   }
 
@@ -845,24 +786,6 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         filterState.selectedCurrency ?? analytics.preferredCurrency ?? 'USD';
     final targetHouseholdId = state.targetHouseholdId;
     final targetIsPortfolio = state.targetIsPortfolio;
-    final selectedAccountId = state.targetAccountId?.trim();
-    String? effectiveAccountId =
-        selectedAccountId != null && selectedAccountId.isNotEmpty
-            ? selectedAccountId
-            : null;
-    if (effectiveAccountId == null) {
-      final resolved = await supabase.rpc(
-        'resolve_default_account',
-        params: {
-          'p_user_id': authUser.uid,
-          'p_household_id': targetHouseholdId,
-        },
-      );
-      if (resolved is String && resolved.trim().isNotEmpty) {
-        effectiveAccountId = resolved.trim();
-        state = state.copyWith(targetAccountId: effectiveAccountId);
-      }
-    }
 
     // 1. Filter importable rows, counting invalid ones upfront.
     final importableRows = <ImportParsedRow>[];
@@ -906,7 +829,6 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'category': row.category ?? 'uncategorized',
         'currency': currency,
         'date': dateOnly,
-        if (effectiveAccountId != null) 'accountId': effectiveAccountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         if (row.description != null) 'description': row.description,
       };

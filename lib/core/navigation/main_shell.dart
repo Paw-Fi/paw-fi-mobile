@@ -193,7 +193,7 @@ class MainShell extends HookConsumerWidget {
       const HomePage(),
       const RecurringTransactionsPage(),
       const PocketsPage(),
-      const AccountsPage(),
+      // const AccountsPage(),
       const AnalyticsPage(),
     ];
 
@@ -298,12 +298,12 @@ class MainShell extends HookConsumerWidget {
                   : Icons.account_balance_wallet_outlined,
               label: context.l10n.pockets,
             ),
-            AdaptiveNavigationDestination(
-              icon: PlatformInfo.isIOS
-                  ? CupertinoIcons.creditcard_fill
-                  : Icons.account_balance_wallet,
-              label: 'Accounts',
-            ),
+            // AdaptiveNavigationDestination(
+            //   icon: PlatformInfo.isIOS
+            //       ? CupertinoIcons.creditcard_fill
+            //       : Icons.account_balance_wallet,
+            //   label: 'Accounts',
+            // ),
             AdaptiveNavigationDestination(
               icon: PlatformInfo.isIOS
                   ? CupertinoIcons.chart_bar_alt_fill

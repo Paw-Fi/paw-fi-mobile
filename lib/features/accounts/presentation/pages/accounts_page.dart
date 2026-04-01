@@ -405,11 +405,9 @@ class _AccountsOverviewCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
@@ -526,15 +524,17 @@ class _AccountListTile extends StatelessWidget {
     final amount = displayBalanceCents / 100.0;
     final isNegative = amount < 0;
 
+    final initial = account.openingBalanceCents / 100.0;
     final goal = (account.goalAmountCents ?? 0) / 100.0;
-    final currentProgressAmount = amount < 0 ? 0.0 : amount;
 
     double progress = 0.0;
-    if (goal > 0) {
-      progress = (currentProgressAmount / goal).clamp(0.0, 1.0);
-    } else if (goal == 0) {
-      progress = 1.0;
+    if (goal > initial) {
+      progress = (amount - initial) / (goal - initial);
+    } else if (goal < initial) {
+      // If paying down a debt, goal is less than initial
+      progress = (initial - amount) / (initial - goal);
     }
+    progress = progress.clamp(0.0, 1.0);
 
     final accountColorRaw = account.color.toUpperCase() == '#6B7280'
         ? colorScheme.primary
@@ -634,7 +634,7 @@ class _AccountListTile extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(initial)))}',
                       style: TextStyle(
                         color: colorScheme.mutedForeground,
                         fontSize: 11,
