@@ -1570,6 +1570,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
     if (isHousehold) {
       query = query.eq('household_id', householdId!);
+    } else if (allowAnyUser) {
+      query = query.isFilter('household_id', null);
     } else {
       query = _applyAccountScopeFilter(
         query,
@@ -1656,11 +1658,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           isHousehold: isHousehold,
           householdId: householdId,
           userId: authUser.uid,
-          currency: null,
+          currency: selectedCurrency,
         );
         budgetId = existing?['id'] as String?;
         _debugLog(
             '[Pockets] saveChanges resolved existing budgetId: $budgetId');
+
+        if (budgetId == null) {
+          final existingAnyCurrency = await _findBudgetRowForPeriod(
+            periodMonth: periodMonth,
+            isHousehold: isHousehold,
+            householdId: householdId,
+            userId: authUser.uid,
+            currency: null,
+          );
+          budgetId = existingAnyCurrency?['id'] as String?;
+        }
       }
 
       // If still null, try legacy personal rows without user filter
@@ -1710,6 +1723,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               isHousehold: isHousehold,
               householdId: householdId,
               userId: authUser.uid,
+              currency: selectedCurrency,
               allowAnyUser: scopeType == PocketsScopeType.personal,
             );
             final fallbackId = fallbackRow?['id'] as String?;
@@ -1721,6 +1735,24 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   .update(budgetPayload..['id'] = fallbackId)
                   .eq('id', fallbackId);
               return fallbackId;
+            }
+
+            final fallbackAnyCurrencyRow = await _findBudgetRowForPeriod(
+              periodMonth: periodMonth,
+              isHousehold: isHousehold,
+              householdId: householdId,
+              userId: authUser.uid,
+              currency: null,
+              allowAnyUser: scopeType == PocketsScopeType.personal,
+            );
+            final fallbackAnyCurrencyId =
+                fallbackAnyCurrencyRow?['id'] as String?;
+            if (fallbackAnyCurrencyId != null) {
+              await supabase
+                  .from('budgets')
+                  .update(budgetPayload..['id'] = fallbackAnyCurrencyId)
+                  .eq('id', fallbackAnyCurrencyId);
+              return fallbackAnyCurrencyId;
             }
           }
           rethrow;

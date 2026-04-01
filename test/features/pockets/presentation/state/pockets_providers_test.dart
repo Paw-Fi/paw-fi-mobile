@@ -233,4 +233,10 @@ void main() {
       expect(baseParams.hashCode, isNot(forecastParams.hashCode));
     });
   });
+
+  group('normalizePocketTemplateName', () {
+    test('returns empty string for whitespace-only names', () {
+      expect(normalizePocketTemplateName('   '), '');
+    });
+  });
 }
