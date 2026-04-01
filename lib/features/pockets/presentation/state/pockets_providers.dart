@@ -50,6 +50,24 @@ List<Map<String, dynamic>> buildUniqueEnvelopeCategoryLinks({
 }
 
 @foundation.visibleForTesting
+List<Map<String, dynamic>> resolveEnvelopeRowsForViewedMonth({
+  required String? budgetId,
+  required List<Map<String, dynamic>> budgetBoundEnvelopeRows,
+  required List<Map<String, dynamic>> legacyBudgetlessEnvelopeRows,
+}) {
+  final normalizedBudgetId = budgetId?.trim();
+  if (normalizedBudgetId == null || normalizedBudgetId.isEmpty) {
+    return const <Map<String, dynamic>>[];
+  }
+
+  if (budgetBoundEnvelopeRows.isNotEmpty) {
+    return budgetBoundEnvelopeRows;
+  }
+
+  return legacyBudgetlessEnvelopeRows;
+}
+
+@foundation.visibleForTesting
 List<int> rebalancePocketBudgetAmounts({
   required List<int> currentAmountsCents,
   required int newTotalBudgetCents,
@@ -200,12 +218,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 
   dynamic scopedQuery = supabase
       .from('expenses')
-      .select(
-        'id, date, category, raw_text, breakdown, source, amount_cents, '
-        'currency, owner_type, privacy_scope, household_id, is_recurring, '
-        'user_id, payer_user_id, split_group_id, recurrence_rule, type, '
-        'attachments, created_at, updated_at',
-      )
+      .select(_recurringExpensesSelectWithPayerUserId)
       .eq('is_recurring', true);
 
   switch (scope) {
@@ -222,10 +235,39 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
       break;
   }
 
-  final rows = await scopedQuery.order('date', ascending: false).limit(limit);
+  List rows;
+  try {
+    rows = await scopedQuery.order('date', ascending: false).limit(limit);
+  } on PostgrestException catch (error) {
+    if (!_isUndefinedColumnError(error, 'payer_user_id')) {
+      rethrow;
+    }
+
+    var fallbackQuery = supabase
+        .from('expenses')
+        .select(_recurringExpensesSelectWithoutPayerUserId)
+        .eq('is_recurring', true);
+
+    switch (scope) {
+      case PocketsScopeType.personal:
+        fallbackQuery =
+            fallbackQuery.eq('user_id', userId).isFilter('household_id', null);
+        break;
+      case PocketsScopeType.portfolio:
+        fallbackQuery = fallbackQuery
+            .eq('user_id', userId)
+            .eq('household_id', householdId!);
+        break;
+      case PocketsScopeType.household:
+        fallbackQuery = fallbackQuery.eq('household_id', householdId!);
+        break;
+    }
+
+    rows = await fallbackQuery.order('date', ascending: false).limit(limit);
+  }
   final transactions = <RecurringTransaction>[];
 
-  for (final item in (rows as List).cast<Map<String, dynamic>>()) {
+  for (final item in rows.cast<Map<String, dynamic>>()) {
     try {
       transactions.add(RecurringTransaction.fromJson(item));
     } catch (error) {
@@ -234,6 +276,40 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   }
 
   return transactions;
+}
+
+const _recurringExpensesSelectWithoutPayerUserId =
+    'id, date, category, raw_text, breakdown, source, amount_cents, '
+    'currency, owner_type, privacy_scope, household_id, is_recurring, '
+    'user_id, split_group_id, recurrence_rule, type, '
+    'attachments, created_at, updated_at';
+
+const _recurringExpensesSelectWithPayerUserId =
+    'id, date, category, raw_text, breakdown, source, amount_cents, '
+    'currency, owner_type, privacy_scope, household_id, is_recurring, '
+    'user_id, payer_user_id, split_group_id, recurrence_rule, type, '
+    'attachments, created_at, updated_at';
+
+@foundation.visibleForTesting
+bool isUndefinedColumnError(Object error, String columnName) {
+  if (error is! PostgrestException) {
+    return false;
+  }
+  return _isUndefinedColumnError(error, columnName);
+}
+
+bool _isUndefinedColumnError(PostgrestException error, String columnName) {
+  final normalizedColumn = columnName.toLowerCase();
+  final code = (error.code ?? '').toUpperCase();
+  final message = error.message.toLowerCase();
+  final details = (error.details ?? '').toString().toLowerCase();
+
+  if (code != '42703') {
+    return false;
+  }
+
+  return message.contains(normalizedColumn) ||
+      details.contains(normalizedColumn);
 }
 
 Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
@@ -702,36 +778,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
       );
 
-      final envelopesRes = (budgetId != null
-              ? baseQuery.eq('budget_id', budgetId)
-              : (isHousehold
-                  ? baseQuery.eq('household_id', householdId!)
-                  : (isPortfolio
-                      ? _applyAccountScopeFilter(
-                          supabase
-                              .from('budget_envelopes')
-                              .select(
-                                  'id,name,budget_amount_cents,household_id,currency,icon,color,budget_id')
-                              .eq('currency', selectedCurrency),
-                          authUser.uid,
-                          scope: scopeType,
-                          householdId: householdId,
-                        )
-                      : _applyAccountScopeFilter(
-                          supabase
-                              .from('budget_envelopes')
-                              .select(
-                                  'id,name,budget_amount_cents,household_id,currency,icon,color,budget_id')
-                              .eq('currency', selectedCurrency),
-                          authUser.uid,
-                          scope: scopeType,
-                          householdId: householdId))))
-          .order('name');
+      final budgetBoundEnvelopeRows = budgetId == null
+          ? const <Map<String, dynamic>>[]
+          : ((await baseQuery.eq('budget_id', budgetId).order('name')) as List?)
+                  ?.cast<Map<String, dynamic>>() ??
+              const <Map<String, dynamic>>[];
 
-      final envelopes = await envelopesRes;
-
-      var envRows = (envelopes as List?)?.cast<Map<String, dynamic>>() ?? [];
-      if (envRows.isEmpty && budgetId != null) {
+      var legacyBudgetlessEnvelopeRows = const <Map<String, dynamic>>[];
+      if (budgetBoundEnvelopeRows.isEmpty && budgetId != null) {
         // Legacy rows without budget_id: attach them to the current budget
         final legacyRes = await (scopeType == PocketsScopeType.personal
                 ? baseQuery.isFilter('household_id', null)
@@ -739,8 +793,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             .isFilter('budget_id', null)
             .order('name');
 
-        envRows = (legacyRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-        for (final row in envRows) {
+        legacyBudgetlessEnvelopeRows =
+            (legacyRes as List?)?.cast<Map<String, dynamic>>() ??
+                const <Map<String, dynamic>>[];
+        for (final row in legacyBudgetlessEnvelopeRows) {
           final legacyId = row['id'] as String?;
           if (legacyId != null) {
             await supabase.from('budget_envelopes').update({
@@ -750,6 +806,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           }
         }
       }
+
+      final envRows = resolveEnvelopeRowsForViewedMonth(
+        budgetId: budgetId,
+        budgetBoundEnvelopeRows: budgetBoundEnvelopeRows,
+        legacyBudgetlessEnvelopeRows: legacyBudgetlessEnvelopeRows,
+      );
+
       if (envRows.isEmpty) {
         if (!mounted) return;
         state = PocketsState(
@@ -1141,19 +1204,24 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
 
-    final currentBudgetId = state.budgetId;
-    if (currentBudgetId == null || currentBudgetId.isEmpty) {
-      if (!mounted) return;
-      state = state.copyWith(error: 'Missing current month budget');
-      return;
-    }
-
     final sourceMonthStart = DateTime(sourceMonth.year, sourceMonth.month, 1);
     final sourcePeriodMonth = _formatDate(sourceMonthStart);
 
     final targetMonth = params.periodMonth ?? DateTime.now();
     final targetMonthStart = DateTime(targetMonth.year, targetMonth.month, 1);
     final targetPeriodMonth = _formatDate(targetMonthStart);
+
+    var currentBudgetId = state.budgetId?.trim();
+    if (currentBudgetId == null || currentBudgetId.isEmpty) {
+      final existingTargetBudget = await _findBudgetRowForPeriod(
+        periodMonth: targetPeriodMonth,
+        isHousehold: isScopedToHousehold,
+        householdId: householdId,
+        userId: authUser.uid,
+        currency: effectiveCurrency,
+      );
+      currentBudgetId = (existingTargetBudget?['id'] as String?)?.trim();
+    }
 
     _debugLog(
         '[Pockets][Copy] targetPeriodMonth=$targetPeriodMonth (budgetId=$currentBudgetId), sourcePeriodMonth=$sourcePeriodMonth');
@@ -1244,16 +1312,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         return;
       }
 
-      // If the user hasn't set this month's total budget yet, reuse last month's.
-      if (state.totalBudget <= 0 && sourceTotalBudgetCents > 0) {
-        _debugLog(
-            '[Pockets][Copy] Updating current budget total to match source: ${state.totalBudget} -> ${sourceTotalBudgetCents / 100.0}');
-        await supabase.from('budgets').update(<String, dynamic>{
-          'total_budget_cents': sourceTotalBudgetCents,
-          'updated_at': nowIso,
-        }).eq('id', currentBudgetId);
-      }
-
       // Fetch envelopes for the previous month budget
       var envelopesQuery = supabase
           .from('budget_envelopes')
@@ -1289,6 +1347,55 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           error: 'No pockets found for the previous month',
         );
         return;
+      }
+
+      if (currentBudgetId == null || currentBudgetId.isEmpty) {
+        final budgetPayload = <String, dynamic>{
+          'user_id': authUser.uid,
+          'household_id': isScopedToHousehold ? householdId : null,
+          'currency': effectiveCurrency,
+          'period_month': targetPeriodMonth,
+          'total_budget_cents': sourceTotalBudgetCents > 0
+              ? sourceTotalBudgetCents
+              : (state.totalBudget * 100).round(),
+          'updated_at': nowIso,
+        };
+
+        try {
+          final insertRes = await supabase
+              .from('budgets')
+              .insert(budgetPayload)
+              .select('id')
+              .maybeSingle();
+          currentBudgetId = (insertRes?['id'] as String?)?.trim();
+        } catch (error) {
+          if (!_isConflictError(error)) {
+            rethrow;
+          }
+
+          final existingTargetBudget = await _findBudgetRowForPeriod(
+            periodMonth: targetPeriodMonth,
+            isHousehold: isScopedToHousehold,
+            householdId: householdId,
+            userId: authUser.uid,
+            currency: effectiveCurrency,
+          );
+          currentBudgetId = (existingTargetBudget?['id'] as String?)?.trim();
+        }
+
+        if (currentBudgetId == null || currentBudgetId.isEmpty) {
+          throw Exception('Unable to prepare current month budget');
+        }
+      }
+
+      // If the user hasn't set this month's total budget yet, reuse last month's.
+      if (state.totalBudget <= 0 && sourceTotalBudgetCents > 0) {
+        _debugLog(
+            '[Pockets][Copy] Updating current budget total to match source: ${state.totalBudget} -> ${sourceTotalBudgetCents / 100.0}');
+        await supabase.from('budgets').update(<String, dynamic>{
+          'total_budget_cents': sourceTotalBudgetCents,
+          'updated_at': nowIso,
+        }).eq('id', currentBudgetId);
       }
 
       final sourceEnvIds = envRows

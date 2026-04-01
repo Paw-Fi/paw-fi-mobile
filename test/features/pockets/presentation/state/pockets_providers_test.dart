@@ -1,8 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  group('isUndefinedColumnError', () {
+    test('returns true for SQLSTATE 42703 with matching column in message', () {
+      const error = PostgrestException(
+        message: 'column expenses.payer_user_id does not exist',
+        code: '42703',
+      );
+
+      expect(isUndefinedColumnError(error, 'payer_user_id'), isTrue);
+    });
+
+    test('returns false when undefined column is for another field', () {
+      const error = PostgrestException(
+        message: 'column expenses.owner_type does not exist',
+        code: '42703',
+      );
+
+      expect(isUndefinedColumnError(error, 'payer_user_id'), isFalse);
+    });
+
+    test('returns false for non-Postgrest errors', () {
+      expect(
+        isUndefinedColumnError(Exception('boom'), 'payer_user_id'),
+        isFalse,
+      );
+    });
+  });
+
   group('rebalancePocketBudgetAmounts', () {
     test('preserves pocket shares when total budget increases', () {
       final result = rebalancePocketBudgetAmounts(
@@ -109,6 +137,54 @@ void main() {
       expect(result, const [
         {'envelope_id': 'env-1', 'category': 'food'},
         {'envelope_id': 'env-1', 'category': 'bills'},
+      ]);
+    });
+  });
+
+  group('resolveEnvelopeRowsForViewedMonth', () {
+    test('returns empty when the viewed month has no budget row', () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: null,
+        budgetBoundEnvelopeRows: const [
+          {'id': 'march-living-costs', 'name': 'Living Costs'},
+          {'id': 'march-health', 'name': 'Health'},
+        ],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, isEmpty);
+    });
+
+    test('prefers budget-bound rows over legacy budgetless rows', () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: 'budget-april',
+        budgetBoundEnvelopeRows: const [
+          {'id': 'april-living-costs', 'name': 'Living Costs'},
+        ],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, const [
+        {'id': 'april-living-costs', 'name': 'Living Costs'},
+      ]);
+    });
+
+    test('falls back to legacy budgetless rows only for an existing budget',
+        () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: 'budget-april',
+        budgetBoundEnvelopeRows: const [],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, const [
+        {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
       ]);
     });
   });
