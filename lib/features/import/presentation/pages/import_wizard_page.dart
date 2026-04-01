@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
-import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
@@ -37,6 +39,7 @@ class ImportWizardPage extends ConsumerStatefulWidget {
 class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   bool _isBlockingDialogVisible = false;
   bool _isBlockingDialogSyncScheduled = false;
+  bool _isCompletionDialogVisible = false;
   BlockingProcessingController? _blockingDialogController;
 
   void _dismissBlockingDialogIfVisible() {
@@ -200,69 +203,75 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   }
 
   void _handleImportCompleted(ImportWizardState next) {
+    if (_isCompletionDialogVisible) return;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
       _dismissBlockingDialogIfVisible();
 
-      final authState = ref.read(authProvider);
-      final userId = authState.uid;
-      if (userId.isNotEmpty) {
-        final targetHouseholdId = next.targetHouseholdId;
-        if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
-          // Home personal mode reads directly from analyticsProvider via
-          // homeFilteredTransactionsProvider, so we must await a real reload
-          // before dismissing the import wizard. A fire-and-forget refresh can
-          // race with navigation and leave stale data visible until manual pull
-          // to refresh.
-          await ref.read(analyticsProvider.notifier).loadData(userId);
-        } else {
-          ref
-              .read(cacheInvalidatorProvider)
-              .invalidateHouseholdData(targetHouseholdId);
-          ref.invalidate(userHouseholdsProvider(userId));
-          ref.invalidate(householdExpensesProvider);
-          ref.invalidate(cachedHouseholdExpensesProvider);
-          ref.invalidate(householdSplitsProvider);
-          ref.invalidate(cachedHouseholdSplitsProvider);
-          ref.invalidate(householdBudgetsProvider);
-          ref.invalidate(householdMembersProvider);
-
-          // App init itself does not own expenses, but keeping the selected
-          // household list fresh prevents stale shell state after imports.
-          ref.invalidate(appInitializationV2Provider);
-        }
-
-        ref.invalidate(pocketsProvider);
-        ref.invalidate(currencyTransactionCountsProvider);
-      }
-
       if (!mounted) return;
 
       final succeeded = next.importedCount;
       final failed = next.failedCount;
+      final skipped =
+          (next.totalRows - succeeded - failed).clamp(0, next.totalRows);
 
-      if (succeeded > 0 && failed == 0) {
-        // Full success — close the wizard.
-        AppToast.success(
-          context,
-          '${context.l10n.imported}: $succeeded',
+      _isCompletionDialogVisible = true;
+      try {
+        await AdaptiveAlertDialog.show(
+          context: context,
+          title: 'Import completed',
+          message: [
+            '${context.l10n.imported}: $succeeded',
+            '${context.l10n.failed}: $failed',
+            '${context.l10n.duplicates}: $skipped',
+            if (next.errorMessage != null &&
+                next.errorMessage!.trim().isNotEmpty)
+              next.errorMessage!.trim(),
+          ].join('\n'),
+          actions: [
+            AlertAction(
+              title: 'Got it',
+              style: AlertActionStyle.primary,
+              onPressed: () {},
+            ),
+          ],
         );
-        ref.read(importWizardProvider.notifier).resetAfterImport();
-        Navigator.of(context).pop(true);
-      } else if (succeeded > 0 && failed > 0) {
-        // Partial success — warn and stay on preview so user can see failures.
-        AppToast.warning(
-          context,
-          '${context.l10n.imported}: $succeeded, ${context.l10n.failed}: $failed',
-        );
-      } else {
-        // All failed.
-        AppToast.error(
-          context,
-          '${context.l10n.failed}: $failed',
-        );
+      } finally {
+        _isCompletionDialogVisible = false;
       }
+
+      _refreshDataAfterImport(next);
+
+      ref.read(importWizardProvider.notifier).resetAfterImport();
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
     });
+  }
+
+  void _refreshDataAfterImport(ImportWizardState next) {
+    final authState = ref.read(authProvider);
+    final userId = authState.uid;
+    if (userId.isEmpty) return;
+
+    final targetHouseholdId = next.targetHouseholdId;
+    if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
+      unawaited(ref.read(analyticsProvider.notifier).loadData(userId));
+    } else {
+      ref
+          .read(cacheInvalidatorProvider)
+          .invalidateHouseholdData(targetHouseholdId);
+      ref.invalidate(userHouseholdsProvider(userId));
+      ref.invalidate(householdExpensesProvider);
+      ref.invalidate(cachedHouseholdExpensesProvider);
+      ref.invalidate(householdSplitsProvider);
+      ref.invalidate(cachedHouseholdSplitsProvider);
+      ref.invalidate(householdBudgetsProvider);
+      ref.invalidate(householdMembersProvider);
+      ref.invalidate(appInitializationV2Provider);
+    }
+
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(currencyTransactionCountsProvider);
   }
 }

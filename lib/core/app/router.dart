@@ -38,8 +38,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 @riverpod
 GoRouter router(RouterRef ref) {
   final auth = ref.watch(authProvider);
-  final hasSubscription = ref.watch(hasActiveSubscriptionProvider);
-  final isSubscriptionLoaded = ref.watch(isSubscriptionLoadedProvider);
+  final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
   final prefs = ref.watch(sharedPreferencesProvider);
   final previewMode = ref.watch(previewModeProvider);
   final hasCompletedPreauth =
@@ -285,8 +284,11 @@ GoRouter router(RouterRef ref) {
 
         if (kDebugMode) {
           debugPrint(
-              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, hasSub=$hasSubscription, loaded=$isSubscriptionLoaded, path=${state.matchedLocation}');
+              '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, subGate=$subscriptionGateStatus, path=${state.matchedLocation}');
         }
+
+        final isSubscriptionChecking = subscriptionGateStatus.isLoading;
+        final requiresPaywall = subscriptionGateStatus.requiresPaywall;
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
         if (appInitStateV2.state == AppInitState.failed &&
@@ -317,35 +319,30 @@ GoRouter router(RouterRef ref) {
               if (kIsWeb) {
                 return '/onboarding?stage=post';
               }
-              if (!isSubscriptionLoaded) {
+              if (isSubscriptionChecking) {
                 return null;
               }
-              if (hasSubscription) {
-                return '/onboarding?stage=post';
+              if (requiresPaywall) {
+                final everSubscribed =
+                    prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+                if (everSubscribed) {
+                  return '/paywall?mode=resubscribe';
+                }
+                return '/paywall?mode=trial';
               }
+              return '/onboarding?stage=post';
+            }
+            // On web: skip paywall and go straight to dashboard
+            if (kIsWeb) {
+              return '/dashboard';
+            }
+            if (requiresPaywall) {
               final everSubscribed =
                   prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
               if (everSubscribed) {
                 return '/paywall?mode=resubscribe';
               }
               return '/paywall?mode=trial';
-            }
-            // On web: skip paywall and go straight to dashboard
-            if (kIsWeb) {
-              return '/dashboard';
-            }
-            // For completed onboarding: check subscription if loaded
-            if (isSubscriptionLoaded) {
-              if (!hasSubscription) {
-                // Check if user ever had a subscription
-                final everSubscribed =
-                    prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-                if (everSubscribed) {
-                  return '/paywall?mode=resubscribe';
-                } else {
-                  return '/paywall?mode=trial';
-                }
-              }
             }
             return '/dashboard'; // Navigate immediately, UI will show skeletons
           } else {
@@ -410,11 +407,11 @@ GoRouter router(RouterRef ref) {
             return '/onboarding?stage=post';
           }
 
-          if (!isSubscriptionLoaded) {
+          if (isSubscriptionChecking) {
             return null;
           }
 
-          if (!hasSubscription && !isOnPaywallPage && !isOnPlanSelectionPage) {
+          if (requiresPaywall && !isOnPaywallPage && !isOnPlanSelectionPage) {
             final everSubscribed =
                 prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
             if (everSubscribed) {
@@ -423,9 +420,7 @@ GoRouter router(RouterRef ref) {
             return '/paywall?mode=trial';
           }
 
-          if (hasSubscription) {
-            return '/onboarding?stage=post';
-          }
+          return '/onboarding?stage=post';
         }
 
         // Allow paywall page for authenticated users (mobile only)
@@ -460,25 +455,25 @@ GoRouter router(RouterRef ref) {
             if (kIsWeb) {
               return '/onboarding?stage=post';
             }
-            if (!isSubscriptionLoaded) {
+            if (isSubscriptionChecking) {
               return null;
             }
-            if (hasSubscription) {
-              return '/onboarding?stage=post';
+            if (requiresPaywall) {
+              final everSubscribed =
+                  prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
+              if (everSubscribed) {
+                return '/paywall?mode=resubscribe';
+              }
+              return '/paywall?mode=trial';
             }
-            final everSubscribed =
-                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-            if (everSubscribed) {
-              return '/paywall?mode=resubscribe';
-            }
-            return '/paywall?mode=trial';
+            return '/onboarding?stage=post';
           }
           // If subscription is still loading, allow navigation (don't redirect yet)
-          if (!isSubscriptionLoaded) {
+          if (isSubscriptionChecking) {
             return null;
           }
           // Check subscription status
-          if (!hasSubscription) {
+          if (requiresPaywall) {
             // On web: skip paywall and go straight to dashboard
             if (kIsWeb) return '/dashboard';
             // Check if user ever had a subscription to determine paywall mode
@@ -500,8 +495,8 @@ GoRouter router(RouterRef ref) {
             isAuthenticated &&
             isPreauthSynced &&
             hasOnboarded &&
-            isSubscriptionLoaded &&
-            !hasSubscription &&
+            !isSubscriptionChecking &&
+            requiresPaywall &&
             !isOnPaywallPage &&
             !isOnPlanSelectionPage &&
             !isOnboardingPage &&
@@ -571,11 +566,11 @@ class RouterNotifier extends ChangeNotifier {
 
     // Keep routing reactive to subscription/preview changes while app is open.
     _ref.listen<bool>(
-      hasActiveSubscriptionProvider,
+      subscriptionGateStatusProvider.select((status) => status.requiresPaywall),
       (_, __) => notifyListeners(),
     );
     _ref.listen<bool>(
-      isSubscriptionLoadedProvider,
+      subscriptionGateStatusProvider.select((status) => status.isLoading),
       (_, __) => notifyListeners(),
     );
     _ref.listen<PreviewModeState>(

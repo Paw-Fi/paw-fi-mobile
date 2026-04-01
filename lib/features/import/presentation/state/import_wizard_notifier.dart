@@ -266,6 +266,189 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     return message;
   }
 
+  String _toImportSaveErrorMessage(Object error) {
+    if (error is _ImportBackendException) {
+      final code = error.code?.toUpperCase();
+      if (code == 'UNAUTHORIZED' ||
+          error.status == 401 ||
+          error.status == 403) {
+        return 'Your session expired while importing. Please sign in again and retry.';
+      }
+      if (code == 'SERVER_ERROR') {
+        return 'We could not finish importing right now. Please try again in a moment.';
+      }
+      if (code == 'VALIDATION_ERROR' || error.status == 400) {
+        return 'Some rows could not be imported. Please review your file and try again.';
+      }
+      return 'We imported what we could, but some rows could not be saved. Please review and try again.';
+    }
+
+    final message = error.toString().toLowerCase();
+
+    if (message.contains('unauthorized') || message.contains('401')) {
+      return 'Your session expired while importing. Please sign in again and retry.';
+    }
+
+    if (message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('gateway')) {
+      return 'Import is taking longer than expected. Please retry in a moment.';
+    }
+
+    if (message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('connection')) {
+      return 'Your connection was interrupted during import. Please check your internet and try again.';
+    }
+
+    return 'We could not finish importing all rows. Please try again.';
+  }
+
+  bool _isRetryableBatchFailure({
+    required Object? error,
+    required int? status,
+  }) {
+    if (status != null) {
+      if (status == 408 || status == 429) return true;
+      if (status >= 500) return true;
+    }
+
+    if (error == null) return false;
+
+    final message = error.toString().toLowerCase();
+    return message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('gateway') ||
+        message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('connection') ||
+        message.contains('runmicrotasks');
+  }
+
+  Future<dynamic> _invokeSaveTransactionsBatchWithRetry({
+    required Map<String, dynamic> body,
+    int maxAttempts = 3,
+  }) async {
+    Object? lastError;
+    int? lastStatus;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await supabase.functions.invoke(
+          'save-transactions-batch',
+          body: body,
+        );
+
+        lastStatus = response.status;
+        final data = response.data;
+
+        final shouldRetry = _isRetryableBatchFailure(
+          error: null,
+          status: response.status,
+        );
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+
+        return data;
+      } catch (error) {
+        lastError = error;
+        final shouldRetry = _isRetryableBatchFailure(
+          error: error,
+          status: null,
+        );
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw Exception(
+      'save-transactions-batch failed after retries (status: ${lastStatus ?? 'unknown'})',
+    );
+  }
+
+  ({int succeeded, int failed, String? errorMessage}) _countChunkResults({
+    required dynamic data,
+    required int expectedCount,
+  }) {
+    if (data is! Map<String, dynamic>) {
+      return (
+        succeeded: 0,
+        failed: expectedCount,
+        errorMessage:
+            'We received an unexpected response while importing your file. Please try again.',
+      );
+    }
+
+    final resultsRaw = data['results'];
+    if (resultsRaw is List) {
+      final seenIndices = <int>{};
+      var succeeded = 0;
+      var failed = 0;
+
+      for (final item in resultsRaw) {
+        if (item is! Map) continue;
+        final index = (item['index'] as num?)?.toInt();
+        if (index == null || index < 0 || index >= expectedCount) continue;
+        if (!seenIndices.add(index)) continue;
+
+        if (item['success'] == true) {
+          succeeded += 1;
+        } else {
+          failed += 1;
+        }
+      }
+
+      final unresolved = expectedCount - seenIndices.length;
+      if (unresolved > 0) {
+        failed += unresolved;
+      }
+
+      final errorMessage = unresolved > 0
+          ? 'Some rows were not acknowledged by the server. Please retry import.'
+          : null;
+
+      return (
+        succeeded: succeeded,
+        failed: failed,
+        errorMessage: errorMessage,
+      );
+    }
+
+    final summary = data['summary'];
+    if (summary is Map<String, dynamic>) {
+      final summarySucceeded = (summary['succeeded'] as num?)?.toInt() ?? 0;
+      final summaryFailed = (summary['failed'] as num?)?.toInt() ?? 0;
+      final accounted = summarySucceeded + summaryFailed;
+      if (accounted == expectedCount) {
+        return (
+          succeeded: summarySucceeded,
+          failed: summaryFailed,
+          errorMessage: summaryFailed > 0
+              ? 'Some rows could not be imported. Please review your file and try again.'
+              : null,
+        );
+      }
+    }
+
+    final backendSuccess = data['success'] == true;
+    return (
+      succeeded: backendSuccess ? expectedCount : 0,
+      failed: backendSuccess ? 0 : expectedCount,
+      errorMessage: backendSuccess
+          ? null
+          : 'Some rows could not be imported. Please review your file and try again.',
+    );
+  }
+
   Future<ImportTable> _analyzePdfToImportTable({
     required Uint8List bytes,
     required String filename,
@@ -584,7 +767,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     final authUser = _ref.read(authProvider);
     if (authUser.isEmpty || authUser.uid.isEmpty) {
-      state = state.copyWith(errorMessage: 'User not authenticated');
+      state = state.copyWith(
+        errorMessage: 'Please sign in again, then try importing your file.',
+      );
       return;
     }
 
@@ -623,6 +808,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         importedCount: 0,
         failedCount: preFilterFailed,
         step: ImportStep.preview,
+        errorMessage: preFilterFailed > 0
+            ? 'We could not import any rows from this file. Please review and fix the highlighted rows, then try again.'
+            : 'There is nothing new to import. All selected rows are duplicates.',
       );
       return;
     }
@@ -649,60 +837,47 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     // 3. Chunk into batches of ≤500 and call save-transactions-batch.
     int totalSucceeded = 0;
     int totalFailed = preFilterFailed;
+    String? firstBatchFailureMessage;
 
-    for (var offset = 0; offset < transactions.length; offset += _batchSize) {
-      final end = (offset + _batchSize > transactions.length)
-          ? transactions.length
-          : offset + _batchSize;
-      final chunk = transactions.sublist(offset, end);
+    try {
+      for (var offset = 0; offset < transactions.length; offset += _batchSize) {
+        final end = (offset + _batchSize > transactions.length)
+            ? transactions.length
+            : offset + _batchSize;
+        final chunk = transactions.sublist(offset, end);
 
-      final body = <String, dynamic>{
-        'userId': authUser.uid,
-        'transactions': chunk,
-        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
-          'householdId': targetHouseholdId,
-        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
-          'isPortfolio': targetIsPortfolio,
-      };
+        final body = <String, dynamic>{
+          'userId': authUser.uid,
+          'transactions': chunk,
+          if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+            'householdId': targetHouseholdId,
+          if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+            'isPortfolio': targetIsPortfolio,
+        };
 
-      try {
-        final response = await supabase.functions.invoke(
-          'save-transactions-batch',
-          body: body,
-        );
+        try {
+          final data = await _invokeSaveTransactionsBatchWithRetry(body: body);
+          final counted = _countChunkResults(
+            data: data,
+            expectedCount: chunk.length,
+          );
 
-        final data = response.data;
-        if (data is Map<String, dynamic>) {
-          // Always read summary regardless of `success` flag — backend sets
-          // success=false when ANY item fails, even if most succeeded.
-          final summary = data['summary'];
-          if (summary is Map<String, dynamic>) {
-            totalSucceeded += (summary['succeeded'] as num?)?.toInt() ?? 0;
-            totalFailed += (summary['failed'] as num?)?.toInt() ?? 0;
-          } else if (data['success'] == true) {
-            // Fallback: no summary but success — assume entire chunk succeeded.
-            totalSucceeded += chunk.length;
-          } else {
-            totalFailed += chunk.length;
-          }
-        } else {
+          totalSucceeded += counted.succeeded;
+          totalFailed += counted.failed;
+          firstBatchFailureMessage ??= counted.errorMessage;
+        } catch (error) {
           totalFailed += chunk.length;
+          firstBatchFailureMessage ??= _toImportSaveErrorMessage(error);
         }
-      } catch (_) {
-        totalFailed += chunk.length;
+
+        // Update progress after each batch for real-time UI feedback.
+        state = state.copyWith(
+          importedCount: totalSucceeded,
+          failedCount: totalFailed,
+        );
       }
-
-      // Update progress after each batch for real-time UI feedback.
-      state = state.copyWith(
-        importedCount: totalSucceeded,
-        failedCount: totalFailed,
-      );
-    }
-
-    // 4. Refresh analytics after import.
-    if (authUser.uid.isNotEmpty &&
-        (targetHouseholdId == null || targetHouseholdId.isEmpty)) {
-      await _ref.read(analyticsProvider.notifier).loadData(authUser.uid);
+    } catch (error) {
+      firstBatchFailureMessage ??= _toImportSaveErrorMessage(error);
     }
 
     state = state.copyWith(
@@ -710,6 +885,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       importedCount: totalSucceeded,
       failedCount: totalFailed,
       step: ImportStep.preview,
+      errorMessage: firstBatchFailureMessage,
     );
   }
 
