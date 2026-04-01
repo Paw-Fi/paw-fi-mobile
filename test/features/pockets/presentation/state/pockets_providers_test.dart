@@ -1,33 +1,59 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  group('isUndefinedColumnError', () {
-    test('returns true for SQLSTATE 42703 with matching column in message', () {
-      const error = PostgrestException(
-        message: 'column expenses.payer_user_id does not exist',
-        code: '42703',
+  group('applySplitPayerToRecurringRows', () {
+    test('injects payer_user_id from split group mapping when missing', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-1',
+          'user_id': 'creator-1',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'payer-1'},
       );
 
-      expect(isUndefinedColumnError(error, 'payer_user_id'), isTrue);
+      expect(result.single['payer_user_id'], 'payer-1');
+      expect(result.single['user_id'], 'creator-1');
     });
 
-    test('returns false when undefined column is for another field', () {
-      const error = PostgrestException(
-        message: 'column expenses.owner_type does not exist',
-        code: '42703',
+    test('does not overwrite existing payer_user_id', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-1',
+          'payer_user_id': 'existing-payer',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'mapped-payer'},
       );
 
-      expect(isUndefinedColumnError(error, 'payer_user_id'), isFalse);
+      expect(result.single['payer_user_id'], 'existing-payer');
     });
 
-    test('returns false for non-Postgrest errors', () {
-      expect(
-        isUndefinedColumnError(Exception('boom'), 'payer_user_id'),
-        isFalse,
+    test('keeps row unchanged when no split group mapping exists', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-unknown',
+          'user_id': 'creator-1',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'payer-1'},
       );
+
+      expect(result.single.containsKey('payer_user_id'), isFalse);
     });
   });
 

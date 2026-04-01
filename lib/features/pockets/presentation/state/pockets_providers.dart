@@ -218,7 +218,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 
   dynamic scopedQuery = supabase
       .from('expenses')
-      .select(_recurringExpensesSelectWithPayerUserId)
+      .select(_recurringExpensesSelectFields)
       .eq('is_recurring', true);
 
   switch (scope) {
@@ -235,39 +235,13 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
       break;
   }
 
-  List rows;
-  try {
-    rows = await scopedQuery.order('date', ascending: false).limit(limit);
-  } on PostgrestException catch (error) {
-    if (!_isUndefinedColumnError(error, 'payer_user_id')) {
-      rethrow;
-    }
-
-    var fallbackQuery = supabase
-        .from('expenses')
-        .select(_recurringExpensesSelectWithoutPayerUserId)
-        .eq('is_recurring', true);
-
-    switch (scope) {
-      case PocketsScopeType.personal:
-        fallbackQuery =
-            fallbackQuery.eq('user_id', userId).isFilter('household_id', null);
-        break;
-      case PocketsScopeType.portfolio:
-        fallbackQuery = fallbackQuery
-            .eq('user_id', userId)
-            .eq('household_id', householdId!);
-        break;
-      case PocketsScopeType.household:
-        fallbackQuery = fallbackQuery.eq('household_id', householdId!);
-        break;
-    }
-
-    rows = await fallbackQuery.order('date', ascending: false).limit(limit);
-  }
+  final rows = await scopedQuery.order('date', ascending: false).limit(limit);
+  final enrichedRows = await _enrichRecurringRowsWithSplitPayer(
+    rows: rows.cast<Map<String, dynamic>>(),
+  );
   final transactions = <RecurringTransaction>[];
 
-  for (final item in rows.cast<Map<String, dynamic>>()) {
+  for (final item in enrichedRows) {
     try {
       transactions.add(RecurringTransaction.fromJson(item));
     } catch (error) {
@@ -278,38 +252,81 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   return transactions;
 }
 
-const _recurringExpensesSelectWithoutPayerUserId =
+const _recurringExpensesSelectFields =
     'id, date, category, raw_text, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
     'user_id, split_group_id, recurrence_rule, type, '
     'attachments, created_at, updated_at';
 
-const _recurringExpensesSelectWithPayerUserId =
-    'id, date, category, raw_text, breakdown, source, amount_cents, '
-    'currency, owner_type, privacy_scope, household_id, is_recurring, '
-    'user_id, payer_user_id, split_group_id, recurrence_rule, type, '
-    'attachments, created_at, updated_at';
+Future<List<Map<String, dynamic>>> _enrichRecurringRowsWithSplitPayer({
+  required List<Map<String, dynamic>> rows,
+}) async {
+  final splitGroupIds = rows
+      .map((row) => row['split_group_id'] as String?)
+      .where((splitGroupId) => splitGroupId != null && splitGroupId.isNotEmpty)
+      .cast<String>()
+      .toSet()
+      .toList(growable: false);
 
-@foundation.visibleForTesting
-bool isUndefinedColumnError(Object error, String columnName) {
-  if (error is! PostgrestException) {
-    return false;
+  if (splitGroupIds.isEmpty) {
+    return rows;
   }
-  return _isUndefinedColumnError(error, columnName);
+
+  try {
+    final splitRows = await supabase
+        .from('expense_split_groups')
+        .select('id, payer_user_id')
+        .inFilter('id', splitGroupIds);
+
+    final splitPayerByGroupId = <String, String>{
+      for (final row in splitRows.cast<Map<String, dynamic>>())
+        if ((row['id'] as String?) != null &&
+            (row['payer_user_id'] as String?) != null)
+          (row['id'] as String): (row['payer_user_id'] as String),
+    };
+
+    return applySplitPayerToRecurringRows(
+      rows: rows,
+      splitPayerByGroupId: splitPayerByGroupId,
+    );
+  } catch (error) {
+    _debugLog(
+      '[Pockets] Failed to enrich recurring rows with split payer: $error',
+    );
+    return rows;
+  }
 }
 
-bool _isUndefinedColumnError(PostgrestException error, String columnName) {
-  final normalizedColumn = columnName.toLowerCase();
-  final code = (error.code ?? '').toUpperCase();
-  final message = error.message.toLowerCase();
-  final details = (error.details ?? '').toString().toLowerCase();
-
-  if (code != '42703') {
-    return false;
+@foundation.visibleForTesting
+List<Map<String, dynamic>> applySplitPayerToRecurringRows({
+  required List<Map<String, dynamic>> rows,
+  required Map<String, String> splitPayerByGroupId,
+}) {
+  if (rows.isEmpty || splitPayerByGroupId.isEmpty) {
+    return rows;
   }
 
-  return message.contains(normalizedColumn) ||
-      details.contains(normalizedColumn);
+  return rows.map((row) {
+    final splitGroupId = row['split_group_id'] as String?;
+    if (splitGroupId == null || splitGroupId.isEmpty) {
+      return row;
+    }
+
+    final payerUserId = splitPayerByGroupId[splitGroupId];
+    if (payerUserId == null || payerUserId.isEmpty) {
+      return row;
+    }
+
+    final existingPayer = row['payer_user_id'] as String?;
+    if (existingPayer != null && existingPayer.isNotEmpty) {
+      return row;
+    }
+
+    return <String, dynamic>{
+      ...row,
+      'payer_user_id': payerUserId,
+    };
+  }).toList(growable: false);
 }
 
 Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
