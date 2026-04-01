@@ -868,6 +868,19 @@ class SettingsPage extends HookConsumerWidget {
                       value: authState.email,
                       showChevron: false,
                     ),
+
+                   _SettingsTile(
+                      icon: Icons.archive_outlined,
+                      label: 'Archived Accounts',
+                      value: 'Tap to manage',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const ArchivedAccountsPage(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
 

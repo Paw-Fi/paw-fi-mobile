@@ -4,6 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
@@ -163,7 +168,8 @@ class PreviewStep extends ConsumerWidget {
       children: [
         lockPersonalTarget
             ? _buildPersonalTargetRow(context, scheme)
-            : _buildAccountSelectorRow(context, ref, scheme),
+            : _buildSpaceSelectorRow(context, ref, scheme),
+        _buildFinancialAccountRow(context, ref, scheme),
         MetricRow(
           leftLabel: context.l10n.rows,
           leftValue: '${state.totalRows}',
@@ -219,7 +225,7 @@ class PreviewStep extends ConsumerWidget {
     );
   }
 
-  Widget _buildAccountSelectorRow(
+  Widget _buildSpaceSelectorRow(
     BuildContext context,
     WidgetRef ref,
     ColorScheme scheme,
@@ -355,6 +361,190 @@ class PreviewStep extends ConsumerWidget {
     );
   }
 
+  Widget _buildFinancialAccountRow(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme scheme,
+  ) {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final targetHouseholdId = state.targetHouseholdId;
+    final accountsAsync =
+        ref.watch(accountsByHouseholdIdProvider(targetHouseholdId));
+    final allAccounts = accountsAsync.valueOrNull ?? const <AccountEntity>[];
+    final accounts = allAccounts
+        .where((account) => !account.isArchived)
+        .toList(growable: false);
+
+    final selectedAccountId = state.targetAccountId?.trim();
+    AccountEntity? selectedAccount;
+    if (selectedAccountId != null) {
+      for (final account in accounts) {
+        if (account.id == selectedAccountId) {
+          selectedAccount = account;
+          break;
+        }
+      }
+    }
+
+    if (accounts.isNotEmpty && selectedAccount == null) {
+      final preferredAccountId = _resolvePreferredDefaultAccountId(accounts);
+      if (preferredAccountId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.setTargetFinancialAccount(preferredAccountId);
+        });
+      }
+    }
+
+    final selectedLabel = selectedAccount?.name ?? 'Spending';
+    final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
+
+    final items = <AdaptivePopupMenuItem>[
+      ...accounts.map(
+        (account) => AdaptivePopupMenuItem(
+          label: truncateMenuLabel(account.name, maxLength: 26),
+          icon: Icons.account_balance_wallet_outlined,
+          value: 'account:${account.id}',
+        ),
+      ),
+      AdaptivePopupMenuItem(
+        label: context.l10n.createAccount,
+        icon: Icons.add_circle_outline_rounded,
+        value: 'create_account',
+      ),
+    ];
+
+    final selector = accountsAsync.when(
+      loading: () => Container(
+        height: 36,
+        width: 96,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: scheme.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, __) => Container(
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        decoration: BoxDecoration(
+          color: scheme.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'Spending',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: scheme.foreground,
+          ),
+        ),
+      ),
+      data: (_) => AdaptivePopupMenuButton.widget(
+        items: items,
+        onSelected: (index, item) {
+          HapticFeedback.selectionClick();
+          SystemSound.play(SystemSoundType.click);
+          if (item.value == 'create_account') {
+            _handleCreateAccount(context, ref);
+            return;
+          }
+
+          final raw = item.value;
+          if (raw is String && raw.startsWith('account:')) {
+            final accountId = raw.replaceFirst('account:', '').trim();
+            notifier.setTargetFinancialAccount(accountId);
+          }
+        },
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+          decoration: BoxDecoration(
+            color: scheme.cardSurface,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  pillLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: scheme.mutedForeground,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.account,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: scheme.foreground,
+              ),
+            ),
+          ),
+          selector,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCreateAccount(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final result = await showCreateEditAccountSheet(context);
+    if (result == null) return;
+
+    try {
+      final createdId = await notifier.createAccountForTarget(
+        name: result.name,
+        icon: result.icon,
+        color: result.color,
+        openingBalanceCents: result.openingBalanceCents,
+        goalAmountCents: result.goalAmountCents,
+        isDefault: result.isDefault,
+      );
+      if (createdId != null && createdId.isNotEmpty) {
+        notifier.setTargetFinancialAccount(createdId);
+      }
+      if (context.mounted) {
+        AppToast.success(context, context.l10n.save);
+      }
+    } catch (error) {
+      if (context.mounted) {
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      }
+    }
+  }
+
   Widget _buildOptionsCard(
       BuildContext context, WidgetRef ref, ColorScheme scheme) {
     final notifier = ref.read(importWizardProvider.notifier);
@@ -432,6 +622,20 @@ class PreviewStep extends ConsumerWidget {
       notifier.updateParsedRow(result);
     }
   }
+}
+
+String? _resolvePreferredDefaultAccountId(List<AccountEntity> accounts) {
+  for (final account in accounts) {
+    if (account.name.trim().toLowerCase() == 'spending') {
+      return account.id;
+    }
+  }
+  for (final account in accounts) {
+    if (account.isDefault) {
+      return account.id;
+    }
+  }
+  return accounts.isNotEmpty ? accounts.first.id : null;
 }
 
 /// Banner shown when the map-columns step was auto-skipped due to high

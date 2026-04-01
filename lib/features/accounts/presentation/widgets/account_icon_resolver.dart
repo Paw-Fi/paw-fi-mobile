@@ -25,6 +25,44 @@ IconData resolveAccountIcon(String? iconName) {
       return Icons.flight_takeoff_rounded;
     case 'home':
       return Icons.home_rounded;
+    case 'investment':
+      return Icons.trending_up_rounded;
+    case 'retirement':
+      return Icons.account_balance_rounded;
+    case 'loan':
+      return Icons.request_quote_rounded;
+    case 'mortgage':
+      return Icons.house_rounded;
+    case 'insurance':
+      return Icons.verified_user_rounded;
+    case 'business':
+      return Icons.business_center_rounded;
+    case 'crypto':
+      return Icons.currency_bitcoin_rounded;
+    case 'checking':
+      return Icons.account_balance_rounded;
+    case 'joint':
+      return Icons.groups_rounded;
+    case 'allowance':
+      return Icons.child_care_rounded;
+    case 'education':
+      return Icons.school_rounded;
+    case 'medical':
+      return Icons.local_hospital_rounded;
+    case 'tax':
+      return Icons.receipt_long_rounded;
+    case 'reserve':
+      return Icons.shield_rounded;
+    case 'brokerage':
+      return Icons.candlestick_chart_rounded;
+    case 'gold':
+      return Icons.workspace_premium_rounded;
+    case 'cash_envelope':
+      return Icons.local_atm_rounded;
+    case 'pet':
+      return Icons.pets_rounded;
+    case 'paypal':
+      return Icons.payments_rounded;
     default:
       return Icons.account_balance_wallet_rounded;
   }
