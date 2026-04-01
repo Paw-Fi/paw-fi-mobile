@@ -232,6 +232,7 @@ String _netCashflowTitleForFilter(
     // Fallback to a sensible label when we don't have a dedicated string
     case DateRangeFilter.last7Days:
     case DateRangeFilter.lastMonth:
+    case DateRangeFilter.last3Months:
     case DateRangeFilter.thisYear:
     case DateRangeFilter.allTime:
       return l10n.netCashflowThisMonth;
@@ -286,6 +287,11 @@ double _netCashflowFontSize(String displayText) {
       final start = DateTime(now.year, now.month - 1, 1);
       final end =
           DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
+      return (start, end);
+    case DateRangeFilter.last3Months:
+      final firstOfThisMonth = DateTime(now.year, now.month, 1);
+      final end = firstOfThisMonth.subtract(const Duration(seconds: 1));
+      final start = DateTime(end.year, end.month - 2, 1);
       return (start, end);
     case DateRangeFilter.last30Days:
       final start = todayStart.subtract(const Duration(days: 29));
@@ -353,6 +359,17 @@ double _netCashflowFontSize(String displayText) {
       final currentStart = DateTime(now.year, now.month - 1, 1);
       final prevStart = DateTime(now.year, now.month - 2, 1);
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      return (prevStart, prevEnd);
+    case DateRangeFilter.last3Months:
+      final firstOfThisMonth = DateTime(now.year, now.month, 1);
+      final currentStart = DateTime(now.year, now.month - 3, 1);
+      final prevEnd = currentStart.subtract(const Duration(seconds: 1));
+      final prevStart = DateTime(prevEnd.year, prevEnd.month - 2, 1);
+      if (prevEnd.isBefore(prevStart)) {
+        final fallbackEnd =
+            firstOfThisMonth.subtract(const Duration(seconds: 1));
+        return (currentStart, fallbackEnd);
+      }
       return (prevStart, prevEnd);
     case DateRangeFilter.last30Days:
       final currentStart = todayStart.subtract(const Duration(days: 29));

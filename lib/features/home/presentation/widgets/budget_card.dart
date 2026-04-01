@@ -125,6 +125,8 @@ String _budgetTitleForFilter(BuildContext context, DateRangeFilter filter) {
       return l10n.sumOfDailyBudgetsThisMonth;
     case DateRangeFilter.lastMonth:
       return l10n.sumOfDailyBudgetsForSelectedRange;
+    case DateRangeFilter.last3Months:
+      return l10n.sumOfDailyBudgetsForSelectedRange;
     case DateRangeFilter.last30Days:
       return l10n.sumOfDailyBudgetsLast30Days;
     case DateRangeFilter.thisYear:

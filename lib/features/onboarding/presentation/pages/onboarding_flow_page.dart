@@ -208,9 +208,24 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
           pageId: _guestIntroPageId(),
           stepIndex:
               showOrbitPage.value ? introSlides.length : carouselIndex.value,
+          actionId: 'preview_app_tapped',
+          result: 'used',
+          properties: const <String, Object?>{
+            'step_group': 'guest_intro',
+            'preview_entry_point': 'get_started',
+          },
+        );
+        await analytics.trackAction(
+          flowName: 'onboarding_funnel',
+          pageId: _guestIntroPageId(),
+          stepIndex:
+              showOrbitPage.value ? introSlides.length : carouselIndex.value,
           actionId: 'intro_preview_app',
           result: 'used',
-          properties: const <String, Object?>{'step_group': 'guest_intro'},
+          properties: const <String, Object?>{
+            'step_group': 'guest_intro',
+            'preview_entry_point': 'get_started',
+          },
         );
         await analytics.endPage(
           reason: 'intro_preview_app',

@@ -180,6 +180,7 @@ class PaywallScreen extends HookConsumerWidget {
     final isCheckingReturnTrial = useRef(false);
     final didMarkBackgroundExit = useRef(false);
     final isReturnTrialDialogOpen = useRef(false);
+    final lastPresentedPlanKey = useRef<String?>(null);
 
     useEffect(() {
       unawaited(
@@ -669,6 +670,42 @@ class PaywallScreen extends HookConsumerWidget {
       (p) => p.id == selectedPlanId.value,
       orElse: () => plans.first,
     );
+
+    useEffect(() {
+      if (plans.isEmpty || hasActiveSubscription) {
+        return null;
+      }
+
+      final planKey =
+          '${mode.queryValue}:${activePlanOption.id}:${activePlanOption.billingInterval ?? 'none'}';
+      if (lastPresentedPlanKey.value == planKey) {
+        return null;
+      }
+
+      lastPresentedPlanKey.value = planKey;
+      unawaited(
+        analytics.trackEvent(
+          eventName: 'paywall_plan_presented',
+          flowName: 'onboarding_funnel',
+          pageId: 'paywall',
+          dedupeKey: planKey,
+          properties: <String, Object?>{
+            'paywall_mode': mode.queryValue,
+            'selected_plan': activePlanOption.serverPlanId,
+            'selected_option_id': activePlanOption.id,
+            'billing_interval': activePlanOption.billingInterval,
+          },
+        ),
+      );
+      return null;
+    }, [
+      plans.length,
+      hasActiveSubscription,
+      mode.queryValue,
+      activePlanOption.id,
+      activePlanOption.serverPlanId,
+      activePlanOption.billingInterval,
+    ]);
 
     Future<void> maybeGrantReturnTrial() async {
       if (!isNewUser) return;
@@ -1483,6 +1520,7 @@ class PaywallScreen extends HookConsumerWidget {
                                           activePlanOption.serverPlanId,
                                       'billing_interval':
                                           activePlanOption.billingInterval,
+                                      'preview_entry_point': 'paywall',
                                     },
                                   );
                                   await analytics.trackAction(
@@ -1496,6 +1534,7 @@ class PaywallScreen extends HookConsumerWidget {
                                           activePlanOption.serverPlanId,
                                       'billing_interval':
                                           activePlanOption.billingInterval,
+                                      'preview_entry_point': 'paywall',
                                     },
                                   );
                                   await analytics.endPage(

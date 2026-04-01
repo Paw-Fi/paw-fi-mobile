@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -31,6 +32,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -82,11 +84,90 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
 
+  String _dateFilterPrefKey(String userId) =>
+      'transactions_date_filter:$userId';
+  String _dateFilterCustomStartPrefKey(String userId) =>
+      'transactions_date_filter_custom_start:$userId';
+  String _dateFilterCustomEndPrefKey(String userId) =>
+      'transactions_date_filter_custom_end:$userId';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDateFilterPreference();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     _chartPageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadDateFilterPreference() async {
+    final userId = ref.read(authProvider).uid;
+    final prefs = ref.read(sharedPreferencesProvider);
+    final savedFilterName = prefs.getString(_dateFilterPrefKey(userId));
+    if (savedFilterName == null || savedFilterName.isEmpty) {
+      return;
+    }
+
+    DateRangeFilter? savedFilter;
+    for (final filter in DateRangeFilter.values) {
+      if (filter.name == savedFilterName) {
+        savedFilter = filter;
+        break;
+      }
+    }
+
+    if (savedFilter == null) {
+      return;
+    }
+
+    DateTime? customStart;
+    DateTime? customEnd;
+    if (savedFilter == DateRangeFilter.custom) {
+      final savedStartMillis =
+          prefs.getInt(_dateFilterCustomStartPrefKey(userId));
+      final savedEndMillis = prefs.getInt(_dateFilterCustomEndPrefKey(userId));
+      if (savedStartMillis != null && savedEndMillis != null) {
+        customStart = DateTime.fromMillisecondsSinceEpoch(savedStartMillis);
+        customEnd = DateTime.fromMillisecondsSinceEpoch(savedEndMillis);
+      } else {
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedDateFilter = savedFilter!;
+      _customStart = customStart;
+      _customEnd = customEnd;
+    });
+  }
+
+  Future<void> _persistDateFilterPreference() async {
+    final userId = ref.read(authProvider).uid;
+    final prefs = ref.read(sharedPreferencesProvider);
+
+    await prefs.setString(_dateFilterPrefKey(userId), _selectedDateFilter.name);
+
+    if (_selectedDateFilter == DateRangeFilter.custom &&
+        _customStart != null &&
+        _customEnd != null) {
+      await prefs.setInt(
+        _dateFilterCustomStartPrefKey(userId),
+        _customStart!.millisecondsSinceEpoch,
+      );
+      await prefs.setInt(
+        _dateFilterCustomEndPrefKey(userId),
+        _customEnd!.millisecondsSinceEpoch,
+      );
+      return;
+    }
+
+    await prefs.remove(_dateFilterCustomStartPrefKey(userId));
+    await prefs.remove(_dateFilterCustomEndPrefKey(userId));
   }
 
   List<ExpenseEntry> _baseExpenses = const [];
@@ -996,6 +1077,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       DateRangeFilter.thisWeek,
       DateRangeFilter.lastWeek,
       DateRangeFilter.thisMonth,
+      DateRangeFilter.lastMonth,
+      DateRangeFilter.last3Months,
       DateRangeFilter.last30Days,
       DateRangeFilter.thisYear,
       DateRangeFilter.allTime,
@@ -1049,6 +1132,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       _customStart = result.start;
                       _customEnd = result.end;
                     });
+                    unawaited(_persistDateFilterPreference());
                   }
                 } else {
                   setState(() {
@@ -1056,6 +1140,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     _customStart = null;
                     _customEnd = null;
                   });
+                  unawaited(_persistDateFilterPreference());
                 }
               },
               child: Container(
@@ -1777,6 +1862,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               _customStart = null;
                               _customEnd = null;
                             });
+                            unawaited(_persistDateFilterPreference());
                             Navigator.pop(context);
                           },
                           child: Text(context.l10n.reset),

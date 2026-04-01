@@ -10,6 +10,7 @@ enum DateRangeFilter {
   last7Days,
   thisMonth,
   lastMonth,
+  last3Months,
   last30Days,
   thisYear,
   allTime,
@@ -34,6 +35,8 @@ extension DateRangeFilterExtension on DateRangeFilter {
         return l10n.thisMonth;
       case DateRangeFilter.lastMonth:
         return l10n.lastMonth;
+      case DateRangeFilter.last3Months:
+        return l10n.last3Months;
       case DateRangeFilter.last30Days:
         return l10n.last30Days;
       case DateRangeFilter.thisYear:
@@ -62,6 +65,8 @@ extension DateRangeFilterExtension on DateRangeFilter {
         return l10n.spentThisMonth;
       case DateRangeFilter.lastMonth:
         return 'Spent (Last month)';
+      case DateRangeFilter.last3Months:
+        return '${l10n.spent} (${l10n.last3Months})';
       case DateRangeFilter.last30Days:
         return l10n.spentLast30Days;
       case DateRangeFilter.thisYear:
