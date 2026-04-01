@@ -16,6 +16,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
@@ -48,6 +49,14 @@ final walletCaptureEnabledProvider =
 
 const double _bannerCardWidth = 195;
 const double _bannerCardHeight = 185;
+const String _dismissedChecklistStepsKey =
+    'home_connect_social_dismissed_steps_v1';
+
+final dismissedChecklistStepsProvider = Provider<Set<String>>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final stored = prefs.getStringList(_dismissedChecklistStepsKey) ?? const [];
+  return stored.toSet();
+});
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -75,6 +84,7 @@ class ConnectSocialBanner extends ConsumerWidget {
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
     final selectedCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
     final recurringHouseholdId = switch (householdScope.activeAccountType) {
       ActiveAccountType.personal => null,
@@ -165,12 +175,21 @@ class ConnectSocialBanner extends ConsumerWidget {
       'error=${recurringState.data.hasError}',
     );
 
-    final incompleteCount = steps.where((step) => !step.completed).length;
+    final visibleSteps = steps
+        .where((step) => !dismissedStepIds.contains(step.id))
+        .toList(growable: false);
+
+    final incompleteCount =
+        visibleSteps.where((step) => !step.completed).length;
+    if (visibleSteps.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     if (incompleteCount == 0) {
       return const SizedBox.shrink();
     }
 
-    final orderedSteps = [...steps]..sort((a, b) {
+    final orderedSteps = [...visibleSteps]..sort((a, b) {
         final completionOrder = a.completed == b.completed
             ? 0
             : a.completed
@@ -222,9 +241,13 @@ class ConnectSocialBanner extends ConsumerWidget {
                       height: _bannerCardHeight,
                       child: _ChecklistStepCard(
                         key: ValueKey(
-                            'connect-social-card-${orderedSteps[index].title}'),
+                            'connect-social-card-${orderedSteps[index].id}'),
                         step: orderedSteps[index],
                         colorScheme: colorScheme,
+                        onDismiss: () => _dismissStep(
+                          ref,
+                          orderedSteps[index].id,
+                        ),
                       ),
                     ),
                     if (index < orderedSteps.length - 1)
@@ -271,6 +294,25 @@ class ConnectSocialBanner extends ConsumerWidget {
     );
   }
 
+  Future<void> _dismissStep(WidgetRef ref, String stepId) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+
+    try {
+      final dismissed =
+          prefs.getStringList(_dismissedChecklistStepsKey)?.toSet() ??
+              <String>{};
+      if (!dismissed.add(stepId)) {
+        return;
+      }
+
+      final persisted = dismissed.toList()..sort();
+      await prefs.setStringList(_dismissedChecklistStepsKey, persisted);
+      ref.invalidate(dismissedChecklistStepsProvider);
+    } catch (error) {
+      debugPrint('Failed to dismiss checklist card: $error');
+    }
+  }
+
   List<_ChecklistStep> _buildSteps({
     required BuildContext context,
     required AppUser authState,
@@ -299,6 +341,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     return [
       _ChecklistStep(
+        id: 'create_account',
         sortOrder: 0,
         title: context.l10n.createAccount,
         description: context.l10n.createAccountDescription,
@@ -308,6 +351,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: createAccountCompleted ? null : onCreateAccount,
       ),
       _ChecklistStep(
+        id: 'log_expense',
         sortOrder: 1,
         title: context.l10n.logExpense,
         description: context.l10n.logExpenseDescription,
@@ -317,6 +361,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: hasTransactionLogged ? null : onLogExpense,
       ),
       _ChecklistStep(
+        id: 'set_recurring',
         sortOrder: 2,
         title: context.l10n.setRecurring,
         description: context.l10n.setRecurringDescription,
@@ -326,6 +371,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: hasRecurringExpense ? null : onRecurringExpense,
       ),
       _ChecklistStep(
+        id: 'connect_chat',
         sortOrder: 3,
         title: context.l10n.connectChat,
         description: context.l10n.connectChatDescription,
@@ -335,6 +381,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: messagingConnected ? null : onConnectMessaging,
       ),
       _ChecklistStep(
+        id: 'enable_capture',
         sortOrder: 4,
         title: captureTitle,
         description: Platform.isIOS
@@ -354,6 +401,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
 class _ChecklistStep {
   const _ChecklistStep({
+    required this.id,
     required this.sortOrder,
     required this.title,
     required this.description,
@@ -363,6 +411,7 @@ class _ChecklistStep {
     required this.onTap,
   });
 
+  final String id;
   final int sortOrder;
   final String title;
   final String description;
@@ -377,10 +426,12 @@ class _ChecklistStepCard extends StatelessWidget {
     super.key,
     required this.step,
     required this.colorScheme,
+    required this.onDismiss,
   });
 
   final _ChecklistStep step;
   final ColorScheme colorScheme;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -400,113 +451,140 @@ class _ChecklistStepCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
         children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: step.completed
-                  ? colorScheme.surface.withValues(alpha: 0.5)
-                  : colorScheme.card,
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: step.completed
-                      ? colorScheme.border.withValues(alpha: 0.5)
-                      : colorScheme.border,
-                  width: 1),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              step.completed ? Icons.check_rounded : step.icon,
-              size: 22,
-              color: step.completed
-                  ? colorScheme.mutedForeground
-                  : colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            step.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: step.completed
-                  ? colorScheme.mutedForeground
-                  : colorScheme.foreground,
-              height: 1.08,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            step.description,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              color: colorScheme.mutedForeground,
-              height: 1.25,
-            ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 32,
-            child: step.completed
-                ? OutlinedButton(
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                          width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      backgroundColor:
-                          colorScheme.surface.withValues(alpha: 0.5),
-                    ),
-                    child: Text(
-                      context.l10n.done,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface.withValues(alpha: 0.4),
-                      ),
-                    ),
-                  )
-                : ElevatedButton(
-                    onPressed: () {
-                      step.onTap?.call();
-                      HapticFeedback.lightImpact();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.primaryForeground,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                    ),
-                    child: Text(
-                      step.buttonLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                      ),
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 55,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    color: step.completed
+                        ? colorScheme.surface.withValues(alpha: 0.5)
+                        : colorScheme.card,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: step.completed
+                            ? colorScheme.border.withValues(alpha: 0.5)
+                            : colorScheme.border,
+                        width: 1),
                   ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    step.completed ? Icons.check_rounded : step.icon,
+                    size: 22,
+                    color: step.completed
+                        ? colorScheme.mutedForeground
+                        : colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  step.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: step.completed
+                        ? colorScheme.mutedForeground
+                        : colorScheme.foreground,
+                    height: 1.08,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  step.description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colorScheme.mutedForeground,
+                    height: 1.25,
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 32,
+                  child: step.completed
+                      ? OutlinedButton(
+                          onPressed: null,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color:
+                                    colorScheme.border.withValues(alpha: 0.5),
+                                width: 1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.5),
+                          ),
+                          child: Text(
+                            context.l10n.done,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: () {
+                            step.onTap?.call();
+                            HapticFeedback.lightImpact();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.primaryForeground,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          child: Text(
+                            step.buttonLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              onPressed: () {
+                onDismiss();
+                HapticFeedback.selectionClick();
+              },
+              icon: Icon(
+                Icons.close_rounded,
+                size: 16,
+                color: colorScheme.mutedForeground,
+              ),
+              splashRadius: 16,
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            ),
           ),
         ],
       ),
