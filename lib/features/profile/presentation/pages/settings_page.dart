@@ -728,658 +728,643 @@ class SettingsPage extends HookConsumerWidget {
       );
     }
 
-    final overlayStyle = colorScheme.brightness == Brightness.dark
-        ? SystemUiOverlayStyle.light
-        : SystemUiOverlayStyle.dark;
-
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: overlayStyle.copyWith(
-        statusBarColor: colorScheme.surface.withValues(alpha: 0.0),
+    return AdaptiveScaffold(
+      appBar: AdaptiveAppBar(
+        title: context.l10n.settings,
       ),
-      child: AdaptiveScaffold(
-        appBar: AdaptiveAppBar(
-          title: context.l10n.settings,
-        ),
-        floatingActionButton: kDebugMode
-            ? AdaptiveFloatingActionButton(
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (context) {
-                      final scheme = Theme.of(context).colorScheme;
-                      return Material(
-                        child: SafeArea(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: 16,
-                              right: 16,
-                              top: 16,
-                              bottom:
-                                  16 + MediaQuery.of(context).viewInsets.bottom,
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                material.Text(
-                                  'Debug Menu',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: scheme.foreground,
-                                  ),
+      floatingActionButton: kDebugMode
+          ? AdaptiveFloatingActionButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) {
+                    final scheme = Theme.of(context).colorScheme;
+                    return Material(
+                      child: SafeArea(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 16,
+                            bottom:
+                                16 + MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              material.Text(
+                                'Debug Menu',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.foreground,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
+                      ),
+                    );
+                  },
+                );
+              },
+              child: const Icon(Icons.bug_report),
+            )
+          : null,
+      body: Material(
+        color: colorScheme.appBackground,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                // Premium Profile Header
+                _ProfileHeader(
+                  authState: authState,
+                  nameReloadKey: nameReloadKey.value,
+                  onAvatarTap: () async {
+                    try {
+                      await _showAvatarSourceSheet(
+                        context,
+                        () {
+                          nameReloadKey.value++;
+                          if (authState.uid.isNotEmpty) {
+                            ref.invalidate(userProfileProvider(authState.uid));
+                          }
+                        },
                       );
-                    },
-                  );
-                },
-                child: const Icon(Icons.bug_report),
-              )
-            : null,
-        body: Material(
-          color: colorScheme.appBackground,
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 16),
-                  // Premium Profile Header
-                  _ProfileHeader(
-                    authState: authState,
-                    nameReloadKey: nameReloadKey.value,
-                    onAvatarTap: () async {
-                      try {
-                        await _showAvatarSourceSheet(
-                          context,
-                          () {
-                            nameReloadKey.value++;
-                            if (authState.uid.isNotEmpty) {
+                    } catch (e, st) {
+                      debugPrint(
+                        'Unexpected avatar update error: $e\n$st',
+                      );
+                      if (context.mounted) {
+                        AppToast.error(
+                            context, context.l10n.failedToSaveAvatar);
+                      }
+                    }
+                  },
+                ),
+
+                const SizedBox(height: 32),
+
+                // Account Settings Group
+                _SettingsGroup(
+                  title: context.l10n.account,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.pie_chart,
+                      label: context.l10n.accountOverview,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const OverviewDashboardPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    FutureBuilder<Map<String, dynamic>?>(
+                      key: ValueKey('name-${nameReloadKey.value}'),
+                      future: Supabase.instance.client
+                          .from('users')
+                          .select('full_name')
+                          .eq('id', authState.uid)
+                          .maybeSingle(),
+                      builder: (context, snapshot) {
+                        final dbName = snapshot.data != null
+                            ? snapshot.data!['full_name'] as String?
+                            : null;
+                        final currentName = (dbName?.trim().isNotEmpty == true)
+                            ? dbName!.trim()
+                            : (authState.displayName?.trim().isNotEmpty == true
+                                ? authState.displayName!.trim()
+                                : '');
+
+                        return _SettingsTile(
+                          icon: Icons.person_rounded,
+                          label: context.l10n.fullName,
+                          value: currentName.isEmpty
+                              ? context.l10n.tapToSet
+                              : currentName,
+                          onTap: () => _showEditNameSheet(
+                            context: context,
+                            ref: ref,
+                            initialName: currentName,
+                            onUpdated: () {
+                              nameReloadKey.value++;
                               ref.invalidate(
                                   userProfileProvider(authState.uid));
-                            }
-                          },
+                            },
+                          ),
                         );
-                      } catch (e, st) {
-                        debugPrint(
-                          'Unexpected avatar update error: $e\n$st',
-                        );
-                        if (context.mounted) {
-                          AppToast.error(
-                              context, context.l10n.failedToSaveAvatar);
-                        }
-                      }
-                    },
-                  ),
+                      },
+                    ),
+                    _SettingsTile(
+                      icon: Icons.email_rounded,
+                      label: context.l10n.email,
+                      value: authState.email,
+                      showChevron: false,
+                    ),
+                  ],
+                ),
 
-                  const SizedBox(height: 32),
-
-                  // Account Settings Group
-                  _SettingsGroup(
-                    title: context.l10n.account,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.pie_chart,
-                        label: context.l10n.accountOverview,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const OverviewDashboardPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      FutureBuilder<Map<String, dynamic>?>(
-                        key: ValueKey('name-${nameReloadKey.value}'),
-                        future: Supabase.instance.client
-                            .from('users')
-                            .select('full_name')
-                            .eq('id', authState.uid)
-                            .maybeSingle(),
-                        builder: (context, snapshot) {
-                          final dbName = snapshot.data != null
-                              ? snapshot.data!['full_name'] as String?
-                              : null;
-                          final currentName =
-                              (dbName?.trim().isNotEmpty == true)
-                                  ? dbName!.trim()
-                                  : (authState.displayName?.trim().isNotEmpty ==
-                                          true
-                                      ? authState.displayName!.trim()
-                                      : '');
-
-                          return _SettingsTile(
-                            icon: Icons.person_rounded,
-                            label: context.l10n.fullName,
-                            value: currentName.isEmpty
-                                ? context.l10n.tapToSet
-                                : currentName,
-                            onTap: () => _showEditNameSheet(
-                              context: context,
-                              ref: ref,
-                              initialName: currentName,
-                              onUpdated: () {
-                                nameReloadKey.value++;
-                                ref.invalidate(
-                                    userProfileProvider(authState.uid));
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: Icons.email_rounded,
-                        label: context.l10n.email,
-                        value: authState.email,
-                        showChevron: false,
-                      ),                
-                    ],
-                  ),
-
-                  // Preferences Group
-                  _SettingsGroup(
-                    title: context.l10n.preferences,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.language_rounded,
-                        label: context.l10n.language,
-                        valueWidget: DropdownButtonHideUnderline(
-                          child: DropdownButton<Locale?>(
-                            isDense: true,
-                            alignment: Alignment.centerRight,
-                            icon: Row(
-                              children: [
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: Colors.grey.withValues(alpha: 0.6),
+                // Preferences Group
+                _SettingsGroup(
+                  title: context.l10n.preferences,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.language_rounded,
+                      label: context.l10n.language,
+                      valueWidget: DropdownButtonHideUnderline(
+                        child: DropdownButton<Locale?>(
+                          isDense: true,
+                          alignment: Alignment.centerRight,
+                          icon: Row(
+                            children: [
+                              const SizedBox(width: 8),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: Colors.grey.withValues(alpha: 0.6),
+                              ),
+                            ],
+                          ),
+                          dropdownColor: isDarkMode
+                              ? const Color(0xFF2C2C2E)
+                              : Colors.white,
+                          value: dropdownValue,
+                          items: [
+                            DropdownMenuItem<Locale?>(
+                              value: null,
+                              child: Text(
+                                context.l10n.systemDefault,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
                                 ),
-                              ],
+                              ),
                             ),
-                            dropdownColor: isDarkMode
-                                ? const Color(0xFF2C2C2E)
-                                : Colors.white,
-                            value: dropdownValue,
-                            items: [
-                              DropdownMenuItem<Locale?>(
-                                value: null,
+                            ...supportedLocales.map(
+                              (locale) => DropdownMenuItem<Locale?>(
+                                value: locale,
                                 child: Text(
-                                  context.l10n.systemDefault,
+                                  _displayLocaleName(locale),
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: 15,
                                     color: colorScheme.mutedForeground,
                                   ),
                                 ),
                               ),
-                              ...supportedLocales.map(
-                                (locale) => DropdownMenuItem<Locale?>(
-                                  value: locale,
-                                  child: Text(
-                                    _displayLocaleName(locale),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                            onChanged: (value) async {
-                              final localeNotifier =
-                                  ref.read(localeProvider.notifier);
-                              if (value == null) {
-                                await localeNotifier.setSystem();
-                              } else {
-                                await localeNotifier.setLocale(value);
-                              }
+                            ),
+                          ],
+                          onChanged: (value) async {
+                            final localeNotifier =
+                                ref.read(localeProvider.notifier);
+                            if (value == null) {
+                              await localeNotifier.setSystem();
+                            } else {
+                              await localeNotifier.setLocale(value);
+                            }
 
-                              if (authState.uid.isNotEmpty) {
-                                await ref
-                                    .read(preferredLanguageSyncServiceProvider)
-                                    .syncForUserSafely(
-                                      userId: authState.uid,
-                                      locale: value == null
-                                          ? await resolveEffectiveAppLocale()
-                                          : normalizeAppLocale(value),
-                                      force: true,
-                                    );
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.public_rounded,
-                        label: context.l10n.timezone,
-                        value: timezoneDisplay,
-                        onTap: () async {
-                          final selection =
-                              await MonekoListPicker.show<_TimezoneOption>(
-                            context: context,
-                            items: timezoneOptions,
-                            initial: currentTimezoneOption,
-                            title: context.l10n.chooseTimezone,
-                            labelBuilder: (option) {
-                              if (option.value == _deviceTimezoneSentinel) {
-                                final deviceOption = _resolveTimezoneOption(
-                                  timezone: deviceTimezone,
-                                  fallbackOffsetMinutes: deviceOffsetMinutes,
-                                  preferFallback: true,
-                                );
-                                return '${_formatTimezoneLabel(deviceOption)} (${context.l10n.currentTimezone})';
-                              }
-                              return _formatTimezoneLabel(option);
-                            },
-                          );
-                          final normalizedSelection =
-                              selection?.value == _deviceTimezoneSentinel
-                                  ? null
-                                  : canonicalTimezoneValue(selection?.value);
-                          if (selection != null &&
-                              normalizedSelection != selectedTimezone.value) {
-                            await handleTimezoneChange(selection.value);
-                          }
-                        },
-                      ),
-                      _SettingsTile(
-                        icon: isDarkMode
-                            ? Icons.dark_mode_rounded
-                            : Icons.light_mode_rounded,
-                        label: context.l10n.darkMode,
-                        trailing: Padding(
-                          padding: const EdgeInsets.only(right: 16.0),
-                          child: AdaptiveSwitch(
-                            value: isDarkMode,
-                            onChanged: (value) {
-                              ref.read(themeModeProvider.notifier).setThemeMode(
-                                    value ? ThemeMode.dark : ThemeMode.light,
+                            if (authState.uid.isNotEmpty) {
+                              await ref
+                                  .read(preferredLanguageSyncServiceProvider)
+                                  .syncForUserSafely(
+                                    userId: authState.uid,
+                                    locale: value == null
+                                        ? await resolveEffectiveAppLocale()
+                                        : normalizeAppLocale(value),
+                                    force: true,
                                   );
-                            },
-                          ),
+                            }
+                          },
                         ),
                       ),
-                      _SettingsTile(
-                        icon: Icons.category_rounded,
-                        label: context.l10n.categories,
-                        value: context.l10n.settingsCustomCategoriesAction,
-                        onTap: () async {
-                          await MonekoBottomSheet.show(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: colorScheme.sheetBackground,
-                            builder: (sheetContext) {
-                              return const CategoryCustomizationSheet();
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // Notifications Group
-                  _SettingsGroup(
-                    title: context.l10n.notifications,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.notifications_active_rounded,
-                        label: context.l10n.pushNotifications,
-                        onTap: () => handleNotificationToggle(),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.build_circle_rounded,
-                        label: context.l10n.fixNotificationIssuesTitle,
-                        onTap: () => handleManualNotificationFix(),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.remove_circle_outline_rounded,
-                        label: context.l10n.clearAppIconBadgeTitle,
-                        onTap: () => handleClearAppBadge(),
-                      ),
-                    ],
-                  ),
-
-                  // Integrations
-                  _SettingsGroup(title: context.l10n.integrations, children: [
-                    if (Platform.isIOS)
-                      _SettingsTile(
-                        icon: Icons.mic_rounded,
-                        label: context.l10n.siriShortcuts,
-                        value: resolveSiriShortcutStatusText(),
-                        onTap: handleSiriShortcutSetup,
-                      ),
-                    if (kDebugMode && Platform.isIOS)
-                      _SettingsTile(
-                        icon: Icons.bug_report_rounded,
-                        label: 'Test Siri Integration',
-                        onTap: handleSiriIntegrationDebugTest,
-                      ),
-                    _SettingsTile(
-                      icon: Icons.upload_file_rounded,
-                      label: context.l10n.importData,
-                      onTap: () {
-                        context.push('/import');
-                      },
                     ),
                     _SettingsTile(
-                      customIcon: SvgPicture.string(
-                        _telegramSvg,
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          colorScheme.onSurface,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      label: ref.watch(telegramBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.telegramConnected
-                          : context.l10n.connectTelegram,
-                      value: ref.watch(telegramBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
+                      icon: Icons.public_rounded,
+                      label: context.l10n.timezone,
+                      value: timezoneDisplay,
                       onTap: () async {
-                        final isBound =
-                            ref.read(telegramBindingProvider).valueOrNull ??
-                                false;
-                        if (isBound) {
-                          await launchIntegrationUrl(
-                            Uri.parse('https://t.me/moneko_ai_bot'),
-                            errorMessage: context.l10n.couldNotLaunchTelegram,
-                          );
-                        } else {
-                          final result = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => const TelegramTutorialModal(),
-                          );
-                          if (result == true) {
-                            ref.invalidate(telegramBindingProvider);
-                          }
-                        }
-                      },
-                    ),
-                    _SettingsTile(
-                      customIcon: SvgPicture.string(
-                        _whatsappRealSvg,
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(
-                          colorScheme.onSurface,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                      label: context.l10n.whatsAppConnected,
-                      value: ref.watch(whatsAppBindingProvider).asData?.value ==
-                              true
-                          ? context.l10n.activeStatus
-                          : context.l10n.tapToSet,
-                      onTap: () async {
-                        final tileContext = context;
-                        final canProceed = await guardRestrictedRegion();
-                        if (!canProceed) {
-                          return;
-                        }
-                        if (!tileContext.mounted) {
-                          return;
-                        }
-                        final isBound =
-                            ref.read(whatsAppBindingProvider).valueOrNull ??
-                                false;
-                        if (isBound) {
-                          await launchIntegrationUrl(
-                            Uri.parse('https://wa.link/zxwtld'),
-                            errorMessage: context.l10n.couldNotLaunchWhatsApp,
-                          );
-                        } else {
-                          final result = await showDialog<bool>(
-                            context: tileContext,
-                            builder: (context) => const WhatsAppTutorialModal(),
-                          );
-                          if (result == true) {
-                            ref.invalidate(whatsAppBindingProvider);
-                          }
-                        }
-                      },
-                    ),
-                    _SettingsTile(
-                      icon: Icons.account_balance_wallet_rounded,
-                      label: Platform.isIOS
-                          ? context.l10n.applePayIntegration
-                          : context.l10n.autoTransactionCapture,
-                      value: null,
-                      valueWidget: FutureBuilder<bool>(
-                        future: _getWalletCaptureEnabled(ref),
-                        builder: (context, snapshot) {
-                          final isEnabled = snapshot.data ?? false;
-                          return Text(
-                            isEnabled
-                                ? context.l10n.activeStatus
-                                : context.l10n.tapToSet,
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          );
-                        },
-                      ),
-                      onTap: () {
-                        if (Platform.isIOS) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const IosWalletCapturePage(),
-                            ),
-                          );
-                        } else if (Platform.isAndroid) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) =>
-                                  const AndroidNotificationCapturePage(),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                    // _SettingsTile(
-                    //   icon: Icons.account_balance_rounded,
-                    //   label: context.l10n.syncBankAccountsTitle,
-                    //   value: context.l10n.comingSoon,
-                    //   onTap: () {
-                    //     Navigator.of(context).push(
-                    //       MaterialPageRoute<void>(
-                    //         builder: (context) =>
-                    //             const PlaidSyncWalkthroughPage(),
-                    //       ),
-                    //     );
-                    //   },
-                    // ),
-                  ]),
-
-                  // Subscription
-                  // Manage Membership
-                  _SettingsGroup(
-                    title: context.l10n.membership,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.star_outline_rounded,
-                        label: context.l10n.membership,
-                        value: subscriptionAsync.when(
-                          data: (d) => d?.hasActiveSubscription == true
-                              ? context.l10n.premium
-                              : context.l10n.free,
-                          loading: () => '...',
-                          error: (_, __) => context.l10n.error('unknown'),
-                        ),
-                        onTap: () async {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const PlanSelectionPage(),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // App Experience
-                  _SettingsGroup(
-                    title: context.l10n.appExperience,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.touch_app_rounded,
-                        label: context.l10n.pressAndHoldQuickAction,
-                        value: _holdQuickActionLabel(
-                          context,
-                          holdQuickAction.value,
-                        ),
-                        onTap: handleHoldQuickActionChange,
-                      ),
-                      _SettingsTile(
-                        icon: Icons.play_circle_rounded,
-                        label: context.l10n.restartOnboarding,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (context) => const OnboardingPreviewPage(
-                                  fromSettings: true),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // Support
-                  _SettingsGroup(
-                    title: context.l10n.support,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.bug_report_rounded,
-                        label: context.l10n.reportABug,
-                        onTap: () => _showReportBugSheet(context),
-                      ),
-                      _SettingsTile(
-                        icon: Icons.chat_bubble_rounded,
-                        label: context.l10n.submitNewFeatureRequest,
-                        onTap: () => _showSubmitFeedbackSheet(context),
-                      ),
-                    ],
-                  ),
-
-                  _SettingsGroup(
-                    title: context.l10n.dangerZone,
-                    children: [
-                      _SettingsTile(
-                        icon: Icons.delete_forever_rounded,
-                        iconColor: colorScheme.destructive,
-                        label: context.l10n.settingsDeleteAccountButton,
-                        labelColor: colorScheme.destructive,
-                        value: isAccountDeletionInProgress.value
-                            ? context.l10n.settingsDeleteAccountInProgress
-                            : null,
-                        onTap: isAccountDeletionInProgress.value
-                            ? null
-                            : () => handleDeleteAccount(),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  // Sign Out
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: DestructiveAdaptiveButton(
-                      onPressed: () async {
-                        showBlockingProcessingDialog(
+                        final selection =
+                            await MonekoListPicker.show<_TimezoneOption>(
                           context: context,
-                          message: context.l10n.signingOut,
+                          items: timezoneOptions,
+                          initial: currentTimezoneOption,
+                          title: context.l10n.chooseTimezone,
+                          labelBuilder: (option) {
+                            if (option.value == _deviceTimezoneSentinel) {
+                              final deviceOption = _resolveTimezoneOption(
+                                timezone: deviceTimezone,
+                                fallbackOffsetMinutes: deviceOffsetMinutes,
+                                preferFallback: true,
+                              );
+                              return '${_formatTimezoneLabel(deviceOption)} (${context.l10n.currentTimezone})';
+                            }
+                            return _formatTimezoneLabel(option);
+                          },
+                        );
+                        final normalizedSelection =
+                            selection?.value == _deviceTimezoneSentinel
+                                ? null
+                                : canonicalTimezoneValue(selection?.value);
+                        if (selection != null &&
+                            normalizedSelection != selectedTimezone.value) {
+                          await handleTimezoneChange(selection.value);
+                        }
+                      },
+                    ),
+                    _SettingsTile(
+                      icon: isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      label: context.l10n.darkMode,
+                      trailing: Padding(
+                        padding: const EdgeInsets.only(right: 16.0),
+                        child: AdaptiveSwitch(
+                          value: isDarkMode,
+                          onChanged: (value) {
+                            ref.read(themeModeProvider.notifier).setThemeMode(
+                                  value ? ThemeMode.dark : ThemeMode.light,
+                                );
+                          },
+                        ),
+                      ),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.category_rounded,
+                      label: context.l10n.categories,
+                      value: context.l10n.settingsCustomCategoriesAction,
+                      onTap: () async {
+                        await MonekoBottomSheet.show(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: colorScheme.sheetBackground,
+                          builder: (sheetContext) {
+                            return const CategoryCustomizationSheet();
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // Notifications Group
+                _SettingsGroup(
+                  title: context.l10n.notifications,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.notifications_active_rounded,
+                      label: context.l10n.pushNotifications,
+                      onTap: () => handleNotificationToggle(),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.build_circle_rounded,
+                      label: context.l10n.fixNotificationIssuesTitle,
+                      onTap: () => handleManualNotificationFix(),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.remove_circle_outline_rounded,
+                      label: context.l10n.clearAppIconBadgeTitle,
+                      onTap: () => handleClearAppBadge(),
+                    ),
+                  ],
+                ),
+
+                // Integrations
+                _SettingsGroup(title: context.l10n.integrations, children: [
+                  if (Platform.isIOS)
+                    _SettingsTile(
+                      icon: Icons.mic_rounded,
+                      label: context.l10n.siriShortcuts,
+                      value: resolveSiriShortcutStatusText(),
+                      onTap: handleSiriShortcutSetup,
+                    ),
+                  if (kDebugMode && Platform.isIOS)
+                    _SettingsTile(
+                      icon: Icons.bug_report_rounded,
+                      label: 'Test Siri Integration',
+                      onTap: handleSiriIntegrationDebugTest,
+                    ),
+                  _SettingsTile(
+                    icon: Icons.upload_file_rounded,
+                    label: context.l10n.importData,
+                    onTap: () {
+                      context.push('/import');
+                    },
+                  ),
+                  _SettingsTile(
+                    customIcon: SvgPicture.string(
+                      _telegramSvg,
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    label:
+                        ref.watch(telegramBindingProvider).asData?.value == true
+                            ? context.l10n.telegramConnected
+                            : context.l10n.connectTelegram,
+                    value:
+                        ref.watch(telegramBindingProvider).asData?.value == true
+                            ? context.l10n.activeStatus
+                            : context.l10n.tapToSet,
+                    onTap: () async {
+                      final isBound =
+                          ref.read(telegramBindingProvider).valueOrNull ??
+                              false;
+                      if (isBound) {
+                        await launchIntegrationUrl(
+                          Uri.parse('https://t.me/moneko_ai_bot'),
+                          errorMessage: context.l10n.couldNotLaunchTelegram,
+                        );
+                      } else {
+                        final result = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => const TelegramTutorialModal(),
+                        );
+                        if (result == true) {
+                          ref.invalidate(telegramBindingProvider);
+                        }
+                      }
+                    },
+                  ),
+                  _SettingsTile(
+                    customIcon: SvgPicture.string(
+                      _whatsappRealSvg,
+                      width: 20,
+                      height: 20,
+                      colorFilter: ColorFilter.mode(
+                        colorScheme.onSurface,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    label: context.l10n.whatsAppConnected,
+                    value:
+                        ref.watch(whatsAppBindingProvider).asData?.value == true
+                            ? context.l10n.activeStatus
+                            : context.l10n.tapToSet,
+                    onTap: () async {
+                      final tileContext = context;
+                      final canProceed = await guardRestrictedRegion();
+                      if (!canProceed) {
+                        return;
+                      }
+                      if (!tileContext.mounted) {
+                        return;
+                      }
+                      final isBound =
+                          ref.read(whatsAppBindingProvider).valueOrNull ??
+                              false;
+                      if (isBound) {
+                        await launchIntegrationUrl(
+                          Uri.parse('https://wa.link/zxwtld'),
+                          errorMessage: context.l10n.couldNotLaunchWhatsApp,
+                        );
+                      } else {
+                        final result = await showDialog<bool>(
+                          context: tileContext,
+                          builder: (context) => const WhatsAppTutorialModal(),
+                        );
+                        if (result == true) {
+                          ref.invalidate(whatsAppBindingProvider);
+                        }
+                      }
+                    },
+                  ),
+                  _SettingsTile(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: Platform.isIOS
+                        ? context.l10n.applePayIntegration
+                        : context.l10n.autoTransactionCapture,
+                    value: null,
+                    valueWidget: FutureBuilder<bool>(
+                      future: _getWalletCaptureEnabled(ref),
+                      builder: (context, snapshot) {
+                        final isEnabled = snapshot.data ?? false;
+                        return Text(
+                          isEnabled
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        );
+                      },
+                    ),
+                    onTap: () {
+                      if (Platform.isIOS) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const IosWalletCapturePage(),
+                          ),
+                        );
+                      } else if (Platform.isAndroid) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const AndroidNotificationCapturePage(),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  // _SettingsTile(
+                  //   icon: Icons.account_balance_rounded,
+                  //   label: context.l10n.syncBankAccountsTitle,
+                  //   value: context.l10n.comingSoon,
+                  //   onTap: () {
+                  //     Navigator.of(context).push(
+                  //       MaterialPageRoute<void>(
+                  //         builder: (context) =>
+                  //             const PlaidSyncWalkthroughPage(),
+                  //       ),
+                  //     );
+                  //   },
+                  // ),
+                ]),
+
+                // Subscription
+                // Manage Membership
+                _SettingsGroup(
+                  title: context.l10n.membership,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.star_outline_rounded,
+                      label: context.l10n.membership,
+                      value: subscriptionAsync.when(
+                        data: (d) => d?.hasActiveSubscription == true
+                            ? context.l10n.premium
+                            : context.l10n.free,
+                        loading: () => '...',
+                        error: (_, __) => context.l10n.error('unknown'),
+                      ),
+                      onTap: () async {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const PlanSelectionPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // App Experience
+                _SettingsGroup(
+                  title: context.l10n.appExperience,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.touch_app_rounded,
+                      label: context.l10n.pressAndHoldQuickAction,
+                      value: _holdQuickActionLabel(
+                        context,
+                        holdQuickAction.value,
+                      ),
+                      onTap: handleHoldQuickActionChange,
+                    ),
+                    _SettingsTile(
+                      icon: Icons.play_circle_rounded,
+                      label: context.l10n.restartOnboarding,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) =>
+                                const OnboardingPreviewPage(fromSettings: true),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // Support
+                _SettingsGroup(
+                  title: context.l10n.support,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.bug_report_rounded,
+                      label: context.l10n.reportABug,
+                      onTap: () => _showReportBugSheet(context),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.chat_bubble_rounded,
+                      label: context.l10n.submitNewFeatureRequest,
+                      onTap: () => _showSubmitFeedbackSheet(context),
+                    ),
+                  ],
+                ),
+
+                _SettingsGroup(
+                  title: context.l10n.dangerZone,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.delete_forever_rounded,
+                      iconColor: colorScheme.destructive,
+                      label: context.l10n.settingsDeleteAccountButton,
+                      labelColor: colorScheme.destructive,
+                      value: isAccountDeletionInProgress.value
+                          ? context.l10n.settingsDeleteAccountInProgress
+                          : null,
+                      onTap: isAccountDeletionInProgress.value
+                          ? null
+                          : () => handleDeleteAccount(),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 48),
+
+                // Sign Out
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DestructiveAdaptiveButton(
+                    onPressed: () async {
+                      showBlockingProcessingDialog(
+                        context: context,
+                        message: context.l10n.signingOut,
+                      );
+
+                      try {
+                        try {
+                          await ref
+                              .read(deviceRegistrationServiceProvider)
+                              .unregisterDevice();
+                        } catch (_) {}
+
+                        debugPrint(
+                          '🧹 Clearing all user-specific Riverpod state before logout',
                         );
 
-                        try {
-                          try {
-                            await ref
-                                .read(deviceRegistrationServiceProvider)
-                                .unregisterDevice();
-                          } catch (_) {}
+                        await ref
+                            .read(selectedHouseholdProvider.notifier)
+                            .clearSelection();
 
-                          debugPrint(
-                            '🧹 Clearing all user-specific Riverpod state before logout',
-                          );
-
-                          await ref
-                              .read(selectedHouseholdProvider.notifier)
-                              .clearSelection();
-
-                          if (authState.uid.isNotEmpty) {
-                            ref.invalidate(
-                                userHouseholdsProvider(authState.uid));
-                          }
-
-                          // Centralized clean-up for app initialization + primary pages
-                          ref
-                              .read(appInitializationV2Provider.notifier)
-                              .clearCacheAndReset();
-
-                          ref.invalidate(incomeSummaryProvider);
-                          ref.invalidate(incomeListProvider);
-                          ref.invalidate(goalsListProvider);
-                          ref.invalidate(goalSummaryProvider);
-                          ref.invalidate(subscriptionManagementProvider);
-                          ref.invalidate(userProfileProvider);
-
-                          debugPrint('✅ All user-specific state cleared');
-
-                          if (ref.read(previewModeProvider).isActive) {
-                            if (context.mounted) {
-                              AppToast.info(
-                                context,
-                                context.l10n.previewSignOutDisabled,
-                              );
-                            }
-                          } else {
-                            await ref.read(authProvider.notifier).signOut();
-                          }
-                        } finally {
-                          if (context.mounted) {
-                            // Handled by router/auth state change
-                          }
+                        if (authState.uid.isNotEmpty) {
+                          ref.invalidate(userHouseholdsProvider(authState.uid));
                         }
-                      },
-                      child: material.Text(context.l10n.signOut,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          )),
-                    ),
-                  ),
 
-                  const SizedBox(height: 40),
-                  Center(
-                    child: material.Text(
-                      packageInfo.hasData
-                          ? context.l10n.version(packageInfo.data!.version)
-                          : '',
-                      style: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 10,
-                      ),
+                        // Centralized clean-up for app initialization + primary pages
+                        ref
+                            .read(appInitializationV2Provider.notifier)
+                            .clearCacheAndReset();
+
+                        ref.invalidate(incomeSummaryProvider);
+                        ref.invalidate(incomeListProvider);
+                        ref.invalidate(goalsListProvider);
+                        ref.invalidate(goalSummaryProvider);
+                        ref.invalidate(subscriptionManagementProvider);
+                        ref.invalidate(userProfileProvider);
+
+                        debugPrint('✅ All user-specific state cleared');
+
+                        if (ref.read(previewModeProvider).isActive) {
+                          if (context.mounted) {
+                            AppToast.info(
+                              context,
+                              context.l10n.previewSignOutDisabled,
+                            );
+                          }
+                        } else {
+                          await ref.read(authProvider.notifier).signOut();
+                        }
+                      } finally {
+                        if (context.mounted) {
+                          // Handled by router/auth state change
+                        }
+                      }
+                    },
+                    child: material.Text(context.l10n.signOut,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        )),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+                Center(
+                  child: material.Text(
+                    packageInfo.hasData
+                        ? context.l10n.version(packageInfo.data!.version)
+                        : '',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 10,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         ),
@@ -1397,6 +1382,8 @@ class SettingsPage extends HookConsumerWidget {
           .from('user_contacts')
           .select('wallet_capture_enabled')
           .eq('user_id', authState.uid)
+          .order('updated_at', ascending: false)
+          .limit(1)
           .maybeSingle();
 
       return (response?['wallet_capture_enabled'] as bool?) ?? false;

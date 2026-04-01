@@ -38,6 +38,8 @@ final walletCaptureEnabledProvider =
         .from('user_contacts')
         .select('wallet_capture_enabled')
         .eq('user_id', user.uid)
+        .order('updated_at', ascending: false)
+        .limit(1)
         .maybeSingle();
 
     return (response?['wallet_capture_enabled'] as bool?) ?? false;
@@ -49,12 +51,13 @@ final walletCaptureEnabledProvider =
 
 const double _bannerCardWidth = 195;
 const double _bannerCardHeight = 185;
-const String _dismissedChecklistStepsKey =
+const String dismissedChecklistStepsStorageKey =
     'home_connect_social_dismissed_steps_v1';
 
 final dismissedChecklistStepsProvider = Provider<Set<String>>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  final stored = prefs.getStringList(_dismissedChecklistStepsKey) ?? const [];
+  final stored =
+      prefs.getStringList(dismissedChecklistStepsStorageKey) ?? const [];
   return stored.toSet();
 });
 
@@ -163,7 +166,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
         builder: (context) => const ConnectSocialBottomSheet(),
       ),
-      onEnableCapture: () => _openCaptureFlow(context),
+      onEnableCapture: () => _openCaptureFlow(context, ref),
     );
 
     _debugPrint(
@@ -235,22 +238,18 @@ class ConnectSocialBanner extends ConsumerWidget {
               physics: const BouncingScrollPhysics(),
               child: Row(
                 children: [
-                  for (var index = 0; index < orderedSteps.length; index++) ...[
+                  for (final entry in orderedSteps.asMap().entries) ...[
                     SizedBox(
                       width: _bannerCardWidth,
                       height: _bannerCardHeight,
                       child: _ChecklistStepCard(
-                        key: ValueKey(
-                            'connect-social-card-${orderedSteps[index].id}'),
-                        step: orderedSteps[index],
+                        key: ValueKey('connect-social-card-${entry.value.id}'),
+                        step: entry.value,
                         colorScheme: colorScheme,
-                        onDismiss: () => _dismissStep(
-                          ref,
-                          orderedSteps[index].id,
-                        ),
+                        onDismiss: () => _dismissStep(ref, entry.value.id),
                       ),
                     ),
-                    if (index < orderedSteps.length - 1)
+                    if (entry.key < orderedSteps.length - 1)
                       const SizedBox(width: 12),
                   ],
                 ],
@@ -268,15 +267,19 @@ class ConnectSocialBanner extends ConsumerWidget {
     );
   }
 
-  void _openCaptureFlow(BuildContext context) {
+  void _openCaptureFlow(BuildContext context, WidgetRef ref) {
     final target = defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS
         ? const IosWalletCapturePage()
         : const AndroidNotificationCapturePage();
 
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute<void>(builder: (_) => target),
-    );
+    )
+        .then((_) {
+      ref.invalidate(walletCaptureEnabledProvider);
+    });
   }
 
   ParsedExpense _buildDraftExpense(String selectedCurrency) {
@@ -299,14 +302,14 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     try {
       final dismissed =
-          prefs.getStringList(_dismissedChecklistStepsKey)?.toSet() ??
+          prefs.getStringList(dismissedChecklistStepsStorageKey)?.toSet() ??
               <String>{};
       if (!dismissed.add(stepId)) {
         return;
       }
 
       final persisted = dismissed.toList()..sort();
-      await prefs.setStringList(_dismissedChecklistStepsKey, persisted);
+      await prefs.setStringList(dismissedChecklistStepsStorageKey, persisted);
       ref.invalidate(dismissedChecklistStepsProvider);
     } catch (error) {
       debugPrint('Failed to dismiss checklist card: $error');

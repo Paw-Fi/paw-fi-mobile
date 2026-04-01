@@ -62,6 +62,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
                 .from('user_contacts')
                 .select('id, wallet_capture_enabled')
                 .eq('user_id', authState.uid)
+                .order('updated_at', ascending: false)
+                .limit(1)
                 .maybeSingle();
             if (response != null) {
               contactId.value = response['id'] as String?;
@@ -102,6 +104,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           final status = await Permission.notification.status;
           hasNotificationPermission.value = status.isGranted;
         }
+
         recheck();
       }
     });
@@ -499,8 +502,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                             decoration: BoxDecoration(
                               color: isDark
                                   ? colorScheme.warning.withValues(alpha: 0.1)
-                                  : colorScheme.warning
-                                      .withValues(alpha: 0.05),
+                                  : colorScheme.warning.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(

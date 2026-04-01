@@ -122,6 +122,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                 .from('user_contacts')
                 .select('id, wallet_capture_enabled')
                 .eq('user_id', authState.uid)
+                .order('updated_at', ascending: false)
+                .limit(1)
                 .maybeSingle();
             if (response != null) {
               contactId.value = response['id'] as String?;

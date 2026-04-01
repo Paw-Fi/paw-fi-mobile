@@ -16,6 +16,7 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
+import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -776,6 +777,9 @@ class HomeHeaderSliver extends ConsumerWidget {
                       tooltip: 'Reset tours',
                       onPressed: () async {
                         await SpotlightTourController.resetAllTours();
+                        final prefs = ref.read(sharedPreferencesProvider);
+                        await prefs.remove(dismissedChecklistStepsStorageKey);
+                        ref.invalidate(dismissedChecklistStepsProvider);
                         debugPrint('🔁 Spotlight tours reset for debugging');
                       },
                     ),
