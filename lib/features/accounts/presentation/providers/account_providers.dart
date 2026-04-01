@@ -14,6 +14,31 @@ final accountScopeHouseholdIdProvider = Provider<String?>((ref) {
       : scope.activeAccountHouseholdId;
 });
 
+final archivedScopedAccountsProvider =
+    FutureProvider<List<AccountEntity>>((ref) async {
+  final householdId = ref.watch(accountScopeHouseholdIdProvider);
+  final response = await supabase.functions.invoke(
+    'list-accounts',
+    body: {
+      'includeArchived': true,
+      if (householdId != null) 'householdId': householdId,
+    },
+  );
+
+  final payload = response.data as Map<String, dynamic>?;
+  if (payload == null || payload['success'] != true) {
+    final message = payload?['error']?.toString() ?? 'Failed to load accounts';
+    throw Exception(message);
+  }
+
+  final data = payload['data'] as List<dynamic>? ?? const [];
+  return data
+      .whereType<Map<String, dynamic>>()
+      .map(AccountEntity.fromJson)
+      .where((account) => account.isArchived)
+      .toList(growable: false);
+});
+
 final scopedAccountsProvider = FutureProvider<List<AccountEntity>>((ref) async {
   final householdId = ref.watch(accountScopeHouseholdIdProvider);
   final response = await supabase.functions.invoke(
@@ -116,6 +141,15 @@ class AccountActions {
     _invalidateAll();
   }
 
+  Future<void> restoreAccount(String accountId) async {
+    final response = await supabase.functions.invoke(
+      'restore-account',
+      body: {'accountId': accountId},
+    );
+    _throwIfFailed(response.data, 'Failed to restore account');
+    _invalidateAll();
+  }
+
   Future<void> createTransfer({
     required String fromAccountId,
     required String toAccountId,
@@ -168,6 +202,7 @@ class AccountActions {
 
   void _invalidateAll() {
     ref.invalidate(scopedAccountsProvider);
+    ref.invalidate(archivedScopedAccountsProvider);
     ref.invalidate(analyticsProvider);
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(recurringTransactionsProvider);

@@ -802,7 +802,7 @@ class _CreateFromTemplateBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: colorScheme.cardSurface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.1),

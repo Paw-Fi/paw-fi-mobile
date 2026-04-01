@@ -26,6 +26,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
@@ -267,6 +268,8 @@ Future<void> _persistAiTransactions(
   if (transactions.isEmpty) return;
 
   final clientCreatedAtIso = DateTime.now().toUtc().toIso8601String();
+  final scopedDefaultAccountId =
+      container.read(defaultScopedAccountProvider)?.id;
 
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
@@ -488,6 +491,8 @@ Future<void> _persistAiTransactions(
       'category': tx.category,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
+      if (scopedDefaultAccountId != null && scopedDefaultAccountId.isNotEmpty)
+        'accountId': scopedDefaultAccountId,
       'clientCreatedAt': clientCreatedAtIso,
       if (isRecurring) 'isRecurring': true,
       if (isRecurring && recurrenceRule != null)
@@ -656,6 +661,9 @@ Future<void> _persistAiTransactions(
             'category': tx.category,
             'currency': tx.currency,
             'date': formatDateOnlyYmd(tx.date),
+            if (scopedDefaultAccountId != null &&
+                scopedDefaultAccountId.isNotEmpty)
+              'accountId': scopedDefaultAccountId,
             'clientCreatedAt': clientCreatedAtIso,
             if (isRecurring) 'isRecurring': true,
             if (isRecurring && recurrenceRule != null)

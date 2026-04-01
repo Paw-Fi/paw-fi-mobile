@@ -50,7 +50,7 @@ Future<AccountTransferResult?> showAccountTransferSheet(
                 const Text('Transfer between accounts'),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: fromId,
+                  initialValue: fromId,
                   items: accounts
                       .map((a) =>
                           DropdownMenuItem(value: a.id, child: Text(a.name)))
@@ -63,7 +63,7 @@ Future<AccountTransferResult?> showAccountTransferSheet(
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: toId,
+                  initialValue: toId,
                   items: accounts
                       .map((a) =>
                           DropdownMenuItem(value: a.id, child: Text(a.name)))

@@ -256,7 +256,11 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
 
     final targetHouseholdId = next.targetHouseholdId;
     if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
-      unawaited(ref.read(analyticsProvider.notifier).loadData(userId));
+      unawaited(
+        ref
+            .read(analyticsProvider.notifier)
+            .loadData(userId, forceReload: true),
+      );
     } else {
       ref
           .read(cacheInvalidatorProvider)

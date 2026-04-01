@@ -55,6 +55,6 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.text('Spending'), findsOneWidget);
-    expect(find.text('Account Overview'), findsOneWidget);
+    expect(find.text('Total Net Worth'), findsOneWidget);
   });
 }

@@ -23,8 +23,8 @@ class AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isPositive = account.currentBalanceCents >= 0;
-    final amount = account.currentBalanceCents.abs() / 100.0;
+    final amount = account.currentBalanceCents / 100.0;
+    final isPositive = amount >= 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -64,7 +64,7 @@ class AccountCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '${isPositive ? '+' : '-'}${resolveCurrencySymbol(currencyCode)}${formatAmount(amount)}',
+                '${isPositive ? '+' : '-'}${resolveCurrencySymbol(currencyCode)}${formatAmount(amount.abs())}',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,

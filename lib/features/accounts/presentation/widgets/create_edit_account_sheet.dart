@@ -346,7 +346,16 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                         contentPadding: EdgeInsets.zero,
                         value: isDefault.value,
                         title: const Text('Set as default'),
-                        onChanged: (value) => isDefault.value = value,
+                        onChanged: (value) {
+                          if (isEditing && initial!.isDefault && !value) {
+                            AppToast.info(
+                              context,
+                              'At least one default account is required.',
+                            );
+                            return;
+                          }
+                          isDefault.value = value;
+                        },
                       ),
                       const SizedBox(height: 18),
                       SizedBox(
