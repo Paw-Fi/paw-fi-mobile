@@ -25,6 +25,7 @@ class ImportWizardState {
   final int failedCount;
   final String? targetHouseholdId;
   final bool targetIsPortfolio;
+  final String? targetAccountId;
   final Set<int> deletedRowIndices;
 
   /// True when the map step was auto-skipped due to high confidence.
@@ -52,6 +53,7 @@ class ImportWizardState {
     this.failedCount = 0,
     this.targetHouseholdId,
     this.targetIsPortfolio = false,
+    this.targetAccountId,
     this.deletedRowIndices = const {},
     this.didAutoSkipMapping = false,
     this.availableSheets = const [],
@@ -77,8 +79,10 @@ class ImportWizardState {
     int? failedCount,
     String? targetHouseholdId,
     bool? targetIsPortfolio,
+    String? targetAccountId,
     Set<int>? deletedRowIndices,
     bool clearTargetHouseholdId = false,
+    bool clearTargetAccountId = false,
     bool clearDeletedRowIndices = false,
     bool? didAutoSkipMapping,
     List<ImportSheetResult>? availableSheets,
@@ -106,6 +110,9 @@ class ImportWizardState {
           ? null
           : (targetHouseholdId ?? this.targetHouseholdId),
       targetIsPortfolio: targetIsPortfolio ?? this.targetIsPortfolio,
+      targetAccountId: clearTargetAccountId
+          ? null
+          : (targetAccountId ?? this.targetAccountId),
       deletedRowIndices: clearDeletedRowIndices
           ? const {}
           : (deletedRowIndices ?? this.deletedRowIndices),

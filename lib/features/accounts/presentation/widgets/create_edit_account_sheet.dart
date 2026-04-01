@@ -390,14 +390,40 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
 }
 
 const List<String> _accountIcons = [
+  // Cash and spending accounts
   'wallet',
+  'checking',
+  'joint',
+  'cash',
+  'cash_envelope',
+  'card',
+  'paypal',
+
+  // Savings and goals
   'savings',
+  'reserve',
+  'education',
+  'medical',
+  'allowance',
+  'pet',
+  'investment',
+  'brokerage',
+  'gold',
+  'retirement',
+
+  // Debt and liabilities
   'debt',
+  'loan',
+  'mortgage',
+  'tax',
+
+  // Other common account buckets
   'emergency',
   'budget',
   'bank',
-  'card',
-  'cash',
+  'business',
+  'insurance',
+  'crypto',
   'travel',
   'home',
 ];

@@ -14,6 +14,30 @@ final accountScopeHouseholdIdProvider = Provider<String?>((ref) {
       : scope.activeAccountHouseholdId;
 });
 
+final accountsByHouseholdIdProvider =
+    FutureProvider.family<List<AccountEntity>, String?>(
+        (ref, householdId) async {
+  final response = await supabase.functions.invoke(
+    'list-accounts',
+    body: {
+      if (householdId != null && householdId.trim().isNotEmpty)
+        'householdId': householdId,
+    },
+  );
+
+  final payload = response.data as Map<String, dynamic>?;
+  if (payload == null || payload['success'] != true) {
+    final message = payload?['error']?.toString() ?? 'Failed to load accounts';
+    throw Exception(message);
+  }
+
+  final data = payload['data'] as List<dynamic>? ?? const [];
+  return data
+      .whereType<Map<String, dynamic>>()
+      .map(AccountEntity.fromJson)
+      .toList(growable: false);
+});
+
 final archivedScopedAccountsProvider =
     FutureProvider<List<AccountEntity>>((ref) async {
   final householdId = ref.watch(accountScopeHouseholdIdProvider);
@@ -41,24 +65,7 @@ final archivedScopedAccountsProvider =
 
 final scopedAccountsProvider = FutureProvider<List<AccountEntity>>((ref) async {
   final householdId = ref.watch(accountScopeHouseholdIdProvider);
-  final response = await supabase.functions.invoke(
-    'list-accounts',
-    body: {
-      if (householdId != null) 'householdId': householdId,
-    },
-  );
-
-  final payload = response.data as Map<String, dynamic>?;
-  if (payload == null || payload['success'] != true) {
-    final message = payload?['error']?.toString() ?? 'Failed to load accounts';
-    throw Exception(message);
-  }
-
-  final data = payload['data'] as List<dynamic>? ?? const [];
-  return data
-      .whereType<Map<String, dynamic>>()
-      .map(AccountEntity.fromJson)
-      .toList(growable: false);
+  return ref.watch(accountsByHouseholdIdProvider(householdId).future);
 });
 
 final defaultScopedAccountProvider = Provider<AccountEntity?>((ref) {
