@@ -10,9 +10,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
-import 'package:moneko/features/home/presentation/state/analytics_data.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -81,11 +79,13 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
-    final analyticsData = ref.watch(analyticsProvider);
+    final hasTransactionsAsync =
+        ref.watch(dashboardHasLoggedTransactionsProvider);
     final whatsappAsync = ref.watch(whatsAppBindingProvider);
     final telegramAsync = ref.watch(telegramBindingProvider);
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
-    final selectedCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
+    final selectedCurrency =
+        ref.watch(dashboardSelectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
@@ -118,8 +118,7 @@ class ConnectSocialBanner extends ConsumerWidget {
       });
     }
 
-    final isBannerReady = analyticsData.hasLoadedOnce == true &&
-        !analyticsData.isLoading &&
+    final isBannerReady = !hasTransactionsAsync.isLoading &&
         !whatsappAsync.isLoading &&
         !telegramAsync.isLoading &&
         !walletCaptureAsync.isLoading &&
@@ -128,8 +127,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     if (!isBannerReady) {
       _debugPrint(
-        '[ConnectSocialBanner] waiting analyticsLoaded=${analyticsData.hasLoadedOnce} '
-        'analyticsLoading=${analyticsData.isLoading} '
+        '[ConnectSocialBanner] waiting hasTransactionsLoading=${hasTransactionsAsync.isLoading} '
         'whatsappLoading=${whatsappAsync.isLoading} '
         'telegramLoading=${telegramAsync.isLoading} '
         'walletLoading=${walletCaptureAsync.isLoading} '
@@ -147,7 +145,7 @@ class ConnectSocialBanner extends ConsumerWidget {
     final steps = _buildSteps(
       context: context,
       authState: authState,
-      analyticsData: analyticsData,
+      hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
       recurringExpensesAsync: recurringExpensesAsync,
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
@@ -319,7 +317,7 @@ class ConnectSocialBanner extends ConsumerWidget {
   List<_ChecklistStep> _buildSteps({
     required BuildContext context,
     required AppUser authState,
-    required AnalyticsData analyticsData,
+    required bool hasTransactionLogged,
     required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
@@ -329,9 +327,6 @@ class ConnectSocialBanner extends ConsumerWidget {
     required VoidCallback onConnectMessaging,
     required VoidCallback onEnableCapture,
   }) {
-    final hasTransactionLogged = analyticsData.allExpenses.any(
-      (transaction) => !transaction.isRecurring,
-    );
     final hasRecurringExpense = recurringExpensesAsync.maybeWhen(
       data: (transactions) => transactions.isNotEmpty,
       orElse: () => false,

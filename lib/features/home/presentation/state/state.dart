@@ -12,6 +12,7 @@ export 'bank_sync_result_provider.dart';
 export 'home_card_filter_provider.dart';
 export 'derived_selectors.dart';
 export 'currency_transaction_counts_provider.dart';
+export 'dashboard_user_context_provider.dart';
 export 'transaction_edit_state.dart';
 export 'transaction_edit_notifier.dart';
 export 'view_mode_provider.dart';

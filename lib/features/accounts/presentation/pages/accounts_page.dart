@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -12,7 +13,6 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/accounts/presentation/pages/account_details_page.dart';
 import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_balance_adjustment_sheet.dart';
 import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
 import 'package:moneko/features/accounts/presentation/widgets/account_transfer_sheet.dart';
 import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
@@ -36,6 +36,7 @@ class AccountsPage extends HookConsumerWidget {
     final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
     final accountsAsync = ref.watch(scopedAccountsProvider);
+    final effectiveAccounts = ref.watch(effectiveScopedAccountsProvider);
     final actions = ref.watch(accountActionsProvider);
     final analytics = ref.watch(analyticsProvider);
     final auth = ref.watch(authProvider);
@@ -99,37 +100,6 @@ class AccountsPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> onEditAccount(AccountEntity account) async {
-      final result =
-          await showCreateEditAccountSheet(context, initial: account);
-      if (result == null) return;
-      try {
-        await actions.updateAccount(
-          accountId: account.id,
-          name: result.name,
-          icon: result.icon,
-          color: result.color,
-          goalAmountCents: result.goalAmountCents,
-          includeGoalAmount: true,
-          isDefault: result.isDefault,
-        );
-        if (result.openingBalanceCents != account.currentBalanceCents) {
-          await actions.updateBalance(
-            accountId: account.id,
-            targetBalanceCents: result.openingBalanceCents,
-            note: 'Updated from account editor',
-          );
-        }
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.saveChanges);
-        }
-      } catch (error) {
-        if (context.mounted) {
-          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
-        }
-      }
-    }
-
     Future<void> onTransfer(List<AccountEntity> accounts) async {
       final result = await showAccountTransferSheet(
         context,
@@ -171,7 +141,8 @@ class AccountsPage extends HookConsumerWidget {
               child: Text(error.toString()),
             ),
           ),
-          data: (accounts) {
+          data: (_) {
+            final accounts = effectiveAccounts;
             final selectedMonthIndex =
                 selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
             final selectedMonth = availableMonths[selectedMonthIndex];
@@ -188,7 +159,7 @@ class AccountsPage extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   SizedBox(
-                    height: 240,
+                    height: 290,
                     child: PageView.builder(
                       itemCount: availableMonths.length,
                       controller: monthPageController,
@@ -202,23 +173,18 @@ class AccountsPage extends HookConsumerWidget {
                         unawaited(prefs.setBool(swipeHintPrefKey, true));
                       },
                       itemBuilder: (context, index) {
-                        final month = availableMonths[index];
-                        final snapshot = _buildSnapshot(
-                          accounts: accounts,
-                          transactions: scopedTransactions,
-                          endExclusive: _startOfNextMonth(month),
-                        );
-
+                        final isActive = selectedMonthIndexState.value == index;
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: _AccountsOverviewCard(
-                            monthLabel: MaterialLocalizations.of(context)
-                                .formatMonthYear(month),
+                            availableMonths: availableMonths,
+                            selectedMonthIndex: index,
+                            isActive: isActive,
+                            accounts: accounts,
+                            scopedTransactions: scopedTransactions,
                             currencyCode: selectedCurrencyCode,
-                            netWorth: snapshot.netWorth,
-                            totalIncome: snapshot.totalIncome,
-                            totalSpent: snapshot.totalSpent,
-                            showSwipeHint: !hasDismissedSwipeHintState.value,
+                            hasDismissedSwipeHint:
+                                hasDismissedSwipeHintState.value,
                           ),
                         );
                       },
@@ -242,104 +208,14 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     )
                   else
-                    ...accounts.map((account) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _AccountListTile(
-                          account: account,
-                          currencyCode: selectedCurrencyCode,
-                          displayBalanceCents:
-                              selectedSnapshot.accountBalances[account.id] ??
-                                  account.currentBalanceCents,
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => AccountDetailsPage(
-                                  account: account,
-                                ),
-                              ),
-                            );
-                          },
-                          onEdit: () => onEditAccount(account),
-                          onSetDefault: account.isDefault
-                              ? null
-                              : () async {
-                                  try {
-                                    await actions.updateAccount(
-                                      accountId: account.id,
-                                      isDefault: true,
-                                    );
-                                    if (context.mounted) {
-                                      AppToast.success(
-                                        context,
-                                        context.l10n.saveChanges,
-                                      );
-                                    }
-                                  } catch (error) {
-                                    if (context.mounted) {
-                                      AppToast.error(
-                                        context,
-                                        ErrorHandler.getUserFriendlyMessage(
-                                          error,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                          onAdjustBalance: () async {
-                            final result =
-                                await showAccountBalanceAdjustmentSheet(
-                              context,
-                              account: account,
-                            );
-                            if (result == null) return;
-                            try {
-                              await actions.updateBalance(
-                                accountId: account.id,
-                                targetBalanceCents: result.targetBalanceCents,
-                                note: result.note,
-                              );
-                              if (context.mounted) {
-                                AppToast.success(
-                                  context,
-                                  context.l10n.saveChanges,
-                                );
-                              }
-                            } catch (error) {
-                              if (context.mounted) {
-                                AppToast.error(
-                                  context,
-                                  ErrorHandler.getUserFriendlyMessage(error),
-                                );
-                              }
-                            }
-                          },
-                          onArchive: account.isSystem
-                              ? null
-                              : () async {
-                                  try {
-                                    await actions.archiveAccount(account.id);
-                                    if (context.mounted) {
-                                      AppToast.success(
-                                        context,
-                                        context.l10n.saveChanges,
-                                      );
-                                    }
-                                  } catch (error) {
-                                    if (context.mounted) {
-                                      AppToast.error(
-                                        context,
-                                        ErrorHandler.getUserFriendlyMessage(
-                                          error,
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                        ),
-                      );
-                    }),
-                  const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 24, top: 12),
+                      child: _WalletAccountStack(
+                        accounts: accounts,
+                        currencyCode: selectedCurrencyCode,
+                        accountBalances: selectedSnapshot.accountBalances,
+                      ),
+                    ),
                   TextButton.icon(
                     onPressed: onAddAccount,
                     icon: Icon(Icons.add, color: colorScheme.primary),
@@ -373,27 +249,84 @@ class AccountsPage extends HookConsumerWidget {
   }
 }
 
-class _AccountsOverviewCard extends StatelessWidget {
-  const _AccountsOverviewCard({
-    required this.monthLabel,
-    required this.currencyCode,
-    required this.netWorth,
-    required this.totalIncome,
-    required this.totalSpent,
-    required this.showSwipeHint,
+class _AnimatedNumberText extends StatelessWidget {
+  final double value;
+  final String symbol;
+  final TextStyle style;
+
+  const _AnimatedNumberText({
+    required this.value,
+    required this.symbol,
+    required this.style,
   });
 
-  final String monthLabel;
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        return Text(
+          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+class _AccountsOverviewCard extends HookWidget {
+  final List<DateTime> availableMonths;
+  final int selectedMonthIndex;
+  final bool isActive;
+  final List<AccountEntity> accounts;
+  final List<ExpenseEntry> scopedTransactions;
   final String currencyCode;
-  final double netWorth;
-  final double totalIncome;
-  final double totalSpent;
-  final bool showSwipeHint;
+  final bool hasDismissedSwipeHint;
+
+  const _AccountsOverviewCard({
+    required this.availableMonths,
+    required this.selectedMonthIndex,
+    required this.isActive,
+    required this.accounts,
+    required this.scopedTransactions,
+    required this.currencyCode,
+    required this.hasDismissedSwipeHint,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final symbol = resolveCurrencySymbol(currencyCode);
+    final monthLabel = MaterialLocalizations.of(context)
+        .formatMonthYear(availableMonths[selectedMonthIndex]);
+
+    final selectedSnapshot = useMemoized(() {
+      return _buildSnapshot(
+        accounts: accounts,
+        transactions: scopedTransactions,
+        endExclusive: _startOfNextMonth(availableMonths[selectedMonthIndex]),
+      );
+    }, [availableMonths, selectedMonthIndex, accounts, scopedTransactions]);
+
+    final spots = useMemoized(() {
+      final timeAscendingMonths = availableMonths.reversed.toList();
+      final newSpots = <FlSpot>[];
+      for (int i = 0; i < timeAscendingMonths.length; i++) {
+        final snap = _buildSnapshot(
+          accounts: accounts,
+          transactions: scopedTransactions,
+          endExclusive: _startOfNextMonth(timeAscendingMonths[i]),
+        );
+        newSpots.add(FlSpot(i.toDouble(), snap.netWorth));
+      }
+      return newSpots;
+    }, [availableMonths, accounts, scopedTransactions]);
+
+    final timeAscendingMonthsSize = availableMonths.length;
+    final highlightX =
+        (timeAscendingMonthsSize - 1 - selectedMonthIndex).toDouble();
 
     return Container(
       width: double.infinity,
@@ -428,21 +361,25 @@ class _AccountsOverviewCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  monthLabel,
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  key: ValueKey(monthLabel),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    monthLabel,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
                   ),
                 ),
               ),
@@ -452,8 +389,9 @@ class _AccountsOverviewCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(
-              '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(netWorth)))}',
+            child: _AnimatedNumberText(
+              value: isActive ? selectedSnapshot.netWorth : 0,
+              symbol: symbol,
               style: TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.w800,
@@ -463,6 +401,80 @@ class _AccountsOverviewCard extends StatelessWidget {
               ),
             ),
           ),
+          if (spots.length > 1) const SizedBox(height: 16),
+          if (spots.length > 1)
+            SizedBox(
+              height: 60,
+              width: double.infinity,
+              child: LineChart(
+                LineChartData(
+                  lineTouchData: LineTouchData(
+                    handleBuiltInTouches: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (touchedSpot) =>
+                          colorScheme.surfaceContainerHighest,
+                      tooltipRoundedRadius: 12,
+                      tooltipPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      tooltipBorder: BorderSide(
+                          color: colorScheme.border.withValues(alpha: 0.5)),
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          return LineTooltipItem(
+                            '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(spot.y)))}',
+                            TextStyle(
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              letterSpacing: -0.3,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
+                  gridData: const FlGridData(show: false),
+                  titlesData: const FlTitlesData(show: false),
+                  borderData: FlBorderData(show: false),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      color: colorScheme.primary,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: true,
+                        checkToShowDot: (spot, barData) {
+                          return spot.x.toInt() == highlightX.toInt();
+                        },
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 5,
+                            color: colorScheme.cardSurface,
+                            strokeWidth: 3,
+                            strokeColor: colorScheme.primary,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            colorScheme.primary.withValues(alpha: 0.3),
+                            colorScheme.primary.withValues(alpha: 0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+              ),
+            ),
           const SizedBox(height: 20),
           Row(
             children: [
@@ -479,8 +491,9 @@ class _AccountsOverviewCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalIncome)))}',
+                    _AnimatedNumberText(
+                      value: isActive ? selectedSnapshot.totalIncome : 0,
+                      symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 16,
@@ -503,8 +516,9 @@ class _AccountsOverviewCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalSpent)))}',
+                    _AnimatedNumberText(
+                      value: isActive ? selectedSnapshot.totalSpent : 0,
+                      symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,
                         fontSize: 16,
@@ -516,7 +530,7 @@ class _AccountsOverviewCard extends StatelessWidget {
               ),
             ],
           ),
-          if (showSwipeHint) ...[
+          if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
             const Spacer(),
             const SwipeHintRow(text: 'Swipe right for previous months'),
           ],
@@ -526,26 +540,236 @@ class _AccountsOverviewCard extends StatelessWidget {
   }
 }
 
-class _AccountListTile extends StatelessWidget {
-  const _AccountListTile({
+class _WalletAccountStack extends HookConsumerWidget {
+  final List<AccountEntity> accounts;
+  final String currencyCode;
+  final Map<String, int> accountBalances;
+
+  const _WalletAccountStack({
+    required this.accounts,
+    required this.currencyCode,
+    required this.accountBalances,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    const orderKey = 'wallet_accounts_order';
+
+    final orderedAccountsState = useState<List<AccountEntity>>([...accounts]);
+    final draggedAccountIdState = useState<String?>(null);
+    final dragOffsetYState = useState<double>(0.0);
+    final dragOriginalIndexState = useState<int>(0);
+
+    // Sync from props/prefs
+    useEffect(() {
+      final savedOrder = prefs.getStringList(orderKey) ?? [];
+      final list = [...accounts];
+      list.sort((a, b) {
+        final indexA = savedOrder.indexOf(a.id);
+        final indexB = savedOrder.indexOf(b.id);
+        if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
+        if (indexA != -1) return -1;
+        if (indexB != -1) return 1;
+        return 0; // maintain original order for new items
+      });
+      orderedAccountsState.value = list;
+      return null;
+    }, [accounts]);
+
+    final orderedAccounts = orderedAccountsState.value;
+
+    final selectedAccountIdState = useState<String?>(null);
+    final isAnySelected = selectedAccountIdState.value != null;
+
+    final selectedAccIndex = isAnySelected
+        ? orderedAccounts
+            .indexWhere((a) => a.id == selectedAccountIdState.value)
+        : -1;
+
+    const collapsedSpacing = 85.0;
+    const tightSpacing = 16.0;
+    const expandedCardHeight = 240.0;
+    const unselectedCardHeight = 130.0;
+
+    double stackHeight;
+    if (!isAnySelected) {
+      stackHeight = (orderedAccounts.isEmpty ? 0 : orderedAccounts.length - 1) *
+              collapsedSpacing +
+          unselectedCardHeight;
+    } else {
+      final cardsAfter = orderedAccounts.length - 1 - selectedAccIndex;
+      if (cardsAfter <= 0) {
+        stackHeight = selectedAccIndex * collapsedSpacing + expandedCardHeight;
+      } else {
+        stackHeight = selectedAccIndex * collapsedSpacing +
+            expandedCardHeight +
+            10.0 +
+            (cardsAfter - 1) * tightSpacing +
+            unselectedCardHeight;
+      }
+    }
+
+    double getTop(int index, AccountEntity account) {
+      if (!isAnySelected) {
+        if (draggedAccountIdState.value == account.id) {
+          return index * collapsedSpacing + dragOffsetYState.value;
+        }
+        return index * collapsedSpacing;
+      }
+
+      if (index == selectedAccIndex) {
+        return index * collapsedSpacing; // STAY WHERE IT IS
+      }
+
+      if (index < selectedAccIndex) {
+        // Expand to the top
+        return index * tightSpacing;
+      } else {
+        // index > selectedAccIndex => Expand to bottom
+        final positionInBottom = index - selectedAccIndex - 1;
+        return selectedAccIndex * collapsedSpacing +
+            expandedCardHeight +
+            10.0 +
+            (positionInBottom * tightSpacing);
+      }
+    }
+
+    final renderAccounts = [...orderedAccounts];
+    if (draggedAccountIdState.value != null) {
+      final draggedAcc =
+          renderAccounts.firstWhere((a) => a.id == draggedAccountIdState.value);
+      renderAccounts.remove(draggedAcc);
+      renderAccounts.add(draggedAcc);
+    }
+
+    return GestureDetector(
+      onTap: () {
+        selectedAccountIdState.value = null; // Background tap
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutQuart,
+        height: stackHeight,
+        color: Colors.transparent,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: renderAccounts.map((account) {
+            final originalIndex = orderedAccounts.indexOf(account);
+            final isExpanded = selectedAccountIdState.value == account.id;
+            final isDragging = draggedAccountIdState.value == account.id;
+
+            return AnimatedPositioned(
+              key: ValueKey(account.id),
+              top: getTop(originalIndex, account),
+              left: 0,
+              right: 0,
+              height: isAnySelected ? expandedCardHeight : unselectedCardHeight,
+              duration: isDragging
+                  ? Duration.zero
+                  : const Duration(milliseconds: 500),
+              curve: Curves.easeOutQuart,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onLongPressStart: isAnySelected
+                    ? null
+                    : (details) {
+                        draggedAccountIdState.value = account.id;
+                        dragOffsetYState.value = 0.0;
+                        dragOriginalIndexState.value = orderedAccounts
+                            .indexWhere((a) => a.id == account.id);
+                      },
+                onLongPressMoveUpdate: isAnySelected
+                    ? null
+                    : (details) {
+                        final originalIdx = dragOriginalIndexState.value;
+                        final totalFingerDisplacement =
+                            details.localOffsetFromOrigin.dy;
+
+                        final absoluteDragPos = originalIdx * collapsedSpacing +
+                            totalFingerDisplacement;
+
+                        final targetIndex = (absoluteDragPos / collapsedSpacing)
+                            .round()
+                            .clamp(0, orderedAccounts.length - 1);
+                        final currentIndex = orderedAccounts
+                            .indexWhere((a) => a.id == account.id);
+
+                        if (targetIndex != currentIndex) {
+                          final newList = [...orderedAccounts];
+                          final item = newList.removeAt(currentIndex);
+                          newList.insert(targetIndex, item);
+                          orderedAccountsState.value = newList;
+                          unawaited(prefs.setStringList(
+                              orderKey, newList.map((a) => a.id).toList()));
+                        }
+
+                        dragOffsetYState.value = absoluteDragPos -
+                            (orderedAccounts
+                                    .indexWhere((a) => a.id == account.id) *
+                                collapsedSpacing);
+                      },
+                onLongPressEnd: isAnySelected
+                    ? null
+                    : (details) {
+                        draggedAccountIdState.value = null;
+                        dragOffsetYState.value = 0.0;
+                      },
+                onTap:
+                    () {}, // Consume tap to prevent outer GestureDetector from collapsing immediately
+                onTapUp: (details) {
+                  if (!isAnySelected) {
+                    // In collapse mode: clicking ANY card expands all cards.
+                    selectedAccountIdState.value = account.id;
+                  } else {
+                    // In expanded mode:
+                    if (details.localPosition.dy < 100) {
+                      // Tap on edge of the card -> EVERYTHING should collapse
+                      selectedAccountIdState.value = null;
+                    } else {
+                      // Click on the body of the card -> go into details page
+                      Navigator.of(context)
+                          .push(
+                        MaterialPageRoute(
+                          builder: (_) => AccountDetailsPage(
+                            account: account,
+                          ),
+                        ),
+                      )
+                          .then((_) {
+                        // Keep expanded on return
+                      });
+                    }
+                  }
+                },
+                child: _AccountStackCard(
+                  account: account,
+                  currencyCode: currencyCode,
+                  displayBalanceCents: accountBalances[account.id] ??
+                      account.currentBalanceCents,
+                  isExpanded: isExpanded,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountStackCard extends StatelessWidget {
+  const _AccountStackCard({
     required this.account,
     required this.currencyCode,
     required this.displayBalanceCents,
-    required this.onTap,
-    this.onEdit,
-    this.onSetDefault,
-    this.onAdjustBalance,
-    this.onArchive,
+    required this.isExpanded,
   });
 
   final AccountEntity account;
   final String currencyCode;
   final int displayBalanceCents;
-  final VoidCallback onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onSetDefault;
-  final VoidCallback? onAdjustBalance;
-  final VoidCallback? onArchive;
+  final bool isExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -574,125 +798,199 @@ class _AccountListTile extends StatelessWidget {
     );
 
     final backgroundTint = colorScheme.pocketTileFill(baseColor);
+    final opaqueBackground =
+        Color.alphaBlend(backgroundTint, colorScheme.surface);
 
-    return ClipPath(
-      clipper: _OrganicAccountTileClipper(),
-      child: Material(
-        color: backgroundTint,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            account.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.foreground,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Placeholder for avatars/icon
-                          Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: baseColor.withValues(alpha: 0.22),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  resolveAccountIcon(account.icon),
-                                  color: baseColor,
-                                  size: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const SizedBox(height: 12),
-                          Text(
-                            'BALANCE',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
-                            style: TextStyle(
-                              color: isNegative
-                                  ? colorScheme.destructive
-                                  : colorScheme.foreground,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                        ]),
-                  ],
-                ),
-
-                // Progress Bar Section
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    minHeight: 6,
-                    value: progress,
-                    backgroundColor: baseColor.withValues(alpha: 0.15),
-                    valueColor: AlwaysStoppedAnimation<Color>(baseColor),
-                  ),
-                ),
-              ],
+    final collapsedHeader = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: baseColor.withValues(alpha: 0.22),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            resolveAccountIcon(account.icon),
+            color: baseColor,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            account.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colorScheme.foreground,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
+        const SizedBox(width: 12),
+        Text(
+          '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
+          style: TextStyle(
+            color:
+                isNegative ? colorScheme.destructive : colorScheme.foreground,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.4,
+          ),
+        ),
+      ],
+    );
+
+    final expandedHeader = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                account.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: baseColor.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      resolveAccountIcon(account.icon),
+                      color: baseColor,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              'BALANCE',
+              style: TextStyle(
+                color: colorScheme.mutedForeground,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
+              style: TextStyle(
+                color: isNegative
+                    ? colorScheme.destructive
+                    : colorScheme.foreground,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+      ],
+    );
+
+    return PhysicalShape(
+      clipper: _OrganicAccountTileClipper(),
+      color: opaqueBackground,
+      elevation: isExpanded ? 8.0 : 4.0,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.5),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 20,
+            left: 20,
+            right: 20,
+            child: AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: collapsedHeader,
+              secondChild: expandedHeader,
+              alignment: Alignment.topCenter,
+            ),
+          ),
+          Positioned(
+            bottom: 24,
+            left: 20,
+            right: 20,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: isExpanded ? 1.0 : 0.0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(currentProgressAmount)))}',
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(goal)))}',
+                        style: TextStyle(
+                          color: colorScheme.mutedForeground,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 6,
+                      value: progress,
+                      backgroundColor: baseColor.withValues(alpha: 0.15),
+                      valueColor: AlwaysStoppedAnimation<Color>(baseColor),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Tap to view details',
+                    style: TextStyle(
+                      color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -834,7 +1132,6 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
     const dipDepth = 16.0;
     final path = Path();
 
-    // Math to keep the hole perfectly centered at exactly 50% width
     final double holeCenter = size.width * 0.50;
     final double holeHalfWidth = size.width * 0.16;
     final double flatBottomHalfWidth = size.width * 0.03;
@@ -845,14 +1142,11 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
     final double endX = holeCenter + holeHalfWidth;
 
     final double curveWidth = flatStartX - startX;
-    final double cpOffset =
-        curveWidth * 0.45; // Creates a smooth curve interpolation
+    final double cpOffset = curveWidth * 0.45;
 
     path.moveTo(radius, 0);
-    // Straight top edge on the left
     path.lineTo(startX, 0);
 
-    // Smooth step down (left curve)
     path.cubicTo(
       startX + cpOffset,
       0,
@@ -862,10 +1156,8 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
       dipDepth,
     );
 
-    // Small flat bottom of the dip
     path.lineTo(flatEndX, dipDepth);
 
-    // Smooth step up (right curve)
     path.cubicTo(
       flatEndX + cpOffset,
       dipDepth,
@@ -875,7 +1167,6 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
       0,
     );
 
-    // Straight top edge on the right
     path.lineTo(size.width - radius, 0);
     path.quadraticBezierTo(size.width, 0, size.width, radius);
     path.lineTo(size.width, size.height - radius);
@@ -890,6 +1181,7 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
     return path;
   }
 
+  @override
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

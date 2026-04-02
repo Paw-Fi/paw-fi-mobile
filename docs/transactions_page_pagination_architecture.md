@@ -100,10 +100,6 @@ Important: the SQL for this feature lives in the web repo because that is where 
   - original migration introducing feed/summary/lookup RPCs
   - should be kept correct for clean deploys to new databases
 
-- `moneko-web/supabase/migrations/20260402124500_fix_transactions_feed_type_casts.sql`
-  - follow-up migration for already-migrated databases
-  - fixes enum-to-text casting bug in SQL
-
 ## Backend Contract
 
 ### `get_user_transactions_page_v1`
@@ -571,7 +567,6 @@ Check:
 ### Most important backend files
 
 - `../moneko-web/supabase/migrations/20260402123000_add_transactions_feed_rpcs.sql`
-- `../moneko-web/supabase/migrations/20260402124500_fix_transactions_feed_type_casts.sql`
 - `../moneko-web/supabase/migrations/20260402140000_add_transactions_feed_account_and_categories_filters.sql`
 
 ## Summary

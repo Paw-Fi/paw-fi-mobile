@@ -24,13 +24,13 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
+import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -43,14 +43,12 @@ import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
-import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
-import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
-import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
@@ -100,8 +98,6 @@ class _HomePageState extends ConsumerState<HomePage> {
       if (!mounted) return;
       final isPreview = ref.read(previewModeProvider).isActive;
       if (isPreview) {
-        final previewUserId = PreviewMockData.contact.userId ?? 'preview-user';
-        await ref.read(analyticsProvider.notifier).loadData(previewUserId);
         final preferredCurrency =
             PreviewMockData.contact.preferredCurrency?.toUpperCase();
         if (preferredCurrency != null && preferredCurrency.isNotEmpty) {
@@ -115,11 +111,9 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   void _maybeLogHomeDebugSnapshot({
-    required AnalyticsData analyticsData,
     required HouseholdScope householdScope,
     required Set<String> portfolioHouseholdIds,
     required String? selectedCurrency,
-    required List<ExpenseEntry> personalExpensesAll,
   }) {
     if (!_enableDebugLogs) return;
     final selected = ref.read(selectedHouseholdProvider);
@@ -127,31 +121,12 @@ class _HomePageState extends ConsumerState<HomePage> {
         selected.householdId ?? selected.household?.id ?? 'null';
     final selectedHouseholdName = selected.household?.name ?? 'null';
 
-    final all = analyticsData.allExpenses;
-    int portfolioCount = 0;
-    int nonPortfolioHouseholdCount = 0;
-    int nullHouseholdCount = 0;
-    for (final e in all) {
-      final hid = e.householdId;
-      if (hid == null) {
-        nullHouseholdCount += 1;
-      } else if (portfolioHouseholdIds.contains(hid)) {
-        portfolioCount += 1;
-      } else {
-        nonPortfolioHouseholdCount += 1;
-      }
-    }
-
     final signature = [
       'vm=${householdScope.viewMode}',
       'selected=$selectedHouseholdId',
       'portfolios=${portfolioHouseholdIds.length}',
       'cur=${selectedCurrency ?? "null"}',
-      'allExpenses=${all.length}',
-      'personalExpensesAll=${personalExpensesAll.length}',
-      'budgets=${analyticsData.allBudgets.length}',
-      'loading=${analyticsData.isLoading}',
-      'err=${analyticsData.error ?? "null"}',
+      'portfolioIds=${portfolioHouseholdIds.length}',
     ].join('|');
 
     if (_lastHomeDebugSignature == signature) return;
@@ -169,14 +144,6 @@ class _HomePageState extends ConsumerState<HomePage> {
         '🧭 [HomePageDebug] portfolioHouseholdIds(${portfolioHouseholdIds.length})=$portfolioHouseholdIds');
     _debugPrint(
         '🧭 [HomePageDebug] selectedCurrency=${selectedCurrency ?? "null"}');
-    _debugPrint(
-        '🧭 [HomePageDebug] analytics: isLoading=${analyticsData.isLoading} hasLoadedOnce=${analyticsData.hasLoadedOnce} error=${analyticsData.error ?? "null"}');
-    _debugPrint(
-        '🧭 [HomePageDebug] analytics counts: allExpenses=${all.length} allBudgets=${analyticsData.allBudgets.length}');
-    _debugPrint(
-        '🧭 [HomePageDebug] expense breakdown: householdId=null=$nullHouseholdCount portfolio=$portfolioCount nonPortfolioHousehold=$nonPortfolioHouseholdCount');
-    _debugPrint(
-        '🧭 [HomePageDebug] derived personalExpensesAll=${personalExpensesAll.length}');
     _debugPrint('🧭 [HomePageDebug] ====================');
   }
 
@@ -387,7 +354,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     String? audioContentType,
   }) async {
     final user = ref.read(authProvider);
-    final contact = ref.read(analyticsProvider).contact;
+    final contact = ref.read(dashboardUserContactProvider).valueOrNull;
     final householdId = _resolveHouseholdIdForAi();
     final scope = ref.read(householdScopeProvider);
     final isPortfolio = scope.isPortfolioSelected;
@@ -529,7 +496,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           }
 
           if (items.isNotEmpty) {
-            final analyticsContactId = ref.read(analyticsProvider).contact?.id;
+            final analyticsContactId =
+                ref.read(dashboardUserContactProvider).valueOrNull?.id;
 
             // Parse ALL items and optimistic-log them immediately.
             final parsed = items
@@ -890,14 +858,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     ref.watch(userCategoryConfigProvider);
-    final analyticsData = ref.watch(analyticsProvider);
+    final dashboardContact =
+        ref.watch(dashboardUserContactProvider).valueOrNull;
+    final dashboardBudgets =
+        ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
+            const <DailyBudgetEntry>[];
     final filterState = ref.watch(homeFilterProvider);
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
     final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
-      analyticsData.contact?.preferredTimezone,
+      dashboardContact?.preferredTimezone,
     );
     final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
     ref.listen<HomePageCommand?>(homePageCommandProvider, (previous, next) {
@@ -911,17 +883,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
-    // Use memoized provider — filters by scope, currency, and excludes recurring.
-    // Only recomputes when analyticsProvider, homeFilterProvider, or
-    // householdScopeProvider change (NOT on every widget rebuild).
-    final personalExpensesAll = ref.watch(homeFilteredTransactionsProvider);
-
     _maybeLogHomeDebugSnapshot(
-      analyticsData: analyticsData,
       householdScope: householdScope,
       portfolioHouseholdIds: portfolioHouseholdIds,
       selectedCurrency: selectedCurrency,
-      personalExpensesAll: personalExpensesAll,
     );
 
     // Net cashflow card: its own per-card filter (still uses allExpenses for previous-period math)
@@ -937,7 +902,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final netTo = netRange['to']!;
 
     // Budgets filtered for the net cashflow / spending breakdown cards (by date + currency)
-    final netBudgets = analyticsData.allBudgets.where((budget) {
+    final netBudgets = dashboardBudgets.where((budget) {
       final d = DateTime(budget.date.year, budget.date.month, budget.date.day);
       final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
       final currencyOk = selectedCurrency == null ||
@@ -945,12 +910,11 @@ class _HomePageState extends ConsumerState<HomePage> {
       return dateOk && currencyOk;
     }).toList();
 
-    final isInitialAnalyticsLoading =
-        analyticsData.isLoading && !(analyticsData.hasLoadedOnce ?? false);
+    final isInitialAnalyticsLoading = false;
 
     final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
 
-    _scheduleThaiLanguagePromptCheck(analyticsData.contact);
+    _scheduleThaiLanguagePromptCheck(dashboardContact);
 
     if (shouldShowFab && !user.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1021,62 +985,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                                   end: end);
                         },
                         widgetBuilders: {
-                          DashboardWidgetType.spendingSummary: (context,
-                                  config) =>
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: Consumer(
-                                  builder: (context, ref, _) {
-                                    final range = getDateRangeFromFilter(
-                                      config.dateRange,
-                                      config.customStartDate,
-                                      config.customEndDate,
-                                      now: userNow,
-                                    );
-                                    final from = range['from']!;
-                                    final to = range['to']!;
-
-                                    final recurringHouseholdId =
-                                        householdScope.activeAccountHouseholdId;
-                                    final recurringState = ref.watch(
-                                      recurringTransactionsProvider(
-                                        recurringHouseholdId,
-                                      ),
-                                    );
-                                    final recurringTransactions =
-                                        recurringState.data.valueOrNull ??
-                                            const [];
-
-                                    final projected =
-                                        projectRecurringTransactionsAsExpenseEntries(
-                                      recurringTransactions:
-                                          recurringTransactions,
-                                      rangeStart: from,
-                                      rangeEnd: to,
-                                      selectedCurrency:
-                                          filterState.selectedCurrency,
-                                    );
-
-                                    final expensesWithRecurring = [
-                                      ...personalExpensesAll,
-                                      ...projected,
-                                    ];
-
-                                    return buildSpendingCard(
-                                      context,
-                                      colorScheme,
-                                      expensesWithRecurring,
-                                      analyticsData.contact,
-                                      config.dateRange,
-                                      selectedCurrency:
-                                          filterState.selectedCurrency,
-                                      customStartDate: config.customStartDate,
-                                      customEndDate: config.customEndDate,
-                                    );
-                                  },
-                                ),
-                              ),
+                          DashboardWidgetType.spendingSummary:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: LazyDashboardSpendingSummaryCard(
+                                      config: config,
+                                      colorScheme: colorScheme,
+                                      contact: dashboardContact,
+                                      userNow: userNow,
+                                    ),
+                                  ),
                           DashboardWidgetType.netCashflow: (context, config) =>
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -1088,189 +1007,59 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       const Expanded(child: MoMTrendBar()),
                                       const SizedBox(width: 12),
                                       Expanded(
-                                        child: buildNetCashflowCard(
-                                          context,
-                                          colorScheme,
-                                          netBudgets,
-                                          personalExpensesAll,
-                                          analyticsData.contact,
-                                          config.dateRange,
-                                          selectedCurrency:
-                                              filterState.selectedCurrency,
-                                          customStartDate:
-                                              config.customStartDate,
-                                          customEndDate: config.customEndDate,
+                                        child: LazyDashboardNetCashflowCard(
+                                          config: config,
+                                          colorScheme: colorScheme,
+                                          contact: dashboardContact,
+                                          userNow: userNow,
+                                          budgets: netBudgets,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
                               ),
-                          DashboardWidgetType.financialCalendar: (context,
-                                  config) =>
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: Consumer(
-                                  builder: (context, ref, _) {
-                                    // NOTE: Recurring transactions are loaded by app_initialization_provider
-                                    // Just watch the data here - no need to trigger load
-                                    final recurringHouseholdId =
-                                        householdScope.activeAccountHouseholdId;
-                                    final recurringAsync = ref.watch(
-                                      recurringTransactionsProvider(
-                                        recurringHouseholdId,
-                                      ),
-                                    );
-                                    return FinancialCalendarWidget(
-                                      transactions: personalExpensesAll,
-                                      recurringTransactions:
-                                          recurringAsync.data.valueOrNull ?? [],
-                                      currency: selectedCurrency ??
-                                          analyticsData
-                                              .contact?.preferredCurrency ??
+                          DashboardWidgetType.financialCalendar:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: LazyDashboardFinancialCalendarCard(
+                                      config: config,
+                                      colorScheme: colorScheme,
+                                      fallbackCurrency: selectedCurrency ??
+                                          dashboardContact?.preferredCurrency ??
                                           'USD',
-                                      isExpanded: config.viewMode ==
-                                          DashboardWidgetViewMode.full,
-                                    );
-                                  },
-                                ),
-                              ),
+                                    ),
+                                  ),
                           DashboardWidgetType.recentTransactions:
                               (context, config) => Padding(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16.0),
-                                    child: buildRecentTransactionsCard(
-                                      context,
-                                      colorScheme,
-                                      personalExpensesAll,
-                                      analyticsData.contact,
-                                      selectedCurrency:
-                                          filterState.selectedCurrency,
-                                      onViewAll: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const TransactionsPage(),
-                                          ),
-                                        );
-                                      },
+                                    child: LazyDashboardRecentTransactionsCard(
+                                      colorScheme: colorScheme,
+                                      contact: dashboardContact,
                                     ),
                                   ),
-                          DashboardWidgetType.spendingBreakdownChart: (context,
-                                  config) =>
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0),
-                                child: Consumer(
-                                  builder: (context, ref, _) {
-                                    final range = getDateRangeFromFilter(
-                                      config.dateRange,
-                                      config.customStartDate,
-                                      config.customEndDate,
-                                      now: userNow,
-                                    );
-                                    final from = range['from']!;
-                                    final to = range['to']!;
-
-                                    final recurringHouseholdId =
-                                        householdScope.activeAccountHouseholdId;
-                                    final recurringState = ref.watch(
-                                      recurringTransactionsProvider(
-                                        recurringHouseholdId,
-                                      ),
-                                    );
-                                    final recurringTransactions =
-                                        recurringState.data.valueOrNull ??
-                                            const [];
-
-                                    final projected =
-                                        projectRecurringTransactionsAsExpenseEntries(
-                                      recurringTransactions:
-                                          recurringTransactions,
-                                      rangeStart: from,
-                                      rangeEnd: to,
-                                      selectedCurrency:
-                                          filterState.selectedCurrency,
-                                    );
-
-                                    final expensesWithRecurring = [
-                                      ...personalExpensesAll,
-                                      ...projected,
-                                    ];
-
-                                    return buildSpendingBreakdownChart(
-                                      context,
-                                      colorScheme,
-                                      expensesWithRecurring,
-                                      analyticsData.allBudgets,
-                                      analyticsData.contact,
-                                      config.dateRange,
-                                      selectedCurrency:
-                                          filterState.selectedCurrency,
-                                      customStartDate: config.customStartDate,
-                                      customEndDate: config.customEndDate,
-                                    );
-                                  },
-                                ),
-                              ),
-                          DashboardWidgetType.whereTheMoneyWent:
-                              (context, config) {
-                            final range = getDateRangeFromFilter(
-                              config.dateRange,
-                              config.customStartDate,
-                              config.customEndDate,
-                              now: userNow,
-                            );
-                            final from = range['from']!;
-                            final to = range['to']!;
-
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Consumer(
-                                builder: (context, ref, _) {
-                                  final recurringHouseholdId =
-                                      householdScope.activeAccountHouseholdId;
-                                  final recurringState = ref.watch(
-                                    recurringTransactionsProvider(
-                                      recurringHouseholdId,
+                          DashboardWidgetType.spendingBreakdownChart:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: LazyDashboardSpendingBreakdownCard(
+                                      config: config,
+                                      colorScheme: colorScheme,
+                                      userNow: userNow,
                                     ),
-                                  );
-                                  final recurringTransactions =
-                                      recurringState.data.valueOrNull ??
-                                          const [];
-
-                                  final projected =
-                                      projectRecurringTransactionsAsExpenseEntries(
-                                    recurringTransactions:
-                                        recurringTransactions,
-                                    rangeStart: from,
-                                    rangeEnd: to,
-                                    selectedCurrency:
-                                        filterState.selectedCurrency,
-                                  );
-
-                                  final dateFilteredExpenses = [
-                                    ...personalExpensesAll,
-                                    ...projected,
-                                  ].where((e) {
-                                    final d = DateTime(
-                                        e.date.year, e.date.month, e.date.day);
-                                    return !d.isBefore(from) && !d.isAfter(to);
-                                  }).toList(growable: false);
-
-                                  return WhereTheMoneyWentWidget(
-                                    expenses: dateFilteredExpenses,
-                                    currency: filterState.selectedCurrency,
-                                    onHelpTap: () =>
-                                        showCategoryGuide(context, colorScheme),
-                                    dateRange: config.dateRange,
-                                  );
-                                },
-                              ),
-                            );
-                          },
+                                  ),
+                          DashboardWidgetType.whereTheMoneyWent:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: LazyDashboardWhereTheMoneyWentCard(
+                                      config: config,
+                                      colorScheme: colorScheme,
+                                      userNow: userNow,
+                                    ),
+                                  ),
                         },
                       );
                     },
@@ -1319,11 +1108,10 @@ class _HomePageState extends ConsumerState<HomePage> {
                 _debugPrint(
                     '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, members');
               } else {
-                // In personal mode: refresh analytics with current date filters
-                // TODO: Once global date filter is fully removed, refresh should
-                // simply reload all-time analytics without a date window.
                 await ref.read(analyticsProvider.notifier).loadData(user.uid);
               }
+
+              ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
               // Keep other tabs and selectors consistent.
               ref.invalidate(pocketsProvider);

@@ -8,6 +8,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as split_entities;
@@ -491,6 +492,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     if (householdId == null || householdId.isEmpty || isPortfolioSave) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
+
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
     // Refresh pockets so budget calculations reflect the new expense.
     // Note: currencyTransactionCountsProvider auto-recomputes reactively

@@ -14,6 +14,7 @@ import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
@@ -203,7 +204,7 @@ class HomeHeaderSliver extends ConsumerWidget {
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final spotlightController = ref.read(homeSpotlightControllerProvider);
-    final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final currencyCode = ref.watch(dashboardSelectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
 
     Future<void> handleBankSyncResult(BankSyncResult next) async {
@@ -225,6 +226,7 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
 
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     }
 
     Future<void> refreshHomeDataForSelectedAccount({

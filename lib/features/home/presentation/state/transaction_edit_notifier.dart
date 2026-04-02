@@ -6,6 +6,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -191,6 +192,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // any transformations or calculations done server-side.
       // ═══════════════════════════════════════════════════════════════
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
       // ⚠️ CRITICAL: Always invalidate household providers after update
       // Even if the expense wasn't in analyticsProvider cache (household expense),
@@ -236,6 +238,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           // We need to reload from backend to get the original state
           final user = ref.read(authProvider);
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
+          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
           _debugPrint('🔄 Rolled back optimistic update');
         }

@@ -115,9 +115,12 @@ class _CurrencySelectorScreenState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final summaries = ref.watch(currencySummariesProvider);
+    final summaries =
+        ref.watch(dashboardCurrencySummariesProvider).valueOrNull ??
+            const <CurrencySummary>[];
     final filterState = ref.watch(homeFilterProvider);
-    final currencyCounts = ref.watch(currencyTransactionCountsProvider);
+    final currencyCounts =
+        ref.watch(dashboardCurrencyTransactionCountsProvider);
 
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();
@@ -423,12 +426,14 @@ class _CurrencySelectorScreenState
                                       final hasSession =
                                           supabase.auth.currentSession != null;
                                       if (!hasSession) {
-                                        throw Exception(context.l10n.missingUserSession);
+                                        throw Exception(
+                                            context.l10n.missingUserSession);
                                       }
                                       final userId =
                                           supabase.auth.currentSession?.user.id;
                                       if (userId == null || userId.isEmpty) {
-                                        throw Exception(context.l10n.missingUserSession);
+                                        throw Exception(
+                                            context.l10n.missingUserSession);
                                       }
                                       final retryResponse =
                                           await supabase.functions.invoke(
@@ -452,7 +457,8 @@ class _CurrencySelectorScreenState
                                       if (payload['ok'] != true) {
                                         throw Exception(
                                           (payload['error'] ??
-                                                  context.l10n.unableToUpdateCurrency)
+                                                  context.l10n
+                                                      .unableToUpdateCurrency)
                                               .toString(),
                                         );
                                       }

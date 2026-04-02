@@ -20,6 +20,7 @@ class TransactionsFeedQuery {
   final DateTime? startDate;
   final DateTime? endDate;
   final int pageSize;
+  final String? summaryIntervalGranularity;
 
   const TransactionsFeedQuery({
     required this.userId,
@@ -34,6 +35,7 @@ class TransactionsFeedQuery {
     required this.startDate,
     required this.endDate,
     this.pageSize = 60,
+    this.summaryIntervalGranularity,
   });
 
   String? get normalizedCurrency => _normalizeNullable(selectedCurrency);
@@ -86,6 +88,19 @@ class TransactionsFeedQuery {
   String? get formattedEndDate =>
       endDate == null ? null : formatDateOnlyYmd(endDate!);
 
+  String? get normalizedSummaryIntervalGranularity {
+    final value = summaryIntervalGranularity?.trim().toLowerCase();
+    switch (value) {
+      case 'daily':
+      case 'weekly':
+      case 'monthly':
+      case 'yearly':
+        return value;
+      default:
+        return null;
+    }
+  }
+
   TransactionsFeedQuery copyWith({
     String? userId,
     String? householdId,
@@ -99,6 +114,7 @@ class TransactionsFeedQuery {
     DateTime? startDate,
     DateTime? endDate,
     int? pageSize,
+    String? summaryIntervalGranularity,
   }) {
     return TransactionsFeedQuery(
       userId: userId ?? this.userId,
@@ -114,6 +130,8 @@ class TransactionsFeedQuery {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       pageSize: pageSize ?? this.pageSize,
+      summaryIntervalGranularity:
+          summaryIntervalGranularity ?? this.summaryIntervalGranularity,
     );
   }
 
@@ -135,7 +153,9 @@ class TransactionsFeedQuery {
         normalizedSearchQuery == other.normalizedSearchQuery &&
         formattedStartDate == other.formattedStartDate &&
         formattedEndDate == other.formattedEndDate &&
-        pageSize == other.pageSize;
+        pageSize == other.pageSize &&
+        normalizedSummaryIntervalGranularity ==
+            other.normalizedSummaryIntervalGranularity;
   }
 
   @override
@@ -152,6 +172,7 @@ class TransactionsFeedQuery {
         formattedStartDate,
         formattedEndDate,
         pageSize,
+        normalizedSummaryIntervalGranularity,
       );
 }
 
@@ -206,6 +227,7 @@ class TransactionsFeedSummary {
   final bool hasMultipleCurrencies;
   final List<TransactionsFeedCategorySummary> categorySummaries;
   final Map<DateTime, double> yearlyPeriodTotals;
+  final Map<DateTime, double> periodTotals;
 
   const TransactionsFeedSummary({
     required this.transactionCount,
@@ -214,6 +236,7 @@ class TransactionsFeedSummary {
     required this.hasMultipleCurrencies,
     required this.categorySummaries,
     required this.yearlyPeriodTotals,
+    this.periodTotals = const <DateTime, double>{},
   });
 
   const TransactionsFeedSummary.empty()
@@ -222,7 +245,8 @@ class TransactionsFeedSummary {
         incomeTotal = 0,
         hasMultipleCurrencies = false,
         categorySummaries = const <TransactionsFeedCategorySummary>[],
-        yearlyPeriodTotals = const <DateTime, double>{};
+        yearlyPeriodTotals = const <DateTime, double>{},
+        periodTotals = const <DateTime, double>{};
 
   TransactionsFeedSummary addingExpenses(List<ExpenseEntry> expenses) {
     if (expenses.isEmpty) {
@@ -263,6 +287,8 @@ class TransactionsFeedSummary {
       yearlyTotals[entry.key] = (yearlyTotals[entry.key] ?? 0) + entry.value;
     }
 
+    final periodTotals = Map<DateTime, double>.from(this.periodTotals);
+
     final extraCurrencies = expenses
         .map((expense) => expense.currency?.trim().toUpperCase())
         .where((currency) => currency != null && currency.isNotEmpty)
@@ -282,6 +308,7 @@ class TransactionsFeedSummary {
       categorySummaries: categoryMap.values.toList()
         ..sort((left, right) => right.amount.compareTo(left.amount)),
       yearlyPeriodTotals: yearlyTotals,
+      periodTotals: periodTotals,
     );
   }
 }
@@ -359,6 +386,9 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
       'p_household_id': query.householdId,
       'p_currency': query.normalizedCurrency,
       'p_category': query.normalizedCategory,
+      'p_account_id': query.normalizedAccountId,
+      'p_include_unassigned_account': query.includeUnassignedAccount,
+      'p_categories': query.normalizedCategories,
       'p_type': query.normalizedType,
       'p_search_query': query.normalizedSearchQuery,
       'p_start_date': query.formattedStartDate,
@@ -368,15 +398,6 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
       'p_cursor_created_at': cursor?.createdAt.toUtc().toIso8601String(),
       'p_cursor_id': cursor?.id,
     };
-    if (query.normalizedAccountId != null) {
-      params['p_account_id'] = query.normalizedAccountId;
-    }
-    if (query.includeUnassignedAccount) {
-      params['p_include_unassigned_account'] = true;
-    }
-    if (query.normalizedCategories != null) {
-      params['p_categories'] = query.normalizedCategories;
-    }
 
     final response = await _runRpc(
       rpcName: 'get_user_transactions_page_v1',
@@ -411,20 +432,16 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
       'p_household_id': query.householdId,
       'p_currency': query.normalizedCurrency,
       'p_category': query.normalizedCategory,
+      'p_account_id': query.normalizedAccountId,
+      'p_include_unassigned_account': query.includeUnassignedAccount,
+      'p_categories': query.normalizedCategories,
       'p_type': query.normalizedType,
       'p_search_query': query.normalizedSearchQuery,
       'p_start_date': query.formattedStartDate,
       'p_end_date': query.formattedEndDate,
+      'p_interval_granularity':
+          query.normalizedSummaryIntervalGranularity ?? 'yearly',
     };
-    if (query.normalizedAccountId != null) {
-      params['p_account_id'] = query.normalizedAccountId;
-    }
-    if (query.includeUnassignedAccount) {
-      params['p_include_unassigned_account'] = true;
-    }
-    if (query.normalizedCategories != null) {
-      params['p_categories'] = query.normalizedCategories;
-    }
     final response = await _runRpc(
       rpcName: 'get_user_transactions_summary_v1',
       params: params,
@@ -444,6 +461,7 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
         .toList();
 
     final yearlyPeriodTotals = <DateTime, double>{};
+    final periodTotals = <DateTime, double>{};
     for (final row in ((payload['yearly_period_totals'] as List?) ?? const [])
         .cast<Map>()) {
       final bucketRaw = row['bucket_start'];
@@ -454,6 +472,16 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
           _centsToDouble(row['amount_cents']);
     }
 
+    for (final row
+        in ((payload['period_totals'] as List?) ?? const []).cast<Map>()) {
+      final bucketRaw = row['bucket_start'];
+      if (bucketRaw == null) {
+        continue;
+      }
+      periodTotals[DateTime.parse(bucketRaw.toString())] =
+          _centsToDouble(row['amount_cents']);
+    }
+
     return TransactionsFeedSummary(
       transactionCount: (payload['transaction_count'] as num?)?.toInt() ?? 0,
       expenseTotal: _centsToDouble(payload['expense_total_cents']),
@@ -461,6 +489,7 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
       hasMultipleCurrencies: payload['has_multiple_currencies'] == true,
       categorySummaries: categoryRows,
       yearlyPeriodTotals: yearlyPeriodTotals,
+      periodTotals: periodTotals,
     );
   }
 

@@ -92,6 +92,24 @@ class AccountDetailsPage extends ConsumerWidget {
       final result =
           await showCreateEditAccountSheet(context, initial: latestAccount);
       if (result == null) return;
+
+      final optimisticAccount = _copyAccount(
+        latestAccount,
+        name: result.name,
+        icon: result.icon,
+        color: result.color,
+        goalAmountCents: result.goalAmountCents,
+        isDefault: result.isDefault,
+        openingBalanceCents: result.openingBalanceCents,
+        currentBalanceCents: result.openingBalanceCents,
+      );
+
+      actions.setOptimisticAccount(optimisticAccount);
+
+      if (context.mounted) {
+        AppToast.success(context, context.l10n.saveChanges);
+      }
+
       try {
         await actions.updateAccount(
           accountId: latestAccount.id,
@@ -101,18 +119,19 @@ class AccountDetailsPage extends ConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
           isDefault: result.isDefault,
+          invalidate: false,
         );
         if (result.openingBalanceCents != latestAccount.currentBalanceCents) {
           await actions.updateBalance(
             accountId: latestAccount.id,
             targetBalanceCents: result.openingBalanceCents,
             note: 'Updated from account editor',
+            invalidate: false,
           );
         }
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.saveChanges);
-        }
+        actions.refreshAccountData();
       } catch (error) {
+        actions.clearOptimisticAccount(latestAccount.id);
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
         }
@@ -371,6 +390,32 @@ class AccountDetailsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+AccountEntity _copyAccount(
+  AccountEntity source, {
+  String? name,
+  String? icon,
+  String? color,
+  int? openingBalanceCents,
+  int? goalAmountCents,
+  bool? isDefault,
+  int? currentBalanceCents,
+}) {
+  return AccountEntity(
+    id: source.id,
+    userId: source.userId,
+    householdId: source.householdId,
+    name: name ?? source.name,
+    icon: icon ?? source.icon,
+    color: color ?? source.color,
+    openingBalanceCents: openingBalanceCents ?? source.openingBalanceCents,
+    goalAmountCents: goalAmountCents,
+    isDefault: isDefault ?? source.isDefault,
+    isSystem: source.isSystem,
+    isArchived: source.isArchived,
+    currentBalanceCents: currentBalanceCents ?? source.currentBalanceCents,
+  );
 }
 
 String? _resolveScopedHouseholdId(HouseholdScope scope) {

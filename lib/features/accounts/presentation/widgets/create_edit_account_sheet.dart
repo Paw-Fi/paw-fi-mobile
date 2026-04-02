@@ -73,7 +73,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
-        AppToast.error(context, context.l10n.pleaseEnterPocketName);
+        AppToast.error(context, 'Please enter an account name');
         return;
       }
 
@@ -118,9 +118,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isEditing
-                            ? context.l10n.editPocket
-                            : context.l10n.addPocket,
+                        isEditing ? 'Edit Account' : 'Add Account',
                         style: TextStyle(
                           color: colorScheme.foreground,
                           fontSize: 20,
@@ -148,7 +146,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.pocketNameLabel,
+                        'Account name',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -158,11 +156,11 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                       const SizedBox(height: 8),
                       CustomTextField(
                         controller: nameController,
-                        placeholder: context.l10n.pocketNamePlaceholder,
+                        placeholder: 'e.g. Daily Spending',
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        context.l10n.pocketColorLabel,
+                        'Account color',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -258,7 +256,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        context.l10n.pocketIconLabel,
+                        'Account icon',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,

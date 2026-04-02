@@ -38,6 +38,35 @@ final accountsByHouseholdIdProvider =
       .toList(growable: false);
 });
 
+final optimisticScopedAccountsOverridesProvider =
+    StateProvider<Map<String, AccountEntity>>((ref) => const {});
+
+List<AccountEntity> _mergeOptimisticAccounts(
+  List<AccountEntity> baseAccounts,
+  Map<String, AccountEntity> optimisticOverrides,
+) {
+  if (optimisticOverrides.isEmpty) {
+    return baseAccounts;
+  }
+
+  if (baseAccounts.isEmpty) {
+    return optimisticOverrides.values.toList(growable: false);
+  }
+
+  final merged = baseAccounts
+      .map((account) => optimisticOverrides[account.id] ?? account)
+      .toList(growable: true);
+
+  final existingIds = merged.map((account) => account.id).toSet();
+  for (final optimistic in optimisticOverrides.values) {
+    if (!existingIds.contains(optimistic.id)) {
+      merged.add(optimistic);
+    }
+  }
+
+  return merged;
+}
+
 final archivedScopedAccountsProvider =
     FutureProvider<List<AccountEntity>>((ref) async {
   final householdId = ref.watch(accountScopeHouseholdIdProvider);
@@ -68,8 +97,16 @@ final scopedAccountsProvider = FutureProvider<List<AccountEntity>>((ref) async {
   return ref.watch(accountsByHouseholdIdProvider(householdId).future);
 });
 
+final effectiveScopedAccountsProvider = Provider<List<AccountEntity>>((ref) {
+  final baseAccounts =
+      ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+  final optimisticOverrides =
+      ref.watch(optimisticScopedAccountsOverridesProvider);
+  return _mergeOptimisticAccounts(baseAccounts, optimisticOverrides);
+});
+
 final defaultScopedAccountProvider = Provider<AccountEntity?>((ref) {
-  final accounts = ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+  final accounts = ref.watch(effectiveScopedAccountsProvider);
   for (final account in accounts) {
     if (account.isDefault) return account;
   }
@@ -77,7 +114,7 @@ final defaultScopedAccountProvider = Provider<AccountEntity?>((ref) {
 });
 
 final accountByIdProvider = Provider.family<AccountEntity?, String>((ref, id) {
-  final accounts = ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+  final accounts = ref.watch(effectiveScopedAccountsProvider);
   for (final account in accounts) {
     if (account.id == id) return account;
   }
@@ -88,6 +125,29 @@ class AccountActions {
   const AccountActions(this.ref);
 
   final Ref ref;
+
+  void setOptimisticAccount(AccountEntity account) {
+    final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state = {
+      ...overrides,
+      account.id: account,
+    };
+  }
+
+  void clearOptimisticAccount(String accountId) {
+    final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+    if (!overrides.containsKey(accountId)) {
+      return;
+    }
+    final nextOverrides = <String, AccountEntity>{...overrides}
+      ..remove(accountId);
+    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+        nextOverrides;
+  }
+
+  void refreshAccountData() {
+    _invalidateAll();
+  }
 
   Future<void> createAccount({
     required String name,
@@ -122,6 +182,7 @@ class AccountActions {
     int? goalAmountCents,
     bool includeGoalAmount = false,
     bool? isDefault,
+    bool invalidate = true,
   }) async {
     final response = await supabase.functions.invoke(
       'update-account',
@@ -136,7 +197,9 @@ class AccountActions {
       },
     );
     _throwIfFailed(response.data, 'Failed to update account');
-    _invalidateAll();
+    if (invalidate) {
+      _invalidateAll();
+    }
   }
 
   Future<void> archiveAccount(String accountId) async {
@@ -184,6 +247,7 @@ class AccountActions {
     required String accountId,
     required int targetBalanceCents,
     String? note,
+    bool invalidate = true,
   }) async {
     final response = await supabase.functions.invoke(
       'update-account-balance',
@@ -194,7 +258,9 @@ class AccountActions {
       },
     );
     _throwIfFailed(response.data, 'Failed to update account balance');
-    _invalidateAll();
+    if (invalidate) {
+      _invalidateAll();
+    }
   }
 
   void _throwIfFailed(dynamic data, String fallback) {
@@ -208,6 +274,7 @@ class AccountActions {
   }
 
   void _invalidateAll() {
+    ref.invalidate(accountsByHouseholdIdProvider);
     ref.invalidate(scopedAccountsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
     ref.invalidate(analyticsProvider);
