@@ -7,7 +7,6 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -24,6 +23,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -491,25 +491,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ColorScheme colorScheme, UserContact? contact) {
     final expensesToExport = filteredExpenses;
 
-    final monthGroups = groupTransactionsByMonth(expensesToExport);
-    final listItems = <_TransactionListItem>[];
-    for (final month in monthGroups) {
-      listItems.add(_TransactionListItem.monthHeader(month));
-      final dayGroups = groupTransactionsByDay(month.expenses);
-      for (final day in dayGroups) {
-        listItems.add(_TransactionListItem.dayHeader(day));
-        for (var i = 0; i < day.expenses.length; i++) {
-          listItems.add(
-            _TransactionListItem.entry(
-              expense: day.expenses[i],
-              isFirst: i == 0,
-              isLast: i == day.expenses.length - 1,
-            ),
-          );
-        }
-      }
-    }
-
     // Prepare Filter Menu Items
     final filterItems = <AdaptivePopupMenuItem>[
       // Type Options
@@ -686,7 +667,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               ),
 
               // Transactions List Groups
-              listItems.isEmpty
+              expensesToExport.isEmpty
                   ? SliverToBoxAdapter(
                       child: Center(
                         child: Padding(
@@ -712,34 +693,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                         ),
                       ),
                     )
-                  : SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final item = listItems[index];
-                          if (item.isMonthHeader) {
-                            return _buildMonthHeader(
-                              context,
-                              item.monthGroup!,
-                              colorScheme,
-                            );
-                          }
-                          if (item.isDayHeader) {
-                            return _buildDayHeader(
-                              context,
-                              item.dayGroup!,
-                              colorScheme,
-                            );
-                          }
-                          return _buildTransactionRow(
+                  : SliverToBoxAdapter(
+                      child: GroupedTransactionsList(
+                        transactions: expensesToExport,
+                        currency: expensesToExport.isNotEmpty
+                            ? (expensesToExport.first.currency ?? 'USD')
+                            : 'USD',
+                        preferredTimezone: contact?.preferredTimezone,
+                        useHorizontalPadding: true,
+                        itemBuilder: (context, expense, isFirst, isLast) {
+                          return _buildTransactionItem(
                             context,
-                            item.expense!,
+                            expense,
                             contact,
-                            colorScheme,
-                            isFirst: item.isFirst,
-                            isLast: item.isLast,
+                            isLast: isLast,
                           );
                         },
-                        childCount: listItems.length,
                       ),
                     ),
 
@@ -766,187 +735,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : '${context.l10n.delete} (${_selectedIds.length})'),
             )
           : null,
-    );
-  }
-
-  Widget _buildMonthHeader(
-    BuildContext context,
-    MonthTransactionGroup group,
-    ColorScheme colorScheme,
-  ) {
-    final locale = Localizations.localeOf(context).toString();
-    final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
-
-    final filterState = ref.watch(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    final currencies = group.expenses
-        .map((e) => e.currency?.toUpperCase())
-        .where((c) => c != null && c.isNotEmpty)
-        .cast<String>()
-        .toSet();
-
-    String? totalString;
-    if (selectedCurrency != null) {
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
-      final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length == 1) {
-      final currency = currencies.first;
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
-      final symbol = resolveCurrencySymbol(currency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length > 1) {
-      totalString = context.l10n.multipleCurrencies;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Row(
-        children: [
-          Text(
-            dateLabel,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.mutedForeground,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const Spacer(),
-          if (totalString != null)
-            Text(
-              totalString,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-                letterSpacing: -0.2,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayHeader(
-    BuildContext context,
-    DayTransactionGroup group,
-    ColorScheme colorScheme,
-  ) {
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-    final now = effectiveNow(preferredTimezone: preferredTimezone);
-    final date = group.date;
-    String dateLabel;
-
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      dateLabel = context.l10n.today;
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
-      dateLabel = context.l10n.yesterday;
-    } else {
-      final locale = Localizations.localeOf(context).toString();
-      dateLabel = DateFormat('MMM d', locale).format(date);
-    }
-
-    final filterState = ref.watch(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    final currencies = group.expenses
-        .map((e) => e.currency?.toUpperCase())
-        .where((c) => c != null && c.isNotEmpty)
-        .cast<String>()
-        .toSet();
-
-    String? totalString;
-    if (selectedCurrency != null) {
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
-      final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length == 1) {
-      final currency = currencies.first;
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
-      final symbol = resolveCurrencySymbol(currency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length > 1) {
-      totalString = context.l10n.multipleCurrencies;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-      child: Row(
-        children: [
-          Text(
-            dateLabel,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 1,
-              color: colorScheme.outline.withValues(alpha: 0.15),
-            ),
-          ),
-          if (totalString != null) ...[
-            const SizedBox(width: 8),
-            Text(
-              totalString,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionRow(
-    BuildContext context,
-    ExpenseEntry item,
-    UserContact? contact,
-    ColorScheme colorScheme, {
-    required bool isFirst,
-    required bool isLast,
-  }) {
-    final radius = BorderRadius.vertical(
-      top: isFirst ? const Radius.circular(24) : Radius.zero,
-      bottom: isLast ? const Radius.circular(24) : Radius.zero,
-    );
-    final shouldShadow = isFirst || isLast;
-
-    return Container(
-      margin: EdgeInsets.fromLTRB(16, 0, 16, isLast ? 16 : 0),
-      clipBehavior: Clip.hardEdge,
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: radius,
-        boxShadow:
-            Theme.of(context).brightness == Brightness.dark || !shouldShadow
-                ? null
-                : [
-                    BoxShadow(
-                      color: colorScheme.homeCardShadow,
-                      blurRadius: 32,
-                      offset: const Offset(0, 8),
-                      spreadRadius: -4,
-                    )
-                  ],
-      ),
-      child: _buildTransactionItem(
-        context,
-        item,
-        contact,
-        isLast: isLast,
-      ),
     );
   }
 
@@ -1045,10 +833,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         'expenseIds': expense.id,
       });
 
-      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+      if (rootNavigator.canPop()) rootNavigator.pop();
 
       if (res.data != null && (res.data['success'] == true)) {
-        // Refresh data
         if (widget.householdId != null) {
           ref
               .read(cacheInvalidatorProvider)
@@ -1064,7 +851,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         _showRootErrorToast(message);
       }
     } catch (e) {
-      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+      if (rootNavigator.canPop()) rootNavigator.pop();
       _showRootErrorToast(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
@@ -1883,60 +1670,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           },
         );
       },
-    );
-  }
-}
-
-class _TransactionListItem {
-  final MonthTransactionGroup? monthGroup;
-  final DayTransactionGroup? dayGroup;
-  final ExpenseEntry? expense;
-  final bool isMonthHeader;
-  final bool isDayHeader;
-  final bool isFirst;
-  final bool isLast;
-
-  const _TransactionListItem._({
-    this.monthGroup,
-    this.dayGroup,
-    this.expense,
-    required this.isMonthHeader,
-    required this.isDayHeader,
-    required this.isFirst,
-    required this.isLast,
-  });
-
-  factory _TransactionListItem.monthHeader(MonthTransactionGroup group) {
-    return _TransactionListItem._(
-      monthGroup: group,
-      isMonthHeader: true,
-      isDayHeader: false,
-      isFirst: false,
-      isLast: false,
-    );
-  }
-
-  factory _TransactionListItem.dayHeader(DayTransactionGroup group) {
-    return _TransactionListItem._(
-      dayGroup: group,
-      isMonthHeader: false,
-      isDayHeader: true,
-      isFirst: false,
-      isLast: false,
-    );
-  }
-
-  factory _TransactionListItem.entry({
-    required ExpenseEntry expense,
-    required bool isFirst,
-    required bool isLast,
-  }) {
-    return _TransactionListItem._(
-      expense: expense,
-      isMonthHeader: false,
-      isDayHeader: false,
-      isFirst: isFirst,
-      isLast: isLast,
     );
   }
 }

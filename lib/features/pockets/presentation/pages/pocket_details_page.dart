@@ -9,13 +9,13 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
 
-import 'package:intl/intl.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
+import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 class PocketDetailsPage extends HookConsumerWidget {
   const PocketDetailsPage({
@@ -347,8 +347,24 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 ],
 
                                 // 4. Recent Transactions
-                                _TransactionsListCard(
-                                  transactions: data.transactions,
+                                GroupedTransactionsList(
+                                  transactions: data.transactions
+                                      .map((tx) => ExpenseEntry(
+                                            id: tx['id'] as String? ?? '',
+                                            date: _parseDate(tx['date']),
+                                            amountCents:
+                                                (tx['amount_cents'] as num? ??
+                                                        0)
+                                                    .toInt(),
+                                            currency:
+                                                tx['currency'] as String? ??
+                                                    effectiveCurrency,
+                                            category:
+                                                tx['category'] as String?,
+                                            rawText: tx['raw_text'] as String?,
+                                            createdAt: DateTime.now(),
+                                          ))
+                                      .toList(),
                                   currency: effectiveCurrency,
                                 ),
                                 // Add extra padding at bottom for scrolling
@@ -619,146 +635,15 @@ class _SpendingBreakdownCard extends StatelessWidget {
   }
 }
 
-class _TransactionsListCard extends StatelessWidget {
-  const _TransactionsListCard({
-    required this.transactions,
-    required this.currency,
-  });
-
-  final List<Map<String, dynamic>> transactions;
-  final String currency;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.pocketCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                context.l10n.recentTransactions,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (transactions.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                context.l10n.noTransactionsYet,
-                style: TextStyle(color: colorScheme.mutedForeground),
-              ),
-            )
-          else
-            Column(
-              children:
-                  transactions.take(5).toList().asMap().entries.map((entry) {
-                final index = entry.key;
-                final tx = entry.value;
-                final amount = (tx['amount_cents'] as num).toDouble() / 100.0;
-                final rawDate = tx['date']?.toString();
-                final parsedDateOnly = tryParseDateOnlyYmd(rawDate);
-                final parsedDate = DateTime.tryParse(rawDate ?? '');
-                final date = parsedDateOnly != null
-                    ? DateTime(
-                        parsedDateOnly.year,
-                        parsedDateOnly.month,
-                        parsedDateOnly.day,
-                      )
-                    : (parsedDate != null
-                        ? DateTime(
-                            parsedDate.year,
-                            parsedDate.month,
-                            parsedDate.day,
-                          )
-                        : DateTime.fromMillisecondsSinceEpoch(0));
-                final category = tx['category'] as String?;
-                final description = tx['raw_text'] ?? context.l10n.expense;
-                final amountDisplay =
-                    _formatLocalizedCurrency(context, amount, currency);
-
-                return Column(
-                  children: [
-                    if (index > 0) const Divider(height: 24),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            getCategoryIcon(category),
-                            size: 16,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                description,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.foreground,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                DateFormat('MMM d').format(date),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          amountDisplay,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 List<Color> _generateGradientColors(Color baseColor, ColorScheme scheme) {
   return AppTheme.pocketDetailsGradient(baseColor, scheme);
+}
+
+DateTime _parseDate(dynamic rawDate) {
+  final rawString = rawDate?.toString();
+  if (rawString == null || rawString.isEmpty) {
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+  final parsed = DateTime.tryParse(rawString);
+  return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
 }

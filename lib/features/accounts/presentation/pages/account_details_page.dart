@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -15,6 +14,7 @@ import 'package:moneko/features/home/presentation/state/home_filter_provider.dar
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 class AccountDetailsPage extends ConsumerWidget {
@@ -252,7 +252,7 @@ class AccountDetailsPage extends ConsumerWidget {
                 ),
               ),
               SliverFillRemaining(
-                hasScrollBody: true,
+                hasScrollBody: false,
                 child: Container(
                   decoration: BoxDecoration(
                     color: colorScheme.sheetBackground,
@@ -310,55 +310,21 @@ class AccountDetailsPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Expanded(
-                          child: scopedExpenses.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    context.l10n.noTransactionsYet,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  itemCount: scopedExpenses.length > 8
-                                      ? 8
-                                      : scopedExpenses.length,
-                                  separatorBuilder: (_, __) => Divider(
-                                    height: 1,
-                                    color: colorScheme.border,
-                                  ),
-                                  itemBuilder: (context, index) {
-                                    final expense = scopedExpenses[index];
-                                    final isIncome =
-                                        (expense.type ?? 'expense') == 'income';
-                                    return ListTile(
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(
-                                        expense.rawText?.trim().isNotEmpty ==
-                                                true
-                                            ? expense.rawText!.trim()
-                                            : expense.category ??
-                                                context.l10n.expense,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      subtitle: Text(
-                                        DateFormat.MMMd().format(expense.date),
-                                      ),
-                                      trailing: Text(
-                                        '${isIncome ? '+' : '-'}${_formatAmount(context, expense.amount.abs(), selectedCurrencyCode)}',
-                                        style: TextStyle(
-                                          color: isIncome
-                                              ? colorScheme.success
-                                              : colorScheme.foreground,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                        ),
+                        if (scopedExpenses.isEmpty)
+                          Center(
+                            child: Text(
+                              context.l10n.noTransactionsYet,
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                          )
+                        else
+                          GroupedTransactionsList(
+                            transactions: scopedExpenses,
+                            currency: selectedCurrencyCode,
+                          ),
+                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
