@@ -35,6 +35,7 @@ class PocketsGridSection extends HookConsumerWidget {
     required this.colorScheme,
     required this.isPersonalMode,
     required this.isActiveMonth,
+    required this.showSwipeHint,
     this.uncategorizedExpenses = const {},
     this.onDateSelected,
   });
@@ -43,6 +44,7 @@ class PocketsGridSection extends HookConsumerWidget {
   final ColorScheme colorScheme;
   final bool isPersonalMode;
   final bool isActiveMonth;
+  final bool showSwipeHint;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
   final ValueChanged<DateTime>? onDateSelected;
 
@@ -260,6 +262,7 @@ class PocketsGridSection extends HookConsumerWidget {
             onDateSelected: onDateSelected,
             isSkeleton: isLoading,
             amountSpotlightKey: amountSpotlightKey,
+            showSwipeHint: showSwipeHint,
           ),
           const SizedBox(height: 24),
 

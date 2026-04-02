@@ -778,9 +778,18 @@ class HomeHeaderSliver extends ConsumerWidget {
                       onPressed: () async {
                         await SpotlightTourController.resetAllTours();
                         final prefs = ref.read(sharedPreferencesProvider);
-                        await prefs.remove(dismissedChecklistStepsStorageKey);
+                        final userId = ref.read(authProvider).uid;
+                        await prefs.remove(
+                          'home_connect_social_dismissed_steps_v1',
+                        );
+                        await prefs.remove(
+                            'accounts_month_swipe_hint_dismissed:$userId');
+                        await prefs.remove(
+                            'pockets_month_swipe_hint_dismissed:$userId');
                         ref.invalidate(dismissedChecklistStepsProvider);
-                        debugPrint('🔁 Spotlight tours reset for debugging');
+                        debugPrint(
+                          '🔁 Spotlight tours + accounts/pockets swipe hints reset for debugging',
+                        );
                       },
                     ),
                   ],

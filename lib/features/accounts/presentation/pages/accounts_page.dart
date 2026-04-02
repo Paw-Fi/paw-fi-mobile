@@ -1,6 +1,9 @@
+import 'dart:async';
+
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -19,18 +22,24 @@ import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 
-class AccountsPage extends ConsumerWidget {
+class AccountsPage extends HookConsumerWidget {
   const AccountsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectedMonthIndexState = useState(0);
+    final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
     final accountsAsync = ref.watch(scopedAccountsProvider);
     final actions = ref.watch(accountActionsProvider);
     final analytics = ref.watch(analyticsProvider);
+    final auth = ref.watch(authProvider);
+    final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final viewMode = ref.watch(viewModeProvider);
@@ -58,21 +67,15 @@ class AccountsPage extends ConsumerWidget {
       return _isInSelectedCurrency(expense, selectedCurrencyCode);
     }).toList(growable: false);
 
-    final now = DateTime.now();
-    final monthExpenses = scopedTransactions.where((expense) {
-      return expense.date.year == now.year && expense.date.month == now.month;
-    });
-    var totalIncome = 0.0;
-    var totalSpent = 0.0;
-    for (final expense in monthExpenses) {
-      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-      if (isIncome) {
-        totalIncome += expense.amount.abs();
-      } else {
-        totalSpent += expense.amount.abs();
-      }
+    final availableMonths = _buildAvailableMonths(scopedTransactions);
+    final maxMonthIndex = availableMonths.length - 1;
+    final swipeHintPrefKey = _accountsMonthSwipeHintDismissedKey(auth.uid);
+    final hasDismissedSwipeHintState =
+        useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
+
+    if (selectedMonthIndexState.value > maxMonthIndex) {
+      selectedMonthIndexState.value = maxMonthIndex;
     }
-    final netWorth = totalIncome - totalSpent;
 
     Future<void> onAddAccount() async {
       final result = await showCreateEditAccountSheet(context);
@@ -152,7 +155,7 @@ class AccountsPage extends ConsumerWidget {
       }
     }
 
-    return Scaffold(
+    return AdaptiveScaffold(
       floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
           ? const Padding(
               padding: EdgeInsets.all(0),
@@ -169,26 +172,14 @@ class AccountsPage extends ConsumerWidget {
             ),
           ),
           data: (accounts) {
-            final defaultAccountId = _resolveDefaultAccountId(accounts);
-            final accountBalances = <String, int>{
-              for (final account in accounts)
-                account.id: account.openingBalanceCents,
-            };
-            for (final tx in scopedTransactions) {
-              final resolvedAccountId = _resolveTransactionAccountId(
-                transaction: tx,
-                defaultAccountId: defaultAccountId,
-              );
-              if (resolvedAccountId == null ||
-                  !accountBalances.containsKey(resolvedAccountId)) {
-                continue;
-              }
-              final amountCents = (tx.amount.abs() * 100).round();
-              final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
-              final current = accountBalances[resolvedAccountId] ?? 0;
-              accountBalances[resolvedAccountId] =
-                  isIncome ? current + amountCents : current - amountCents;
-            }
+            final selectedMonthIndex =
+                selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
+            final selectedMonth = availableMonths[selectedMonthIndex];
+            final selectedSnapshot = _buildSnapshot(
+              accounts: accounts,
+              transactions: scopedTransactions,
+              endExclusive: _startOfNextMonth(selectedMonth),
+            );
 
             return RefreshIndicator(
               onRefresh: onRefresh,
@@ -196,12 +187,42 @@ class AccountsPage extends ConsumerWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
-                  _AccountsOverviewCard(
-                    monthLabel: DateFormat.MMMM().format(now),
-                    currencyCode: selectedCurrencyCode,
-                    netWorth: netWorth,
-                    totalIncome: totalIncome,
-                    totalSpent: totalSpent,
+                  SizedBox(
+                    height: 240,
+                    child: PageView.builder(
+                      itemCount: availableMonths.length,
+                      controller: monthPageController,
+                      reverse: true,
+                      onPageChanged: (index) {
+                        selectedMonthIndexState.value = index;
+                        if (hasDismissedSwipeHintState.value) {
+                          return;
+                        }
+                        hasDismissedSwipeHintState.value = true;
+                        unawaited(prefs.setBool(swipeHintPrefKey, true));
+                      },
+                      itemBuilder: (context, index) {
+                        final month = availableMonths[index];
+                        final snapshot = _buildSnapshot(
+                          accounts: accounts,
+                          transactions: scopedTransactions,
+                          endExclusive: _startOfNextMonth(month),
+                        );
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: _AccountsOverviewCard(
+                            monthLabel: MaterialLocalizations.of(context)
+                                .formatMonthYear(month),
+                            currencyCode: selectedCurrencyCode,
+                            netWorth: snapshot.netWorth,
+                            totalIncome: snapshot.totalIncome,
+                            totalSpent: snapshot.totalSpent,
+                            showSwipeHint: !hasDismissedSwipeHintState.value,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (accounts.isEmpty)
@@ -227,8 +248,9 @@ class AccountsPage extends ConsumerWidget {
                         child: _AccountListTile(
                           account: account,
                           currencyCode: selectedCurrencyCode,
-                          displayBalanceCents: accountBalances[account.id] ??
-                              account.currentBalanceCents,
+                          displayBalanceCents:
+                              selectedSnapshot.accountBalances[account.id] ??
+                                  account.currentBalanceCents,
                           onTap: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -358,6 +380,7 @@ class _AccountsOverviewCard extends StatelessWidget {
     required this.netWorth,
     required this.totalIncome,
     required this.totalSpent,
+    required this.showSwipeHint,
   });
 
   final String monthLabel;
@@ -365,6 +388,7 @@ class _AccountsOverviewCard extends StatelessWidget {
   final double netWorth;
   final double totalIncome;
   final double totalSpent;
+  final bool showSwipeHint;
 
   @override
   Widget build(BuildContext context) {
@@ -492,6 +516,10 @@ class _AccountsOverviewCard extends StatelessWidget {
               ),
             ],
           ),
+          if (showSwipeHint) ...[
+            const Spacer(),
+            const SwipeHintRow(text: 'Swipe right for previous months'),
+          ],
         ],
       ),
     );
@@ -603,7 +631,7 @@ class _AccountListTile extends StatelessWidget {
                         children: [
                           const SizedBox(height: 12),
                           Text(
-                            'BALANCE THIS MONTH',
+                            'BALANCE',
                             style: TextStyle(
                               color: colorScheme.mutedForeground,
                               fontSize: 10,
@@ -700,6 +728,103 @@ String? _resolveTransactionAccountId({
 bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
   final normalized = expense.currency?.trim().toUpperCase();
   return normalized == currencyCode;
+}
+
+List<DateTime> _buildAvailableMonths(List<ExpenseEntry> transactions) {
+  final now = DateTime.now();
+  final currentMonth = DateTime(now.year, now.month);
+  if (transactions.isEmpty) {
+    return <DateTime>[currentMonth];
+  }
+
+  var earliest = currentMonth;
+  for (final tx in transactions) {
+    final txMonth = DateTime(tx.date.year, tx.date.month);
+    if (txMonth.isBefore(earliest)) {
+      earliest = txMonth;
+    }
+  }
+
+  final months = <DateTime>[];
+  var cursor = currentMonth;
+  while (!cursor.isBefore(earliest)) {
+    months.add(cursor);
+    cursor = DateTime(cursor.year, cursor.month - 1);
+  }
+  return months;
+}
+
+String _accountsMonthSwipeHintDismissedKey(String userId) {
+  return 'accounts_month_swipe_hint_dismissed:$userId';
+}
+
+DateTime _startOfNextMonth(DateTime month) {
+  return DateTime(month.year, month.month + 1);
+}
+
+_AccountsSnapshot _buildSnapshot({
+  required List<AccountEntity> accounts,
+  required List<ExpenseEntry> transactions,
+  required DateTime endExclusive,
+}) {
+  final filteredTransactions = transactions.where((expense) {
+    return expense.date.isBefore(endExclusive);
+  }).toList(growable: false);
+
+  var totalIncome = 0.0;
+  var totalSpent = 0.0;
+  for (final expense in filteredTransactions) {
+    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
+    if (isIncome) {
+      totalIncome += expense.amount.abs();
+    } else {
+      totalSpent += expense.amount.abs();
+    }
+  }
+
+  final defaultAccountId = _resolveDefaultAccountId(accounts);
+  final accountBalances = <String, int>{
+    for (final account in accounts) account.id: account.openingBalanceCents,
+  };
+  for (final tx in filteredTransactions) {
+    final resolvedAccountId = _resolveTransactionAccountId(
+      transaction: tx,
+      defaultAccountId: defaultAccountId,
+    );
+    if (resolvedAccountId == null ||
+        !accountBalances.containsKey(resolvedAccountId)) {
+      continue;
+    }
+    final amountCents = tx.amountCents.abs();
+    final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
+    final current = accountBalances[resolvedAccountId] ?? 0;
+    accountBalances[resolvedAccountId] =
+        isIncome ? current + amountCents : current - amountCents;
+  }
+
+  final netWorth =
+      accountBalances.values.fold<int>(0, (sum, value) => sum + value) / 100.0;
+
+  return _AccountsSnapshot(
+    totalIncome: totalIncome,
+    totalSpent: totalSpent,
+    netWorth: netWorth,
+    accountBalances: accountBalances,
+  );
+}
+
+class _AccountsSnapshot {
+  const _AccountsSnapshot({
+    required this.totalIncome,
+    required this.totalSpent,
+    required this.netWorth,
+    required this.accountBalances,
+  });
+
+  final double totalIncome;
+  final double totalSpent;
+  final double netWorth;
+  final Map<String, int> accountBalances;
 }
 
 class _OrganicAccountTileClipper extends CustomClipper<Path> {

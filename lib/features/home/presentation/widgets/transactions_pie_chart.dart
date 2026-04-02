@@ -13,6 +13,8 @@ class TransactionsPieChart extends StatefulWidget {
   final List<ExpenseEntry> expenses;
   final String? selectedCurrency;
   final String periodLabel;
+  final List<CategorySummary>? categorySummariesOverride;
+  final double? totalSpentOverride;
 
   const TransactionsPieChart({
     super.key,
@@ -20,6 +22,8 @@ class TransactionsPieChart extends StatefulWidget {
     required this.expenses,
     required this.periodLabel,
     this.selectedCurrency,
+    this.categorySummariesOverride,
+    this.totalSpentOverride,
   });
 
   @override
@@ -59,14 +63,18 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
     final spendOnly = widget.expenses
         .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
         .toList();
-    
+
     // Take top 5 and group rest into "other" if there are many
-    var categorySummaries = _getCategorySummaries(spendOnly);
+    var categorySummaries = widget.categorySummariesOverride != null
+        ? List<CategorySummary>.from(widget.categorySummariesOverride!)
+        : _getCategorySummaries(spendOnly);
     if (categorySummaries.length > 6) {
       final visible = categorySummaries.take(5).toList(growable: true);
       final otherItems = categorySummaries.skip(5);
-      final otherAmount = otherItems.fold<double>(0, (sum, item) => sum + item.amount);
-      final otherCount = otherItems.fold<int>(0, (sum, item) => sum + item.transactionCount);
+      final otherAmount =
+          otherItems.fold<double>(0, (sum, item) => sum + item.amount);
+      final otherCount =
+          otherItems.fold<int>(0, (sum, item) => sum + item.transactionCount);
       visible.add(
         CategorySummary(
           category: 'other',
@@ -78,7 +86,7 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
       categorySummaries = visible;
     }
 
-    final totalSpent = _getTotalSpent(spendOnly);
+    final totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
     final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
 
     final selected = (_touchedIndex != null &&
@@ -118,37 +126,39 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                   width: 240,
                   height: 240,
                   child: PieChart(
-                    
                     PieChartData(
-                      
                       pieTouchData: PieTouchData(
                         touchCallback: (event, response) {
                           if (event is FlTapDownEvent) {
                             if (response?.touchedSection != null) {
                               setState(() {
-                                final nextIndex = response!.touchedSection!.touchedSectionIndex;
-                                _touchedIndex = _touchedIndex == nextIndex ? null : nextIndex;
+                                final nextIndex = response!
+                                    .touchedSection!.touchedSectionIndex;
+                                _touchedIndex = _touchedIndex == nextIndex
+                                    ? null
+                                    : nextIndex;
                               });
                             }
-                          } else if (event is FlTapUpEvent || event is FlTapCancelEvent) {
+                          } else if (event is FlTapUpEvent ||
+                              event is FlTapCancelEvent) {
                             // Optionally keep selection or clear it
                           }
                         },
                       ),
                       sectionsSpace: 4,
-                      centerSpaceRadius: 100, // Narrow radius for the donut look
+                      centerSpaceRadius:
+                          100, // Narrow radius for the donut look
                       sections: categorySummaries.asMap().entries.map((entry) {
                         final idx = entry.key;
                         final category = entry.value;
                         final isTouched = idx == _touchedIndex;
-                        
+
                         return PieChartSectionData(
                           color: category.color,
                           value: category.amount,
                           title: '', // No title inside pie section
                           radius: isTouched ? 23 : 15, // Thinner section
                           showTitle: false,
-                         
                         );
                       }).toList(),
                     ),
@@ -165,7 +175,8 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              getCategoryTranslation(context, selected.category).toUpperCase(),
+                              getCategoryTranslation(context, selected.category)
+                                  .toUpperCase(),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -242,7 +253,7 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
               final category = categorySummaries[index];
               final percent = (category.amount / totalSpent) * 100;
               final isSelected = _touchedIndex == index;
-              
+
               return GestureDetector(
                 onTap: () {
                   setState(() {
@@ -253,12 +264,15 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                   duration: const Duration(milliseconds: 200),
                   width: 180, // Increased width to show it's scrollable
                   decoration: BoxDecoration(
-                    color: isSelected 
+                    color: isSelected
                         ? widget.colorScheme.homeCardSurface
                         : widget.colorScheme.card, // Fallback to a card surface
-                    borderRadius: BorderRadius.circular(10), // Use radius 10 from aesthetics
+                    borderRadius: BorderRadius.circular(
+                        10), // Use radius 10 from aesthetics
                     border: Border.all(
-                      color: isSelected ? widget.colorScheme.primary.withValues(alpha: 0.5) : Colors.transparent,
+                      color: isSelected
+                          ? widget.colorScheme.primary.withValues(alpha: 0.5)
+                          : Colors.transparent,
                       width: 1,
                     ),
                     boxShadow: Theme.of(context).brightness == Brightness.dark
@@ -270,7 +284,8 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                               spreadRadius: -1,
                             ),
                             BoxShadow(
-                              color: widget.colorScheme.surface.withValues(alpha: 0.2),
+                              color: widget.colorScheme.surface
+                                  .withValues(alpha: 0.2),
                               blurRadius: 16,
                               offset: const Offset(0, 8),
                               spreadRadius: -2,
@@ -278,20 +293,23 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                           ]
                         : [
                             BoxShadow(
-                              color: widget.colorScheme.homeCardShadow.withValues(alpha: 0.15),
+                              color: widget.colorScheme.homeCardShadow
+                                  .withValues(alpha: 0.15),
                               blurRadius: 13,
                               offset: const Offset(0, 2),
                               spreadRadius: -6,
                             ),
                             BoxShadow(
-                              color: widget.colorScheme.homeCardShadow.withValues(alpha: 0.08),
+                              color: widget.colorScheme.homeCardShadow
+                                  .withValues(alpha: 0.08),
                               blurRadius: 12,
                               offset: const Offset(0, 3),
                               spreadRadius: -2,
                             ),
                           ],
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -308,7 +326,8 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              getCategoryTranslation(context, category.category),
+                              getCategoryTranslation(
+                                  context, category.category),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,

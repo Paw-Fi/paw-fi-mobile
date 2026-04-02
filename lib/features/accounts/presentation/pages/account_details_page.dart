@@ -4,16 +4,17 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
 import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
 import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
@@ -30,12 +31,41 @@ class AccountDetailsPage extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final actions = ref.watch(accountActionsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final currentUserId = ref.watch(authProvider.select((state) => state.uid));
     final latestAccount = ref.watch(accountByIdProvider(account.id)) ?? account;
+    final householdScope = ref.watch(householdScopeProvider);
     final scopedAccounts = ref.watch(scopedAccountsProvider).valueOrNull ??
         const <AccountEntity>[];
     final defaultAccountId = _resolveDefaultAccountId(scopedAccounts);
-    final allExpenses = ref.watch(analyticsProvider).allExpenses;
-    final householdScope = ref.watch(householdScopeProvider);
+    final isDefaultResolvedAccount = latestAccount.id == defaultAccountId;
+
+    final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
+    final accountFeedQuery = TransactionsFeedQuery(
+      userId: currentUserId,
+      householdId: effectiveHouseholdId,
+      selectedCurrency: selectedCurrencyCode,
+      selectedCategory: null,
+      selectedAccountId: latestAccount.id,
+      selectedCategories: null,
+      includeUnassignedAccount: isDefaultResolvedAccount,
+      selectedType: 'all',
+      searchQuery: '',
+      startDate: null,
+      endDate: null,
+    );
+    final accountFeedState =
+        ref.watch(transactionsFeedProvider(accountFeedQuery));
+
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 0);
+    final monthFeedQuery = accountFeedQuery.copyWith(
+      startDate: monthStart,
+      endDate: monthEnd,
+    );
+    final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
+
+    final scopedExpenses = accountFeedState.items;
     final accountColor =
         parseAccountColor(latestAccount.color, colorScheme.primary);
     final gradientColors =
@@ -46,38 +76,14 @@ class AccountDetailsPage extends ConsumerWidget {
     final secondaryTextColor =
         isBackgroundLight ? AppTheme.lightMuted : AppTheme.darkMutedForeground;
 
-    final scopedExpenses = allExpenses.where((expense) {
-      if (!_isInActiveScope(expense, householdScope)) return false;
-      if (!_isInSelectedCurrency(expense, selectedCurrencyCode)) return false;
-      final resolvedAccountId = _resolveTransactionAccountId(
-        transaction: expense,
-        defaultAccountId: defaultAccountId,
-      );
-      return resolvedAccountId == latestAccount.id;
-    }).toList(growable: false)
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final currentBalanceCents = latestAccount.openingBalanceCents +
+        ((accountFeedState.summary.incomeTotal -
+                    accountFeedState.summary.expenseTotal) *
+                100)
+            .round();
+    final totalIncome = monthFeedState.summary.incomeTotal;
+    final totalSpent = monthFeedState.summary.expenseTotal;
 
-    var currentBalanceCents = latestAccount.openingBalanceCents;
-    for (final expense in scopedExpenses) {
-      final amountCents = (expense.amount.abs() * 100).round();
-      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-      currentBalanceCents += isIncome ? amountCents : -amountCents;
-    }
-
-    final now = DateTime.now();
-    final monthExpenses = scopedExpenses.where((expense) {
-      return expense.date.year == now.year && expense.date.month == now.month;
-    });
-    var totalIncome = 0.0;
-    var totalSpent = 0.0;
-    for (final expense in monthExpenses) {
-      final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-      if (isIncome) {
-        totalIncome += expense.amount.abs();
-      } else {
-        totalSpent += expense.amount.abs();
-      }
-    }
     final net = totalIncome - totalSpent;
 
     final symbol = resolveCurrencySymbol(selectedCurrencyCode);
@@ -151,190 +157,238 @@ class AccountDetailsPage extends ConsumerWidget {
               ),
             ),
           ),
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 300,
-                pinned: true,
-                stretch: true,
-                backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-                elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.edit, color: textColor),
-                    onPressed: onEdit,
+          AutoPaginatedScroll(
+            hasMore: accountFeedState.hasMore,
+            isLoading: accountFeedState.isLoading,
+            isLoadingMore: accountFeedState.isLoadingMore,
+            onLoadMore: () {
+              ref
+                  .read(transactionsFeedProvider(accountFeedQuery).notifier)
+                  .loadMore();
+            },
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 300,
+                  pinned: true,
+                  stretch: true,
+                  backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new, color: textColor),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  if (!latestAccount.isSystem && !latestAccount.isArchived)
+                  actions: [
                     IconButton(
-                      icon: Icon(Icons.archive_outlined, color: textColor),
-                      onPressed: onArchive,
+                      icon: Icon(Icons.edit, color: textColor),
+                      onPressed: onEdit,
                     ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  stretchModes: const [
-                    StretchMode.zoomBackground,
-                    StretchMode.fadeTitle,
+                    if (!latestAccount.isSystem && !latestAccount.isArchived)
+                      IconButton(
+                        icon: Icon(Icons.archive_outlined, color: textColor),
+                        onPressed: onArchive,
+                      ),
                   ],
-                  background: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 20),
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: textColor.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(18),
+                  flexibleSpace: FlexibleSpaceBar(
+                    stretchModes: const [
+                      StretchMode.zoomBackground,
+                      StretchMode.fadeTitle,
+                    ],
+                    background: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 20),
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: textColor.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                resolveAccountIcon(latestAccount.icon),
+                                color: textColor,
+                                size: 30,
+                              ),
                             ),
-                            child: Icon(
-                              resolveAccountIcon(latestAccount.icon),
-                              color: textColor,
-                              size: 30,
+                            const SizedBox(height: 12),
+                            Text(
+                              latestAccount.name,
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            latestAccount.name,
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.l10n.balanceSummary,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: secondaryTextColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _formatAmount(
-                              context,
-                              currentBalanceCents / 100.0,
-                              selectedCurrencyCode,
-                            ),
-                            style: TextStyle(
-                              fontSize: 44,
-                              fontWeight: FontWeight.w800,
-                              color: textColor,
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          if (latestAccount.goalAmountCents != null) ...[
                             const SizedBox(height: 8),
                             Text(
-                              '${context.l10n.balanceSummary} ${_formatAmount(context, latestAccount.goalAmountCents! / 100.0, selectedCurrencyCode)}',
+                              context.l10n.balanceSummary,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: secondaryTextColor,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _formatAmount(
+                                context,
+                                currentBalanceCents / 100.0,
+                                selectedCurrencyCode,
+                              ),
+                              style: TextStyle(
+                                fontSize: 44,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                            if (latestAccount.goalAmountCents != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                '${context.l10n.balanceSummary} ${_formatAmount(context, latestAccount.goalAmountCents! / 100.0, selectedCurrencyCode)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: secondaryTextColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetBackground,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(32),
+                        topRight: Radius.circular(32),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            context.l10n.keyInsights,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StatCard(
+                                  label: context.l10n.totalIncome,
+                                  value:
+                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalIncome)))}',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  label: context.l10n.totalSpent,
+                                  value:
+                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalSpent)))}',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  label: 'Net',
+                                  value:
+                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(net)))}',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            context.l10n.recentTransactions,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (accountFeedState.isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (accountFeedState.error != null)
+                            Center(
+                              child: Text(
+                                context.l10n.error(accountFeedState.error!),
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            )
+                          else if (scopedExpenses.isEmpty)
+                            Center(
+                              child: Text(
+                                context.l10n.noTransactionsYet,
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            )
+                          else
+                            GroupedTransactionsList(
+                              transactions: scopedExpenses,
+                              currency: selectedCurrencyCode,
+                            ),
+                          PaginatedLoadMoreIndicator(
+                            show: accountFeedState.isLoadingMore,
+                          ),
+                          const SizedBox(height: 40),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.sheetBackground,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          context.l10n.keyInsights,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _StatCard(
-                                label: context.l10n.totalIncome,
-                                value:
-                                    '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalIncome)))}',
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _StatCard(
-                                label: context.l10n.totalSpent,
-                                value:
-                                    '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalSpent)))}',
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _StatCard(
-                                label: 'Net',
-                                value:
-                                    '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(net)))}',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          context.l10n.recentTransactions,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        if (scopedExpenses.isEmpty)
-                          Center(
-                            child: Text(
-                              context.l10n.noTransactionsYet,
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                              ),
-                            ),
-                          )
-                        else
-                          GroupedTransactionsList(
-                            transactions: scopedExpenses,
-                            currency: selectedCurrencyCode,
-                          ),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+}
+
+String? _resolveScopedHouseholdId(HouseholdScope scope) {
+  switch (scope.activeAccountType) {
+    case ActiveAccountType.personal:
+      return null;
+    case ActiveAccountType.portfolio:
+      final householdId = scope.activeAccountHouseholdId;
+      if (householdId == null || householdId.isEmpty) {
+        return null;
+      }
+      return householdId;
+    case ActiveAccountType.household:
+      final householdId = scope.selectedHouseholdId;
+      if (householdId == null || householdId.isEmpty) {
+        return null;
+      }
+      return householdId;
   }
 }
 
@@ -352,22 +406,6 @@ String? _resolveDefaultAccountId(List<AccountEntity> accounts) {
     }
   }
   return accounts.isNotEmpty ? accounts.first.id : null;
-}
-
-String? _resolveTransactionAccountId({
-  required ExpenseEntry transaction,
-  required String? defaultAccountId,
-}) {
-  final raw = transaction.accountId?.trim();
-  if (raw != null && raw.isNotEmpty) {
-    return raw;
-  }
-  return defaultAccountId;
-}
-
-bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
-  final normalized = expense.currency?.trim().toUpperCase();
-  return normalized == currencyCode;
 }
 
 class _StatCard extends StatelessWidget {
@@ -410,20 +448,6 @@ class _StatCard extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-bool _isInActiveScope(ExpenseEntry expense, HouseholdScope scope) {
-  final householdId = expense.householdId;
-  switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
-      return householdId == null || householdId.isEmpty;
-    case ActiveAccountType.portfolio:
-      final selected = scope.activeAccountHouseholdId;
-      return selected != null && selected.isNotEmpty && householdId == selected;
-    case ActiveAccountType.household:
-      final selected = scope.selectedHouseholdId;
-      return selected != null && selected.isNotEmpty && householdId == selected;
   }
 }
 

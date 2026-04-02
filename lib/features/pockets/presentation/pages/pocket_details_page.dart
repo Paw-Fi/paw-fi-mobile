@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -14,8 +16,8 @@ import 'package:moneko/features/pockets/presentation/state/pocket_details_provid
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
+import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 
 class PocketDetailsPage extends HookConsumerWidget {
   const PocketDetailsPage({
@@ -31,6 +33,7 @@ class PocketDetailsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(pocketsProvider(scopeParams));
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUserId = ref.watch(authProvider.select((state) => state.uid));
 
     // If state is loading (e.g., after invalidation), show loading indicator
     if (state.isLoading && state.editing.isEmpty && state.saved.isEmpty) {
@@ -107,6 +110,45 @@ class PocketDetailsPage extends HookConsumerWidget {
       isBootstrapCurrency: false,
       includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
+    final detailsAsync = ref.watch(
+      pocketDetailsProvider(
+        PocketTransactionsParams(
+          pocketId: pocketId,
+          scopeParams: detailScopeParams,
+        ),
+      ),
+    );
+
+    TransactionsFeedQuery buildFeedQuery(List<String> linkedCategories) {
+      final periodMonth = detailScopeParams.periodMonth ?? DateTime.now();
+      final monthStart = DateTime(periodMonth.year, periodMonth.month, 1);
+      final monthEnd = DateTime(periodMonth.year, periodMonth.month + 1, 0);
+      final feedHouseholdId =
+          detailScopeParams.scope == PocketsScopeType.personal
+              ? null
+              : detailScopeParams.householdId;
+      return TransactionsFeedQuery(
+        userId: currentUserId,
+        householdId: feedHouseholdId,
+        selectedCurrency: effectiveCurrency,
+        selectedCategory: null,
+        selectedAccountId: null,
+        selectedCategories: linkedCategories,
+        selectedType: 'expense',
+        searchQuery: '',
+        startDate: monthStart,
+        endDate: monthEnd,
+      );
+    }
+
+    final detailsData = detailsAsync.valueOrNull;
+    final activeFeedState = detailsData == null
+        ? null
+        : ref.watch(
+            transactionsFeedProvider(
+              buildFeedQuery(detailsData.linkedCategories),
+            ),
+          );
 
     // Calculate unallocated budget for the edit sheet based on the effective
     // limits shown in the UI (supports fixed allocations).
@@ -147,247 +189,255 @@ class PocketDetailsPage extends HookConsumerWidget {
             ),
           ),
           // 2. Scrollable Content
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics()),
-            slivers: [
-              SliverAppBar(
-                expandedHeight: 320,
-                pinned: true,
-                stretch: true,
-                backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
-                elevation: 0,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back_ios_new, color: textColor),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.edit, color: textColor),
-                    onPressed: () {
-                      final rootNavigator = Navigator.of(context);
-                      // Combine both saved and editing pockets for complete rebalancing
-                      final seenIds = <String>{};
-                      final allPockets = <PocketEnvelope>[
-                        ...state.editing.where((p) {
-                          if (seenIds.contains(p.id)) return false;
-                          seenIds.add(p.id);
-                          return true;
-                        }),
-                        ...state.saved.where((p) {
-                          if (seenIds.contains(p.id)) return false;
-                          seenIds.add(p.id);
-                          return true;
-                        }),
-                      ];
-
-                      showModalBottomSheet(
-                        context: context,
-                        barrierColor: Colors.black.withValues(alpha: 0.5),
-                        enableDrag: false,
-                        useSafeArea: true,
-                        isScrollControlled: true,
-                        builder: (sheetContext) => EditPocketEnvelopeSheet(
-                          scopeParams: detailScopeParams,
-                          existingEnvelope: pocket,
-                          totalBudget: totalBudget,
-                          unallocatedBudget: unallocatedBudget,
-                          budgetId: state.budgetId,
-                          allPockets: allPockets,
-                          onDeleteCompleted: () {
-                            rootNavigator.pop();
-                          },
-                        ),
-                      );
-                    },
+          AutoPaginatedScroll(
+            hasMore: activeFeedState?.hasMore ?? false,
+            isLoading: activeFeedState?.isLoading ?? false,
+            isLoadingMore: activeFeedState?.isLoadingMore ?? false,
+            onLoadMore: () {
+              if (detailsData == null) {
+                return;
+              }
+              final query = buildFeedQuery(detailsData.linkedCategories);
+              ref.read(transactionsFeedProvider(query).notifier).loadMore();
+            },
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 320,
+                  pinned: true,
+                  stretch: true,
+                  backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_ios_new, color: textColor),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  stretchModes: const [
-                    StretchMode.zoomBackground,
-                    StretchMode.fadeTitle,
-                  ],
-                  background: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 20),
-                          // Icon & Name
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (pocket.icon != null) ...[
-                                Icon(
-                                  getPocketIconData(pocket.icon),
-                                  size: 28,
-                                  color: textColor,
-                                ),
-                                const SizedBox(width: 12),
-                              ],
-                              Flexible(
-                                child: Text(
-                                  pocket.name,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: textColor,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.l10n.monthlyBudget,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: secondaryTextColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          // Big Amount (Remaining)
-                          Text(
-                            _formatLocalizedCurrency(
-                              context,
-                              limit - pocket.spent,
-                              effectiveCurrency,
-                            ),
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.w800,
-                              color: textColor,
-                              letterSpacing: -1,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Allocated
-                          Text(
-                            '${_formatLocalizedCurrency(context, limit, effectiveCurrency)} allocated',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: secondaryTextColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          // Progress Bar
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: LinearProgressIndicator(
-                              value: progress.clamp(0.0, 1.0),
-                              minHeight: 8,
-                              backgroundColor: textColor.withValues(alpha: 0.1),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                textColor.withValues(alpha: 0.8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.sheetBackground,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Consumer(
-                      builder: (context, ref, child) {
-                        final detailsAsync = ref.watch(
-                          pocketDetailsProvider(
-                            PocketTransactionsParams(
-                              pocketId: pocketId,
-                              scopeParams: detailScopeParams,
-                            ),
-                          ),
-                        );
+                  actions: [
+                    IconButton(
+                      icon: Icon(Icons.edit, color: textColor),
+                      onPressed: () {
+                        final rootNavigator = Navigator.of(context);
+                        // Combine both saved and editing pockets for complete rebalancing
+                        final seenIds = <String>{};
+                        final allPockets = <PocketEnvelope>[
+                          ...state.editing.where((p) {
+                            if (seenIds.contains(p.id)) return false;
+                            seenIds.add(p.id);
+                            return true;
+                          }),
+                          ...state.saved.where((p) {
+                            if (seenIds.contains(p.id)) return false;
+                            seenIds.add(p.id);
+                            return true;
+                          }),
+                        ];
 
-                        return detailsAsync.when(
-                          data: (data) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Text(
-                                  context.l10n.keyInsights,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                // 1. Stats Grid
-                                _StatsGrid(
-                                  spent: pocket.spent,
-                                  dailyAverage: data.dailyAverage,
-                                  allowance: limit,
-                                  currency: effectiveCurrency,
-                                ),
-                                const SizedBox(height: 24),
-
-                                // 3. Spending Breakdown
-                                if (data.categorySpending.isNotEmpty) ...[
-                                  _SpendingBreakdownCard(
-                                    categorySpending: data.categorySpending,
-                                    currency: effectiveCurrency,
-                                  ),
-                                  const SizedBox(height: 24),
-                                ],
-
-                                // 4. Recent Transactions
-                                GroupedTransactionsList(
-                                  transactions: data.transactions
-                                      .map((tx) => ExpenseEntry(
-                                            id: tx['id'] as String? ?? '',
-                                            date: _parseDate(tx['date']),
-                                            amountCents:
-                                                (tx['amount_cents'] as num? ??
-                                                        0)
-                                                    .toInt(),
-                                            currency:
-                                                tx['currency'] as String? ??
-                                                    effectiveCurrency,
-                                            category:
-                                                tx['category'] as String?,
-                                            rawText: tx['raw_text'] as String?,
-                                            createdAt: DateTime.now(),
-                                          ))
-                                      .toList(),
-                                  currency: effectiveCurrency,
-                                ),
-                                // Add extra padding at bottom for scrolling
-                                const SizedBox(height: 40),
-                              ],
-                            );
-                          },
-                          loading: () => const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(32.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          error: (err, stack) => Center(
-                            child: Text(context.l10n.error(err.toString())),
+                        showModalBottomSheet(
+                          context: context,
+                          barrierColor:
+                              colorScheme.scrim.withValues(alpha: 0.5),
+                          enableDrag: false,
+                          useSafeArea: true,
+                          isScrollControlled: true,
+                          builder: (sheetContext) => EditPocketEnvelopeSheet(
+                            scopeParams: detailScopeParams,
+                            existingEnvelope: pocket,
+                            totalBudget: totalBudget,
+                            unallocatedBudget: unallocatedBudget,
+                            budgetId: state.budgetId,
+                            allPockets: allPockets,
+                            onDeleteCompleted: () {
+                              rootNavigator.pop();
+                            },
                           ),
                         );
                       },
                     ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    stretchModes: const [
+                      StretchMode.zoomBackground,
+                      StretchMode.fadeTitle,
+                    ],
+                    background: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(height: 20),
+                            // Icon & Name
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (pocket.icon != null) ...[
+                                  Icon(
+                                    getPocketIconData(pocket.icon),
+                                    size: 28,
+                                    color: textColor,
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    pocket.name,
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: textColor,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              context.l10n.monthlyBudget,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: secondaryTextColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            // Big Amount (Remaining)
+                            Text(
+                              _formatLocalizedCurrency(
+                                context,
+                                limit - pocket.spent,
+                                effectiveCurrency,
+                              ),
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // Allocated
+                            Text(
+                              '${_formatLocalizedCurrency(context, limit, effectiveCurrency)} allocated',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: secondaryTextColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            // Progress Bar
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: LinearProgressIndicator(
+                                value: progress.clamp(0.0, 1.0),
+                                minHeight: 8,
+                                backgroundColor:
+                                    textColor.withValues(alpha: 0.1),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  textColor.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetBackground,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(32),
+                        topRight: Radius.circular(32),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: detailsAsync.when(
+                        data: (data) {
+                          final feedQuery =
+                              buildFeedQuery(data.linkedCategories);
+                          final feedState =
+                              ref.watch(transactionsFeedProvider(feedQuery));
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                context.l10n.keyInsights,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // 1. Stats Grid
+                              _StatsGrid(
+                                spent: pocket.spent,
+                                dailyAverage: data.dailyAverage,
+                                allowance: limit,
+                                currency: effectiveCurrency,
+                              ),
+                              const SizedBox(height: 24),
+
+                              // 3. Spending Breakdown
+                              if (data.categorySpending.isNotEmpty) ...[
+                                _SpendingBreakdownCard(
+                                  categorySpending: data.categorySpending,
+                                  currency: effectiveCurrency,
+                                ),
+                                const SizedBox(height: 24),
+                              ],
+
+                              // 4. Recent Transactions
+                              if (feedState.isLoading)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(32.0),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else if (feedState.error != null)
+                                Center(
+                                  child: Text(
+                                    context.l10n.error(feedState.error!),
+                                  ),
+                                )
+                              else
+                                GroupedTransactionsList(
+                                  transactions: feedState.items,
+                                  currency: effectiveCurrency,
+                                ),
+                              PaginatedLoadMoreIndicator(
+                                show: feedState.isLoadingMore,
+                                topPadding: 8,
+                              ),
+                              // Add extra padding at bottom for scrolling
+                              const SizedBox(height: 40),
+                            ],
+                          );
+                        },
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        error: (err, stack) => Center(
+                          child: Text(context.l10n.error(err.toString())),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -637,13 +687,4 @@ class _SpendingBreakdownCard extends StatelessWidget {
 
 List<Color> _generateGradientColors(Color baseColor, ColorScheme scheme) {
   return AppTheme.pocketDetailsGradient(baseColor, scheme);
-}
-
-DateTime _parseDate(dynamic rawDate) {
-  final rawString = rawDate?.toString();
-  if (rawString == null || rawString.isEmpty) {
-    return DateTime.fromMillisecondsSinceEpoch(0);
-  }
-  final parsed = DateTime.tryParse(rawString);
-  return parsed ?? DateTime.fromMillisecondsSinceEpoch(0);
 }

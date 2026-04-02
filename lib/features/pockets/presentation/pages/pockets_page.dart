@@ -50,6 +50,11 @@ class PocketsPage extends HookConsumerWidget {
     final includeUpcomingRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final recurringPreferenceReady = useState(false);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final pocketsSwipeHintPrefKey =
+        _pocketsMonthSwipeHintDismissedKey(user.uid);
+    final hasDismissedSwipeHintState =
+        useState<bool>(prefs.getBool(pocketsSwipeHintPrefKey) ?? false);
 
     // Track save/reset operations
     final isSavingChanges = useState(false);
@@ -301,6 +306,11 @@ class PocketsPage extends HookConsumerWidget {
               final offset = index - initialPage;
               currentMonthState.value =
                   DateTime(initialMonth.year, initialMonth.month + offset, 1);
+              if (hasDismissedSwipeHintState.value) {
+                return;
+              }
+              hasDismissedSwipeHintState.value = true;
+              unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
             },
             itemBuilder: (context, index) {
               final offset = index - initialPage;
@@ -348,6 +358,7 @@ class PocketsPage extends HookConsumerWidget {
                 isPersonalMode: householdScope.activeAccountType !=
                     ActiveAccountType.household,
                 isActiveMonth: scopeParams == currentScopeParams,
+                showSwipeHint: !hasDismissedSwipeHintState.value,
                 onDateSelected: (date) {
                   final diffYears = date.year - initialMonth.year;
                   final diffMonths = date.month - initialMonth.month;
@@ -556,6 +567,7 @@ class _PocketsMonthView extends HookConsumerWidget {
     required this.colorScheme,
     required this.isPersonalMode,
     required this.isActiveMonth,
+    required this.showSwipeHint,
     this.onDateSelected,
   });
 
@@ -563,6 +575,7 @@ class _PocketsMonthView extends HookConsumerWidget {
   final ColorScheme colorScheme;
   final bool isPersonalMode;
   final bool isActiveMonth;
+  final bool showSwipeHint;
   final ValueChanged<DateTime>? onDateSelected;
 
   @override
@@ -694,6 +707,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                 colorScheme: colorScheme,
                 isPersonalMode: isPersonalMode,
                 isActiveMonth: isActiveMonth,
+                showSwipeHint: showSwipeHint,
                 uncategorizedExpenses: pocketsState.uncategorizedExpenses,
                 onDateSelected: onDateSelected,
               ),
@@ -703,6 +717,10 @@ class _PocketsMonthView extends HookConsumerWidget {
       ),
     );
   }
+}
+
+String _pocketsMonthSwipeHintDismissedKey(String userId) {
+  return 'pockets_month_swipe_hint_dismissed:$userId';
 }
 
 class _CopyBudgetBanner extends StatelessWidget {
