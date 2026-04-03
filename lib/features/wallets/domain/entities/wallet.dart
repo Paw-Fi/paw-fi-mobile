@@ -1,4 +1,4 @@
-class AccountEntity {
+class WalletEntity {
   final String id;
   final String userId;
   final String? householdId;
@@ -12,7 +12,7 @@ class AccountEntity {
   final bool isArchived;
   final int currentBalanceCents;
 
-  const AccountEntity({
+  const WalletEntity({
     required this.id,
     required this.userId,
     required this.householdId,
@@ -27,8 +27,8 @@ class AccountEntity {
     required this.currentBalanceCents,
   });
 
-  factory AccountEntity.fromJson(Map<String, dynamic> json) {
-    return AccountEntity(
+  factory WalletEntity.fromJson(Map<String, dynamic> json) {
+    return WalletEntity(
       id: json['id'] as String,
       userId: json['user_id'] as String,
       householdId: json['household_id'] as String?,

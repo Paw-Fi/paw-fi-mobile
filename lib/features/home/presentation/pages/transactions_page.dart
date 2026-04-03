@@ -39,8 +39,8 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 
 // ============================================================================
@@ -184,7 +184,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String? get _recurringScopeHouseholdId {
     final householdScope = ref.read(householdScopeProvider);
     return widget.householdId ??
-        (householdScope.activeAccountType == ActiveAccountType.personal
+        (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId);
   }
@@ -282,7 +282,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           expense.rawText,
           expense.type,
           expense.isRecurring,
-          expense.accountId,
+          expense.walletId,
         ),
       ),
     );
@@ -448,15 +448,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         transaction.id: transaction,
     };
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
-    final scopedAccounts = ref.watch(scopedAccountsProvider).valueOrNull ??
-        const <AccountEntity>[];
+    final scopedAccounts = ref.watch(scopedWalletsProvider).valueOrNull ??
+        const <WalletEntity>[];
     final accountLabelsById = {
       for (final account in scopedAccounts)
         if (account.id.isNotEmpty) account.id: account.name,
     };
 
     final effectiveHouseholdId = widget.householdId ??
-        (householdScope.activeAccountType == ActiveAccountType.personal
+        (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId);
     final range = _selectedDateFilter == DateRangeFilter.allTime
@@ -1703,8 +1703,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         recurringId == null ? null : recurringTransactionsById[recurringId];
     final isProjectedRecurring = projectedRecurringTransaction != null;
     final accountLabel =
-        (expense.accountId != null && expense.accountId!.isNotEmpty)
-            ? accountLabelsById[expense.accountId!] ?? expense.accountName
+        (expense.walletId != null && expense.walletId!.isNotEmpty)
+            ? accountLabelsById[expense.walletId!] ?? expense.accountName
             : expense.accountName;
 
     return Slidable(
@@ -1990,7 +1990,7 @@ class _TransactionsFilterCacheKey {
   final DateTime? customStart;
   final DateTime? customEnd;
   final String? pinnedHouseholdId;
-  final ActiveAccountType activeAccountType;
+  final ActiveWalletType activeAccountType;
   final String? activeAccountHouseholdId;
   final String? selectedHouseholdId;
   final DateTime dayAnchor;

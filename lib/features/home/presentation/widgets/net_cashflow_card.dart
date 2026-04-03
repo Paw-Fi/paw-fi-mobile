@@ -44,15 +44,15 @@ Widget buildNetCashflowCard(
       if (t.isRecurring) return false;
       final hid = t.householdId;
       return switch (householdScope.activeAccountType) {
-        ActiveAccountType.personal => hid == null || hid.isEmpty,
-        ActiveAccountType.portfolio =>
+        ActiveWalletType.personal => hid == null || hid.isEmpty,
+        ActiveWalletType.portfolio =>
           activeAccountHouseholdId != null && hid == activeAccountHouseholdId,
-        ActiveAccountType.household => false,
+        ActiveWalletType.household => false,
       };
     }).toList(growable: false);
 
     final recurringHouseholdId =
-        householdScope.activeAccountType == ActiveAccountType.personal
+        householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : activeAccountHouseholdId;
 

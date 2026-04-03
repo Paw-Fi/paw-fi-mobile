@@ -1,24 +1,24 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
-final scopedAccountSummaryProvider = Provider<Map<String, int>>((ref) {
-  final accounts = ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+final scopedWalletSummaryProvider = Provider<Map<String, int>>((ref) {
+  final wallets = ref.watch(scopedWalletSummaryProvider).valueOrNull ?? const [];
   final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
   final allExpenses = ref.watch(analyticsProvider).allExpenses;
   final scope = ref.watch(householdScopeProvider);
 
-  final defaultAccountId = _resolveDefaultAccountId(accounts);
+  final defaultAccountId = _resolveDefaultAccountId(wallets);
   final balances = <String, int>{
-    for (final account in accounts) account.id: account.openingBalanceCents,
+    for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
   };
   var totalGoalCents = 0;
-  for (final account in accounts) {
-    totalGoalCents += account.goalAmountCents ?? 0;
+  for (final wallet in wallets) {
+totalGoalCents += (wallet.goalAmountCents ?? 0) as int;
   }
 
   for (final expense in allExpenses) {
@@ -26,9 +26,9 @@ final scopedAccountSummaryProvider = Provider<Map<String, int>>((ref) {
     if (!_isInActiveScope(expense, scope)) continue;
     if (!_isInSelectedCurrency(expense, currencyCode)) continue;
 
-    final accountId = _resolveTransactionAccountId(
+    final accountId = _resolveTransactionWalletId(
       transaction: expense,
-      defaultAccountId: defaultAccountId,
+      defaultWalletId: defaultAccountId,
     );
     if (accountId == null || !balances.containsKey(accountId)) continue;
 
@@ -47,7 +47,7 @@ final scopedAccountSummaryProvider = Provider<Map<String, int>>((ref) {
   return {
     'totalBalanceCents': totalBalanceCents,
     'totalGoalCents': totalGoalCents,
-    'count': accounts.length,
+    'count': wallets.length,
   };
 });
 
@@ -55,31 +55,31 @@ final accountTransfersProvider = Provider<List<Map<String, dynamic>>>((ref) {
   return const [];
 });
 
-String? _resolveDefaultAccountId(List<AccountEntity> accounts) {
-  for (final account in accounts) {
-    if (account.isDefault && !account.isArchived) {
-      return account.id;
+String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
+  for (final wallet in wallets) {
+    if (wallet.isDefault && !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  for (final account in accounts) {
-    if (account.isSystem &&
-        account.name.trim().toLowerCase() == 'spending' &&
-        !account.isArchived) {
-      return account.id;
+  for (final wallet in wallets) {
+    if (wallet.isSystem &&
+        wallet.name.trim().toLowerCase() == 'spending' &&
+        !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  return accounts.isNotEmpty ? accounts.first.id : null;
+  return wallets.isNotEmpty ? wallets.first.id : null;
 }
 
-String? _resolveTransactionAccountId({
+String? _resolveTransactionWalletId({
   required ExpenseEntry transaction,
-  required String? defaultAccountId,
+  required String? defaultWalletId,
 }) {
-  final raw = transaction.accountId?.trim();
+  final raw = transaction.walletId?.trim();
   if (raw != null && raw.isNotEmpty) {
     return raw;
   }
-  return defaultAccountId;
+  return defaultWalletId;
 }
 
 bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
@@ -90,12 +90,12 @@ bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
 bool _isInActiveScope(ExpenseEntry expense, HouseholdScope scope) {
   final householdId = expense.householdId;
   switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
+    case ActiveWalletType.personal:
       return householdId == null || householdId.isEmpty;
-    case ActiveAccountType.portfolio:
+    case ActiveWalletType.portfolio:
       final selected = scope.activeAccountHouseholdId;
       return selected != null && selected.isNotEmpty && householdId == selected;
-    case ActiveAccountType.household:
+    case ActiveWalletType.household:
       final selected = scope.selectedHouseholdId;
       return selected != null && selected.isNotEmpty && householdId == selected;
   }

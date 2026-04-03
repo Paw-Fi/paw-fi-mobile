@@ -313,7 +313,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,
       splitGroupId: splitGroupId,
-      accountId: accountId,
+      walletId: accountId,
       type: 'expense',
     );
   }

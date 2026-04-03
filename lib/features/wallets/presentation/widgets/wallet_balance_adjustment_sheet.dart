@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 
-class AccountBalanceAdjustmentResult {
+class WalletBalanceAdjustmentResult {
   final int targetBalanceCents;
   final String? note;
 
-  const AccountBalanceAdjustmentResult({
+  const WalletBalanceAdjustmentResult({
     required this.targetBalanceCents,
     this.note,
   });
 }
 
-Future<AccountBalanceAdjustmentResult?> showAccountBalanceAdjustmentSheet(
+Future<WalletBalanceAdjustmentResult?> showAccountBalanceAdjustmentSheet(
   BuildContext context, {
-  required AccountEntity account,
+  required WalletEntity wallet,
 }) {
   final targetController = TextEditingController(
-    text: (account.currentBalanceCents / 100).toStringAsFixed(2),
+    text: (wallet.currentBalanceCents / 100).toStringAsFixed(2),
   );
   final noteController = TextEditingController();
 
-  return showModalBottomSheet<AccountBalanceAdjustmentResult>(
+  return showModalBottomSheet<WalletBalanceAdjustmentResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -35,7 +35,7 @@ Future<AccountBalanceAdjustmentResult?> showAccountBalanceAdjustmentSheet(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Adjust balance for ${account.name}'),
+            Text('Adjust balance for ${wallet.name}'),
             const SizedBox(height: 12),
             TextField(
               controller: targetController,
@@ -55,7 +55,7 @@ Future<AccountBalanceAdjustmentResult?> showAccountBalanceAdjustmentSheet(
                     ((double.tryParse(targetController.text) ?? 0) * 100)
                         .round();
                 Navigator.of(context).pop(
-                  AccountBalanceAdjustmentResult(
+                  WalletBalanceAdjustmentResult(
                     targetBalanceCents: cents,
                     note: noteController.text.trim().isEmpty
                         ? null

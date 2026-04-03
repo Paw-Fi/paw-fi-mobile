@@ -15,7 +15,7 @@ void main() {
         portfolioHouseholdIds: {},
       );
 
-      expect(scope.activeAccountType, ActiveAccountType.personal);
+      expect(scope.activeAccountType, ActiveWalletType.personal);
       expect(scope.activeAccountHouseholdId, isNull);
       expect(scope.isHouseholdView, isFalse);
       expect(scope.isPersonalView, isTrue);
@@ -28,7 +28,7 @@ void main() {
         portfolioHouseholdIds: {'h1'},
       );
 
-      expect(scope.activeAccountType, ActiveAccountType.portfolio);
+      expect(scope.activeAccountType, ActiveWalletType.portfolio);
       expect(scope.activeAccountHouseholdId, 'h1');
       expect(scope.isHouseholdView, isFalse);
       expect(scope.isPersonalView, isTrue);
@@ -41,7 +41,7 @@ void main() {
         portfolioHouseholdIds: {},
       );
 
-      expect(scope.activeAccountType, ActiveAccountType.household);
+      expect(scope.activeAccountType, ActiveWalletType.household);
       expect(scope.activeAccountHouseholdId, 'h2');
       expect(scope.isHouseholdView, isTrue);
       expect(scope.isPersonalView, isFalse);
@@ -56,7 +56,7 @@ void main() {
         portfolioHouseholdIds: {},
       );
 
-      expect(scope.activeAccountType, ActiveAccountType.personal);
+      expect(scope.activeAccountType, ActiveWalletType.personal);
       expect(scope.activeAccountHouseholdId, isNull);
       expect(scope.isPersonalView, isTrue);
     });

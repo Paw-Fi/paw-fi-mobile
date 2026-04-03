@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/pages/accounts_page.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -32,10 +32,10 @@ void main() {
     );
   });
 
-  testWidgets('accounts page renders provided account', (tester) async {
+  testWidgets('wallets page renders provided wallet', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     const accounts = [
-      AccountEntity(
+      WalletEntity(
         id: 'a1',
         userId: 'u1',
         householdId: null,
@@ -55,7 +55,7 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          scopedAccountsProvider.overrideWith((ref) async => accounts),
+          scopedWalletsProvider.overrideWith((ref) async => accounts),
           analyticsProvider.overrideWith((ref) => _FakeAnalyticsNotifier(ref)),
           householdScopeProvider.overrideWith(
             (ref) => const HouseholdScope(

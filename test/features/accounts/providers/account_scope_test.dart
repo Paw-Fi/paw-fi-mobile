@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
 void main() {
-  test('defaultScopedAccountProvider resolves default account', () async {
-    const accounts = [
-      AccountEntity(
+  test('defaultScopedAccountProvider resolves default wallet', () async {
+    const wallets = [
+      WalletEntity(
         id: 'a1',
         userId: 'u1',
         householdId: null,
@@ -20,7 +20,7 @@ void main() {
         isArchived: false,
         currentBalanceCents: 0,
       ),
-      AccountEntity(
+      WalletEntity(
         id: 'a2',
         userId: 'u1',
         householdId: null,
@@ -38,12 +38,12 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        scopedAccountsProvider.overrideWith((ref) async => accounts),
+        scopedWalletsProvider.overrideWith((ref) async => wallets),
       ],
     );
     addTearDown(container.dispose);
 
-    await container.read(scopedAccountsProvider.future);
+    await container.read(scopedWalletsProvider.future);
     final resolved = container.read(defaultScopedAccountProvider);
     expect(resolved?.id, 'a2');
   });

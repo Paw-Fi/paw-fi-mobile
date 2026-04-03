@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-IconData resolveAccountIcon(String? iconName) {
+IconData resolveWalletIcon(String? iconName) {
   final key = (iconName ?? '').trim().toLowerCase();
   switch (key) {
     case 'wallet':

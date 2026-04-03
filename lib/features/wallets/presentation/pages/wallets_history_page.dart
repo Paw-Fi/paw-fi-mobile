@@ -2,8 +2,8 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -13,15 +13,15 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
-class AccountsHistoryPage extends HookConsumerWidget {
-  const AccountsHistoryPage({super.key});
+class WalletsHistoryPage extends HookConsumerWidget {
+  const WalletsHistoryPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     
     // Providers
-    final accounts = ref.watch(effectiveScopedAccountsProvider);
+    final accounts = ref.watch(effectiveScopeWalletsProvider);
     final analytics = ref.watch(analyticsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
@@ -32,12 +32,12 @@ class AccountsHistoryPage extends HookConsumerWidget {
     bool isInActiveScope(ExpenseEntry expense) {
       final householdId = expense.householdId;
       switch (householdScope.activeAccountType) {
-        case ActiveAccountType.personal:
+        case ActiveWalletType.personal:
           return householdId == null || householdId.isEmpty;
-        case ActiveAccountType.portfolio:
+        case ActiveWalletType.portfolio:
           final selected = householdScope.activeAccountHouseholdId;
           return selected != null && selected.isNotEmpty && householdId == selected;
-        case ActiveAccountType.household:
+        case ActiveWalletType.household:
           final selected = householdScope.selectedHouseholdId;
           return selected != null && selected.isNotEmpty && householdId == selected;
       }
@@ -51,7 +51,7 @@ class AccountsHistoryPage extends HookConsumerWidget {
     }
 
     String? resolveTxAccountId(ExpenseEntry tx, String? defaultId) {
-      final raw = tx.accountId?.trim();
+      final raw = tx.walletId?.trim();
       return (raw != null && raw.isNotEmpty) ? raw : defaultId;
     }
 
@@ -276,7 +276,7 @@ class AccountsHistoryPage extends HookConsumerWidget {
                                   color: colorScheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(resolveAccountIcon(acc.icon), size: 16, color: colorScheme.foreground),
+                                child: Icon(resolveWalletIcon(acc.icon), size: 16, color: colorScheme.foreground),
                               ),
                               const SizedBox(width: 12),
                               Column(

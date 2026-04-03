@@ -64,7 +64,7 @@ class PocketsPage extends HookConsumerWidget {
     final householdScope = ref.watch(householdScopeProvider);
 
     final resolvedHouseholdId =
-        householdScope.activeAccountType == ActiveAccountType.household
+        householdScope.activeAccountType == ActiveWalletType.household
             ? householdScope.selectedHouseholdId
             : null;
 
@@ -219,14 +219,14 @@ class PocketsPage extends HookConsumerWidget {
               DateTime(initialMonth.year, initialMonth.month + offset, 1);
 
           final scopeParams = switch (householdScope.activeAccountType) {
-            ActiveAccountType.personal => PocketsScopeParams(
+            ActiveWalletType.personal => PocketsScopeParams(
                 scope: PocketsScopeType.personal,
                 periodMonth: month,
                 currency: resolvedSelectedCurrency,
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
-            ActiveAccountType.portfolio =>
+            ActiveWalletType.portfolio =>
               householdScope.activeAccountHouseholdId == null
                   ? PocketsScopeParams(
                       scope: PocketsScopeType.personal,
@@ -243,7 +243,7 @@ class PocketsPage extends HookConsumerWidget {
                       isBootstrapCurrency: isBootstrapCurrency,
                       includeUpcomingRecurring: includeUpcomingRecurring,
                     ),
-            ActiveAccountType.household => PocketsScopeParams(
+            ActiveWalletType.household => PocketsScopeParams(
                 scope: PocketsScopeType.household,
                 householdId: resolvedHouseholdId,
                 periodMonth: month,
@@ -275,7 +275,7 @@ class PocketsPage extends HookConsumerWidget {
 
     // Keep selectedHouseholdProvider in sync when we fall back to a household
     useEffect(() {
-      if (householdScope.activeAccountType != ActiveAccountType.household) {
+      if (householdScope.activeAccountType != ActiveWalletType.household) {
         return null;
       }
       if (resolvedHouseholdId == null) return null;
@@ -344,7 +344,7 @@ class PocketsPage extends HookConsumerWidget {
       );
     }
 
-    if (householdScope.activeAccountType == ActiveAccountType.household) {
+    if (householdScope.activeAccountType == ActiveWalletType.household) {
       if (householdsAsync.isLoading) {
         return AdaptiveScaffold(
           body: Center(
@@ -442,14 +442,14 @@ class PocketsPage extends HookConsumerWidget {
 
     // Determine parameters for the currently viewed month (for the bottom bar).
     final currentScopeParams = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => PocketsScopeParams(
+      ActiveWalletType.personal => PocketsScopeParams(
           scope: PocketsScopeType.personal,
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
-      ActiveAccountType.portfolio =>
+      ActiveWalletType.portfolio =>
         householdScope.activeAccountHouseholdId == null
             ? PocketsScopeParams(
                 scope: PocketsScopeType.personal,
@@ -466,7 +466,7 @@ class PocketsPage extends HookConsumerWidget {
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
-      ActiveAccountType.household => PocketsScopeParams(
+      ActiveWalletType.household => PocketsScopeParams(
           scope: PocketsScopeType.household,
           householdId: resolvedHouseholdId,
           periodMonth: currentMonthState.value,
@@ -509,14 +509,14 @@ class PocketsPage extends HookConsumerWidget {
                       : isInWindow(index, currentPageIndex));
 
               final scopeParams = switch (householdScope.activeAccountType) {
-                ActiveAccountType.personal => PocketsScopeParams(
+                ActiveWalletType.personal => PocketsScopeParams(
                     scope: PocketsScopeType.personal,
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
-                ActiveAccountType.portfolio =>
+                ActiveWalletType.portfolio =>
                   householdScope.activeAccountHouseholdId == null
                       ? PocketsScopeParams(
                           scope: PocketsScopeType.personal,
@@ -533,7 +533,7 @@ class PocketsPage extends HookConsumerWidget {
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         ),
-                ActiveAccountType.household => PocketsScopeParams(
+                ActiveWalletType.household => PocketsScopeParams(
                     scope: PocketsScopeType.household,
                     householdId: resolvedHouseholdId,
                     periodMonth: month,
@@ -553,7 +553,7 @@ class PocketsPage extends HookConsumerWidget {
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
                 isPersonalMode: householdScope.activeAccountType !=
-                    ActiveAccountType.household,
+                    ActiveWalletType.household,
                 isActiveMonth: scopeParams == currentScopeParams,
                 showSwipeHint: !hasDismissedSwipeHintState.value,
                 onDateSelected: (date) {

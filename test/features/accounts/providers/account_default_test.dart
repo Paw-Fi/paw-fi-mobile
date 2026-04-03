@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
 void main() {
   test('accountByIdProvider returns null when id missing', () async {
-    const accounts = [
-      AccountEntity(
+    const wallets = [
+      WalletEntity(
         id: 'spending',
         userId: 'u1',
         householdId: null,
@@ -24,13 +24,13 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        scopedAccountsProvider.overrideWith((ref) async => accounts),
+        scopedWalletsProvider.overrideWith((ref) async => wallets),
       ],
     );
     addTearDown(container.dispose);
 
-    await container.read(scopedAccountsProvider.future);
-    final account = container.read(accountByIdProvider('missing'));
+    await container.read(scopedWalletsProvider.future);
+    final account = container.read(walletByIdProvider('missing'));
     expect(account, isNull);
   });
 }

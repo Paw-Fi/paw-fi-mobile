@@ -21,7 +21,7 @@ import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final importWizardProvider =
@@ -41,7 +41,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final scope = ref.read(householdScopeProvider);
     return ImportWizardState(
       targetHouseholdId: scope.activeAccountHouseholdId,
-      targetIsPortfolio: scope.activeAccountType == ActiveAccountType.portfolio,
+      targetIsPortfolio: scope.activeAccountType == ActiveWalletType.portfolio,
     );
   }
 
@@ -779,7 +779,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final accountData = payload['data'] as Map<String, dynamic>?;
     final accountId = (accountData?['id'] as String?)?.trim();
 
-    _ref.invalidate(accountsByHouseholdIdProvider(targetHouseholdId));
+    _ref.invalidate(walletsByHouseholdIdProvider(targetHouseholdId));
 
     if (accountId != null && accountId.isNotEmpty) {
       state = state.copyWith(targetAccountId: accountId);

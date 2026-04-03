@@ -94,12 +94,12 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
             expCurrency == selectedCurrency;
 
         final activeOk = switch (scope.activeAccountType) {
-          ActiveAccountType.personal => expense.householdId == null ||
+          ActiveWalletType.personal => expense.householdId == null ||
               (expense.householdId?.isEmpty ?? false),
-          ActiveAccountType.portfolio =>
+          ActiveWalletType.portfolio =>
             scope.activeAccountHouseholdId != null &&
                 expense.householdId == scope.activeAccountHouseholdId,
-          ActiveAccountType.household => selectedHouseholdId != null &&
+          ActiveWalletType.household => selectedHouseholdId != null &&
               expense.householdId == selectedHouseholdId,
         };
 
@@ -128,11 +128,11 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
         txCurrency.isEmpty ||
         txCurrency == selectedCurrency;
     final activeOk = switch (scope.activeAccountType) {
-      ActiveAccountType.personal =>
+      ActiveWalletType.personal =>
         tx.householdId == null || (tx.householdId?.isEmpty ?? false),
-      ActiveAccountType.portfolio => scope.activeAccountHouseholdId != null &&
+      ActiveWalletType.portfolio => scope.activeAccountHouseholdId != null &&
           tx.householdId == scope.activeAccountHouseholdId,
-      ActiveAccountType.household =>
+      ActiveWalletType.household =>
         selectedHouseholdId != null && tx.householdId == selectedHouseholdId,
     };
     return currencyOk && activeOk;
@@ -196,11 +196,11 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   bool matchesScope(String? householdId) {
     final normalizedId = normalizeHouseholdId(householdId);
     switch (scope.activeAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         // Personal view should only include personal (non-household) entries.
         return normalizedId == null;
-      case ActiveAccountType.household:
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.household:
+      case ActiveWalletType.portfolio:
         final targetId = scope.activeAccountHouseholdId;
         if (targetId == null || targetId.isEmpty) return false;
         return normalizedId == targetId;
@@ -229,7 +229,7 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   }
 
   final shouldIncludeBudgets =
-      scope.activeAccountType == ActiveAccountType.personal;
+      scope.activeAccountType == ActiveWalletType.personal;
   if (shouldIncludeBudgets) {
     for (final b in data.allBudgets) {
       final currencyCode = (b.currency ?? '').toUpperCase();
@@ -264,7 +264,7 @@ List<ExpenseEntry> _resolveScopeAwareExpenses(
   AnalyticsData analyticsData,
   HouseholdScope scope,
 ) {
-  if (scope.activeAccountType == ActiveAccountType.personal) {
+  if (scope.activeAccountType == ActiveWalletType.personal) {
     return analyticsData.allExpenses;
   }
 

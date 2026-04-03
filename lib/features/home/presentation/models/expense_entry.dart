@@ -25,7 +25,7 @@ class ExpenseEntry {
   final List<String>? sharedMemberIds;
   final String? splitGroupId;
   final String? bankAccountId;
-  final String? accountId;
+  final String? walletId;
   final String? accountName;
   final String? accountIcon;
   final String? accountColor;
@@ -51,7 +51,7 @@ class ExpenseEntry {
     this.sharedMemberIds,
     this.splitGroupId,
     this.bankAccountId,
-    this.accountId,
+    this.walletId,
     this.accountName,
     this.accountIcon,
     this.accountColor,
@@ -117,7 +117,7 @@ class ExpenseEntry {
           : null,
       splitGroupId: json['split_group_id'] as String?,
       bankAccountId: json['bank_account_id'] as String?,
-      accountId: json['account_id'] as String?,
+      walletId: json['account_id'] as String?,
       accountName: _sanitizeNullable(json['account_name'] as String?),
       accountIcon: _sanitizeNullable(json['account_icon'] as String?),
       accountColor: _sanitizeNullable(json['account_color'] as String?),
@@ -146,7 +146,7 @@ class ExpenseEntry {
       'shared_member_ids': sharedMemberIds,
       'split_group_id': splitGroupId,
       'bank_account_id': bankAccountId,
-      'account_id': accountId,
+      'account_id': walletId,
       'account_name': accountName,
       'account_icon': accountIcon,
       'account_color': accountColor,
@@ -201,7 +201,7 @@ class ExpenseEntry {
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
-      accountId: accountId ?? this.accountId,
+      walletId: accountId ?? this.walletId,
       accountName: accountName ?? this.accountName,
       accountIcon: accountIcon ?? this.accountIcon,
       accountColor: accountColor ?? this.accountColor,

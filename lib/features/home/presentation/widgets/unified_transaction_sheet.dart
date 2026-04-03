@@ -40,8 +40,8 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -85,7 +85,7 @@ String _formatRelativeDate(
 }
 
 class _AccountOption {
-  final ActiveAccountType type;
+  final ActiveWalletType type;
   final String? householdId;
   final String label;
   final bool isPortfolio;
@@ -170,9 +170,9 @@ class _UnifiedTransactionSheetState
   String? _localImagePath; // Track locally captured image for existing expenses
   final timeFormat = DateFormat('HH:mm');
   bool _isSharedWithHousehold = false;
-  ActiveAccountType _selectedAccountType = ActiveAccountType.personal;
+  ActiveWalletType _selectedAccountType = ActiveWalletType.personal;
   String? _selectedAccountHouseholdId;
-  ActiveAccountType _lastNonHouseholdAccountType = ActiveAccountType.personal;
+  ActiveWalletType _lastNonHouseholdAccountType = ActiveWalletType.personal;
   String? _lastNonHouseholdHouseholdId;
   TimeOfDay _selectedTime = TimeOfDay.now();
   SplitType? _customSplitType;
@@ -223,7 +223,7 @@ class _UnifiedTransactionSheetState
   @override
   void initState() {
     super.initState();
-    _selectedFinancialAccountId = widget.existingExpense?.accountId;
+    _selectedFinancialAccountId = widget.existingExpense?.walletId;
     // Default payer to the expense owner (fallback to current user) so we don't
     // incorrectly show the viewer as the payer before loading split data.
     final currentUserId = ref.read(authProvider).uid;
@@ -253,9 +253,9 @@ class _UnifiedTransactionSheetState
       final isSharedSpace = hasHousehold && !isPortfolio;
 
       final defaultAccountType = () {
-        if (isPortfolio && hasHousehold) return ActiveAccountType.portfolio;
-        if (isSharedSpace) return ActiveAccountType.household;
-        return ActiveAccountType.personal;
+        if (isPortfolio && hasHousehold) return ActiveWalletType.portfolio;
+        if (isSharedSpace) return ActiveWalletType.household;
+        return ActiveWalletType.personal;
       }();
 
       _setAccountSelectionDefaults(defaultAccountType, existingHouseholdId);
@@ -306,16 +306,16 @@ class _UnifiedTransactionSheetState
 
       final defaultAccountType = () {
         switch (scope.activeAccountType) {
-          case ActiveAccountType.personal:
-            return ActiveAccountType.personal;
-          case ActiveAccountType.portfolio:
+          case ActiveWalletType.personal:
+            return ActiveWalletType.personal;
+          case ActiveWalletType.portfolio:
             return scope.activeAccountHouseholdId != null
-                ? ActiveAccountType.portfolio
-                : ActiveAccountType.personal;
-          case ActiveAccountType.household:
+                ? ActiveWalletType.portfolio
+                : ActiveWalletType.personal;
+          case ActiveWalletType.household:
             return scope.activeAccountHouseholdId != null
-                ? ActiveAccountType.household
-                : ActiveAccountType.personal;
+                ? ActiveWalletType.household
+                : ActiveWalletType.personal;
         }
       }();
 
@@ -338,7 +338,7 @@ class _UnifiedTransactionSheetState
 
         if (selected != null &&
             _selectedAccountHouseholdId == null &&
-            _selectedAccountType == ActiveAccountType.household) {
+            _selectedAccountType == ActiveWalletType.household) {
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
           if (_isSharedWithHousehold) {
@@ -443,16 +443,16 @@ class _UnifiedTransactionSheetState
   }
 
   void _setAccountSelectionDefaults(
-    ActiveAccountType type,
+    ActiveWalletType type,
     String? householdId,
   ) {
     _selectedAccountType = type;
     _selectedAccountHouseholdId = householdId;
-    if (type != ActiveAccountType.household) {
+    if (type != ActiveWalletType.household) {
       _lastNonHouseholdAccountType = type;
       _lastNonHouseholdHouseholdId = householdId;
     }
-    _isSharedWithHousehold = type == ActiveAccountType.household;
+    _isSharedWithHousehold = type == ActiveWalletType.household;
   }
 
   List<_AccountOption> _accountOptions(
@@ -461,7 +461,7 @@ class _UnifiedTransactionSheetState
   ) {
     final options = <_AccountOption>[
       _AccountOption(
-        type: ActiveAccountType.personal,
+        type: ActiveWalletType.personal,
         householdId: null,
         label: context.l10n.personalScope,
       ),
@@ -474,8 +474,8 @@ class _UnifiedTransactionSheetState
       options.add(
         _AccountOption(
           type: household.isPortfolio
-              ? ActiveAccountType.portfolio
-              : ActiveAccountType.household,
+              ? ActiveWalletType.portfolio
+              : ActiveWalletType.household,
           householdId: household.id,
           label: '${household.name} · $suffix',
           isPortfolio: household.isPortfolio,
@@ -491,7 +491,7 @@ class _UnifiedTransactionSheetState
       type: _selectedAccountType,
       householdId: _selectedAccountHouseholdId,
       label: '',
-      isPortfolio: _selectedAccountType == ActiveAccountType.portfolio,
+      isPortfolio: _selectedAccountType == ActiveWalletType.portfolio,
     );
   }
 
@@ -500,13 +500,13 @@ class _UnifiedTransactionSheetState
     List<Household> households,
   ) {
     switch (_selectedAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         return context.l10n.personalScope;
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.portfolio:
         final household =
             _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.privateSpace;
-      case ActiveAccountType.household:
+      case ActiveWalletType.household:
         final household =
             _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.tapToSet;
@@ -537,9 +537,9 @@ class _UnifiedTransactionSheetState
     final householdScope = ref.read(householdScopeProvider);
 
     switch (_selectedAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         return const _AccountTarget(householdId: null, isPortfolio: false);
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.portfolio:
         final fallbackPortfolioId = _selectedAccountHouseholdId ??
             existingHouseholdId ??
             householdScope.activeAccountHouseholdId;
@@ -549,7 +549,7 @@ class _UnifiedTransactionSheetState
         }
         return _AccountTarget(
             householdId: fallbackPortfolioId, isPortfolio: true);
-      case ActiveAccountType.household:
+      case ActiveWalletType.household:
         final fallbackHouseholdId = _selectedAccountHouseholdId ??
             selectedSharingId ??
             existingHouseholdId;
@@ -565,7 +565,7 @@ class _UnifiedTransactionSheetState
   }
 
   void _applyAccountSelection(_AccountOption option) {
-    final isHouseholdSelection = option.type == ActiveAccountType.household;
+    final isHouseholdSelection = option.type == ActiveWalletType.household;
     if (isHouseholdSelection &&
         (option.householdId == null || option.householdId!.isEmpty)) {
       return;
@@ -721,9 +721,9 @@ class _UnifiedTransactionSheetState
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
-    final scopedAccountsAsync = ref.watch(scopedAccountsProvider);
+    final scopedAccountsAsync = ref.watch(scopedWalletsProvider);
     final scopedAccounts =
-        scopedAccountsAsync.valueOrNull ?? const <AccountEntity>[];
+        scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -764,7 +764,7 @@ class _UnifiedTransactionSheetState
           children: [
             _buildSpaceSection(colorScheme, households),
             const SizedBox(height: 24),
-            if (_selectedAccountType == ActiveAccountType.household &&
+            if (_selectedAccountType == ActiveWalletType.household &&
                 households.isNotEmpty)
               _buildSharingSection(
                 colorScheme,
@@ -1229,7 +1229,7 @@ class _UnifiedTransactionSheetState
     );
   }
 
-  String? _resolveDefaultFinancialAccountId(List<AccountEntity> accounts) {
+  String? _resolveDefaultFinancialAccountId(List<WalletEntity> accounts) {
     for (final account in accounts) {
       if (account.isDefault) return account.id;
     }
@@ -1238,7 +1238,7 @@ class _UnifiedTransactionSheetState
 
   String _selectedFinancialAccountLabel(
     BuildContext context,
-    List<AccountEntity> accounts,
+    List<WalletEntity> accounts,
   ) {
     if (accounts.isEmpty) return context.l10n.tapToSet;
 
@@ -1259,7 +1259,7 @@ class _UnifiedTransactionSheetState
     return accounts.first.name;
   }
 
-  Future<void> _handleEditFinancialAccount(List<AccountEntity> accounts) async {
+  Future<void> _handleEditFinancialAccount(List<WalletEntity> accounts) async {
     if (accounts.isEmpty) return;
 
     final initialId = _selectedFinancialAccountId ??
@@ -1269,7 +1269,7 @@ class _UnifiedTransactionSheetState
       orElse: () => accounts.first,
     );
 
-    final selected = await showTransactionSelectionSheet<AccountEntity>(
+    final selected = await showTransactionSelectionSheet<WalletEntity>(
       context: context,
       items: accounts,
       getLabel: (account) => account.name,
@@ -1294,7 +1294,7 @@ class _UnifiedTransactionSheetState
         households.where((h) => !h.isPortfolio).toList(growable: false);
 
     if (householdList.isEmpty) {
-      if (_selectedAccountType == ActiveAccountType.household) {
+      if (_selectedAccountType == ActiveWalletType.household) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _applyAccountSelection(
@@ -1303,7 +1303,7 @@ class _UnifiedTransactionSheetState
               householdId: _lastNonHouseholdHouseholdId,
               label: '',
               isPortfolio:
-                  _lastNonHouseholdAccountType == ActiveAccountType.portfolio,
+                  _lastNonHouseholdAccountType == ActiveWalletType.portfolio,
             ),
           );
         });
@@ -1360,17 +1360,17 @@ class _UnifiedTransactionSheetState
                   ),
                 ),
                 MonekoSwitch(
-                  value: _selectedAccountType == ActiveAccountType.household,
+                  value: _selectedAccountType == ActiveWalletType.household,
                   onChanged: (value) {
                     debugPrint(
                         '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
                     if (!value) {
                       final fallbackType = _lastNonHouseholdAccountType ==
-                              ActiveAccountType.household
-                          ? ActiveAccountType.personal
+                              ActiveWalletType.household
+                          ? ActiveWalletType.personal
                           : _lastNonHouseholdAccountType;
                       final fallbackId =
-                          fallbackType == ActiveAccountType.personal
+                          fallbackType == ActiveWalletType.personal
                               ? null
                               : _lastNonHouseholdHouseholdId;
                       _applyAccountSelection(
@@ -1379,7 +1379,7 @@ class _UnifiedTransactionSheetState
                           householdId: fallbackId,
                           label: '',
                           isPortfolio:
-                              fallbackType == ActiveAccountType.portfolio,
+                              fallbackType == ActiveWalletType.portfolio,
                         ),
                       );
                       return;
@@ -1397,7 +1397,7 @@ class _UnifiedTransactionSheetState
                         '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
                     _applyAccountSelection(
                       _AccountOption(
-                        type: ActiveAccountType.household,
+                        type: ActiveWalletType.household,
                         householdId: preferredId,
                         label: '',
                         isPortfolio: false,
@@ -1410,7 +1410,7 @@ class _UnifiedTransactionSheetState
           ),
 
           // Show household dropdown only when toggle is ON
-          if (_selectedAccountType == ActiveAccountType.household &&
+          if (_selectedAccountType == ActiveWalletType.household &&
               householdList.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
@@ -1586,7 +1586,7 @@ class _UnifiedTransactionSheetState
                 final isPortfolioSelection =
                     _isPortfolioHousehold(households, activeHouseholdId);
                 final isSharedSpace =
-                    _selectedAccountType == ActiveAccountType.household &&
+                    _selectedAccountType == ActiveWalletType.household &&
                         activeHouseholdId != null &&
                         !isPortfolioSelection;
 
@@ -2584,10 +2584,10 @@ class _UnifiedTransactionSheetState
       final householdScope = ref.read(householdScopeProvider);
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
-      final availableAccounts = ref.read(scopedAccountsProvider).valueOrNull ??
-          const <AccountEntity>[];
+      final availableAccounts = ref.read(scopedWalletsProvider).valueOrNull ??
+          const <WalletEntity>[];
       var selectedFinancialAccountId =
-          _selectedFinancialAccountId ?? widget.existingExpense?.accountId;
+          _selectedFinancialAccountId ?? widget.existingExpense?.walletId;
       final hasSelectedFinancialAccount = selectedFinancialAccountId != null &&
           availableAccounts.any(
             (account) => account.id == selectedFinancialAccountId,
@@ -2605,7 +2605,7 @@ class _UnifiedTransactionSheetState
         final effectiveHouseholdId = accountTarget.householdId;
         final isEffectivePortfolio = accountTarget.isPortfolio;
         final isSharedHousehold =
-            _selectedAccountType == ActiveAccountType.household &&
+            _selectedAccountType == ActiveWalletType.household &&
                 effectiveHouseholdId != null;
         if (isEffectivePortfolio) {
           _selectedPayerUserId = ref.read(authProvider).uid;

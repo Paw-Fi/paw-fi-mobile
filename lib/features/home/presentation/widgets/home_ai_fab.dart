@@ -26,7 +26,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
@@ -1149,7 +1149,7 @@ Future<void> _processExpense(
   final contact = ref.read(analyticsProvider).contact;
   final householdId = _resolveHouseholdIdForAi(ref);
   final scope = ref.read(householdScopeProvider);
-  final isPortfolio = scope.activeAccountType == ActiveAccountType.portfolio;
+  final isPortfolio = scope.activeAccountType == ActiveWalletType.portfolio;
   final effectiveUserId = preview.isActive
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;

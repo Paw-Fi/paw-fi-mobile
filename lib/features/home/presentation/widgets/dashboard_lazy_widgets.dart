@@ -481,7 +481,7 @@ DashboardScopeQuery _buildScopedQuery({
   final userId = ref.watch(authProvider).uid;
   return DashboardScopeQuery(
     userId: userId,
-    householdId: scope.activeAccountType == ActiveAccountType.personal
+    householdId: scope.activeAccountType == ActiveWalletType.personal
         ? null
         : scope.activeAccountHouseholdId,
     selectedCurrency: selectedCurrency,

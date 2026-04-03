@@ -53,7 +53,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId =
-        householdScope.activeAccountType == ActiveAccountType.personal
+        householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId;
     final activeScopeOptimisticExpenses = ref.watch(

@@ -66,7 +66,7 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
-import 'package:moneko/features/accounts/presentation/pages/archived_accounts_page.dart';
+import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
 
 import 'package:crypto/crypto.dart';
 
@@ -871,12 +871,12 @@ class SettingsPage extends HookConsumerWidget {
 
                    _SettingsTile(
                       icon: Icons.archive_outlined,
-                      label: 'Archived Accounts',
+                      label: 'Archived Wallets',
                       value: 'Tap to manage',
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (context) => const ArchivedAccountsPage(),
+                            builder: (context) => const ArchivedWalletsPage(),
                           ),
                         );
                       },

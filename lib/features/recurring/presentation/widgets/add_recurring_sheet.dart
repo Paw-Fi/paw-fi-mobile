@@ -25,8 +25,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
@@ -173,7 +173,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         householdScope.isPortfolioId(existingHouseholdId);
 
     final isPortfolioContext = () {
-      if (householdScope.activeAccountType == ActiveAccountType.portfolio) {
+      if (householdScope.activeAccountType == ActiveWalletType.portfolio) {
         return true;
       }
       if (existingTransaction?.householdId != null) {
@@ -185,7 +185,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
     final canShowSharingSection = currentUserId != null &&
         !isPortfolioContext &&
-        (householdScope.activeAccountType == ActiveAccountType.household ||
+        (householdScope.activeAccountType == ActiveWalletType.household ||
             (isEditing &&
                 existingTransaction?.householdId != null &&
                 !isExistingPortfolio));
@@ -194,7 +194,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isSharedWithHousehold = useState<bool>(
       existingTransaction != null
           ? (!isExistingPortfolio && existingTransaction!.householdId != null)
-          : (householdScope.activeAccountType == ActiveAccountType.household &&
+          : (householdScope.activeAccountType == ActiveWalletType.household &&
               householdScope.activeAccountHouseholdId != null),
     );
     final selectedHouseholdId = useState<String?>(
@@ -206,7 +206,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       existingTransaction?.payerUserId ??
           (!isEditing &&
                   householdScope.activeAccountType ==
-                      ActiveAccountType.household &&
+                      ActiveWalletType.household &&
                   householdScope.activeAccountHouseholdId != null
               ? currentUserId
               : null),
@@ -219,9 +219,9 @@ class AddRecurringSheet extends HookConsumerWidget {
         ? ref.watch(userHouseholdsProvider(currentUserId))
         : const AsyncValue<List<Household>>.data([]);
 
-    final scopedAccountsAsync = ref.watch(scopedAccountsProvider);
+    final scopedAccountsAsync = ref.watch(scopedWalletsProvider);
     final scopedAccounts =
-        scopedAccountsAsync.valueOrNull ?? const <AccountEntity>[];
+        scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
     final selectedFinancialAccountId =
         useState<String?>(existingTransaction?.accountId);
 
@@ -446,7 +446,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
       // Only for ADD mode in household mode
       if (!isEditing &&
-          householdScope.activeAccountType == ActiveAccountType.household &&
+          householdScope.activeAccountType == ActiveWalletType.household &&
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
@@ -465,7 +465,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       if (!hasAmountForSplit) return null;
 
       final shouldBeShared =
-          householdScope.activeAccountType == ActiveAccountType.household;
+          householdScope.activeAccountType == ActiveWalletType.household;
 
       // Always update when amount is present to ensure correct state
       // Previous logic only updated if hasAmountEverBeenSet, but this could miss cases
@@ -667,10 +667,10 @@ class AddRecurringSheet extends HookConsumerWidget {
             (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
         final effectiveHouseholdId = forcedPortfolioHouseholdId ??
             switch (householdScope.activeAccountType) {
-              ActiveAccountType.personal => null,
-              ActiveAccountType.portfolio =>
+              ActiveWalletType.personal => null,
+              ActiveWalletType.portfolio =>
                 householdScope.activeAccountHouseholdId,
-              ActiveAccountType.household =>
+              ActiveWalletType.household =>
                 isSharedWithHousehold.value ? selectedHouseholdId.value : null,
             };
 
@@ -852,7 +852,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
           // CRITICAL: Force refresh based on CURRENT VIEW MODE
           // This ensures the page the user is viewing refreshes immediately
-          if (currentScope.activeAccountType != ActiveAccountType.personal &&
+          if (currentScope.activeAccountType != ActiveWalletType.personal &&
               currentHouseholdId != null) {
             _debugPrint(
                 '🏠 [REFRESH] Refreshing HOUSEHOLD view for: $currentHouseholdId');
@@ -918,7 +918,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 '   ♻️  Invalidating pocketsProvider family (transaction household scope)');
             ref.invalidate(pocketsProvider);
           } else if (activeHouseholdId == null &&
-              currentScope.activeAccountType != ActiveAccountType.personal) {
+              currentScope.activeAccountType != ActiveWalletType.personal) {
             // Transaction is personal but we're in household view - also refresh personal scope
             _debugPrint(
                 '🔄 [REFRESH] Also refreshing personal scope (transaction is personal)');
@@ -1475,7 +1475,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                             );
                             final selected =
                                 await showTransactionSelectionSheet<
-                                    AccountEntity>(
+                                    WalletEntity>(
                               context: context,
                               items: scopedAccounts,
                               getLabel: (account) => account.name,

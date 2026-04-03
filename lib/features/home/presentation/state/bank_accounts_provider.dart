@@ -22,15 +22,15 @@ final bankAccountsProvider =
 
   List<BankAccount> scoped;
   switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
+    case ActiveWalletType.personal:
       scoped = allAccounts
           .where((account) =>
               account.connectionHouseholdId == null ||
               account.connectionHouseholdId!.isEmpty)
           .toList();
       break;
-    case ActiveAccountType.household:
-    case ActiveAccountType.portfolio:
+    case ActiveWalletType.household:
+    case ActiveWalletType.portfolio:
       final householdId = scope.activeAccountHouseholdId;
       if (householdId == null || householdId.isEmpty) {
         scoped = [];

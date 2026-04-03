@@ -30,8 +30,8 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/features/accounts/presentation/pages/accounts_page.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
+import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 
 /// Main navigation shell with bottom navigation bar
@@ -76,7 +76,7 @@ class MainShell extends HookConsumerWidget {
       ref.invalidate(currencyTransactionCountsProvider);
       ref.invalidate(recurringTransactionsProvider);
       ref.invalidate(pocketsProvider);
-      ref.invalidate(scopedAccountsProvider);
+      ref.invalidate(scopedWalletsProvider);
     }
 
     Future<String?> exitPreviewMode(

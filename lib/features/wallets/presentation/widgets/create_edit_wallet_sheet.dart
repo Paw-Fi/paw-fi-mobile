@@ -6,15 +6,15 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
 import 'package:moneko/core/utils/money_parser.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/adaptive_color_picker.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
-class CreateEditAccountResult {
+class CreateEditWalletResult {
   final String name;
   final String icon;
   final String color;
@@ -22,7 +22,7 @@ class CreateEditAccountResult {
   final int? goalAmountCents;
   final bool isDefault;
 
-  const CreateEditAccountResult({
+  const CreateEditWalletResult({
     required this.name,
     required this.icon,
     required this.color,
@@ -32,24 +32,24 @@ class CreateEditAccountResult {
   });
 }
 
-Future<CreateEditAccountResult?> showCreateEditAccountSheet(
+Future<CreateEditWalletResult?> showCreateEditWalletSheet(
   BuildContext context, {
-  AccountEntity? initial,
+  WalletEntity? initial,
 }) {
-  return showModalBottomSheet<CreateEditAccountResult>(
+  return showModalBottomSheet<CreateEditWalletResult>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
     enableDrag: false,
     useSafeArea: true,
     isScrollControlled: true,
-    builder: (context) => _CreateEditAccountSheet(initial: initial),
+    builder: (context) => _CreateEditWalletSheet(initial: initial),
   );
 }
 
-class _CreateEditAccountSheet extends HookConsumerWidget {
-  const _CreateEditAccountSheet({required this.initial});
+class _CreateEditWalletSheet extends HookConsumerWidget {
+  const _CreateEditWalletSheet({required this.initial});
 
-  final AccountEntity? initial;
+  final WalletEntity? initial;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,7 +73,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
-        AppToast.error(context, 'Please enter an account name');
+        AppToast.error(context, 'Please enter an wallet name');
         return;
       }
 
@@ -84,7 +84,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
           goalRaw.isEmpty ? null : (tryParseMoneyToCents(goalRaw) ?? 0).toInt();
 
       Navigator.of(context).pop(
-        CreateEditAccountResult(
+        CreateEditWalletResult(
           name: name,
           icon: selectedIcon.value,
           color: selectedColor.value,
@@ -268,11 +268,11 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                         height: 44,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
-                          itemCount: _accountIcons.length,
+                          itemCount: _walletIcons.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(width: 12),
                           itemBuilder: (context, index) {
-                            final iconName = _accountIcons[index];
+                            final iconName = _walletIcons[index];
                             final isSelected = selectedIcon.value == iconName;
                             final selectedColorValue = parseAccountColor(
                               selectedColor.value,
@@ -296,7 +296,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                                   ),
                                 ),
                                 child: Icon(
-                                  resolveAccountIcon(iconName),
+                                  resolveWalletIcon(iconName),
                                   color: isSelected
                                       ? selectedColorValue
                                       : colorScheme.mutedForeground,
@@ -348,7 +348,7 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
                           if (isEditing && initial!.isDefault && !value) {
                             AppToast.info(
                               context,
-                              'At least one default account is required.',
+                              'At least one default wallet is required.',
                             );
                             return;
                           }
@@ -387,8 +387,8 @@ class _CreateEditAccountSheet extends HookConsumerWidget {
   }
 }
 
-const List<String> _accountIcons = [
-  // Cash and spending accounts
+const List<String> _walletIcons = [
+  // Cash and spending wallets
   'wallet',
   'checking',
   'joint',
@@ -415,7 +415,7 @@ const List<String> _accountIcons = [
   'mortgage',
   'tax',
 
-  // Other common account buckets
+  // Other common wallet buckets
   'emergency',
   'budget',
   'bank',

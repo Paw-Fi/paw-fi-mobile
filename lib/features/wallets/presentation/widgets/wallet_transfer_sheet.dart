@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 
-class AccountTransferResult {
+class WalletTransferResult {
   final String fromAccountId;
   final String toAccountId;
   final int amountCents;
   final DateTime date;
   final String? note;
 
-  const AccountTransferResult({
+  const WalletTransferResult({
     required this.fromAccountId,
     required this.toAccountId,
     required this.amountCents,
@@ -17,20 +17,20 @@ class AccountTransferResult {
   });
 }
 
-Future<AccountTransferResult?> showAccountTransferSheet(
+Future<WalletTransferResult?> showWalletTransferSheet(
   BuildContext context, {
-  required List<AccountEntity> accounts,
+  required List<WalletEntity> wallets,
 }) {
-  if (accounts.length < 2) {
+  if (wallets.length < 2) {
     return Future.value(null);
   }
 
-  String fromId = accounts.first.id;
-  String toId = accounts[1].id;
+  String fromId = wallets.first.id;
+  String toId = wallets[1].id;
   final amountController = TextEditingController();
   final noteController = TextEditingController();
 
-  return showModalBottomSheet<AccountTransferResult>(
+  return showModalBottomSheet<WalletTransferResult>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -47,11 +47,11 @@ Future<AccountTransferResult?> showAccountTransferSheet(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Transfer between accounts'),
+                const Text('Transfer between wallets'),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: fromId,
-                  items: accounts
+                  items: wallets
                       .map((a) =>
                           DropdownMenuItem(value: a.id, child: Text(a.name)))
                       .toList(),
@@ -59,12 +59,12 @@ Future<AccountTransferResult?> showAccountTransferSheet(
                     if (v == null) return;
                     setState(() => fromId = v);
                   },
-                  decoration: const InputDecoration(labelText: 'From account'),
+                  decoration: const InputDecoration(labelText: 'From wallet'),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: toId,
-                  items: accounts
+                  items: wallets
                       .map((a) =>
                           DropdownMenuItem(value: a.id, child: Text(a.name)))
                       .toList(),
@@ -72,7 +72,7 @@ Future<AccountTransferResult?> showAccountTransferSheet(
                     if (v == null) return;
                     setState(() => toId = v);
                   },
-                  decoration: const InputDecoration(labelText: 'To account'),
+                  decoration: const InputDecoration(labelText: 'To wallet'),
                 ),
                 TextField(
                   controller: amountController,
@@ -98,7 +98,7 @@ Future<AccountTransferResult?> showAccountTransferSheet(
                       return;
                     }
                     Navigator.of(context).pop(
-                      AccountTransferResult(
+                      WalletTransferResult(
                         fromAccountId: fromId,
                         toAccountId: toId,
                         amountCents: amountCents,

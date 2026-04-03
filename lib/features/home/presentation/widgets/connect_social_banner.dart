@@ -90,9 +90,9 @@ class ConnectSocialBanner extends ConsumerWidget {
     final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
     final recurringHouseholdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     final recurringState =

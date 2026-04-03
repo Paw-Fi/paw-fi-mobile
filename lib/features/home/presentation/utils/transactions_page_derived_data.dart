@@ -16,7 +16,7 @@ class TransactionsPageFilterInput {
   final DateTime? customEnd;
   final DateTime now;
   final String? pinnedHouseholdId;
-  final ActiveAccountType activeAccountType;
+  final ActiveWalletType activeAccountType;
   final String? activeAccountHouseholdId;
   final String? selectedHouseholdId;
 
@@ -121,13 +121,13 @@ TransactionsPageDerivedData deriveTransactionsPageData(
     expenses = expenses.where((expense) {
       final householdId = expense.householdId;
       switch (input.activeAccountType) {
-        case ActiveAccountType.personal:
+        case ActiveWalletType.personal:
           return householdId == null || householdId.isEmpty;
-        case ActiveAccountType.portfolio:
+        case ActiveWalletType.portfolio:
           final selectedId = input.activeAccountHouseholdId;
           if (selectedId == null || selectedId.isEmpty) return false;
           return householdId == selectedId;
-        case ActiveAccountType.household:
+        case ActiveWalletType.household:
           final selectedId = input.selectedHouseholdId;
           if (selectedId == null || selectedId.isEmpty) return false;
           return householdId == selectedId;

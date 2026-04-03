@@ -256,7 +256,7 @@ The same backend-paginated feed pattern is now used in two additional detail pag
 
 ### Account details
 
-`account_details_page.dart` now:
+`wallet_details_page.dart` now:
 
 - builds a `TransactionsFeedQuery` scoped by account id (`selectedAccountId`)
 - uses feed pages for recent transactions list (`GroupedTransactionsList`)
@@ -559,7 +559,7 @@ Check:
 - `lib/features/home/presentation/utils/transactions_page_derived_data.dart`
 - `lib/features/home/presentation/widgets/transactions_pie_chart.dart`
 - `lib/core/notifications/notification_dispatcher.dart`
-- `lib/features/accounts/presentation/pages/account_details_page.dart`
+- `lib/features/accounts/presentation/pages/wallet_details_page.dart`
 - `lib/features/pockets/presentation/pages/pocket_details_page.dart`
 - `lib/features/pockets/presentation/state/pocket_details_provider.dart`
 - `lib/shared/widgets/auto_paginated_scroll.dart`

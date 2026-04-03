@@ -354,7 +354,7 @@ class _ScenarioPlanningTabContentState
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId = householdScope.activeAccountHouseholdId;
     final bool isHousehold =
-        householdScope.activeAccountType != ActiveAccountType.personal &&
+        householdScope.activeAccountType != ActiveWalletType.personal &&
             activeHouseholdId != null;
     final String? householdId = isHousehold ? activeHouseholdId : null;
     final preview = ref.watch(previewModeProvider);

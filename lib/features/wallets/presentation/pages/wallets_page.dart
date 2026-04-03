@@ -10,13 +10,12 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/pages/account_details_page.dart';
-import 'package:moneko/features/accounts/presentation/pages/accounts_history_page.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_transfer_sheet.dart';
-import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
@@ -36,9 +35,9 @@ class AccountsPage extends HookConsumerWidget {
     final selectedMonthIndexState = useState(0);
     final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
-    final accountsAsync = ref.watch(scopedAccountsProvider);
-    final effectiveAccounts = ref.watch(effectiveScopedAccountsProvider);
-    final actions = ref.watch(accountActionsProvider);
+    final walletsAsync = ref.watch(scopedWalletsProvider);
+    final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
+    final actions = ref.watch(walletActionsProvider);
     final analytics = ref.watch(analyticsProvider);
     final auth = ref.watch(authProvider);
     final prefs = ref.read(sharedPreferencesProvider);
@@ -51,8 +50,8 @@ class AccountsPage extends HookConsumerWidget {
             : ref.watch(userHouseholdsProvider(ref.watch(authProvider).uid));
 
     Future<void> onRefresh() async {
-      ref.invalidate(scopedAccountsProvider);
-      await ref.read(scopedAccountsProvider.future);
+      ref.invalidate(scopedWalletsProvider);
+      await ref.read(scopedWalletsProvider.future);
 
       final userId = ref.read(authProvider).uid;
       if (userId.isNotEmpty) {
@@ -71,7 +70,7 @@ class AccountsPage extends HookConsumerWidget {
 
     final availableMonths = _buildAvailableMonths(scopedTransactions);
     final maxMonthIndex = availableMonths.length - 1;
-    final swipeHintPrefKey = _accountsMonthSwipeHintDismissedKey(auth.uid);
+    final swipeHintPrefKey = _walletsMonthSwipeHintDismissedKey(auth.uid);
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
 
@@ -80,7 +79,7 @@ class AccountsPage extends HookConsumerWidget {
     }
 
     Future<void> onAddAccount() async {
-      final result = await showCreateEditAccountSheet(context);
+      final result = await showCreateEditWalletSheet(context);
       if (result == null) return;
       try {
         await actions.createAccount(
@@ -101,10 +100,10 @@ class AccountsPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> onTransfer(List<AccountEntity> accounts) async {
-      final result = await showAccountTransferSheet(
+    Future<void> onTransfer(List<WalletEntity> wallets) async {
+      final result = await showWalletTransferSheet(
         context,
-        accounts: accounts,
+        wallets: wallets,
       );
       if (result == null) return;
       try {
@@ -134,7 +133,7 @@ class AccountsPage extends HookConsumerWidget {
             )
           : null,
       body: SafeArea(
-        child: accountsAsync.when(
+        child: walletsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(
             child: Padding(
@@ -143,12 +142,12 @@ class AccountsPage extends HookConsumerWidget {
             ),
           ),
           data: (_) {
-            final accounts = effectiveAccounts;
+            final wallets = effectiveWallets;
             final selectedMonthIndex =
                 selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
             final selectedMonth = availableMonths[selectedMonthIndex];
             final selectedSnapshot = _buildSnapshot(
-              accounts: accounts,
+              wallets: wallets,
               transactions: scopedTransactions,
               endExclusive: _startOfNextMonth(selectedMonth),
             );
@@ -177,11 +176,11 @@ class AccountsPage extends HookConsumerWidget {
                         final isActive = selectedMonthIndexState.value == index;
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: _AccountsOverviewCard(
+                          child: _WalletsOverviewCard(
                             availableMonths: availableMonths,
                             selectedMonthIndex: index,
                             isActive: isActive,
-                            accounts: accounts,
+                            wallets: wallets,
                             scopedTransactions: scopedTransactions,
                             currencyCode: selectedCurrencyCode,
                             hasDismissedSwipeHint:
@@ -194,7 +193,7 @@ class AccountsPage extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (accounts.isEmpty)
+                  if (wallets.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -203,7 +202,7 @@ class AccountsPage extends HookConsumerWidget {
                         border: Border.all(color: colorScheme.border),
                       ),
                       child: Text(
-                        'No accounts yet',
+                        'No wallets yet',
                         style: TextStyle(
                           color: colorScheme.mutedForeground,
                           fontWeight: FontWeight.w500,
@@ -214,9 +213,9 @@ class AccountsPage extends HookConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 24, top: 12),
                       child: _WalletAccountStack(
-                        accounts: accounts,
+                        wallets: wallets,
                         currencyCode: selectedCurrencyCode,
-                        accountBalances: selectedSnapshot.accountBalances,
+                        walletBalances: selectedSnapshot.walletBalances,
                       ),
                     ),
                   TextButton.icon(
@@ -230,9 +229,9 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     ),
                   ),
-                  if (accounts.length > 1)
+                  if (wallets.length > 1)
                     TextButton.icon(
-                      onPressed: () => onTransfer(accounts),
+                      onPressed: () => onTransfer(wallets),
                       icon: Icon(Icons.swap_horiz, color: colorScheme.primary),
                       label: Text(
                         'Transfer',
@@ -279,22 +278,22 @@ class _AnimatedNumberText extends StatelessWidget {
   }
 }
 
-class _AccountsOverviewCard extends HookWidget {
+class _WalletsOverviewCard extends HookWidget {
   final List<DateTime> availableMonths;
   final int selectedMonthIndex;
   final bool isActive;
-  final List<AccountEntity> accounts;
+  final List<WalletEntity> wallets;
   final List<ExpenseEntry> scopedTransactions;
   final String currencyCode;
   final bool hasDismissedSwipeHint;
   final _AccountsSnapshot activeSnapshot;
   final int activeMonthIndex;
 
-  const _AccountsOverviewCard({
+  const _WalletsOverviewCard({
     required this.availableMonths,
     required this.selectedMonthIndex,
     required this.isActive,
-    required this.accounts,
+    required this.wallets,
     required this.scopedTransactions,
     required this.currencyCode,
     required this.hasDismissedSwipeHint,
@@ -313,11 +312,11 @@ class _AccountsOverviewCard extends HookWidget {
 
     final selectedSnapshot = useMemoized(() {
       return _buildSnapshot(
-        accounts: accounts,
+        wallets: wallets,
         transactions: scopedTransactions,
         endExclusive: _startOfNextMonth(availableMonths[selectedMonthIndex]),
       );
-    }, [availableMonths, selectedMonthIndex, accounts, scopedTransactions]);
+    }, [availableMonths, selectedMonthIndex, wallets, scopedTransactions]);
 
     final spots = useMemoized(() {
       final timeAscendingMonths = availableMonths.reversed.toList();
@@ -325,14 +324,14 @@ class _AccountsOverviewCard extends HookWidget {
       final currentListSize = timeAscendingMonths.length - targetMonthIndex;
       for (int i = 0; i < currentListSize; i++) {
         final snap = _buildSnapshot(
-          accounts: accounts,
+          wallets: wallets,
           transactions: scopedTransactions,
           endExclusive: _startOfNextMonth(timeAscendingMonths[i]),
         );
         newSpots.add(FlSpot(i.toDouble(), snap.netWorth));
       }
       return newSpots;
-    }, [availableMonths, accounts, scopedTransactions, targetMonthIndex]);
+    }, [availableMonths, wallets, scopedTransactions, targetMonthIndex]);
 
     final timeAscendingMonthsSize = availableMonths.length;
     final highlightX =
@@ -558,14 +557,14 @@ class _AccountsOverviewCard extends HookWidget {
 }
 
 class _WalletAccountStack extends HookConsumerWidget {
-  final List<AccountEntity> accounts;
+  final List<WalletEntity> wallets;
   final String currencyCode;
-  final Map<String, int> accountBalances;
+  final Map<String, int> walletBalances;
 
   const _WalletAccountStack({
-    required this.accounts,
+    required this.wallets,
     required this.currencyCode,
-    required this.accountBalances,
+    required this.walletBalances,
   });
 
   @override
@@ -573,7 +572,7 @@ class _WalletAccountStack extends HookConsumerWidget {
     final prefs = ref.watch(sharedPreferencesProvider);
     const orderKey = 'wallet_accounts_order';
 
-    final orderedAccountsState = useState<List<AccountEntity>>([...accounts]);
+    final orderedAccountsState = useState<List<WalletEntity>>([...wallets]);
     final draggedAccountIdState = useState<String?>(null);
     final dragOffsetYState = useState<double>(0.0);
     final dragOriginalIndexState = useState<int>(0);
@@ -581,7 +580,7 @@ class _WalletAccountStack extends HookConsumerWidget {
     // Sync from props/prefs
     useEffect(() {
       final savedOrder = prefs.getStringList(orderKey) ?? [];
-      final list = [...accounts];
+      final list = [...wallets];
       list.sort((a, b) {
         final indexA = savedOrder.indexOf(a.id);
         final indexB = savedOrder.indexOf(b.id);
@@ -592,7 +591,7 @@ class _WalletAccountStack extends HookConsumerWidget {
       });
       orderedAccountsState.value = list;
       return null;
-    }, [accounts]);
+    }, [wallets]);
 
     final orderedAccounts = orderedAccountsState.value;
 
@@ -627,9 +626,9 @@ class _WalletAccountStack extends HookConsumerWidget {
       }
     }
 
-    double getTop(int index, AccountEntity account) {
+    double getTop(int index, WalletEntity wallet) {
       if (!isAnySelected) {
-        if (draggedAccountIdState.value == account.id) {
+        if (draggedAccountIdState.value == wallet.id) {
           return index * collapsedSpacing + dragOffsetYState.value;
         }
         return index * collapsedSpacing;
@@ -671,14 +670,14 @@ class _WalletAccountStack extends HookConsumerWidget {
         color: Colors.transparent,
         child: Stack(
           clipBehavior: Clip.none,
-          children: renderAccounts.map((account) {
-            final originalIndex = orderedAccounts.indexOf(account);
-            final isExpanded = selectedAccountIdState.value == account.id;
-            final isDragging = draggedAccountIdState.value == account.id;
+          children: renderAccounts.map((wallet) {
+            final originalIndex = orderedAccounts.indexOf(wallet);
+            final isExpanded = selectedAccountIdState.value == wallet.id;
+            final isDragging = draggedAccountIdState.value == wallet.id;
 
             return AnimatedPositioned(
-              key: ValueKey(account.id),
-              top: getTop(originalIndex, account),
+              key: ValueKey(wallet.id),
+              top: getTop(originalIndex, wallet),
               left: 0,
               right: 0,
               height: isExpanded ? expandedCardHeight : unselectedCardHeight,
@@ -691,10 +690,10 @@ class _WalletAccountStack extends HookConsumerWidget {
                 onLongPressStart: isAnySelected
                     ? null
                     : (details) {
-                        draggedAccountIdState.value = account.id;
+                        draggedAccountIdState.value = wallet.id;
                         dragOffsetYState.value = 0.0;
                         dragOriginalIndexState.value = orderedAccounts
-                            .indexWhere((a) => a.id == account.id);
+                            .indexWhere((a) => a.id == wallet.id);
                       },
                 onLongPressMoveUpdate: isAnySelected
                     ? null
@@ -710,7 +709,7 @@ class _WalletAccountStack extends HookConsumerWidget {
                             .round()
                             .clamp(0, orderedAccounts.length - 1);
                         final currentIndex = orderedAccounts
-                            .indexWhere((a) => a.id == account.id);
+                            .indexWhere((a) => a.id == wallet.id);
 
                         if (targetIndex != currentIndex) {
                           final newList = [...orderedAccounts];
@@ -723,7 +722,7 @@ class _WalletAccountStack extends HookConsumerWidget {
 
                         dragOffsetYState.value = absoluteDragPos -
                             (orderedAccounts
-                                    .indexWhere((a) => a.id == account.id) *
+                                    .indexWhere((a) => a.id == wallet.id) *
                                 collapsedSpacing);
                       },
                 onLongPressEnd: isAnySelected
@@ -737,7 +736,7 @@ class _WalletAccountStack extends HookConsumerWidget {
                 onTapUp: (details) {
                   if (!isAnySelected) {
                     // In collapse mode: clicking ANY card expands all cards.
-                    selectedAccountIdState.value = account.id;
+                    selectedAccountIdState.value = wallet.id;
                   } else {
                     // In expanded mode:
                     if (details.localPosition.dy < 100) {
@@ -748,8 +747,8 @@ class _WalletAccountStack extends HookConsumerWidget {
                       Navigator.of(context)
                           .push(
                         MaterialPageRoute(
-                          builder: (_) => AccountDetailsPage(
-                            account: account,
+                          builder: (_) => WalletDetailsPage(
+                            wallet: wallet,
                           ),
                         ),
                       )
@@ -759,11 +758,11 @@ class _WalletAccountStack extends HookConsumerWidget {
                     }
                   }
                 },
-                child: _AccountStackCard(
-                  account: account,
+                child: _WalletStackCard(
+                  wallet: wallet,
                   currencyCode: currencyCode,
-                  displayBalanceCents: accountBalances[account.id] ??
-                      account.currentBalanceCents,
+                  displayBalanceCents: walletBalances[wallet.id] ??
+                      wallet.currentBalanceCents,
                   isExpanded: isExpanded,
                 ),
               ),
@@ -775,15 +774,15 @@ class _WalletAccountStack extends HookConsumerWidget {
   }
 }
 
-class _AccountStackCard extends StatelessWidget {
-  const _AccountStackCard({
-    required this.account,
+class _WalletStackCard extends StatelessWidget {
+  const _WalletStackCard({
+    required this.wallet,
     required this.currencyCode,
     required this.displayBalanceCents,
     required this.isExpanded,
   });
 
-  final AccountEntity account;
+  final WalletEntity wallet;
   final String currencyCode;
   final int displayBalanceCents;
   final bool isExpanded;
@@ -795,7 +794,7 @@ class _AccountStackCard extends StatelessWidget {
     final amount = displayBalanceCents / 100.0;
     final isNegative = amount < 0;
 
-    final goal = (account.goalAmountCents ?? 0) / 100.0;
+    final goal = (wallet.goalAmountCents ?? 0) / 100.0;
     final currentProgressAmount = amount < 0 ? 0.0 : amount;
 
     double progress = 0.0;
@@ -805,13 +804,13 @@ class _AccountStackCard extends StatelessWidget {
       progress = 1.0;
     }
 
-    final accountColorRaw = account.color.toUpperCase() == '#6B7280'
+    final walletColorRaw = wallet.color.toUpperCase() == '#6B7280'
         ? colorScheme.primary
-        : parseAccountColor(account.color, colorScheme.primary);
+        : parseAccountColor(wallet.color, colorScheme.primary);
     final baseColor = AppTheme.tunedPocketBaseColor(
-      accountColorRaw,
+      walletColorRaw,
       colorScheme,
-      hasCustomColor: account.color.toUpperCase() != '#6B7280',
+      hasCustomColor: wallet.color.toUpperCase() != '#6B7280',
     );
 
     final backgroundTint = colorScheme.pocketTileFill(baseColor);
@@ -829,7 +828,7 @@ class _AccountStackCard extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            resolveAccountIcon(account.icon),
+            resolveWalletIcon(wallet.icon),
             color: baseColor,
             size: 18,
           ),
@@ -837,7 +836,7 @@ class _AccountStackCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            account.name,
+            wallet.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -869,7 +868,7 @@ class _AccountStackCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                account.name,
+                wallet.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -889,7 +888,7 @@ class _AccountStackCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      resolveAccountIcon(account.icon),
+                      resolveWalletIcon(wallet.icon),
                       color: baseColor,
                       size: 18,
                     ),
@@ -1013,27 +1012,27 @@ class _AccountStackCard extends StatelessWidget {
   }
 }
 
-String? _resolveDefaultAccountId(List<AccountEntity> accounts) {
-  for (final account in accounts) {
-    if (account.isDefault && !account.isArchived) {
-      return account.id;
+String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
+  for (final wallet in wallets) {
+    if (wallet.isDefault && !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  for (final account in accounts) {
-    if (account.isSystem &&
-        account.name.trim().toLowerCase() == 'spending' &&
-        !account.isArchived) {
-      return account.id;
+  for (final wallet in wallets) {
+    if (wallet.isSystem &&
+        wallet.name.trim().toLowerCase() == 'spending' &&
+        !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  return accounts.isNotEmpty ? accounts.first.id : null;
+  return wallets.isNotEmpty ? wallets.first.id : null;
 }
 
 String? _resolveTransactionAccountId({
   required ExpenseEntry transaction,
   required String? defaultAccountId,
 }) {
-  final raw = transaction.accountId?.trim();
+  final raw = transaction.walletId?.trim();
   if (raw != null && raw.isNotEmpty) {
     return raw;
   }
@@ -1069,7 +1068,7 @@ List<DateTime> _buildAvailableMonths(List<ExpenseEntry> transactions) {
   return months;
 }
 
-String _accountsMonthSwipeHintDismissedKey(String userId) {
+String _walletsMonthSwipeHintDismissedKey(String userId) {
   return 'accounts_month_swipe_hint_dismissed:$userId';
 }
 
@@ -1078,7 +1077,7 @@ DateTime _startOfNextMonth(DateTime month) {
 }
 
 _AccountsSnapshot _buildSnapshot({
-  required List<AccountEntity> accounts,
+  required List<WalletEntity> wallets,
   required List<ExpenseEntry> transactions,
   required DateTime endExclusive,
 }) {
@@ -1097,34 +1096,34 @@ _AccountsSnapshot _buildSnapshot({
     }
   }
 
-  final defaultAccountId = _resolveDefaultAccountId(accounts);
-  final accountBalances = <String, int>{
-    for (final account in accounts) account.id: account.openingBalanceCents,
+  final defaultWalletId = _resolveDefaultAccountId(wallets);
+  final walletBalances = <String, int>{
+    for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
   };
   for (final tx in filteredTransactions) {
     final resolvedAccountId = _resolveTransactionAccountId(
       transaction: tx,
-      defaultAccountId: defaultAccountId,
+      defaultAccountId: defaultWalletId,
     );
     if (resolvedAccountId == null ||
-        !accountBalances.containsKey(resolvedAccountId)) {
+        !walletBalances.containsKey(resolvedAccountId)) {
       continue;
     }
     final amountCents = tx.amountCents.abs();
     final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
-    final current = accountBalances[resolvedAccountId] ?? 0;
-    accountBalances[resolvedAccountId] =
+    final current = walletBalances[resolvedAccountId] ?? 0;
+    walletBalances[resolvedAccountId] =
         isIncome ? current + amountCents : current - amountCents;
   }
 
   final netWorth =
-      accountBalances.values.fold<int>(0, (sum, value) => sum + value) / 100.0;
+      walletBalances.values.fold<int>(0, (sum, value) => sum + value) / 100.0;
 
   return _AccountsSnapshot(
     totalIncome: totalIncome,
     totalSpent: totalSpent,
     netWorth: netWorth,
-    accountBalances: accountBalances,
+    walletBalances: walletBalances,
   );
 }
 
@@ -1133,13 +1132,13 @@ class _AccountsSnapshot {
     required this.totalIncome,
     required this.totalSpent,
     required this.netWorth,
-    required this.accountBalances,
+    required this.walletBalances,
   });
 
   final double totalIncome;
   final double totalSpent;
   final double netWorth;
-  final Map<String, int> accountBalances;
+  final Map<String, int> walletBalances;
 }
 
 class _OrganicAccountTileClipper extends CustomClipper<Path> {
@@ -1206,12 +1205,12 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
 bool _isInActiveScope(ExpenseEntry expense, HouseholdScope scope) {
   final householdId = expense.householdId;
   switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
+    case ActiveWalletType.personal:
       return householdId == null || householdId.isEmpty;
-    case ActiveAccountType.portfolio:
+    case ActiveWalletType.portfolio:
       final selected = scope.activeAccountHouseholdId;
       return selected != null && selected.isNotEmpty && householdId == selected;
-    case ActiveAccountType.household:
+    case ActiveWalletType.household:
       final selected = scope.selectedHouseholdId;
       return selected != null && selected.isNotEmpty && householdId == selected;
   }

@@ -148,7 +148,7 @@ final dashboardCurrencySummariesProvider =
     'get_dashboard_currency_summaries_v1',
     params: <String, dynamic>{
       'p_user_id': userId,
-      'p_household_id': scope.activeAccountType == ActiveAccountType.personal
+      'p_household_id': scope.activeAccountType == ActiveWalletType.personal
           ? null
           : scope.activeAccountHouseholdId,
     },
@@ -156,7 +156,7 @@ final dashboardCurrencySummariesProvider =
 
   final budgets = await ref.watch(dashboardPersonalBudgetsProvider.future);
   final budgetTotals = <String, double>{};
-  if (scope.activeAccountType == ActiveAccountType.personal) {
+  if (scope.activeAccountType == ActiveWalletType.personal) {
     for (final budget in budgets) {
       final code = (budget.currency ?? '').trim().toUpperCase();
       if (code.isEmpty) continue;

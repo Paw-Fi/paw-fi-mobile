@@ -5,21 +5,21 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
-final accountScopeHouseholdIdProvider = Provider<String?>((ref) {
+final walletScopeHouseholdIdProvider = Provider<String?>((ref) {
   final scope = ref.watch(householdScopeProvider);
-  return scope.activeAccountType == ActiveAccountType.personal
+  return scope.activeAccountType == ActiveWalletType.personal
       ? null
       : scope.activeAccountHouseholdId;
 });
 
-final accountsByHouseholdIdProvider =
-    FutureProvider.family<List<AccountEntity>, String?>(
+final walletsByHouseholdIdProvider =
+    FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
   final response = await supabase.functions.invoke(
     'list-accounts',
@@ -31,37 +31,37 @@ final accountsByHouseholdIdProvider =
 
   final payload = response.data as Map<String, dynamic>?;
   if (payload == null || payload['success'] != true) {
-    final message = payload?['error']?.toString() ?? 'Failed to load accounts';
+    final message = payload?['error']?.toString() ?? 'Failed to load wallets';
     throw Exception(message);
   }
 
   final data = payload['data'] as List<dynamic>? ?? const [];
   return data
       .whereType<Map<String, dynamic>>()
-      .map(AccountEntity.fromJson)
+      .map(WalletEntity.fromJson)
       .toList(growable: false);
 });
 
 final optimisticScopedAccountsOverridesProvider =
-    StateProvider<Map<String, AccountEntity>>((ref) => const {});
+    StateProvider<Map<String, WalletEntity>>((ref) => const {});
 
-List<AccountEntity> _mergeOptimisticAccounts(
-  List<AccountEntity> baseAccounts,
-  Map<String, AccountEntity> optimisticOverrides,
+List<WalletEntity> _mergeOptimisticAccounts(
+  List<WalletEntity> baseWallets,
+  Map<String, WalletEntity> optimisticOverrides,
 ) {
   if (optimisticOverrides.isEmpty) {
-    return baseAccounts;
+    return baseWallets;
   }
 
-  if (baseAccounts.isEmpty) {
+  if (baseWallets.isEmpty) {
     return optimisticOverrides.values.toList(growable: false);
   }
 
-  final merged = baseAccounts
-      .map((account) => optimisticOverrides[account.id] ?? account)
+  final merged = baseWallets
+      .map((wallet) => optimisticOverrides[wallet.id] ?? wallet)
       .toList(growable: true);
 
-  final existingIds = merged.map((account) => account.id).toSet();
+  final existingIds = merged.map((wallet) => wallet.id).toSet();
   for (final optimistic in optimisticOverrides.values) {
     if (!existingIds.contains(optimistic.id)) {
       merged.add(optimistic);
@@ -72,8 +72,8 @@ List<AccountEntity> _mergeOptimisticAccounts(
 }
 
 final archivedScopedAccountsProvider =
-    FutureProvider<List<AccountEntity>>((ref) async {
-  final householdId = ref.watch(accountScopeHouseholdIdProvider);
+    FutureProvider<List<WalletEntity>>((ref) async {
+  final householdId = ref.watch(walletScopeHouseholdIdProvider);
   final response = await supabase.functions.invoke(
     'list-accounts',
     body: {
@@ -84,62 +84,62 @@ final archivedScopedAccountsProvider =
 
   final payload = response.data as Map<String, dynamic>?;
   if (payload == null || payload['success'] != true) {
-    final message = payload?['error']?.toString() ?? 'Failed to load accounts';
+    final message = payload?['error']?.toString() ?? 'Failed to load accwalletsounts';
     throw Exception(message);
   }
 
   final data = payload['data'] as List<dynamic>? ?? const [];
   return data
       .whereType<Map<String, dynamic>>()
-      .map(AccountEntity.fromJson)
-      .where((account) => account.isArchived)
+      .map(WalletEntity.fromJson)
+      .where((wallet) => wallet.isArchived)
       .toList(growable: false);
 });
 
-final scopedAccountsProvider = FutureProvider<List<AccountEntity>>((ref) async {
-  final householdId = ref.watch(accountScopeHouseholdIdProvider);
-  return ref.watch(accountsByHouseholdIdProvider(householdId).future);
+final scopedWalletsProvider = FutureProvider<List<WalletEntity>>((ref) async {
+  final householdId = ref.watch(walletScopeHouseholdIdProvider);
+  return ref.watch(walletsByHouseholdIdProvider(householdId).future);
 });
 
-final effectiveScopedAccountsProvider = Provider<List<AccountEntity>>((ref) {
+final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
   final baseAccounts =
-      ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+      ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
   final optimisticOverrides =
       ref.watch(optimisticScopedAccountsOverridesProvider);
   return _mergeOptimisticAccounts(baseAccounts, optimisticOverrides);
 });
 
-final defaultScopedAccountProvider = Provider<AccountEntity?>((ref) {
-  final accounts = ref.watch(effectiveScopedAccountsProvider);
-  for (final account in accounts) {
-    if (account.isDefault) return account;
+final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
+  final wallets = ref.watch(effectiveScopeWalletsProvider);
+  for (final wallet in wallets) {
+    if (wallet.isDefault) return wallet;
   }
-  return accounts.isNotEmpty ? accounts.first : null;
+  return wallets.isNotEmpty ? wallets.first : null;
 });
 
-final accountByIdProvider = Provider.family<AccountEntity?, String>((ref, id) {
-  final accounts = ref.watch(effectiveScopedAccountsProvider);
+final walletByIdProvider = Provider.family<WalletEntity?, String>((ref, id) {
+  final wallets = ref.watch(effectiveScopeWalletsProvider);
+  for (final wallet in wallets) {
+    if (wallet.id == id) return wallet;
+  }
+  return null;
+});
+
+final serverWalletByIdProvider =
+    Provider.family<WalletEntity?, String>((ref, id) {
+  final accounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
   for (final account in accounts) {
     if (account.id == id) return account;
   }
   return null;
 });
 
-final serverAccountByIdProvider =
-    Provider.family<AccountEntity?, String>((ref, id) {
-  final accounts = ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
-  for (final account in accounts) {
-    if (account.id == id) return account;
-  }
-  return null;
-});
-
-class AccountActions {
-  const AccountActions(this.ref);
+class WalletActions {
+  const WalletActions(this.ref);
 
   final Ref ref;
 
-  void setOptimisticAccount(AccountEntity account) {
+  void setOptimisticWallet(WalletEntity account) {
     debugPrint(
       '[Accounts][Optimistic] set accountId=${account.id} name=${account.name} color=${account.color} opening=${account.openingBalanceCents}',
     );
@@ -150,19 +150,19 @@ class AccountActions {
     };
   }
 
-  void clearOptimisticAccount(String accountId) {
+  void clearOptimisticWallet(String accountId) {
     debugPrint('[Accounts][Optimistic] clear accountId=$accountId');
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     if (!overrides.containsKey(accountId)) {
       return;
     }
-    final nextOverrides = <String, AccountEntity>{...overrides}
+    final nextOverrides = <String, WalletEntity>{...overrides}
       ..remove(accountId);
     ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
         nextOverrides;
   }
 
-  void reconcileOptimisticAccountWithServer(AccountEntity serverAccount) {
+  void reconcileOptimisticAccountWithServer(WalletEntity serverAccount) {
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     final optimistic = overrides[serverAccount.id];
     if (optimistic == null) {
@@ -183,7 +183,7 @@ class AccountActions {
     debugPrint(
       '[Accounts][Optimistic] reconcile success accountId=${serverAccount.id}; clearing override',
     );
-    clearOptimisticAccount(serverAccount.id);
+    clearOptimisticWallet(serverAccount.id);
   }
 
   void refreshAccountData() {
@@ -198,7 +198,7 @@ class AccountActions {
     int? goalAmountCents,
     bool isDefault = false,
   }) async {
-    final householdId = ref.read(accountScopeHouseholdIdProvider);
+    final householdId = ref.read(walletScopeHouseholdIdProvider);
     final response = await supabase.functions.invoke(
       'save-account',
       body: {
@@ -211,12 +211,12 @@ class AccountActions {
         if (householdId != null) 'householdId': householdId,
       },
     );
-    _throwIfFailed(response.data, 'Failed to create account');
+    _throwIfFailed(response.data, 'Failed to create wallet');
     _invalidateAll();
   }
 
   Future<void> updateAccount({
-    required String accountId,
+    required String walletId,
     String? name,
     String? icon,
     String? color,
@@ -226,12 +226,12 @@ class AccountActions {
     bool invalidate = true,
   }) async {
     debugPrint(
-      '[Accounts][Update] start accountId=$accountId name=$name icon=$icon color=$color goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
+      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
       'update-account',
       body: {
-        'accountId': accountId,
+        'accountId': walletId,
         if (name != null) 'name': name,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
@@ -240,8 +240,8 @@ class AccountActions {
         if (isDefault != null) 'isDefault': isDefault,
       },
     );
-    _throwIfFailed(response.data, 'Failed to update account');
-    debugPrint('[Accounts][Update] success accountId=$accountId');
+    _throwIfFailed(response.data, 'Failed to update wallet');
+    debugPrint('[Accounts][Update] success accountId=$walletId');
     if (invalidate) {
       _invalidateAll();
     }
@@ -252,7 +252,7 @@ class AccountActions {
       'archive-account',
       body: {'accountId': accountId},
     );
-    _throwIfFailed(response.data, 'Failed to archive account');
+    _throwIfFailed(response.data, 'Failed to archive wallet');
     _invalidateAll();
   }
 
@@ -261,7 +261,7 @@ class AccountActions {
       'restore-account',
       body: {'accountId': accountId},
     );
-    _throwIfFailed(response.data, 'Failed to restore account');
+    _throwIfFailed(response.data, 'Failed to restore wallet');
     _invalidateAll();
   }
 
@@ -289,24 +289,24 @@ class AccountActions {
   }
 
   Future<void> updateBalance({
-    required String accountId,
+    required String walletId,
     required int targetBalanceCents,
     String? note,
     bool invalidate = true,
   }) async {
     debugPrint(
-      '[Accounts][Balance] start accountId=$accountId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
+      '[Accounts][Balance] start accountId=$walletId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
       'update-account-balance',
       body: {
-        'accountId': accountId,
+        'accountId': walletId,
         'targetBalanceCents': targetBalanceCents,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       },
     );
     _throwIfFailed(response.data, 'Failed to update account balance');
-    debugPrint('[Accounts][Balance] success accountId=$accountId');
+    debugPrint('[Accounts][Balance] success accountId=$walletId');
     if (invalidate) {
       _invalidateAll();
     }
@@ -328,8 +328,8 @@ class AccountActions {
     debugPrint(
       '[Accounts][Invalidate] start optimisticOverridesBefore=$overridesCountBefore',
     );
-    ref.invalidate(accountsByHouseholdIdProvider);
-    ref.invalidate(scopedAccountsProvider);
+    ref.invalidate(walletsByHouseholdIdProvider);
+    ref.invalidate(scopedWalletsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
@@ -348,6 +348,6 @@ class AccountActions {
   }
 }
 
-final accountActionsProvider = Provider<AccountActions>((ref) {
-  return AccountActions(ref);
+final walletActionsProvider = Provider<WalletActions>((ref) {
+  return WalletActions(ref);
 });

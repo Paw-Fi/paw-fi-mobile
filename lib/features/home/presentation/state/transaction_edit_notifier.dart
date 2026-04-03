@@ -286,7 +286,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       currency: updates['currency'] as String? ?? expense.currency,
       accountId: updates.containsKey('account_id')
           ? (updates['account_id'] as String?)
-          : expense.accountId,
+          : expense.walletId,
     );
   }
 

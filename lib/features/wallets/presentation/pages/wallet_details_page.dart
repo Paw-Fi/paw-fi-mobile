@@ -6,10 +6,10 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
-import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
+import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -19,23 +19,23 @@ import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
-class AccountDetailsPage extends HookConsumerWidget {
-  const AccountDetailsPage({
+class WalletDetailsPage extends HookConsumerWidget {
+  const WalletDetailsPage({
     super.key,
-    required this.account,
+    required this.wallet,
   });
 
-  final AccountEntity account;
+  final WalletEntity wallet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final actions = ref.watch(accountActionsProvider);
+    final actions = ref.watch(walletActionsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
-    final providerAccount = ref.watch(accountByIdProvider(account.id));
-    final serverAccount = ref.watch(serverAccountByIdProvider(account.id));
-    final latestDisplayedAccountState = useState<AccountEntity>(account);
+    final providerAccount = ref.watch(walletByIdProvider(wallet.id));
+    final serverAccount = ref.watch(serverWalletByIdProvider(wallet.id));
+    final latestDisplayedAccountState = useState<WalletEntity>(wallet);
 
     useEffect(() {
       if (providerAccount != null) {
@@ -44,7 +44,7 @@ class AccountDetailsPage extends HookConsumerWidget {
         );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final latestServerAccount =
-              ref.read(serverAccountByIdProvider(account.id));
+              ref.read(serverWalletByIdProvider(wallet.id));
           if (latestServerAccount == null) {
             return;
           }
@@ -60,20 +60,20 @@ class AccountDetailsPage extends HookConsumerWidget {
       return null;
     }, [providerAccount, serverAccount]);
 
-    final latestAccount = providerAccount ?? latestDisplayedAccountState.value;
+    final latestWallet = providerAccount ?? latestDisplayedAccountState.value;
     final householdScope = ref.watch(householdScopeProvider);
-    final scopedAccounts = ref.watch(scopedAccountsProvider).valueOrNull ??
-        const <AccountEntity>[];
+    final scopedAccounts = ref.watch(scopedWalletsProvider).valueOrNull ??
+        const <WalletEntity>[];
     final defaultAccountId = _resolveDefaultAccountId(scopedAccounts);
-    final isDefaultResolvedAccount = latestAccount.id == defaultAccountId;
+    final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
 
     final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
-    final accountFeedQuery = TransactionsFeedQuery(
+    final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
       selectedCurrency: selectedCurrencyCode,
       selectedCategory: null,
-      selectedAccountId: latestAccount.id,
+      selectedAccountId: latestWallet.id,
       selectedCategories: null,
       includeUnassignedAccount: isDefaultResolvedAccount,
       selectedType: 'all',
@@ -81,32 +81,32 @@ class AccountDetailsPage extends HookConsumerWidget {
       startDate: null,
       endDate: null,
     );
-    final accountFeedState =
-        ref.watch(transactionsFeedProvider(accountFeedQuery));
+    final walletFeedState =
+        ref.watch(transactionsFeedProvider(walletFeedQuery));
 
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0);
-    final monthFeedQuery = accountFeedQuery.copyWith(
+    final monthFeedQuery = walletFeedQuery.copyWith(
       startDate: monthStart,
       endDate: monthEnd,
     );
     final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
 
-    final scopedExpenses = accountFeedState.items;
-    final accountColor =
-        parseAccountColor(latestAccount.color, colorScheme.primary);
+    final scopedExpenses = walletFeedState.items;
+    final walletColor =
+        parseAccountColor(latestWallet.color, colorScheme.primary);
     final gradientColors =
-        AppTheme.pocketDetailsGradient(accountColor, colorScheme);
+        AppTheme.pocketDetailsGradient(walletColor, colorScheme);
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
     final textColor =
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor =
         isBackgroundLight ? AppTheme.lightMuted : AppTheme.darkMutedForeground;
 
-    final currentBalanceCents = latestAccount.openingBalanceCents +
-        ((accountFeedState.summary.incomeTotal -
-                    accountFeedState.summary.expenseTotal) *
+    final currentBalanceCents = latestWallet.openingBalanceCents +
+        ((walletFeedState.summary.incomeTotal -
+                    walletFeedState.summary.expenseTotal) *
                 100)
             .round();
     final totalIncome = monthFeedState.summary.incomeTotal;
@@ -118,15 +118,15 @@ class AccountDetailsPage extends HookConsumerWidget {
 
     Future<void> onEdit() async {
       final result =
-          await showCreateEditAccountSheet(context, initial: latestAccount);
+          await showCreateEditWalletSheet(context, initial: latestWallet);
       if (result == null) return;
 
       debugPrint(
-        '[AccountDetails][Edit] save tapped accountId=${latestAccount.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
+        '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
       );
 
       final optimisticAccount = _copyAccount(
-        latestAccount,
+        latestWallet,
         name: result.name,
         icon: result.icon,
         color: result.color,
@@ -136,7 +136,7 @@ class AccountDetailsPage extends HookConsumerWidget {
         currentBalanceCents: result.openingBalanceCents,
       );
 
-      actions.setOptimisticAccount(optimisticAccount);
+      actions.setOptimisticWallet(optimisticAccount);
 
       if (context.mounted) {
         AppToast.success(context, context.l10n.saveChanges);
@@ -144,7 +144,7 @@ class AccountDetailsPage extends HookConsumerWidget {
 
       try {
         await actions.updateAccount(
-          accountId: latestAccount.id,
+          walletId: latestWallet.id,
           name: result.name,
           icon: result.icon,
           color: result.color,
@@ -153,24 +153,24 @@ class AccountDetailsPage extends HookConsumerWidget {
           isDefault: result.isDefault,
           invalidate: false,
         );
-        if (result.openingBalanceCents != latestAccount.currentBalanceCents) {
+        if (result.openingBalanceCents != latestWallet.currentBalanceCents) {
           debugPrint(
-            '[AccountDetails][Edit] updateBalance needed accountId=${latestAccount.id} fromCurrent=${latestAccount.currentBalanceCents} toTarget=${result.openingBalanceCents}',
+            '[AccountDetails][Edit] updateBalance needed accountId=${latestWallet.id} fromCurrent=${latestWallet.currentBalanceCents} toTarget=${result.openingBalanceCents}',
           );
           await actions.updateBalance(
-            accountId: latestAccount.id,
+            walletId: latestWallet.id,
             targetBalanceCents: result.openingBalanceCents,
-            note: 'Updated from account editor',
+            note: 'Updated from wallet editor',
             invalidate: false,
           );
         }
         debugPrint(
-            '[AccountDetails][Edit] refreshAccountData accountId=${latestAccount.id}');
+            '[AccountDetails][Edit] refreshAccountData accountId=${latestWallet.id}');
         actions.refreshAccountData();
       } catch (error) {
         debugPrint(
-            '[AccountDetails][Edit] error accountId=${latestAccount.id} error=$error');
-        actions.clearOptimisticAccount(latestAccount.id);
+            '[AccountDetails][Edit] error accountId=${latestWallet.id} error=$error');
+        actions.clearOptimisticWallet(latestWallet.id);
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
         }
@@ -180,9 +180,9 @@ class AccountDetailsPage extends HookConsumerWidget {
     Future<void> onArchive() async {
       final confirm = await MonekoAlertDialog.show(
         context: context,
-        title: 'Archive this account?',
+        title: 'Archive this wallet?',
         description:
-            'You can only archive accounts with no transactions or transfers. This account will be hidden from active lists.',
+            'You can only archive wallets with no transactions or transfers. This wallet will be hidden from active lists.',
         confirmLabel: 'Archive',
         cancelLabel: context.l10n.cancel,
       );
@@ -190,7 +190,7 @@ class AccountDetailsPage extends HookConsumerWidget {
       if (confirm?.confirmed != true || !context.mounted) return;
 
       try {
-        await actions.archiveAccount(latestAccount.id);
+        await actions.archiveAccount(latestWallet.id);
         if (!context.mounted) return;
         AppToast.success(context, 'Account archived successfully');
         Navigator.of(context).pop();
@@ -216,12 +216,12 @@ class AccountDetailsPage extends HookConsumerWidget {
             ),
           ),
           AutoPaginatedScroll(
-            hasMore: accountFeedState.hasMore,
-            isLoading: accountFeedState.isLoading,
-            isLoadingMore: accountFeedState.isLoadingMore,
+            hasMore: walletFeedState.hasMore,
+            isLoading: walletFeedState.isLoading,
+            isLoadingMore: walletFeedState.isLoadingMore,
             onLoadMore: () {
               ref
-                  .read(transactionsFeedProvider(accountFeedQuery).notifier)
+                  .read(transactionsFeedProvider(walletFeedQuery).notifier)
                   .loadMore();
             },
             child: CustomScrollView(
@@ -244,7 +244,7 @@ class AccountDetailsPage extends HookConsumerWidget {
                       icon: Icon(Icons.edit, color: textColor),
                       onPressed: onEdit,
                     ),
-                    if (!latestAccount.isSystem && !latestAccount.isArchived)
+                    if (!latestWallet.isSystem && !latestWallet.isArchived)
                       IconButton(
                         icon: Icon(Icons.archive_outlined, color: textColor),
                         onPressed: onArchive,
@@ -270,14 +270,14 @@ class AccountDetailsPage extends HookConsumerWidget {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: Icon(
-                                resolveAccountIcon(latestAccount.icon),
+                                resolveWalletIcon(latestWallet.icon),
                                 color: textColor,
                                 size: 30,
                               ),
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              latestAccount.name,
+                              latestWallet.name,
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -307,10 +307,10 @@ class AccountDetailsPage extends HookConsumerWidget {
                                 letterSpacing: -1,
                               ),
                             ),
-                            if (latestAccount.goalAmountCents != null) ...[
+                            if (latestWallet.goalAmountCents != null) ...[
                               const SizedBox(height: 8),
                               Text(
-                                '${context.l10n.balanceSummary} ${_formatAmount(context, latestAccount.goalAmountCents! / 100.0, selectedCurrencyCode)}',
+                                '${context.l10n.balanceSummary} ${_formatAmount(context, latestWallet.goalAmountCents! / 100.0, selectedCurrencyCode)}',
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: secondaryTextColor,
@@ -383,17 +383,17 @@ class AccountDetailsPage extends HookConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          if (accountFeedState.isLoading)
+                          if (walletFeedState.isLoading)
                             const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(16),
                                 child: CircularProgressIndicator(),
                               ),
                             )
-                          else if (accountFeedState.error != null)
+                          else if (walletFeedState.error != null)
                             Center(
                               child: Text(
-                                context.l10n.error(accountFeedState.error!),
+                                context.l10n.error(walletFeedState.error!),
                                 style: TextStyle(
                                   color: colorScheme.mutedForeground,
                                 ),
@@ -414,7 +414,7 @@ class AccountDetailsPage extends HookConsumerWidget {
                               currency: selectedCurrencyCode,
                             ),
                           PaginatedLoadMoreIndicator(
-                            show: accountFeedState.isLoadingMore,
+                            show: walletFeedState.isLoadingMore,
                           ),
                           const SizedBox(height: 40),
                         ],
@@ -431,8 +431,8 @@ class AccountDetailsPage extends HookConsumerWidget {
   }
 }
 
-AccountEntity _copyAccount(
-  AccountEntity source, {
+WalletEntity _copyAccount(
+  WalletEntity source, {
   String? name,
   String? icon,
   String? color,
@@ -441,7 +441,7 @@ AccountEntity _copyAccount(
   bool? isDefault,
   int? currentBalanceCents,
 }) {
-  return AccountEntity(
+  return WalletEntity(
     id: source.id,
     userId: source.userId,
     householdId: source.householdId,
@@ -459,15 +459,15 @@ AccountEntity _copyAccount(
 
 String? _resolveScopedHouseholdId(HouseholdScope scope) {
   switch (scope.activeAccountType) {
-    case ActiveAccountType.personal:
+    case ActiveWalletType.personal:
       return null;
-    case ActiveAccountType.portfolio:
+    case ActiveWalletType.portfolio:
       final householdId = scope.activeAccountHouseholdId;
       if (householdId == null || householdId.isEmpty) {
         return null;
       }
       return householdId;
-    case ActiveAccountType.household:
+    case ActiveWalletType.household:
       final householdId = scope.selectedHouseholdId;
       if (householdId == null || householdId.isEmpty) {
         return null;
@@ -476,20 +476,20 @@ String? _resolveScopedHouseholdId(HouseholdScope scope) {
   }
 }
 
-String? _resolveDefaultAccountId(List<AccountEntity> accounts) {
-  for (final account in accounts) {
-    if (account.isDefault && !account.isArchived) {
-      return account.id;
+String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
+  for (final wallet in wallets) {
+    if (wallet.isDefault && !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  for (final account in accounts) {
-    if (account.isSystem &&
-        account.name.trim().toLowerCase() == 'spending' &&
-        !account.isArchived) {
-      return account.id;
+  for (final wallet in wallets) {
+    if (wallet.isSystem &&
+        wallet.name.trim().toLowerCase() == 'spending' &&
+        !wallet.isArchived) {
+      return wallet.id;
     }
   }
-  return accounts.isNotEmpty ? accounts.first.id : null;
+  return wallets.isNotEmpty ? wallets.first.id : null;
 }
 
 class _StatCard extends StatelessWidget {

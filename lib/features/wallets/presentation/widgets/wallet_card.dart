@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/utils/currency.dart';
 
-class AccountCard extends StatelessWidget {
-  const AccountCard({
+class WalletCard extends StatelessWidget {
+  const WalletCard({
     super.key,
-    required this.account,
+    required this.wallet,
     required this.currencyCode,
     this.onTap,
     this.onArchive,
@@ -13,7 +13,7 @@ class AccountCard extends StatelessWidget {
     this.onAdjustBalance,
   });
 
-  final AccountEntity account;
+  final WalletEntity wallet;
   final String currencyCode;
   final VoidCallback? onTap;
   final VoidCallback? onArchive;
@@ -23,7 +23,7 @@ class AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final amount = account.currentBalanceCents / 100.0;
+    final amount = wallet.currentBalanceCents / 100.0;
     final isPositive = amount >= 0;
 
     return Card(
@@ -40,22 +40,22 @@ class AccountCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     backgroundColor: colorScheme.secondaryContainer,
-                    child: Text(account.icon.isNotEmpty
-                        ? account.icon.characters.first
+                    child: Text(wallet.icon.isNotEmpty
+                        ? wallet.icon.characters.first
                         : 'W'),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      account.name,
+                      wallet.name,
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),
-                  if (account.isDefault)
+                  if (wallet.isDefault)
                     _Badge(
                         text: 'Default', color: colorScheme.primaryContainer),
-                  if (account.isSystem) ...[
+                  if (wallet.isSystem) ...[
                     const SizedBox(width: 8),
                     _Badge(
                         text: 'System', color: colorScheme.tertiaryContainer),
@@ -71,10 +71,10 @@ class AccountCard extends StatelessWidget {
                   color: isPositive ? colorScheme.primary : colorScheme.error,
                 ),
               ),
-              if (account.goalAmountCents != null) ...[
+              if (wallet.goalAmountCents != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  'Goal: ${resolveCurrencySymbol(currencyCode)}${formatAmount(account.goalAmountCents! / 100.0)}',
+                  'Goal: ${resolveCurrencySymbol(currencyCode)}${formatAmount(wallet.goalAmountCents! / 100.0)}',
                   style: TextStyle(color: colorScheme.onSurfaceVariant),
                 ),
               ],
@@ -82,14 +82,14 @@ class AccountCard extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 children: [
-                  if (!account.isDefault)
+                  if (!wallet.isDefault)
                     TextButton(
                         onPressed: onSetDefault,
                         child: const Text('Set default')),
                   TextButton(
                       onPressed: onAdjustBalance,
                       child: const Text('Adjust balance')),
-                  if (!account.isSystem)
+                  if (!wallet.isSystem)
                     TextButton(
                         onPressed: onArchive, child: const Text('Archive')),
                 ],

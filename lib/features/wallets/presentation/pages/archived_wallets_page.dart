@@ -4,37 +4,37 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
-class ArchivedAccountsPage extends ConsumerWidget {
-  const ArchivedAccountsPage({super.key});
+class ArchivedWalletsPage extends ConsumerWidget {
+  const ArchivedWalletsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final archivedAsync = ref.watch(archivedScopedAccountsProvider);
-    final actions = ref.watch(accountActionsProvider);
+    final actions = ref.watch(walletActionsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
 
-    Future<void> onRestore(AccountEntity account) async {
+    Future<void> onRestore(WalletEntity wallet) async {
       final confirm = await MonekoAlertDialog.show(
         context: context,
-        title: 'Restore account?',
+        title: 'Restore wallet?',
         description:
-            'This account will be moved back to active accounts and can be used in future transactions.',
+            'This wallet will be moved back to active wallets and can be used in future transactions.',
         confirmLabel: 'Restore',
         cancelLabel: context.l10n.cancel,
       );
       if (confirm?.confirmed != true || !context.mounted) return;
 
       try {
-        await actions.restoreAccount(account.id);
+        await actions.restoreAccount(wallet.id);
         if (!context.mounted) return;
         AppToast.success(context, 'Account restored');
       } catch (error) {
@@ -55,11 +55,11 @@ class ArchivedAccountsPage extends ConsumerWidget {
             child: Text(error.toString()),
           ),
         ),
-        data: (accounts) {
-          if (accounts.isEmpty) {
+        data: (wallets) {
+          if (wallets.isEmpty) {
             return Center(
               child: Text(
-                'No archived accounts',
+                'No archived wallets',
                 style: TextStyle(color: colorScheme.mutedForeground),
               ),
             );
@@ -67,15 +67,15 @@ class ArchivedAccountsPage extends ConsumerWidget {
 
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            itemCount: accounts.length,
+            itemCount: wallets.length,
             itemBuilder: (context, index) {
-              final account = accounts[index];
+              final wallet = wallets[index];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ArchivedAccountCard(
-                  account: account,
+                  wallet: wallet,
                   currencyCode: selectedCurrencyCode,
-                  onRestore: () => onRestore(account),
+                  onRestore: () => onRestore(wallet),
                 ),
               );
             },
@@ -88,12 +88,12 @@ class ArchivedAccountsPage extends ConsumerWidget {
 
 class _ArchivedAccountCard extends StatelessWidget {
   const _ArchivedAccountCard({
-    required this.account,
+    required this.wallet,
     required this.currencyCode,
     required this.onRestore,
   });
 
-  final AccountEntity account;
+  final WalletEntity wallet;
   final String currencyCode;
   final VoidCallback onRestore;
 
@@ -101,16 +101,16 @@ class _ArchivedAccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final symbol = resolveCurrencySymbol(currencyCode);
-    final amount = account.currentBalanceCents / 100.0;
+    final amount = wallet.currentBalanceCents / 100.0;
     final mutedSurface = colorScheme.muted.withValues(alpha: 0.35);
 
-    final accountColorRaw = account.color.toUpperCase() == '#6B7280'
+    final walletColorRaw = wallet.color.toUpperCase() == '#6B7280'
         ? colorScheme.primary
-        : parseAccountColor(account.color, colorScheme.primary);
+        : parseAccountColor(wallet.color, colorScheme.primary);
     final baseColor = AppTheme.tunedPocketBaseColor(
-      accountColorRaw,
+      walletColorRaw,
       colorScheme,
-      hasCustomColor: account.color.toUpperCase() != '#6B7280',
+      hasCustomColor: wallet.color.toUpperCase() != '#6B7280',
     );
 
     return Opacity(
@@ -133,7 +133,7 @@ class _ArchivedAccountCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  resolveAccountIcon(account.icon),
+                  resolveWalletIcon(wallet.icon),
                   color: colorScheme.mutedForeground,
                   size: 20,
                 ),
@@ -144,7 +144,7 @@ class _ArchivedAccountCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      account.name,
+                      wallet.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

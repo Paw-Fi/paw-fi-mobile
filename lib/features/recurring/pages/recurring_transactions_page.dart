@@ -117,9 +117,9 @@ class _RecurringTransactionsPageState
     // Portfolio households (is_portfolio=true) are treated as personal, not household
     final householdScope = ref.watch(householdScopeProvider);
     final String? householdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
@@ -449,9 +449,9 @@ class _RecurringTransactionsPageState
 
     final householdScope = ref.watch(householdScopeProvider);
     final String? householdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     return SliverFillRemaining(

@@ -6,9 +6,9 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/features/accounts/domain/entities/account.dart';
-import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
-import 'package:moneko/features/accounts/presentation/widgets/create_edit_account_sheet.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
@@ -369,14 +369,14 @@ class PreviewStep extends ConsumerWidget {
     final notifier = ref.read(importWizardProvider.notifier);
     final targetHouseholdId = state.targetHouseholdId;
     final accountsAsync =
-        ref.watch(accountsByHouseholdIdProvider(targetHouseholdId));
-    final allAccounts = accountsAsync.valueOrNull ?? const <AccountEntity>[];
+        ref.watch(walletsByHouseholdIdProvider(targetHouseholdId));
+    final allAccounts = accountsAsync.valueOrNull ?? const <WalletEntity>[];
     final accounts = allAccounts
         .where((account) => !account.isArchived)
         .toList(growable: false);
 
     final selectedAccountId = state.targetAccountId?.trim();
-    AccountEntity? selectedAccount;
+    WalletEntity? selectedAccount;
     if (selectedAccountId != null) {
       for (final account in accounts) {
         if (account.id == selectedAccountId) {
@@ -520,7 +520,7 @@ class PreviewStep extends ConsumerWidget {
 
   Future<void> _handleCreateAccount(BuildContext context, WidgetRef ref) async {
     final notifier = ref.read(importWizardProvider.notifier);
-    final result = await showCreateEditAccountSheet(context);
+    final result = await showCreateEditWalletSheet(context);
     if (result == null) return;
 
     try {
@@ -624,7 +624,7 @@ class PreviewStep extends ConsumerWidget {
   }
 }
 
-String? _resolvePreferredDefaultAccountId(List<AccountEntity> accounts) {
+String? _resolvePreferredDefaultAccountId(List<WalletEntity> accounts) {
   for (final account in accounts) {
     if (account.name.trim().toLowerCase() == 'spending') {
       return account.id;

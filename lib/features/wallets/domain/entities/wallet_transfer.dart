@@ -1,4 +1,4 @@
-class AccountTransfer {
+class WalletTransfer {
   final String id;
   final String fromAccountId;
   final String toAccountId;
@@ -7,7 +7,7 @@ class AccountTransfer {
   final DateTime date;
   final String? note;
 
-  const AccountTransfer({
+  const WalletTransfer({
     required this.id,
     required this.fromAccountId,
     required this.toAccountId,
@@ -17,8 +17,8 @@ class AccountTransfer {
     this.note,
   });
 
-  factory AccountTransfer.fromJson(Map<String, dynamic> json) {
-    return AccountTransfer(
+  factory WalletTransfer.fromJson(Map<String, dynamic> json) {
+    return WalletTransfer(
       id: json['id'] as String,
       fromAccountId: json['from_account_id'] as String,
       toAccountId: json['to_account_id'] as String,
