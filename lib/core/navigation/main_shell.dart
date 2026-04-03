@@ -283,17 +283,17 @@ class MainShell extends HookConsumerWidget {
             label: context.l10n.recurring,
           ),
           AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.creditcard
-                : Icons.account_balance_wallet_outlined,
-            label: context.l10n.pockets,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.square_stack
-                : Icons.account_balance_wallet,
-            label: 'Wallets',
-          ),
+  icon: PlatformInfo.isIOS
+      ? CupertinoIcons.chart_pie
+      : Icons.pie_chart_outline,
+  label: context.l10n.budget,
+),
+AdaptiveNavigationDestination(
+  icon: PlatformInfo.isIOS
+      ? CupertinoIcons.creditcard
+      : Icons.account_balance_wallet_outlined,
+  label: "Wallets",
+),
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS
                 ? CupertinoIcons.chart_bar_alt_fill

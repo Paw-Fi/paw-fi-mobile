@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -121,12 +125,24 @@ final accountByIdProvider = Provider.family<AccountEntity?, String>((ref, id) {
   return null;
 });
 
+final serverAccountByIdProvider =
+    Provider.family<AccountEntity?, String>((ref, id) {
+  final accounts = ref.watch(scopedAccountsProvider).valueOrNull ?? const [];
+  for (final account in accounts) {
+    if (account.id == id) return account;
+  }
+  return null;
+});
+
 class AccountActions {
   const AccountActions(this.ref);
 
   final Ref ref;
 
   void setOptimisticAccount(AccountEntity account) {
+    debugPrint(
+      '[Accounts][Optimistic] set accountId=${account.id} name=${account.name} color=${account.color} opening=${account.openingBalanceCents}',
+    );
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     ref.read(optimisticScopedAccountsOverridesProvider.notifier).state = {
       ...overrides,
@@ -135,6 +151,7 @@ class AccountActions {
   }
 
   void clearOptimisticAccount(String accountId) {
+    debugPrint('[Accounts][Optimistic] clear accountId=$accountId');
     final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
     if (!overrides.containsKey(accountId)) {
       return;
@@ -143,6 +160,30 @@ class AccountActions {
       ..remove(accountId);
     ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
         nextOverrides;
+  }
+
+  void reconcileOptimisticAccountWithServer(AccountEntity serverAccount) {
+    final overrides = ref.read(optimisticScopedAccountsOverridesProvider);
+    final optimistic = overrides[serverAccount.id];
+    if (optimistic == null) {
+      return;
+    }
+
+    final isSynced = optimistic.name == serverAccount.name &&
+        optimistic.icon == serverAccount.icon &&
+        optimistic.color == serverAccount.color &&
+        optimistic.openingBalanceCents == serverAccount.openingBalanceCents &&
+        optimistic.goalAmountCents == serverAccount.goalAmountCents &&
+        optimistic.isDefault == serverAccount.isDefault;
+
+    if (!isSynced) {
+      return;
+    }
+
+    debugPrint(
+      '[Accounts][Optimistic] reconcile success accountId=${serverAccount.id}; clearing override',
+    );
+    clearOptimisticAccount(serverAccount.id);
   }
 
   void refreshAccountData() {
@@ -184,6 +225,9 @@ class AccountActions {
     bool? isDefault,
     bool invalidate = true,
   }) async {
+    debugPrint(
+      '[Accounts][Update] start accountId=$accountId name=$name icon=$icon color=$color goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
+    );
     final response = await supabase.functions.invoke(
       'update-account',
       body: {
@@ -197,6 +241,7 @@ class AccountActions {
       },
     );
     _throwIfFailed(response.data, 'Failed to update account');
+    debugPrint('[Accounts][Update] success accountId=$accountId');
     if (invalidate) {
       _invalidateAll();
     }
@@ -249,6 +294,9 @@ class AccountActions {
     String? note,
     bool invalidate = true,
   }) async {
+    debugPrint(
+      '[Accounts][Balance] start accountId=$accountId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
+    );
     final response = await supabase.functions.invoke(
       'update-account-balance',
       body: {
@@ -258,6 +306,7 @@ class AccountActions {
       },
     );
     _throwIfFailed(response.data, 'Failed to update account balance');
+    debugPrint('[Accounts][Balance] success accountId=$accountId');
     if (invalidate) {
       _invalidateAll();
     }
@@ -274,14 +323,28 @@ class AccountActions {
   }
 
   void _invalidateAll() {
-    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
-        const {};
+    final overridesCountBefore =
+        ref.read(optimisticScopedAccountsOverridesProvider).length;
+    debugPrint(
+      '[Accounts][Invalidate] start optimisticOverridesBefore=$overridesCountBefore',
+    );
     ref.invalidate(accountsByHouseholdIdProvider);
     ref.invalidate(scopedAccountsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
-    ref.invalidate(analyticsProvider);
+    final userId = ref.read(authProvider).uid;
+    if (userId.isNotEmpty) {
+      debugPrint(
+          '[Accounts][Invalidate] trigger analytics reload userId=$userId');
+      unawaited(
+        ref.read(analyticsProvider.notifier).loadData(
+              userId,
+              forceReload: true,
+            ),
+      );
+    }
     ref.invalidate(householdExpensesProvider);
     ref.invalidate(recurringTransactionsProvider);
+    debugPrint('[Accounts][Invalidate] done');
   }
 }
 

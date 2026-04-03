@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -18,7 +19,7 @@ import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
-class AccountDetailsPage extends ConsumerWidget {
+class AccountDetailsPage extends HookConsumerWidget {
   const AccountDetailsPage({
     super.key,
     required this.account,
@@ -32,7 +33,34 @@ class AccountDetailsPage extends ConsumerWidget {
     final actions = ref.watch(accountActionsProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
-    final latestAccount = ref.watch(accountByIdProvider(account.id)) ?? account;
+    final providerAccount = ref.watch(accountByIdProvider(account.id));
+    final serverAccount = ref.watch(serverAccountByIdProvider(account.id));
+    final latestDisplayedAccountState = useState<AccountEntity>(account);
+
+    useEffect(() {
+      if (providerAccount != null) {
+        debugPrint(
+          '[AccountDetails] providerAccount accountId=${providerAccount.id} name=${providerAccount.name} color=${providerAccount.color} opening=${providerAccount.openingBalanceCents} current=${providerAccount.currentBalanceCents}',
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final latestServerAccount =
+              ref.read(serverAccountByIdProvider(account.id));
+          if (latestServerAccount == null) {
+            return;
+          }
+          actions.reconcileOptimisticAccountWithServer(latestServerAccount);
+        });
+        latestDisplayedAccountState.value = providerAccount;
+      } else {
+        final cached = latestDisplayedAccountState.value;
+        debugPrint(
+          '[AccountDetails] providerAccount=null fallbackToCached accountId=${cached.id} name=${cached.name} color=${cached.color} opening=${cached.openingBalanceCents} current=${cached.currentBalanceCents}',
+        );
+      }
+      return null;
+    }, [providerAccount, serverAccount]);
+
+    final latestAccount = providerAccount ?? latestDisplayedAccountState.value;
     final householdScope = ref.watch(householdScopeProvider);
     final scopedAccounts = ref.watch(scopedAccountsProvider).valueOrNull ??
         const <AccountEntity>[];
@@ -93,6 +121,10 @@ class AccountDetailsPage extends ConsumerWidget {
           await showCreateEditAccountSheet(context, initial: latestAccount);
       if (result == null) return;
 
+      debugPrint(
+        '[AccountDetails][Edit] save tapped accountId=${latestAccount.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
+      );
+
       final optimisticAccount = _copyAccount(
         latestAccount,
         name: result.name,
@@ -122,6 +154,9 @@ class AccountDetailsPage extends ConsumerWidget {
           invalidate: false,
         );
         if (result.openingBalanceCents != latestAccount.currentBalanceCents) {
+          debugPrint(
+            '[AccountDetails][Edit] updateBalance needed accountId=${latestAccount.id} fromCurrent=${latestAccount.currentBalanceCents} toTarget=${result.openingBalanceCents}',
+          );
           await actions.updateBalance(
             accountId: latestAccount.id,
             targetBalanceCents: result.openingBalanceCents,
@@ -129,8 +164,12 @@ class AccountDetailsPage extends ConsumerWidget {
             invalidate: false,
           );
         }
+        debugPrint(
+            '[AccountDetails][Edit] refreshAccountData accountId=${latestAccount.id}');
         actions.refreshAccountData();
       } catch (error) {
+        debugPrint(
+            '[AccountDetails][Edit] error accountId=${latestAccount.id} error=$error');
         actions.clearOptimisticAccount(latestAccount.id);
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));

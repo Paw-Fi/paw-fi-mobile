@@ -363,33 +363,18 @@ class _AccountsOverviewCard extends HookWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const AccountsHistoryPage(),
+              Row(
+                children: [
+                  Text(
+                    'Total Net Worth',
+                    style: TextStyle(
+                      color: colorScheme.foreground,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
-                  );
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Row(
-                  children: [
-                    Text(
-                      'Total Net Worth',
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      Icons.chevron_right,
-                      color: colorScheme.mutedForeground,
-                      size: 20,
-                    ),
-                  ],
-                ),
+                  ),
+                
+                ],
               ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
