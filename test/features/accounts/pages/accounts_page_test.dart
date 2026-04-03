@@ -10,6 +10,8 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FakeAnalyticsNotifier extends AnalyticsNotifier {
   _FakeAnalyticsNotifier(Ref ref) : super(ref) {
@@ -18,7 +20,20 @@ class _FakeAnalyticsNotifier extends AnalyticsNotifier {
 }
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    // AccountsPage watches authProvider which reads Supabase.instance.
+    // Tests only need the singleton initialized (no real network).
+    await Supabase.initialize(
+      url: 'http://localhost',
+      anonKey: 'test-anon-key',
+    );
+  });
+
   testWidgets('accounts page renders provided account', (tester) async {
+    final prefs = await SharedPreferences.getInstance();
     const accounts = [
       AccountEntity(
         id: 'a1',
@@ -39,6 +54,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           scopedAccountsProvider.overrideWith((ref) async => accounts),
           analyticsProvider.overrideWith((ref) => _FakeAnalyticsNotifier(ref)),
           householdScopeProvider.overrideWith(
@@ -48,13 +64,18 @@ void main() {
               portfolioHouseholdIds: <String>{},
             ),
           ),
+          // Make test deterministic and avoid async SharedPreferences reads.
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
         ],
         child: const MaterialApp(home: AccountsPage()),
       ),
     );
 
     await tester.pumpAndSettle();
-    expect(find.text('Spending'), findsOneWidget);
+    // Account name appears in multiple card states.
+    expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsOneWidget);
   });
 }

@@ -274,6 +274,8 @@ class AccountActions {
   }
 
   void _invalidateAll() {
+    ref.read(optimisticScopedAccountsOverridesProvider.notifier).state =
+        const {};
     ref.invalidate(accountsByHouseholdIdProvider);
     ref.invalidate(scopedAccountsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
