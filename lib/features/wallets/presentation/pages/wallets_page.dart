@@ -14,7 +14,6 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
-import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -89,31 +88,6 @@ class AccountsPage extends HookConsumerWidget {
           openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
-        );
-        if (context.mounted) {
-          AppToast.success(context, context.l10n.save);
-        }
-      } catch (error) {
-        if (context.mounted) {
-          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
-        }
-      }
-    }
-
-    Future<void> onTransfer(List<WalletEntity> wallets) async {
-      final result = await showWalletTransferSheet(
-        context,
-        wallets: wallets,
-      );
-      if (result == null) return;
-      try {
-        await actions.createTransfer(
-          fromAccountId: result.fromAccountId,
-          toAccountId: result.toAccountId,
-          amountCents: result.amountCents,
-          currency: selectedCurrencyCode,
-          date: result.date,
-          note: result.note,
         );
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
@@ -222,25 +196,25 @@ class AccountsPage extends HookConsumerWidget {
                     onPressed: onAddAccount,
                     icon: Icon(Icons.add, color: colorScheme.primary),
                     label: Text(
-                      'New Account',
+                      'New Account',  
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  if (wallets.length > 1)
-                    TextButton.icon(
-                      onPressed: () => onTransfer(wallets),
-                      icon: Icon(Icons.swap_horiz, color: colorScheme.primary),
-                      label: Text(
-                        'Transfer',
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () => AppToast.info(context, 'Coming soon'),
+                    icon: Icon(Icons.sync, color: colorScheme.primary, size: 20),
+                    label: Text(
+                      'Connect Bank',
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                  ),
                 ],
               ),
             );
@@ -421,75 +395,88 @@ class _WalletsOverviewCard extends HookWidget {
             SizedBox(
               height: 60,
               width: double.infinity,
-              child: LineChart(
-                LineChartData(
-                  minX: 0,
-                  maxX: (timeAscendingMonthsSize - 1).toDouble(),
-                  lineTouchData: LineTouchData(
-                    handleBuiltInTouches: true,
-                    touchTooltipData: LineTouchTooltipData(
-                      getTooltipColor: (touchedSpot) =>
-                          colorScheme.surfaceContainerHighest,
-                      tooltipRoundedRadius: 12,
-                      tooltipPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      tooltipBorder: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.5)),
-                      getTooltipItems: (touchedSpots) {
-                        return touchedSpots.map((spot) {
-                          return LineTooltipItem(
-                            '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(spot.y)))}',
-                            TextStyle(
-                              color: colorScheme.foreground,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              letterSpacing: -0.3,
-                            ),
-                          );
-                        }).toList();
-                      },
-                    ),
-                  ),
-                  gridData: const FlGridData(show: false),
-                  titlesData: const FlTitlesData(show: false),
-                  borderData: FlBorderData(show: false),
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: spots,
-                      isCurved: true,
-                      color: colorScheme.primary,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        checkToShowDot: (spot, barData) {
-                          return spot.x.toInt() == highlightX.toInt();
-                        },
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 5,
-                            color: colorScheme.cardSurface,
-                            strokeWidth: 3,
-                            strokeColor: colorScheme.primary,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primary.withValues(alpha: 0.3),
-                            colorScheme.primary.withValues(alpha: 0.0),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOutCubic,
+                builder: (context, animationValue, child) {
+                  // Interpolate spots from 0 to actual values
+                  final animatedSpots = spots.map((spot) {
+                    return FlSpot(
+                      spot.x,
+                      spot.y * animationValue,
+                    );
+                  }).toList();
+                  
+                  return LineChart(
+                    LineChartData(
+                      minX: 0,
+                      maxX: (timeAscendingMonthsSize - 1).toDouble(),
+                      lineTouchData: LineTouchData(
+                        handleBuiltInTouches: true,
+                        touchTooltipData: LineTouchTooltipData(
+                          getTooltipColor: (touchedSpot) =>
+                              colorScheme.surfaceContainerHighest,
+                          tooltipRoundedRadius: 12,
+                          tooltipPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          tooltipBorder: BorderSide(
+                              color: colorScheme.border.withValues(alpha: 0.5)),
+                          getTooltipItems: (touchedSpots) {
+                            return touchedSpots.map((spot) {
+                              return LineTooltipItem(
+                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(spot.y)))}',
+                                TextStyle(
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  letterSpacing: -0.3,
+                                ),
+                              );
+                            }).toList();
+                          },
                         ),
                       ),
+                      gridData: const FlGridData(show: false),
+                      titlesData: const FlTitlesData(show: false),
+                      borderData: FlBorderData(show: false),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: animatedSpots,
+                          isCurved: true,
+                          color: colorScheme.primary,
+                          barWidth: 3,
+                          isStrokeCapRound: true,
+                          dotData: FlDotData(
+                            show: true,
+                            checkToShowDot: (spot, barData) {
+                              return spot.x.toInt() == highlightX.toInt();
+                            },
+                            getDotPainter: (spot, percent, barData, index) {
+                              return FlDotCirclePainter(
+                                radius: 5,
+                                color: colorScheme.cardSurface,
+                                strokeWidth: 3,
+                                strokeColor: colorScheme.primary,
+                              );
+                            },
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              colors: [
+                                colorScheme.primary.withValues(alpha: 0.3 * animationValue),
+                                colorScheme.primary.withValues(alpha: 0.0),
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeOutCubic,
+                  );
+                },
               ),
             ),
           const SizedBox(height: 20),
@@ -577,6 +564,7 @@ class _WalletAccountStack extends HookConsumerWidget {
     final draggedAccountIdState = useState<String?>(null);
     final dragOffsetYState = useState<double>(0.0);
     final dragOriginalIndexState = useState<int>(0);
+    final selectedAccountIdState = useState<String?>(null);
 
     // Sync from props/prefs
     useEffect(() {
@@ -591,65 +579,40 @@ class _WalletAccountStack extends HookConsumerWidget {
         return 0; // maintain original order for new items
       });
       orderedAccountsState.value = list;
+
+      if (selectedAccountIdState.value == null && list.isNotEmpty) {
+        selectedAccountIdState.value = list.last.id;
+      }
       return null;
     }, [wallets]);
 
     final orderedAccounts = orderedAccountsState.value;
+    final selectedId = selectedAccountIdState.value;
 
-    final selectedAccountIdState = useState<String?>(null);
-    final isAnySelected = selectedAccountIdState.value != null;
-
-    final selectedAccIndex = isAnySelected
-        ? orderedAccounts
-            .indexWhere((a) => a.id == selectedAccountIdState.value)
-        : -1;
-
-    const collapsedSpacing = 85.0;
-    const tightSpacing = 16.0;
+    const tightSpacing = 70.0;
     const expandedCardHeight = 240.0;
     const unselectedCardHeight = 130.0;
 
-    double stackHeight;
-    if (!isAnySelected) {
-      stackHeight = (orderedAccounts.isEmpty ? 0 : orderedAccounts.length - 1) *
-              collapsedSpacing +
-          unselectedCardHeight;
-    } else {
-      final cardsAfter = orderedAccounts.length - 1 - selectedAccIndex;
-      if (cardsAfter <= 0) {
-        stackHeight = selectedAccIndex * collapsedSpacing + expandedCardHeight;
-      } else {
-        stackHeight = selectedAccIndex * collapsedSpacing +
-            expandedCardHeight +
-            10.0 +
-            (cardsAfter - 1) * tightSpacing +
-            unselectedCardHeight;
-      }
-    }
+    const gap = 20.0;
+
+    const bottomBuffer = 0.0;
+    final stackHeight = orderedAccounts.isEmpty
+        ? 0.0
+        : (orderedAccounts.length == 1)
+            ? expandedCardHeight + bottomBuffer
+            : (expandedCardHeight +
+                gap +
+                (orderedAccounts.length - 2) * tightSpacing +
+                unselectedCardHeight +
+                bottomBuffer);
 
     double getTop(int index, WalletEntity wallet) {
-      if (!isAnySelected) {
-        if (draggedAccountIdState.value == wallet.id) {
-          return index * collapsedSpacing + dragOffsetYState.value;
-        }
-        return index * collapsedSpacing;
-      }
+      if (wallet.id == selectedId) return 0.0;
 
-      if (index == selectedAccIndex) {
-        return index * collapsedSpacing; // STAY WHERE IT IS
-      }
+      final selectedIdx = orderedAccounts.indexWhere((a) => a.id == selectedId);
+      final positionInOthers = index < selectedIdx ? index : index - 1;
 
-      if (index < selectedAccIndex) {
-        // Expand to the top
-        return index * tightSpacing;
-      } else {
-        // index > selectedAccIndex => Expand to bottom
-        final positionInBottom = index - selectedAccIndex - 1;
-        return selectedAccIndex * collapsedSpacing +
-            expandedCardHeight +
-            10.0 +
-            (positionInBottom * tightSpacing);
-      }
+      return expandedCardHeight + gap + (positionInOthers * tightSpacing);
     }
 
     final renderAccounts = [...orderedAccounts];
@@ -658,14 +621,20 @@ class _WalletAccountStack extends HookConsumerWidget {
           renderAccounts.firstWhere((a) => a.id == draggedAccountIdState.value);
       renderAccounts.remove(draggedAcc);
       renderAccounts.add(draggedAcc);
+    } else if (selectedId != null) {
+      final selected = renderAccounts.where((a) => a.id == selectedId).toList();
+      if (selected.isNotEmpty) {
+        renderAccounts.remove(selected.first);
+        renderAccounts.add(selected.first);
+      }
     }
 
     return GestureDetector(
       onTap: () {
-        selectedAccountIdState.value = null; // Background tap
+        // Background tap - could optionally collapse but following "one always expanded"
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
+        duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutQuart,
         height: stackHeight,
         color: Colors.transparent,
@@ -673,7 +642,7 @@ class _WalletAccountStack extends HookConsumerWidget {
           clipBehavior: Clip.none,
           children: renderAccounts.map((wallet) {
             final originalIndex = orderedAccounts.indexOf(wallet);
-            final isExpanded = selectedAccountIdState.value == wallet.id;
+            final isExpanded = selectedId == wallet.id;
             final isDragging = draggedAccountIdState.value == wallet.id;
 
             return AnimatedPositioned(
@@ -684,79 +653,25 @@ class _WalletAccountStack extends HookConsumerWidget {
               height: isExpanded ? expandedCardHeight : unselectedCardHeight,
               duration: isDragging
                   ? Duration.zero
-                  : const Duration(milliseconds: 500),
+                  : const Duration(milliseconds: 600),
               curve: Curves.easeOutQuart,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onLongPressStart: isAnySelected
-                    ? null
-                    : (details) {
-                        draggedAccountIdState.value = wallet.id;
-                        dragOffsetYState.value = 0.0;
-                        dragOriginalIndexState.value = orderedAccounts
-                            .indexWhere((a) => a.id == wallet.id);
-                      },
-                onLongPressMoveUpdate: isAnySelected
-                    ? null
-                    : (details) {
-                        final originalIdx = dragOriginalIndexState.value;
-                        final totalFingerDisplacement =
-                            details.localOffsetFromOrigin.dy;
-
-                        final absoluteDragPos = originalIdx * collapsedSpacing +
-                            totalFingerDisplacement;
-
-                        final targetIndex = (absoluteDragPos / collapsedSpacing)
-                            .round()
-                            .clamp(0, orderedAccounts.length - 1);
-                        final currentIndex = orderedAccounts
-                            .indexWhere((a) => a.id == wallet.id);
-
-                        if (targetIndex != currentIndex) {
-                          final newList = [...orderedAccounts];
-                          final item = newList.removeAt(currentIndex);
-                          newList.insert(targetIndex, item);
-                          orderedAccountsState.value = newList;
-                          unawaited(prefs.setStringList(
-                              orderKey, newList.map((a) => a.id).toList()));
-                        }
-
-                        dragOffsetYState.value = absoluteDragPos -
-                            (orderedAccounts
-                                    .indexWhere((a) => a.id == wallet.id) *
-                                collapsedSpacing);
-                      },
-                onLongPressEnd: isAnySelected
-                    ? null
-                    : (details) {
-                        draggedAccountIdState.value = null;
-                        dragOffsetYState.value = 0.0;
-                      },
-                onTap:
-                    () {}, // Consume tap to prevent outer GestureDetector from collapsing immediately
+                onLongPressStart: (details) {
+                  // Re-enable reordering logic if needed, but for now focus on Apple UI
+                },
+                onTap: () {},
                 onTapUp: (details) {
-                  if (!isAnySelected) {
-                    // In collapse mode: clicking ANY card expands all cards.
+                  if (wallet.id != selectedId) {
                     selectedAccountIdState.value = wallet.id;
                   } else {
-                    // In expanded mode:
-                    if (details.localPosition.dy < 100) {
-                      // Tap on edge of the card -> EVERYTHING should collapse
-                      selectedAccountIdState.value = null;
-                    } else {
-                      // Click on the body of the card -> go into details page
-                      Navigator.of(context)
-                          .push(
-                        MaterialPageRoute(
-                          builder: (_) => WalletDetailsPage(
-                            wallet: wallet,
-                          ),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => WalletDetailsPage(
+                          wallet: wallet,
                         ),
-                      )
-                          .then((_) {
-                        // Keep expanded on return
-                      });
-                    }
+                      ),
+                    );
                   }
                 },
                 child: _WalletStackCard(
@@ -1150,8 +1065,8 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
     final path = Path();
 
     final double holeCenter = size.width * 0.50;
-    final double holeHalfWidth = size.width * 0.16;
-    final double flatBottomHalfWidth = size.width * 0.03;
+    final double holeHalfWidth = size.width * 0.13;
+    final double flatBottomHalfWidth = size.width * 0.02;
 
     final double startX = holeCenter - holeHalfWidth;
     final double flatStartX = holeCenter - flatBottomHalfWidth;

@@ -10,6 +10,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -200,8 +201,56 @@ class WalletDetailsPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> onTransfer() async {
+      // Get all wallets for transfer selection
+      final scopedAccounts = ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
+      if (scopedAccounts.length < 2) {
+        AppToast.info(context, 'You need at least two wallets to make a transfer');
+        return;
+      }
+
+      final result = await showWalletTransferSheet(
+        context,
+        wallets: scopedAccounts,
+        defaultFromWalletId: latestWallet.id,
+      );
+      if (result == null) return;
+
+      try {
+        await actions.createTransfer(
+          fromAccountId: result.fromAccountId,
+          toAccountId: result.toAccountId,
+          amountCents: result.amountCents,
+          currency: selectedCurrencyCode,
+          date: result.date,
+          note: result.note,
+        );
+        if (context.mounted) {
+          AppToast.success(context, context.l10n.save);
+        }
+        // Refresh wallet data after successful transfer
+        actions.refreshAccountData();
+      } catch (error) {
+        if (context.mounted) {
+          AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+        }
+      }
+    }
+
     return Scaffold(
       backgroundColor: gradientColors.first,
+      floatingActionButton: !latestWallet.isArchived
+          ? Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 8),
+              child: FloatingActionButton.extended(
+                onPressed: onTransfer,
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('Transfer'),
+              ),
+            )
+          : null,
       body: Stack(
         children: [
           Positioned.fill(

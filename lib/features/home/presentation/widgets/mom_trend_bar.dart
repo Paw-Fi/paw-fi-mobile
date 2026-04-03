@@ -38,65 +38,72 @@ class MoMTrendBar extends ConsumerWidget {
       colorScheme,
       SizedBox(
         height: 90,
-        child: BarChart(
-          BarChartData(
-            gridData: const FlGridData(show: false),
-            borderData: FlBorderData(show: false),
-            barTouchData: BarTouchData(
-              touchTooltipData: BarTouchTooltipData(
-                getTooltipColor: (group) => colorScheme.card,
-                tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
-                getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                  return BarTooltipItem(
-                    rod.toY.toStringAsFixed(2),
-                    TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  );
-                },
-              ),
-            ),
-            barGroups: [
-              for (int i = 0; i < labels.length; i++)
-                BarChartGroupData(x: i, barRods: [
-                  BarChartRodData(
-                      toY: values[i],
-                      color: colorScheme.primary,
-                      width: 16,
-                      borderRadius: BorderRadius.circular(4)),
-                ])
-            ],
-            titlesData: FlTitlesData(
-              leftTitles:
-                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles:
-                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              topTitles:
-                  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  getTitlesWidget: (v, meta) {
-                    final i = v.toInt();
-                    if (i < 0 || i >= labels.length) {
-                      return const SizedBox.shrink();
-                    }
-                    final parts = labels[i].split('-');
-                    final year = int.tryParse(parts[0]) ?? 2000;
-                    final month = int.tryParse(parts[1]) ?? 1;
-                    final date = DateTime(year, month, 1);
-                    final label =
-                        formatLocalizedMonth(context, date, abbreviated: true);
-                    return Text(label,
-                        style: TextStyle(
-                            fontSize: 10, color: colorScheme.mutedForeground));
-                  },
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeOutCubic,
+          builder: (context, animationValue, child) {
+            return BarChart(
+              BarChartData(
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (group) => colorScheme.card,
+                    tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        rod.toY.toStringAsFixed(2),
+                        TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
+                  ),
                 ),
+                barGroups: [
+                  for (int i = 0; i < labels.length; i++)
+                    BarChartGroupData(x: i, barRods: [
+                      BarChartRodData(
+                          toY: values[i] * animationValue,
+                          color: colorScheme.primary,
+                          width: 16,
+                          borderRadius: BorderRadius.circular(4)),
+                    ])
+                ],
+                titlesData: FlTitlesData(
+                  leftTitles:
+                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles:
+                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles:
+                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (v, meta) {
+                        final i = v.toInt();
+                        if (i < 0 || i >= labels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        final parts = labels[i].split('-');
+                        final year = int.tryParse(parts[0]) ?? 2000;
+                        final month = int.tryParse(parts[1]) ?? 1;
+                        final date = DateTime(year, month, 1);
+                        final label =
+                            formatLocalizedMonth(context, date, abbreviated: true);
+                        return Text(label,
+                            style: TextStyle(
+                                fontSize: 10, color: colorScheme.mutedForeground));
+                      },
+                    ),
+                  ),
+                ),
+                maxY: maxY,
               ),
-            ),
-            maxY: maxY,
-          ),
+            );
+          },
         ),
       ),
       title: context.l10n.monthOverMonthSpending,

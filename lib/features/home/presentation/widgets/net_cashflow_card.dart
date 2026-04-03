@@ -157,8 +157,10 @@ Widget buildNetCashflowCard(
           const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              displayText,
+            child: _AnimatedNumberText(
+              value: currentNet.abs(),
+              symbol: symbol,
+              isNegative: currentNet < 0,
               style: TextStyle(
                 fontSize: _netCashflowFontSize(displayText),
                 fontWeight: FontWeight.w700,
@@ -552,7 +554,40 @@ int _countOccurrencesYearly(
   return count;
 }
 
+/// Animated number that counts up from 0 to target value
+class _AnimatedNumberText extends StatelessWidget {
+  final double value;
+  final String symbol;
+  final TextStyle style;
+  final bool isNegative;
+
+  const _AnimatedNumberText({
+    required this.value,
+    required this.symbol,
+    required this.style,
+    this.isNegative = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        final formatted = formatLocalizedNumber(context, double.parse(formatAmount(val)));
+        final displayText = isNegative ? '-$symbol$formatted' : '$symbol$formatted';
+        return Text(
+          displayText,
+          style: style,
+        );
+      },
+    );
+  }
+}
+
 DateTime _minDate(DateTime a, DateTime? b) {
   if (b == null) return a;
   return a.isBefore(b) ? a : b;
 }
+

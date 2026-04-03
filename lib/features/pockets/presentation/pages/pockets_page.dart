@@ -489,6 +489,12 @@ class PocketsPage extends HookConsumerWidget {
             controller: pageController,
             allowImplicitScrolling: true,
             itemCount: initialPage + 1, // Prevent swiping to future months
+            onPageChanged: (index) {
+              if (!hasDismissedSwipeHintState.value && index != initialPage) {
+                hasDismissedSwipeHintState.value = true;
+                unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
+              }
+            },
             itemBuilder: (context, index) {
               final offset = index - initialPage;
               final month =

@@ -82,8 +82,6 @@ class _SpendingCardState extends State<SpendingCard> {
 
     final currencyCode = widget.selectedCurrency ?? 'USD';
     final symbol = resolveCurrencySymbol(currencyCode);
-    final localizedTotal = formatLocalizedNumber(context, totalSpent);
-    final displayText = '$symbol$localizedTotal';
 
     // If no data, synthesize a flat 0-line chart
     List<DateTime> effectiveDates = sortedDates;
@@ -171,8 +169,9 @@ class _SpendingCardState extends State<SpendingCard> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    displayText,
+                  _AnimatedNumberText(
+                    value: totalSpent,
+                    symbol: symbol,
                     style: TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.w700,
@@ -193,203 +192,218 @@ class _SpendingCardState extends State<SpendingCard> {
           // Chart Section
           SizedBox(
             height: 160,
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      reservedSize: 34,
-                      getTitlesWidget: (value, meta) {
-                        if (value.toInt() >= visibleDates.length ||
-                            value.toInt() < 0) {
-                          return const SizedBox();
-                        }
-                        final date = visibleDates[value.toInt()];
-                        final locale = Localizations.localeOf(context);
-                        final localeName = intlSafeLocaleName(locale);
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (context, animationValue, child) {
+                // Interpolate spots from 0 to actual values
+                final animatedSpots = adjustedVisibleData.map((spot) {
+                  return FlSpot(
+                    spot.x,
+                    spot.y * animationValue,
+                  );
+                }).toList();
+                
+                return LineChart(
+                  LineChartData(
+                    gridData: const FlGridData(show: false),
+                    titlesData: FlTitlesData(
+                      leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 1,
+                          reservedSize: 34,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= visibleDates.length ||
+                                value.toInt() < 0) {
+                              return const SizedBox();
+                            }
+                            final date = visibleDates[value.toInt()];
+                            final locale = Localizations.localeOf(context);
+                            final localeName = intlSafeLocaleName(locale);
 
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: widget.dateFilter == DateRangeFilter.thisMonth
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      DateFormat('d', localeName).format(date),
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: widget.dateFilter == DateRangeFilter.thisMonth
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          DateFormat('d', localeName).format(date),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color:
+                                                widget.colorScheme.mutedForeground,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          DateFormat('MMM', localeName)
+                                              .format(date),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                            color:
+                                                widget.colorScheme.mutedForeground,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      formatDateForInterval(date, intervalType),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color:
-                                            widget.colorScheme.mutedForeground,
-                                        height: 1.0,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      DateFormat('MMM', localeName)
-                                          .format(date),
-                                      style: TextStyle(
-                                        fontSize: 10,
                                         fontWeight: FontWeight.w500,
-                                        color:
-                                            widget.colorScheme.mutedForeground,
-                                        height: 1.0,
+                                        color: widget.colorScheme.mutedForeground,
                                       ),
                                     ),
-                                  ],
-                                )
-                              : Text(
-                                  formatDateForInterval(date, intervalType),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: widget.colorScheme.mutedForeground,
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchSpotThreshold: 24,
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (touchedSpot) =>
-                        widget.colorScheme.surface,
-                    tooltipBorder: BorderSide(
-                        color:
-                            widget.colorScheme.outline.withValues(alpha: 0.1)),
-                    tooltipRoundedRadius: 12,
-                    tooltipPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        if (spot.spotIndex >= visibleDates.length) {
-                          return null;
-                        }
-                        final date = visibleDates[spot.spotIndex];
-                        final locale = Localizations.localeOf(context);
-                        final localeName = intlSafeLocaleName(locale);
-                        final formattedDate =
-                            widget.dateFilter == DateRangeFilter.thisMonth &&
-                                    intervalType == 'daily'
-                                ? DateFormat('d MMM', localeName).format(date)
-                                : formatDateForInterval(date, intervalType);
-                        final currencyCode = widget.selectedCurrency ?? 'USD';
-                        final symbol = resolveCurrencySymbol(currencyCode);
-                        final localizedY =
-                            formatLocalizedNumber(context, spot.y);
-                        final amount = '$symbol$localizedY';
-                        return LineTooltipItem(
-                          '$formattedDate\n',
-                          TextStyle(
-                            color: widget.colorScheme.mutedForeground,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: amount,
-                              style: TextStyle(
-                                color: widget.colorScheme.foreground,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList();
-                    },
-                  ),
-                  touchCallback:
-                      (FlTouchEvent event, LineTouchResponse? touchResponse) {
-                    setState(() {
-                      if (event is FlPanEndEvent ||
-                          event is FlPanCancelEvent ||
-                          event is FlTapUpEvent ||
-                          event is FlTapCancelEvent ||
-                          event is FlLongPressEnd) {
-                        _touchedIndex = null;
-                        return;
-                      }
-                      if (touchResponse == null ||
-                          touchResponse.lineBarSpots == null) {
-                        _touchedIndex = null;
-                        return;
-                      }
-                      _touchedIndex =
-                          touchResponse.lineBarSpots!.first.spotIndex;
-                    });
-                  },
-                  handleBuiltInTouches: true,
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: adjustedVisibleData,
-                    isCurved: true,
-                    curveSmoothness: 0.35,
-                    color: widget.colorScheme.primary,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        // Highlight the last point (current/most recent)
-                        final isLastPoint =
-                            index == adjustedVisibleData.length - 1 &&
-                                _currentWindowStart + index ==
-                                    allCumulativeData.length - 1;
-
-                        if (isLastPoint) {
-                          return FlDotCirclePainter(
-                            radius: 6,
-                            color: widget.colorScheme.primary,
-                            strokeWidth: 4,
-                            strokeColor: widget.colorScheme.surface,
-                          );
-                        }
-                        // Show dots on touch
-                        if (_touchedIndex != null && index == _touchedIndex) {
-                          return FlDotCirclePainter(
-                            radius: 6,
-                            color: widget.colorScheme.primary,
-                            strokeWidth: 4,
-                            strokeColor: widget.colorScheme.surface,
-                          );
-                        }
-                        return FlDotCirclePainter(
-                            radius: 0,
-                            color: widget.colorScheme.surface
-                                .withValues(alpha: 0.0));
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          widget.colorScheme.primary.withValues(alpha: 0.2),
-                          widget.colorScheme.primary.withValues(alpha: 0.0),
-                        ],
+                            );
+                          },
+                        ),
                       ),
                     ),
+                    borderData: FlBorderData(show: false),
+                    lineTouchData: LineTouchData(
+                      enabled: true,
+                      touchSpotThreshold: 24,
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (touchedSpot) =>
+                            widget.colorScheme.surface,
+                        tooltipBorder: BorderSide(
+                            color:
+                                widget.colorScheme.outline.withValues(alpha: 0.1)),
+                        tooltipRoundedRadius: 12,
+                        tooltipPadding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((spot) {
+                            if (spot.spotIndex >= visibleDates.length) {
+                              return null;
+                            }
+                            final date = visibleDates[spot.spotIndex];
+                            final locale = Localizations.localeOf(context);
+                            final localeName = intlSafeLocaleName(locale);
+                            final formattedDate =
+                                widget.dateFilter == DateRangeFilter.thisMonth &&
+                                        intervalType == 'daily'
+                                    ? DateFormat('d MMM', localeName).format(date)
+                                    : formatDateForInterval(date, intervalType);
+                            final currencyCode = widget.selectedCurrency ?? 'USD';
+                            final symbol = resolveCurrencySymbol(currencyCode);
+                            final localizedY =
+                                formatLocalizedNumber(context, spot.y);
+                            final amount = '$symbol$localizedY';
+                            return LineTooltipItem(
+                              '$formattedDate\n',
+                              TextStyle(
+                                color: widget.colorScheme.mutedForeground,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: amount,
+                                  style: TextStyle(
+                                    color: widget.colorScheme.foreground,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList();
+                        },
+                      ),
+                      touchCallback:
+                          (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                        setState(() {
+                          if (event is FlPanEndEvent ||
+                              event is FlPanCancelEvent ||
+                              event is FlTapUpEvent ||
+                              event is FlTapCancelEvent ||
+                              event is FlLongPressEnd) {
+                            _touchedIndex = null;
+                            return;
+                          }
+                          if (touchResponse == null ||
+                              touchResponse.lineBarSpots == null) {
+                            _touchedIndex = null;
+                            return;
+                          }
+                          _touchedIndex =
+                              touchResponse.lineBarSpots!.first.spotIndex;
+                        });
+                      },
+                      handleBuiltInTouches: true,
+                    ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: animatedSpots,
+                        isCurved: true,
+                        curveSmoothness: 0.35,
+                        color: widget.colorScheme.primary,
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) {
+                            // Highlight the last point (current/most recent)
+                            final isLastPoint =
+                                index == animatedSpots.length - 1 &&
+                                    _currentWindowStart + index ==
+                                        allCumulativeData.length - 1;
+
+                            if (isLastPoint) {
+                              return FlDotCirclePainter(
+                                radius: 6,
+                                color: widget.colorScheme.primary,
+                                strokeWidth: 4,
+                                strokeColor: widget.colorScheme.surface,
+                              );
+                            }
+                            // Show dots on touch
+                            if (_touchedIndex != null && index == _touchedIndex) {
+                              return FlDotCirclePainter(
+                                radius: 6,
+                                color: widget.colorScheme.primary,
+                                strokeWidth: 4,
+                                strokeColor: widget.colorScheme.surface,
+                              );
+                            }
+                            return FlDotCirclePainter(
+                                radius: 0,
+                                color: widget.colorScheme.surface
+                                    .withValues(alpha: 0.0));
+                          },
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              widget.colorScheme.primary.withValues(alpha: 0.2 * animationValue),
+                              widget.colorScheme.primary.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    minY: 0,
+                    maxY: maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100,
                   ),
-                ],
-                minY: 0,
-                maxY: maxY > 0 ? (maxY * 1.2).ceilToDouble() : 100,
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -455,6 +469,34 @@ class _SpendingCardState extends State<SpendingCard> {
 
   double _getTotalSpent(List<ExpenseEntry> expenses) {
     return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
+  }
+}
+
+/// Animated number that counts up from 0 to target value
+class _AnimatedNumberText extends StatelessWidget {
+  final double value;
+  final String symbol;
+  final TextStyle style;
+
+  const _AnimatedNumberText({
+    required this.value,
+    required this.symbol,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value),
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        return Text(
+          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
+          style: style,
+        );
+      },
+    );
   }
 }
 
