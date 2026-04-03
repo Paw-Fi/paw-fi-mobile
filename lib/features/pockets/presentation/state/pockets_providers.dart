@@ -1130,7 +1130,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final actualExpenses = actualExpenseRows
           .map(ExpenseEntry.fromJson)
           .where((expense) =>
-              !expense.isRecurring &&
               (expense.type ?? 'expense').toLowerCase() != 'income')
           .toList(growable: false);
       final preferredTimezone =

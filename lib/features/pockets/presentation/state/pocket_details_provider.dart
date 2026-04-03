@@ -133,9 +133,7 @@ final pocketDetailsProvider =
   final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
   final actualTransactions = transactionRows
       .map(ExpenseEntry.fromJson)
-      .where((expense) =>
-          !expense.isRecurring &&
-          (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 
   final preferredTimezone =
@@ -186,8 +184,7 @@ final pocketDetailsProvider =
   final totalSpentLastMonth = prevTransactions.fold<double>(
     0,
     (sum, transaction) {
-      if (transaction['is_recurring'] == true ||
-          (transaction['type'] as String?)?.toLowerCase() == 'income') {
+      if ((transaction['type'] as String?)?.toLowerCase() == 'income') {
         return sum;
       }
       return sum + ((transaction['amount_cents'] as num).toDouble() / 100.0);
