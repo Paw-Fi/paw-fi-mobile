@@ -244,13 +244,17 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         serverExpenses: allExpenses,
         current: currentState,
       );
+      final resolvedContact = fetchedContact ?? currentState.contact;
+      final resolvedPreferredCurrency =
+          (fetchedContact?.preferredCurrency ?? currentState.preferredCurrency)
+              ?.toUpperCase();
       state = state.copyWith(
-        contact: fetchedContact,
+        contact: resolvedContact,
         expenses: mergedExpenses,
         allExpenses: mergedExpenses,
         budgets: allBudgets,
         allBudgets: allBudgets,
-        preferredCurrency: fetchedContact?.preferredCurrency?.toUpperCase(),
+        preferredCurrency: resolvedPreferredCurrency,
         isLoading: false,
         hasLoadedOnce: true,
       );

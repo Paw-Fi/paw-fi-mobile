@@ -267,7 +267,6 @@ List<Map<String, dynamic>> resolveEnvelopeRowsForViewedMonth({
   return legacyBudgetlessEnvelopeRows;
 }
 
-@foundation.visibleForTesting
 List<int> rebalancePocketBudgetAmounts({
   required List<int> currentAmountsCents,
   required int newTotalBudgetCents,
@@ -332,6 +331,30 @@ List<int> rebalancePocketBudgetAmounts({
   }
 
   return result;
+}
+
+List<int> rebalanceSiblingPocketBudgetAmounts({
+  required List<int> siblingAmountsCents,
+  required int targetPocketAmountCents,
+  required int totalBudgetCents,
+}) {
+  if (siblingAmountsCents.isEmpty) {
+    return const <int>[];
+  }
+
+  final sanitizedTotalBudget = math.max(0, totalBudgetCents);
+  final sanitizedTargetPocketAmount =
+      targetPocketAmountCents.clamp(0, sanitizedTotalBudget).toInt();
+  final sanitizedSiblingAmounts = siblingAmountsCents
+      .map((amount) => math.max(0, amount))
+      .toList(growable: false);
+  final remainingBudgetForSiblings =
+      math.max(0, sanitizedTotalBudget - sanitizedTargetPocketAmount);
+
+  return rebalancePocketBudgetAmounts(
+    currentAmountsCents: sanitizedSiblingAmounts,
+    newTotalBudgetCents: remainingBudgetForSiblings,
+  );
 }
 
 @foundation.visibleForTesting
@@ -925,6 +948,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   if (state.hasChanges) return;
                   if (_lastCacheKey != cacheKey) return;
                   state = loaded;
+                }).catchError((Object error, StackTrace stackTrace) {
+                  _debugLog(
+                    '[Pockets][Cache] Background refresh failed: $error',
+                  );
                 }),
               );
             }
@@ -959,6 +986,47 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
   }
 
+  bool _isMissingRpcFunctionError(Object error) {
+    if (error is! PostgrestException) return false;
+    return error.code == '42883' ||
+        error.message.toLowerCase().contains('get_pockets_month_v1');
+  }
+
+  Future<Map<String, dynamic>> _fetchPocketsMonthPayload({
+    required String userId,
+    required PocketsScopeType scopeType,
+    required String? householdId,
+    required String periodMonth,
+    required String selectedCurrency,
+    required bool allowCurrencyFallback,
+  }) async {
+    try {
+      final response = await supabase.rpc(
+        'get_pockets_month_v1',
+        params: <String, dynamic>{
+          'p_user_id': userId,
+          'p_scope': switch (scopeType) {
+            PocketsScopeType.personal => 'personal',
+            PocketsScopeType.portfolio => 'portfolio',
+            PocketsScopeType.household => 'household',
+          },
+          'p_household_id': householdId,
+          'p_period_month': periodMonth,
+          'p_currency': selectedCurrency,
+          'p_allow_currency_fallback': allowCurrencyFallback,
+        },
+      );
+      return Map<String, dynamic>.from(response as Map);
+    } catch (error) {
+      if (_isMissingRpcFunctionError(error)) {
+        _debugLog(
+          '[Pockets] RPC get_pockets_month_v1 missing; deploy migration 20260403120000_get_pockets_month_rpc.sql',
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<PocketsState> _refreshFromBackend({
     required _CacheKey cacheKey,
     required DateTime monthStart,
@@ -978,23 +1046,14 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final authUser = ref.read(authProvider);
       var selectedCurrency = initialCurrency;
 
-      final response = await supabase.rpc(
-        'get_pockets_month_v1',
-        params: <String, dynamic>{
-          'p_user_id': authUser.uid,
-          'p_scope': switch (scopeType) {
-            PocketsScopeType.personal => 'personal',
-            PocketsScopeType.portfolio => 'portfolio',
-            PocketsScopeType.household => 'household',
-          },
-          'p_household_id': householdId,
-          'p_period_month': periodMonth,
-          'p_currency': selectedCurrency,
-          'p_allow_currency_fallback': allowCurrencyFallback,
-        },
+      final payload = await _fetchPocketsMonthPayload(
+        userId: authUser.uid,
+        scopeType: scopeType,
+        householdId: householdId,
+        periodMonth: periodMonth,
+        selectedCurrency: selectedCurrency,
+        allowCurrencyFallback: allowCurrencyFallback,
       );
-
-      final payload = Map<String, dynamic>.from(response as Map);
       final budgetRow = payload['budget'] as Map?;
       final budgetId = budgetRow?['id']?.toString();
       final rpcCurrency =

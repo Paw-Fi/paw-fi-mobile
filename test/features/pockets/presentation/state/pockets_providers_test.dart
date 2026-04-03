@@ -87,6 +87,42 @@ void main() {
       expect(result, const [50000, 50000]);
       expect(result.fold<int>(0, (sum, amount) => sum + amount), 100000);
     });
+
+    test('redistributes a deleted pocket amount across remaining pockets', () {
+      final result = rebalancePocketBudgetAmounts(
+        currentAmountsCents: const [50000, 30000],
+        newTotalBudgetCents: 100000,
+      );
+
+      expect(result, const [62500, 37500]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 100000);
+    });
+  });
+
+  group('rebalanceSiblingPocketBudgetAmounts', () {
+    test(
+        'reduces sibling pockets proportionally when a new pocket exceeds budget',
+        () {
+      final result = rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: const [50000, 30000, 20000],
+        targetPocketAmountCents: 50000,
+        totalBudgetCents: 100000,
+      );
+
+      expect(result, const [25000, 15000, 10000]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 50000);
+    });
+
+    test('rebalances sibling pockets to fill the remaining budget exactly', () {
+      final result = rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: const [30000, 20000],
+        targetPocketAmountCents: 10000,
+        totalBudgetCents: 100000,
+      );
+
+      expect(result, const [54000, 36000]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 90000);
+    });
   });
 
   group('applyRebalancedBudgetToPocketsState', () {

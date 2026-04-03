@@ -290,9 +290,9 @@ class MainShell extends HookConsumerWidget {
           ),
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS
-                ? CupertinoIcons.creditcard_fill
+                ? CupertinoIcons.square_stack
                 : Icons.account_balance_wallet,
-            label: 'Accounts',
+            label: 'Wallets',
           ),
           AdaptiveNavigationDestination(
             icon: PlatformInfo.isIOS

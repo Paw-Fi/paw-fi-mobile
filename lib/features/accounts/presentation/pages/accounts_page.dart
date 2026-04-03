@@ -696,7 +696,7 @@ class _WalletAccountStack extends HookConsumerWidget {
               top: getTop(originalIndex, account),
               left: 0,
               right: 0,
-              height: isAnySelected ? expandedCardHeight : unselectedCardHeight,
+              height: isExpanded ? expandedCardHeight : unselectedCardHeight,
               duration: isDragging
                   ? Duration.zero
                   : const Duration(milliseconds: 500),
