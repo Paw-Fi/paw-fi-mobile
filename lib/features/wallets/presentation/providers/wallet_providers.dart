@@ -22,7 +22,7 @@ final walletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
   final response = await supabase.functions.invoke(
-    'list-accounts',
+    'list-wallets',
     body: {
       if (householdId != null && householdId.trim().isNotEmpty)
         'householdId': householdId,
@@ -75,7 +75,7 @@ final archivedScopedAccountsProvider =
     FutureProvider<List<WalletEntity>>((ref) async {
   final householdId = ref.watch(walletScopeHouseholdIdProvider);
   final response = await supabase.functions.invoke(
-    'list-accounts',
+    'list-wallets',
     body: {
       'includeArchived': true,
       if (householdId != null) 'householdId': householdId,
@@ -200,7 +200,7 @@ class WalletActions {
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
     final response = await supabase.functions.invoke(
-      'save-account',
+      'save-wallet',
       body: {
         'name': name,
         'icon': icon,
@@ -229,7 +229,7 @@ class WalletActions {
       '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
-      'update-account',
+      'update-wallet',
       body: {
         'accountId': walletId,
         if (name != null) 'name': name,
@@ -249,7 +249,7 @@ class WalletActions {
 
   Future<void> archiveAccount(String accountId) async {
     final response = await supabase.functions.invoke(
-      'archive-account',
+      'archive-wallet',
       body: {'accountId': accountId},
     );
     _throwIfFailed(response.data, 'Failed to archive wallet');
@@ -258,7 +258,7 @@ class WalletActions {
 
   Future<void> restoreAccount(String accountId) async {
     final response = await supabase.functions.invoke(
-      'restore-account',
+      'restore-wallet',
       body: {'accountId': accountId},
     );
     _throwIfFailed(response.data, 'Failed to restore wallet');
@@ -274,7 +274,7 @@ class WalletActions {
     String? note,
   }) async {
     final response = await supabase.functions.invoke(
-      'create-account-transfer',
+      'create-wallet-transfer',
       body: {
         'fromAccountId': fromAccountId,
         'toAccountId': toAccountId,
@@ -298,7 +298,7 @@ class WalletActions {
       '[Accounts][Balance] start accountId=$walletId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
-      'update-account-balance',
+      'update-wallet-balance',
       body: {
         'accountId': walletId,
         'targetBalanceCents': targetBalanceCents,

@@ -159,7 +159,7 @@ class AccountsPage extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   SizedBox(
-                    height: 290,
+                    height: (!hasDismissedSwipeHintState.value && availableMonths.length > 1)?290 :250,
                     child: PageView.builder(
                       itemCount: availableMonths.length,
                       controller: monthPageController,
@@ -357,6 +357,7 @@ class _WalletsOverviewCard extends HookWidget {
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
+        mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

@@ -756,7 +756,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   }) async {
     final targetHouseholdId = state.targetHouseholdId;
     final response = await supabase.functions.invoke(
-      'save-account',
+      'save-wallet',
       body: {
         'name': name,
         'icon': icon,

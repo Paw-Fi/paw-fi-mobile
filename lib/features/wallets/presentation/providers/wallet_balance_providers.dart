@@ -26,16 +26,16 @@ totalGoalCents += (wallet.goalAmountCents ?? 0) as int;
     if (!_isInActiveScope(expense, scope)) continue;
     if (!_isInSelectedCurrency(expense, currencyCode)) continue;
 
-    final accountId = _resolveTransactionWalletId(
+    final walletId = _resolveTransactionWalletId(
       transaction: expense,
       defaultWalletId: defaultAccountId,
     );
-    if (accountId == null || !balances.containsKey(accountId)) continue;
+    if (walletId == null || !balances.containsKey(walletId)) continue;
 
     final amountCents = (expense.amount.abs() * 100).round();
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-    final current = balances[accountId] ?? 0;
-    balances[accountId] =
+    final current = balances[walletId] ?? 0;
+    balances[walletId] =
         isIncome ? current + amountCents : current - amountCents;
   }
 
