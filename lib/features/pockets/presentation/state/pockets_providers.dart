@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' as foundation;
@@ -12,6 +13,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
@@ -23,6 +25,204 @@ void _debugLog(String message) {
     foundation.debugPrint(message);
   }
 }
+
+// L1 in-memory month cache.
+// - Keyed by (user, scope, month, currency) + a couple toggles that affect the
+//   computed output.
+// - TTL-based freshness with stale-while-revalidate refresh.
+// - Explicit invalidation happens via provider disposal (ref.invalidate) and
+//   a small set of global signals (auth/push refresh).
+typedef _CacheKey = ({
+  String userId,
+  PocketsScopeType scope,
+  String? householdId,
+  String periodMonth,
+  String currency,
+  bool includeUpcomingRecurring,
+  bool allowCurrencyFallback,
+});
+
+class _PocketsMonthCacheEntry {
+  _PocketsMonthCacheEntry({
+    required this.state,
+    required this.fetchedAt,
+    required this.lastAccessAt,
+  });
+
+  PocketsState state;
+  DateTime fetchedAt;
+  DateTime lastAccessAt;
+  Future<PocketsState>? inFlight;
+}
+
+class _PocketsMonthCache {
+  static const _maxEntries = 64;
+
+  final _entries = <_CacheKey, _PocketsMonthCacheEntry>{};
+
+  void clear() => _entries.clear();
+
+  void invalidate(_CacheKey key) => _entries.remove(key);
+
+  void invalidateUser(String userId) {
+    if (userId.trim().isEmpty) return;
+    _entries.removeWhere((key, _) => key.userId == userId);
+  }
+
+  PocketsState? getAny(_CacheKey key, DateTime now) {
+    final entry = _entries[key];
+    if (entry == null) return null;
+    entry.lastAccessAt = now;
+    return entry.state;
+  }
+
+  bool isFresh(_CacheKey key, DateTime now, DateTime monthStart) {
+    final entry = _entries[key];
+    if (entry == null) return false;
+    return now.difference(entry.fetchedAt) <= _ttlFor(key, monthStart);
+  }
+
+  Future<PocketsState>? getInFlight(_CacheKey key) => _entries[key]?.inFlight;
+
+  void setInFlight(_CacheKey key, Future<PocketsState> future, DateTime now) {
+    final entry = _entries.putIfAbsent(
+      key,
+      () => _PocketsMonthCacheEntry(
+        state: PocketsState.initial(),
+        fetchedAt: DateTime.fromMillisecondsSinceEpoch(0),
+        lastAccessAt: now,
+      ),
+    );
+    entry.inFlight = future;
+    entry.lastAccessAt = now;
+  }
+
+  void clearInFlight(_CacheKey key) {
+    final entry = _entries[key];
+    if (entry == null) return;
+    entry.inFlight = null;
+  }
+
+  void set(_CacheKey key, PocketsState state, DateTime now) {
+    final entry = _entries.putIfAbsent(
+      key,
+      () => _PocketsMonthCacheEntry(
+        state: state,
+        fetchedAt: now,
+        lastAccessAt: now,
+      ),
+    );
+
+    entry.state = state;
+    entry.fetchedAt = now;
+    entry.lastAccessAt = now;
+    entry.inFlight = null;
+
+    _evictIfNeeded();
+  }
+
+  Duration _ttlFor(_CacheKey key, DateTime monthStart) {
+    final now = DateTime.now();
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+
+    if (monthStart.isAfter(currentMonthStart)) {
+      return const Duration(seconds: 20);
+    }
+
+    if (monthStart == currentMonthStart) {
+      if (key.includeUpcomingRecurring) {
+        return const Duration(seconds: 15);
+      }
+      return const Duration(seconds: 45);
+    }
+
+    // Past months are generally stable.
+    return const Duration(minutes: 30);
+  }
+
+  void _evictIfNeeded() {
+    if (_entries.length <= _maxEntries) return;
+    final entries = _entries.entries.toList(growable: false);
+    entries
+        .sort((a, b) => a.value.lastAccessAt.compareTo(b.value.lastAccessAt));
+
+    final overflow = _entries.length - _maxEntries;
+    for (var i = 0; i < overflow; i++) {
+      _entries.remove(entries[i].key);
+    }
+  }
+}
+
+final _pocketsMonthCache = _PocketsMonthCache();
+
+// Global cache invalidation hooks.
+// We keep this provider separate so it can listen once per ProviderContainer.
+final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
+  // Clear all caches when auth user changes (login/logout).
+  ref.listen(authProvider, (previous, next) {
+    final prevId = previous?.uid ?? '';
+    final nextId = next.uid;
+    if (prevId != nextId) {
+      _pocketsMonthCache.clear();
+    }
+  }, fireImmediately: true);
+
+  // Invalidate caches when the active account scope changes (personal/portfolio/household)
+  // or when household selection changes. Even though cache keys include these fields,
+  // explicit invalidation keeps memory bounded and ensures we don't serve stale data
+  // across account switches.
+  ref.listen(viewModeProvider, (previous, next) {
+    if (previous == null) return;
+    if (previous.mode != next.mode) {
+      final uid = ref.read(authProvider).uid;
+      if (uid.isNotEmpty) {
+        _pocketsMonthCache.invalidateUser(uid);
+      } else {
+        _pocketsMonthCache.clear();
+      }
+    }
+  });
+
+  ref.listen(selectedHouseholdProvider, (previous, next) {
+    if (previous == null) return;
+    final prevId = previous.householdId ?? previous.household?.id;
+    final nextId = next.householdId ?? next.household?.id;
+    if (prevId != nextId) {
+      final uid = ref.read(authProvider).uid;
+      if (uid.isNotEmpty) {
+        _pocketsMonthCache.invalidateUser(uid);
+      } else {
+        _pocketsMonthCache.clear();
+      }
+    }
+  });
+
+  // Push-triggered refreshes (new transactions, sync, etc.).
+  ref.listen(transactionsFeedRefreshSignalProvider, (previous, next) {
+    if (previous == null) return;
+    if (previous != next) {
+      final uid = ref.read(authProvider).uid;
+      if (uid.isNotEmpty) {
+        _pocketsMonthCache.invalidateUser(uid);
+      } else {
+        _pocketsMonthCache.clear();
+      }
+    }
+  });
+
+  // UI-triggered refreshes (e.g., transaction saves) typically bump this.
+  ref.listen(dashboardRefreshSignalProvider, (previous, next) {
+    if (previous == null) return;
+    if (previous != next) {
+      final uid = ref.read(authProvider).uid;
+      if (uid.isNotEmpty) {
+        _pocketsMonthCache.invalidateUser(uid);
+      } else {
+        _pocketsMonthCache.clear();
+      }
+    }
+  });
+});
 
 @foundation.visibleForTesting
 String normalizePocketTemplateName(String name) => name.trim();
@@ -506,6 +706,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   final Ref ref;
   final PocketsScopeParams params;
 
+  _CacheKey? _lastCacheKey;
+
   bool _hasLoadedOnce = false;
   bool get _isPreview => ref.read(previewModeProvider).isActive;
 
@@ -524,6 +726,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     };
   }
 
+  // ignore: unused_element
   Future<bool> _hasAnyPocketsForPeriodMonth({
     required String periodMonth,
     required String currency,
@@ -574,7 +777,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   /// 3. Fallback to 'USD'
   ///
   /// No polling required - just use what's available.
-  Future<void> load() async {
+  Future<void> load({bool bypassCache = false}) async {
     // Avoid duplicate loads if already loading
     if (state.isLoading && _hasLoadedOnce) return;
     _hasLoadedOnce = true;
@@ -587,16 +790,19 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
 
-    await _load();
+    await _load(bypassCache: bypassCache);
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool bypassCache = false}) async {
     _debugLog(
         '[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
     if (!mounted) return;
-    state = state.copyWith(isLoading: true, clearError: true);
+
+    // Ensure global invalidation listeners are registered.
+    ref.watch(_pocketsMonthCacheInvalidationProvider);
 
     if (_isPreview) {
+      state = state.copyWith(isLoading: true, clearError: true);
       _applyPreviewState();
       return;
     }
@@ -615,7 +821,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final monthStart = DateTime(targetDate.year, targetDate.month, 1);
       final periodMonth = _formatDate(monthStart);
-      final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 1);
+      // monthEnd previously used for local expenses queries; kept monthStart only now.
 
       final scopeType = params.scope;
       final isHousehold = scopeType == PocketsScopeType.household;
@@ -677,189 +883,164 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           (requestedCurrency ?? fallbackCurrency).toUpperCase();
       var selectedCurrency = initialCurrency;
 
+      final cacheKey = (
+        userId: authUser.uid,
+        scope: scopeType,
+        householdId: householdId,
+        periodMonth: periodMonth,
+        currency: selectedCurrency,
+        includeUpcomingRecurring: params.includeUpcomingRecurring,
+        allowCurrencyFallback: allowCurrencyFallback,
+      );
+      _lastCacheKey = cacheKey;
+
+      final now = DateTime.now();
+      if (!bypassCache) {
+        final cached = _pocketsMonthCache.getAny(cacheKey, now);
+        if (cached != null) {
+          // Serve cached state immediately.
+          if (!mounted) return;
+          state = cached.copyWith(isLoading: false, clearError: true);
+
+          // If stale, refresh in the background (deduped per key).
+          final isFresh = _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
+          if (!isFresh) {
+            final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
+            if (existingInFlight == null) {
+              _debugLog(
+                  '[Pockets][Cache] Stale cache hit; refreshing in background ($periodMonth/$selectedCurrency)');
+              unawaited(
+                _refreshFromBackend(
+                  cacheKey: cacheKey,
+                  monthStart: monthStart,
+                  periodMonth: periodMonth,
+                  scopeType: scopeType,
+                  householdId: householdId,
+                  initialCurrency: initialCurrency,
+                  allowCurrencyFallback: allowCurrencyFallback,
+                  showLoadingIndicator: false,
+                ).then((loaded) {
+                  if (!mounted) return;
+                  // Avoid clobbering local edits.
+                  if (state.hasChanges) return;
+                  if (_lastCacheKey != cacheKey) return;
+                  state = loaded;
+                }),
+              );
+            }
+          }
+          return;
+        }
+      }
+
+      // No cache (or bypass requested), show loader.
+      state = state.copyWith(isLoading: true, clearError: true);
+
       _debugLog(
           '[Pockets] Using currency: $selectedCurrency (params: ${params.currency}, fallback: $fallbackCurrency, allowFallback: $allowCurrencyFallback)');
 
-      // Fetch or create budget for the current month/scope
-      final budgetQueryBase = supabase
-          .from('budgets')
-          .select('id,total_budget_cents,household_id,user_id,currency')
-          .eq('currency', selectedCurrency);
-
-      final scopedBudgetQuery = _applyAccountScopeFilter(
-        budgetQueryBase,
-        authUser.uid,
-        scope: scopeType,
+      final loadedState = await _refreshFromBackend(
+        cacheKey: cacheKey,
+        monthStart: monthStart,
+        periodMonth: periodMonth,
+        scopeType: scopeType,
         householdId: householdId,
+        initialCurrency: initialCurrency,
+        allowCurrencyFallback: allowCurrencyFallback,
+        showLoadingIndicator: true,
+      );
+      if (!mounted) return;
+      state = loadedState;
+      return;
+    } catch (e) {
+      if (!mounted) return;
+      state = state.copyWith(
+          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
+    }
+  }
+
+  Future<PocketsState> _refreshFromBackend({
+    required _CacheKey cacheKey,
+    required DateTime monthStart,
+    required String periodMonth,
+    required PocketsScopeType scopeType,
+    required String? householdId,
+    required String initialCurrency,
+    required bool allowCurrencyFallback,
+    required bool showLoadingIndicator,
+  }) async {
+    final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
+    if (existingInFlight != null) {
+      return existingInFlight;
+    }
+
+    Future<PocketsState> doFetch() async {
+      final authUser = ref.read(authProvider);
+      var selectedCurrency = initialCurrency;
+
+      final response = await supabase.rpc(
+        'get_pockets_month_v1',
+        params: <String, dynamic>{
+          'p_user_id': authUser.uid,
+          'p_scope': switch (scopeType) {
+            PocketsScopeType.personal => 'personal',
+            PocketsScopeType.portfolio => 'portfolio',
+            PocketsScopeType.household => 'household',
+          },
+          'p_household_id': householdId,
+          'p_period_month': periodMonth,
+          'p_currency': selectedCurrency,
+          'p_allow_currency_fallback': allowCurrencyFallback,
+        },
       );
 
-      final budgetRowQuery = scopedBudgetQuery.eq('period_month', periodMonth);
-
-      Map<String, dynamic>? budgetRow = await budgetRowQuery.maybeSingle();
-
-      // If no budget was found with the selected currency, fall back to any
-      // budget for this scope/month (unique constraint is on scope+period).
-      if (budgetRow == null && allowCurrencyFallback) {
-        var fallbackBudgetQuery = supabase
-            .from('budgets')
-            .select('id,total_budget_cents,household_id,user_id,currency')
-            .eq('period_month', periodMonth);
-
-        fallbackBudgetQuery = _applyAccountScopeFilter(
-          fallbackBudgetQuery,
-          authUser.uid,
-          scope: scopeType,
-          householdId: householdId,
-        );
-
-        budgetRow = await fallbackBudgetQuery.limit(1).maybeSingle();
-
-        // As a last resort (legacy rows missing user_id), try any personal row for the period.
-        if (budgetRow == null && scopeType == PocketsScopeType.personal) {
-          budgetRow = await _findBudgetRowForPeriod(
-            periodMonth: periodMonth,
-            isHousehold: false,
-            householdId: null,
-            userId: authUser.uid,
-            allowAnyUser: true,
-          );
-          if (budgetRow != null) {
-            _debugLog(
-                '[Pockets] Found legacy personal budget without user filter for period $periodMonth');
-          }
-        }
-
-        if (budgetRow != null) {
-          final reusedCurrency =
-              (budgetRow['currency'] as String?)?.toUpperCase();
-          if (reusedCurrency != null &&
-              reusedCurrency.isNotEmpty &&
-              reusedCurrency != selectedCurrency) {
-            _debugLog(
-                '[Pockets] Reused existing budget with currency $reusedCurrency for period $periodMonth (was requesting $selectedCurrency)');
-            selectedCurrency = reusedCurrency;
-          } else if (reusedCurrency != null) {
-            // Keep selectedCurrency in sync with the budget row even if they match,
-            // to avoid any casing inconsistencies.
-            selectedCurrency = reusedCurrency;
-          }
-        }
+      final payload = Map<String, dynamic>.from(response as Map);
+      final budgetRow = payload['budget'] as Map?;
+      final budgetId = budgetRow?['id']?.toString();
+      final rpcCurrency =
+          (payload['selected_currency'] as String?)?.toUpperCase();
+      if (rpcCurrency != null && rpcCurrency.isNotEmpty) {
+        selectedCurrency = rpcCurrency;
       }
 
-      // Determine if pockets exist for the immediate previous month.
-      // Used by the UI to decide between "copy from previous month" vs "create from template".
-      var hasPreviousMonthPockets = false;
-      try {
-        final previousMonthStart =
-            DateTime(monthStart.year, monthStart.month - 1, 1);
-        final previousPeriodMonth = _formatDate(previousMonthStart);
-        hasPreviousMonthPockets = await _hasAnyPocketsForPeriodMonth(
-          periodMonth: previousPeriodMonth,
-          currency: selectedCurrency,
-          scope: scopeType,
-          userId: authUser.uid,
-          householdId: householdId,
-        );
-      } catch (_) {
-        hasPreviousMonthPockets = false;
-      }
-
-      double previousBudget = 0;
-      if (budgetRow == null) {
-        // Check most recent previous budget for a reuse suggestion
-        final previousBudgetRow = await scopedBudgetQuery
-            .lt('period_month', periodMonth)
-            .order('period_month', ascending: false)
-            .limit(1)
-            .maybeSingle();
-        previousBudget =
-            ((previousBudgetRow?['total_budget_cents'] as num?)?.toDouble() ??
-                    0.0) /
-                100.0;
-      }
-
-      final budgetId = budgetRow?['id'] as String?;
+      final hasPreviousMonthPockets =
+          payload['has_previous_month_pockets'] == true;
+      final previousBudget =
+          (payload['previous_budget_cents'] as num?)?.toDouble() ?? 0.0;
       final totalBudget =
-          ((budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0) / 100.0;
+          (budgetRow?['total_budget_cents'] as num?)?.toDouble() ?? 0.0;
 
-      var baseQuery = supabase
-          .from('budget_envelopes')
-          .select(
-              'id,name,budget_amount_cents,household_id,currency,icon,color,budget_id')
-          .eq('currency', selectedCurrency);
-
-      baseQuery = _applyAccountScopeFilter(
-        baseQuery,
-        authUser.uid,
-        scope: scopeType,
-        householdId: householdId,
-      );
-
-      final budgetBoundEnvelopeRows = budgetId == null
-          ? const <Map<String, dynamic>>[]
-          : ((await baseQuery.eq('budget_id', budgetId).order('name')) as List?)
-                  ?.cast<Map<String, dynamic>>() ??
-              const <Map<String, dynamic>>[];
-
-      var legacyBudgetlessEnvelopeRows = const <Map<String, dynamic>>[];
-      if (budgetBoundEnvelopeRows.isEmpty && budgetId != null) {
-        // Legacy rows without budget_id: attach them to the current budget
-        final legacyRes = await (scopeType == PocketsScopeType.personal
-                ? baseQuery.isFilter('household_id', null)
-                : baseQuery.eq('household_id', householdId!))
-            .isFilter('budget_id', null)
-            .order('name');
-
-        legacyBudgetlessEnvelopeRows =
-            (legacyRes as List?)?.cast<Map<String, dynamic>>() ??
-                const <Map<String, dynamic>>[];
-        for (final row in legacyBudgetlessEnvelopeRows) {
-          final legacyId = row['id'] as String?;
-          if (legacyId != null) {
-            await supabase.from('budget_envelopes').update({
-              'budget_id': budgetId,
-              'updated_at': DateTime.now().toIso8601String(),
-            }).eq('id', legacyId);
-          }
-        }
-      }
-
-      final envRows = resolveEnvelopeRowsForViewedMonth(
-        budgetId: budgetId,
-        budgetBoundEnvelopeRows: budgetBoundEnvelopeRows,
-        legacyBudgetlessEnvelopeRows: legacyBudgetlessEnvelopeRows,
-      );
+      final envRows = ((payload['envelopes'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
 
       if (envRows.isEmpty) {
-        if (!mounted) return;
-        state = PocketsState(
+        return PocketsState(
           isLoading: false,
           error: null,
           saved: const [],
           editing: const [],
           budgetId: budgetId,
           periodMonth: monthStart,
-          previousBudget: previousBudget,
+          previousBudget: previousBudget / 100.0,
           hasPreviousMonthPockets: hasPreviousMonthPockets,
           currency: selectedCurrency,
-          totalBudget: totalBudget,
-          savedTotalBudget: totalBudget,
+          totalBudget: totalBudget / 100.0,
+          savedTotalBudget: totalBudget / 100.0,
           unallocatedSpend: 0,
           uncategorized: const [],
           uncategorizedExpenses: const {},
         );
-        return;
       }
 
-      final envIds = envRows.map((e) => e['id'] as String).toList();
+      final envIds =
+          envRows.map((e) => e['id'] as String).toList(growable: false);
 
-      final allocationsRes = await supabase
-          .from('envelope_allocations')
-          .select('envelope_id,amount_cents')
-          .eq('period_month', periodMonth)
-          .inFilter('envelope_id', envIds);
-      final allocationRows =
-          (allocationsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final allocationRows = ((payload['allocations'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false);
       final allocationCentsByEnvelopeId = <String, int>{
         for (final row in allocationRows)
           if ((row['envelope_id'] as String?) != null)
@@ -868,47 +1049,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   (row['amount_cents'] as num?)!.toInt(),
       };
 
-      // Fetch category links for all envelopes
-      final categoryLinksRes = await supabase
-          .from('envelope_category_links')
-          .select('envelope_id, category')
-          .inFilter('envelope_id', envIds);
       final categoryLinksRows =
-          (categoryLinksRes as List?)?.cast<Map<String, dynamic>>() ?? [];
+          ((payload['category_links'] as List?) ?? const [])
+              .cast<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false);
 
       final categoriesByEnvelopeId = <String, List<String>>{};
       for (final row in categoryLinksRows) {
         final envId = row['envelope_id'] as String;
-        final category = (row['category'] as String).toLowerCase();
+        final category = (row['category'] as String? ?? '').toLowerCase();
+        if (category.isEmpty) continue;
         categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
       }
 
-      // Fetch all expenses for this month and scope
-      var expenseQuery = supabase
-          .from('expenses')
-          .select(
-              'id,amount_cents,category,type,household_id,currency,date,raw_text,'
-              'user_id,is_recurring,created_at,updated_at,split_group_id')
-          .eq('currency', selectedCurrency)
-          .gte('date', formatDateOnlyYmd(monthStart))
-          .lt('date', formatDateOnlyYmd(monthEnd));
-
-      if (isHousehold) {
-        // In household mode, fetch ALL expenses for the household regardless of user
-        expenseQuery = expenseQuery.eq('household_id', householdId!);
-      } else {
-        expenseQuery = _applyAccountScopeFilter(
-          expenseQuery,
-          authUser.uid,
-          scope: scopeType,
-          householdId: householdId,
-        );
-      }
-
-      final expensesRes = await expenseQuery;
-      final expensesRows =
-          (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-      final actualExpenses = expensesRows
+      final actualExpenseRows =
+          ((payload['actual_expenses'] as List?) ?? const [])
+              .cast<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false);
+      final actualExpenses = actualExpenseRows
           .map(ExpenseEntry.fromJson)
           .where((expense) =>
               !expense.isRecurring &&
@@ -936,23 +1096,50 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           .map((expense) => expense.toJson())
           .toList(growable: false);
 
-      // Calculate spent per envelope by filtering expenses by category
+      final isProjecting = projectedRecurringExpenses.isNotEmpty;
       final spentById = <String, double>{};
-      for (final envId in envIds) {
-        final categories = categoriesByEnvelopeId[envId] ?? [];
-        if (categories.isEmpty) {
-          spentById[envId] = 0.0;
-          continue;
+      double totalMonthlySpend = 0.0;
+
+      if (isProjecting) {
+        // Preserve existing semantics: when projections are included, all spend
+        // calculations include both actual + projected expenses.
+        for (final expense in monthlyExpenses) {
+          totalMonthlySpend += expense.amount;
+        }
+        for (final envId in envIds) {
+          final categories = categoriesByEnvelopeId[envId] ?? const <String>[];
+          if (categories.isEmpty) {
+            spentById[envId] = 0.0;
+            continue;
+          }
+          var totalSpent = 0.0;
+          for (final expense in monthlyExpenses) {
+            final expenseCategory = (expense.category ?? '').toLowerCase();
+            if (categories.contains(expenseCategory)) {
+              totalSpent += expense.amount;
+            }
+          }
+          spentById[envId] = totalSpent;
+        }
+      } else {
+        final spentRows = ((payload['spent_by_envelope'] as List?) ?? const [])
+            .cast<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList(growable: false);
+        for (final row in spentRows) {
+          final envId = row['envelope_id']?.toString();
+          if (envId == null || envId.isEmpty) continue;
+          spentById[envId] =
+              ((row['spent_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
         }
 
-        double totalSpent = 0.0;
-        for (final expense in monthlyExpenses) {
-          final expenseCategory = (expense.category ?? '').toLowerCase();
-          if (categories.contains(expenseCategory)) {
-            totalSpent += expense.amount;
-          }
+        // Ensure empty envelopes still get 0 spent.
+        for (final envId in envIds) {
+          spentById.putIfAbsent(envId, () => 0.0);
         }
-        spentById[envId] = totalSpent;
+
+        totalMonthlySpend =
+            ((payload['total_spend_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
       }
 
       final pockets = envRows.map((row) {
@@ -988,47 +1175,77 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         );
       }).toList();
 
-      // Use the already-fetched expenses to compute uncategorized totals
-      final expenseTotalsByCategory = <String, double>{};
-      final uncategorizedExpensesMap = <String, List<Map<String, dynamic>>>{};
-      var totalMonthlySpend = 0.0;
-      for (final expense in monthlyExpenses) {
-        final amount = expense.amount;
-        totalMonthlySpend += amount;
-        final rawCategory = (expense.category ?? 'uncategorized').toLowerCase();
-        expenseTotalsByCategory.update(
-          rawCategory,
-          (v) => v + amount,
-          ifAbsent: () => amount,
-        );
-      }
-
-      // Use the already-fetched category links to determine linked categories
-      final linkedCategories = categoryLinksRows
-          .map((r) => (r['category'] as String?)?.toLowerCase() ?? '')
-          .where((c) => c.isNotEmpty)
-          .toSet();
-
       final uncategorized = <UncategorizedCategory>[];
-      expenseTotalsByCategory.forEach((cat, amount) {
-        if (!linkedCategories.contains(cat)) {
-          uncategorized.add(UncategorizedCategory(
-            category: cat.isEmpty ? 'uncategorized' : cat,
-            amount: amount,
-          ));
-          final key = cat.isEmpty ? 'uncategorized' : cat;
-          final matches = monthlyExpenseRows.where((row) {
-            final rowCategory =
-                (row['category'] as String? ?? 'uncategorized').toLowerCase();
-            return rowCategory == cat;
-          });
-          for (final m in matches) {
-            uncategorizedExpensesMap
-                .putIfAbsent(key, () => <Map<String, dynamic>>[])
-                .add(m);
-          }
+      final uncategorizedExpensesMap = <String, List<Map<String, dynamic>>>{};
+
+      if (isProjecting) {
+        // When projecting recurring spend, build uncategorized from the same
+        // combined expense list as before.
+        final expenseTotalsByCategory = <String, double>{};
+        for (final expense in monthlyExpenses) {
+          final amount = expense.amount;
+          final rawCategory =
+              (expense.category ?? 'uncategorized').toLowerCase();
+          expenseTotalsByCategory.update(
+            rawCategory,
+            (v) => v + amount,
+            ifAbsent: () => amount,
+          );
         }
-      });
+
+        final linkedCategories = categoryLinksRows
+            .map((r) => (r['category'] as String?)?.toLowerCase() ?? '')
+            .where((c) => c.isNotEmpty)
+            .toSet();
+
+        expenseTotalsByCategory.forEach((cat, amount) {
+          if (!linkedCategories.contains(cat)) {
+            final key = cat.isEmpty ? 'uncategorized' : cat;
+            uncategorized
+                .add(UncategorizedCategory(category: key, amount: amount));
+            final matches = monthlyExpenseRows.where((row) {
+              final rowCategory =
+                  (row['category'] as String? ?? 'uncategorized').toLowerCase();
+              return rowCategory == cat;
+            });
+            for (final m in matches) {
+              uncategorizedExpensesMap
+                  .putIfAbsent(key, () => <Map<String, dynamic>>[])
+                  .add(m);
+            }
+          }
+        });
+      } else {
+        final uncategorizedTotalsRows =
+            ((payload['uncategorized_totals'] as List?) ?? const [])
+                .cast<Map>()
+                .map((row) => Map<String, dynamic>.from(row))
+                .toList(growable: false);
+        for (final row in uncategorizedTotalsRows) {
+          final category =
+              (row['category'] as String? ?? 'uncategorized').toLowerCase();
+          final amount =
+              ((row['amount_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
+          uncategorized
+              .add(UncategorizedCategory(category: category, amount: amount));
+        }
+
+        final uncategorizedExpenseGroups =
+            ((payload['uncategorized_expenses'] as List?) ?? const [])
+                .cast<Map>()
+                .map((row) => Map<String, dynamic>.from(row))
+                .toList(growable: false);
+        for (final group in uncategorizedExpenseGroups) {
+          final category =
+              (group['category'] as String? ?? 'uncategorized').toLowerCase();
+          final expenses = ((group['expenses'] as List?) ?? const [])
+              .cast<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false);
+          if (expenses.isEmpty) continue;
+          uncategorizedExpensesMap[category] = expenses;
+        }
+      }
 
       final totalEnvelopeSpend =
           pockets.fold<double>(0, (sum, p) => sum + p.spent);
@@ -1036,27 +1253,54 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final unallocatedSpend =
           math.max(0.0, totalMonthlySpend - totalEnvelopeSpend);
 
-      if (!mounted) return;
-      state = PocketsState(
+      return PocketsState(
         isLoading: false,
         error: null,
         saved: pockets,
         editing: pockets.map((p) => p.copyWith()).toList(),
         budgetId: budgetId,
         periodMonth: monthStart,
-        previousBudget: previousBudget,
+        previousBudget: previousBudget / 100.0,
         hasPreviousMonthPockets: hasPreviousMonthPockets,
         currency: selectedCurrency,
-        totalBudget: totalBudget,
-        savedTotalBudget: totalBudget, // Initialize saved budget
+        totalBudget: totalBudget / 100.0,
+        savedTotalBudget: totalBudget / 100.0, // Initialize saved budget
         unallocatedSpend: unallocatedSpend,
         uncategorized: uncategorized,
         uncategorizedExpenses: uncategorizedExpensesMap,
       );
-    } catch (e) {
-      if (!mounted) return;
-      state = state.copyWith(
-          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
+    }
+
+    final now = DateTime.now();
+    final future = doFetch();
+    _pocketsMonthCache.setInFlight(cacheKey, future, now);
+
+    if (showLoadingIndicator && mounted) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
+
+    try {
+      final loaded = await future;
+      final completedAt = DateTime.now();
+      _pocketsMonthCache.set(cacheKey, loaded, completedAt);
+
+      // If the RPC selected a different currency (bootstrap fallback), cache
+      // under that effective currency too so subsequent navigations hit.
+      if (loaded.currency.toUpperCase() != cacheKey.currency.toUpperCase()) {
+        final effectiveKey = (
+          userId: cacheKey.userId,
+          scope: cacheKey.scope,
+          householdId: cacheKey.householdId,
+          periodMonth: cacheKey.periodMonth,
+          currency: loaded.currency.toUpperCase(),
+          includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
+          allowCurrencyFallback: cacheKey.allowCurrencyFallback,
+        );
+        _pocketsMonthCache.set(effectiveKey, loaded, completedAt);
+      }
+      return loaded;
+    } finally {
+      _pocketsMonthCache.clearInFlight(cacheKey);
     }
   }
 
@@ -1524,7 +1768,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _debugLog(
           '[Pockets][Copy] Completed inserts: insertedEnvelopes=$insertedCount, insertedCategoryLinks=${linksPayload.length}');
 
-      await _load();
+      await _load(bypassCache: true);
 
       _debugLog(
           '[Pockets][Copy] Reload complete: totalBudget=${state.totalBudget}, pockets=${state.editing.length}, periodMonth=${state.periodMonth}');
@@ -1789,7 +2033,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // Reload from backend to ensure consistency
-      await _load();
+      await _load(bypassCache: true);
 
       // Also refresh analytics so widgets and summaries reflect updated
       // budgets and envelope allocations (used by WidgetSyncManager).
@@ -1951,7 +2195,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       // 4. Refresh
-      await _load();
+      await _load(bypassCache: true);
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
@@ -1973,7 +2217,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'category': category.toLowerCase(),
         'created_at': DateTime.now().toIso8601String(),
       });
-      await _load();
+      await _load(bypassCache: true);
 
       if (!mounted) return;
 
@@ -1991,10 +2235,47 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   void _showPreviewModeToast() {
     if (!mounted) return;
   }
+
+  @override
+  void dispose() {
+    // If this provider instance was invalidated/disposed, we treat that as an
+    // explicit invalidation signal and drop any cached month snapshot.
+    final key = _lastCacheKey;
+    if (key != null) {
+      _pocketsMonthCache.invalidate(key);
+    }
+    super.dispose();
+  }
 }
 
 final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
     PocketsState, PocketsScopeParams>((ref, params) {
+  // If this provider is invalidated (e.g., pull-to-refresh), drop the cached
+  // snapshot so the new notifier performs a true refetch.
+  ref.onDispose(() {
+    final authUserId = ref.read(authProvider).uid;
+    if (authUserId.isEmpty) return;
+
+    final month = params.periodMonth ?? DateTime.now();
+    final monthStart = DateTime(month.year, month.month, 1);
+    final periodMonth = _formatDate(monthStart);
+    final currency =
+        (params.currency ?? ref.read(selectedHomeCurrencyCodeProvider) ?? '')
+            .trim()
+            .toUpperCase();
+
+    final key = (
+      userId: authUserId,
+      scope: params.scope,
+      householdId: params.householdId,
+      periodMonth: periodMonth,
+      currency: currency.isEmpty ? 'USD' : currency,
+      includeUpcomingRecurring: params.includeUpcomingRecurring,
+      allowCurrencyFallback: params.isBootstrapCurrency,
+    );
+    _pocketsMonthCache.invalidate(key);
+  });
+
   // Ensure we always have the latest selected household id when in household scope
   if (params.scope == PocketsScopeType.household &&
       params.householdId == null) {

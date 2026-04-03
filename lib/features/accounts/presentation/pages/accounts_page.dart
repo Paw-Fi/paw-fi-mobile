@@ -12,6 +12,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/accounts/domain/entities/account.dart';
 import 'package:moneko/features/accounts/presentation/pages/account_details_page.dart';
+import 'package:moneko/features/accounts/presentation/pages/accounts_history_page.dart';
 import 'package:moneko/features/accounts/presentation/providers/account_providers.dart';
 import 'package:moneko/features/accounts/presentation/widgets/account_icon_resolver.dart';
 import 'package:moneko/features/accounts/presentation/widgets/account_transfer_sheet.dart';
@@ -185,6 +186,8 @@ class AccountsPage extends HookConsumerWidget {
                             currencyCode: selectedCurrencyCode,
                             hasDismissedSwipeHint:
                                 hasDismissedSwipeHintState.value,
+                            activeSnapshot: selectedSnapshot,
+                            activeMonthIndex: selectedMonthIndexState.value,
                           ),
                         );
                       },
@@ -284,6 +287,8 @@ class _AccountsOverviewCard extends HookWidget {
   final List<ExpenseEntry> scopedTransactions;
   final String currencyCode;
   final bool hasDismissedSwipeHint;
+  final _AccountsSnapshot activeSnapshot;
+  final int activeMonthIndex;
 
   const _AccountsOverviewCard({
     required this.availableMonths,
@@ -293,6 +298,8 @@ class _AccountsOverviewCard extends HookWidget {
     required this.scopedTransactions,
     required this.currencyCode,
     required this.hasDismissedSwipeHint,
+    required this.activeSnapshot,
+    required this.activeMonthIndex,
   });
 
   @override
@@ -301,6 +308,8 @@ class _AccountsOverviewCard extends HookWidget {
     final symbol = resolveCurrencySymbol(currencyCode);
     final monthLabel = MaterialLocalizations.of(context)
         .formatMonthYear(availableMonths[selectedMonthIndex]);
+
+    final targetMonthIndex = isActive ? selectedMonthIndex : activeMonthIndex;
 
     final selectedSnapshot = useMemoized(() {
       return _buildSnapshot(
@@ -313,7 +322,8 @@ class _AccountsOverviewCard extends HookWidget {
     final spots = useMemoized(() {
       final timeAscendingMonths = availableMonths.reversed.toList();
       final newSpots = <FlSpot>[];
-      for (int i = 0; i < timeAscendingMonths.length; i++) {
+      final currentListSize = timeAscendingMonths.length - targetMonthIndex;
+      for (int i = 0; i < currentListSize; i++) {
         final snap = _buildSnapshot(
           accounts: accounts,
           transactions: scopedTransactions,
@@ -322,11 +332,11 @@ class _AccountsOverviewCard extends HookWidget {
         newSpots.add(FlSpot(i.toDouble(), snap.netWorth));
       }
       return newSpots;
-    }, [availableMonths, accounts, scopedTransactions]);
+    }, [availableMonths, accounts, scopedTransactions, targetMonthIndex]);
 
     final timeAscendingMonthsSize = availableMonths.length;
     final highlightX =
-        (timeAscendingMonthsSize - 1 - selectedMonthIndex).toDouble();
+        (timeAscendingMonthsSize - 1 - targetMonthIndex).toDouble();
 
     return Container(
       width: double.infinity,
@@ -353,12 +363,32 @@ class _AccountsOverviewCard extends HookWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Net Worth',
-                style: TextStyle(
-                  color: colorScheme.foreground,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AccountsHistoryPage(),
+                    ),
+                  );
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Text(
+                      'Total Net Worth',
+                      style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right,
+                      color: colorScheme.mutedForeground,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ),
               AnimatedSwitcher(
@@ -390,7 +420,7 @@ class _AccountsOverviewCard extends HookWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: _AnimatedNumberText(
-              value: isActive ? selectedSnapshot.netWorth : 0,
+              value: isActive ? selectedSnapshot.netWorth : activeSnapshot.netWorth,
               symbol: symbol,
               style: TextStyle(
                 fontSize: 36,
@@ -401,13 +431,15 @@ class _AccountsOverviewCard extends HookWidget {
               ),
             ),
           ),
-          if (spots.length > 1) const SizedBox(height: 16),
-          if (spots.length > 1)
+          if (timeAscendingMonthsSize > 1) const SizedBox(height: 16),
+          if (timeAscendingMonthsSize > 1)
             SizedBox(
               height: 60,
               width: double.infinity,
               child: LineChart(
                 LineChartData(
+                  minX: 0,
+                  maxX: (timeAscendingMonthsSize - 1).toDouble(),
                   lineTouchData: LineTouchData(
                     handleBuiltInTouches: true,
                     touchTooltipData: LineTouchTooltipData(
@@ -492,7 +524,7 @@ class _AccountsOverviewCard extends HookWidget {
                     ),
                     const SizedBox(height: 4),
                     _AnimatedNumberText(
-                      value: isActive ? selectedSnapshot.totalIncome : 0,
+                      value: isActive ? selectedSnapshot.totalIncome : activeSnapshot.totalIncome,
                       symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,
@@ -517,7 +549,7 @@ class _AccountsOverviewCard extends HookWidget {
                     ),
                     const SizedBox(height: 4),
                     _AnimatedNumberText(
-                      value: isActive ? selectedSnapshot.totalSpent : 0,
+                      value: isActive ? selectedSnapshot.totalSpent : activeSnapshot.totalSpent,
                       symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,

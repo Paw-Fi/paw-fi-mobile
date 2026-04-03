@@ -68,6 +68,13 @@ class PocketsPage extends HookConsumerWidget {
             ? householdScope.selectedHouseholdId
             : null;
 
+    // Prefetch policy:
+    // - Keep initial paint fast (only the settled month must render)
+    // - Make 1-2 swipes feel instant by preloading a small window
+    // - Avoid fetching intermediate months during large programmatic jumps
+    const prefetchPastMonths = 2;
+    const prefetchTowardPresentMonths = 1;
+
     // Always start at the current month
     final now = DateTime.now();
     final initialMonth = DateTime(now.year, now.month, 1);
@@ -75,6 +82,9 @@ class PocketsPage extends HookConsumerWidget {
     // Use a large initial page index to allow swiping into the past
     const initialPage = 1000;
     final pageController = usePageController(initialPage: initialPage);
+    final settledPageIndexState = useState<int>(initialPage);
+    final currentPageIndexState = useState<int>(initialPage);
+    final pendingJumpTargetIndexState = useState<int?>(null);
     final currentMonthState = useState(initialMonth);
 
     // Reset to initial page when the global filter changes
@@ -82,9 +92,186 @@ class PocketsPage extends HookConsumerWidget {
       if (pageController.hasClients) {
         pageController.jumpToPage(initialPage);
       }
+      settledPageIndexState.value = initialPage;
+      currentPageIndexState.value = initialPage;
+      pendingJumpTargetIndexState.value = null;
       currentMonthState.value = initialMonth;
       return null;
     }, [initialMonth]);
+
+    // Track the currently visible page during manual swipes so we can start
+    // loading as the user drags. During programmatic jumps, we suppress this
+    // to avoid fetching intermediate months.
+    useEffect(() {
+      void handlePageControllerChanged() {
+        if (pendingJumpTargetIndexState.value != null) {
+          return;
+        }
+
+        final raw = pageController.page;
+        if (raw == null) return;
+
+        final index = raw.round();
+        if (index == currentPageIndexState.value) return;
+        currentPageIndexState.value = index;
+      }
+
+      pageController.addListener(handlePageControllerChanged);
+      return () => pageController.removeListener(handlePageControllerChanged);
+    }, [pageController]);
+
+    // Only update the "selected" month when scrolling settles.
+    // This prevents fetching every intermediate month when jumping across
+    // many pages (e.g., month picker -> animateToPage).
+    useEffect(() {
+      void syncSettledIndexFromController() {
+        if (!pageController.hasClients) return;
+        final raw = pageController.page;
+        if (raw == null) return;
+
+        final settledIndex = raw.round();
+        if (settledIndex == settledPageIndexState.value) return;
+        settledPageIndexState.value = settledIndex;
+        currentPageIndexState.value = settledIndex;
+        pendingJumpTargetIndexState.value = null;
+
+        final offset = settledIndex - initialPage;
+        currentMonthState.value =
+            DateTime(initialMonth.year, initialMonth.month + offset, 1);
+
+        if (hasDismissedSwipeHintState.value) {
+          return;
+        }
+        if (settledIndex == initialPage) {
+          return;
+        }
+        hasDismissedSwipeHintState.value = true;
+        unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
+      }
+
+      VoidCallback? removeListener;
+      var disposed = false;
+
+      // Attach after first layout so controller has a position.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (disposed) return;
+        if (!pageController.hasClients) return;
+
+        final notifier = pageController.position.isScrollingNotifier;
+
+        void handleScrollingChanged() {
+          // Only react when scrolling stops.
+          if (!notifier.value) {
+            syncSettledIndexFromController();
+          }
+        }
+
+        notifier.addListener(handleScrollingChanged);
+        removeListener = () => notifier.removeListener(handleScrollingChanged);
+
+        // Initial sync.
+        syncSettledIndexFromController();
+      });
+
+      return () {
+        disposed = true;
+        removeListener?.call();
+      };
+    }, [
+      pageController,
+      initialMonth,
+      prefs,
+      pocketsSwipeHintPrefKey,
+    ]);
+
+    // Prefetch a small month window (settled month + neighbors) without
+    // rebuilding the UI when the background data arrives.
+    useEffect(() {
+      final settledIndex = settledPageIndexState.value;
+      final currentPageIndex = currentPageIndexState.value;
+      final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+
+      Future.microtask(() {
+        Iterable<int> indicesForCenter(int center) sync* {
+          final startIndex = (center - prefetchPastMonths) < 0
+              ? 0
+              : (center - prefetchPastMonths);
+          final endIndex = (center + prefetchTowardPresentMonths) > initialPage
+              ? initialPage
+              : (center + prefetchTowardPresentMonths);
+
+          for (var index = startIndex; index <= endIndex; index++) {
+            yield index;
+          }
+        }
+
+        final indices = <int>{...indicesForCenter(settledIndex)};
+
+        if (pendingJumpTargetIndex != null) {
+          indices.addAll(indicesForCenter(pendingJumpTargetIndex));
+        } else {
+          indices.addAll(indicesForCenter(currentPageIndex));
+        }
+
+        for (final index in indices) {
+          final offset = index - initialPage;
+          final month =
+              DateTime(initialMonth.year, initialMonth.month + offset, 1);
+
+          final scopeParams = switch (householdScope.activeAccountType) {
+            ActiveAccountType.personal => PocketsScopeParams(
+                scope: PocketsScopeType.personal,
+                periodMonth: month,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
+              ),
+            ActiveAccountType.portfolio =>
+              householdScope.activeAccountHouseholdId == null
+                  ? PocketsScopeParams(
+                      scope: PocketsScopeType.personal,
+                      periodMonth: month,
+                      currency: resolvedSelectedCurrency,
+                      isBootstrapCurrency: isBootstrapCurrency,
+                      includeUpcomingRecurring: includeUpcomingRecurring,
+                    )
+                  : PocketsScopeParams(
+                      scope: PocketsScopeType.portfolio,
+                      householdId: householdScope.activeAccountHouseholdId,
+                      periodMonth: month,
+                      currency: resolvedSelectedCurrency,
+                      isBootstrapCurrency: isBootstrapCurrency,
+                      includeUpcomingRecurring: includeUpcomingRecurring,
+                    ),
+            ActiveAccountType.household => PocketsScopeParams(
+                scope: PocketsScopeType.household,
+                householdId: resolvedHouseholdId,
+                periodMonth: month,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
+              ),
+          };
+
+          // Create the provider and trigger its auto-load without subscribing.
+          // (No rebuilds when background months complete.)
+          ref.read(pocketsProvider(scopeParams));
+        }
+      });
+
+      return null;
+    }, [
+      settledPageIndexState.value,
+      currentPageIndexState.value,
+      pendingJumpTargetIndexState.value,
+      householdScope.activeAccountType,
+      householdScope.activeAccountHouseholdId,
+      resolvedHouseholdId,
+      resolvedSelectedCurrency,
+      isBootstrapCurrency,
+      includeUpcomingRecurring,
+      initialMonth,
+    ]);
 
     // Keep selectedHouseholdProvider in sync when we fall back to a household
     useEffect(() {
@@ -302,20 +489,24 @@ class PocketsPage extends HookConsumerWidget {
             controller: pageController,
             allowImplicitScrolling: true,
             itemCount: initialPage + 1, // Prevent swiping to future months
-            onPageChanged: (index) {
-              final offset = index - initialPage;
-              currentMonthState.value =
-                  DateTime(initialMonth.year, initialMonth.month + offset, 1);
-              if (hasDismissedSwipeHintState.value) {
-                return;
-              }
-              hasDismissedSwipeHintState.value = true;
-              unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
-            },
             itemBuilder: (context, index) {
               final offset = index - initialPage;
               final month =
                   DateTime(initialMonth.year, initialMonth.month + offset, 1);
+
+              final settledIndex = settledPageIndexState.value;
+              final currentPageIndex = currentPageIndexState.value;
+              final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+
+              bool isInWindow(int index, int centerIndex) {
+                return index >= (centerIndex - prefetchPastMonths) &&
+                    index <= (centerIndex + prefetchTowardPresentMonths);
+              }
+
+              final shouldBuildFullView = isInWindow(index, settledIndex) ||
+                  (pendingJumpTargetIndex != null
+                      ? isInWindow(index, pendingJumpTargetIndex)
+                      : isInWindow(index, currentPageIndex));
 
               final scopeParams = switch (householdScope.activeAccountType) {
                 ActiveAccountType.personal => PocketsScopeParams(
@@ -352,6 +543,12 @@ class PocketsPage extends HookConsumerWidget {
                   ),
               };
 
+              if (!shouldBuildFullView) {
+                return _PocketsMonthPlaceholder(
+                  colorScheme: colorScheme,
+                );
+              }
+
               return _PocketsMonthView(
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
@@ -364,6 +561,10 @@ class PocketsPage extends HookConsumerWidget {
                   final diffMonths = date.month - initialMonth.month;
                   final totalMonthDiff = diffYears * 12 + diffMonths;
                   final int targetPage = initialPage + totalMonthDiff;
+
+                  // Allow prefetching the target month without triggering loads
+                  // for all intermediate months during the animation.
+                  pendingJumpTargetIndexState.value = targetPage;
 
                   pageController.animateToPage(
                     targetPage,
@@ -587,7 +788,9 @@ class _PocketsMonthView extends HookConsumerWidget {
       // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider.
       // Invalidation recreates the notifier; we then explicitly call load() to force an immediate refresh.
       ref.invalidate(pocketsProvider(scopeParams));
-      await ref.read(pocketsProvider(scopeParams).notifier).load();
+      await ref
+          .read(pocketsProvider(scopeParams).notifier)
+          .load(bypassCache: true);
     }
 
     // When a new month starts, users often have zero budget and no pockets yet.
@@ -715,6 +918,43 @@ class _PocketsMonthView extends HookConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PocketsMonthPlaceholder extends StatelessWidget {
+  const _PocketsMonthPlaceholder({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Container(
+              width: double.infinity,
+              height: 180,
+              decoration: BoxDecoration(
+                color: colorScheme.cardSurface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
