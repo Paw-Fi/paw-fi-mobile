@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
@@ -200,6 +201,47 @@ void main() {
         {'envelope_id': 'env-1', 'category': 'food'},
         {'envelope_id': 'env-1', 'category': 'bills'},
       ]);
+    });
+  });
+
+  group('filterPocketActualExpenses', () {
+    test('includes recurring expenses and excludes only income', () {
+      final now = DateTime(2026, 4, 3);
+      final recurringExpense = ExpenseEntry(
+        id: 'rec-exp-1',
+        date: now,
+        amountCents: 40000,
+        category: 'rent',
+        createdAt: now,
+        type: 'expense',
+        isRecurring: true,
+      );
+      final oneOffExpense = ExpenseEntry(
+        id: 'exp-1',
+        date: now,
+        amountCents: 1200,
+        category: 'coffee & tea',
+        createdAt: now,
+        type: 'expense',
+        isRecurring: false,
+      );
+      final income = ExpenseEntry(
+        id: 'inc-1',
+        date: now,
+        amountCents: 500000,
+        category: 'salary',
+        createdAt: now,
+        type: 'income',
+        isRecurring: false,
+      );
+
+      final filtered = filterPocketActualExpenses([
+        recurringExpense,
+        oneOffExpense,
+        income,
+      ]);
+
+      expect(filtered.map((e) => e.id).toList(), const ['rec-exp-1', 'exp-1']);
     });
   });
 

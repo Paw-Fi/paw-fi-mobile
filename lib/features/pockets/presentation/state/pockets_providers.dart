@@ -591,6 +591,15 @@ Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
   );
 }
 
+@foundation.visibleForTesting
+List<ExpenseEntry> filterPocketActualExpenses(
+  Iterable<ExpenseEntry> expenses,
+) {
+  return expenses
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .toList(growable: false);
+}
+
 class PocketsState {
   const PocketsState({
     required this.isLoading,
@@ -1117,7 +1126,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final categoriesByEnvelopeId = <String, List<String>>{};
       for (final row in categoryLinksRows) {
         final envId = row['envelope_id'] as String;
-        final category = (row['category'] as String? ?? '').toLowerCase();
+        final category =
+            (row['category'] as String? ?? '').trim().toLowerCase();
         if (category.isEmpty) continue;
         categoriesByEnvelopeId.putIfAbsent(envId, () => []).add(category);
       }
@@ -1127,11 +1137,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               .cast<Map>()
               .map((row) => Map<String, dynamic>.from(row))
               .toList(growable: false);
-      final actualExpenses = actualExpenseRows
-          .map(ExpenseEntry.fromJson)
-          .where((expense) =>
-              (expense.type ?? 'expense').toLowerCase() != 'income')
-          .toList(growable: false);
+      final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
+      final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
       final userNow = effectiveNow(preferredTimezone: preferredTimezone);
@@ -1144,10 +1151,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         selectedCurrency: selectedCurrency,
         now: userNow,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
-        actualExpenses: actualExpenses,
+        actualExpenses: filteredActualExpenses,
       );
       final monthlyExpenses = <ExpenseEntry>[
-        ...actualExpenses,
+        ...filteredActualExpenses,
         ...projectedRecurringExpenses,
       ];
       final monthlyExpenseRows = monthlyExpenses
@@ -1172,7 +1179,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           }
           var totalSpent = 0.0;
           for (final expense in monthlyExpenses) {
-            final expenseCategory = (expense.category ?? '').toLowerCase();
+            final expenseCategory =
+                (expense.category ?? '').trim().toLowerCase();
             if (categories.contains(expenseCategory)) {
               totalSpent += expense.amount;
             }
@@ -1252,7 +1260,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
 
         final linkedCategories = categoryLinksRows
-            .map((r) => (r['category'] as String?)?.toLowerCase() ?? '')
+            .map((r) => ((r['category'] as String?) ?? '').trim().toLowerCase())
             .where((c) => c.isNotEmpty)
             .toSet();
 
@@ -1263,7 +1271,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                 .add(UncategorizedCategory(category: key, amount: amount));
             final matches = monthlyExpenseRows.where((row) {
               final rowCategory =
-                  (row['category'] as String? ?? 'uncategorized').toLowerCase();
+                  (row['category'] as String? ?? 'uncategorized')
+                      .trim()
+                      .toLowerCase();
               return rowCategory == cat;
             });
             for (final m in matches) {
@@ -1280,8 +1290,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                 .map((row) => Map<String, dynamic>.from(row))
                 .toList(growable: false);
         for (final row in uncategorizedTotalsRows) {
-          final category =
-              (row['category'] as String? ?? 'uncategorized').toLowerCase();
+          final category = (row['category'] as String? ?? 'uncategorized')
+              .trim()
+              .toLowerCase();
           final amount =
               ((row['amount_cents'] as num?)?.toDouble() ?? 0.0) / 100.0;
           uncategorized
@@ -1294,8 +1305,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                 .map((row) => Map<String, dynamic>.from(row))
                 .toList(growable: false);
         for (final group in uncategorizedExpenseGroups) {
-          final category =
-              (group['category'] as String? ?? 'uncategorized').toLowerCase();
+          final category = (group['category'] as String? ?? 'uncategorized')
+              .trim()
+              .toLowerCase();
           final expenses = ((group['expenses'] as List?) ?? const [])
               .cast<Map>()
               .map((row) => Map<String, dynamic>.from(row))
