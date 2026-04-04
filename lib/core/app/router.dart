@@ -37,36 +37,14 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 @riverpod
 GoRouter router(RouterRef ref) {
-  final auth = ref.watch(authProvider);
-  final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
-  final prefs = ref.watch(sharedPreferencesProvider);
-  final previewMode = ref.watch(previewModeProvider);
-  final hasCompletedPreauth =
-      prefs.getBool('onboarding_preauth_completed') ?? false;
-  final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
-      prefs.getString('onboarding_preauth_draft_v1');
-  final hasInProgressPreauthDraft = () {
-    if (draftRaw == null || draftRaw.isEmpty) return false;
-    try {
-      final decoded = jsonDecode(draftRaw);
-      if (decoded is! Map<String, dynamic>) return false;
-      final currentStep = (decoded['currentStep'] as num?)?.toInt() ?? 0;
-      return currentStep > 0;
-    } catch (_) {
-      return false;
-    }
-  }();
-
-  // Use V2 initialization provider (cache-first, faster)
-  final appInitStateV2 = ref.watch(appInitializationV2Provider);
-
-  // Keep subscription provider alive
-  ref.watch(subscriptionNotifierProvider);
+  ref.keepAlive();
+  final routerNotifier = RouterNotifier(ref);
+  ref.onDispose(routerNotifier.dispose);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
-    refreshListenable: RouterNotifier(ref),
+    refreshListenable: routerNotifier,
     routes: [
       // Splash Screen Route
       GoRoute(
@@ -242,6 +220,27 @@ GoRouter router(RouterRef ref) {
     ],
     redirect: (context, state) {
       try {
+        final auth = ref.read(authProvider);
+        final subscriptionGateStatus = ref.read(subscriptionGateStatusProvider);
+        final prefs = ref.read(sharedPreferencesProvider);
+        final previewMode = ref.read(previewModeProvider);
+        final hasCompletedPreauth =
+            prefs.getBool('onboarding_preauth_completed') ?? false;
+        final draftRaw = prefs.getString('onboarding_preauth_draft_v2') ??
+            prefs.getString('onboarding_preauth_draft_v1');
+        final hasInProgressPreauthDraft = () {
+          if (draftRaw == null || draftRaw.isEmpty) return false;
+          try {
+            final decoded = jsonDecode(draftRaw);
+            if (decoded is! Map<String, dynamic>) return false;
+            final currentStep = (decoded['currentStep'] as num?)?.toInt() ?? 0;
+            return currentStep > 0;
+          } catch (_) {
+            return false;
+          }
+        }();
+        final appInitStateV2 = ref.read(appInitializationV2Provider);
+
         // Handle invitation universal links - redirect to home page
         // The invitation modal is shown by deep_link_service.dart on top of the home page
         if (state.matchedLocation.startsWith('/invites/')) {
