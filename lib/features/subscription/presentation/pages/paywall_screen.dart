@@ -161,9 +161,6 @@ class PaywallScreen extends HookConsumerWidget {
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
-    // Avoid accidentally registering multiple listeners across rebuilds.
-    final didRegisterIapListener = useRef(false);
-
     // Track processing state for UI
     final isProcessing =
         (useIap ? (iapStateAsync.value?.isProcessing ?? false) : false) ||
@@ -181,6 +178,8 @@ class PaywallScreen extends HookConsumerWidget {
     final didMarkBackgroundExit = useRef(false);
     final isReturnTrialDialogOpen = useRef(false);
     final lastPresentedPlanKey = useRef<String?>(null);
+    final lastDiagnosticsSnapshot = useRef<String?>(null);
+    final lastRenderGate = useRef<String?>(null);
 
     useEffect(() {
       unawaited(
@@ -360,8 +359,7 @@ class PaywallScreen extends HookConsumerWidget {
       });
     }
 
-    if (useIap && !didRegisterIapListener.value) {
-      didRegisterIapListener.value = true;
+    if (useIap) {
       ref.listen<AsyncValue<IapState>>(iapControllerProvider, (prev, next) {
         if (!context.mounted) return;
 
@@ -414,56 +412,89 @@ class PaywallScreen extends HookConsumerWidget {
               '✅ User-initiated purchase completed: $nextCompletedProductId');
           dismissProcessingDialog('user-initiated purchase completed');
 
-          // User-initiated purchase completed successfully - navigate to dashboard
-          _debugLog('✅ Purchase successful! Refreshing subscription...');
-
-          // Schedule async work without blocking the listener
           Future.microtask(() async {
             try {
-              // Refresh subscription state - cross-invalidation ensures both providers stay in sync
-              _debugLog('🔄 Refreshing subscription state...');
-              await ref.read(subscriptionManagementProvider.notifier).refresh();
-              // Note: subscriptionNotifierProvider is cross-invalidated automatically
+              _debugLog(
+                  '🔄 Refreshing subscription state after IAP completion...');
+              await ref
+                  .read(subscriptionNotifierProvider.notifier)
+                  .refresh()
+                  .timeout(const Duration(seconds: 8));
 
-              // Wait a bit longer to ensure Supabase propagation
-              await Future.delayed(const Duration(milliseconds: 1000));
+              unawaited(() async {
+                try {
+                  await ref
+                      .read(subscriptionManagementProvider.notifier)
+                      .refresh()
+                      .timeout(const Duration(seconds: 8));
+                  _debugLog(
+                      '✅ subscriptionManagementProvider refresh completed after IAP completion');
+                } catch (refreshError, refreshStack) {
+                  _debugLog(
+                      '⚠️ subscriptionManagementProvider refresh after IAP completion failed or timed out: $refreshError');
+                  _debugLog('Stack: $refreshStack');
+                }
+              }());
+
+              await Future.delayed(const Duration(milliseconds: 500));
 
               if (!context.mounted) return;
 
-              // Verify subscription is actually active before navigating
-              final subscriptionAsync =
-                  ref.read(subscriptionManagementProvider);
-              final subscriptionDetails = subscriptionAsync.valueOrNull;
-              final subscriptionData = subscriptionDetails?.subscription;
-
-              // Use the Subscription model's isSubscribed check (includes expiry validation)
-              final isActive = subscriptionData?.isSubscribed ?? false;
+              final directSubscription =
+                  ref.read(subscriptionNotifierProvider).valueOrNull;
+              final managementSubscription = ref
+                  .read(subscriptionManagementProvider)
+                  .valueOrNull
+                  ?.subscription;
+              final isDirectActive = directSubscription?.isSubscribed ?? false;
+              final isManagementActive =
+                  managementSubscription?.isSubscribed ?? false;
+              final isActive = isDirectActive || isManagementActive;
 
               _debugLog('📊 Full subscription check:');
               _debugLog(
-                  '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
+                  '  - Direct subscription present: ${directSubscription != null}');
               _debugLog(
-                  '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
+                  '  - Direct subscription plan: ${directSubscription?.plan}');
               _debugLog(
-                  '  - SubscriptionDetails: ${subscriptionDetails != null}');
-              _debugLog('  - Subscription model: ${subscriptionData != null}');
-              _debugLog('  - plan: ${subscriptionData?.plan}');
-              _debugLog('  - status: ${subscriptionData?.status}');
-              _debugLog('  - provider: ${subscriptionData?.provider}');
+                  '  - Direct subscription status: ${directSubscription?.status}');
               _debugLog(
-                  '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
+                  '  - Direct subscription provider: ${directSubscription?.provider}');
+              _debugLog(
+                  '  - Direct subscription currentPeriodEnd: ${directSubscription?.currentPeriodEnd}');
+              _debugLog(
+                  '  - Management subscription present: ${managementSubscription != null}');
+              _debugLog(
+                  '  - Management subscription plan: ${managementSubscription?.plan}');
+              _debugLog(
+                  '  - Management subscription status: ${managementSubscription?.status}');
+              _debugLog(
+                  '  - Management subscription provider: ${managementSubscription?.provider}');
+              _debugLog(
+                  '  - Management subscription currentPeriodEnd: ${managementSubscription?.currentPeriodEnd}');
               _debugLog('  - now: ${DateTime.now()}');
-              if (subscriptionData?.currentPeriodEnd != null) {
+              if (directSubscription?.currentPeriodEnd != null) {
                 _debugLog(
-                    '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
+                    '  - direct isAfter now: ${directSubscription!.currentPeriodEnd!.isAfter(DateTime.now())}');
               }
-              _debugLog('  - isSubscribed (from model): $isActive');
+              if (managementSubscription?.currentPeriodEnd != null) {
+                _debugLog(
+                    '  - management isAfter now: ${managementSubscription!.currentPeriodEnd!.isAfter(DateTime.now())}');
+              }
+              _debugLog('  - direct isSubscribed: $isDirectActive');
+              _debugLog('  - management isSubscribed: $isManagementActive');
 
               if (isActive) {
-                _debugLog(
-                    '✅ Subscription confirmed active, waiting for paywall completion effect');
+                _debugLog('✅ Subscription confirmed active, completing paywall flow');
+                if (!didCompletePaywallFlow.value) {
+                  didCompletePaywallFlow.value = true;
+                  didInitiateCheckout.value = false;
+                  didInitiateRestore.value = false;
+                  if (context.mounted) {
+                    context.go('/dashboard');
+                  }
+                }
               } else {
-                // Subscription still not active - show error
                 _debugLog('❌ Subscription not active after purchase!');
                 AppToast.error(
                   context,
@@ -866,8 +897,83 @@ class PaywallScreen extends HookConsumerWidget {
     final canConfirmAutoRenew =
         !requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value;
 
+    final isStoreLoading = useIap && !iapStateAsync.hasValue;
+
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
+
+    void logDiagnosticsSnapshot(String reason) {
+      final snapshot =
+          'reason=$reason mode=${mode.queryValue} uid=${auth.uid.isEmpty ? 'empty' : auth.uid} '
+          'useIap=$useIap subLoading=${subscriptionAsync.isLoading} '
+          'subHasError=${subscriptionAsync.hasError} subHasValue=${subscriptionAsync.hasValue} '
+          'plan=${currentSub?.subscription?.plan ?? 'null'} '
+          'status=${currentSub?.subscription?.status ?? 'null'} '
+          'provider=${currentSub?.subscription?.provider ?? 'null'} '
+          'interval=${currentSub?.subscription?.billingInterval ?? 'null'} '
+          'hasActive=$hasActiveSubscription productsLoading=${productsAsync.isLoading} '
+          'productsHasError=${productsAsync.hasError} '
+          'productsCount=${productsAsync.valueOrNull?.length ?? 0} '
+          'iapLoading=${iapStateAsync.isLoading} iapHasError=${iapStateAsync.hasError} '
+          'storeAvailable=${iapStateAsync.valueOrNull?.storeAvailable} '
+          'storeProducts=${iapStateAsync.valueOrNull?.productDetailsById.length ?? 0} '
+          'isStoreReady=$isStoreReady plansCount=${plans.length} '
+          'isProcessing=$isProcessing dialogOpen=${processingDialogOpen.value}';
+      if (lastDiagnosticsSnapshot.value == snapshot) return;
+      lastDiagnosticsSnapshot.value = snapshot;
+      _debugLog('[PaywallScreen] $snapshot');
+    }
+
+    void logRenderGate(String gate) {
+      final renderGate =
+          '$gate mode=${mode.queryValue} hasActive=$hasActiveSubscription '
+          'productsLoading=${productsAsync.isLoading} '
+          'productsHasError=${productsAsync.hasError} '
+          'plansCount=${plans.length} '
+          'storeAvailable=${iapStateAsync.valueOrNull?.storeAvailable} '
+          'isStoreReady=$isStoreReady';
+      if (lastRenderGate.value == renderGate) return;
+      lastRenderGate.value = renderGate;
+      _debugLog('[PaywallScreen] render_gate=$renderGate');
+    }
+
+    if (useIap && productsAsync.isLoading) {
+      logRenderGate(
+        plans.isEmpty
+            ? 'products_loading_spinner'
+            : 'products_loading_using_fallback',
+      );
+    }
+
+    useEffect(() {
+      logDiagnosticsSnapshot('state_change');
+      return null;
+    }, [
+      auth.uid,
+      mode.queryValue,
+      useIap,
+      subscriptionAsync.isLoading,
+      subscriptionAsync.hasError,
+      subscriptionAsync.hasValue,
+      currentSub?.subscription?.plan,
+      currentSub?.subscription?.status,
+      currentSub?.subscription?.provider,
+      currentSub?.subscription?.billingInterval,
+      hasActiveSubscription,
+      productsAsync.isLoading,
+      productsAsync.hasError,
+      productsAsync.hasValue,
+      productsAsync.valueOrNull?.length ?? 0,
+      iapStateAsync.isLoading,
+      iapStateAsync.hasError,
+      iapStateAsync.hasValue,
+      iapStateAsync.valueOrNull?.storeAvailable,
+      iapStateAsync.valueOrNull?.productDetailsById.length ?? 0,
+      isStoreReady,
+      plans.length,
+      isProcessing,
+      processingDialogOpen.value,
+    ]);
 
     useEffect(() {
       final lifecycle = AppLifecycleListener(
@@ -939,6 +1045,9 @@ class PaywallScreen extends HookConsumerWidget {
     }, [activePlanOption.id]);
 
     bool isCurrentPlan(PlanOption option) {
+      if (!hasActiveSubscription) {
+        return false;
+      }
       if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
         return true;
       }
@@ -950,6 +1059,7 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     if (hasActiveSubscription) {
+      logRenderGate('active_subscription_spinner');
       return AdaptiveScaffold(
         body: Material(
           color: colorScheme.appBackground,
@@ -960,7 +1070,8 @@ class PaywallScreen extends HookConsumerWidget {
       );
     }
 
-    if (useIap && productsAsync.isLoading) {
+    if (useIap && productsAsync.isLoading && plans.isEmpty) {
+      logRenderGate('products_loading_spinner');
       return AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
@@ -971,6 +1082,7 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
+      logRenderGate('products_error_or_empty');
       return AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
@@ -1760,6 +1872,7 @@ class PaywallScreen extends HookConsumerWidget {
                           ],
                           PrimaryAdaptiveButton(
                             onPressed: isProcessing ||
+                                    isStoreLoading ||
                                     !canConfirmAutoRenew ||
                                     !isStoreReady
                                 ? null
@@ -1768,6 +1881,8 @@ class PaywallScreen extends HookConsumerWidget {
                               child: Text(
                                 isProcessing
                                     ? context.l10n.paywallProcessing
+                                    : isStoreLoading
+                                        ? context.l10n.paywallProcessing
                                     : !isStoreReady
                                         ? context.l10n
                                             .paywallErrorStoreUnavailableShort

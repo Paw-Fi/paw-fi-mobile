@@ -148,11 +148,50 @@ final subscriptionGateStatusProvider = Provider<SubscriptionGateStatus>((ref) {
   }
 
   final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+  final subscriptionManagementAsync =
+      ref.watch(subscriptionManagementProvider);
+  final managementSubscription =
+      subscriptionManagementAsync.valueOrNull?.subscription;
+  final managementActive = managementSubscription?.isSubscribed ?? false;
+
+  if (managementActive) {
+    appLog(
+      'Subscription gate override: management provider reports active access '
+      'plan=${managementSubscription?.plan} '
+      'status=${managementSubscription?.status} '
+      'provider=${managementSubscription?.provider}',
+      name: 'SubscriptionProvider',
+    );
+    return SubscriptionGateStatus.active;
+  }
+
   return subscriptionAsync.when(
     loading: () => SubscriptionGateStatus.loading,
-    data: (subscription) => (subscription?.isSubscribed ?? false)
-        ? SubscriptionGateStatus.active
-        : SubscriptionGateStatus.inactive,
+    data: (subscription) {
+      final directActive = subscription?.isSubscribed ?? false;
+      if (directActive) {
+        return SubscriptionGateStatus.active;
+      }
+
+      if (subscriptionManagementAsync.isLoading) {
+        appLog(
+          'Subscription gate deferred: direct provider inactive while '
+          'management provider is still loading',
+          name: 'SubscriptionProvider',
+        );
+        return SubscriptionGateStatus.loading;
+      }
+
+      appLog(
+        'Subscription gate inactive after both providers settled '
+        'directPlan=${subscription?.plan} '
+        'directStatus=${subscription?.status} '
+        'managementPlan=${managementSubscription?.plan} '
+        'managementStatus=${managementSubscription?.status}',
+        name: 'SubscriptionProvider',
+      );
+      return SubscriptionGateStatus.inactive;
+    },
     error: (_, __) {
       final prefs = ref.read(sharedPreferencesProvider);
       final verifiedAtMs =

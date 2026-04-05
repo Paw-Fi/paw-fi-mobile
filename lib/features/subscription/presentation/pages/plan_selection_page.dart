@@ -143,9 +143,6 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
-    // Avoid accidentally registering multiple listeners across rebuilds.
-    final didRegisterIapListener = useRef(false);
-
     // Track processing state for UI
     final isProcessing =
         (useIap ? (iapStateAsync.value?.isProcessing ?? false) : false) ||
@@ -233,8 +230,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       });
     }
 
-    if (useIap && !didRegisterIapListener.value) {
-      didRegisterIapListener.value = true;
+    if (useIap) {
       ref.listen<AsyncValue<IapState>>(iapControllerProvider, (prev, next) {
         if (!context.mounted) return;
 
@@ -577,6 +573,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     final canConfirmAutoRenew =
         !requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value;
 
+    final isStoreLoading = useIap && !iapStateAsync.hasValue;
+
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
@@ -591,6 +589,9 @@ class PlanSelectionPage extends HookConsumerWidget {
     }, [activePlanOption.id]);
 
     bool isCurrentPlan(PlanOption option) {
+      if (!hasActiveSubscription) {
+        return false;
+      }
       if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
         return true;
       }
@@ -1140,12 +1141,17 @@ class PlanSelectionPage extends HookConsumerWidget {
                     ],
                     PrimaryAdaptiveButton(
                       onPressed:
-                          isProcessing || !canConfirmAutoRenew || !isStoreReady
+                          isProcessing ||
+                                  isStoreLoading ||
+                                  !canConfirmAutoRenew ||
+                                  !isStoreReady
                               ? null
                               : onMainAction,
                       child: Text(
                         isProcessing
                             ? 'Processing...'
+                            : isStoreLoading
+                                ? 'Processing...'
                             : !isStoreReady
                                 ? 'Store unavailable'
                                 : mode == PlanSelectionMode.trial &&

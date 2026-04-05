@@ -629,9 +629,22 @@ class IapController extends AsyncNotifier<IapState> {
               continue;
             }
 
-            // Refresh subscription state - cross-invalidation ensures both providers stay in sync
-            await ref.read(subscriptionManagementProvider.notifier).refresh();
-            // Note: subscriptionNotifierProvider is cross-invalidated automatically
+            unawaited(() async {
+              try {
+                print(
+                    '🔄 Refreshing subscriptionManagementProvider in background after verification...');
+                await ref
+                    .read(subscriptionManagementProvider.notifier)
+                    .refresh()
+                    .timeout(const Duration(seconds: 8));
+                print(
+                    '✅ subscriptionManagementProvider refresh completed after verification');
+              } catch (refreshError, refreshStackTrace) {
+                print(
+                    '⚠️ subscriptionManagementProvider refresh after verification failed or timed out: $refreshError');
+                print('🧵 Refresh stackTrace: $refreshStackTrace');
+              }
+            }());
 
             // Clear processing state and set lastCompletedProductId only if:
             // 1. This was user-initiated (product ID matches what user clicked to buy)
