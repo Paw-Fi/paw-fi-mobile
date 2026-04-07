@@ -154,7 +154,7 @@ class WalletDetailsPage extends HookConsumerWidget {
           await actions.updateBalance(
             walletId: latestWallet.id,
             targetBalanceCents: result.openingBalanceCents,
-            note: 'Updated from wallet editor',
+            note: context.l10n.updatedFromWalletEditor,
             invalidate: false,
           );
         }
@@ -174,10 +174,9 @@ class WalletDetailsPage extends HookConsumerWidget {
     Future<void> onArchive() async {
       final confirm = await MonekoAlertDialog.show(
         context: context,
-        title: 'Archive this wallet?',
-        description:
-            'You can only archive wallets with no transactions or transfers. This wallet will be hidden from active lists.',
-        confirmLabel: 'Archive',
+        title: context.l10n.archiveThisWallet,
+        description: context.l10n.archiveWalletDescription,
+        confirmLabel: context.l10n.archive,
         cancelLabel: context.l10n.cancel,
       );
 
@@ -186,7 +185,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       try {
         await actions.archiveAccount(latestWallet.id);
         if (!context.mounted) return;
-        AppToast.success(context, 'Account archived successfully');
+        AppToast.success(context, context.l10n.walletArchived);
         Navigator.of(context).pop();
       } catch (error) {
         if (!context.mounted) return;
@@ -199,8 +198,7 @@ class WalletDetailsPage extends HookConsumerWidget {
       final scopedAccounts =
           ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
       if (scopedAccounts.length < 2) {
-        AppToast.info(
-            context, 'You need at least two wallets to make a transfer');
+        AppToast.info(context, context.l10n.needTwoWalletsForTransfer);
         return;
       }
 
@@ -242,7 +240,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
                 icon: const Icon(Icons.swap_horiz),
-                label: const Text('Transfer'),
+                label: Text(context.l10n.transfer),
               ),
             )
           : null,
@@ -418,7 +416,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _StatCard(
-                                  label: 'Net',
+                                  label: context.l10n.net,
                                   amount: net,
                                   currencyCode: selectedCurrencyCode,
                                 ),

@@ -2566,5 +2566,21 @@
   "autoCaptureDescriptionAndroid": "เปิดการแจ้งเตือนและบันทึกรายการอัตโนมัติ",
   "enable": "เปิดใช้งาน",
   "enableNotificationsSummary": "เปิดการแจ้งเตือนเพื่อรับสรุปทุกครั้งที่มีการบันทึกการชำระเงิน",
-  "openSettingsToEnable": "เปิดการตั้งค่าเพื่อเปิดใช้งาน"
+  "openSettingsToEnable": "เปิดการตั้งค่าเพื่อเปิดใช้งาน",
+  "fromWallet": "จากกระเป๋า",
+  "toWallet": "ไปยังกระเป๋า",
+  "noWalletsYet": "ยังไม่มีกระเป๋าเงิน",
+  "archiveThisWallet": "ต้องการเก็บถาวรกระเป๋านี้หรือไม่?",
+  "archiveWalletDescription": "คุณสามารถเก็บถาวรได้เฉพาะกระเป๋าที่ไม่มีรายการธุรกรรมหรือการโอนเท่านั้น กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่",
+  "walletArchived": "เก็บถาวรกระเป๋าเรียบร้อยแล้ว",
+  "editWallet": "แก้ไขกระเป๋าเงิน",
+  "addWallet": "เพิ่มกระเป๋าเงิน",
+  "pleaseEnterWalletName": "กรุณากรอกชื่อกระเป๋าเงิน",
+  "walletName": "ชื่อกระเป๋าเงิน",
+  "walletColor": "สีกระเป๋าเงิน",
+  "walletIcon": "ไอคอนกระเป๋าเงิน",
+  "archivedWallets": "กระเป๋าเงินที่เก็บถาวร",
+  "tapToManage": "แตะเพื่อจัดการ",
+  "wallet": "กระเป๋าเงิน",
+  "attachmentLimitMessage": "คุณสามารถแนบรูปภาพได้สูงสุด {count} รูปต่อทิกเก็ต"
 }

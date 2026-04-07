@@ -6699,4 +6699,54 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get openSettingsToEnable => 'เปิดการตั้งค่าเพื่อเปิดใช้งาน';
+
+  @override
+  String get fromWallet => 'จากกระเป๋า';
+
+  @override
+  String get toWallet => 'ไปยังกระเป๋า';
+
+  @override
+  String get noWalletsYet => 'ยังไม่มีกระเป๋าเงิน';
+
+  @override
+  String get archiveThisWallet => 'ต้องการเก็บถาวรกระเป๋านี้หรือไม่?';
+
+  @override
+  String get archiveWalletDescription => 'คุณสามารถเก็บถาวรได้เฉพาะกระเป๋าที่ไม่มีรายการธุรกรรมหรือการโอนเท่านั้น กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่';
+
+  @override
+  String get walletArchived => 'เก็บถาวรกระเป๋าเรียบร้อยแล้ว';
+
+  @override
+  String get editWallet => 'แก้ไขกระเป๋าเงิน';
+
+  @override
+  String get addWallet => 'เพิ่มกระเป๋าเงิน';
+
+  @override
+  String get pleaseEnterWalletName => 'กรุณากรอกชื่อกระเป๋าเงิน';
+
+  @override
+  String get walletName => 'ชื่อกระเป๋าเงิน';
+
+  @override
+  String get walletColor => 'สีกระเป๋าเงิน';
+
+  @override
+  String get walletIcon => 'ไอคอนกระเป๋าเงิน';
+
+  @override
+  String get archivedWallets => 'กระเป๋าเงินที่เก็บถาวร';
+
+  @override
+  String get tapToManage => 'แตะเพื่อจัดการ';
+
+  @override
+  String get wallet => 'กระเป๋าเงิน';
+
+  @override
+  String attachmentLimitMessage(Object count) {
+    return 'คุณสามารถแนบรูปภาพได้สูงสุด $count รูปต่อทิกเก็ต';
+  }
 }

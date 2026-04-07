@@ -2549,5 +2549,21 @@
   "autoCaptureDescriptionAndroid": "通知を有効にして取引を自動記録",
   "enable": "有効にする",
   "enableNotificationsSummary": "通知をオンにすると、支払いが記録されるたびに概要を受け取れます。",
-  "openSettingsToEnable": "設定を開いて有効にする"
+  "openSettingsToEnable": "設定を開いて有効にする",
+  "fromWallet": "送金元ウォレット",
+  "toWallet": "送金先ウォレット",
+  "noWalletsYet": "ウォレットがまだありません",
+  "archiveThisWallet": "このウォレットをアーカイブしますか？",
+  "archiveWalletDescription": "取引や送金履歴のないウォレットのみアーカイブ可能です。アーカイブするとアクティブ一覧に表示されなくなります。",
+  "walletArchived": "ウォレットをアーカイブしました",
+  "editWallet": "ウォレットを編集",
+  "addWallet": "ウォレットを追加",
+  "pleaseEnterWalletName": "ウォレット名を入力してください",
+  "walletName": "ウォレット名",
+  "walletColor": "ウォレットのカラー",
+  "walletIcon": "ウォレットアイコン",
+  "archivedWallets": "アーカイブしたウォレット",
+  "tapToManage": "タップして管理",
+  "wallet": "ウォレット",
+  "attachmentLimitMessage": "チケット1件につき、最大{count}枚の画像を添付できます。"
 }

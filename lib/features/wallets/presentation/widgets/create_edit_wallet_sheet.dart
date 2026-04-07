@@ -74,7 +74,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
-        AppToast.error(context, 'Please enter an wallet name');
+        AppToast.error(context, context.l10n.pleaseEnterWalletName);
         return;
       }
 
@@ -119,7 +119,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isEditing ? 'Edit Wallet' : 'Add Wallet',
+                        isEditing ? context.l10n.editWallet : context.l10n.addWallet,
                         style: TextStyle(
                           color: colorScheme.foreground,
                           fontSize: 20,
@@ -147,7 +147,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Wallet name',
+                        context.l10n.walletName,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -157,11 +157,11 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       const SizedBox(height: 8),
                       CustomTextField(
                         controller: nameController,
-                        placeholder: 'e.g. Daily Spending',
+                        placeholder: context.l10n.walletNameExample,
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Wallet color',
+                        context.l10n.walletColor,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -257,7 +257,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Wallet icon',
+                        context.l10n.walletIcon,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -310,7 +310,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Current Balance',
+                        context.l10n.currentBalance,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -326,7 +326,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Goal Amount',
+                        context.l10n.goalAmount,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -344,9 +344,9 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: isDefault.value,
-                        title: const Text('Primary wallet'),
-                        subtitle: const Text(
-                          'Future transactions will be logged to this wallet by default.',
+                        title: Text(context.l10n.primaryWallet),
+                        subtitle: Text(
+                          context.l10n.primaryWalletDescription,
                         ),
                         onChanged: isPrimaryWalletLocked
                             ? null

@@ -2362,5 +2362,21 @@
   "autoCaptureDescriptionAndroid": "알림을 활성화하고 거래를 자동 기록하세요",
   "enable": "활성화",
   "enableNotificationsSummary": "알림을 켜면 결제가 기록될 때마다 요약을 받을 수 있습니다.",
-  "openSettingsToEnable": "설정을 열어 활성화하기"
+  "openSettingsToEnable": "설정을 열어 활성화하기",
+  "fromWallet": "보내는 지갑",
+  "toWallet": "받는 지갑",
+  "noWalletsYet": "아직 지갑이 없습니다",
+  "archiveThisWallet": "이 지갑을 보관하시겠습니까?",
+  "archiveWalletDescription": "거래나 이체 내역이 없는 지갑만 보관할 수 있습니다. 보관된 지갑은 활성 목록에서 숨겨집니다.",
+  "walletArchived": "지갑이 보관 처리되었습니다",
+  "editWallet": "지갑 편집",
+  "addWallet": "지갑 추가",
+  "pleaseEnterWalletName": "지갑 이름을 입력해 주세요",
+  "walletName": "지갑 이름",
+  "walletColor": "지갑 색상",
+  "walletIcon": "지갑 아이콘",
+  "archivedWallets": "보관된 지갑",
+  "tapToManage": "탭하여 관리",
+  "wallet": "지갑",
+  "attachmentLimitMessage": "티켓당 최대 {count}개의 이미지를 첨부할 수 있습니다."
 }

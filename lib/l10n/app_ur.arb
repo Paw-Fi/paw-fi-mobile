@@ -2495,5 +2495,21 @@
   "autoCaptureDescriptionAndroid": "نوٹیفکیشن فعال کریں اور ٹرانزیکشن خودکار ریکارڈ کریں",
   "enable": "فعال کریں",
   "enableNotificationsSummary": "نوٹیفیکیشنز فعال کریں تاکہ ہر بار ادائیگی ریکارڈ ہونے پر خلاصہ موصول ہو۔",
-  "openSettingsToEnable": "فعال کرنے کے لیے سیٹنگز کھولیں"
+  "openSettingsToEnable": "فعال کرنے کے لیے سیٹنگز کھولیں",
+  "fromWallet": "والٹ سے",
+  "toWallet": "والٹ کو",
+  "noWalletsYet": "ابھی تک کوئی والٹ نہیں ہے",
+  "archiveThisWallet": "کیا اس والٹ کو آرکائیو کریں؟",
+  "archiveWalletDescription": "صرف وہی والٹس آرکائیو کیے جا سکتے ہیں جن میں کوئی لین دین نہ ہو۔ یہ والٹ فعال فہرستوں سے چھپ جائے گا۔",
+  "walletArchived": "والٹ کامیابی سے آرکائیو ہو گیا",
+  "editWallet": "والٹ میں ترمیم کریں",
+  "addWallet": "والٹ شامل کریں",
+  "pleaseEnterWalletName": "براہ کرم والٹ کا نام درج کریں",
+  "walletName": "والٹ کا نام",
+  "walletColor": "والٹ کا رنگ",
+  "walletIcon": "والٹ آئیکن",
+  "archivedWallets": "آرکائیو شدہ والٹس",
+  "tapToManage": "منظم کرنے کے لیے ٹیپ کریں",
+  "wallet": "والٹ",
+  "attachmentLimitMessage": "آپ ہر ٹکٹ کے ساتھ زیادہ سے زیادہ {count} تصاویر منسلک کر سکتے ہیں۔"
 }

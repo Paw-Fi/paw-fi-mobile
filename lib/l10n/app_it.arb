@@ -2496,5 +2496,21 @@
   "autoCaptureDescriptionAndroid": "Attiva le notifiche e registra automaticamente le transazioni",
   "enable": "Attiva",
   "enableNotificationsSummary": "Attiva le notifiche per ricevere un riepilogo ogni volta che viene registrato un pagamento.",
-  "openSettingsToEnable": "Apri le impostazioni per attivare"
+  "openSettingsToEnable": "Apri le impostazioni per attivare",
+  "fromWallet": "Dal portafoglio",
+  "toWallet": "Al portafoglio",
+  "noWalletsYet": "Non ci sono ancora portafogli",
+  "archiveThisWallet": "Archiviare questo portafoglio?",
+  "archiveWalletDescription": "Puoi archiviare solo portafogli senza transazioni o trasferimenti. Verrà nascosto dagli elenchi attivi.",
+  "walletArchived": "Portafoglio archiviato",
+  "editWallet": "Modifica portafoglio",
+  "addWallet": "Aggiungi portafoglio",
+  "pleaseEnterWalletName": "Inserisci un nome per il portafoglio",
+  "walletName": "Nome portafoglio",
+  "walletColor": "Colore portafoglio",
+  "walletIcon": "Icona portafoglio",
+  "archivedWallets": "Portafogli archiviati",
+  "tapToManage": "Tocca per gestire",
+  "wallet": "Portafoglio",
+  "attachmentLimitMessage": "Puoi allegare fino a {count} immagini per ticket."
 }

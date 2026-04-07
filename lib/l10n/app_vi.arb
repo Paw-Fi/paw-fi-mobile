@@ -2548,5 +2548,21 @@
   "autoCaptureDescriptionAndroid": "Bật thông báo và tự động ghi nhận giao dịch",
   "enable": "Bật",
   "enableNotificationsSummary": "Bật thông báo để nhận bản tóm tắt mỗi khi có thanh toán được ghi nhận.",
-  "openSettingsToEnable": "Mở cài đặt để bật"
+  "openSettingsToEnable": "Mở cài đặt để bật",
+  "fromWallet": "Từ ví",
+  "toWallet": "Đến ví",
+  "noWalletsYet": "Chưa có ví nào",
+  "archiveThisWallet": "Lưu trữ ví này?",
+  "archiveWalletDescription": "Chỉ có thể lưu trữ các ví không có giao dịch hoặc chuyển khoản. Ví này sẽ bị ẩn khỏi danh sách đang dùng.",
+  "walletArchived": "Đã lưu trữ ví thành công",
+  "editWallet": "Chỉnh sửa ví",
+  "addWallet": "Thêm ví",
+  "pleaseEnterWalletName": "Vui lòng nhập tên ví",
+  "walletName": "Tên ví",
+  "walletColor": "Màu ví",
+  "walletIcon": "Biểu tượng ví",
+  "archivedWallets": "Ví đã lưu trữ",
+  "tapToManage": "Chạm để quản lý",
+  "wallet": "Ví",
+  "attachmentLimitMessage": "Bạn có thể đính kèm tối đa {count} hình ảnh cho mỗi yêu cầu."
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/ui/widgets/custom_text_field.dart';
@@ -145,7 +146,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     child: Column(
                       children: [
                         Text(
-                          'Amount',
+                          context.l10n.amount,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
@@ -182,7 +183,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                           width: double.infinity,
                           child: PrimaryAdaptiveButton(
                             onPressed: () => Navigator.of(context).pop(controller.text),
-                            child: const Text('Done'),
+                            child: Text(context.l10n.done),
                           ),
                         ),
                       ],
@@ -218,13 +219,13 @@ class _WalletTransferSheet extends HookConsumerWidget {
     Future<void> handleSave() async {
       // Validation
       if (fromIdState.value == toIdState.value) {
-        AppToast.error(context, 'Cannot transfer to the same wallet');
+        AppToast.error(context, context.l10n.cannotTransferSameWallet);
         return;
       }
 
       final amountCents = (tryParseMoneyToCents(amountText.value) ?? 0).toInt();
       if (amountCents <= 0) {
-        AppToast.error(context, 'Please enter a valid amount');
+        AppToast.error(context, context.l10n.pleaseEnterValidAmount);
         return;
       }
 
@@ -249,7 +250,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
         ref: ref,
         wallets: wallets,
         currentId: fromIdState.value,
-        title: 'From Wallet',
+        title: context.l10n.fromWallet,
       );
       if (selected != null && selected != fromIdState.value) {
         fromIdState.value = selected;
@@ -270,7 +271,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
         ref: ref,
         wallets: wallets,
         currentId: toIdState.value,
-        title: 'To Wallet',
+        title: context.l10n.toWallet,
       );
       if (selected != null && selected != toIdState.value) {
         toIdState.value = selected;
@@ -307,7 +308,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Transfer',
+                        context.l10n.transfer,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: colorScheme.foreground,
@@ -368,7 +369,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap to edit amount',
+                                context.l10n.tapToEditAmount,
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -384,7 +385,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
                       // From Wallet Section
                       Text(
-                        'From',
+                        context.l10n.from,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -484,7 +485,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                   color: colorScheme.primary,
                                   size: 24,
                                 ),
-                                tooltip: 'Swap direction',
+                                tooltip: context.l10n.swapDirection,
                               ),
                             ),
                           ],
@@ -493,7 +494,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
                       // To Wallet Section
                       Text(
-                        'To',
+                        context.l10n.to,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -578,7 +579,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
 
                       // Note Field
                       Text(
-                        'Note (optional)',
+                        context.l10n.noteOptional,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -588,7 +589,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                       const SizedBox(height: 8),
                       CustomTextField(
                         controller: noteController,
-                        placeholder: 'Add a note about this transfer',
+                        placeholder: context.l10n.addNoteAboutTransfer,
                         maxLines: 2,
                       ),
 
@@ -610,7 +611,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                     ),
                                   ),
                                 )
-                              : const Text('Transfer'),
+                              : Text(context.l10n.transfer),
                         ),
                       ),
                     ],

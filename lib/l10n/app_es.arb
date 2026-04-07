@@ -2551,5 +2551,21 @@
   "autoCaptureDescriptionAndroid": "Activa notificaciones y registra transacciones automáticamente",
   "enable": "Activar",
   "enableNotificationsSummary": "Activa las notificaciones para recibir un resumen cada vez que se registre un pago.",
-  "openSettingsToEnable": "Abrir ajustes para activar"
+  "openSettingsToEnable": "Abrir ajustes para activar",
+  "fromWallet": "Desde la cartera",
+  "toWallet": "A la cartera",
+  "noWalletsYet": "Aún no tienes carteras",
+  "archiveThisWallet": "¿Archivar esta cartera?",
+  "archiveWalletDescription": "Solo puedes archivar carteras sin transacciones ni transferencias. Esta cartera se ocultará de las listas activas.",
+  "walletArchived": "Cartera archivada con éxito",
+  "editWallet": "Editar cartera",
+  "addWallet": "Añadir cartera",
+  "pleaseEnterWalletName": "Introduce un nombre para la cartera",
+  "walletName": "Nombre de la cartera",
+  "walletColor": "Color de la cartera",
+  "walletIcon": "Icono de la cartera",
+  "archivedWallets": "Carteras archivadas",
+  "tapToManage": "Toca para administrar",
+  "wallet": "Cartera",
+  "attachmentLimitMessage": "Puedes adjuntar hasta {count} imágenes por ticket."
 }

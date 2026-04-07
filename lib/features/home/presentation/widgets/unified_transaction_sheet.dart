@@ -1222,7 +1222,7 @@ class _UnifiedTransactionSheetState
           ),
           _buildDivider(colorScheme),
           MonekoDisclosureRow(
-            label: "Wallet",
+            label: context.l10n.wallet,
             value: scopedAccountsAsync.when(
               data: (_) => _selectedFinancialAccountLabel(
                 context,

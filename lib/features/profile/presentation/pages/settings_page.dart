@@ -873,8 +873,8 @@ class SettingsPage extends HookConsumerWidget {
                     ),
                     _SettingsTile(
                       icon: Icons.archive_outlined,
-                      label: 'Archived Wallets',
-                      value: 'Tap to manage',
+                      label: context.l10n.archivedWallets,
+                      value: context.l10n.tapToManage,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -1578,7 +1578,7 @@ class _SupportSheet extends HookConsumerWidget {
       if (remainingSlots <= 0) {
         AppToast.info(
           context,
-          'You can attach up to $_maxTicketAttachments images per ticket.',
+          context.l10n.attachmentLimitMessage(_maxTicketAttachments.toString()),
         );
         return;
       }

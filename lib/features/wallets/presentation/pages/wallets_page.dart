@@ -237,7 +237,7 @@ class AccountsPage extends HookConsumerWidget {
                         border: Border.all(color: colorScheme.border),
                       ),
                       child: Text(
-                        'No wallets yet',
+                        context.l10n.noWalletsYet,
                         style: TextStyle(
                           color: colorScheme.mutedForeground,
                           fontWeight: FontWeight.w500,
@@ -257,7 +257,7 @@ class AccountsPage extends HookConsumerWidget {
                     onPressed: onAddAccount,
                     icon: Icon(Icons.add, color: colorScheme.primary),
                     label: Text(
-                      'New Account',
+                      context.l10n.newAccount,
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w700,
@@ -266,11 +266,11 @@ class AccountsPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   TextButton.icon(
-                    onPressed: () => AppToast.info(context, 'Coming soon'),
+                    onPressed: () => AppToast.info(context, context.l10n.comingSoon),
                     icon:
                         Icon(Icons.sync, color: colorScheme.primary, size: 20),
                     label: Text(
-                      'Connect Bank',
+                      context.l10n.connectBank,
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w700,
@@ -408,7 +408,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
               Row(
                 children: [
                   Text(
-                    'Total Net Worth',
+                    context.l10n.totalNetWorth,
                     style: TextStyle(
                       color: colorScheme.foreground,
                       fontSize: 15,
@@ -610,7 +610,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
           ),
           if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
             const Spacer(),
-            const SwipeHintRow(text: 'Swipe right for previous months'),
+            SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),
           ],
         ],
       ),
@@ -918,7 +918,7 @@ class _WalletStackCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'PRIMARY',
+                      context.l10n.primary,
                       style: TextStyle(
                         color: baseColor,
                         fontSize: 10,
@@ -948,7 +948,7 @@ class _WalletStackCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'BALANCE',
+                  context.l10n.balance,
                   style: TextStyle(
                     color: colorScheme.mutedForeground,
                     fontSize: 10,
@@ -1039,7 +1039,7 @@ class _WalletStackCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Tap to view details',
+                    context.l10n.tapToViewDetails,
                     style: TextStyle(
                       color: colorScheme.mutedForeground.withValues(alpha: 0.8),
                       fontSize: 12,

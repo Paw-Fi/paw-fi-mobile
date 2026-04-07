@@ -2541,5 +2541,21 @@
   "autoCaptureDescriptionAndroid": "Увімкніть сповіщення і автоматично записуйте транзакції",
   "enable": "Увімкнути",
   "enableNotificationsSummary": "Увімкніть сповіщення, щоб отримувати зведення щоразу, коли платіж фіксується.",
-  "openSettingsToEnable": "Відкрити налаштування, щоб увімкнути"
+  "openSettingsToEnable": "Відкрити налаштування, щоб увімкнути",
+  "fromWallet": "З гаманця",
+  "toWallet": "До гаманця",
+  "noWalletsYet": "Гаманців поки немає",
+  "archiveThisWallet": "Архівувати цей гаманець?",
+  "archiveWalletDescription": "Архівувати можна лише гаманці без транзакцій чи переказів. Цей гаманець буде приховано зі списку активних.",
+  "walletArchived": "Гаманець успішно архівовано",
+  "editWallet": "Редагувати гаманець",
+  "addWallet": "Додати гаманець",
+  "pleaseEnterWalletName": "Введіть назву гаманця",
+  "walletName": "Назва гаманця",
+  "walletColor": "Колір гаманця",
+  "walletIcon": "Іконка гаманця",
+  "archivedWallets": "Архівовані гаманці",
+  "tapToManage": "Натисніть, щоб керувати",
+  "wallet": "Гаманець",
+  "attachmentLimitMessage": "До одного тікета можна додати до {count} зображень."
 }

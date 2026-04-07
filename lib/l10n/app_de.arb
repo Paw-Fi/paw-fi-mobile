@@ -2549,5 +2549,21 @@
   "autoCaptureDescriptionAndroid": "Aktiviere Benachrichtigungen und erfasse Transaktionen automatisch",
   "enable": "Aktivieren",
   "enableNotificationsSummary": "Aktiviere Benachrichtigungen, um bei jeder erfassten Zahlung eine Zusammenfassung zu erhalten.",
-  "openSettingsToEnable": "Einstellungen öffnen, um dies zu aktivieren"
+  "openSettingsToEnable": "Einstellungen öffnen, um dies zu aktivieren",
+  "fromWallet": "Vom Wallet",
+  "toWallet": "Zum Wallet",
+  "noWalletsYet": "Noch keine Wallets vorhanden",
+  "archiveThisWallet": "Wallet archivieren?",
+  "archiveWalletDescription": "Nur Wallets ohne Transaktionen oder Überweisungen können archiviert werden. Dieses Wallet wird aus den aktiven Listen ausgeblendet.",
+  "walletArchived": "Wallet erfolgreich archiviert",
+  "editWallet": "Wallet bearbeiten",
+  "addWallet": "Wallet hinzufügen",
+  "pleaseEnterWalletName": "Bitte gib einen Namen für das Wallet ein",
+  "walletName": "Name des Wallets",
+  "walletColor": "Wallet-Farbe",
+  "walletIcon": "Wallet-Symbol",
+  "archivedWallets": "Archivierte Wallets",
+  "tapToManage": "Tippen zum Verwalten",
+  "wallet": "Wallet",
+  "attachmentLimitMessage": "Du kannst pro Ticket bis zu {count} Bilder anhängen."
 }

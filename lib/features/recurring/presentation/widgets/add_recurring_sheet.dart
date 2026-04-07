@@ -1426,7 +1426,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         _buildDetailCard(
                           colorScheme: colorScheme,
-                          label: 'Wallet',
+                          label: context.l10n.wallet,
                           value: () {
                             if (scopedAccountsAsync.isLoading) {
                               return context.l10n.loading;

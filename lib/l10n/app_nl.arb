@@ -2496,5 +2496,21 @@
   "autoCaptureDescriptionAndroid": "Schakel meldingen in en registreer transacties automatisch",
   "enable": "Inschakelen",
   "enableNotificationsSummary": "Schakel meldingen in om bij elke geregistreerde betaling een overzicht te ontvangen.",
-  "openSettingsToEnable": "Open instellingen om dit in te schakelen"
+  "openSettingsToEnable": "Open instellingen om dit in te schakelen",
+  "fromWallet": "Van wallet",
+  "toWallet": "Naar wallet",
+  "noWalletsYet": "Nog geen wallets",
+  "archiveThisWallet": "Deze wallet archiveren?",
+  "archiveWalletDescription": "Alleen wallets zonder transacties of overschrijvingen kunnen worden gearchiveerd. Deze wordt verborgen in actieve lijsten.",
+  "walletArchived": "Wallet succesvol gearchiveerd",
+  "editWallet": "Wallet bewerken",
+  "addWallet": "Wallet toevoegen",
+  "pleaseEnterWalletName": "Voer een walletnaam in",
+  "walletName": "Walletnaam",
+  "walletColor": "Walletkleur",
+  "walletIcon": "Wallet-icoon",
+  "archivedWallets": "Gearchiveerde wallets",
+  "tapToManage": "Tik om te beheren",
+  "wallet": "Wallet",
+  "attachmentLimitMessage": "Je kunt maximaal {count} afbeeldingen per ticket bijvoegen."
 }

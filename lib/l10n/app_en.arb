@@ -2568,5 +2568,21 @@
   "autoCaptureDescriptionAndroid": "Enable notifications to auto-capture transactions",
   "enable": "Enable",
   "enableNotificationsSummary": "Enable notifications to receive a summary each time a payment is processed.",
-  "openSettingsToEnable": "Open Settings to enable"
+  "openSettingsToEnable": "Open Settings to enable",
+  "fromWallet": "From Wallet",
+  "toWallet": "To Wallet",
+  "noWalletsYet": "No wallets yet",
+  "archiveThisWallet": "Archive this wallet?",
+  "archiveWalletDescription": "You can only archive wallets with no transactions or transfers. This wallet will be hidden from active lists.",
+  "walletArchived": "Wallet archived successfully",
+  "editWallet": "Edit Wallet",
+  "addWallet": "Add Wallet",
+  "pleaseEnterWalletName": "Please enter a wallet name",
+  "walletName": "Wallet name",
+  "walletColor": "Wallet color",
+  "walletIcon": "Wallet icon",
+  "archivedWallets": "Archived Wallets",
+  "tapToManage": "Tap to manage",
+  "wallet": "Wallet",
+  "attachmentLimitMessage": "You can attach up to {count} images per ticket."
 }

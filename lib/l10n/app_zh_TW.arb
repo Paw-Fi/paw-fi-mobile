@@ -2493,5 +2493,21 @@
   "autoCaptureDescriptionAndroid": "啟用通知並自動記錄交易",
   "enable": "啟用",
   "enableNotificationsSummary": "開啟通知，每次有付款記錄時即可收到摘要。",
-  "openSettingsToEnable": "開啟設定以啟用"
+  "openSettingsToEnable": "開啟設定以啟用",
+  "fromWallet": "轉出錢包",
+  "toWallet": "轉入錢包",
+  "noWalletsYet": "尚無錢包",
+  "archiveThisWallet": "要封存此錢包嗎？",
+  "archiveWalletDescription": "僅能封存沒有交易或轉帳記錄的錢包。此錢包將從使用中清單隱藏。",
+  "walletArchived": "錢包已成功封存",
+  "editWallet": "編輯錢包",
+  "addWallet": "新增錢包",
+  "pleaseEnterWalletName": "請輸入錢包名稱",
+  "walletName": "錢包名稱",
+  "walletColor": "錢包顏色",
+  "walletIcon": "錢包圖示",
+  "archivedWallets": "已封存的錢包",
+  "tapToManage": "點一下即可管理",
+  "wallet": "錢包",
+  "attachmentLimitMessage": "每張工單最多可附加 {count} 張圖片。"
 }

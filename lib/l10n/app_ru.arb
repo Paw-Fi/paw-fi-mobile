@@ -2499,5 +2499,21 @@
   "autoCaptureDescriptionAndroid": "Включите уведомления и автоматически записывайте операции",
   "enable": "Включить",
   "enableNotificationsSummary": "Включите уведомления, чтобы получать сводку при каждом зафиксированном платеже.",
-  "openSettingsToEnable": "Открыть настройки, чтобы включить"
+  "openSettingsToEnable": "Открыть настройки, чтобы включить",
+  "fromWallet": "Из кошелька",
+  "toWallet": "В кошелёк",
+  "noWalletsYet": "Кошельков пока нет",
+  "archiveThisWallet": "Архивировать этот кошелёк?",
+  "archiveWalletDescription": "Архивировать можно только кошельки без транзакций и переводов. Кошелёк будет скрыт из списка активных.",
+  "walletArchived": "Кошелёк перемещён в архив",
+  "editWallet": "Изменить кошелёк",
+  "addWallet": "Добавить кошелёк",
+  "pleaseEnterWalletName": "Введите название кошелька",
+  "walletName": "Название кошелька",
+  "walletColor": "Цвет кошелька",
+  "walletIcon": "Иконка кошелька",
+  "archivedWallets": "Архивные кошельки",
+  "tapToManage": "Нажмите, чтобы управлять",
+  "wallet": "Кошелёк",
+  "attachmentLimitMessage": "К тикету можно прикрепить до {count} изображений."
 }
