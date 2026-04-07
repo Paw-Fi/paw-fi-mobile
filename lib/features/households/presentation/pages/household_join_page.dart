@@ -1402,13 +1402,17 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     // - /invites/TOKEN
     // - TOKEN (raw token)
 
-    // Capture full path segment after /invites/ until a delimiter (end, slash, ?, or #)
-    final invitePattern = RegExp(r'invites/([^/?#]+)');
-    final match = invitePattern.firstMatch(url);
-    if (match != null) {
-      final token = match.group(1);
-      if (token != null && HouseholdConstants.tokenPattern.hasMatch(token)) {
-        return token;
+    // Capture all invite-like path segments and prefer the last valid token.
+    // This handles malformed links such as:
+    // https://moneko.io/invites/https://moneko.io/invites/TOKEN
+    final invitePattern = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])');
+    final matches = invitePattern.allMatches(url);
+    if (matches.isNotEmpty) {
+      for (final match in matches.toList().reversed) {
+        final token = match.group(1);
+        if (token != null && HouseholdConstants.tokenPattern.hasMatch(token)) {
+          return token;
+        }
       }
     }
 

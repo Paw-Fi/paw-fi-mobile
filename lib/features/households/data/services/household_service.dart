@@ -234,9 +234,21 @@ class HouseholdService {
       }
 
       final data = response.data as Map<String, dynamic>;
-      final inviteUrl = data['invite_url'] as String;
-      _log('Invite URL created: $inviteUrl');
-      return inviteUrl;
+      final token = data['token'] as String?;
+
+      if (token != null && token.isNotEmpty) {
+        _log('Invite token created successfully');
+        return token;
+      }
+
+      final inviteUrl = data['invite_url'] as String?;
+      final extractedToken = _extractTokenFromInviteUrl(inviteUrl);
+      if (extractedToken != null) {
+        _log('Invite token extracted from invite_url fallback');
+        return extractedToken;
+      }
+
+      throw Exception('Failed to create invite: invalid response payload');
     } catch (e, stackTrace) {
       _log('Error creating invite', error: e, stackTrace: stackTrace);
       rethrow;
@@ -306,6 +318,18 @@ class HouseholdService {
     if (response.status != 200) {
       throw Exception('Failed to revoke invite: ${response.data}');
     }
+  }
+
+  String? _extractTokenFromInviteUrl(String? inviteUrl) {
+    if (inviteUrl == null || inviteUrl.isEmpty) return null;
+
+    final inviteMatches = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])')
+        .allMatches(inviteUrl);
+    if (inviteMatches.isNotEmpty) {
+      return inviteMatches.last.group(1);
+    }
+
+    return null;
   }
 
   // ============================================================================
