@@ -2573,7 +2573,7 @@
   "toWallet": "To Wallet",
   "noWalletsYet": "No wallets yet",
   "archiveThisWallet": "Archive this wallet?",
-  "archiveWalletDescription": "You can only archive wallets with no transactions or transfers. This wallet will be hidden from active lists.",
+  "archiveWalletDescription": "You can archive this wallet anytime. Once archived, it will be hidden from your active lists and won’t be included in your net worth. You can restore it later in Settings.",
   "walletArchived": "Wallet archived successfully",
   "editWallet": "Edit Wallet",
   "addWallet": "Add Wallet",

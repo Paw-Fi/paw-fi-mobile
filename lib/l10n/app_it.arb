@@ -2501,7 +2501,7 @@
   "toWallet": "Al portafoglio",
   "noWalletsYet": "Non ci sono ancora portafogli",
   "archiveThisWallet": "Archiviare questo portafoglio?",
-  "archiveWalletDescription": "Puoi archiviare solo portafogli senza transazioni o trasferimenti. Verrà nascosto dagli elenchi attivi.",
+  "archiveWalletDescription": "Puoi archiviare questo portafoglio in qualsiasi momento. Una volta archiviato, verrà nascosto dagli elenchi attivi e non sarà più incluso nel tuo patrimonio netto. Potrai ripristinarlo in seguito nelle Impostazioni.",
   "walletArchived": "Portafoglio archiviato",
   "editWallet": "Modifica portafoglio",
   "addWallet": "Aggiungi portafoglio",

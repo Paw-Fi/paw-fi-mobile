@@ -2367,7 +2367,7 @@
   "toWallet": "받는 지갑",
   "noWalletsYet": "아직 지갑이 없습니다",
   "archiveThisWallet": "이 지갑을 보관하시겠습니까?",
-  "archiveWalletDescription": "거래나 이체 내역이 없는 지갑만 보관할 수 있습니다. 보관된 지갑은 활성 목록에서 숨겨집니다.",
+  "archiveWalletDescription": "이 지갑은 언제든지 보관할 수 있습니다. 보관하면 활성 목록에서 숨겨지고 순자산에도 포함되지 않습니다. 나중에 설정에서 다시 복원할 수 있습니다.",
   "walletArchived": "지갑이 보관 처리되었습니다",
   "editWallet": "지갑 편집",
   "addWallet": "지갑 추가",

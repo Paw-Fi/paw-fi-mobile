@@ -2554,7 +2554,7 @@
   "toWallet": "Au portefeuille",
   "noWalletsYet": "Aucun portefeuille pour le moment",
   "archiveThisWallet": "Archiver ce portefeuille ?",
-  "archiveWalletDescription": "Seuls les portefeuilles sans transactions ni transferts peuvent être archivés. Il sera masqué des listes actives.",
+  "archiveWalletDescription": "Vous pouvez archiver ce portefeuille à tout moment. Une fois archivé, il sera masqué dans vos listes actives et ne sera plus pris en compte dans votre patrimoine net. Vous pourrez le restaurer plus tard dans les Paramètres.",
   "walletArchived": "Portefeuille archivé",
   "editWallet": "Modifier le portefeuille",
   "addWallet": "Ajouter un portefeuille",

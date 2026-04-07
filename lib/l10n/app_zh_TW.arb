@@ -2498,7 +2498,7 @@
   "toWallet": "轉入錢包",
   "noWalletsYet": "尚無錢包",
   "archiveThisWallet": "要封存此錢包嗎？",
-  "archiveWalletDescription": "僅能封存沒有交易或轉帳記錄的錢包。此錢包將從使用中清單隱藏。",
+  "archiveWalletDescription": "您可以隨時封存此錢包。封存後，它會從您的使用中清單中隱藏，且不會計入您的淨資產。之後您可以在設定中將其恢復。",
   "walletArchived": "錢包已成功封存",
   "editWallet": "編輯錢包",
   "addWallet": "新增錢包",

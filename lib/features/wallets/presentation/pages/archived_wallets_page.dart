@@ -45,7 +45,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Archived Accounts'),
+        title:  Text(context.l10n.archivedWallets),
       ),
       body: archivedAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -167,7 +167,7 @@ class _ArchivedAccountCard extends StatelessWidget {
               ),
               TextButton(
                 onPressed: onRestore,
-                child: const Text('Restore'),
+                child:  Text(context.l10n.restore),
               ),
             ],
           ),

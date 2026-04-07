@@ -6713,7 +6713,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get archiveThisWallet => 'ต้องการเก็บถาวรกระเป๋านี้หรือไม่?';
 
   @override
-  String get archiveWalletDescription => 'คุณสามารถเก็บถาวรได้เฉพาะกระเป๋าที่ไม่มีรายการธุรกรรมหรือการโอนเท่านั้น กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่';
+  String get archiveWalletDescription => 'คุณสามารถเก็บกระเป๋านี้เข้าที่เก็บถาวรได้ทุกเมื่อ เมื่อเก็บถาวรแล้ว กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่ และจะไม่ถูกรวมในมูลค่าสุทธิของคุณ คุณสามารถกู้คืนได้ภายหลังในการตั้งค่า';
 
   @override
   String get walletArchived => 'เก็บถาวรกระเป๋าเรียบร้อยแล้ว';

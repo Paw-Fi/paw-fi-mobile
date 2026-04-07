@@ -2556,7 +2556,7 @@
   "toWallet": "A la cartera",
   "noWalletsYet": "Aún no tienes carteras",
   "archiveThisWallet": "¿Archivar esta cartera?",
-  "archiveWalletDescription": "Solo puedes archivar carteras sin transacciones ni transferencias. Esta cartera se ocultará de las listas activas.",
+  "archiveWalletDescription": "Puedes archivar esta cartera en cualquier momento. Al archivarla, dejará de aparecer en tus listas activas y no se incluirá en tu patrimonio neto. Puedes restaurarla más tarde en Ajustes.",
   "walletArchived": "Cartera archivada con éxito",
   "editWallet": "Editar cartera",
   "addWallet": "Añadir cartera",

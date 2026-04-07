@@ -542,7 +542,8 @@ String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.amount, required this.currencyCode});
+  const _StatCard(
+      {required this.label, required this.amount, required this.currencyCode});
 
   final String label;
   final double amount;

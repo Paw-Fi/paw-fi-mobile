@@ -2501,7 +2501,7 @@
   "toWallet": "Naar wallet",
   "noWalletsYet": "Nog geen wallets",
   "archiveThisWallet": "Deze wallet archiveren?",
-  "archiveWalletDescription": "Alleen wallets zonder transacties of overschrijvingen kunnen worden gearchiveerd. Deze wordt verborgen in actieve lijsten.",
+  "archiveWalletDescription": "Je kunt deze wallet op elk moment archiveren. Daarna wordt deze verborgen in je actieve lijsten en niet meer meegerekend in je nettowaarde. Je kunt de wallet later herstellen via Instellingen.",
   "walletArchived": "Wallet succesvol gearchiveerd",
   "editWallet": "Wallet bewerken",
   "addWallet": "Wallet toevoegen",

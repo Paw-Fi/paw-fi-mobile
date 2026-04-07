@@ -229,6 +229,11 @@ class ErrorHandler {
           message.contains('amount must be less than')) {
         return 'Amount is too large. Please enter a smaller value.';
       }
+      if (context == BackendErrorContext.generic &&
+          message.isNotEmpty &&
+          _isSafeUserMessage(message)) {
+        return _capitalizeFirst(message);
+      }
       if (context == BackendErrorContext.saveRecurring) {
         return 'Please check the recurring details and try again.';
       }

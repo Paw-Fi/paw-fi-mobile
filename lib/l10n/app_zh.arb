@@ -2550,7 +2550,7 @@
   "toWallet": "转入钱包",
   "noWalletsYet": "还没有钱包",
   "archiveThisWallet": "要归档这个钱包吗？",
-  "archiveWalletDescription": "只能归档没有交易或转账记录的钱包。该钱包将从活跃列表中隐藏。",
+  "archiveWalletDescription": "您可以随时归档此钱包。归档后，它将从您的活动列表中隐藏，且不会计入您的净资产。您之后可以在设置中恢复。",
   "walletArchived": "钱包已成功归档",
   "editWallet": "编辑钱包",
   "addWallet": "添加钱包",

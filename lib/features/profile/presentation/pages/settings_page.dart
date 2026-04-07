@@ -871,18 +871,6 @@ class SettingsPage extends HookConsumerWidget {
                       value: authState.email,
                       showChevron: false,
                     ),
-                    _SettingsTile(
-                      icon: Icons.archive_outlined,
-                      label: context.l10n.archivedWallets,
-                      value: context.l10n.tapToManage,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) => const ArchivedWalletsPage(),
-                          ),
-                        );
-                      },
-                    ),
                   ],
                 ),
 
@@ -1207,6 +1195,25 @@ class SettingsPage extends HookConsumerWidget {
                   //   },
                   // ),
                 ]),
+
+                // Wallet
+                _SettingsGroup(
+                  title: context.l10n.wallet,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.archive_outlined,
+                      label: context.l10n.archivedWallets,
+                      value: context.l10n.tapToManage,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const ArchivedWalletsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
 
                 // Subscription
                 // Manage Membership

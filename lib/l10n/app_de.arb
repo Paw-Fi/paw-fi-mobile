@@ -2554,7 +2554,7 @@
   "toWallet": "Zum Wallet",
   "noWalletsYet": "Noch keine Wallets vorhanden",
   "archiveThisWallet": "Wallet archivieren?",
-  "archiveWalletDescription": "Nur Wallets ohne Transaktionen oder Überweisungen können archiviert werden. Dieses Wallet wird aus den aktiven Listen ausgeblendet.",
+  "archiveWalletDescription": "Du kannst dieses Wallet jederzeit archivieren. Danach wird es in deinen aktiven Listen ausgeblendet und nicht mehr in dein Nettovermögen einbezogen. In den Einstellungen kannst du es später wiederherstellen.",
   "walletArchived": "Wallet erfolgreich archiviert",
   "editWallet": "Wallet bearbeiten",
   "addWallet": "Wallet hinzufügen",

@@ -2554,7 +2554,7 @@
   "toWallet": "送金先ウォレット",
   "noWalletsYet": "ウォレットがまだありません",
   "archiveThisWallet": "このウォレットをアーカイブしますか？",
-  "archiveWalletDescription": "取引や送金履歴のないウォレットのみアーカイブ可能です。アーカイブするとアクティブ一覧に表示されなくなります。",
+  "archiveWalletDescription": "このウォレットはいつでもアーカイブできます。アーカイブすると、利用中の一覧には表示されなくなり、純資産にも含まれなくなります。後で設定から復元できます。",
   "walletArchived": "ウォレットをアーカイブしました",
   "editWallet": "ウォレットを編集",
   "addWallet": "ウォレットを追加",
