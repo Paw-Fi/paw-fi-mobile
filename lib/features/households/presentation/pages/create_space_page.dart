@@ -24,6 +24,8 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Single unified page to create either a Private Space or a Group Space (Household).
 /// Refactored for a premium, Apple iOS 26-like feel with card-based layout.
 class CreateSpacePage extends ConsumerStatefulWidget {
@@ -130,7 +132,8 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     // Use the theme background for an airy, unified surface.
     final backgroundColor = colorScheme.appBackground;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.createSpace,
       ),
@@ -185,7 +188,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildMembersCard(ColorScheme colorScheme) {

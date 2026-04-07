@@ -14,6 +14,8 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 String _formatLocalizedCurrency(
   BuildContext context,
   double amount,
@@ -76,7 +78,8 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
           useNativeToolbar: false, title: context.l10n.settlement),
       body: RefreshIndicator(
@@ -284,7 +287,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
           },
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildSummarySection(BuildContext context,

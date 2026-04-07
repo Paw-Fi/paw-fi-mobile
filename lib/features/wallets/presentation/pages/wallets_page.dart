@@ -27,6 +27,8 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class AccountsPage extends HookConsumerWidget {
   const AccountsPage({super.key});
 
@@ -100,7 +102,8 @@ class AccountsPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
           ? const Padding(
               padding: EdgeInsets.all(0),
@@ -226,7 +229,7 @@ class AccountsPage extends HookConsumerWidget {
           },
         ),
       ),
-    );
+    ));
   }
 }
 

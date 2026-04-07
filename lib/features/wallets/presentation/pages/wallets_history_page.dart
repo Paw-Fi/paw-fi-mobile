@@ -14,6 +14,8 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class WalletsHistoryPage extends HookConsumerWidget {
   const WalletsHistoryPage({super.key});
 
@@ -165,7 +167,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
       );
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: const AdaptiveAppBar(
         title: 'Historical Data',
       ),
@@ -385,6 +388,6 @@ class WalletsHistoryPage extends HookConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 }

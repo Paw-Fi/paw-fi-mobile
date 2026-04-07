@@ -30,6 +30,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
 }
@@ -950,28 +952,31 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     if (hasActiveSubscription) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         body: Material(
           color: colorScheme.appBackground,
           child: const Center(
             child: CircularProgressIndicator(),
           ),
         ),
-      );
+      ));
     }
 
     if (useIap && productsAsync.isLoading) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
           child: const Center(child: CircularProgressIndicator()),
         ),
-      );
+      ));
     }
 
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
@@ -1014,7 +1019,7 @@ class PaywallScreen extends HookConsumerWidget {
             ),
           ),
         ),
-      );
+      ));
     }
 
     Future<void> onManageStoreSubscription() async {
@@ -1421,7 +1426,8 @@ class PaywallScreen extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Material(
         color: colorScheme.appBackground,
         child: Stack(
@@ -1855,7 +1861,7 @@ class PaywallScreen extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

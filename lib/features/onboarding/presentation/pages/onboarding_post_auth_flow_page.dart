@@ -22,6 +22,8 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
 const _kTotalSteps = 3;
@@ -401,7 +403,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       _ => context.l10n.continueAction,
     };
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -509,7 +512,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _markOnboardingCompleted(WidgetRef ref) async {

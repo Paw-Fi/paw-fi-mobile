@@ -22,6 +22,8 @@ import '../providers/selected_household_provider.dart';
 import '../widgets/create_household_form_content.dart';
 import '../widgets/household_members_panel.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Household Settings Page
 /// Single page layout for managing household settings, members, and invitations.
 class HouseholdSettingsPage extends ConsumerStatefulWidget {
@@ -76,7 +78,8 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.householdSettings,
       ),
@@ -182,7 +185,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
       ),
-    );
+    ));
   }
 
   // --- Sections ---
@@ -476,10 +479,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
       config: ImageCompressConfig.householdCover,
     );
 
-    await supabase.storage
-        .from(StorageConfig.publicBucket)
-        .uploadBinary(fileName, compressedBytes,
-            fileOptions: const FileOptions(cacheControl: '31536000'));
+    await supabase.storage.from(StorageConfig.publicBucket).uploadBinary(
+        fileName, compressedBytes,
+        fileOptions: const FileOptions(cacheControl: '31536000'));
 
     return supabase.storage
         .from(StorageConfig.publicBucket)

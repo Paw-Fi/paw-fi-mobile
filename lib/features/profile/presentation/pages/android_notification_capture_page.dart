@@ -17,6 +17,8 @@ import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class AndroidNotificationCapturePage extends HookConsumerWidget {
   const AndroidNotificationCapturePage({super.key});
 
@@ -363,15 +365,19 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     }
 
     if (isLoading.value) {
-      return AdaptiveScaffold(
-          appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
-          body: Container(
-            color: colorScheme.appBackground,
-            child: const Center(child: CircularProgressIndicator.adaptive()),
-          ));
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
+              appBar:
+                  AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
+              body: Container(
+                color: colorScheme.appBackground,
+                child:
+                    const Center(child: CircularProgressIndicator.adaptive()),
+              )));
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
       body: Material(
         child: Container(
@@ -584,7 +590,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildHero(BuildContext context, ColorScheme colorScheme) {

@@ -21,6 +21,8 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/profile/presentation/widgets/wallet_sync_setup_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class IosWalletCapturePage extends HookConsumerWidget {
   const IosWalletCapturePage({super.key});
 
@@ -287,12 +289,14 @@ class IosWalletCapturePage extends HookConsumerWidget {
     }
 
     if (isLoading.value) {
-      return AdaptiveScaffold(
-          appBar: AdaptiveAppBar(title: context.l10n.applePayIntegration),
-          body: Container(
-            color: colorScheme.appBackground,
-            child: const Center(child: CircularProgressIndicator.adaptive()),
-          ));
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
+              appBar: AdaptiveAppBar(title: context.l10n.applePayIntegration),
+              body: Container(
+                color: colorScheme.appBackground,
+                child:
+                    const Center(child: CircularProgressIndicator.adaptive()),
+              )));
     }
 
     final cardDecoration = BoxDecoration(
@@ -312,7 +316,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
     final isEnabled = config.value.enabled;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.applePayIntegration,
       ),
@@ -594,6 +599,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

@@ -26,6 +26,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'dart:io';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
 const _kBudgetSyncFailurePrefix = 'onboarding_budget_sync_failures:';
@@ -766,7 +768,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -865,6 +868,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

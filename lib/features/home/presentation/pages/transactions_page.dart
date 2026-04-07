@@ -43,6 +43,8 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 // ============================================================================
 // TRANSACTIONS PAGE
 // ============================================================================
@@ -448,8 +450,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         transaction.id: transaction,
     };
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
-    final scopedAccounts = ref.watch(scopedWalletsProvider).valueOrNull ??
-        const <WalletEntity>[];
+    final scopedAccounts =
+        ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
     final accountLabelsById = {
       for (final account in scopedAccounts)
         if (account.id.isNotEmpty) account.id: account.name,
@@ -541,7 +543,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     return ['all', ...merged.where((category) => category != 'all')];
   }
 
-  AdaptiveScaffold _buildMainScaffold({
+  Widget _buildMainScaffold({
     required ColorScheme colorScheme,
     required UserContact? contact,
     required TransactionsFeedQuery feedQuery,
@@ -588,7 +590,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ),
     ];
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       // Remove default AppBar to use SliverAppBar for custom actions logic
       // appBar: null,
       body: Material(
@@ -842,7 +845,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : '${context.l10n.delete} (${_selectedIds.length})'),
             )
           : null,
-    );
+    ));
   }
 
   Widget _buildMonthHeader(

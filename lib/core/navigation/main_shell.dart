@@ -34,6 +34,8 @@ import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
   const MainShell({super.key});
@@ -196,115 +198,118 @@ class MainShell extends HookConsumerWidget {
       const AnalyticsPage(),
     ];
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-          useNativeToolbar: false,
-          appBar: AppBar(
-            leadingWidth: 0,
-            leading: const SizedBox.shrink(),
-            titleSpacing: 0,
-            toolbarHeight: 0,
-          )),
-      body: SafeArea(
-        child: Material(
-          color: colorScheme.appBackground,
-          child: Column(
-            children: [
-              if (previewState.isActive)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: _PreviewModeBanner(
-                    currentIndex: currentIndex,
-                    onRegisterTap: () {
-                      unawaited(() async {
-                        await exitPreviewMode(restorePreauthOnExit: false);
-                        if (context.mounted) {
-                          context.go('/register');
-                        }
-                      }());
-                    },
-                    onExitTap: () {
-                      unawaited(() async {
-                        final returnRoute = await exitPreviewMode(
-                          restorePreauthOnExit: true,
-                        );
-                        if (context.mounted) {
-                          context.go(returnRoute ?? '/paywall');
-                        }
-                      }());
-                    },
-                  ),
-                ),
-              if (!previewState.isActive && showSubscriptionVerificationBanner)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: _SubscriptionVerificationBanner(
-                    status: subscriptionGateStatus,
-                    onRetryTap: () {
-                      unawaited(ref
-                          .read(subscriptionNotifierProvider.notifier)
-                          .refresh());
-                    },
-                    onManageTap: () {
-                      context.push('/paywall?mode=resubscribe');
-                    },
-                  ),
-                ),
-              const HomeHeaderSliver(),
-              Expanded(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 0.0),
-                      child: IndexedStack(
-                        index: currentIndex,
-                        children: pages,
-                      ),
+    return StatusBarOverlayRegion(
+      child: AdaptiveScaffold(
+        appBar: AdaptiveAppBar(
+            useNativeToolbar: false,
+            appBar: AppBar(
+              leadingWidth: 0,
+              leading: const SizedBox.shrink(),
+              titleSpacing: 0,
+              toolbarHeight: 0,
+            )),
+        body: SafeArea(
+          child: Material(
+            color: colorScheme.appBackground,
+            child: Column(
+              children: [
+                if (previewState.isActive)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: _PreviewModeBanner(
+                      currentIndex: currentIndex,
+                      onRegisterTap: () {
+                        unawaited(() async {
+                          await exitPreviewMode(restorePreauthOnExit: false);
+                          if (context.mounted) {
+                            context.go('/register');
+                          }
+                        }());
+                      },
+                      onExitTap: () {
+                        unawaited(() async {
+                          final returnRoute = await exitPreviewMode(
+                            restorePreauthOnExit: true,
+                          );
+                          if (context.mounted) {
+                            context.go(returnRoute ?? '/paywall');
+                          }
+                        }());
+                      },
                     ),
-                    const WidgetSyncManager(),
-                  ],
+                  ),
+                if (!previewState.isActive &&
+                    showSubscriptionVerificationBanner)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: _SubscriptionVerificationBanner(
+                      status: subscriptionGateStatus,
+                      onRetryTap: () {
+                        unawaited(ref
+                            .read(subscriptionNotifierProvider.notifier)
+                            .refresh());
+                      },
+                      onManageTap: () {
+                        context.push('/paywall?mode=resubscribe');
+                      },
+                    ),
+                  ),
+                const HomeHeaderSliver(),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 0.0),
+                        child: IndexedStack(
+                          index: currentIndex,
+                          children: pages,
+                        ),
+                      ),
+                      const WidgetSyncManager(),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: AdaptiveBottomNavigationBar(
-        useNativeBottomBar: false,
-        items: [
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.square_grid_2x2_fill
-                : Icons.dashboard,
-            label: context.l10n.overview,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
-            label: context.l10n.recurring,
-          ),
-          AdaptiveNavigationDestination(
-  icon: PlatformInfo.isIOS
-      ? CupertinoIcons.chart_pie
-      : Icons.pie_chart_outline,
-  label: context.l10n.budget,
-),
-AdaptiveNavigationDestination(
-  icon: PlatformInfo.isIOS
-      ? CupertinoIcons.creditcard
-      : Icons.account_balance_wallet_outlined,
-  label: "Wallets",
-),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.chart_bar_alt_fill
-                : Icons.bar_chart,
-            label: context.l10n.insights,
-          ),
-        ],
-        selectedIndex: currentIndex,
-        onTap: (index) {
-          ref.read(mainShellTabIndexProvider.notifier).state = index;
-        },
+        bottomNavigationBar: AdaptiveBottomNavigationBar(
+          useNativeBottomBar: false,
+          items: [
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.square_grid_2x2_fill
+                  : Icons.dashboard,
+              label: context.l10n.overview,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
+              label: context.l10n.recurring,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.chart_pie
+                  : Icons.pie_chart_outline,
+              label: context.l10n.budget,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.creditcard
+                  : Icons.account_balance_wallet_outlined,
+              label: 'Wallets',
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.chart_bar_alt_fill
+                  : Icons.bar_chart,
+              label: context.l10n.insights,
+            ),
+          ],
+          selectedIndex: currentIndex,
+          onTap: (index) {
+            ref.read(mainShellTabIndexProvider.notifier).state = index;
+          },
+        ),
       ),
     );
   }

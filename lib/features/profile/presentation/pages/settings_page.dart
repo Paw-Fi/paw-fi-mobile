@@ -70,6 +70,8 @@ import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page
 
 import 'package:crypto/crypto.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
 
@@ -728,7 +730,8 @@ class SettingsPage extends HookConsumerWidget {
       );
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.settings,
       ),
@@ -1381,7 +1384,7 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// Checks if wallet capture is enabled by querying Supabase for the wallet_capture_enabled flag

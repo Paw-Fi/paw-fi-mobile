@@ -31,6 +31,8 @@ import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const _kStepHousingSituation = 0;
 const _kStepBillSplit = 1;
 const _kStepSubscriptions = 2;
@@ -335,14 +337,16 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
             hasBlockingRecommendation);
 
     if (!isLoaded.value) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         body: Center(
           child: CircularProgressIndicator(color: colorScheme.primary),
         ),
-      );
+      ));
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -608,7 +612,7 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

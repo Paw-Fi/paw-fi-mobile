@@ -26,6 +26,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
 
@@ -188,7 +190,8 @@ class _RecurringTransactionsPageState
       _startRecurringTourIfNeeded(currentTabIndex);
     });
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Column(
         children: [
           Expanded(
@@ -238,7 +241,7 @@ class _RecurringTransactionsPageState
         padding: const EdgeInsets.all(0),
         child: _buildFAB(colorScheme),
       ),
-    );
+    ));
   }
 
   Future<void> _handleRecurringCommand(

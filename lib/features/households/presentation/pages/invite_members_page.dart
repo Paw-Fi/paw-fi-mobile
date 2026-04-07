@@ -5,6 +5,8 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import '../widgets/household_members_panel.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class InviteMembersPage extends ConsumerWidget {
   const InviteMembersPage({
     super.key,
@@ -19,7 +21,8 @@ class InviteMembersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.inviteMembers,
       ),
@@ -45,6 +48,6 @@ class InviteMembersPage extends ConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }

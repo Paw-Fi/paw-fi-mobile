@@ -23,6 +23,8 @@ import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 final overviewPeriodSelectionProvider =
     StateProvider.autoDispose<PeriodSelection>(
   (ref) => PeriodSelection.preset(DateRangeFilter.allTime),
@@ -36,7 +38,8 @@ class OverviewDashboardPage extends ConsumerWidget {
     final state = ref.watch(budgetDashboardProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.overview,
       ),
@@ -953,7 +956,7 @@ class OverviewDashboardPage extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -1151,7 +1154,8 @@ class _DashboardDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         useNativeToolbar: false,
         appBar: AppBar(
@@ -1170,7 +1174,7 @@ class _DashboardDetailPage extends StatelessWidget {
           child: child,
         ),
       ),
-    );
+    ));
   }
 }
 

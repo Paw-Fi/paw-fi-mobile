@@ -19,6 +19,8 @@ import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelop
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class PocketDetailsPage extends HookConsumerWidget {
   const PocketDetailsPage({
     super.key,
@@ -37,14 +39,15 @@ class PocketDetailsPage extends HookConsumerWidget {
 
     // If state is loading (e.g., after invalidation), show loading indicator
     if (state.isLoading && state.editing.isEmpty && state.saved.isEmpty) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: AdaptiveAppBar(title: context.l10n.loading),
         body: Center(
           child: CircularProgressIndicator(
             valueColor: AlwaysStoppedAnimation(colorScheme.primary),
           ),
         ),
-      );
+      ));
     }
 
     // Try to find the pocket in editing or saved lists
@@ -52,7 +55,8 @@ class PocketDetailsPage extends HookConsumerWidget {
 
     // If pocket not found, show error screen
     if (pocket == null) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: AdaptiveAppBar(title: context.l10n.pocketNotFound),
         body: Center(
           child: Padding(
@@ -91,7 +95,7 @@ class PocketDetailsPage extends HookConsumerWidget {
             ),
           ),
         ),
-      );
+      ));
     }
 
     final totalBudget = state.totalBudget;

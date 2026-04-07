@@ -42,6 +42,8 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const _kOnboardingCompletedPrefix = 'onboarding_completed:'; // per-user
 const _kNotificationsPromptedPrefix = 'notifications_prompted:'; // per-user
 const _kReturnToOrbitPageKey = 'onboarding_return_to_orbit_once';
@@ -336,7 +338,8 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: Material(
         color: colorScheme.appBackground,
@@ -401,7 +404,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -1532,7 +1535,8 @@ class OnboardingFlowPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -1660,7 +1664,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _markOnboardingCompleted(WidgetRef ref) async {

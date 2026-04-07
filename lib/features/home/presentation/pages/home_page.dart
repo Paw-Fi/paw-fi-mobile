@@ -57,6 +57,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 // ============================================================================
 // HOME PAGE
 // ============================================================================
@@ -1085,7 +1087,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           )
         : scrollView;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Stack(
         children: [
           RefreshIndicator(
@@ -1137,7 +1140,7 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             )
           : null,
-    );
+    ));
   }
 
   /// Determine if FAB should be shown

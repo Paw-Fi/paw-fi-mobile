@@ -22,6 +22,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/utils/main_page_top_padding.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class ImportWizardPage extends ConsumerStatefulWidget {
   const ImportWizardPage({
     super.key,
@@ -97,7 +99,8 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       }
     });
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(title: context.l10n.importData),
       body: SafeArea(
         child: Material(
@@ -118,7 +121,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildStep(BuildContext context, ImportWizardState state) {

@@ -14,6 +14,8 @@ import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Modern page for joining a household via invitation URL
 ///
 /// Features:
@@ -119,7 +121,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: (context.l10n.joinHousehold),
       ),
@@ -139,7 +142,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildContent(ColorScheme colorScheme) {

@@ -20,6 +20,8 @@ import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
 }
@@ -602,14 +604,15 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     if (hasActiveSubscription && currentPlanId == 'lifetime') {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         body: Material(
           color: colorScheme.appBackground,
           child: const Center(
             child: CircularProgressIndicator(),
           ),
         ),
-      );
+      ));
     }
 
     // DIRECT RETURN FOR LIFETIME USERS
@@ -618,17 +621,19 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     if (useIap && productsAsync.isLoading) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
           child: const Center(child: CircularProgressIndicator()),
         ),
-      );
+      ));
     }
 
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
@@ -659,7 +664,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             ),
           ),
         ),
-      );
+      ));
     }
 
     Future<void> onManageStoreSubscription() async {
@@ -997,7 +1002,8 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: const AdaptiveAppBar(title: ''),
       body: Material(
         color: colorScheme.appBackground,
@@ -1229,7 +1235,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -1530,7 +1536,8 @@ class _LifetimeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: const AdaptiveAppBar(title: ''),
       body: Material(
         color: scheme.appBackground,
@@ -1582,6 +1589,6 @@ class _LifetimeView extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

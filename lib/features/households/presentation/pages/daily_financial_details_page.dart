@@ -16,6 +16,8 @@ import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class DailyFinancialDetailsPage extends StatelessWidget {
   final DateTime date;
   final List<ExpenseEntry> transactions;
@@ -103,7 +105,8 @@ class DailyFinancialDetailsPage extends StatelessWidget {
 
     final net = totalIncome - totalExpense;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: DateFormat.yMMMMd().format(date),
       ),
@@ -233,7 +236,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

@@ -29,6 +29,8 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
 
@@ -334,19 +336,21 @@ class PocketsPage extends HookConsumerWidget {
     }
 
     if (!recurringPreferenceReady.value) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         body: Center(
           child: CircularProgressIndicator(
             strokeWidth: 3,
             valueColor: AlwaysStoppedAnimation(colorScheme.primary),
           ),
         ),
-      );
+      ));
     }
 
     if (householdScope.activeAccountType == ActiveWalletType.household) {
       if (householdsAsync.isLoading) {
-        return AdaptiveScaffold(
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: CircularProgressIndicator(
               strokeWidth: 3,
@@ -359,11 +363,12 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (householdsAsync.hasError) {
-        return AdaptiveScaffold(
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -399,11 +404,12 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (households.isEmpty) {
-        return AdaptiveScaffold(
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: const HouseholdOnboardingPage(),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? const Padding(
@@ -411,11 +417,12 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (resolvedHouseholdId == null) {
-        return AdaptiveScaffold(
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -436,7 +443,7 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
     }
 
@@ -482,7 +489,8 @@ class PocketsPage extends HookConsumerWidget {
     final hasChanges = currentPocketsState.hasChanges;
     final isPocketsLoading = currentPocketsState.isLoading;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Stack(
         children: [
           PageView.builder(
@@ -764,7 +772,7 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-    );
+    ));
   }
 }
 
