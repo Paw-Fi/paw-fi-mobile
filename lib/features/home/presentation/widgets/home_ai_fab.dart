@@ -37,6 +37,7 @@ import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
+import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -1022,7 +1023,12 @@ Future<void> handleAiFileOrGallery(
         title: context.l10n.files,
         style: AlertActionStyle.primary,
         onPressed: () async {
-          await handleAiFileUpload(context, ref, onSuccess: onSuccess);
+          if (!context.mounted) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const ImportWizardPage(),
+            ),
+          );
         },
       ),
       AlertAction(

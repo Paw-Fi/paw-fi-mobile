@@ -126,16 +126,13 @@ class HouseholdService {
 
     final usersMap = <String, Map<String, dynamic>>{};
     for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
-      // Normalize like Profile page: prefer full_name, fallback to email local-part
-      String? displayName = (user['full_name'] as String?)?.trim();
-      final email = user['email'] as String?;
-      if (displayName == null || displayName.isEmpty) {
-        if (email != null && email.isNotEmpty) {
-          displayName = email.split('@').first;
-        }
-      }
+      // Keep only an explicit profile name here.
+      // UI can decide how to fall back when full_name is absent.
+      final displayName = (user['full_name'] as String?)?.trim();
       if (displayName != null && displayName.isNotEmpty) {
         user['full_name'] = displayName;
+      } else {
+        user['full_name'] = null;
       }
       usersMap[user['id'] as String] = user;
     }
