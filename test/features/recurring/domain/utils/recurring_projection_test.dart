@@ -120,6 +120,40 @@ void main() {
     expect(projected, isEmpty);
   });
 
+  test(
+      'projects overdue current-month recurring occurrence when anchor day already passed',
+      () {
+    final transaction = RecurringTransaction(
+      id: 'utilities',
+      date: DateTime(2026, 4, 1),
+      category: 'utilities',
+      description: 'Monthly utilities',
+      amount: 120.0,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 4, 1),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 4, 3),
+    );
+
+    final projected = projectUpcomingRecurringTransactionsAsExpenseEntries(
+      recurringTransactions: [transaction],
+      monthStart: DateTime(2026, 4, 1),
+      now: DateTime(2026, 4, 3),
+      selectedCurrency: 'USD',
+    );
+
+    expect(projected, hasLength(1));
+    expect(projected.single.id,
+        buildProjectedRecurringExpenseId('utilities', DateTime(2026, 4, 1)));
+    expect(projected.single.amountCents, 12000);
+  });
+
   test('dedupes projected recurring entries when actual expense already exists',
       () {
     final projected = ExpenseEntry(

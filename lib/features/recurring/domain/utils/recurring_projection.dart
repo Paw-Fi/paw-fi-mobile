@@ -287,8 +287,7 @@ List<ExpenseEntry> projectUpcomingRecurringTransactionsAsExpenseEntries({
 
   final monthEnd =
       DateTime(targetMonthStart.year, targetMonthStart.month + 1, 0);
-  final rangeStart =
-      currentDay.isAfter(targetMonthStart) ? currentDay : targetMonthStart;
+  final rangeStart = targetMonthStart;
 
   return projectRecurringTransactionsAsExpenseEntries(
     recurringTransactions: recurringTransactions
