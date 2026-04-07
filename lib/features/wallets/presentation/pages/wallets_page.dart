@@ -15,6 +15,7 @@ import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.d
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
@@ -133,7 +134,10 @@ class AccountsPage extends HookConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
                   SizedBox(
-                    height: (!hasDismissedSwipeHintState.value && availableMonths.length > 1)?290 :250,
+                    height: (!hasDismissedSwipeHintState.value &&
+                            availableMonths.length > 1)
+                        ? 290
+                        : 250,
                     child: PageView.builder(
                       itemCount: availableMonths.length,
                       controller: monthPageController,
@@ -196,7 +200,7 @@ class AccountsPage extends HookConsumerWidget {
                     onPressed: onAddAccount,
                     icon: Icon(Icons.add, color: colorScheme.primary),
                     label: Text(
-                      'New Account',  
+                      'New Account',
                       style: TextStyle(
                         color: colorScheme.primary,
                         fontWeight: FontWeight.w700,
@@ -206,7 +210,8 @@ class AccountsPage extends HookConsumerWidget {
                   const SizedBox(height: 4),
                   TextButton.icon(
                     onPressed: () => AppToast.info(context, 'Coming soon'),
-                    icon: Icon(Icons.sync, color: colorScheme.primary, size: 20),
+                    icon:
+                        Icon(Icons.sync, color: colorScheme.primary, size: 20),
                     label: Text(
                       'Connect Bank',
                       style: TextStyle(
@@ -347,7 +352,6 @@ class _WalletsOverviewCard extends HookWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                
                 ],
               ),
               AnimatedSwitcher(
@@ -379,7 +383,9 @@ class _WalletsOverviewCard extends HookWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: _AnimatedNumberText(
-              value: isActive ? selectedSnapshot.netWorth : activeSnapshot.netWorth,
+              value: isActive
+                  ? selectedSnapshot.netWorth
+                  : activeSnapshot.netWorth,
               symbol: symbol,
               style: TextStyle(
                 fontSize: 36,
@@ -407,7 +413,7 @@ class _WalletsOverviewCard extends HookWidget {
                       spot.y * animationValue,
                     );
                   }).toList();
-                  
+
                   return LineChart(
                     LineChartData(
                       minX: 0,
@@ -465,7 +471,8 @@ class _WalletsOverviewCard extends HookWidget {
                             show: true,
                             gradient: LinearGradient(
                               colors: [
-                                colorScheme.primary.withValues(alpha: 0.3 * animationValue),
+                                colorScheme.primary
+                                    .withValues(alpha: 0.3 * animationValue),
                                 colorScheme.primary.withValues(alpha: 0.0),
                               ],
                               begin: Alignment.topCenter,
@@ -496,7 +503,9 @@ class _WalletsOverviewCard extends HookWidget {
                     ),
                     const SizedBox(height: 4),
                     _AnimatedNumberText(
-                      value: isActive ? selectedSnapshot.totalIncome : activeSnapshot.totalIncome,
+                      value: isActive
+                          ? selectedSnapshot.totalIncome
+                          : activeSnapshot.totalIncome,
                       symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,
@@ -521,7 +530,9 @@ class _WalletsOverviewCard extends HookWidget {
                     ),
                     const SizedBox(height: 4),
                     _AnimatedNumberText(
-                      value: isActive ? selectedSnapshot.totalSpent : activeSnapshot.totalSpent,
+                      value: isActive
+                          ? selectedSnapshot.totalSpent
+                          : activeSnapshot.totalSpent,
                       symbol: symbol,
                       style: TextStyle(
                         color: colorScheme.foreground,
@@ -562,8 +573,6 @@ class _WalletAccountStack extends HookConsumerWidget {
 
     final orderedAccountsState = useState<List<WalletEntity>>([...wallets]);
     final draggedAccountIdState = useState<String?>(null);
-    final dragOffsetYState = useState<double>(0.0);
-    final dragOriginalIndexState = useState<int>(0);
     final selectedAccountIdState = useState<String?>(null);
 
     // Sync from props/prefs
@@ -677,8 +686,8 @@ class _WalletAccountStack extends HookConsumerWidget {
                 child: _WalletStackCard(
                   wallet: wallet,
                   currencyCode: currencyCode,
-                  displayBalanceCents: walletBalances[wallet.id] ??
-                      wallet.currentBalanceCents,
+                  displayBalanceCents:
+                      walletBalances[wallet.id] ?? wallet.currentBalanceCents,
                   isExpanded: isExpanded,
                 ),
               ),
@@ -751,15 +760,30 @@ class _WalletStackCard extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            wallet.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colorScheme.foreground,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  wallet.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (wallet.isDefault) ...[
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.star_rounded,
+                  size: 16,
+                  color: baseColor.withValues(alpha: 0.8),
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(width: 12),
@@ -776,14 +800,13 @@ class _WalletStackCard extends StatelessWidget {
       ],
     );
 
-    final expandedHeader = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final expandedHeader = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+        Row(
+          children: [
+            Expanded(
+              child: Text(
                 wallet.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -793,54 +816,96 @@ class _WalletStackCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: baseColor.withValues(alpha: 0.22),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      resolveWalletIcon(wallet.icon),
-                      color: baseColor,
-                      size: 18,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Column(
+        const SizedBox(height: 18),
+        Row(
           crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SizedBox(height: 12),
-            Text(
-              'BALANCE',
-              style: TextStyle(
-                color: colorScheme.mutedForeground,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
+            if (wallet.isDefault)
+              Container(
+                height: 36,
+                padding: const EdgeInsets.only(left: 4, right: 12),
+                decoration: BoxDecoration(
+                  color: baseColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: baseColor.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: baseColor.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        resolveWalletIcon(wallet.icon),
+                        color: baseColor,
+                        size: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'PRIMARY',
+                      style: TextStyle(
+                        color: baseColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: baseColor.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  resolveWalletIcon(wallet.icon),
+                  color: baseColor,
+                  size: 18,
+                ),
               ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'BALANCE',
+                  style: TextStyle(
+                    color: colorScheme.mutedForeground,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
+                  style: TextStyle(
+                    color: isNegative
+                        ? colorScheme.destructive
+                        : colorScheme.foreground,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
-              style: TextStyle(
-                color: isNegative
-                    ? colorScheme.destructive
-                    : colorScheme.foreground,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
-              ),
-            ),
-            const SizedBox(height: 6),
           ],
         ),
       ],
@@ -928,33 +993,6 @@ class _WalletStackCard extends StatelessWidget {
   }
 }
 
-String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
-  for (final wallet in wallets) {
-    if (wallet.isDefault && !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  for (final wallet in wallets) {
-    if (wallet.isSystem &&
-        wallet.name.trim().toLowerCase() == 'spending' &&
-        !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  return wallets.isNotEmpty ? wallets.first.id : null;
-}
-
-String? _resolveTransactionAccountId({
-  required ExpenseEntry transaction,
-  required String? defaultAccountId,
-}) {
-  final raw = transaction.walletId?.trim();
-  if (raw != null && raw.isNotEmpty) {
-    return raw;
-  }
-  return defaultAccountId;
-}
-
 bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
   final normalized = expense.currency?.trim().toUpperCase();
   return normalized == currencyCode;
@@ -1012,14 +1050,13 @@ _AccountsSnapshot _buildSnapshot({
     }
   }
 
-  final defaultWalletId = _resolveDefaultAccountId(wallets);
   final walletBalances = <String, int>{
     for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
   };
   for (final tx in filteredTransactions) {
-    final resolvedAccountId = _resolveTransactionAccountId(
+    final resolvedAccountId = resolveTransactionWalletId(
       transaction: tx,
-      defaultAccountId: defaultWalletId,
+      wallets: wallets,
     );
     if (resolvedAccountId == null ||
         !walletBalances.containsKey(resolvedAccountId)) {

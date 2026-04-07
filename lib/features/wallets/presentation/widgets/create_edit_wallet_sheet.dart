@@ -69,6 +69,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
     final selectedColor = useState<String>(initial?.color ?? '#6B7280');
     final isDefault = useState<bool>(initial?.isDefault ?? false);
+    final isPrimaryWalletLocked = isEditing && (initial?.isDefault ?? false);
 
     Future<void> handleSave() async {
       final name = nameController.text.trim();
@@ -343,17 +344,13 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: isDefault.value,
-                        title: const Text('Set as default'),
-                        onChanged: (value) {
-                          if (isEditing && initial!.isDefault && !value) {
-                            AppToast.info(
-                              context,
-                              'At least one default wallet is required.',
-                            );
-                            return;
-                          }
-                          isDefault.value = value;
-                        },
+                        title: const Text('Primary wallet'),
+                        subtitle: const Text(
+                          'Future transactions will be logged to this wallet by default.',
+                        ),
+                        onChanged: isPrimaryWalletLocked
+                            ? null
+                            : (value) => isDefault.value = value,
                       ),
                       const SizedBox(height: 18),
                       SizedBox(

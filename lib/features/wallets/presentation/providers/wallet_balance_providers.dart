@@ -1,24 +1,23 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final scopedWalletSummaryProvider = Provider<Map<String, int>>((ref) {
-  final wallets = ref.watch(scopedWalletSummaryProvider).valueOrNull ?? const [];
+  final wallets = ref.watch(effectiveScopeWalletsProvider);
   final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
   final allExpenses = ref.watch(analyticsProvider).allExpenses;
   final scope = ref.watch(householdScopeProvider);
 
-  final defaultAccountId = _resolveDefaultAccountId(wallets);
   final balances = <String, int>{
     for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
   };
   var totalGoalCents = 0;
   for (final wallet in wallets) {
-totalGoalCents += (wallet.goalAmountCents ?? 0) as int;
+    totalGoalCents += wallet.goalAmountCents ?? 0;
   }
 
   for (final expense in allExpenses) {
@@ -26,13 +25,13 @@ totalGoalCents += (wallet.goalAmountCents ?? 0) as int;
     if (!_isInActiveScope(expense, scope)) continue;
     if (!_isInSelectedCurrency(expense, currencyCode)) continue;
 
-    final walletId = _resolveTransactionWalletId(
+    final walletId = resolveTransactionWalletId(
       transaction: expense,
-      defaultWalletId: defaultAccountId,
+      wallets: wallets,
     );
     if (walletId == null || !balances.containsKey(walletId)) continue;
 
-    final amountCents = (expense.amount.abs() * 100).round();
+    final amountCents = expense.amountCents.abs();
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
     final current = balances[walletId] ?? 0;
     balances[walletId] =
@@ -54,33 +53,6 @@ totalGoalCents += (wallet.goalAmountCents ?? 0) as int;
 final accountTransfersProvider = Provider<List<Map<String, dynamic>>>((ref) {
   return const [];
 });
-
-String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
-  for (final wallet in wallets) {
-    if (wallet.isDefault && !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  for (final wallet in wallets) {
-    if (wallet.isSystem &&
-        wallet.name.trim().toLowerCase() == 'spending' &&
-        !wallet.isArchived) {
-      return wallet.id;
-    }
-  }
-  return wallets.isNotEmpty ? wallets.first.id : null;
-}
-
-String? _resolveTransactionWalletId({
-  required ExpenseEntry transaction,
-  required String? defaultWalletId,
-}) {
-  final raw = transaction.walletId?.trim();
-  if (raw != null && raw.isNotEmpty) {
-    return raw;
-  }
-  return defaultWalletId;
-}
 
 bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
   final normalized = expense.currency?.trim().toUpperCase();

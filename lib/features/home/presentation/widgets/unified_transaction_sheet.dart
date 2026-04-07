@@ -186,6 +186,7 @@ class _UnifiedTransactionSheetState
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
   String? _selectedFinancialAccountId;
+  bool _hasManuallySelectedFinancialAccount = false;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -574,6 +575,8 @@ class _UnifiedTransactionSheetState
       _selectedAccountType = option.type;
       _selectedAccountHouseholdId = option.householdId;
       _isSharedWithHousehold = isHouseholdSelection;
+      _selectedFinancialAccountId = null;
+      _hasManuallySelectedFinancialAccount = false;
       if (!isHouseholdSelection) {
         _lastNonHouseholdAccountType = option.type;
         _lastNonHouseholdHouseholdId = option.householdId;
@@ -721,9 +724,12 @@ class _UnifiedTransactionSheetState
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
-    final scopedAccountsAsync = ref.watch(scopedWalletsProvider);
+    final accountTarget = _resolveAccountTarget();
+    final scopedAccountsAsync =
+        ref.watch(walletsByHouseholdIdProvider(accountTarget.householdId));
     final scopedAccounts =
         scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
+    _syncSelectedFinancialAccountWithScope(scopedAccounts);
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -762,7 +768,12 @@ class _UnifiedTransactionSheetState
         final households = householdsData.cast<Household>();
         return Column(
           children: [
-            _buildSpaceSection(colorScheme, households),
+            _buildSpaceSection(
+              colorScheme,
+              households,
+              scopedAccountsAsync,
+              scopedAccounts,
+            ),
             const SizedBox(height: 24),
             if (_selectedAccountType == ActiveWalletType.household &&
                 households.isNotEmpty)
@@ -930,22 +941,6 @@ class _UnifiedTransactionSheetState
                               label: context.l10n.currency,
                               value: currency.toUpperCase(),
                               onTap: () => _handleEditCurrency(currency),
-                            ),
-                            _buildDivider(colorScheme),
-                            MonekoDisclosureRow(
-                              label: context.l10n.account,
-                              value: scopedAccountsAsync.when(
-                                data: (_) => _selectedFinancialAccountLabel(
-                                  context,
-                                  scopedAccounts,
-                                ),
-                                loading: () => context.l10n.loading,
-                                error: (_, __) => context.l10n.tapToSet,
-                              ),
-                              onTap: () => _handleEditFinancialAccount(
-                                scopedAccounts,
-                              ),
-                              isValuePlaceholder: scopedAccounts.isEmpty,
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
@@ -1211,6 +1206,8 @@ class _UnifiedTransactionSheetState
   Widget _buildSpaceSection(
     ColorScheme colorScheme,
     List<Household> households,
+    AsyncValue<List<WalletEntity>> scopedAccountsAsync,
+    List<WalletEntity> scopedAccounts,
   ) {
     final value = _accountDisplayValue(context, households);
 
@@ -1222,6 +1219,22 @@ class _UnifiedTransactionSheetState
             value: value,
             onTap: () => _handleEditSpace(households: households),
             isFirst: true,
+          ),
+          _buildDivider(colorScheme),
+          MonekoDisclosureRow(
+            label: "Wallet",
+            value: scopedAccountsAsync.when(
+              data: (_) => _selectedFinancialAccountLabel(
+                context,
+                scopedAccounts,
+              ),
+              loading: () => context.l10n.loading,
+              error: (_, __) => context.l10n.tapToSet,
+            ),
+            onTap: () => _handleEditFinancialAccount(
+              scopedAccounts,
+            ),
+            isValuePlaceholder: scopedAccounts.isEmpty,
             isLast: true,
           ),
         ],
@@ -1280,6 +1293,45 @@ class _UnifiedTransactionSheetState
 
     setState(() {
       _selectedFinancialAccountId = selected.id;
+      _hasManuallySelectedFinancialAccount = true;
+    });
+  }
+
+  void _syncSelectedFinancialAccountWithScope(List<WalletEntity> accounts) {
+    final desiredId = () {
+      if (accounts.isEmpty) return null;
+
+      final currentId = _selectedFinancialAccountId;
+      final currentExists = currentId != null &&
+          accounts.any((account) => account.id == currentId);
+
+      if (isExistingExpense) {
+        if (currentExists) return currentId;
+
+        final boundWalletId = widget.existingExpense?.walletId;
+        if (boundWalletId != null &&
+            accounts.any((account) => account.id == boundWalletId)) {
+          return boundWalletId;
+        }
+
+        return _resolveDefaultFinancialAccountId(accounts);
+      }
+
+      if (_hasManuallySelectedFinancialAccount && currentExists) {
+        return currentId;
+      }
+
+      return _resolveDefaultFinancialAccountId(accounts);
+    }();
+
+    if (desiredId == _selectedFinancialAccountId) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_selectedFinancialAccountId == desiredId) return;
+      setState(() {
+        _selectedFinancialAccountId = desiredId;
+      });
     });
   }
 
@@ -1492,6 +1544,11 @@ class _UnifiedTransactionSheetState
                     debugPrint(
                         '🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
                     if (value != null) {
+                      setState(() {
+                        _selectedAccountHouseholdId = value;
+                        _selectedFinancialAccountId = null;
+                        _hasManuallySelectedFinancialAccount = false;
+                      });
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = value;
@@ -2582,9 +2639,12 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
       final householdScope = ref.read(householdScopeProvider);
+      final accountTarget = _resolveAccountTarget();
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
-      final availableAccounts = ref.read(scopedWalletsProvider).valueOrNull ??
+      final availableAccounts = ref
+              .read(walletsByHouseholdIdProvider(accountTarget.householdId))
+              .valueOrNull ??
           const <WalletEntity>[];
       var selectedFinancialAccountId =
           _selectedFinancialAccountId ?? widget.existingExpense?.walletId;
@@ -2601,7 +2661,6 @@ class _UnifiedTransactionSheetState
         // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
 
-        final accountTarget = _resolveAccountTarget();
         final effectiveHouseholdId = accountTarget.householdId;
         final isEffectivePortfolio = accountTarget.isPortfolio;
         final isSharedHousehold =

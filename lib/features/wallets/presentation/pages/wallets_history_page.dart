@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -19,7 +20,7 @@ class WalletsHistoryPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     // Providers
     final accounts = ref.watch(effectiveScopeWalletsProvider);
     final analytics = ref.watch(analyticsProvider);
@@ -36,28 +37,21 @@ class WalletsHistoryPage extends HookConsumerWidget {
           return householdId == null || householdId.isEmpty;
         case ActiveWalletType.portfolio:
           final selected = householdScope.activeAccountHouseholdId;
-          return selected != null && selected.isNotEmpty && householdId == selected;
+          return selected != null &&
+              selected.isNotEmpty &&
+              householdId == selected;
         case ActiveWalletType.household:
           final selected = householdScope.selectedHouseholdId;
-          return selected != null && selected.isNotEmpty && householdId == selected;
+          return selected != null &&
+              selected.isNotEmpty &&
+              householdId == selected;
       }
-    }
-
-    String? resolveDefaultAccountId() {
-      for (final account in accounts) {
-        if (account.isDefault && !account.isArchived) return account.id;
-      }
-      return accounts.isNotEmpty ? accounts.first.id : null;
-    }
-
-    String? resolveTxAccountId(ExpenseEntry tx, String? defaultId) {
-      final raw = tx.walletId?.trim();
-      return (raw != null && raw.isNotEmpty) ? raw : defaultId;
     }
 
     // Prepare data
     final allTxs = analytics.allExpenses.where((e) {
-      return isInActiveScope(e) && (e.currency?.trim().toUpperCase() == selectedCurrencyCode);
+      return isInActiveScope(e) &&
+          (e.currency?.trim().toUpperCase() == selectedCurrencyCode);
     }).toList();
 
     final standardTxs = allTxs.where((e) => !e.isRecurring).toList();
@@ -69,12 +63,10 @@ class WalletsHistoryPage extends HookConsumerWidget {
     final now = DateTime.now();
     double thisMonthIncome = 0;
     double thisMonthExpense = 0;
-    
+
     final accountBalances = <String, int>{
       for (final a in accounts) a.id: a.openingBalanceCents,
     };
-    final defaultId = resolveDefaultAccountId();
-
     // Categories
     final categoryTotals = <String, double>{};
 
@@ -95,14 +87,18 @@ class WalletsHistoryPage extends HookConsumerWidget {
       }
 
       // Net Worth Calculation
-      final accId = resolveTxAccountId(tx, defaultId);
+      final accId = resolveTransactionWalletId(
+        transaction: tx,
+        wallets: accounts,
+      );
       if (accId != null && accountBalances.containsKey(accId)) {
         final cur = accountBalances[accId] ?? 0;
         accountBalances[accId] = isIncome ? cur + amtCents : cur - amtCents;
       }
     }
 
-    final netWorth = accountBalances.values.fold<int>(0, (s, v) => s + v) / 100.0;
+    final netWorth =
+        accountBalances.values.fold<int>(0, (s, v) => s + v) / 100.0;
     final netCashFlow = thisMonthIncome - thisMonthExpense;
 
     // Ordered categories
@@ -110,19 +106,23 @@ class WalletsHistoryPage extends HookConsumerWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     // UI Block Components
-    Widget buildKPIWidget(String title, double amount, {bool isPositiveGood = true, bool forceColor = false}) {
+    Widget buildKPIWidget(String title, double amount,
+        {bool isPositiveGood = true, bool forceColor = false}) {
       final isPositive = amount >= 0;
-      final color = forceColor 
-          ? (isPositive == isPositiveGood ? colorScheme.primary : colorScheme.destructive)
+      final color = forceColor
+          ? (isPositive == isPositiveGood
+              ? colorScheme.primary
+              : colorScheme.destructive)
           : colorScheme.foreground;
-          
+
       return Expanded(
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.border.withValues(alpha: 0.5)),
+            border:
+                Border.all(color: colorScheme.border.withValues(alpha: 0.5)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +204,10 @@ class WalletsHistoryPage extends HookConsumerWidget {
                 children: [
                   buildCardHeader('Top Categories (This Month)'),
                   ...sortedCategories.take(5).mapIndexed((index, entry) {
-                    final fraction = entry.value / (sortedCategories.first.value == 0 ? 1 : sortedCategories.first.value);
+                    final fraction = entry.value /
+                        (sortedCategories.first.value == 0
+                            ? 1
+                            : sortedCategories.first.value);
                     final colorColors = [
                       Colors.blue,
                       Colors.purple,
@@ -222,8 +225,15 @@ class WalletsHistoryPage extends HookConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(entry.key, style: TextStyle(color: colorScheme.foreground, fontSize: 13, fontWeight: FontWeight.w600)),
-                              Text('$symbol${formatAmount(entry.value)}', style: TextStyle(color: colorScheme.mutedForeground, fontSize: 13)),
+                              Text(entry.key,
+                                  style: TextStyle(
+                                      color: colorScheme.foreground,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
+                              Text('$symbol${formatAmount(entry.value)}',
+                                  style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 13)),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -231,7 +241,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: fraction,
-                              backgroundColor: colorScheme.surfaceContainerHighest,
+                              backgroundColor:
+                                  colorScheme.surfaceContainerHighest,
                               color: barColor,
                               minHeight: 6,
                             ),
@@ -260,7 +271,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
                 children: [
                   buildCardHeader('Account Balances'),
                   ...accounts.map((acc) {
-                    final currCents = accountBalances[acc.id] ?? acc.openingBalanceCents;
+                    final currCents =
+                        accountBalances[acc.id] ?? acc.openingBalanceCents;
                     final currBal = currCents / 100.0;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -276,13 +288,18 @@ class WalletsHistoryPage extends HookConsumerWidget {
                                   color: colorScheme.surfaceContainerHighest,
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(resolveWalletIcon(acc.icon), size: 16, color: colorScheme.foreground),
+                                child: Icon(resolveWalletIcon(acc.icon),
+                                    size: 16, color: colorScheme.foreground),
                               ),
                               const SizedBox(width: 12),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(acc.name, style: TextStyle(color: colorScheme.foreground, fontWeight: FontWeight.w600, fontSize: 14)),
+                                  Text(acc.name,
+                                      style: TextStyle(
+                                          color: colorScheme.foreground,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14)),
                                 ],
                               ),
                             ],
@@ -290,7 +307,9 @@ class WalletsHistoryPage extends HookConsumerWidget {
                           Text(
                             '${currBal < 0 ? '-' : ''}$symbol${formatAmount(currBal.abs())}',
                             style: TextStyle(
-                              color: currBal < 0 ? colorScheme.destructive : colorScheme.foreground,
+                              color: currBal < 0
+                                  ? colorScheme.destructive
+                                  : colorScheme.foreground,
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                             ),
@@ -318,10 +337,12 @@ class WalletsHistoryPage extends HookConsumerWidget {
               children: [
                 buildCardHeader('Recent Transactions'),
                 if (standardTxs.isEmpty)
-                  Text('No recent transactions', style: TextStyle(color: colorScheme.mutedForeground))
+                  Text('No recent transactions',
+                      style: TextStyle(color: colorScheme.mutedForeground))
                 else
                   ...standardTxs.take(15).map((tx) {
-                    final isInc = (tx.type ?? 'expense').toLowerCase() == 'income';
+                    final isInc =
+                        (tx.type ?? 'expense').toLowerCase() == 'income';
                     final dateStr = DateFormat('MMM d, yyyy').format(tx.date);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
@@ -332,16 +353,25 @@ class WalletsHistoryPage extends HookConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tx.category ?? 'Uncategorized', style: TextStyle(color: colorScheme.foreground, fontWeight: FontWeight.w600, fontSize: 14)),
+                                Text(tx.category ?? 'Uncategorized',
+                                    style: TextStyle(
+                                        color: colorScheme.foreground,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14)),
                                 const SizedBox(height: 2),
-                                Text(dateStr, style: TextStyle(color: colorScheme.mutedForeground, fontSize: 12)),
+                                Text(dateStr,
+                                    style: TextStyle(
+                                        color: colorScheme.mutedForeground,
+                                        fontSize: 12)),
                               ],
                             ),
                           ),
                           Text(
                             '${isInc ? '+' : '-'}$symbol${formatAmount(tx.amount.abs())}',
                             style: TextStyle(
-                              color: isInc ? colorScheme.primary : colorScheme.foreground,
+                              color: isInc
+                                  ? colorScheme.primary
+                                  : colorScheme.foreground,
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
                             ),

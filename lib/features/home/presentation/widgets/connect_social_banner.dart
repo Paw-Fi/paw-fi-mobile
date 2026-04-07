@@ -9,10 +9,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
@@ -24,7 +23,6 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
-import 'package:moneko/features/utils/currency.dart';
 
 final walletCaptureEnabledProvider =
     FutureProvider.autoDispose<bool>((ref) async {
@@ -84,8 +82,6 @@ class ConnectSocialBanner extends ConsumerWidget {
     final whatsappAsync = ref.watch(whatsAppBindingProvider);
     final telegramAsync = ref.watch(telegramBindingProvider);
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
-    final selectedCurrency =
-        ref.watch(dashboardSelectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
@@ -150,10 +146,7 @@ class ConnectSocialBanner extends ConsumerWidget {
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
       onCreateAccount: () => _openRegister(context),
-      onLogExpense: () => showUnifiedTransactionSheet(
-        context,
-        newExpense: _buildDraftExpense(selectedCurrency),
-      ),
+      onLogExpense: () => handleAiFreeFormText(context, ref),
       onRecurringExpense: () => showAddRecurringSheet(
         context,
         type: 'expense',
@@ -278,21 +271,6 @@ class ConnectSocialBanner extends ConsumerWidget {
         .then((_) {
       ref.invalidate(walletCaptureEnabledProvider);
     });
-  }
-
-  ParsedExpense _buildDraftExpense(String selectedCurrency) {
-    final normalizedCurrency = selectedCurrency.trim().isEmpty
-        ? 'USD'
-        : selectedCurrency.trim().toUpperCase();
-
-    return ParsedExpense(
-      amount: 0,
-      category: 'other',
-      currency: normalizedCurrency,
-      currencySymbol: resolveCurrencySymbol(normalizedCurrency),
-      date: DateTime.now(),
-      description: null,
-    );
   }
 
   Future<void> _dismissStep(WidgetRef ref, String stepId) async {

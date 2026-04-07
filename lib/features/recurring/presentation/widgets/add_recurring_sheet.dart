@@ -96,11 +96,9 @@ class AddRecurringSheet extends HookConsumerWidget {
     final sourceController = useTextEditingController(
       text: existingTransaction?.source ?? '',
     );
-    final amountFocusNode = useFocusNode();
 
     // Rebuild when amount changes so splits can use the latest value
     useListenable(amountController);
-    useListenable(amountFocusNode);
     final currentAmountText = amountController.text;
 
     final selectedCategory = useState<String?>(existingTransaction?.category);
@@ -219,37 +217,85 @@ class AddRecurringSheet extends HookConsumerWidget {
         ? ref.watch(userHouseholdsProvider(currentUserId))
         : const AsyncValue<List<Household>>.data([]);
 
-    final scopedAccountsAsync = ref.watch(scopedWalletsProvider);
+    final forcedPortfolioHouseholdId =
+        (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
+    final walletScopeHouseholdId = forcedPortfolioHouseholdId ??
+        switch (householdScope.activeAccountType) {
+          ActiveWalletType.personal => null,
+          ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+          ActiveWalletType.household =>
+            isSharedWithHousehold.value ? selectedHouseholdId.value : null,
+        };
+
+    final scopedAccountsAsync =
+        ref.watch(walletsByHouseholdIdProvider(walletScopeHouseholdId));
     final scopedAccounts =
         scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
     final selectedFinancialAccountId =
         useState<String?>(existingTransaction?.accountId);
+    final hasManuallySelectedFinancialAccount = useState<bool>(false);
 
     useEffect(() {
       if (scopedAccounts.isEmpty) {
         if (selectedFinancialAccountId.value != null) {
           selectedFinancialAccountId.value = null;
         }
+        hasManuallySelectedFinancialAccount.value = false;
         return null;
       }
 
       final currentId = selectedFinancialAccountId.value;
-      final hasSelected = currentId != null &&
+      final hasCurrent = currentId != null &&
           scopedAccounts.any((account) => account.id == currentId);
-      if (hasSelected) return null;
+      final defaultId = () {
+        for (final account in scopedAccounts) {
+          if (account.isDefault) return account.id;
+        }
+        return scopedAccounts.first.id;
+      }();
 
-      final fallback = scopedAccounts.firstWhere(
-        (account) => account.isDefault,
-        orElse: () => scopedAccounts.first,
-      );
-      selectedFinancialAccountId.value = fallback.id;
+      String? desiredId;
+
+      if (isEditing) {
+        if (hasCurrent) {
+          desiredId = currentId;
+        } else {
+          final boundId = existingTransaction?.accountId;
+          if (boundId != null &&
+              scopedAccounts.any((account) => account.id == boundId)) {
+            desiredId = boundId;
+          } else {
+            desiredId = defaultId;
+          }
+        }
+      } else {
+        if (hasManuallySelectedFinancialAccount.value && hasCurrent) {
+          desiredId = currentId;
+        } else {
+          desiredId = defaultId;
+        }
+      }
+
+      if (selectedFinancialAccountId.value != desiredId) {
+        selectedFinancialAccountId.value = desiredId;
+      }
       return null;
-    }, [scopedAccounts]);
+    }, [
+      scopedAccounts,
+      isEditing,
+      existingTransaction?.accountId,
+      hasManuallySelectedFinancialAccount.value,
+    ]);
 
     final membersAsync =
         (isSharedWithHousehold.value && selectedHouseholdId.value != null)
             ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
             : const AsyncValue<List<HouseholdMember>>.data([]);
+
+    useEffect(() {
+      hasManuallySelectedFinancialAccount.value = false;
+      return null;
+    }, [walletScopeHouseholdId]);
 
     // When editing a shared recurring EXPENSE, load existing split configuration
     // from the household split groups so the inline split editor reflects the
@@ -677,7 +723,12 @@ class AddRecurringSheet extends HookConsumerWidget {
         final isPortfolioScope = effectiveHouseholdId != null &&
             householdScope.isPortfolioId(effectiveHouseholdId);
         final selectedAccountId = selectedFinancialAccountId.value ??
-            ref.read(defaultScopedAccountProvider)?.id;
+            (() {
+              for (final account in scopedAccounts) {
+                if (account.isDefault) return account.id;
+              }
+              return scopedAccounts.isNotEmpty ? scopedAccounts.first.id : null;
+            })();
         // Only household-group accounts support shared splits.
         final shareWithHousehold = !isPortfolioScope &&
             isSharedWithHousehold.value &&
@@ -1332,44 +1383,92 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         const SizedBox(height: 20),
 
-                        _buildLabel(context.l10n.amount, colorScheme),
-                        const SizedBox(height: 8),
-                        MonekoInput(
-                          child: TextField(
-                            controller: amountController,
-                            focusNode: amountFocusNode,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                            textAlign: TextAlign.end,
-                            textInputAction: TextInputAction.done,
-                            onEditingComplete: () => amountFocusNode.unfocus(),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: '0.00',
-                              hintStyle: TextStyle(
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.3),
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
+                          label: context.l10n.amount,
+                          value: amountController.text.trim().isEmpty
+                              ? '0.00'
+                              : amountController.text.trim(),
+                          onTap: () async {
+                            final result = await MonekoAlertDialog.show(
+                              context: context,
+                              title: context.l10n.editAmount,
+                              description: null,
+                              confirmLabel: context.l10n.save,
+                              cancelLabel: context.l10n.cancel,
+                              inputConfig: MonekoAlertDialogInputConfig(
+                                initialValue: amountController.text.trim(),
+                                placeholder: context.l10n.amount,
+                                isRequired: true,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                validationPattern:
+                                    RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
+                                validationMessage:
+                                    context.l10n.pleaseEnterValidAmount,
                               ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              suffixIcon: amountFocusNode.hasFocus
-                                  ? IconButton(
-                                      icon: Icon(
-                                        Icons.check_rounded,
-                                        color: colorScheme.primary,
-                                      ),
-                                      splashRadius: 18,
-                                      onPressed: () =>
-                                          amountFocusNode.unfocus(),
-                                    )
-                                  : null,
-                            ),
-                          ),
+                            );
+
+                            if (!context.mounted ||
+                                result == null ||
+                                !result.confirmed ||
+                                result.text == null) {
+                              return;
+                            }
+
+                            amountController.text = result.text!.trim();
+                          },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
+                          label: 'Wallet',
+                          value: () {
+                            if (scopedAccountsAsync.isLoading) {
+                              return context.l10n.loading;
+                            }
+                            if (scopedAccounts.isEmpty) {
+                              return context.l10n.tapToSet;
+                            }
+                            final currentId = selectedFinancialAccountId.value;
+                            if (currentId != null) {
+                              for (final account in scopedAccounts) {
+                                if (account.id == currentId) {
+                                  return account.name;
+                                }
+                              }
+                            }
+                            final fallback = scopedAccounts.firstWhere(
+                              (account) => account.isDefault,
+                              orElse: () => scopedAccounts.first,
+                            );
+                            return fallback.name;
+                          }(),
+                          isValuePlaceholder: scopedAccounts.isEmpty,
+                          onTap: () async {
+                            if (scopedAccounts.isEmpty) return;
+                            final currentId = selectedFinancialAccountId.value;
+                            final initial = scopedAccounts.firstWhere(
+                              (account) => account.id == currentId,
+                              orElse: () => scopedAccounts.first,
+                            );
+                            final selected =
+                                await showTransactionSelectionSheet<
+                                    WalletEntity>(
+                              context: context,
+                              items: scopedAccounts,
+                              getLabel: (account) => account.name,
+                              initial: initial,
+                            );
+                            if (selected != null) {
+                              selectedFinancialAccountId.value = selected.id;
+                              hasManuallySelectedFinancialAccount.value = true;
+                            }
+                          },
                         ),
 
                         const SizedBox(height: 20),
@@ -1435,54 +1534,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                             );
                             if (result != null) {
                               selectedCurrency.value = result;
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.account,
-                          value: () {
-                            if (scopedAccountsAsync.isLoading) {
-                              return context.l10n.loading;
-                            }
-                            if (scopedAccounts.isEmpty) {
-                              return context.l10n.tapToSet;
-                            }
-                            final currentId = selectedFinancialAccountId.value;
-                            if (currentId != null) {
-                              for (final account in scopedAccounts) {
-                                if (account.id == currentId) {
-                                  return account.name;
-                                }
-                              }
-                            }
-                            final fallback = scopedAccounts.firstWhere(
-                              (account) => account.isDefault,
-                              orElse: () => scopedAccounts.first,
-                            );
-                            return fallback.name;
-                          }(),
-                          isValuePlaceholder: scopedAccounts.isEmpty,
-                          onTap: () async {
-                            if (scopedAccounts.isEmpty) return;
-                            final currentId = selectedFinancialAccountId.value;
-                            final initial = scopedAccounts.firstWhere(
-                              (account) => account.id == currentId,
-                              orElse: () => scopedAccounts.first,
-                            );
-                            final selected =
-                                await showTransactionSelectionSheet<
-                                    WalletEntity>(
-                              context: context,
-                              items: scopedAccounts,
-                              getLabel: (account) => account.name,
-                              initial: initial,
-                            );
-                            if (selected != null) {
-                              selectedFinancialAccountId.value = selected.id;
                             }
                           },
                         ),
