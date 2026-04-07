@@ -90,6 +90,7 @@ class AccountsPage extends HookConsumerWidget {
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+    final locale = Localizations.localeOf(context);
 
     // Spotlight keys for the wallets feature tour
     final netWorthSpotlightKey = useMemoized(() => GlobalKey(), []);
@@ -130,27 +131,16 @@ class AccountsPage extends HookConsumerWidget {
           ),
         ],
       ),
-      [],
+      [locale],
     );
 
-    // Start wallets spotlight tour when conditions are met
-    useEffect(() {
-      // Only start when data is loaded and we're on the wallets tab (index 1)
-      if (walletsAsync.isLoading || walletsAsync.hasError) return null;
-      if (currentTabIndex != 1) return null;
-
+    // Start wallets spotlight tour when on wallets tab and data is loaded
+    if (currentTabIndex == 3 && !walletsAsync.isLoading && !walletsAsync.hasError && auth.uid.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         walletsTourController.start(context);
       });
-
-      return null;
-    }, [
-      walletsAsync.isLoading,
-      walletsAsync.hasError,
-      currentTabIndex,
-      walletsTourController,
-    ]);
+    }
 
     if (selectedMonthIndexState.value > maxMonthIndex) {
       selectedMonthIndexState.value = maxMonthIndex;
