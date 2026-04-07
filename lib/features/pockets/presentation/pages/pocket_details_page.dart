@@ -182,7 +182,9 @@ class PocketDetailsPage extends HookConsumerWidget {
         children: [
           // 1. Full-bleed Gradient Background
           Positioned.fill(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -277,10 +279,14 @@ class PocketDetailsPage extends HookConsumerWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 if (pocket.icon != null) ...[
-                                  Icon(
-                                    getPocketIconData(pocket.icon),
-                                    size: 28,
-                                    color: textColor,
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      getPocketIconData(pocket.icon),
+                                      key: ValueKey(pocket.icon),
+                                      size: 28,
+                                      color: textColor,
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                 ],
@@ -308,12 +314,9 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 16),
                             // Big Amount (Remaining)
-                            Text(
-                              _formatLocalizedCurrency(
-                                context,
-                                limit - pocket.spent,
-                                effectiveCurrency,
-                              ),
+                            _AnimatedAmountText(
+                              value: limit - pocket.spent,
+                              currencyCode: effectiveCurrency,
                               style: TextStyle(
                                 fontSize: 48,
                                 fontWeight: FontWeight.w800,
@@ -323,8 +326,10 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 8),
                             // Allocated
-                            Text(
-                              '${_formatLocalizedCurrency(context, limit, effectiveCurrency)} allocated',
+                            _AnimatedAmountText(
+                              value: limit,
+                              currencyCode: effectiveCurrency,
+                              suffix: 'allocated',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: secondaryTextColor,
@@ -333,17 +338,24 @@ class PocketDetailsPage extends HookConsumerWidget {
                             ),
                             const SizedBox(height: 32),
                             // Progress Bar
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: LinearProgressIndicator(
-                                value: progress.clamp(0.0, 1.0),
-                                minHeight: 8,
-                                backgroundColor:
-                                    textColor.withValues(alpha: 0.1),
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  textColor.withValues(alpha: 0.8),
-                                ),
-                              ),
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: progress.clamp(0.0, 1.0), end: progress.clamp(0.0, 1.0)),
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, val, _) {
+                                return ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: LinearProgressIndicator(
+                                    value: val,
+                                    minHeight: 8,
+                                    backgroundColor:
+                                        textColor.withValues(alpha: 0.1),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      textColor.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -493,21 +505,24 @@ class _StatsGrid extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: context.l10n.spentThisMonth,
-            value: _formatLocalizedCurrency(context, spent, currency),
+            amount: spent,
+            currencyCode: currency,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             label: context.l10n.avgDaily,
-            value: _formatLocalizedCurrency(context, dailyAverage, currency),
+            amount: dailyAverage,
+            currencyCode: currency,
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
             label: context.l10n.allowance,
-            value: _formatLocalizedCurrency(context, allowance, currency),
+            amount: allowance,
+            currencyCode: currency,
           ),
         ),
       ],
@@ -518,11 +533,13 @@ class _StatsGrid extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.label,
-    required this.value,
+    required this.amount,
+    required this.currencyCode,
   });
 
   final String label;
-  final String value;
+  final double amount;
+  final String currencyCode;
 
   @override
   Widget build(BuildContext context) {
@@ -554,8 +571,9 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(
-              value,
+            child: _AnimatedAmountText(
+              value: amount,
+              currencyCode: currencyCode,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -565,6 +583,38 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AnimatedAmountText extends StatelessWidget {
+  final double value;
+  final String currencyCode;
+  final TextStyle style;
+  final String suffix;
+
+  const _AnimatedAmountText({
+    required this.value,
+    required this.currencyCode,
+    required this.style,
+    this.suffix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: value, end: value),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        final formatted = _formatLocalizedCurrency(context, val, currencyCode);
+        return Text(
+          suffix.isEmpty ? formatted : '$formatted $suffix',
+          style: style,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
     );
   }
 }

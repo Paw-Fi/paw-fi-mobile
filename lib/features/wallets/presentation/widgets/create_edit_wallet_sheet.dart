@@ -119,7 +119,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isEditing ? 'Edit Account' : 'Add Account',
+                        isEditing ? 'Edit Wallet' : 'Add Wallet',
                         style: TextStyle(
                           color: colorScheme.foreground,
                           fontSize: 20,
@@ -147,7 +147,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Account name',
+                        'Wallet name',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -161,7 +161,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Account color',
+                        'Wallet color',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -182,7 +182,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                                 onTap: () {
                                   AdaptiveColorPicker.show(
                                     context: context,
-                                    startingColor: parseAccountColor(
+                                    startingColor: parseWalletColor(
                                       selectedColor.value,
                                       AppTheme.pocketDefaultBlue,
                                     ),
@@ -257,7 +257,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Account icon',
+                        'Wallet icon',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -275,7 +275,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                           itemBuilder: (context, index) {
                             final iconName = _walletIcons[index];
                             final isSelected = selectedIcon.value == iconName;
-                            final selectedColorValue = parseAccountColor(
+                            final selectedColorValue = parseWalletColor(
                               selectedColor.value,
                               colorScheme.primary,
                             );

@@ -12,11 +12,11 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
-import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -40,11 +40,19 @@ class AccountsPage extends HookConsumerWidget {
     final walletsAsync = ref.watch(scopedWalletsProvider);
     final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
     final actions = ref.watch(walletActionsProvider);
-    final analytics = ref.watch(analyticsProvider);
     final auth = ref.watch(authProvider);
     final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final currentMonthStart =
+        DateTime(DateTime.now().year, DateTime.now().month);
+    final scopeQuery = WalletsScopeQuery(
+      userId: auth.uid,
+      householdId: _resolveWalletsScopeHouseholdId(householdScope),
+      selectedCurrency: selectedCurrencyCode,
+      currentMonthStart: currentMonthStart,
+    );
+    final historyAsync = ref.watch(walletsHistoryProvider(scopeQuery));
     final viewMode = ref.watch(viewModeProvider);
     final AsyncValue<List<Household>> householdsAsync =
         viewMode.mode == ViewMode.personal
@@ -55,22 +63,25 @@ class AccountsPage extends HookConsumerWidget {
       ref.invalidate(scopedWalletsProvider);
       await ref.read(scopedWalletsProvider.future);
 
-      final userId = ref.read(authProvider).uid;
-      if (userId.isNotEmpty) {
-        await ref.read(analyticsProvider.notifier).loadData(
-              userId,
-              forceReload: true,
-            );
-      }
+      ref.invalidate(walletsHistoryProvider(scopeQuery));
+      final history = await ref.read(walletsHistoryProvider(scopeQuery).future);
+      final months = history.availableMonths.isEmpty
+          ? <DateTime>[scopeQuery.currentMonthStart]
+          : history.availableMonths;
+      final selectedMonthIndex =
+          selectedMonthIndexState.value.clamp(0, months.length - 1).toInt();
+      final selectedMonthQuery = WalletsMonthQuery(
+        scope: scopeQuery,
+        monthStart: months[selectedMonthIndex],
+      );
+      ref.invalidate(walletsMonthSnapshotProvider(selectedMonthQuery));
+      await ref.read(walletsMonthSnapshotProvider(selectedMonthQuery).future);
     }
 
-    final scopedTransactions = analytics.allExpenses.where((expense) {
-      return _isInActiveScope(expense, householdScope) && !expense.isRecurring;
-    }).where((expense) {
-      return _isInSelectedCurrency(expense, selectedCurrencyCode);
-    }).toList(growable: false);
-
-    final availableMonths = _buildAvailableMonths(scopedTransactions);
+    final availableMonths =
+        historyAsync.valueOrNull?.availableMonths.isNotEmpty == true
+            ? historyAsync.valueOrNull!.availableMonths
+            : <DateTime>[scopeQuery.currentMonthStart];
     final maxMonthIndex = availableMonths.length - 1;
     final swipeHintPrefKey = _walletsMonthSwipeHintDismissedKey(auth.uid);
     final hasDismissedSwipeHintState =
@@ -79,6 +90,43 @@ class AccountsPage extends HookConsumerWidget {
     if (selectedMonthIndexState.value > maxMonthIndex) {
       selectedMonthIndexState.value = maxMonthIndex;
     }
+
+    useEffect(() {
+      if (availableMonths.isEmpty || auth.uid.isEmpty) {
+        return null;
+      }
+
+      final selectedIndex =
+          selectedMonthIndexState.value.clamp(0, availableMonths.length - 1);
+      final prefetchQueries = <WalletsMonthQuery>{
+        WalletsMonthQuery(
+          scope: scopeQuery,
+          monthStart: availableMonths[selectedIndex],
+        ),
+      };
+
+      if (selectedIndex > 0) {
+        prefetchQueries.add(
+          WalletsMonthQuery(
+            scope: scopeQuery,
+            monthStart: availableMonths[selectedIndex - 1],
+          ),
+        );
+      }
+      if (selectedIndex < availableMonths.length - 1) {
+        prefetchQueries.add(
+          WalletsMonthQuery(
+            scope: scopeQuery,
+            monthStart: availableMonths[selectedIndex + 1],
+          ),
+        );
+      }
+
+      for (final query in prefetchQueries) {
+        unawaited(ref.read(walletsMonthSnapshotProvider(query).future));
+      }
+      return null;
+    }, [scopeQuery, availableMonths, selectedMonthIndexState.value, auth.uid]);
 
     Future<void> onAddAccount() async {
       final result = await showCreateEditWalletSheet(context);
@@ -124,11 +172,17 @@ class AccountsPage extends HookConsumerWidget {
             final selectedMonthIndex =
                 selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
             final selectedMonth = availableMonths[selectedMonthIndex];
-            final selectedSnapshot = _buildSnapshot(
-              wallets: wallets,
-              transactions: scopedTransactions,
-              endExclusive: _startOfNextMonth(selectedMonth),
+            final selectedMonthQuery = WalletsMonthQuery(
+              scope: scopeQuery,
+              monthStart: selectedMonth,
             );
+            final selectedSnapshotAsync =
+                ref.watch(walletsMonthSnapshotProvider(selectedMonthQuery));
+            final selectedSnapshot = selectedSnapshotAsync.valueOrNull != null
+                ? _accountsSnapshotFromMonthSnapshot(
+                    selectedSnapshotAsync.valueOrNull!,
+                  )
+                : _buildOpeningSnapshot(wallets);
 
             return RefreshIndicator(
               onRefresh: onRefresh,
@@ -161,8 +215,8 @@ class AccountsPage extends HookConsumerWidget {
                             availableMonths: availableMonths,
                             selectedMonthIndex: index,
                             isActive: isActive,
-                            wallets: wallets,
-                            scopedTransactions: scopedTransactions,
+                            scopeQuery: scopeQuery,
+                            history: historyAsync.valueOrNull,
                             currencyCode: selectedCurrencyCode,
                             hasDismissedSwipeHint:
                                 hasDismissedSwipeHintState.value,
@@ -260,12 +314,12 @@ class _AnimatedNumberText extends StatelessWidget {
   }
 }
 
-class _WalletsOverviewCard extends HookWidget {
+class _WalletsOverviewCard extends HookConsumerWidget {
   final List<DateTime> availableMonths;
   final int selectedMonthIndex;
   final bool isActive;
-  final List<WalletEntity> wallets;
-  final List<ExpenseEntry> scopedTransactions;
+  final WalletsScopeQuery scopeQuery;
+  final WalletsHistorySummary? history;
   final String currencyCode;
   final bool hasDismissedSwipeHint;
   final _AccountsSnapshot activeSnapshot;
@@ -275,8 +329,8 @@ class _WalletsOverviewCard extends HookWidget {
     required this.availableMonths,
     required this.selectedMonthIndex,
     required this.isActive,
-    required this.wallets,
-    required this.scopedTransactions,
+    required this.scopeQuery,
+    required this.history,
     required this.currencyCode,
     required this.hasDismissedSwipeHint,
     required this.activeSnapshot,
@@ -284,36 +338,42 @@ class _WalletsOverviewCard extends HookWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final symbol = resolveCurrencySymbol(currencyCode);
     final monthLabel = MaterialLocalizations.of(context)
         .formatMonthYear(availableMonths[selectedMonthIndex]);
 
     final targetMonthIndex = isActive ? selectedMonthIndex : activeMonthIndex;
-
-    final selectedSnapshot = useMemoized(() {
-      return _buildSnapshot(
-        wallets: wallets,
-        transactions: scopedTransactions,
-        endExclusive: _startOfNextMonth(availableMonths[selectedMonthIndex]),
-      );
-    }, [availableMonths, selectedMonthIndex, wallets, scopedTransactions]);
+    final monthQuery = WalletsMonthQuery(
+      scope: scopeQuery,
+      monthStart: availableMonths[selectedMonthIndex],
+    );
+    final snapshotAsync = ref.watch(walletsMonthSnapshotProvider(monthQuery));
+    final selectedSnapshot = snapshotAsync.valueOrNull != null
+        ? _accountsSnapshotFromMonthSnapshot(snapshotAsync.valueOrNull!)
+        : activeSnapshot;
 
     final spots = useMemoized(() {
       final timeAscendingMonths = availableMonths.reversed.toList();
+      final pointByMonth = <DateTime, int>{
+        for (final point
+            in history?.netWorthSeries ?? const <WalletNetWorthPoint>[])
+          DateTime(point.monthStart.year, point.monthStart.month):
+              point.netWorthCents,
+      };
       final newSpots = <FlSpot>[];
       final currentListSize = timeAscendingMonths.length - targetMonthIndex;
       for (int i = 0; i < currentListSize; i++) {
-        final snap = _buildSnapshot(
-          wallets: wallets,
-          transactions: scopedTransactions,
-          endExclusive: _startOfNextMonth(timeAscendingMonths[i]),
+        final monthKey = DateTime(
+          timeAscendingMonths[i].year,
+          timeAscendingMonths[i].month,
         );
-        newSpots.add(FlSpot(i.toDouble(), snap.netWorth));
+        final netWorthCents = pointByMonth[monthKey] ?? 0;
+        newSpots.add(FlSpot(i.toDouble(), netWorthCents / 100.0));
       }
       return newSpots;
-    }, [availableMonths, wallets, scopedTransactions, targetMonthIndex]);
+    }, [availableMonths, history, targetMonthIndex]);
 
     final timeAscendingMonthsSize = availableMonths.length;
     final highlightX =
@@ -571,6 +631,7 @@ class _WalletAccountStack extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
     final prefs = ref.watch(sharedPreferencesProvider);
     const orderKey = 'wallet_accounts_order';
 
@@ -649,7 +710,7 @@ class _WalletAccountStack extends HookConsumerWidget {
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeOutQuart,
         height: stackHeight,
-        color: Colors.transparent,
+        color: colorScheme.surface.withValues(alpha: 0.0),
         child: Stack(
           clipBehavior: Clip.none,
           children: renderAccounts.map((wallet) {
@@ -734,7 +795,7 @@ class _WalletStackCard extends StatelessWidget {
 
     final walletColorRaw = wallet.color.toUpperCase() == '#6B7280'
         ? colorScheme.primary
-        : parseAccountColor(wallet.color, colorScheme.primary);
+        : parseWalletColor(wallet.color, colorScheme.primary);
     final baseColor = AppTheme.tunedPocketBaseColor(
       walletColorRaw,
       colorScheme,
@@ -996,91 +1057,46 @@ class _WalletStackCard extends StatelessWidget {
   }
 }
 
-bool _isInSelectedCurrency(ExpenseEntry expense, String currencyCode) {
-  final normalized = expense.currency?.trim().toUpperCase();
-  return normalized == currencyCode;
-}
-
-List<DateTime> _buildAvailableMonths(List<ExpenseEntry> transactions) {
-  final now = DateTime.now();
-  final currentMonth = DateTime(now.year, now.month);
-  if (transactions.isEmpty) {
-    return <DateTime>[currentMonth];
-  }
-
-  var earliest = currentMonth;
-  for (final tx in transactions) {
-    final txMonth = DateTime(tx.date.year, tx.date.month);
-    if (txMonth.isBefore(earliest)) {
-      earliest = txMonth;
-    }
-  }
-
-  final months = <DateTime>[];
-  var cursor = currentMonth;
-  while (!cursor.isBefore(earliest)) {
-    months.add(cursor);
-    cursor = DateTime(cursor.year, cursor.month - 1);
-  }
-  return months;
-}
-
 String _walletsMonthSwipeHintDismissedKey(String userId) {
   return 'accounts_month_swipe_hint_dismissed:$userId';
 }
 
-DateTime _startOfNextMonth(DateTime month) {
-  return DateTime(month.year, month.month + 1);
-}
-
-_AccountsSnapshot _buildSnapshot({
-  required List<WalletEntity> wallets,
-  required List<ExpenseEntry> transactions,
-  required DateTime endExclusive,
-}) {
-  final filteredTransactions = transactions.where((expense) {
-    return expense.date.isBefore(endExclusive);
-  }).toList(growable: false);
-
-  var totalIncome = 0.0;
-  var totalSpent = 0.0;
-  for (final expense in filteredTransactions) {
-    final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-    if (isIncome) {
-      totalIncome += expense.amount.abs();
-    } else {
-      totalSpent += expense.amount.abs();
-    }
-  }
-
+_AccountsSnapshot _buildOpeningSnapshot(List<WalletEntity> wallets) {
   final walletBalances = <String, int>{
     for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
   };
-  for (final tx in filteredTransactions) {
-    final resolvedAccountId = resolveTransactionWalletId(
-      transaction: tx,
-      wallets: wallets,
-    );
-    if (resolvedAccountId == null ||
-        !walletBalances.containsKey(resolvedAccountId)) {
-      continue;
-    }
-    final amountCents = tx.amountCents.abs();
-    final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
-    final current = walletBalances[resolvedAccountId] ?? 0;
-    walletBalances[resolvedAccountId] =
-        isIncome ? current + amountCents : current - amountCents;
+  var netWorthCents = 0;
+  for (final value in walletBalances.values) {
+    netWorthCents += value;
   }
-
-  final netWorth =
-      walletBalances.values.fold<int>(0, (sum, value) => sum + value) / 100.0;
-
   return _AccountsSnapshot(
-    totalIncome: totalIncome,
-    totalSpent: totalSpent,
-    netWorth: netWorth,
+    totalIncome: 0,
+    totalSpent: 0,
+    netWorth: netWorthCents / 100.0,
     walletBalances: walletBalances,
   );
+}
+
+_AccountsSnapshot _accountsSnapshotFromMonthSnapshot(
+  WalletsMonthSnapshot snapshot,
+) {
+  return _AccountsSnapshot(
+    totalIncome: snapshot.incomeTotalCents / 100.0,
+    totalSpent: snapshot.spentTotalCents / 100.0,
+    netWorth: snapshot.netWorthCents / 100.0,
+    walletBalances: snapshot.walletBalances,
+  );
+}
+
+String? _resolveWalletsScopeHouseholdId(HouseholdScope scope) {
+  switch (scope.activeAccountType) {
+    case ActiveWalletType.personal:
+      return null;
+    case ActiveWalletType.portfolio:
+      return scope.activeAccountHouseholdId;
+    case ActiveWalletType.household:
+      return scope.selectedHouseholdId;
+  }
 }
 
 class _AccountsSnapshot {
@@ -1154,20 +1170,5 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
   }
 
   @override
-  @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-bool _isInActiveScope(ExpenseEntry expense, HouseholdScope scope) {
-  final householdId = expense.householdId;
-  switch (scope.activeAccountType) {
-    case ActiveWalletType.personal:
-      return householdId == null || householdId.isEmpty;
-    case ActiveWalletType.portfolio:
-      final selected = scope.activeAccountHouseholdId;
-      return selected != null && selected.isNotEmpty && householdId == selected;
-    case ActiveWalletType.household:
-      final selected = scope.selectedHouseholdId;
-      return selected != null && selected.isNotEmpty && householdId == selected;
-  }
 }

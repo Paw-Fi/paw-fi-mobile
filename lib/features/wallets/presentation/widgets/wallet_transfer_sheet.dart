@@ -14,6 +14,34 @@ import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 
+class _AnimatedAmountText extends StatelessWidget {
+  final double value;
+  final String symbol;
+  final TextStyle style;
+
+  const _AnimatedAmountText({
+    super.key,
+    required this.value,
+    required this.symbol,
+    required this.style,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: value, end: value),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        return Text(
+          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(val)))}',
+          style: style,
+        );
+      },
+    );
+  }
+}
+
 class WalletTransferResult {
   final String fromAccountId;
   final String toAccountId;
@@ -372,33 +400,53 @@ class _WalletTransferSheet extends HookConsumerWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
                             child: Row(
                               children: [
-                                Container(
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 600),
+                                  curve: Curves.easeOutCubic,
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: parseAccountColor(fromWallet.color, colorScheme.primary)
+                                    color: parseWalletColor(
+                                            fromWallet.color, colorScheme.primary)
                                         .withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    resolveWalletIcon(fromWallet.icon),
-                                    color: parseAccountColor(fromWallet.color, colorScheme.primary),
-                                    size: 16,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      resolveWalletIcon(fromWallet.icon),
+                                      key: ValueKey(fromWallet.icon),
+                                      color: parseWalletColor(
+                                          fromWallet.color, colorScheme.primary),
+                                      size: 16,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    fromWallet.name,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorScheme.foreground,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                                      alignment: Alignment.centerLeft,
+                                      children: <Widget>[
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    ),
+                                    child: Text(
+                                      fromWallet.name,
+                                      key: ValueKey(fromWallet.name),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.foreground,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                Text(
-                                  '${symbol}${formatLocalizedNumber(context, double.parse(formatAmount(fromWallet.currentBalanceCents / 100.0)))}',
+                                _AnimatedAmountText(
+                                  value: fromWallet.currentBalanceCents / 100.0,
+                                  symbol: symbol,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w400,
@@ -461,33 +509,53 @@ class _WalletTransferSheet extends HookConsumerWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
                             child: Row(
                               children: [
-                                Container(
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 600),
+                                  curve: Curves.easeOutCubic,
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: parseAccountColor(toWallet.color, colorScheme.primary)
+                                    color: parseWalletColor(
+                                            toWallet.color, colorScheme.primary)
                                         .withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(
-                                    resolveWalletIcon(toWallet.icon),
-                                    color: parseAccountColor(toWallet.color, colorScheme.primary),
-                                    size: 16,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      resolveWalletIcon(toWallet.icon),
+                                      key: ValueKey(toWallet.icon),
+                                      color: parseWalletColor(
+                                          toWallet.color, colorScheme.primary),
+                                      size: 16,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Text(
-                                    toWallet.name,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: colorScheme.foreground,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                                      alignment: Alignment.centerLeft,
+                                      children: <Widget>[
+                                        ...previousChildren,
+                                        if (currentChild != null) currentChild,
+                                      ],
+                                    ),
+                                    child: Text(
+                                      toWallet.name,
+                                      key: ValueKey(toWallet.name),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.foreground,
+                                      ),
                                     ),
                                   ),
                                 ),
-                                Text(
-                                  '${symbol}${formatLocalizedNumber(context, double.parse(formatAmount(toWallet.currentBalanceCents / 100.0)))}',
+                                _AnimatedAmountText(
+                                  value: toWallet.currentBalanceCents / 100.0,
+                                  symbol: symbol,
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w400,
@@ -612,7 +680,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     itemBuilder: (context, index) {
                       final wallet = wallets[index];
                       final isSelected = wallet.id == currentId;
-                      final walletColor = parseAccountColor(wallet.color, colorScheme.primary);
+                      final walletColor = parseWalletColor(wallet.color, colorScheme.primary);
 
                       return ListTile(
                         onTap: () => Navigator.of(context).pop(wallet.id),

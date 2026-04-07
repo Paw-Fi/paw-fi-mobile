@@ -821,7 +821,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         label: context.l10n.selectColor,
                                       );
                                     },
-                                    child: Container(
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
@@ -850,15 +851,20 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           // Shadow removed as requested
                                         ],
                                       ),
-                                      child: isCustomColor
-                                          ? Icon(Icons.check,
-                                              color:
-                                                  colorScheme.primaryForeground,
-                                              size: 20)
-                                          : Icon(Icons.colorize,
-                                              color:
-                                                  colorScheme.primaryForeground,
-                                              size: 20),
+                                      child: AnimatedSwitcher(
+                                        duration: const Duration(milliseconds: 300),
+                                        child: isCustomColor
+                                            ? Icon(Icons.check,
+                                                key: const ValueKey('check'),
+                                                color:
+                                                    colorScheme.primaryForeground,
+                                                size: 20)
+                                            : Icon(Icons.colorize,
+                                                key: const ValueKey('colorize'),
+                                                color:
+                                                    colorScheme.primaryForeground,
+                                                size: 20),
+                                      ),
                                     ),
                                   );
                                 }
@@ -875,7 +881,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                                 return GestureDetector(
                                   onTap: () => selectedColor.value = hex,
-                                  child: Container(
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
@@ -890,12 +897,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         // Shadow removed as requested
                                       ],
                                     ),
-                                    child: isSelected
-                                        ? Icon(Icons.check,
-                                            color:
-                                                colorScheme.primaryForeground,
-                                            size: 20)
-                                        : null,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 300),
+                                      child: isSelected
+                                          ? Icon(Icons.check,
+                                              key: const ValueKey('selected'),
+                                              color:
+                                                  colorScheme.primaryForeground,
+                                              size: 20)
+                                          : const SizedBox(key: ValueKey('unselected')),
+                                    ),
                                   ),
                                 );
                               },
@@ -934,7 +945,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                               return GestureDetector(
                                 onTap: () => selectedIcon.value = iconName,
-                                child: Container(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
@@ -949,12 +961,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           : colorScheme.border,
                                     ),
                                   ),
-                                  child: Icon(
-                                    iconData,
-                                    color: isSelected
-                                        ? selectedColorValue
-                                        : colorScheme.mutedForeground,
-                                    size: 20,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      iconData,
+                                      key: ValueKey(isSelected),
+                                      color: isSelected
+                                          ? selectedColorValue
+                                          : colorScheme.mutedForeground,
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
                               );

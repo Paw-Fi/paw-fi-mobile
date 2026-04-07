@@ -6,6 +6,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -84,7 +85,8 @@ final archivedScopedAccountsProvider =
 
   final payload = response.data as Map<String, dynamic>?;
   if (payload == null || payload['success'] != true) {
-    final message = payload?['error']?.toString() ?? 'Failed to load accwalletsounts';
+    final message =
+        payload?['error']?.toString() ?? 'Failed to load accwalletsounts';
     throw Exception(message);
   }
 
@@ -102,8 +104,7 @@ final scopedWalletsProvider = FutureProvider<List<WalletEntity>>((ref) async {
 });
 
 final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
-  final baseAccounts =
-      ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
+  final baseAccounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
   final optimisticOverrides =
       ref.watch(optimisticScopedAccountsOverridesProvider);
   return _mergeOptimisticAccounts(baseAccounts, optimisticOverrides);
@@ -331,6 +332,7 @@ class WalletActions {
     ref.invalidate(walletsByHouseholdIdProvider);
     ref.invalidate(scopedWalletsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
+    ref.read(walletsRefreshSignalProvider.notifier).state += 1;
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
       debugPrint(

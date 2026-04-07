@@ -68,7 +68,7 @@ IconData resolveWalletIcon(String? iconName) {
   }
 }
 
-Color parseAccountColor(String? colorHex, Color fallback) {
+Color parseWalletColor(String? colorHex, Color fallback) {
   final raw = (colorHex ?? '').trim();
   if (!raw.startsWith('#') || raw.length < 7) return fallback;
   final hex = raw.substring(1, 7);

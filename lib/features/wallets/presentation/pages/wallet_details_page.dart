@@ -63,8 +63,8 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     final latestWallet = providerAccount ?? latestDisplayedAccountState.value;
     final householdScope = ref.watch(householdScopeProvider);
-    final scopedAccounts = ref.watch(scopedWalletsProvider).valueOrNull ??
-        const <WalletEntity>[];
+    final scopedAccounts =
+        ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
     final defaultAccountId = _resolveDefaultAccountId(scopedAccounts);
     final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
 
@@ -96,7 +96,7 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     final scopedExpenses = walletFeedState.items;
     final walletColor =
-        parseAccountColor(latestWallet.color, colorScheme.primary);
+        parseWalletColor(latestWallet.color, colorScheme.primary);
     final gradientColors =
         AppTheme.pocketDetailsGradient(walletColor, colorScheme);
     final isBackgroundLight = gradientColors.first.computeLuminance() > 0.5;
@@ -104,17 +104,11 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final currentBalanceCents = latestWallet.openingBalanceCents +
-        ((walletFeedState.summary.incomeTotal -
-                    walletFeedState.summary.expenseTotal) *
-                100)
-            .round();
+    final currentBalanceCents = latestWallet.currentBalanceCents;
     final totalIncome = monthFeedState.summary.incomeTotal;
     final totalSpent = monthFeedState.summary.expenseTotal;
 
     final net = totalIncome - totalSpent;
-
-    final symbol = resolveCurrencySymbol(selectedCurrencyCode);
 
     Future<void> onEdit() async {
       final result =
@@ -202,9 +196,11 @@ class WalletDetailsPage extends HookConsumerWidget {
 
     Future<void> onTransfer() async {
       // Get all wallets for transfer selection
-      final scopedAccounts = ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
+      final scopedAccounts =
+          ref.read(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
       if (scopedAccounts.length < 2) {
-        AppToast.info(context, 'You need at least two wallets to make a transfer');
+        AppToast.info(
+            context, 'You need at least two wallets to make a transfer');
         return;
       }
 
@@ -253,7 +249,9 @@ class WalletDetailsPage extends HookConsumerWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -310,17 +308,23 @@ class WalletDetailsPage extends HookConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const SizedBox(height: 20),
-                            Container(
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeOutCubic,
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
                                 color: textColor.withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(
-                                resolveWalletIcon(latestWallet.icon),
-                                color: textColor,
-                                size: 30,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                child: Icon(
+                                  resolveWalletIcon(latestWallet.icon),
+                                  key: ValueKey(latestWallet.icon),
+                                  color: textColor,
+                                  size: 30,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -342,12 +346,9 @@ class WalletDetailsPage extends HookConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Text(
-                              _formatAmount(
-                                context,
-                                currentBalanceCents / 100.0,
-                                selectedCurrencyCode,
-                              ),
+                            _AnimatedAmountText(
+                              value: currentBalanceCents / 100.0,
+                              currencyCode: selectedCurrencyCode,
                               style: TextStyle(
                                 fontSize: 44,
                                 fontWeight: FontWeight.w800,
@@ -357,8 +358,10 @@ class WalletDetailsPage extends HookConsumerWidget {
                             ),
                             if (latestWallet.goalAmountCents != null) ...[
                               const SizedBox(height: 8),
-                              Text(
-                                '${context.l10n.balanceSummary} ${_formatAmount(context, latestWallet.goalAmountCents! / 100.0, selectedCurrencyCode)}',
+                              _AnimatedAmountText(
+                                value: latestWallet.goalAmountCents! / 100.0,
+                                currencyCode: selectedCurrencyCode,
+                                prefix: context.l10n.balanceSummary,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: secondaryTextColor,
@@ -400,24 +403,24 @@ class WalletDetailsPage extends HookConsumerWidget {
                               Expanded(
                                 child: _StatCard(
                                   label: context.l10n.totalIncome,
-                                  value:
-                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalIncome)))}',
+                                  amount: totalIncome,
+                                  currencyCode: selectedCurrencyCode,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _StatCard(
                                   label: context.l10n.totalSpent,
-                                  value:
-                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(totalSpent)))}',
+                                  amount: totalSpent,
+                                  currencyCode: selectedCurrencyCode,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _StatCard(
                                   label: 'Net',
-                                  value:
-                                      '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(net)))}',
+                                  amount: net,
+                                  currencyCode: selectedCurrencyCode,
                                 ),
                               ),
                             ],
@@ -541,10 +544,11 @@ String? _resolveDefaultAccountId(List<WalletEntity> wallets) {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({required this.label, required this.amount, required this.currencyCode});
 
   final String label;
-  final String value;
+  final double amount;
+  final String currencyCode;
 
   @override
   Widget build(BuildContext context) {
@@ -567,10 +571,9 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          _AnimatedAmountText(
+            value: amount,
+            currencyCode: currencyCode,
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.foreground,
@@ -579,6 +582,38 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AnimatedAmountText extends StatelessWidget {
+  final double value;
+  final String currencyCode;
+  final TextStyle style;
+  final String prefix;
+
+  const _AnimatedAmountText({
+    required this.value,
+    required this.currencyCode,
+    required this.style,
+    this.prefix = '',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: value, end: value),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, val, child) {
+        final formatted = _formatAmount(context, val, currencyCode);
+        return Text(
+          prefix.isEmpty ? formatted : '$prefix $formatted',
+          style: style,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
     );
   }
 }

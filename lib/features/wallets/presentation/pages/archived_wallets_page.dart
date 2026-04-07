@@ -106,7 +106,7 @@ class _ArchivedAccountCard extends StatelessWidget {
 
     final walletColorRaw = wallet.color.toUpperCase() == '#6B7280'
         ? colorScheme.primary
-        : parseAccountColor(wallet.color, colorScheme.primary);
+        : parseWalletColor(wallet.color, colorScheme.primary);
     final baseColor = AppTheme.tunedPocketBaseColor(
       walletColorRaw,
       colorScheme,
