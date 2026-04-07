@@ -460,7 +460,7 @@ class _ChecklistStepCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   step.title,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -476,7 +476,7 @@ class _ChecklistStepCard extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   step.description,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(

@@ -372,12 +372,18 @@ class _ScenarioPlanningTabContentState
               children: [
                 Row(
                   children: [
-                    Text(
-                      context.l10n.aiScenarioPlanning,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.foreground,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          context.l10n.aiScenarioPlanning,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
