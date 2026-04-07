@@ -296,7 +296,7 @@ class MainShell extends HookConsumerWidget {
               icon: PlatformInfo.isIOS
                   ? CupertinoIcons.creditcard
                   : Icons.account_balance_wallet_outlined,
-              label: 'Wallets',
+              label: context.l10n.wallet,
             ),
             AdaptiveNavigationDestination(
               icon: PlatformInfo.isIOS

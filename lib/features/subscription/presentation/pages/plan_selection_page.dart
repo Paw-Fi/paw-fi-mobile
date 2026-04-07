@@ -679,7 +679,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       _debugLog('🧾 Manage subscription launchUrl result: $ok');
       if (!ok && context.mounted) {
-        AppToast.error(context, 'Unable to open subscription settings');
+        AppToast.error(context, context.l10n.unableToOpenSubscriptionSettings);
       }
     }
 
@@ -760,7 +760,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       if (isCurrentPlan(activePlanOption)) {
         print('⚠️ User already on this plan');
         // Already on this plan
-        AppToast.info(context, 'You are already on this plan.');
+        AppToast.info(context, context.l10n.alreadyOnThisPlan);
         return;
       }
 
@@ -939,7 +939,7 @@ class PlanSelectionPage extends HookConsumerWidget {
             provider: useIap ? 'iap' : 'stripe',
             includePurchaseEvent: true,
           );
-          AppToast.success(context, 'Subscription status restored');
+          AppToast.success(context, context.l10n.subscriptionStatusRestored);
           return;
         }
 
@@ -957,7 +957,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       } catch (e) {
         didInitiateRestore.value = false;
         if (context.mounted) {
-          AppToast.error(context, 'Failed to restore: ${e.toString()}');
+          AppToast.error(context, '${context.l10n.failedToRestore}: ${e.toString()}');
         }
       } finally {
         dismissProcessingDialog('restore purchases');
@@ -990,7 +990,7 @@ class PlanSelectionPage extends HookConsumerWidget {
               .read(subscriptionManagementProvider.notifier)
               .cancelSubscription();
           if (context.mounted) {
-            AppToast.success(context, 'Subscription cancelled');
+            AppToast.success(context, context.l10n.subscriptionCancelled);
           }
         } catch (e) {
           if (context.mounted) {
@@ -1403,7 +1403,7 @@ class _LegalLinks extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.error(context, 'Could not open link');
+        AppToast.error(context, context.l10n.couldNotOpenLink);
       }
     }
   }

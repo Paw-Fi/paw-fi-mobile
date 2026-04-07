@@ -50,7 +50,7 @@ class MapColumnsStep extends ConsumerWidget {
       final selectedIndex = mapping.fieldToColumnIndex[field];
       final actions = <MonekoActionSheetAction<int>>[
         MonekoActionSheetAction<int>(
-          label: 'None',
+          label: context.l10n.none,
           value: -1,
           icon: Icons.clear_rounded,
         ),

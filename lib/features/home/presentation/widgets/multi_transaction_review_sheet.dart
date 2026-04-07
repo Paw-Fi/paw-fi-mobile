@@ -453,7 +453,7 @@ class _MultiTransactionReviewSheetState
     }
 
     if (selectedIndexes.isEmpty) {
-      AppToast.info(context, 'Select at least one transaction');
+      AppToast.info(context, context.l10n.selectAtLeastOneTransaction);
       return;
     }
 
@@ -488,7 +488,7 @@ class _MultiTransactionReviewSheetState
           _drafts[entry.key].error = entry.value;
         }
       });
-      AppToast.error(context, 'Please fix the highlighted items');
+      AppToast.error(context, context.l10n.pleaseFixHighlightedItems);
       final firstIndex = validationErrors.keys.reduce((a, b) => a < b ? a : b);
       if (_scrollController.hasClients) {
         _scrollController.animateTo(

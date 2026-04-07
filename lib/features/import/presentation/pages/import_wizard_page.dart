@@ -131,7 +131,6 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: SelectFileStep(
             state: state,
-            sourceApp: widget.sourceApp,
             lockPersonalTarget: widget.lockPersonalTarget,
           ),
         );
@@ -223,7 +222,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       try {
         await AdaptiveAlertDialog.show(
           context: context,
-          title: 'Import completed',
+          title: context.l10n.importCompleted,
           message: [
             '${context.l10n.imported}: $succeeded',
             '${context.l10n.failed}: $failed',
@@ -234,7 +233,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           ].join('\n'),
           actions: [
             AlertAction(
-              title: 'Got it',
+              title: context.l10n.gotIt,
               style: AlertActionStyle.primary,
               onPressed: () {},
             ),

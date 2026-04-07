@@ -503,7 +503,7 @@ class _HouseholdMembersSectionState
     } catch (e) {
       if (mounted) {
         // ignore: use_build_context_synchronously
-        AppToast.error(context, 'Failed to update role: $e');
+        AppToast.error(context, '${context.l10n.failedToUpdateRole}: $e');
       }
     }
   }
@@ -526,12 +526,12 @@ class _HouseholdMembersSectionState
             .removeMember(member.id);
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.success(context, 'Member removed');
+          AppToast.success(context, context.l10n.memberRemoved);
         }
       } catch (e) {
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.error(context, 'Failed to remove member: $e');
+          AppToast.error(context, '${context.l10n.failedToRemoveMember}: $e');
         }
       }
     }

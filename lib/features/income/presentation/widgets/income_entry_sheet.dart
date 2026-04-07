@@ -105,7 +105,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
     final amount = double.tryParse(amountText);
 
     if (amount == null || amount <= 0) {
-      AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
+      AppToast.error(context, context.l10n.failedToSaveIncome);
       return;
     }
 
@@ -151,7 +151,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
         Navigator.of(context).pop();
         AppToast.success(context, context.l10n.incomeAdded);
       } else if (mounted) {
-        AppToast.error(context, 'Failed to save income');
+        AppToast.error(context, context.l10n.failedToSaveIncome);
       }
     } catch (e) {
       if (mounted) {

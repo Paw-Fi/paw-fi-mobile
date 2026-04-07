@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_card.dart';
 
@@ -23,9 +24,9 @@ class WalletListSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (wallets.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(child: Text('No wallets yet. Add your first wallet.')),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(child: Text(context.l10n.noWalletsYetAddFirst)),
       );
     }
 

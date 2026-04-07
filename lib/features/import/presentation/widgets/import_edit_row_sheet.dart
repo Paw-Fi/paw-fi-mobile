@@ -169,7 +169,7 @@ class _EditRowSheetState extends State<EditRowSheet> {
                 StandardTile(
                   leadingIcon: Icons.swap_horiz_rounded,
                   // TODO: wire to l10n once ARB keys are added
-                  title: 'Type',
+                  title: context.l10n.type,
                   trailing: GestureDetector(
                     onTap: () {
                       setState(() {
@@ -195,7 +195,7 @@ class _EditRowSheetState extends State<EditRowSheet> {
                         ),
                       ),
                       child: Text(
-                        _typeValue == 'income' ? 'Income' : 'Expense',
+                        _typeValue == 'income' ? context.l10n.income : context.l10n.expense,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,

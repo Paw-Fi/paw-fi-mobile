@@ -28,6 +28,9 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
+import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 
 class AccountsPage extends HookConsumerWidget {
   const AccountsPage({super.key});
@@ -86,6 +89,68 @@ class AccountsPage extends HookConsumerWidget {
     final swipeHintPrefKey = _walletsMonthSwipeHintDismissedKey(auth.uid);
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
+
+    // Spotlight keys for the wallets feature tour
+    final netWorthSpotlightKey = useMemoized(() => GlobalKey(), []);
+    final walletStackSpotlightKey = useMemoized(() => GlobalKey(), []);
+    final newWalletSpotlightKey = useMemoized(() => GlobalKey(), []);
+
+    // Wallets feature spotlight tour controller
+    final walletsTourController = useMemoized(
+      () => SpotlightTourController(
+        tourId: 'wallets_feature_v1',
+        steps: [
+          SpotlightStep(
+            id: 'wallets_net_worth',
+            targetKey: netWorthSpotlightKey,
+            title: context.l10n.walletsNetWorthTourTitle,
+            description: context.l10n.walletsNetWorthTourDescription,
+            placement: SpotlightPlacement.bottom,
+            padding: 12,
+            borderRadius: 24,
+          ),
+          SpotlightStep(
+            id: 'wallets_stack',
+            targetKey: walletStackSpotlightKey,
+            title: context.l10n.walletsStackTourTitle,
+            description: context.l10n.walletsStackTourDescription,
+            placement: SpotlightPlacement.top,
+            padding: 8,
+            borderRadius: 24,
+          ),
+          SpotlightStep(
+            id: 'wallets_new_wallet',
+            targetKey: newWalletSpotlightKey,
+            title: context.l10n.walletsNewWalletTourTitle,
+            description: context.l10n.walletsNewWalletTourDescription,
+            placement: SpotlightPlacement.top,
+            padding: 8,
+            borderRadius: 12,
+          ),
+        ],
+      ),
+      [],
+    );
+
+    // Start wallets spotlight tour when conditions are met
+    useEffect(() {
+      // Only start when data is loaded and we're on the wallets tab (index 1)
+      if (walletsAsync.isLoading || walletsAsync.hasError) return null;
+      if (currentTabIndex != 1) return null;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        walletsTourController.start(context);
+      });
+
+      return null;
+    }, [
+      walletsAsync.isLoading,
+      walletsAsync.hasError,
+      currentTabIndex,
+      walletsTourController,
+    ]);
 
     if (selectedMonthIndexState.value > maxMonthIndex) {
       selectedMonthIndexState.value = maxMonthIndex;
@@ -194,7 +259,7 @@ class AccountsPage extends HookConsumerWidget {
                     height: (!hasDismissedSwipeHintState.value &&
                             availableMonths.length > 1)
                         ? 290
-                        : 250,
+                        : 260,
                     child: PageView.builder(
                       itemCount: availableMonths.length,
                       controller: monthPageController,
@@ -211,17 +276,20 @@ class AccountsPage extends HookConsumerWidget {
                         final isActive = selectedMonthIndexState.value == index;
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: _WalletsOverviewCard(
-                            availableMonths: availableMonths,
-                            selectedMonthIndex: index,
-                            isActive: isActive,
-                            scopeQuery: scopeQuery,
-                            history: historyAsync.valueOrNull,
-                            currencyCode: selectedCurrencyCode,
-                            hasDismissedSwipeHint:
-                                hasDismissedSwipeHintState.value,
-                            activeSnapshot: selectedSnapshot,
-                            activeMonthIndex: selectedMonthIndexState.value,
+                          child: Container(
+                            key: isActive ? netWorthSpotlightKey : null,
+                            child: _WalletsOverviewCard(
+                              availableMonths: availableMonths,
+                              selectedMonthIndex: index,
+                              isActive: isActive,
+                              scopeQuery: scopeQuery,
+                              history: historyAsync.valueOrNull,
+                              currencyCode: selectedCurrencyCode,
+                              hasDismissedSwipeHint:
+                                  hasDismissedSwipeHintState.value,
+                              activeSnapshot: selectedSnapshot,
+                              activeMonthIndex: selectedMonthIndexState.value,
+                            ),
                           ),
                         );
                       },
@@ -245,22 +313,28 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     )
                   else
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 24, top: 12),
-                      child: _WalletAccountStack(
-                        wallets: wallets,
-                        currencyCode: selectedCurrencyCode,
-                        walletBalances: selectedSnapshot.walletBalances,
+                    Container(
+                      key: walletStackSpotlightKey,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 24, top: 12),
+                        child: _WalletAccountStack(
+                          wallets: wallets,
+                          currencyCode: selectedCurrencyCode,
+                          walletBalances: selectedSnapshot.walletBalances,
+                        ),
                       ),
                     ),
-                  TextButton.icon(
-                    onPressed: onAddAccount,
-                    icon: Icon(Icons.add, color: colorScheme.primary),
-                    label: Text(
-                      context.l10n.newAccount,
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w700,
+                  Container(
+                    key: newWalletSpotlightKey,
+                    child: TextButton.icon(
+                      onPressed: onAddAccount,
+                      icon: Icon(Icons.add, color: colorScheme.primary),
+                      label: Text(
+                        context.l10n.newWallet,
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),

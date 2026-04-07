@@ -1,6 +1,7 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -169,8 +170,8 @@ class WalletsHistoryPage extends HookConsumerWidget {
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(
-        title: 'Historical Data',
+      appBar: AdaptiveAppBar(
+        title: context.l10n.historicalData,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),

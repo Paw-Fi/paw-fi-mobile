@@ -25,10 +25,10 @@ class ArchivedWalletsPage extends ConsumerWidget {
     Future<void> onRestore(WalletEntity wallet) async {
       final confirm = await MonekoAlertDialog.show(
         context: context,
-        title: 'Restore wallet?',
+        title: context.l10n.restoreWallet,
         description:
-            'This wallet will be moved back to active wallets and can be used in future transactions.',
-        confirmLabel: 'Restore',
+            context.l10n.restoreWalletDescription,
+        confirmLabel: context.l10n.restore,
         cancelLabel: context.l10n.cancel,
       );
       if (confirm?.confirmed != true || !context.mounted) return;
@@ -36,7 +36,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
       try {
         await actions.restoreAccount(wallet.id);
         if (!context.mounted) return;
-        AppToast.success(context, 'Account restored');
+        AppToast.success(context, context.l10n.walletRestored);
       } catch (error) {
         if (!context.mounted) return;
         AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
@@ -58,9 +58,11 @@ class ArchivedWalletsPage extends ConsumerWidget {
         data: (wallets) {
           if (wallets.isEmpty) {
             return Center(
-              child: Text(
-                'No archived wallets',
-                style: TextStyle(color: colorScheme.mutedForeground),
+              child: Center(
+                child: Text(
+                  context.l10n.noWalletsYetAddFirst,
+                  style: TextStyle(color: colorScheme.mutedForeground),
+                ),
               ),
             );
           }

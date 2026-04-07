@@ -6749,4 +6749,145 @@ class AppLocalizationsTh extends AppLocalizations {
   String attachmentLimitMessage(Object count) {
     return 'คุณสามารถแนบรูปภาพได้สูงสุด $count รูปต่อทิกเก็ต';
   }
+
+  @override
+  String get noWalletsYetAddFirst => 'ยังไม่มีกระเป๋าเงิน เพิ่มกระเป๋าเงินใบแรกของคุณ';
+
+  @override
+  String get restoreWallet => 'กู้คืนกระเป๋านี้หรือไม่?';
+
+  @override
+  String get restoreWalletDescription => 'กระเป๋านี้จะถูกย้ายกลับไปยังกระเป๋าที่ใช้งานอยู่ และสามารถใช้กับธุรกรรมในอนาคตได้';
+
+  @override
+  String get restore => 'กู้คืน';
+
+  @override
+  String get walletRestored => 'กู้คืนกระเป๋าแล้ว';
+
+  @override
+  String get historicalData => 'ข้อมูลย้อนหลัง';
+
+  @override
+  String get unableToOpenSubscriptionSettings => 'ไม่สามารถเปิดการตั้งค่าการสมัครสมาชิกได้';
+
+  @override
+  String get alreadyOnThisPlan => 'คุณใช้แผนนี้อยู่แล้ว';
+
+  @override
+  String get subscriptionStatusRestored => 'กู้คืนสถานะการสมัครสมาชิกแล้ว';
+
+  @override
+  String get failedToRestore => 'กู้คืนไม่สำเร็จ';
+
+  @override
+  String get subscriptionCancelled => 'ยกเลิกการสมัครสมาชิกแล้ว';
+
+  @override
+  String get couldNotOpenLink => 'ไม่สามารถเปิดลิงก์ได้';
+
+  @override
+  String get failedToUpdateRole => 'อัปเดตบทบาทไม่สำเร็จ';
+
+  @override
+  String get memberRemoved => 'นำสมาชิกออกแล้ว';
+
+  @override
+  String get failedToRemoveMember => 'นำสมาชิกออกไม่สำเร็จ';
+
+  @override
+  String get splitCreatedSuccessfully => 'สร้างการหารเรียบร้อยแล้ว!';
+
+  @override
+  String get errorCreatingSplit => 'เกิดข้อผิดพลาดในการสร้างการหาร';
+
+  @override
+  String get selectAtLeastOneTransaction => 'เลือกอย่างน้อย 1 ธุรกรรม';
+
+  @override
+  String get pleaseFixHighlightedItems => 'กรุณาแก้ไขรายการที่ไฮไลต์ไว้';
+
+  @override
+  String get failedToSaveIncome => 'บันทึกรายรับไม่สำเร็จ';
+
+  @override
+  String get importCompleted => 'นำเข้าเสร็จสมบูรณ์';
+
+  @override
+  String get none => 'ไม่มี';
+
+  @override
+  String get updatedFromWalletEditor => 'อัปเดตจากหน้าจัดการกระเป๋าเงิน';
+
+  @override
+  String get archive => 'เก็บถาวร';
+
+  @override
+  String get needTwoWalletsForTransfer => 'คุณต้องมีกระเป๋าอย่างน้อย 2 ใบเพื่อโอนเงิน';
+
+  @override
+  String get transfer => 'โอน';
+
+  @override
+  String get newWallet => 'กระเป๋าใหม่';
+
+  @override
+  String get connectBank => 'เชื่อมต่อบัญชีธนาคาร';
+
+  @override
+  String get totalNetWorth => 'มูลค่าสุทธิรวม';
+
+  @override
+  String get swipeRightPreviousMonths => 'ปัดไปทางขวาเพื่อดูเดือนก่อนหน้า';
+
+  @override
+  String get primary => 'หลัก';
+
+  @override
+  String get balance => 'ยอดคงเหลือ';
+
+  @override
+  String get tapToViewDetails => 'แตะเพื่อดูรายละเอียด';
+
+  @override
+  String get walletNameExample => 'เช่น บัญชีกระแสรายวันหลัก';
+
+  @override
+  String get goalAmount => 'จำนวนเงินเป้าหมาย';
+
+  @override
+  String get primaryWallet => 'กระเป๋าหลัก';
+
+  @override
+  String get primaryWalletDescription => 'กระเป๋านี้จะถูกเลือกเป็นค่าเริ่มต้นสำหรับรายจ่ายใหม่';
+
+  @override
+  String get cannotTransferSameWallet => 'ไม่สามารถโอนไปยังกระเป๋าใบเดิมได้';
+
+  @override
+  String get tapToEditAmount => 'แตะเพื่อแก้ไขจำนวนเงิน';
+
+  @override
+  String get swapDirection => 'สลับทิศทาง';
+
+  @override
+  String get addNoteAboutTransfer => 'เพิ่มบันทึกสำหรับการโอนนี้';
+
+  @override
+  String get walletsNetWorthTourTitle => 'ติดตามมูลค่าสุทธิของคุณ';
+
+  @override
+  String get walletsNetWorthTourDescription => 'ดูมูลค่าสุทธิรวมของคุณจากทุกกระเป๋า พร้อมสรุปรายรับและรายจ่ายของแต่ละเดือน';
+
+  @override
+  String get walletsStackTourTitle => 'กระเป๋าเงินของคุณ';
+
+  @override
+  String get walletsStackTourDescription => 'แตะกระเป๋าใดก็ได้เพื่อขยายและดูรายละเอียด แตะอีกครั้งเพื่อเปิดหน้ากระเป๋าและดูรายการธุรกรรมทั้งหมด';
+
+  @override
+  String get walletsNewWalletTourTitle => 'เพิ่มกระเป๋าใหม่';
+
+  @override
+  String get walletsNewWalletTourDescription => 'สร้างกระเป๋าแบบกำหนดเองสำหรับเงินสด เงินออม หรือบัญชีใด ๆ ที่คุณต้องการติดตาม ตั้งเป้าหมายและดูความคืบหน้าได้เลย!';
 }
