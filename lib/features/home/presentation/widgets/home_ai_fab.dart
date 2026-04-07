@@ -77,6 +77,49 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+String _friendlyProgressMessage(AnalysisProgressEvent event) {
+  const stageFallback = <String, String>{
+    'started': 'Getting things ready...',
+    'extracting_text': 'Reading the details...',
+    'processing_vision': 'Looking through your receipt...',
+    'analyzing_chunk': 'Reviewing transactions...',
+    'complete': 'Finishing up...',
+  };
+
+  final stage = event.stage.trim().toLowerCase();
+  final raw = event.message.trim();
+  final lowered = raw.toLowerCase();
+
+  final hasJargon = [
+    'gemini',
+    'model',
+    'llm',
+    'token',
+    'json',
+    'function call',
+    'retry',
+    'timeout',
+    'api',
+    'ocr',
+  ].any(lowered.contains);
+
+  String baseMessage;
+  if (raw.isEmpty || hasJargon) {
+    baseMessage = stageFallback[stage] ?? 'Working on it...';
+  } else if (lowered.contains('extracting text')) {
+    baseMessage = 'Reading the details...';
+  } else if (lowered.contains('processing vision')) {
+    baseMessage = 'Looking through your receipt...';
+  } else {
+    baseMessage = raw;
+  }
+
+  if (event.currentItem != null && event.totalItems != null) {
+    return '$baseMessage (${event.currentItem}/${event.totalItems})';
+  }
+  return baseMessage;
+}
+
 class _AiParsedItem {
   final ParsedExpense transaction;
   final String optimisticId;
@@ -1047,7 +1090,7 @@ Future<void> handleAiFileOrGallery(
   );
 }
 
-/// Process analysis request with SSE streaming for real-time progress updates
+/// Process analysis request with SSE streaming for real-time progress updates.
 Future<Map<String, dynamic>?> _processWithSSE({
   required Map<String, dynamic> body,
   required BlockingProcessingController dialogController,
@@ -1087,7 +1130,9 @@ Future<Map<String, dynamic>?> _processWithSSE({
     switch (event.event) {
       case 'progress':
         final progressEvent = AnalysisProgressEvent.fromJson(event.data);
-        dialogController.updateSubMessage(progressEvent.displayMessage);
+        dialogController.updateSubMessage(
+          _friendlyProgressMessage(progressEvent),
+        );
         break;
       case 'complete':
         result = event.data;
@@ -1160,8 +1205,11 @@ Future<void> _processExpense(
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;
 
-  // Determine if this is a potentially slow operation (PDF/file uploads)
+  // Determine if this is a potentially slow operation.
   final hasAttachments = attachments?.isNotEmpty ?? false;
+  final hasImageInput = imagePath != null && imagePath.isNotEmpty;
+  final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
+  final hasTextInput = text != null && text.trim().isNotEmpty;
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -1173,7 +1221,8 @@ Future<void> _processExpense(
       }) ??
       false;
 
-  final shouldStream = hasAttachments;
+  final shouldStream =
+      hasAttachments || hasImageInput || hasAudioInput || hasTextInput;
   final useEnhancedDialog = shouldStream || isPdfUpload || isLargeFile;
 
   // Show enhanced processing modal with timeout handling for PDFs
@@ -1185,9 +1234,15 @@ Future<void> _processExpense(
       message: context.l10n.analyzingReceipt,
       subMessage: isPdfUpload
           ? 'Processing PDF document...'
-          : hasAttachments
-              ? 'Processing file...'
-              : 'Processing large file...',
+          : hasTextInput
+              ? 'Reading what you typed...'
+              : hasImageInput
+                  ? 'Looking through your image...'
+                  : hasAudioInput
+                      ? 'Listening to your recording...'
+                      : hasAttachments
+                          ? 'Processing file...'
+                          : 'Processing large file...',
       showElapsedTime: true,
       enableCancelAfterSeconds: 0,
     );
@@ -1308,7 +1363,7 @@ Future<void> _processExpense(
       return;
     }
 
-    // Use SSE streaming for file uploads to get real-time progress
+    // Use SSE streaming when media is involved to show real-time progress.
     if (responseData == null && shouldStream && dialogController != null) {
       try {
         responseData = await _processWithSSE(
