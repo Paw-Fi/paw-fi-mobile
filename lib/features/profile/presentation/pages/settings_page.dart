@@ -868,8 +868,7 @@ class SettingsPage extends HookConsumerWidget {
                       value: authState.email,
                       showChevron: false,
                     ),
-
-                   _SettingsTile(
+                    _SettingsTile(
                       icon: Icons.archive_outlined,
                       label: 'Archived Wallets',
                       value: 'Tap to manage',
@@ -2913,6 +2912,19 @@ Future<void> _saveName(
       'full_name': newName,
       'updated_at': DateTime.now().toIso8601String()
     }).eq('id', userId);
+
+    // Keep denormalized household member names in sync in environments where
+    // household_members.user_name exists.
+    try {
+      await Supabase.instance.client
+          .from('household_members')
+          .update({'user_name': newName}).eq('user_id', userId);
+    } on PostgrestException catch (e) {
+      final message = (e.message).toLowerCase();
+      final missingUserNameColumn = e.code == '42703' ||
+          (e.code == 'PGRST204' && message.contains('user_name'));
+      if (!missingUserNameColumn) rethrow;
+    }
 
     onUpdated();
 
