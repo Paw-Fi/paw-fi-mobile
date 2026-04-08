@@ -219,15 +219,7 @@ class MainShell extends HookConsumerWidget {
     }, growable: false);
 
     return StatusBarOverlayRegion(
-      child: AdaptiveScaffold(
-        appBar: AdaptiveAppBar(
-            useNativeToolbar: false,
-            appBar: AppBar(
-              leadingWidth: 0,
-              leading: const SizedBox.shrink(),
-              titleSpacing: 0,
-              toolbarHeight: 0,
-            )),
+      child: AdaptiveScaffold(      
         body: SafeArea(
           child: Material(
             color: colorScheme.appBackground,
