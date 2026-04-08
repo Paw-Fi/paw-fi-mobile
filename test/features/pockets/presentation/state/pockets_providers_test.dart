@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -299,6 +300,7 @@ void main() {
         scope: PocketsScopeType.personal,
         periodMonth: DateTime(2026, 3, 1),
         currency: 'GBP',
+        includeUpcomingRecurring: false,
       );
       final forecastParams = PocketsScopeParams(
         scope: PocketsScopeType.personal,
@@ -309,6 +311,18 @@ void main() {
 
       expect(baseParams, isNot(forecastParams));
       expect(baseParams.hashCode, isNot(forecastParams.hashCode));
+    });
+  });
+
+  group('includeUpcomingRecurringInPocketsProvider', () {
+    test('defaults to counting upcoming recurring payments as spent', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(includeUpcomingRecurringInPocketsProvider),
+        isTrue,
+      );
     });
   });
 

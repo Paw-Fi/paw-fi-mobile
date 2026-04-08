@@ -391,9 +391,14 @@ enum PocketsScopeType { personal, portfolio, household }
 
 const includeUpcomingRecurringInPocketsPreferenceKey =
     'include_upcoming_recurring_in_pockets';
+// Keep this default ON.
+// Pockets are expected to include upcoming recurring expenses by default,
+// otherwise scheduled bills disappear from pocket spend until the user
+// manually discovers and enables the forecast toggle.
+const defaultIncludeUpcomingRecurringInPockets = true;
 
 final includeUpcomingRecurringInPocketsProvider =
-    StateProvider<bool>((ref) => false);
+    StateProvider<bool>((ref) => defaultIncludeUpcomingRecurringInPockets);
 
 class PocketsScopeParams {
   const PocketsScopeParams({
@@ -402,7 +407,7 @@ class PocketsScopeParams {
     this.periodMonth,
     this.currency,
     this.isBootstrapCurrency = false,
-    this.includeUpcomingRecurring = false,
+    this.includeUpcomingRecurring = defaultIncludeUpcomingRecurringInPockets,
   });
 
   final PocketsScopeType scope;
@@ -562,6 +567,10 @@ Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
 }) async {
+  // This projection is part of the pocket spend calculation for the current
+  // month. Do not remove it unless the product decision changes explicitly:
+  // users repeatedly report "recurring transactions are missing from pockets"
+  // when this path is disabled or defaulted off.
   if (!includeUpcomingRecurring ||
       now.year != monthStart.year ||
       now.month != monthStart.month) {

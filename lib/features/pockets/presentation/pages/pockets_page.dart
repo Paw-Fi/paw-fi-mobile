@@ -315,7 +315,10 @@ class PocketsPage extends HookConsumerWidget {
           final storedValue = prefs.getBool(
                 includeUpcomingRecurringInPocketsPreferenceKey,
               ) ??
-              false;
+              // Keep the first-run fallback aligned with the provider default.
+              // Reverting this to false reintroduces the recurring-in-pockets
+              // regression for users who do not yet have a saved preference.
+              defaultIncludeUpcomingRecurringInPockets;
           final currentValue =
               ref.read(includeUpcomingRecurringInPocketsProvider);
           if (currentValue == initialValue && storedValue != currentValue) {
