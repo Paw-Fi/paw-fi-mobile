@@ -2597,6 +2597,7 @@ class _UnifiedTransactionSheetState
     debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
     ref.invalidate(pocketsProvider);
     ref.invalidate(pocketDetailsProvider);
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -2614,6 +2615,7 @@ class _UnifiedTransactionSheetState
     debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
     ref.invalidate(pocketsProvider);
     ref.invalidate(pocketDetailsProvider);
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -3417,6 +3419,7 @@ class _UnifiedTransactionSheetState
       debugPrint(' Invalidating ALL pockets provider families...');
       ref.invalidate(pocketsProvider);
       ref.invalidate(pocketDetailsProvider);
+      ref.read(walletActionsProvider).refreshAccountData();
       ref.invalidate(currencyTransactionCountsProvider);
 
       // If this was a household expense, invalidate household providers

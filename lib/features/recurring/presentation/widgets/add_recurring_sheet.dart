@@ -1179,6 +1179,7 @@ class AddRecurringSheet extends HookConsumerWidget {
             }
           }
 
+          ref.read(walletActionsProvider).refreshAccountData();
           ref.invalidate(pocketDetailsProvider);
 
           // Keep currency selector counts up-to-date.
@@ -1379,6 +1380,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         closeDialog();
 
         if (result.success) {
+          ref.read(walletActionsProvider).refreshAccountData();
           ref.invalidate(pocketDetailsProvider);
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop(true);

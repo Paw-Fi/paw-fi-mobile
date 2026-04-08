@@ -343,6 +343,8 @@ class WalletActions {
     ref.invalidate(walletsByHouseholdIdProvider);
     ref.invalidate(scopedWalletsProvider);
     ref.invalidate(archivedScopedAccountsProvider);
+    ref.invalidate(walletsHistoryProvider);
+    ref.invalidate(walletsMonthSnapshotProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
     final userId = ref.read(authProvider).uid;
     if (userId.isNotEmpty) {
