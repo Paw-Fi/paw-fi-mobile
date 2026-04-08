@@ -27,6 +27,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -47,6 +48,8 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(selectedHomeCurrencyCodeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final preferredTimezone =
+        ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final households = householdsAsync.valueOrNull ?? const <Household>[];
     final isBootstrapCurrency = !filterState.hasExplicitCurrency;
     final includeUpcomingRecurring =
@@ -78,8 +81,8 @@ class PocketsPage extends HookConsumerWidget {
     const prefetchTowardPresentMonths = 1;
 
     // Always start at the current month
-    final now = DateTime.now();
-    final initialMonth = DateTime(now.year, now.month, 1);
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+    final initialMonth = DateTime(userNow.year, userNow.month, 1);
 
     // Use a large initial page index to allow swiping into the past
     const initialPage = 1000;

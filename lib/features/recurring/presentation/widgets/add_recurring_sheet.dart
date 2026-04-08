@@ -32,6 +32,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     hide SplitType;
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
+import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -1178,6 +1179,8 @@ class AddRecurringSheet extends HookConsumerWidget {
             }
           }
 
+          ref.invalidate(pocketDetailsProvider);
+
           // Keep currency selector counts up-to-date.
           ref.invalidate(currencyTransactionCountsProvider);
 
@@ -1376,6 +1379,7 @@ class AddRecurringSheet extends HookConsumerWidget {
         closeDialog();
 
         if (result.success) {
+          ref.invalidate(pocketDetailsProvider);
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop(true);
           }

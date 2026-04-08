@@ -133,24 +133,25 @@ final pocketDetailsProvider =
   final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
   final actualTransactions = transactionRows
       .map(ExpenseEntry.fromJson)
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) =>
+          !expense.isRecurring &&
+          (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 
   final preferredTimezone =
       ref.read(analyticsProvider).contact?.preferredTimezone;
   final userNow = effectiveNow(preferredTimezone: preferredTimezone);
   // CRITICAL: mirror the main pockets calculation here.
-  // STRICT REQUIREMENT: pocket details must include the same recurring-pocket
-  // projection as the pocket totals, or the detail list/insights will disagree
-  // with the pocket card and users will think recurring transactions are
-  // missing.
-  final projectedTransactions = await loadProjectedUpcomingPocketExpenses(
+  // STRICT REQUIREMENT: pocket details must include the same month-by-month
+  // recurring projection as the pocket totals, or the detail list/insights
+  // will disagree with the pocket card and users will think recurring
+  // transactions are missing.
+  final projectedTransactions = await loadProjectedPocketMonthExpenses(
     userId: authUser.uid,
     scope: scopeType,
     householdId: householdId,
     monthStart: monthStart,
     selectedCurrency: selectedCurrency,
-    now: userNow,
     includeUpcomingRecurring: params.scopeParams.includeUpcomingRecurring,
     actualExpenses: actualTransactions,
   );
@@ -194,6 +195,9 @@ final pocketDetailsProvider =
   final totalSpentLastMonth = prevTransactions.fold<double>(
     0,
     (sum, transaction) {
+      if (transaction['is_recurring'] == true) {
+        return sum;
+      }
       if ((transaction['type'] as String?)?.toLowerCase() == 'income') {
         return sum;
       }

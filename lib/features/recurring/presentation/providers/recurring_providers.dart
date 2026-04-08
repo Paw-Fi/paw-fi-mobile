@@ -124,7 +124,7 @@ class RecurringTransactionsNotifier
   /// Load recurring transactions for the current scope (Personal or Household)
   Future<void> loadRecurringTransactions(
     String userId, {
-    int limit = 100,
+    int limit = 250,
     bool forceRefresh = false,
   }) async {
     if (_isPreview) {
@@ -155,7 +155,7 @@ class RecurringTransactionsNotifier
           .select(
             'id, date, category, raw_text, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
-            'user_id, split_group_id, '
+            'user_id, split_group_id, account_id, '
             'recurrence_rule, type, attachments, created_at, updated_at',
           )
           .eq('is_recurring', true);

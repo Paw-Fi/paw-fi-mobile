@@ -50,8 +50,10 @@ class AccountsPage extends HookConsumerWidget {
     final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final effectiveNowForUser =
+        effectiveNow(preferredTimezone: analyticsState.contact?.preferredTimezone);
     final currentMonthStart =
-        DateTime(DateTime.now().year, DateTime.now().month);
+        DateTime(effectiveNowForUser.year, effectiveNowForUser.month);
     final scopeQuery = WalletsScopeQuery(
       userId: auth.uid,
       householdId: _resolveWalletsScopeHouseholdId(householdScope),

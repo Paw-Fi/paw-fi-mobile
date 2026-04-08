@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -8,6 +11,9 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
@@ -19,6 +25,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/pockets/presentation/widgets/edit_pocket_envelope_sheet.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/shared/widgets/grouped_transactions_list.dart';
+import 'package:moneko/shared/widgets/transaction_details_sheet_router.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -37,6 +44,45 @@ class PocketDetailsPage extends HookConsumerWidget {
     final state = ref.watch(pocketsProvider(scopeParams));
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = ref.watch(authProvider.select((state) => state.uid));
+    final recurringScopeHouseholdId =
+        scopeParams.scope == PocketsScopeType.personal
+            ? null
+            : scopeParams.householdId;
+    final shouldLoadRecurringTransactions =
+        scopeParams.scope == PocketsScopeType.personal ||
+            (recurringScopeHouseholdId?.trim().isNotEmpty == true);
+    final recurringTransactionsState = shouldLoadRecurringTransactions
+        ? ref.watch(recurringTransactionsProvider(recurringScopeHouseholdId))
+        : RecurringTransactionsState(
+            data: const AsyncValue.data(<RecurringTransaction>[]),
+            hasLoadedOnce: true,
+          );
+    final recurringTransactions = recurringTransactionsState.data.valueOrNull ??
+        const <RecurringTransaction>[];
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+
+    useEffect(() {
+      if (!shouldLoadRecurringTransactions ||
+          recurringTransactionsState.hasLoadedOnce) {
+        return null;
+      }
+
+      Future.microtask(() {
+        ref
+            .read(recurringTransactionsProvider(recurringScopeHouseholdId)
+                .notifier)
+            .loadRecurringTransactions(currentUserId);
+      });
+      return null;
+    }, [
+      shouldLoadRecurringTransactions,
+      recurringTransactionsState.hasLoadedOnce,
+      recurringScopeHouseholdId,
+      currentUserId,
+    ]);
 
     // If state is loading (e.g., after invalidation), show loading indicator
     if (state.isLoading && state.editing.isEmpty && state.saved.isEmpty) {
@@ -115,13 +161,12 @@ class PocketDetailsPage extends HookConsumerWidget {
       isBootstrapCurrency: false,
       includeUpcomingRecurring: scopeParams.includeUpcomingRecurring,
     );
+    final pocketDetailsParams = PocketTransactionsParams(
+      pocketId: pocketId,
+      scopeParams: detailScopeParams,
+    );
     final detailsAsync = ref.watch(
-      pocketDetailsProvider(
-        PocketTransactionsParams(
-          pocketId: pocketId,
-          scopeParams: detailScopeParams,
-        ),
-      ),
+      pocketDetailsProvider(pocketDetailsParams),
     );
 
     TransactionsFeedQuery buildFeedQuery(List<String> linkedCategories) {
@@ -154,6 +199,51 @@ class PocketDetailsPage extends HookConsumerWidget {
               buildFeedQuery(detailsData.linkedCategories),
             ),
           );
+
+    Future<void> refreshPocketDetails(List<String> linkedCategories) async {
+      final feedQuery = buildFeedQuery(linkedCategories);
+      await ref.read(transactionsFeedProvider(feedQuery).notifier).refresh();
+      ref.invalidate(pocketDetailsProvider(pocketDetailsParams));
+    }
+
+    Future<void> handleTransactionTap(
+      ExpenseEntry expense,
+      List<String> linkedCategories,
+    ) async {
+      final recurringId =
+          extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
+      var effectiveRecurringTransactionsById = recurringTransactionsById;
+
+      if (shouldLoadRecurringTransactions &&
+          recurringId != null &&
+          !effectiveRecurringTransactionsById.containsKey(recurringId)) {
+        await ref
+            .read(recurringTransactionsProvider(recurringScopeHouseholdId)
+                .notifier)
+            .loadRecurringTransactions(
+              currentUserId,
+              forceRefresh: true,
+            );
+        final refreshedTransactions = ref
+                .read(recurringTransactionsProvider(recurringScopeHouseholdId))
+                .data
+                .valueOrNull ??
+            const <RecurringTransaction>[];
+        effectiveRecurringTransactionsById = {
+          for (final transaction in refreshedTransactions)
+            transaction.id: transaction,
+        };
+      }
+
+      final didChange = await showTransactionDetailsSheet(
+        context,
+        expense: expense,
+        recurringTransactionsById: effectiveRecurringTransactionsById,
+      );
+      if (didChange == true) {
+        await refreshPocketDetails(linkedCategories);
+      }
+    }
 
     // Calculate unallocated budget for the edit sheet based on the effective
     // limits shown in the UI (supports fixed allocations).
@@ -340,7 +430,9 @@ class PocketDetailsPage extends HookConsumerWidget {
                             const SizedBox(height: 32),
                             // Progress Bar
                             TweenAnimationBuilder<double>(
-                              tween: Tween<double>(begin: progress.clamp(0.0, 1.0), end: progress.clamp(0.0, 1.0)),
+                              tween: Tween<double>(
+                                  begin: progress.clamp(0.0, 1.0),
+                                  end: progress.clamp(0.0, 1.0)),
                               duration: const Duration(milliseconds: 600),
                               curve: Curves.easeOutCubic,
                               builder: (context, val, _) {
@@ -440,6 +532,14 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 GroupedTransactionsList(
                                   transactions: visibleTransactions,
                                   currency: effectiveCurrency,
+                                  onTransactionTap: (expense) {
+                                    unawaited(
+                                      handleTransactionTap(
+                                        expense,
+                                        data.linkedCategories,
+                                      ),
+                                    );
+                                  },
                                 ),
                               PaginatedLoadMoreIndicator(
                                 show: feedState.isLoadingMore,

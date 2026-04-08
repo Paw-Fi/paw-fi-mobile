@@ -6,7 +6,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -484,7 +483,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 const _recurringExpensesSelectFields =
     'id, date, category, raw_text, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
-    'user_id, split_group_id, recurrence_rule, type, '
+    'user_id, split_group_id, account_id, recurrence_rule, type, '
     'attachments, created_at, updated_at';
 
 Future<List<Map<String, dynamic>>> _enrichRecurringRowsWithSplitPayer({
@@ -558,24 +557,21 @@ List<Map<String, dynamic>> applySplitPayerToRecurringRows({
   }).toList(growable: false);
 }
 
-Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
+Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
   required String userId,
   required PocketsScopeType scope,
   required String? householdId,
   required DateTime monthStart,
   required String selectedCurrency,
-  required DateTime now,
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
 }) async {
   // CRITICAL: this projection is part of the pocket spend calculation for the
-  // current month.
-  // STRICT REQUIREMENT: do not remove or default-off this path unless the
-  // product requirement changes explicitly. Users repeatedly report
-  // "recurring transactions are missing from pockets" when this is disabled.
-  if (!includeUpcomingRecurring ||
-      now.year != monthStart.year ||
-      now.month != monthStart.month) {
+  // selected month, not only the current month.
+  // STRICT REQUIREMENT: recurring schedules must be expanded month-by-month so
+  // a rule anchored on April 1 still counts inside the April pocket even when
+  // the user creates or edits that recurring transaction on April 3.
+  if (!includeUpcomingRecurring) {
     return const <ExpenseEntry>[];
   }
 
@@ -589,10 +585,12 @@ Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
   }
 
   final projectedExpenses =
-      projectUpcomingRecurringTransactionsAsExpenseEntries(
-    recurringTransactions: recurringTransactions,
-    monthStart: monthStart,
-    now: now,
+      projectRecurringTransactionsAsExpenseEntries(
+    recurringTransactions: recurringTransactions
+        .where((transaction) => transaction.type.toLowerCase() == 'expense')
+        .toList(growable: false),
+    rangeStart: monthStart,
+    rangeEnd: DateTime(monthStart.year, monthStart.month + 1, 0),
     selectedCurrency: selectedCurrency,
   );
 
@@ -607,7 +605,9 @@ List<ExpenseEntry> filterPocketActualExpenses(
   Iterable<ExpenseEntry> expenses,
 ) {
   return expenses
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) =>
+          !expense.isRecurring &&
+          (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 }
 
@@ -1009,7 +1009,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   bool _isMissingRpcFunctionError(Object error) {
     if (error is! PostgrestException) return false;
     return error.code == '42883' ||
-        error.message.toLowerCase().contains('get_pockets_month_v1');
+        error.message.toLowerCase().contains('get_pockets_month_v2');
   }
 
   Future<Map<String, dynamic>> _fetchPocketsMonthPayload({
@@ -1018,11 +1018,12 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String? householdId,
     required String periodMonth,
     required String selectedCurrency,
+    required bool includeUpcomingRecurring,
     required bool allowCurrencyFallback,
   }) async {
     try {
       final response = await supabase.rpc(
-        'get_pockets_month_v1',
+        'get_pockets_month_v2',
         params: <String, dynamic>{
           'p_user_id': userId,
           'p_scope': switch (scopeType) {
@@ -1033,6 +1034,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'p_household_id': householdId,
           'p_period_month': periodMonth,
           'p_currency': selectedCurrency,
+          'p_include_projected_recurring': includeUpcomingRecurring,
           'p_allow_currency_fallback': allowCurrencyFallback,
         },
       );
@@ -1040,7 +1042,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     } catch (error) {
       if (_isMissingRpcFunctionError(error)) {
         _debugLog(
-          '[Pockets] RPC get_pockets_month_v1 missing; deploy migration 20260403120000_get_pockets_month_rpc.sql',
+          '[Pockets] RPC get_pockets_month_v2 missing; deploy migration 20260408170000_add_recurring_aware_wallets_and_pockets_rpcs.sql',
         );
       }
       rethrow;
@@ -1072,6 +1074,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         householdId: householdId,
         periodMonth: periodMonth,
         selectedCurrency: selectedCurrency,
+        includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
         allowCurrencyFallback: allowCurrencyFallback,
       );
       final budgetRow = payload['budget'] as Map?;
@@ -1150,25 +1153,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               .toList(growable: false);
       final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
-      final preferredTimezone =
-          ref.read(analyticsProvider).contact?.preferredTimezone;
-      final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-      final projectedRecurringExpenses =
-          await loadProjectedUpcomingPocketExpenses(
+      final projectedRecurringExpenses = await loadProjectedPocketMonthExpenses(
         userId: authUser.uid,
         scope: scopeType,
         householdId: householdId,
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
-        now: userNow,
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: filteredActualExpenses,
       );
       // CRITICAL: keep projected recurring expenses in the monthly pocket
       // calculation.
       // STRICT REQUIREMENT: pocket totals/spent amounts must include recurring
-      // transactions for the current month, otherwise pocket balances ignore
-      // scheduled bills and the recurring-in-pockets regression returns.
+      // transactions for every viewed month, otherwise historical pocket
+      // balances ignore scheduled bills and the recurring-in-pockets
+      // regression returns.
       final monthlyExpenses = <ExpenseEntry>[
         ...filteredActualExpenses,
         ...projectedRecurringExpenses,

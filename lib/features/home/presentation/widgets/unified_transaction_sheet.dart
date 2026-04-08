@@ -24,6 +24,7 @@ import 'package:moneko/features/home/presentation/state/user_categories_provider
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -2595,6 +2596,7 @@ class _UnifiedTransactionSheetState
 
     debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
     ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -2611,6 +2613,7 @@ class _UnifiedTransactionSheetState
     // This ensures all months and all scopes refresh with new data
     debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
     ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -3413,6 +3416,7 @@ class _UnifiedTransactionSheetState
       // This ensures pockets page refreshes regardless of personal/household mode
       debugPrint(' Invalidating ALL pockets provider families...');
       ref.invalidate(pocketsProvider);
+      ref.invalidate(pocketDetailsProvider);
       ref.invalidate(currencyTransactionCountsProvider);
 
       // If this was a household expense, invalidate household providers
