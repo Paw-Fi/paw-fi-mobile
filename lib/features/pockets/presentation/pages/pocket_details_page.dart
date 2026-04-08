@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -381,6 +382,14 @@ class PocketDetailsPage extends HookConsumerWidget {
                               buildFeedQuery(data.linkedCategories);
                           final feedState =
                               ref.watch(transactionsFeedProvider(feedQuery));
+                          final detailTransactions = data.transactions
+                              .map(ExpenseEntry.fromJson)
+                              .toList(growable: false);
+                          final visibleTransactions =
+                              _mergePocketDetailTransactions(
+                            feedTransactions: feedState.items,
+                            detailTransactions: detailTransactions,
+                          );
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -412,14 +421,16 @@ class PocketDetailsPage extends HookConsumerWidget {
                               ],
 
                               // 4. Recent Transactions
-                              if (feedState.isLoading)
+                              if (feedState.isLoading &&
+                                  visibleTransactions.isEmpty)
                                 const Center(
                                   child: Padding(
                                     padding: EdgeInsets.all(32.0),
                                     child: CircularProgressIndicator(),
                                   ),
                                 )
-                              else if (feedState.error != null)
+                              else if (feedState.error != null &&
+                                  visibleTransactions.isEmpty)
                                 Center(
                                   child: Text(
                                     context.l10n.error(feedState.error!),
@@ -427,7 +438,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                                 )
                               else
                                 GroupedTransactionsList(
-                                  transactions: feedState.items,
+                                  transactions: visibleTransactions,
                                   currency: effectiveCurrency,
                                 ),
                               PaginatedLoadMoreIndicator(
@@ -472,6 +483,46 @@ PocketEnvelope? _findPocket(PocketsState state, String pocketId) {
       return null;
     }
   }
+}
+
+List<ExpenseEntry> _mergePocketDetailTransactions({
+  required List<ExpenseEntry> feedTransactions,
+  required List<ExpenseEntry> detailTransactions,
+}) {
+  // Pocket totals/details include projected recurring expenses for the current
+  // month. Keep those rows visible here even though the generic transactions
+  // feed only knows about persisted transaction rows.
+  if (detailTransactions.isEmpty) {
+    return feedTransactions;
+  }
+  if (feedTransactions.isEmpty) {
+    return detailTransactions;
+  }
+
+  final mergedById = <String, ExpenseEntry>{
+    for (final expense in feedTransactions) expense.id: expense,
+  };
+
+  // CRITICAL: keep projected/recurring rows from the pocket details provider
+  // in the visible list.
+  // STRICT REQUIREMENT: the generic transactions feed does not include the
+  // same recurring-pocket projection logic as the pocket totals, so removing
+  // this merge reintroduces missing recurring rows in pocket details.
+  for (final expense in detailTransactions) {
+    mergedById.putIfAbsent(expense.id, () => expense);
+  }
+
+  final merged = mergedById.values.toList(growable: false);
+  merged.sort((left, right) {
+    final dateCompare = right.date.compareTo(left.date);
+    if (dateCompare != 0) return dateCompare;
+
+    final createdCompare = right.createdAt.compareTo(left.createdAt);
+    if (createdCompare != 0) return createdCompare;
+
+    return right.id.compareTo(left.id);
+  });
+  return merged;
 }
 
 String _formatLocalizedCurrency(

@@ -391,10 +391,11 @@ enum PocketsScopeType { personal, portfolio, household }
 
 const includeUpcomingRecurringInPocketsPreferenceKey =
     'include_upcoming_recurring_in_pockets';
-// Keep this default ON.
-// Pockets are expected to include upcoming recurring expenses by default,
-// otherwise scheduled bills disappear from pocket spend until the user
-// manually discovers and enables the forecast toggle.
+// CRITICAL: keep this default ON.
+// STRICT REQUIREMENT: pockets must include upcoming recurring expenses by
+// default. Reverting this to false hides scheduled bills from pocket spend
+// until the user discovers the toggle, which repeatedly gets reported as a
+// broken pockets calculation.
 const defaultIncludeUpcomingRecurringInPockets = true;
 
 final includeUpcomingRecurringInPocketsProvider =
@@ -567,10 +568,11 @@ Future<List<ExpenseEntry>> loadProjectedUpcomingPocketExpenses({
   required bool includeUpcomingRecurring,
   required List<ExpenseEntry> actualExpenses,
 }) async {
-  // This projection is part of the pocket spend calculation for the current
-  // month. Do not remove it unless the product decision changes explicitly:
-  // users repeatedly report "recurring transactions are missing from pockets"
-  // when this path is disabled or defaulted off.
+  // CRITICAL: this projection is part of the pocket spend calculation for the
+  // current month.
+  // STRICT REQUIREMENT: do not remove or default-off this path unless the
+  // product requirement changes explicitly. Users repeatedly report
+  // "recurring transactions are missing from pockets" when this is disabled.
   if (!includeUpcomingRecurring ||
       now.year != monthStart.year ||
       now.month != monthStart.month) {
@@ -1162,6 +1164,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: filteredActualExpenses,
       );
+      // CRITICAL: keep projected recurring expenses in the monthly pocket
+      // calculation.
+      // STRICT REQUIREMENT: pocket totals/spent amounts must include recurring
+      // transactions for the current month, otherwise pocket balances ignore
+      // scheduled bills and the recurring-in-pockets regression returns.
       final monthlyExpenses = <ExpenseEntry>[
         ...filteredActualExpenses,
         ...projectedRecurringExpenses,

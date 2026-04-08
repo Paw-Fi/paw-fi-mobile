@@ -139,6 +139,11 @@ final pocketDetailsProvider =
   final preferredTimezone =
       ref.read(analyticsProvider).contact?.preferredTimezone;
   final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+  // CRITICAL: mirror the main pockets calculation here.
+  // STRICT REQUIREMENT: pocket details must include the same recurring-pocket
+  // projection as the pocket totals, or the detail list/insights will disagree
+  // with the pocket card and users will think recurring transactions are
+  // missing.
   final projectedTransactions = await loadProjectedUpcomingPocketExpenses(
     userId: authUser.uid,
     scope: scopeType,
@@ -156,6 +161,11 @@ final pocketDetailsProvider =
             (expense.category ?? 'uncategorized').toLowerCase(),
           ))
       .toList(growable: false);
+  // CRITICAL: keep the merged list aligned with the pocket's spent amount
+  // calculation.
+  // STRICT REQUIREMENT: do not remove projected recurring rows here. Removing
+  // them reintroduces the classic bug where the pocket total includes recurring
+  // spend but the details screen does not.
   final transactions = <ExpenseEntry>[
     ...actualTransactions,
     ...filteredProjectedTransactions,
