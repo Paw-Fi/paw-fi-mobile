@@ -140,6 +140,8 @@ void main() {
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(initiallyActive: true),
           ),
+          walletsDataServiceProvider
+              .overrideWithValue(_ThrowingWalletsDataService()),
           householdScopeProvider.overrideWith(
             (ref) => const HouseholdScope(
               viewMode: ViewMode.personal,
@@ -157,7 +159,16 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    final spendingCard = find.byKey(const ValueKey('preview-spending'));
+    final savingsCard = find.byKey(const ValueKey('preview-savings'));
+
     expect(find.text('Everyday Spending'), findsWidgets);
+    expect(find.text('Chase Sapphire'), findsWidgets);
+    expect(find.text('High-Yield Savings'), findsWidgets);
+    expect(
+      tester.getTopLeft(spendingCard).dy,
+      lessThan(tester.getTopLeft(savingsCard).dy),
+    );
     expect(find.text('Total Net Worth'), findsWidgets);
   });
 

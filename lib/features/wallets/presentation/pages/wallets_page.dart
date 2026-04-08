@@ -76,7 +76,6 @@ class AccountsPage extends HookConsumerWidget {
     );
     final previewWalletsData = isPreviewMode
         ? _buildPreviewWalletsPageData(
-            householdScope: householdScope,
             selectedCurrencyCode: selectedCurrencyCode,
             effectiveNow: effectiveNowForUser,
           )
@@ -875,17 +874,19 @@ class _WalletAccountStack extends HookConsumerWidget {
       orderedAccountsState.value = list;
 
       if (selectedAccountIdState.value == null && list.isNotEmpty) {
-        selectedAccountIdState.value = list.last.id;
+        selectedAccountIdState.value = isPreviewMode
+            ? (resolveDefaultWalletId(list) ?? list.last.id)
+            : list.last.id;
       }
       return null;
-    }, [wallets]);
+    }, [wallets, isPreviewMode]);
 
     final orderedAccounts = orderedAccountsState.value;
     final selectedId = selectedAccountIdState.value;
 
     const tightSpacing = 70.0;
     const expandedCardHeight = 240.0;
-    const unselectedCardHeight = 130.0;
+    const unselectedCardHeight = 115.0;
 
     const gap = 20.0;
 
@@ -1080,8 +1081,9 @@ class _WalletStackCard extends StatelessWidget {
         Text(
           '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
           style: TextStyle(
-            color:
-                isNegative ? colorScheme.destructive : colorScheme.foreground,
+            color: isNegative
+                ? colorScheme.destructive
+                : colorScheme.foreground,
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.4,
@@ -1093,6 +1095,7 @@ class _WalletStackCard extends StatelessWidget {
     final expandedHeader = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -1109,7 +1112,7 @@ class _WalletStackCard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 24),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1173,14 +1176,25 @@ class _WalletStackCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  context.l10n.balance,
-                  style: TextStyle(
-                    color: colorScheme.mutedForeground,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.l10n.balance,
+                      style: TextStyle(
+                        color: colorScheme.mutedForeground,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 12,
+                      color: colorScheme.mutedForeground,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1209,7 +1223,7 @@ class _WalletStackCard extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            top: 20,
+            top: 28,
             left: 20,
             right: 20,
             child: AnimatedCrossFade(
@@ -1264,15 +1278,6 @@ class _WalletStackCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
-                    context.l10n.tapToViewDetails,
-                    style: TextStyle(
-                      color: colorScheme.mutedForeground.withValues(alpha: 0.8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1288,16 +1293,12 @@ String _walletsMonthSwipeHintDismissedKey(String userId) {
 }
 
 _PreviewWalletsPageData _buildPreviewWalletsPageData({
-  required HouseholdScope householdScope,
   required String selectedCurrencyCode,
   required DateTime effectiveNow,
 }) {
-  final wallets = PreviewMockData.wallets
-      .where((wallet) => _isPreviewWalletInScope(wallet, householdScope))
-      .toList(growable: false);
+  final wallets = PreviewMockData.wallets;
   final transactions = _buildPreviewWalletTransactions(
     wallets: wallets,
-    householdScope: householdScope,
     selectedCurrencyCode: selectedCurrencyCode,
   );
   final availableMonths = buildWalletAvailableMonths(
@@ -1347,22 +1348,8 @@ _PreviewWalletsPageData _buildPreviewWalletsPageData({
   );
 }
 
-bool _isPreviewWalletInScope(
-    WalletEntity wallet, HouseholdScope householdScope) {
-  switch (householdScope.activeAccountType) {
-    case ActiveWalletType.personal:
-      final householdId = wallet.householdId?.trim();
-      return householdId == null || householdId.isEmpty;
-    case ActiveWalletType.portfolio:
-      return wallet.householdId == householdScope.activeAccountHouseholdId;
-    case ActiveWalletType.household:
-      return wallet.householdId == householdScope.selectedHouseholdId;
-  }
-}
-
 List<ExpenseEntry> _buildPreviewWalletTransactions({
   required List<WalletEntity> wallets,
-  required HouseholdScope householdScope,
   required String selectedCurrencyCode,
 }) {
   if (wallets.isEmpty) {
@@ -1380,8 +1367,7 @@ List<ExpenseEntry> _buildPreviewWalletTransactions({
         if (normalizedCurrency != selectedCurrencyCode) {
           return false;
         }
-
-        return _isPreviewTransactionInScope(expense, householdScope);
+        return true;
       })
       .map((expense) {
         final walletId = _resolvePreviewTransactionWalletId(
@@ -1406,22 +1392,6 @@ List<ExpenseEntry> _buildPreviewWalletTransactions({
       })
       .whereType<ExpenseEntry>()
       .toList(growable: false);
-}
-
-bool _isPreviewTransactionInScope(
-  ExpenseEntry expense,
-  HouseholdScope householdScope,
-) {
-  final householdId = expense.householdId?.trim();
-
-  switch (householdScope.activeAccountType) {
-    case ActiveWalletType.personal:
-      return householdId == null || householdId.isEmpty;
-    case ActiveWalletType.portfolio:
-      return householdId == householdScope.activeAccountHouseholdId;
-    case ActiveWalletType.household:
-      return householdId == householdScope.selectedHouseholdId;
-  }
 }
 
 String? _resolvePreviewTransactionWalletId({
