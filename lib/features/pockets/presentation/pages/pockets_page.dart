@@ -52,6 +52,10 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
     final households = householdsAsync.valueOrNull ?? const <Household>[];
     final isBootstrapCurrency = !filterState.hasExplicitCurrency;
+    // CRITICAL: keep the main pockets page subscribed to the recurring toggle.
+    // STRICT REQUIREMENT: every month scope built below must carry this flag
+    // so recurring transactions stay included in pocket totals for the viewed
+    // month instead of silently dropping back out.
     final includeUpcomingRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final recurringPreferenceReady = useState(false);
@@ -80,6 +84,10 @@ class PocketsPage extends HookConsumerWidget {
     const prefetchPastMonths = 2;
     const prefetchTowardPresentMonths = 1;
 
+    // CRITICAL: month selection must use the user's effective timezone.
+    // STRICT REQUIREMENT: do not replace this with DateTime.now(). Pocket
+    // recurring projections are month-based, and the wrong timezone can shift
+    // the active month and make recurring transactions appear missing.
     // Always start at the current month
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
     final initialMonth = DateTime(userNow.year, userNow.month, 1);

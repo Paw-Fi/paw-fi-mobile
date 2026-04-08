@@ -27,6 +27,10 @@ class SupabaseWalletsDataService implements WalletsDataService {
 
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    // CRITICAL: keep the wallets history RPC pointed at the recurring-aware v2
+    // wrapper.
+    // STRICT REQUIREMENT: switching back to v1 removes recurring month deltas
+    // from the main wallets history response.
     final response = await supabase.rpc(
       'get_wallets_history_v2',
       params: query.toHistoryRpcParams(),
@@ -37,6 +41,10 @@ class SupabaseWalletsDataService implements WalletsDataService {
   @override
   Future<WalletsMonthSnapshot> fetchMonthSnapshot(
       WalletsMonthQuery query) async {
+    // CRITICAL: keep the wallets month snapshot RPC pointed at the
+    // recurring-aware v2 wrapper.
+    // STRICT REQUIREMENT: switching back to v1 drops recurring month
+    // occurrences from wallet balances and month totals.
     final response = await supabase.rpc(
       'get_wallets_month_snapshot_v2',
       params: query.toRpcParams(),
@@ -63,6 +71,10 @@ final walletsHistoryProvider =
     ref.watch(dashboardRefreshSignalProvider);
     final now = _walletProjectionNow(ref);
     final endInclusive = DateTime(now.year, now.month, now.day);
+    // CRITICAL: the wallets landing page history must be built from the
+    // recurring-aware transaction set.
+    // STRICT REQUIREMENT: do not replace this with raw posted transactions
+    // only, or recurring bills disappear from the monthly graph/history.
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query,
@@ -107,6 +119,10 @@ final walletsMonthSnapshotProvider =
       monthStart: query.monthStart,
       now: now,
     );
+    // CRITICAL: every wallet month card/snapshot must use the recurring-aware
+    // month transaction set.
+    // STRICT REQUIREMENT: if recurring projections are removed here, wallets
+    // page month totals fall out of sync with wallet details and pockets.
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query.scope,
@@ -321,6 +337,11 @@ List<ExpenseEntry> _buildProjectedWalletRecurringTransactions({
         extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
     final source = recurringId == null ? null : recurringById[recurringId];
     final accountId = source?.accountId?.trim();
+    // CRITICAL: preserve the source recurring account_id on projected wallet
+    // rows.
+    // STRICT REQUIREMENT: without this, projected recurring transactions lose
+    // wallet ownership and either fall into the legacy default wallet or
+    // disappear from wallet-specific calculations.
     return expense.copyWith(
       accountId: accountId == null || accountId.isEmpty ? null : accountId,
     );

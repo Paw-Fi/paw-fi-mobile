@@ -149,6 +149,10 @@ class RecurringTransactionsNotifier
       // flow simple and predictable.
       const timeout = Duration(seconds: 10);
 
+      // CRITICAL: keep account_id in this recurring base query.
+      // STRICT REQUIREMENT: wallet pages need account_id to attach projected
+      // recurring occurrences to the correct wallet. Removing it makes wallet
+      // recurring transactions silently disappear again.
       // Build base query for recurring rows only.
       final baseQuery = supabase
           .from('expenses')

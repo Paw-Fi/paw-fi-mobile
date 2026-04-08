@@ -174,6 +174,11 @@ class WalletDetailsPage extends HookConsumerWidget {
       for (final transaction in recurringTransactions)
         transaction.id: transaction,
     };
+    // CRITICAL: wallet recurring rows must stay bound to account_id when
+    // present. Falling back to the default wallet is only correct for legacy
+    // unassigned recurring rows.
+    // STRICT REQUIREMENT: if this mapping is loosened, recurring transactions
+    // start showing under the wrong wallet or vanish from the intended one.
     final walletRecurringTransactions =
         recurringTransactions.where((transaction) {
       final accountId = transaction.accountId?.trim();
@@ -228,6 +233,10 @@ class WalletDetailsPage extends HookConsumerWidget {
     final currentBalanceCents = detailsMonthSnapshotAsync
             .valueOrNull?.walletBalances[latestWallet.id] ??
         latestWallet.currentBalanceCents;
+    // CRITICAL: the "this month" stat cards must include the same projected
+    // recurring rows shown in the transaction list and wallet balance logic.
+    // STRICT REQUIREMENT: do not switch these totals back to the raw monthFeed
+    // summary, or wallet totals and visible recurring tiles will disagree.
     final monthSummary =
         monthFeedState.summary.addingExpenses(projectedMonthRecurringExpenses);
     final totalIncome = monthSummary.incomeTotal;
@@ -248,6 +257,10 @@ class WalletDetailsPage extends HookConsumerWidget {
             currentUserId,
             forceRefresh: true,
           );
+      // CRITICAL: recurring edits must refresh the recurring source list, not
+      // only the generic feed.
+      // STRICT REQUIREMENT: otherwise projected recurring tiles stay stale
+      // after editing a recurring rule and users think the update failed.
       actions.refreshAccountData();
     }
 
@@ -700,6 +713,11 @@ List<ExpenseEntry> _projectWalletRecurringExpenses({
   required String selectedCurrency,
   required WalletEntity wallet,
 }) {
+  // CRITICAL: wallet detail projections must be deduped against actual wallet
+  // transactions before rendering.
+  // STRICT REQUIREMENT: projected recurring rows are synthetic month tiles. If
+  // a matching posted transaction already exists, keep the actual row and drop
+  // the synthetic one to avoid duplicate wallet spend.
   return dedupeProjectedRecurringExpenseEntries(
     projectedExpenses: projectRecurringTransactionsAsExpenseEntries(
       recurringTransactions: recurringTransactions,
@@ -722,6 +740,11 @@ List<ExpenseEntry> _mergeWalletDetailTransactions({
   required List<ExpenseEntry> feedTransactions,
   required List<ExpenseEntry> projectedTransactions,
 }) {
+  // CRITICAL: this is the final merge that keeps wallet details aligned with
+  // recurring-aware wallet math.
+  // STRICT REQUIREMENT: do not render feedTransactions alone. That exact
+  // simplification caused recurring wallet transactions to disappear from the
+  // details list while balances still included them.
   final mergedById = <String, ExpenseEntry>{
     for (final transaction in projectedTransactions)
       transaction.id: transaction,

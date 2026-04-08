@@ -397,6 +397,10 @@ const includeUpcomingRecurringInPocketsPreferenceKey =
 // broken pockets calculation.
 const defaultIncludeUpcomingRecurringInPockets = true;
 
+// CRITICAL: this provider is the root recurring toggle for the pockets main
+// page, pocket details, and recurring-aware month RPC requests.
+// STRICT REQUIREMENT: keep this default-on unless the user explicitly opts
+// out, or recurring transactions disappear from pocket calculations again.
 final includeUpcomingRecurringInPocketsProvider =
     StateProvider<bool>((ref) => defaultIncludeUpcomingRecurringInPockets);
 
@@ -415,6 +419,9 @@ class PocketsScopeParams {
   final DateTime? periodMonth;
   final String? currency;
   final bool isBootstrapCurrency;
+  // CRITICAL: carry this flag through every derived pocket scope.
+  // STRICT REQUIREMENT: if a page/provider forgets to forward it, that viewed
+  // month falls back to non-recurring pocket math and reintroduces the bug.
   final bool includeUpcomingRecurring;
 
   @override
@@ -480,6 +487,10 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
   return transactions;
 }
 
+// CRITICAL: keep account_id in this recurring select.
+// STRICT REQUIREMENT: wallet-scoped recurring transactions cannot be attached
+// back to the correct wallet without account_id, and removing it reintroduces
+// the "wallet recurring transactions are missing" regression.
 const _recurringExpensesSelectFields =
     'id, date, category, raw_text, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
@@ -589,6 +600,10 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     recurringTransactions: recurringTransactions
         .where((transaction) => transaction.type.toLowerCase() == 'expense')
         .toList(growable: false),
+    // CRITICAL: project for the viewed month, not "from now forward".
+    // STRICT REQUIREMENT: this is what fixes the April 1 recurring item still
+    // appearing in April even when the recurring rule is created or edited on
+    // April 3.
     rangeStart: monthStart,
     rangeEnd: DateTime(monthStart.year, monthStart.month + 1, 0),
     selectedCurrency: selectedCurrency,
@@ -604,6 +619,11 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
 List<ExpenseEntry> filterPocketActualExpenses(
   Iterable<ExpenseEntry> expenses,
 ) {
+  // CRITICAL: exclude recurring template rows from "actual" spend before
+  // merging projected occurrences.
+  // STRICT REQUIREMENT: recurring templates are configuration rows, not posted
+  // month spend. Keeping them here causes double counting once projected month
+  // rows are added on top.
   return expenses
       .where((expense) =>
           !expense.isRecurring &&
@@ -1022,6 +1042,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required bool allowCurrencyFallback,
   }) async {
     try {
+      // CRITICAL: call the recurring-aware v2 pockets RPC here.
+      // STRICT REQUIREMENT: switching this back to v1 drops projected recurring
+      // month spend from the backend payload used by the main pockets page.
       final response = await supabase.rpc(
         'get_pockets_month_v2',
         params: <String, dynamic>{
@@ -1034,6 +1057,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           'p_household_id': householdId,
           'p_period_month': periodMonth,
           'p_currency': selectedCurrency,
+          // CRITICAL: the user's recurring-in-pockets preference must reach the
+          // RPC layer.
+          // STRICT REQUIREMENT: if this flag stops being forwarded, the
+          // backend and mobile calculation paths diverge and pockets regress.
           'p_include_projected_recurring': includeUpcomingRecurring,
           'p_allow_currency_fallback': allowCurrencyFallback,
         },
@@ -1151,6 +1178,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               .cast<Map>()
               .map((row) => Map<String, dynamic>.from(row))
               .toList(growable: false);
+      // CRITICAL: treat RPC actual_expenses as persisted rows only.
+      // STRICT REQUIREMENT: the recurring month projection is merged below on
+      // purpose. Do not mix recurring template rows into actual_expenses or the
+      // monthly pocket totals will double count.
       final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
       final projectedRecurringExpenses = await loadProjectedPocketMonthExpenses(

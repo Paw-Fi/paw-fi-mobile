@@ -50,10 +50,19 @@ class AccountsPage extends HookConsumerWidget {
     final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    // CRITICAL: wallet history/month snapshots must anchor to the user's month.
+    // STRICT REQUIREMENT: do not replace this with DateTime.now(), or
+    // recurring transactions near month boundaries can land in the wrong month
+    // and wallets drift away from pockets/details again.
     final effectiveNowForUser =
         effectiveNow(preferredTimezone: analyticsState.contact?.preferredTimezone);
     final currentMonthStart =
         DateTime(effectiveNowForUser.year, effectiveNowForUser.month);
+    // CRITICAL: the wallets landing page must stay wired to recurring-aware
+    // month history and month snapshot providers.
+    // STRICT REQUIREMENT: if this page switches back to non-recurring month
+    // data, recurring bills disappear from the main wallets cards even while
+    // details and pockets still project them.
     final scopeQuery = WalletsScopeQuery(
       userId: auth.uid,
       householdId: _resolveWalletsScopeHouseholdId(householdScope),
@@ -247,6 +256,11 @@ class AccountsPage extends HookConsumerWidget {
               scope: scopeQuery,
               monthStart: selectedMonth,
             );
+            // CRITICAL: the selected month card must use the recurring-aware
+            // month snapshot.
+            // STRICT REQUIREMENT: replacing this with a raw non-recurring
+            // snapshot makes the month carousel under-report wallet spend and
+            // balance whenever recurring transactions are scheduled.
             final selectedSnapshotAsync =
                 ref.watch(walletsMonthSnapshotProvider(selectedMonthQuery));
             final selectedSnapshot = selectedSnapshotAsync.valueOrNull != null

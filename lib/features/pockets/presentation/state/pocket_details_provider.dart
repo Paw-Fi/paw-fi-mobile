@@ -131,6 +131,9 @@ final pocketDetailsProvider =
 
   final res = await query.order('date', ascending: false);
   final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
+  // CRITICAL: the raw expenses query can still return recurring template rows.
+  // STRICT REQUIREMENT: filter those templates out before merging projected
+  // month occurrences, or pocket details will double count recurring spend.
   final actualTransactions = transactionRows
       .map(ExpenseEntry.fromJson)
       .where((expense) =>
@@ -195,6 +198,10 @@ final pocketDetailsProvider =
   final totalSpentLastMonth = prevTransactions.fold<double>(
     0,
     (sum, transaction) {
+      // CRITICAL: previous-month comparison must ignore recurring template rows
+      // for the same reason as the current-month calculation.
+      // STRICT REQUIREMENT: only posted expenses plus projected month rows
+      // should affect pocket comparisons.
       if (transaction['is_recurring'] == true) {
         return sum;
       }
