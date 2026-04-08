@@ -7,16 +7,21 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_transaction_binding.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
@@ -43,8 +48,7 @@ class AccountsPage extends HookConsumerWidget {
     final selectedMonthIndexState = useState(0);
     final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
-    final walletsAsync = ref.watch(scopedWalletsProvider);
-    final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
+    final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
     final auth = ref.watch(authProvider);
     final prefs = ref.read(sharedPreferencesProvider);
@@ -70,7 +74,22 @@ class AccountsPage extends HookConsumerWidget {
       selectedCurrency: selectedCurrencyCode,
       currentMonthStart: currentMonthStart,
     );
-    final historyAsync = ref.watch(walletsHistoryProvider(scopeQuery));
+    final previewWalletsData = isPreviewMode
+        ? _buildPreviewWalletsPageData(
+            householdScope: householdScope,
+            selectedCurrencyCode: selectedCurrencyCode,
+            effectiveNow: effectiveNowForUser,
+          )
+        : null;
+    final AsyncValue<List<WalletEntity>> walletsAsync = isPreviewMode
+        ? AsyncValue.data(previewWalletsData!.wallets)
+        : ref.watch(scopedWalletsProvider);
+    final effectiveWallets = isPreviewMode
+        ? previewWalletsData!.wallets
+        : ref.watch(effectiveScopeWalletsProvider);
+    final AsyncValue<WalletsHistorySummary> historyAsync = isPreviewMode
+        ? AsyncValue.data(previewWalletsData!.history)
+        : ref.watch(walletsHistoryProvider(scopeQuery));
     final viewMode = ref.watch(viewModeProvider);
     final AsyncValue<List<Household>> householdsAsync =
         viewMode.mode == ViewMode.personal
@@ -78,6 +97,10 @@ class AccountsPage extends HookConsumerWidget {
             : ref.watch(userHouseholdsProvider(ref.watch(authProvider).uid));
 
     Future<void> onRefresh() async {
+      if (isPreviewMode) {
+        return;
+      }
+
       ref.invalidate(scopedWalletsProvider);
       await ref.read(scopedWalletsProvider.future);
 
@@ -168,7 +191,7 @@ class AccountsPage extends HookConsumerWidget {
     }
 
     useEffect(() {
-      if (availableMonths.isEmpty || auth.uid.isEmpty) {
+      if (isPreviewMode || availableMonths.isEmpty || auth.uid.isEmpty) {
         return null;
       }
 
@@ -202,9 +225,20 @@ class AccountsPage extends HookConsumerWidget {
         unawaited(ref.read(walletsMonthSnapshotProvider(query).future));
       }
       return null;
-    }, [scopeQuery, availableMonths, selectedMonthIndexState.value, auth.uid]);
+    }, [
+      isPreviewMode,
+      scopeQuery,
+      availableMonths,
+      selectedMonthIndexState.value,
+      auth.uid,
+    ]);
 
     Future<void> onAddAccount() async {
+      if (isPreviewMode) {
+        AppToast.info(context, context.l10n.previewMockUpdatesApplied);
+        return;
+      }
+
       final result = await showCreateEditWalletSheet(context);
       if (result == null) return;
       try {
@@ -262,13 +296,19 @@ class AccountsPage extends HookConsumerWidget {
             // STRICT REQUIREMENT: replacing this with a raw non-recurring
             // snapshot makes the month carousel under-report wallet spend and
             // balance whenever recurring transactions are scheduled.
-            final selectedSnapshotAsync =
-                ref.watch(walletsMonthSnapshotProvider(selectedMonthQuery));
-            final selectedSnapshot = selectedSnapshotAsync.valueOrNull != null
-                ? _accountsSnapshotFromMonthSnapshot(
-                    selectedSnapshotAsync.valueOrNull!,
-                  )
-                : _buildOpeningSnapshot(wallets);
+            final previewSelectedSnapshot = isPreviewMode
+                ? previewWalletsData?.snapshotForMonth(selectedMonth)
+                : null;
+            final selectedSnapshotAsync = isPreviewMode
+                ? null
+                : ref.watch(walletsMonthSnapshotProvider(selectedMonthQuery));
+            final selectedSnapshot = previewSelectedSnapshot != null
+                ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
+                : selectedSnapshotAsync?.valueOrNull != null
+                    ? _accountsSnapshotFromMonthSnapshot(
+                        selectedSnapshotAsync!.valueOrNull!,
+                      )
+                    : _buildOpeningSnapshot(wallets);
 
             return RefreshIndicator(
               onRefresh: onRefresh,
@@ -310,6 +350,11 @@ class AccountsPage extends HookConsumerWidget {
                                   hasDismissedSwipeHintState.value,
                               activeSnapshot: selectedSnapshot,
                               activeMonthIndex: selectedMonthIndexState.value,
+                              previewMonthSnapshot: isPreviewMode
+                                  ? previewWalletsData?.snapshotForMonth(
+                                      availableMonths[index],
+                                    )
+                                  : null,
                             ),
                           ),
                         );
@@ -342,6 +387,7 @@ class AccountsPage extends HookConsumerWidget {
                           wallets: wallets,
                           currencyCode: selectedCurrencyCode,
                           walletBalances: selectedSnapshot.walletBalances,
+                          isPreviewMode: isPreviewMode,
                         ),
                       ),
                     ),
@@ -491,6 +537,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
   final bool hasDismissedSwipeHint;
   final _AccountsSnapshot activeSnapshot;
   final int activeMonthIndex;
+  final WalletsMonthSnapshot? previewMonthSnapshot;
 
   const _WalletsOverviewCard({
     required this.availableMonths,
@@ -502,6 +549,7 @@ class _WalletsOverviewCard extends HookConsumerWidget {
     required this.hasDismissedSwipeHint,
     required this.activeSnapshot,
     required this.activeMonthIndex,
+    required this.previewMonthSnapshot,
   });
 
   @override
@@ -516,10 +564,14 @@ class _WalletsOverviewCard extends HookConsumerWidget {
       scope: scopeQuery,
       monthStart: availableMonths[selectedMonthIndex],
     );
-    final snapshotAsync = ref.watch(walletsMonthSnapshotProvider(monthQuery));
-    final selectedSnapshot = snapshotAsync.valueOrNull != null
-        ? _accountsSnapshotFromMonthSnapshot(snapshotAsync.valueOrNull!)
-        : activeSnapshot;
+    final snapshotAsync = previewMonthSnapshot == null
+        ? ref.watch(walletsMonthSnapshotProvider(monthQuery))
+        : null;
+    final selectedSnapshot = previewMonthSnapshot != null
+        ? _accountsSnapshotFromMonthSnapshot(previewMonthSnapshot!)
+        : snapshotAsync?.valueOrNull != null
+            ? _accountsSnapshotFromMonthSnapshot(snapshotAsync!.valueOrNull!)
+            : activeSnapshot;
 
     final spots = useMemoized(() {
       final timeAscendingMonths = availableMonths.reversed.toList();
@@ -789,11 +841,13 @@ class _WalletAccountStack extends HookConsumerWidget {
   final List<WalletEntity> wallets;
   final String currencyCode;
   final Map<String, int> walletBalances;
+  final bool isPreviewMode;
 
   const _WalletAccountStack({
     required this.wallets,
     required this.currencyCode,
     required this.walletBalances,
+    required this.isPreviewMode,
   });
 
   @override
@@ -904,6 +958,11 @@ class _WalletAccountStack extends HookConsumerWidget {
                 onTapUp: (details) {
                   if (wallet.id != selectedId) {
                     selectedAccountIdState.value = wallet.id;
+                  } else if (isPreviewMode) {
+                    AppToast.info(
+                      context,
+                      context.l10n.previewMockUpdatesApplied,
+                    );
                   } else {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -1228,6 +1287,180 @@ String _walletsMonthSwipeHintDismissedKey(String userId) {
   return 'accounts_month_swipe_hint_dismissed:$userId';
 }
 
+_PreviewWalletsPageData _buildPreviewWalletsPageData({
+  required HouseholdScope householdScope,
+  required String selectedCurrencyCode,
+  required DateTime effectiveNow,
+}) {
+  final wallets = PreviewMockData.wallets
+      .where((wallet) => _isPreviewWalletInScope(wallet, householdScope))
+      .toList(growable: false);
+  final transactions = _buildPreviewWalletTransactions(
+    wallets: wallets,
+    householdScope: householdScope,
+    selectedCurrencyCode: selectedCurrencyCode,
+  );
+  final availableMonths = buildWalletAvailableMonths(
+    now: effectiveNow,
+    transactions: transactions,
+  );
+  final monthSnapshots = <DateTime, WalletsMonthSnapshot>{};
+
+  for (final monthStart in availableMonths) {
+    final normalizedMonthStart = _normalizeWalletMonth(monthStart);
+    final snapshot = buildWalletSnapshot(
+      wallets: wallets,
+      transactions: transactions,
+      endExclusive: _previewWalletSnapshotEndExclusive(
+        monthStart: normalizedMonthStart,
+        effectiveNow: effectiveNow,
+      ),
+    );
+    monthSnapshots[normalizedMonthStart] = WalletsMonthSnapshot(
+      monthStart: normalizedMonthStart,
+      monthEndExclusive: _previewWalletSnapshotEndExclusive(
+        monthStart: normalizedMonthStart,
+        effectiveNow: effectiveNow,
+      ),
+      incomeTotalCents: snapshot.totalIncomeCents,
+      spentTotalCents: snapshot.totalSpentCents,
+      netWorthCents: snapshot.netWorthCents,
+      walletBalances: snapshot.walletBalances,
+    );
+  }
+
+  final history = WalletsHistorySummary(
+    availableMonths: availableMonths,
+    netWorthSeries: availableMonths.reversed.map((monthStart) {
+      final snapshot = monthSnapshots[_normalizeWalletMonth(monthStart)];
+      return WalletNetWorthPoint(
+        monthStart: monthStart,
+        netWorthCents: snapshot?.netWorthCents ?? 0,
+      );
+    }).toList(growable: false),
+  );
+
+  return _PreviewWalletsPageData(
+    wallets: wallets,
+    history: history,
+    monthSnapshots: monthSnapshots,
+  );
+}
+
+bool _isPreviewWalletInScope(
+    WalletEntity wallet, HouseholdScope householdScope) {
+  switch (householdScope.activeAccountType) {
+    case ActiveWalletType.personal:
+      final householdId = wallet.householdId?.trim();
+      return householdId == null || householdId.isEmpty;
+    case ActiveWalletType.portfolio:
+      return wallet.householdId == householdScope.activeAccountHouseholdId;
+    case ActiveWalletType.household:
+      return wallet.householdId == householdScope.selectedHouseholdId;
+  }
+}
+
+List<ExpenseEntry> _buildPreviewWalletTransactions({
+  required List<WalletEntity> wallets,
+  required HouseholdScope householdScope,
+  required String selectedCurrencyCode,
+}) {
+  if (wallets.isEmpty) {
+    return const <ExpenseEntry>[];
+  }
+
+  final defaultWalletId = resolveDefaultWalletId(wallets);
+  final walletsById = <String, WalletEntity>{
+    for (final wallet in wallets) wallet.id: wallet,
+  };
+
+  return PreviewMockData.expenses
+      .where((expense) {
+        final normalizedCurrency = expense.currency?.trim().toUpperCase();
+        if (normalizedCurrency != selectedCurrencyCode) {
+          return false;
+        }
+
+        return _isPreviewTransactionInScope(expense, householdScope);
+      })
+      .map((expense) {
+        final walletId = _resolvePreviewTransactionWalletId(
+          expense: expense,
+          defaultWalletId: defaultWalletId,
+        );
+        if (walletId == null) {
+          return null;
+        }
+
+        final wallet = walletsById[walletId];
+        if (wallet == null) {
+          return null;
+        }
+
+        return expense.copyWith(
+          accountId: wallet.id,
+          accountName: wallet.name,
+          accountIcon: wallet.icon,
+          accountColor: wallet.color,
+        );
+      })
+      .whereType<ExpenseEntry>()
+      .toList(growable: false);
+}
+
+bool _isPreviewTransactionInScope(
+  ExpenseEntry expense,
+  HouseholdScope householdScope,
+) {
+  final householdId = expense.householdId?.trim();
+
+  switch (householdScope.activeAccountType) {
+    case ActiveWalletType.personal:
+      return householdId == null || householdId.isEmpty;
+    case ActiveWalletType.portfolio:
+      return householdId == householdScope.activeAccountHouseholdId;
+    case ActiveWalletType.household:
+      return householdId == householdScope.selectedHouseholdId;
+  }
+}
+
+String? _resolvePreviewTransactionWalletId({
+  required ExpenseEntry expense,
+  required String? defaultWalletId,
+}) {
+  final householdId = expense.householdId?.trim();
+  if (householdId == null || householdId.isEmpty) {
+    return defaultWalletId;
+  }
+
+  return householdId;
+}
+
+DateTime _previewWalletSnapshotEndExclusive({
+  required DateTime monthStart,
+  required DateTime effectiveNow,
+}) {
+  final normalizedMonthStart = _normalizeWalletMonth(monthStart);
+  final currentMonthStart = _normalizeWalletMonth(effectiveNow);
+  if (normalizedMonthStart == currentMonthStart) {
+    return DateTime(
+      effectiveNow.year,
+      effectiveNow.month,
+      effectiveNow.day + 1,
+    );
+  }
+
+  return DateTime(
+    normalizedMonthStart.year,
+    normalizedMonthStart.month + 1,
+    1,
+  );
+}
+
+DateTime _normalizeWalletMonth(DateTime date) {
+  return DateTime(date.year, date.month, 1);
+}
+
 _AccountsSnapshot _buildOpeningSnapshot(List<WalletEntity> wallets) {
   final walletBalances = <String, int>{
     for (final wallet in wallets) wallet.id: wallet.openingBalanceCents,
@@ -1263,6 +1496,22 @@ String? _resolveWalletsScopeHouseholdId(HouseholdScope scope) {
       return scope.activeAccountHouseholdId;
     case ActiveWalletType.household:
       return scope.selectedHouseholdId;
+  }
+}
+
+class _PreviewWalletsPageData {
+  const _PreviewWalletsPageData({
+    required this.wallets,
+    required this.history,
+    required this.monthSnapshots,
+  });
+
+  final List<WalletEntity> wallets;
+  final WalletsHistorySummary history;
+  final Map<DateTime, WalletsMonthSnapshot> monthSnapshots;
+
+  WalletsMonthSnapshot? snapshotForMonth(DateTime monthStart) {
+    return monthSnapshots[_normalizeWalletMonth(monthStart)];
   }
 }
 

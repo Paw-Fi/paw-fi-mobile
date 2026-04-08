@@ -2,6 +2,7 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 
 /// Curated mock content surfaced whenever preview mode is active.
 class PreviewMockData {
@@ -28,6 +29,9 @@ class PreviewMockData {
 
   static List<Household> get households =>
       _households.map(_copyHousehold).toList(growable: false);
+
+  static List<WalletEntity> get wallets =>
+      _wallets.map(_copyWallet).toList(growable: false);
 
   static final List<ExpenseEntry> _expenses = [
     ExpenseEntry(
@@ -798,6 +802,79 @@ class PreviewMockData {
     ),
   ];
 
+  static final List<WalletEntity> _wallets = [
+    WalletEntity(
+      id: 'preview-spending',
+      userId: contact.userId ?? 'preview-user',
+      householdId: null,
+      name: 'Everyday Spending',
+      icon: 'wallet',
+      color: '#F9A8D4',
+      openingBalanceCents: 235000,
+      goalAmountCents: null,
+      isDefault: true,
+      isSystem: true,
+      isArchived: false,
+      currentBalanceCents: 235000,
+    ),
+    WalletEntity(
+      id: 'preview-house-1',
+      userId: contact.userId ?? 'preview-user',
+      householdId: 'preview-house-1',
+      name: 'Loft Shared Spending',
+      icon: 'groups',
+      color: '#F97316',
+      openingBalanceCents: 164000,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 164000,
+    ),
+    WalletEntity(
+      id: 'preview-house-2',
+      userId: contact.userId ?? 'preview-user',
+      householdId: 'preview-house-2',
+      name: 'Wedding Fund Cash',
+      icon: 'favorite',
+      color: '#6366F1',
+      openingBalanceCents: 420000,
+      goalAmountCents: 750000,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 420000,
+    ),
+    WalletEntity(
+      id: 'preview-card',
+      userId: contact.userId ?? 'preview-user',
+      householdId: 'preview-card',
+      name: 'Chase Sapphire',
+      icon: 'credit_card',
+      color: '#0EA5E9',
+      openingBalanceCents: -32000,
+      goalAmountCents: null,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: -32000,
+    ),
+    WalletEntity(
+      id: 'preview-savings',
+      userId: contact.userId ?? 'preview-user',
+      householdId: 'preview-savings',
+      name: 'High-Yield Savings',
+      icon: 'savings',
+      color: '#10B981',
+      openingBalanceCents: 850000,
+      goalAmountCents: 1000000,
+      isDefault: false,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: 850000,
+    ),
+  ];
+
   static Household _copyHousehold(Household household) {
     return Household(
       id: household.id,
@@ -847,6 +924,23 @@ class PreviewMockData {
       attachments: tx.attachments,
       createdAt: tx.createdAt,
       updatedAt: tx.updatedAt,
+    );
+  }
+
+  static WalletEntity _copyWallet(WalletEntity wallet) {
+    return WalletEntity(
+      id: wallet.id,
+      userId: wallet.userId,
+      householdId: wallet.householdId,
+      name: wallet.name,
+      icon: wallet.icon,
+      color: wallet.color,
+      openingBalanceCents: wallet.openingBalanceCents,
+      goalAmountCents: wallet.goalAmountCents,
+      isDefault: wallet.isDefault,
+      isSystem: wallet.isSystem,
+      isArchived: wallet.isArchived,
+      currentBalanceCents: wallet.currentBalanceCents,
     );
   }
 }

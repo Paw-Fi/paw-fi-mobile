@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -48,6 +49,18 @@ class _FakeWalletsDataService implements WalletsDataService {
       netWorthCents: 1200,
       walletBalances: const {'a1': 1200},
     );
+  }
+}
+
+class _ThrowingWalletsDataService implements WalletsDataService {
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) {
+    throw StateError('preview mode should not hit live history service');
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(WalletsMonthQuery query) {
+    throw StateError('preview mode should not hit live month snapshot service');
   }
 }
 
@@ -111,6 +124,77 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Spending'), findsWidgets);
+    expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets('wallets page renders preview wallet data in preview mode',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          mainShellTabIndexProvider.overrideWith((ref) => 3),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          previewModeProvider.overrideWith(
+            (ref) => PreviewModeNotifier(initiallyActive: true),
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Everyday Spending'), findsWidgets);
+    expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets(
+      'wallets page renders household preview wallet data without live service',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          mainShellTabIndexProvider.overrideWith((ref) => 3),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          previewModeProvider.overrideWith(
+            (ref) => PreviewModeNotifier(initiallyActive: true),
+          ),
+          walletsDataServiceProvider
+              .overrideWithValue(_ThrowingWalletsDataService()),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.household,
+              selected: SelectedHouseholdState(householdId: 'preview-house-1'),
+              portfolioHouseholdIds: {'preview-card', 'preview-savings'},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setMode(ViewMode.household),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Loft Shared Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
   });
 }
