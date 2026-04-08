@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -8,6 +10,7 @@ import '../pages/household_onboarding_page.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
@@ -15,6 +18,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 
 import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -31,7 +35,7 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 }
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
-  String? _recurringLoadScheduledForHouseholdId;
+  String? _dashboardWarmupKey;
 
   /// Calculate user's personal share of household expenses
   ///
@@ -122,11 +126,109 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     return result;
   }
 
+  Future<void> _warmHouseholdDashboard({
+    required String userId,
+    required Household household,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+  }) async {
+    final visibleConfigs = configs.where((config) => config.isVisible).toList();
+
+    final summaryParams = <HouseholdSummaryParams>{};
+    var needsRecurring = false;
+
+    for (final config in visibleConfigs) {
+      switch (config.type) {
+        case DashboardWidgetType.householdSpentByYou:
+        case DashboardWidgetType.householdBudgetOverview:
+        case DashboardWidgetType.householdFairness:
+        case DashboardWidgetType.householdSettlement:
+        case DashboardWidgetType.householdMemberSpending:
+        case DashboardWidgetType.householdSpendingBreakdownChart:
+        case DashboardWidgetType.householdWhereTheMoneyWent:
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+          ));
+          break;
+        case DashboardWidgetType.householdFinancialCalendar:
+          needsRecurring = true;
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (needsRecurring) {
+      final recurringProvider = recurringTransactionsProvider(household.id);
+      final recurringState = ref.read(recurringProvider);
+      if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
+        await ref
+            .read(recurringProvider.notifier)
+            .loadRecurringTransactions(userId);
+      }
+    }
+
+    ref.read(householdMembersProvider(household.id));
+
+    for (final params in summaryParams) {
+      try {
+        await ref.read(householdSummaryProvider(params).future);
+      } catch (_) {}
+    }
+  }
+
+  String _buildDashboardWarmupKey({
+    required String householdId,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+  }) {
+    final visibleConfigs = configs
+        .where((config) => config.isVisible)
+        .map((config) => [
+              config.id,
+              config.type.name,
+              config.dateRange.name,
+              config.viewMode.name,
+              config.customStartDate?.toIso8601String() ?? '',
+              config.customEndDate?.toIso8601String() ?? '',
+            ].join(':'))
+        .toList()
+      ..sort();
+
+    return '$householdId|$selectedCurrency|${visibleConfigs.join('|')}';
+  }
+
+  void _scheduleDashboardWarmup({
+    required String warmupKey,
+    required String userId,
+    required Household household,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+  }) {
+    if (_dashboardWarmupKey == warmupKey) return;
+
+    _dashboardWarmupKey = warmupKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_dashboardWarmupKey != warmupKey) return;
+
+      unawaited(_warmHouseholdDashboard(
+        userId: userId,
+        household: household,
+        selectedCurrency: selectedCurrency,
+        configs: configs,
+      ));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
     final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(currentUserIdProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
 
     if (userId == null) {
       return SliverFillRemaining(
@@ -184,25 +286,6 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 )
               : households.first;
 
-          // Ensure recurring templates are loaded once per household so
-          // dashboard widgets can project occurrences (without counting templates).
-          final recurringState = ref.watch(
-            recurringTransactionsProvider(household.id),
-          );
-          final shouldScheduleRecurringLoad =
-              _recurringLoadScheduledForHouseholdId != household.id &&
-                  !recurringState.hasLoadedOnce &&
-                  !recurringState.data.isLoading;
-          if (shouldScheduleRecurringLoad) {
-            _recurringLoadScheduledForHouseholdId = household.id;
-            Future.microtask(() {
-              if (!mounted) return;
-              ref
-                  .read(recurringTransactionsProvider(household.id).notifier)
-                  .loadRecurringTransactions(userId);
-            });
-          }
-
           // Filters
           final filterState = ref.watch(homeFilterProvider);
           final dashboardContact =
@@ -250,6 +333,20 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   ),
                 ),
                 data: (configs) {
+                  final warmupKey = _buildDashboardWarmupKey(
+                    householdId: household.id,
+                    selectedCurrency:
+                        '$selectedCurrency|refresh:$dashboardRefreshSignal',
+                    configs: configs,
+                  );
+                  _scheduleDashboardWarmup(
+                    warmupKey: warmupKey,
+                    userId: userId,
+                    household: household,
+                    selectedCurrency: selectedCurrency,
+                    configs: configs,
+                  );
+
                   return DraggableDashboardList(
                     configs: configs,
                     onReorder: (oldIndex, newIndex) {

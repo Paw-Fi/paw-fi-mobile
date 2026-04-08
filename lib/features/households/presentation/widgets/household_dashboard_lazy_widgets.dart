@@ -25,6 +25,24 @@ import 'package:moneko/features/households/presentation/widgets/settlement_sugge
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+HouseholdSummaryParams buildHouseholdSummaryParams({
+  required Household household,
+  required String selectedCurrency,
+  required DashboardWidgetConfig config,
+}) {
+  final range = getDateRangeFromFilter(
+    config.dateRange,
+    config.customStartDate,
+    config.customEndDate,
+  );
+  return HouseholdSummaryParams(
+    householdId: household.id,
+    currency: selectedCurrency,
+    startDate: range['from']!.toIso8601String(),
+    endDate: range['to']!.toIso8601String(),
+  );
+}
+
 class LazyHouseholdSpentByYouCard extends ConsumerWidget {
   const LazyHouseholdSpentByYouCard({
     super.key,
@@ -45,11 +63,10 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       config.customStartDate,
       config.customEndDate,
     );
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: range['from']!.toIso8601String(),
-      endDate: range['to']!.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
 
@@ -149,11 +166,10 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       config.customStartDate,
       config.customEndDate,
     );
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: range['from']!.toIso8601String(),
-      endDate: range['to']!.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
@@ -294,11 +310,10 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
       config.customStartDate,
       config.customEndDate,
     );
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: range['from']!.toIso8601String(),
-      endDate: range['to']!.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
 
@@ -357,11 +372,10 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
       config.customStartDate,
       config.customEndDate,
     );
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: range['from']!.toIso8601String(),
-      endDate: range['to']!.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
 
@@ -516,11 +530,10 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
         DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
     final toDate =
         DateTime(range['to']!.year, range['to']!.month, range['to']!.day);
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: fromDate.toIso8601String(),
-      endDate: toDate.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
@@ -574,20 +587,10 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-    );
-    final fromDate =
-        DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
-    final toDate =
-        DateTime(range['to']!.year, range['to']!.month, range['to']!.day);
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: fromDate.toIso8601String(),
-      endDate: toDate.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
@@ -624,20 +627,10 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider);
     final membersAsync = ref.watch(householdMembersProvider(household.id));
-    final range = getDateRangeFromFilter(
-      config.dateRange,
-      config.customStartDate,
-      config.customEndDate,
-    );
-    final fromDate =
-        DateTime(range['from']!.year, range['from']!.month, range['from']!.day);
-    final toDate =
-        DateTime(range['to']!.year, range['to']!.month, range['to']!.day);
-    final params = HouseholdSummaryParams(
-      householdId: household.id,
-      currency: selectedCurrency,
-      startDate: fromDate.toIso8601String(),
-      endDate: toDate.toIso8601String(),
+    final params = buildHouseholdSummaryParams(
+      household: household,
+      selectedCurrency: selectedCurrency,
+      config: config,
     );
     final summaryAsync = ref.watch(householdSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
