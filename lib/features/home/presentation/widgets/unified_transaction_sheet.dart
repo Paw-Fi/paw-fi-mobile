@@ -118,7 +118,7 @@ class _AccountTarget {
 /// Shows unified transaction sheet
 /// For existing expenses: shows details with option to change sharing
 /// For new expenses: shows confirmation with option to choose sharing
-Future<void> showUnifiedTransactionSheet(
+Future<bool?> showUnifiedTransactionSheet(
   BuildContext context, {
   ExpenseEntry? existingExpense,
   ParsedExpense? newExpense,
@@ -128,7 +128,7 @@ Future<void> showUnifiedTransactionSheet(
   assert(existingExpense != null || newExpense != null,
       'Must provide either existingExpense or newExpense');
 
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
     enableDrag: false,
@@ -2791,7 +2791,7 @@ class _UnifiedTransactionSheetState
           }
 
           closeDialog();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
           AppToast.success(
             toastContext,
             isSharedHousehold
@@ -2895,7 +2895,7 @@ class _UnifiedTransactionSheetState
             return;
           }
           closeDialog();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
         }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
@@ -3244,11 +3244,11 @@ class _UnifiedTransactionSheetState
               toCategory: remapToCategory,
             );
             if (!mounted) return;
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
             return;
           }
 
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
 
           AppToast.success(
             toastContext,
@@ -3438,7 +3438,7 @@ class _UnifiedTransactionSheetState
       }
 
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       }
 
       AppToast.success(

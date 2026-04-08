@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,10 +15,17 @@ import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_prov
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_details_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
@@ -110,6 +119,27 @@ class WalletDetailsPage extends HookConsumerWidget {
       endDate: monthEnd,
     );
     final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
+    final recurringTransactionsState =
+        ref.watch(recurringTransactionsProvider(effectiveHouseholdId));
+    final recurringTransactions = recurringTransactionsState.data.valueOrNull ??
+        const <RecurringTransaction>[];
+
+    useEffect(() {
+      if (recurringTransactionsState.hasLoadedOnce) {
+        return null;
+      }
+
+      Future.microtask(() {
+        ref
+            .read(recurringTransactionsProvider(effectiveHouseholdId).notifier)
+            .loadRecurringTransactions(currentUserId);
+      });
+      return null;
+    }, [
+      recurringTransactionsState.hasLoadedOnce,
+      effectiveHouseholdId,
+      currentUserId,
+    ]);
 
     useEffect(() {
       if (walletFeedState.error != null) {
@@ -137,6 +167,42 @@ class WalletDetailsPage extends HookConsumerWidget {
     ]);
 
     final scopedExpenses = walletFeedState.items;
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final walletRecurringTransactions =
+        recurringTransactions.where((transaction) {
+      final accountId = transaction.accountId?.trim();
+      if (accountId != null && accountId.isNotEmpty) {
+        return accountId == latestWallet.id;
+      }
+      return isDefaultResolvedAccount;
+    }).toList(growable: false);
+    final projectedRecurringRangeStart =
+        scopedExpenses.isEmpty ? currentMonthStart : scopedExpenses.last.date;
+    final projectedRecurringExpenses = walletRecurringTransactions.isEmpty
+        ? const <ExpenseEntry>[]
+        : dedupeProjectedRecurringExpenseEntries(
+            projectedExpenses: projectRecurringTransactionsAsExpenseEntries(
+              recurringTransactions: walletRecurringTransactions,
+              rangeStart: projectedRecurringRangeStart,
+              rangeEnd: now,
+              selectedCurrency: selectedCurrencyCode,
+            ).map((expense) {
+              return expense.copyWith(
+                accountId: latestWallet.id,
+                accountName: latestWallet.name,
+                accountIcon: latestWallet.icon,
+                accountColor: latestWallet.color,
+              );
+            }).toList(growable: false),
+            actualExpenses: scopedExpenses,
+          );
+    final visibleTransactions = [
+      ...scopedExpenses,
+      ...projectedRecurringExpenses,
+    ]..sort(_compareExpensesDescending);
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
     final gradientColors =
@@ -153,6 +219,58 @@ class WalletDetailsPage extends HookConsumerWidget {
     final totalSpent = monthFeedState.summary.expenseTotal;
 
     final net = totalIncome - totalSpent;
+
+    Future<void> refreshWalletDetails() async {
+      await ref
+          .read(transactionsFeedProvider(walletFeedQuery).notifier)
+          .refresh();
+      await ref
+          .read(transactionsFeedProvider(monthFeedQuery).notifier)
+          .refresh();
+      actions.refreshAccountData();
+    }
+
+    Future<void> openRecurringTransactionEditor(
+      RecurringTransaction transaction,
+    ) async {
+      final didChange = await showAddRecurringSheet(
+        context,
+        type: transaction.type,
+        existingTransaction: transaction,
+      );
+      if (didChange == true) {
+        await refreshWalletDetails();
+      }
+    }
+
+    Future<void> handleTransactionTap(ExpenseEntry expense) async {
+      final recurringId =
+          extractRecurringTransactionIdFromProjectedExpenseId(expense.id);
+      final projectedRecurringTransaction =
+          recurringId == null ? null : recurringTransactionsById[recurringId];
+
+      if (projectedRecurringTransaction != null) {
+        await openRecurringTransactionEditor(projectedRecurringTransaction);
+        return;
+      }
+
+      if (isWalletTransferExpenseEntry(expense)) {
+        await showWalletTransferDetailsSheet(
+          context,
+          transferExpense: expense,
+          wallets: scopedAccounts,
+        );
+        return;
+      }
+
+      final didChange = await showUnifiedTransactionSheet(
+        context,
+        existingExpense: expense,
+      );
+      if (didChange == true) {
+        await refreshWalletDetails();
+      }
+    }
 
     Future<void> onEdit() async {
       final result =
@@ -503,7 +621,7 @@ class WalletDetailsPage extends HookConsumerWidget {
                                 ),
                               ),
                             )
-                          else if (scopedExpenses.isEmpty)
+                          else if (visibleTransactions.isEmpty)
                             Center(
                               child: Text(
                                 context.l10n.noTransactionsYet,
@@ -514,8 +632,11 @@ class WalletDetailsPage extends HookConsumerWidget {
                             )
                           else
                             GroupedTransactionsList(
-                              transactions: scopedExpenses,
+                              transactions: visibleTransactions,
                               currency: selectedCurrencyCode,
+                              onTransactionTap: (expense) {
+                                unawaited(handleTransactionTap(expense));
+                              },
                             ),
                           PaginatedLoadMoreIndicator(
                             show: walletFeedState.isLoadingMore,
@@ -533,6 +654,20 @@ class WalletDetailsPage extends HookConsumerWidget {
       ),
     );
   }
+}
+
+int _compareExpensesDescending(ExpenseEntry left, ExpenseEntry right) {
+  final dateCompare = right.date.compareTo(left.date);
+  if (dateCompare != 0) {
+    return dateCompare;
+  }
+
+  final createdAtCompare = right.createdAt.compareTo(left.createdAt);
+  if (createdAtCompare != 0) {
+    return createdAtCompare;
+  }
+
+  return right.id.compareTo(left.id);
 }
 
 WalletEntity _copyAccount(

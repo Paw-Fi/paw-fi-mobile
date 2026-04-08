@@ -1187,7 +1187,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
           if (context.mounted) {
             closeDialog();
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
             final successMsg = isExpense
                 ? (isEditing
                     ? l10n.recurringExpenseUpdatedSuccessfully
@@ -1377,7 +1377,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
         if (result.success) {
           if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
           }
           AppToast.success(
             toastContext,
@@ -2581,12 +2581,12 @@ class AddRecurringSheet extends HookConsumerWidget {
   }
 }
 
-Future<void> showAddRecurringSheet(
+Future<bool?> showAddRecurringSheet(
   BuildContext context, {
   required String type,
   RecurringTransaction? existingTransaction,
 }) {
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
     enableDrag: false,

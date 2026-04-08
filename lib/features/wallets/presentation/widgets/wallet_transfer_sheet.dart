@@ -131,7 +131,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
           return Container(
             decoration: BoxDecoration(
               color: colorScheme.sheetBackground,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom + 20,
@@ -156,7 +157,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                         const SizedBox(height: 24),
                         TextField(
                           controller: controller,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           textAlign: TextAlign.center,
                           autofocus: true,
                           style: TextStyle(
@@ -182,7 +184,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                         SizedBox(
                           width: double.infinity,
                           child: PrimaryAdaptiveButton(
-                            onPressed: () => Navigator.of(context).pop(controller.text),
+                            onPressed: () =>
+                                Navigator.of(context).pop(controller.text),
                             child: Text(context.l10n.done),
                           ),
                         ),
@@ -299,10 +302,14 @@ class _WalletTransferSheet extends HookConsumerWidget {
                 child: Row(
                   children: [
                     IconButton(
-                      onPressed: isSaving.value ? null : () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                      onPressed: isSaving.value
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      icon:
+                          Icon(Icons.close, color: colorScheme.mutedForeground),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
+                        backgroundColor:
+                            colorScheme.muted.withValues(alpha: 0.2),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -334,7 +341,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                             )
                           : Icon(Icons.check, color: colorScheme.primary),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                        backgroundColor:
+                            colorScheme.primary.withValues(alpha: 0.12),
                       ),
                     ),
                   ],
@@ -342,7 +350,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
               ),
               Flexible(
                 child: SingleChildScrollView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,7 +381,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                 context.l10n.tapToEditAmount,
                                 style: TextStyle(
                                   fontSize: 15,
-                                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                                  color: colorScheme.onSurface
+                                      .withValues(alpha: 0.5),
                                   fontWeight: FontWeight.w500,
                                 ),
                                 textAlign: TextAlign.center,
@@ -395,10 +405,13 @@ class _WalletTransferSheet extends HookConsumerWidget {
                       const SizedBox(height: 8),
                       MonekoInput(
                         child: InkWell(
-                          onTap: isSaving.value ? null : () => handleSelectFromWallet(),
+                          onTap: isSaving.value
+                              ? null
+                              : () => handleSelectFromWallet(),
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 14.0),
                             child: Row(
                               children: [
                                 AnimatedContainer(
@@ -407,8 +420,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: parseWalletColor(
-                                            fromWallet.color, colorScheme.primary)
+                                    color: parseWalletColor(fromWallet.color,
+                                            colorScheme.primary)
                                         .withValues(alpha: 0.15),
                                     shape: BoxShape.circle,
                                   ),
@@ -417,8 +430,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                     child: Icon(
                                       resolveWalletIcon(fromWallet.icon),
                                       key: ValueKey(fromWallet.icon),
-                                      color: parseWalletColor(
-                                          fromWallet.color, colorScheme.primary),
+                                      color: parseWalletColor(fromWallet.color,
+                                          colorScheme.primary),
                                       size: 16,
                                     ),
                                   ),
@@ -427,7 +440,9 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                 Expanded(
                                   child: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
-                                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                                    layoutBuilder:
+                                        (currentChild, previousChildren) =>
+                                            Stack(
                                       alignment: Alignment.centerLeft,
                                       children: <Widget>[
                                         ...previousChildren,
@@ -458,7 +473,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                 Icon(
                                   Icons.chevron_right,
                                   size: 20,
-                                  color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.5),
                                 ),
                               ],
                             ),
@@ -475,11 +491,13 @@ class _WalletTransferSheet extends HookConsumerWidget {
                           children: [
                             Container(
                               decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: IconButton(
-                                onPressed: isSaving.value ? null : handleSwapDirection,
+                                onPressed:
+                                    isSaving.value ? null : handleSwapDirection,
                                 icon: Icon(
                                   Icons.swap_vert,
                                   color: colorScheme.primary,
@@ -504,10 +522,13 @@ class _WalletTransferSheet extends HookConsumerWidget {
                       const SizedBox(height: 8),
                       MonekoInput(
                         child: InkWell(
-                          onTap: isSaving.value ? null : () => handleSelectToWallet(),
+                          onTap: isSaving.value
+                              ? null
+                              : () => handleSelectToWallet(),
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0, vertical: 14.0),
                             child: Row(
                               children: [
                                 AnimatedContainer(
@@ -536,7 +557,9 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                 Expanded(
                                   child: AnimatedSwitcher(
                                     duration: const Duration(milliseconds: 300),
-                                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                                    layoutBuilder:
+                                        (currentChild, previousChildren) =>
+                                            Stack(
                                       alignment: Alignment.centerLeft,
                                       children: <Widget>[
                                         ...previousChildren,
@@ -567,7 +590,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                                 Icon(
                                   Icons.chevron_right,
                                   size: 20,
-                                  color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+                                  color: colorScheme.mutedForeground
+                                      .withValues(alpha: 0.5),
                                 ),
                               ],
                             ),
@@ -658,7 +682,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(Icons.arrow_back, color: colorScheme.mutedForeground),
+                        icon: Icon(Icons.arrow_back,
+                            color: colorScheme.mutedForeground),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -681,7 +706,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                     itemBuilder: (context, index) {
                       final wallet = wallets[index];
                       final isSelected = wallet.id == currentId;
-                      final walletColor = parseWalletColor(wallet.color, colorScheme.primary);
+                      final walletColor =
+                          parseWalletColor(wallet.color, colorScheme.primary);
 
                       return ListTile(
                         onTap: () => Navigator.of(context).pop(wallet.id),
@@ -714,7 +740,8 @@ class _WalletTransferSheet extends HookConsumerWidget {
                           ),
                         ),
                         trailing: isSelected
-                            ? Icon(Icons.check_circle, color: colorScheme.primary)
+                            ? Icon(Icons.check_circle,
+                                color: colorScheme.primary)
                             : null,
                       );
                     },
