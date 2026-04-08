@@ -63,7 +63,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
     );
     final openingController = useTextEditingController(
       text: isEditing
-          ? formatAmount(centsToAmount(initial!.currentBalanceCents))
+          ? formatAmount(centsToAmount(initial!.openingBalanceCents))
           : '',
     );
     final selectedIcon = useState<String>(initial?.icon ?? 'wallet');
@@ -119,7 +119,9 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        isEditing ? context.l10n.editWallet : context.l10n.addWallet,
+                        isEditing
+                            ? context.l10n.editWallet
+                            : context.l10n.addWallet,
                         style: TextStyle(
                           color: colorScheme.foreground,
                           fontSize: 20,
@@ -310,7 +312,7 @@ class _CreateEditWalletSheet extends HookConsumerWidget {
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        context.l10n.currentBalance,
+                        context.l10n.initialBalance,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,

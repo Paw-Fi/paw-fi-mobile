@@ -6890,4 +6890,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get walletsNewWalletTourDescription => 'สร้างกระเป๋าแบบกำหนดเองสำหรับเงินสด เงินออม หรือบัญชีใด ๆ ที่คุณต้องการติดตาม ตั้งเป้าหมายและดูความคืบหน้าได้เลย!';
+
+  @override
+  String get initialBalance => 'ยอดคงเหลือเริ่มต้น';
 }

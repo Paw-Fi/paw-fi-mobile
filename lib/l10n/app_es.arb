@@ -2614,5 +2614,6 @@
   "walletsStackTourTitle": "Tus billeteras",
   "walletsStackTourDescription": "Toca cualquier billetera para desplegarla y ver los detalles. Vuelve a tocarla para abrir su página y ver todas las transacciones.",
   "walletsNewWalletTourTitle": "Añade nuevas billeteras",
-  "walletsNewWalletTourDescription": "Crea billeteras personalizadas para efectivo, ahorros o cualquier cuenta que quieras seguir. Establece metas y controla tu progreso."
+  "walletsNewWalletTourDescription": "Crea billeteras personalizadas para efectivo, ahorros o cualquier cuenta que quieras seguir. Establece metas y controla tu progreso.",
+  "initialBalance": "Saldo inicial"
 }

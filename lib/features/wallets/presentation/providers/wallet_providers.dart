@@ -221,13 +221,14 @@ class WalletActions {
     String? name,
     String? icon,
     String? color,
+    int? openingBalanceCents,
     int? goalAmountCents,
     bool includeGoalAmount = false,
     bool? isDefault,
     bool invalidate = true,
   }) async {
     debugPrint(
-      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
+      '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
       'update-wallet',
@@ -236,6 +237,8 @@ class WalletActions {
         if (name != null) 'name': name,
         if (icon != null) 'icon': icon,
         if (color != null) 'color': color,
+        if (openingBalanceCents != null)
+          'openingBalanceCents': openingBalanceCents,
         if (includeGoalAmount || goalAmountCents != null)
           'goalAmountCents': goalAmountCents,
         if (isDefault != null) 'isDefault': isDefault,

@@ -150,6 +150,17 @@ void main() {
     expect(snapshot.netWorthCents, 27000);
   });
 
+  test('retargetWalletBalance preserves transaction delta when opening changes',
+      () {
+    final nextBalance = retargetWalletBalanceForOpeningChange(
+      previousOpeningBalanceCents: 0,
+      nextOpeningBalanceCents: 100000,
+      currentBalanceCents: -2000,
+    );
+
+    expect(nextBalance, 98000);
+  });
+
   test('buildWalletAvailableMonths returns earliest to current shape', () {
     final months = buildWalletAvailableMonths(
       now: DateTime(2026, 4, 20),

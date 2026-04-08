@@ -2611,5 +2611,6 @@
   "walletsStackTourTitle": "Danh sách ví của bạn",
   "walletsStackTourDescription": "Chạm vào bất kỳ ví nào để mở rộng và xem chi tiết. Chạm thêm một lần nữa để mở trang ví và xem toàn bộ giao dịch.",
   "walletsNewWalletTourTitle": "Thêm ví mới",
-  "walletsNewWalletTourDescription": "Tạo ví tùy chỉnh cho tiền mặt, tiết kiệm hoặc bất kỳ tài khoản nào bạn muốn theo dõi. Đặt mục tiêu và theo dõi tiến độ!"
+  "walletsNewWalletTourDescription": "Tạo ví tùy chỉnh cho tiền mặt, tiết kiệm hoặc bất kỳ tài khoản nào bạn muốn theo dõi. Đặt mục tiêu và theo dõi tiến độ!",
+  "initialBalance": "Số dư ban đầu"
 }

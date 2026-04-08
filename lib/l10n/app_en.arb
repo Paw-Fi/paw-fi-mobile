@@ -2631,5 +2631,6 @@
   "walletsStackTourTitle": "Your Wallet Stack",
   "walletsStackTourDescription": "Tap any wallet to expand and view details. Tap again to open the wallet page and see all transactions.",
   "walletsNewWalletTourTitle": "Add New Wallets",
-  "walletsNewWalletTourDescription": "Create custom wallets for cash, savings, or any account you want to track. Set goals and monitor progress!"
+  "walletsNewWalletTourDescription": "Create custom wallets for cash, savings, or any account you want to track. Set goals and monitor progress!",
+  "initialBalance": "Initial Balance"
 }

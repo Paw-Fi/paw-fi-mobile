@@ -2612,5 +2612,6 @@
   "walletsStackTourTitle": "Vos portefeuilles",
   "walletsStackTourDescription": "Appuyez sur un portefeuille pour l’ouvrir et voir les détails. Appuyez à nouveau pour accéder à sa page et afficher toutes les transactions.",
   "walletsNewWalletTourTitle": "Ajouter de nouveaux portefeuilles",
-  "walletsNewWalletTourDescription": "Créez des portefeuilles personnalisés pour votre argent liquide, votre épargne ou tout autre compte à suivre. Fixez des objectifs et suivez vos progrès !"
+  "walletsNewWalletTourDescription": "Créez des portefeuilles personnalisés pour votre argent liquide, votre épargne ou tout autre compte à suivre. Fixez des objectifs et suivez vos progrès !",
+  "initialBalance": "Solde initial"
 }

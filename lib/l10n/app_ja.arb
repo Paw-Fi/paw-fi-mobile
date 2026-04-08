@@ -2612,5 +2612,6 @@
   "walletsStackTourTitle": "ウォレット一覧",
   "walletsStackTourDescription": "ウォレットをタップすると展開して詳細を表示できます。もう一度タップするとウォレットページが開き、すべての取引を確認できます。",
   "walletsNewWalletTourTitle": "新しいウォレットを追加",
-  "walletsNewWalletTourDescription": "現金や貯金、管理したい口座に合わせてカスタムウォレットを作成できます。目標を設定して、進捗をチェックしましょう。"
+  "walletsNewWalletTourDescription": "現金や貯金、管理したい口座に合わせてカスタムウォレットを作成できます。目標を設定して、進捗をチェックしましょう。",
+  "initialBalance": "初期残高"
 }

@@ -1,19 +1,19 @@
 {
-  "archiveWalletDescription": {
-    "en": "You can archive this wallet anytime. Once archived, it will be hidden from your active lists and won’t be included in your net worth. You can restore it later in Settings.",
-    "de": "Du kannst dieses Wallet jederzeit archivieren. Danach wird es in deinen aktiven Listen ausgeblendet und nicht mehr in dein Nettovermögen einbezogen. In den Einstellungen kannst du es später wiederherstellen.",
-    "es": "Puedes archivar esta cartera en cualquier momento. Al archivarla, dejará de aparecer en tus listas activas y no se incluirá en tu patrimonio neto. Puedes restaurarla más tarde en Ajustes.",
-    "fr": "Vous pouvez archiver ce portefeuille à tout moment. Une fois archivé, il sera masqué dans vos listes actives et ne sera plus pris en compte dans votre patrimoine net. Vous pourrez le restaurer plus tard dans les Paramètres.",
-    "it": "Puoi archiviare questo portafoglio in qualsiasi momento. Una volta archiviato, verrà nascosto dagli elenchi attivi e non sarà più incluso nel tuo patrimonio netto. Potrai ripristinarlo in seguito nelle Impostazioni.",
-    "ja": "このウォレットはいつでもアーカイブできます。アーカイブすると、利用中の一覧には表示されなくなり、純資産にも含まれなくなります。後で設定から復元できます。",
-    "kr": "이 지갑은 언제든지 보관할 수 있습니다. 보관하면 활성 목록에서 숨겨지고 순자산에도 포함되지 않습니다. 나중에 설정에서 다시 복원할 수 있습니다.",
-    "nl": "Je kunt deze wallet op elk moment archiveren. Daarna wordt deze verborgen in je actieve lijsten en niet meer meegerekend in je nettowaarde. Je kunt de wallet later herstellen via Instellingen.",
-    "ur": "آپ اس والیٹ کو کسی بھی وقت آرکائیو کر سکتے ہیں۔ آرکائیو کرنے کے بعد یہ آپ کی فعال فہرستوں سے چھپ جائے گا اور آپ کی خالص مالیت میں شامل نہیں ہوگا۔ آپ اسے بعد میں سیٹنگز سے بحال کر سکتے ہیں۔",
-    "ru": "Вы можете архивировать этот кошелёк в любое время. После этого он будет скрыт из списка активных и не будет учитываться в вашем чистом капитале. Позже вы сможете восстановить его в настройках.",
-    "th": "คุณสามารถเก็บกระเป๋านี้เข้าที่เก็บถาวรได้ทุกเมื่อ เมื่อเก็บถาวรแล้ว กระเป๋านี้จะถูกซ่อนจากรายการที่ใช้งานอยู่ และจะไม่ถูกรวมในมูลค่าสุทธิของคุณ คุณสามารถกู้คืนได้ภายหลังในการตั้งค่า",
-    "uk": "Ви можете архівувати цей гаманець у будь-який час. Після цього він буде прихований з активних списків і не враховуватиметься у вашому чистому капіталі. Пізніше його можна буде відновити в Налаштуваннях.",
-    "zh": "您可以随时归档此钱包。归档后，它将从您的活动列表中隐藏，且不会计入您的净资产。您之后可以在设置中恢复。",
-    "zh_TW": "您可以隨時封存此錢包。封存後，它會從您的使用中清單中隱藏，且不會計入您的淨資產。之後您可以在設定中將其恢復。",
-    "vi": "Bạn có thể lưu trữ ví này bất cứ lúc nào. Sau khi lưu trữ, ví sẽ bị ẩn khỏi danh sách đang hoạt động và không được tính vào tài sản ròng của bạn. Bạn có thể khôi phục lại sau trong phần Cài đặt."
+  "initialBalance": {
+    "en": "Initial Balance",
+    "de": "Anfangssaldo",
+    "es": "Saldo inicial",
+    "fr": "Solde initial",
+    "it": "Saldo iniziale",
+    "ja": "初期残高",
+    "kr": "초기 잔액",
+    "nl": "Beginsaldo",
+    "ur": "ابتدائی بیلنس",
+    "ru": "Начальный баланс",
+    "th": "ยอดคงเหลือเริ่มต้น",
+    "uk": "Початковий баланс",
+    "zh": "初始余额",
+    "zh_TW": "初始餘額",
+    "vi": "Số dư ban đầu"
   }
 }

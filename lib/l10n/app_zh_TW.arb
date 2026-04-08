@@ -2556,5 +2556,6 @@
   "walletsStackTourTitle": "您的錢包列表",
   "walletsStackTourDescription": "點一下任一錢包即可展開並查看詳細資訊；再點一下即可開啟錢包頁面並查看所有交易。",
   "walletsNewWalletTourTitle": "新增錢包",
-  "walletsNewWalletTourDescription": "您可以為現金、儲蓄或任何想追蹤的帳戶建立自訂錢包。設定目標並追蹤進度！"
+  "walletsNewWalletTourDescription": "您可以為現金、儲蓄或任何想追蹤的帳戶建立自訂錢包。設定目標並追蹤進度！",
+  "initialBalance": "初始餘額"
 }

@@ -17,6 +17,16 @@ class WalletSnapshot {
   final Map<String, int> walletBalances;
 }
 
+int retargetWalletBalanceForOpeningChange({
+  required int previousOpeningBalanceCents,
+  required int nextOpeningBalanceCents,
+  required int currentBalanceCents,
+}) {
+  final transactionDeltaCents =
+      currentBalanceCents - previousOpeningBalanceCents;
+  return nextOpeningBalanceCents + transactionDeltaCents;
+}
+
 List<DateTime> buildWalletAvailableMonths({
   required DateTime now,
   required List<ExpenseEntry> transactions,

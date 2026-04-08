@@ -2559,5 +2559,6 @@
   "walletsStackTourTitle": "I tuoi wallet",
   "walletsStackTourDescription": "Tocca un wallet per espanderlo e vedere i dettagli. Toccalo di nuovo per aprire la pagina del wallet e visualizzare tutte le transazioni.",
   "walletsNewWalletTourTitle": "Aggiungi nuovi wallet",
-  "walletsNewWalletTourDescription": "Crea wallet personalizzati per contanti, risparmi o qualsiasi conto che vuoi tenere sotto controllo. Imposta obiettivi e monitora i tuoi progressi!"
+  "walletsNewWalletTourDescription": "Crea wallet personalizzati per contanti, risparmi o qualsiasi conto che vuoi tenere sotto controllo. Imposta obiettivi e monitora i tuoi progressi!",
+  "initialBalance": "Saldo iniziale"
 }

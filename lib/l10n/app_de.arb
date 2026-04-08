@@ -2612,5 +2612,6 @@
   "walletsStackTourTitle": "Deine Wallet-Übersicht",
   "walletsStackTourDescription": "Tippe auf ein Wallet, um es aufzuklappen und Details zu sehen. Tippe erneut, um die Wallet-Seite mit allen Transaktionen zu öffnen.",
   "walletsNewWalletTourTitle": "Neue Wallets hinzufügen",
-  "walletsNewWalletTourDescription": "Erstelle individuelle Wallets für Bargeld, Ersparnisse oder andere Konten, die du im Blick behalten möchtest. Setze Ziele und verfolge deinen Fortschritt!"
+  "walletsNewWalletTourDescription": "Erstelle individuelle Wallets für Bargeld, Ersparnisse oder andere Konten, die du im Blick behalten möchtest. Setze Ziele und verfolge deinen Fortschritt!",
+  "initialBalance": "Anfangssaldo"
 }

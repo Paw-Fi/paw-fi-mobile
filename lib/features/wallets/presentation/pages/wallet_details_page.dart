@@ -10,6 +10,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
+import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
@@ -157,9 +158,17 @@ class WalletDetailsPage extends HookConsumerWidget {
       final result =
           await showCreateEditWalletSheet(context, initial: latestWallet);
       if (result == null) return;
+      if (!context.mounted) return;
 
       debugPrint(
         '[AccountDetails][Edit] save tapped accountId=${latestWallet.id} name=${result.name} icon=${result.icon} color=${result.color} opening=${result.openingBalanceCents} goal=${result.goalAmountCents} isDefault=${result.isDefault}',
+      );
+
+      final retargetedCurrentBalanceCents =
+          retargetWalletBalanceForOpeningChange(
+        previousOpeningBalanceCents: latestWallet.openingBalanceCents,
+        nextOpeningBalanceCents: result.openingBalanceCents,
+        currentBalanceCents: latestWallet.currentBalanceCents,
       );
 
       final optimisticAccount = _copyAccount(
@@ -170,7 +179,7 @@ class WalletDetailsPage extends HookConsumerWidget {
         goalAmountCents: result.goalAmountCents,
         isDefault: result.isDefault,
         openingBalanceCents: result.openingBalanceCents,
-        currentBalanceCents: result.openingBalanceCents,
+        currentBalanceCents: retargetedCurrentBalanceCents,
       );
 
       actions.setOptimisticWallet(optimisticAccount);
@@ -185,22 +194,12 @@ class WalletDetailsPage extends HookConsumerWidget {
           name: result.name,
           icon: result.icon,
           color: result.color,
+          openingBalanceCents: result.openingBalanceCents,
           goalAmountCents: result.goalAmountCents,
           includeGoalAmount: true,
           isDefault: result.isDefault,
           invalidate: false,
         );
-        if (result.openingBalanceCents != latestWallet.currentBalanceCents) {
-          debugPrint(
-            '[AccountDetails][Edit] updateBalance needed accountId=${latestWallet.id} fromCurrent=${latestWallet.currentBalanceCents} toTarget=${result.openingBalanceCents}',
-          );
-          await actions.updateBalance(
-            walletId: latestWallet.id,
-            targetBalanceCents: result.openingBalanceCents,
-            note: context.l10n.updatedFromWalletEditor,
-            invalidate: false,
-          );
-        }
         debugPrint(
             '[AccountDetails][Edit] refreshAccountData accountId=${latestWallet.id}');
         actions.refreshAccountData();
@@ -431,12 +430,25 @@ class WalletDetailsPage extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            context.l10n.keyInsights,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                context.l10n.keyInsights,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '(${context.l10n.thisMonth.toLowerCase()})',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Row(
