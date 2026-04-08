@@ -462,12 +462,7 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         }
       }
 
-      debugPrint('📊 [InitV2] Loading analytics data...');
-      final analyticsStopwatch = Stopwatch()..start();
-      await ref.read(analyticsProvider.notifier).loadData(userId);
-      analyticsStopwatch.stop();
-      debugPrint(
-          '✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
+      _warmAnalyticsDataInBackground(userId);
     } on TimeoutException {
       stopwatch.stop();
 
@@ -518,6 +513,34 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
     }
+  }
+
+  void _warmAnalyticsDataInBackground(String userId) {
+    unawaited(Future<void>(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      if (ref.read(authProvider).uid != userId) {
+        return;
+      }
+
+      final analyticsState = ref.read(analyticsProvider);
+      if (analyticsState.hasLoadedOnce == true || analyticsState.isLoading) {
+        return;
+      }
+
+      debugPrint('📊 [InitV2] Warming analytics data in background...');
+      final analyticsStopwatch = Stopwatch()..start();
+
+      try {
+        await ref.read(analyticsProvider.notifier).loadData(userId);
+        analyticsStopwatch.stop();
+        debugPrint(
+            '✅ [InitV2] Background analytics warm-up finished in ${analyticsStopwatch.elapsedMilliseconds}ms');
+      } catch (error) {
+        analyticsStopwatch.stop();
+        debugPrint('⚠️ [InitV2] Background analytics warm-up failed: $error');
+      }
+    }));
   }
 
   Future<dynamic> _initializeRpcWithRetry(

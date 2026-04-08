@@ -1,9 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
-import 'package:moneko/features/home/presentation/state/state.dart'
-    show analyticsProvider;
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -23,58 +22,14 @@ abstract class WalletsDataService {
 }
 
 class SupabaseWalletsDataService implements WalletsDataService {
-  const SupabaseWalletsDataService();
+  SupabaseWalletsDataService(this.ref);
+
+  final Ref ref;
 
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
-    // CRITICAL: keep the wallets history RPC pointed at the recurring-aware v2
-    // wrapper.
-    // STRICT REQUIREMENT: switching back to v1 removes recurring month deltas
-    // from the main wallets history response.
-    final response = await supabase.rpc(
-      'get_wallets_history_v2',
-      params: query.toHistoryRpcParams(),
-    );
-    return WalletsHistorySummary.fromJson(_toMap(response));
-  }
-
-  @override
-  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
-      WalletsMonthQuery query) async {
-    // CRITICAL: keep the wallets month snapshot RPC pointed at the
-    // recurring-aware v2 wrapper.
-    // STRICT REQUIREMENT: switching back to v1 drops recurring month
-    // occurrences from wallet balances and month totals.
-    final response = await supabase.rpc(
-      'get_wallets_month_snapshot_v2',
-      params: query.toRpcParams(),
-    );
-    return WalletsMonthSnapshot.fromJson(_toMap(response));
-  }
-
-  Map<String, dynamic> _toMap(dynamic payload) {
-    if (payload is Map<String, dynamic>) {
-      return payload;
-    }
-    return const <String, dynamic>{};
-  }
-}
-
-final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
-  return const SupabaseWalletsDataService();
-});
-
-final walletsHistoryProvider =
-    FutureProvider.family<WalletsHistorySummary, WalletsScopeQuery>(
-  (ref, query) async {
-    ref.watch(walletsRefreshSignalProvider);
-    ref.watch(dashboardRefreshSignalProvider);
     final now = _walletProjectionNow(ref);
     final endInclusive = DateTime(now.year, now.month, now.day);
-    // CRITICAL: the wallets landing page history must be built from the
-    // recurring-aware transaction set.
-    // STRICT REQUIREMENT: do not replace this with raw posted transactions
-    // only, or recurring bills disappear from the monthly graph/history.
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query,
@@ -84,45 +39,35 @@ final walletsHistoryProvider =
       now: now,
       transactions: recurringAwareData.transactions,
     );
-    final netWorthSeries = availableMonths
-        .reversed
-        .map((monthStart) {
-          final snapshot = buildWalletSnapshot(
-            wallets: recurringAwareData.wallets,
-            transactions: recurringAwareData.transactions,
-            endExclusive: _walletSnapshotEndExclusive(
-              monthStart: monthStart,
-              now: now,
-            ),
-          );
-          return WalletNetWorthPoint(
-            monthStart: monthStart,
-            netWorthCents: snapshot.netWorthCents,
-          );
-        })
-        .toList(growable: false);
+    final netWorthSeries = availableMonths.reversed.map((monthStart) {
+      final snapshot = buildWalletSnapshot(
+        wallets: recurringAwareData.wallets,
+        transactions: recurringAwareData.transactions,
+        endExclusive: _walletSnapshotEndExclusive(
+          monthStart: monthStart,
+          now: now,
+        ),
+      );
+      return WalletNetWorthPoint(
+        monthStart: monthStart,
+        netWorthCents: snapshot.netWorthCents,
+      );
+    }).toList(growable: false);
 
     return WalletsHistorySummary(
       availableMonths: availableMonths,
       netWorthSeries: netWorthSeries,
     );
-  },
-);
+  }
 
-final walletsMonthSnapshotProvider =
-    FutureProvider.autoDispose.family<WalletsMonthSnapshot, WalletsMonthQuery>(
-  (ref, query) async {
-    ref.watch(walletsRefreshSignalProvider);
-    ref.watch(dashboardRefreshSignalProvider);
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+      WalletsMonthQuery query) async {
     final now = _walletProjectionNow(ref);
     final endExclusive = _walletSnapshotEndExclusive(
       monthStart: query.monthStart,
       now: now,
     );
-    // CRITICAL: every wallet month card/snapshot must use the recurring-aware
-    // month transaction set.
-    // STRICT REQUIREMENT: if recurring projections are removed here, wallets
-    // page month totals fall out of sync with wallet details and pockets.
     final recurringAwareData = await _loadWalletRecurringAwareData(
       ref,
       query.scope,
@@ -142,6 +87,30 @@ final walletsMonthSnapshotProvider =
       netWorthCents: snapshot.netWorthCents,
       walletBalances: snapshot.walletBalances,
     );
+  }
+}
+
+final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
+  return SupabaseWalletsDataService(ref);
+});
+
+final walletsHistoryProvider =
+    FutureProvider.family<WalletsHistorySummary, WalletsScopeQuery>(
+  (ref, query) async {
+    ref.watch(walletsRefreshSignalProvider);
+    ref.watch(dashboardRefreshSignalProvider);
+    final service = ref.watch(walletsDataServiceProvider);
+    return service.fetchHistory(query);
+  },
+);
+
+final walletsMonthSnapshotProvider =
+    FutureProvider.autoDispose.family<WalletsMonthSnapshot, WalletsMonthQuery>(
+  (ref, query) async {
+    ref.watch(walletsRefreshSignalProvider);
+    ref.watch(dashboardRefreshSignalProvider);
+    final service = ref.watch(walletsDataServiceProvider);
+    return service.fetchMonthSnapshot(query);
   },
 );
 
@@ -156,8 +125,7 @@ class _WalletRecurringAwareData {
 }
 
 DateTime _walletProjectionNow(Ref ref) {
-  final preferredTimezone =
-      ref.read(analyticsProvider).contact?.preferredTimezone;
+  final preferredTimezone = ref.read(appPreferredTimezoneProvider);
   final now = effectiveNow(preferredTimezone: preferredTimezone);
   return DateTime(now.year, now.month, now.day);
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/foundation.dart' as foundation;
 
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -112,7 +113,6 @@ class _RecurringTransactionsPageState
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
-    final isActiveTab = currentTabIndex == 1;
     final preview = ref.watch(previewModeProvider);
 
     // Use householdScopeProvider to properly handle portfolio households
@@ -132,10 +132,6 @@ class _RecurringTransactionsPageState
 
       Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
     });
-
-    if (!isActiveTab) {
-      return const SizedBox.shrink();
-    }
 
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     _debugPrint('🏠 [RecurringPage] BUILD');
@@ -181,8 +177,7 @@ class _RecurringTransactionsPageState
     final recurringIncomes = ref.watch(recurringIncomesProvider(householdId));
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

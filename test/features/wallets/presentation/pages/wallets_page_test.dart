@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
@@ -84,6 +86,8 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(_FakeAuthNotifier.new),
+          appPreferredTimezoneProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 3),
           sharedPreferencesProvider.overrideWithValue(prefs),
           scopedWalletsProvider.overrideWith((ref) async => wallets),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),

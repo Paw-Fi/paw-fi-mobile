@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -63,8 +64,7 @@ final selectedHomeCurrencyCodeProvider = Provider<String>((ref) {
     return normalized;
   }
 
-  final preferredCurrency = ref.watch(analyticsProvider).preferredCurrency;
-  final preferredNormalized = preferredCurrency?.trim().toUpperCase();
+  final preferredNormalized = ref.watch(appPreferredCurrencyProvider);
   if (preferredNormalized != null && preferredNormalized.isNotEmpty) {
     return preferredNormalized;
   }

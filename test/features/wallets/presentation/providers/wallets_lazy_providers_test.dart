@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 
@@ -52,6 +53,7 @@ void main() {
   test('walletsHistoryProvider delegates to wallets data service', () async {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
@@ -68,6 +70,7 @@ void main() {
       () async {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
@@ -86,6 +89,7 @@ void main() {
       () async {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);

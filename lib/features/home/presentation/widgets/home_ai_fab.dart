@@ -18,6 +18,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -1197,7 +1198,7 @@ Future<void> _processExpense(
 }) async {
   final user = ref.read(authProvider);
   final preview = ref.read(previewModeProvider);
-  final contact = ref.read(analyticsProvider).contact;
+  final contact = ref.read(appUserContactProvider);
   final householdId = _resolveHouseholdIdForAi(ref);
   final scope = ref.read(householdScopeProvider);
   final isPortfolio = scope.activeAccountType == ActiveWalletType.portfolio;
@@ -1437,7 +1438,7 @@ Future<void> _processExpense(
         }
 
         if (items.isNotEmpty) {
-          final analyticsContactId = ref.read(analyticsProvider).contact?.id;
+          final analyticsContactId = ref.read(appUserContactProvider)?.id;
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -1683,7 +1684,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   }
 
   Future<void> _openManualEntrySheet() async {
-    final contact = ref.read(analyticsProvider).contact;
+    final contact = ref.read(appUserContactProvider);
     final filterState = ref.read(homeFilterProvider);
     final selectedCurrency =
         (filterState.selectedCurrency ?? contact?.preferredCurrency ?? 'USD')
@@ -1913,7 +1914,7 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
     final householdId = _resolveHouseholdIdForAi(ref);
     final targetLabel = _resolveLogTargetLabel(context, ref);
 
-    final contact = ref.watch(analyticsProvider).contact;
+    final contact = ref.watch(appUserContactProvider);
     final filterState = ref.watch(homeFilterProvider);
     final selectedCurrency =
         (filterState.selectedCurrency ?? contact?.preferredCurrency ?? 'USD')

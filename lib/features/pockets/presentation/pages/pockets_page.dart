@@ -8,8 +8,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -38,8 +38,6 @@ class PocketsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
-    final isActiveTab = currentTabIndex == 2;
     final viewMode = ref.watch(viewModeProvider);
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final user = ref.watch(authProvider);
@@ -48,8 +46,7 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(selectedHomeCurrencyCodeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
-    final preferredTimezone =
-        ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
     final isBootstrapCurrency = !filterState.hasExplicitCurrency;
     // CRITICAL: keep the main pockets page subscribed to the recurring toggle.
@@ -346,10 +343,6 @@ class PocketsPage extends HookConsumerWidget {
       });
       return null;
     }, const []);
-
-    if (!isActiveTab) {
-      return const SizedBox.shrink();
-    }
 
     if (!recurringPreferenceReady.value) {
       return StatusBarOverlayRegion(

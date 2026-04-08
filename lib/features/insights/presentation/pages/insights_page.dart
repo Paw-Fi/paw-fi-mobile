@@ -48,7 +48,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final auth = ref.watch(authProvider);
     final analyticsData = ref.watch(analyticsProvider);
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
@@ -76,16 +78,25 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
               activeScopeOptimisticExpenses,
             ),
           );
-    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
     final preview = ref.watch(previewModeProvider);
 
+    if (!preview.isActive &&
+        auth.uid.isNotEmpty &&
+        analyticsData.hasLoadedOnce != true &&
+        !analyticsData.isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(analyticsProvider.notifier).loadData(auth.uid);
+      });
+    }
+
     // Ensure analytics is loaded in preview even without auth
     if (preview.isActive &&
-        (analyticsData.allExpenses.isEmpty || analyticsData.isLoading)) {
+        analyticsData.allExpenses.isEmpty &&
+        !analyticsData.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final userId = ref.read(authProvider).uid.isNotEmpty
-            ? ref.read(authProvider).uid
+        final userId = auth.uid.isNotEmpty
+            ? auth.uid
             : (PreviewMockData.contact.userId ?? 'preview-user');
         ref.read(analyticsProvider.notifier).loadData(userId);
       });

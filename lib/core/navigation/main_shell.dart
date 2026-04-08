@@ -43,12 +43,22 @@ class MainShell extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
+    final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
     final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
     final showSubscriptionVerificationBanner =
         subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
             subscriptionGateStatus == SubscriptionGateStatus.unknown;
+
+    useEffect(() {
+      if (visitedTabs.value.contains(currentIndex)) {
+        return null;
+      }
+
+      visitedTabs.value = <int>{...visitedTabs.value, currentIndex};
+      return null;
+    }, [currentIndex]);
 
     Future<void> clearPreviewDataCaches() async {
       // Always reset shell navigation first.
@@ -190,13 +200,23 @@ class MainShell extends HookConsumerWidget {
       };
     }, const []);
 
-    final pages = [
-      const HomePage(),
-      const RecurringTransactionsPage(),
-      const PocketsPage(),
-      const AccountsPage(),
-      const AnalyticsPage(),
+    final pageBuilders = [
+      () => const HomePage(),
+      () => const RecurringTransactionsPage(),
+      () => const PocketsPage(),
+      () => const AccountsPage(),
+      () => const AnalyticsPage(),
     ];
+
+    final pages = List<Widget>.generate(pageBuilders.length, (index) {
+      final shouldBuildPage =
+          index == currentIndex || visitedTabs.value.contains(index);
+      if (!shouldBuildPage) {
+        return const SizedBox.shrink();
+      }
+
+      return pageBuilders[index]();
+    }, growable: false);
 
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(

@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -46,16 +47,16 @@ class AccountsPage extends HookConsumerWidget {
     final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
     final actions = ref.watch(walletActionsProvider);
     final auth = ref.watch(authProvider);
-    final analyticsState = ref.watch(analyticsProvider);
     final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
     // CRITICAL: wallet history/month snapshots must anchor to the user's month.
     // STRICT REQUIREMENT: do not replace this with DateTime.now(), or
     // recurring transactions near month boundaries can land in the wrong month
     // and wallets drift away from pockets/details again.
     final effectiveNowForUser =
-        effectiveNow(preferredTimezone: analyticsState.contact?.preferredTimezone);
+        effectiveNow(preferredTimezone: preferredTimezone);
     final currentMonthStart =
         DateTime(effectiveNowForUser.year, effectiveNowForUser.month);
     // CRITICAL: the wallets landing page must stay wired to recurring-aware
@@ -106,7 +107,7 @@ class AccountsPage extends HookConsumerWidget {
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final locale = Localizations.localeOf(context);
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
-      analyticsState.contact?.preferredTimezone,
+      preferredTimezone,
     );
 
     // Spotlight keys for the wallets feature tour

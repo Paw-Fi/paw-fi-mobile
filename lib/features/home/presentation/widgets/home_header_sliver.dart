@@ -335,7 +335,11 @@ class HomeHeaderSliver extends ConsumerWidget {
         Navigator.of(context, rootNavigator: true).maybePop();
       }
 
-      final analyticsData = ref.read(analyticsProvider);
+      var analyticsData = ref.read(analyticsProvider);
+      if (user.uid.isNotEmpty && analyticsData.hasLoadedOnce != true) {
+        await ref.read(analyticsProvider.notifier).loadData(user.uid);
+        analyticsData = ref.read(analyticsProvider);
+      }
       final optimisticByHousehold =
           ref.read(householdOptimisticExpensesProvider);
       final allOptimisticExpenses = optimisticByHousehold.values
