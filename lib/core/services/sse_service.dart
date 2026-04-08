@@ -96,6 +96,24 @@ class SSEService {
   }
 }
 
+String formatStreamingProgressMessage(
+  String message, {
+  int? currentItem,
+  int? totalItems,
+}) {
+  if (currentItem != null && totalItems != null) {
+    return '$message ($currentItem/$totalItems)';
+  }
+  return message;
+}
+
+int? _parseProgressInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 /// SSE event model
 class SSEEvent {
   final String event;
@@ -110,38 +128,55 @@ class SSEEvent {
   String toString() => 'SSEEvent(event: $event, data: $data)';
 }
 
-/// Analysis progress event model for AI expense processing
-class AnalysisProgressEvent {
+class StreamingProgressEvent {
   final String stage;
   final String message;
   final int? currentItem;
   final int? totalItems;
 
-  const AnalysisProgressEvent({
+  const StreamingProgressEvent({
     required this.stage,
     required this.message,
     this.currentItem,
     this.totalItems,
   });
 
+  factory StreamingProgressEvent.fromJson(Map<String, dynamic> json) {
+    return StreamingProgressEvent(
+      stage: json['stage'] as String? ?? 'processing',
+      message: sanitizeUtf16(json['message'] as String? ?? 'Processing...'),
+      currentItem: _parseProgressInt(json['currentItem']),
+      totalItems: _parseProgressInt(json['totalItems']),
+    );
+  }
+
+  String get displayMessage => formatStreamingProgressMessage(
+        message,
+        currentItem: currentItem,
+        totalItems: totalItems,
+      );
+
+  @override
+  String toString() {
+    return 'StreamingProgressEvent(stage: $stage, message: $message, currentItem: $currentItem, totalItems: $totalItems)';
+  }
+}
+
+/// Analysis progress event model for AI expense processing
+class AnalysisProgressEvent extends StreamingProgressEvent {
+  const AnalysisProgressEvent({
+    required super.stage,
+    required super.message,
+    super.currentItem,
+    super.totalItems,
+  });
+
   factory AnalysisProgressEvent.fromJson(Map<String, dynamic> json) {
     return AnalysisProgressEvent(
       stage: json['stage'] as String? ?? 'processing',
       message: sanitizeUtf16(json['message'] as String? ?? 'Processing...'),
-      currentItem: json['currentItem'] as int?,
-      totalItems: json['totalItems'] as int?,
+      currentItem: _parseProgressInt(json['currentItem']),
+      totalItems: _parseProgressInt(json['totalItems']),
     );
   }
-
-  /// Format a user-friendly display message
-  String get displayMessage {
-    if (currentItem != null && totalItems != null) {
-      return '$message ($currentItem/$totalItems)';
-    }
-    return message;
-  }
-
-  @override
-  String toString() =>
-      'AnalysisProgressEvent(stage: $stage, message: $message, currentItem: $currentItem, totalItems: $totalItems)';
 }

@@ -35,7 +35,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   final Ref _ref;
   static const int _maxPdfImportBytes = 20 * 1024 * 1024;
-  static const int _batchSize = 500;
+  static const int _batchSize = 250;
 
   static ImportWizardState _initialStateFromRef(Ref ref) {
     final scope = ref.read(householdScopeProvider);
@@ -330,6 +330,25 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         message.contains('runmicrotasks');
   }
 
+  String _buildImportProgressMessage({
+    required String message,
+    required int currentItem,
+    required int totalItems,
+  }) {
+    final normalizedCurrent =
+        currentItem < 0 ? 0 : (currentItem > totalItems ? totalItems : currentItem);
+    return formatStreamingProgressMessage(
+      message,
+      currentItem: normalizedCurrent,
+      totalItems: totalItems,
+    );
+  }
+
+  String _createImportDebugTraceId(String userId) {
+    final suffix = userId.length >= 8 ? userId.substring(0, 8) : userId;
+    return 'import-${DateTime.now().millisecondsSinceEpoch}-$suffix';
+  }
+
   Future<dynamic> _invokeSaveTransactionsBatchWithRetry({
     required Map<String, dynamic> body,
     int maxAttempts = 3,
@@ -378,6 +397,99 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     throw Exception(
       'save-transactions-batch failed after retries (status: ${lastStatus ?? 'unknown'})',
     );
+  }
+
+  Future<dynamic> _streamSaveTransactionsBatch({
+    required Map<String, dynamic> body,
+    required void Function(StreamingProgressEvent event) onProgress,
+    int maxAttempts = 2,
+  }) async {
+    final session = supabase.auth.currentSession;
+    if (session == null) {
+      throw Exception('No auth session');
+    }
+
+    final supabaseUrl = Constants.supabaseUrl;
+    if (supabaseUrl.isEmpty) {
+      return _invokeSaveTransactionsBatchWithRetry(body: body);
+    }
+
+    Object? lastError;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      var receivedAnyEvent = false;
+      try {
+        final sseUrl = Uri.parse(
+          '$supabaseUrl/functions/v1/save-transactions-batch?stream=true',
+        );
+        Map<String, dynamic>? responseData;
+
+        await for (final event in SSEService.streamRequest(
+          url: sseUrl,
+          body: body,
+          headers: <String, String>{
+            'Authorization': 'Bearer ${session.accessToken}',
+          },
+          timeout: const Duration(minutes: 10),
+        )) {
+          receivedAnyEvent = true;
+
+          if (event.event == 'progress' && event.data is Map<String, dynamic>) {
+            onProgress(
+              StreamingProgressEvent.fromJson(
+                Map<String, dynamic>.from(event.data as Map),
+              ),
+            );
+            continue;
+          }
+
+          if (event.event == 'complete' && event.data is Map<String, dynamic>) {
+            responseData = Map<String, dynamic>.from(event.data as Map);
+            continue;
+          }
+
+          if (event.event == 'error') {
+            if (event.data is Map<String, dynamic>) {
+              final data = Map<String, dynamic>.from(event.data as Map);
+              throw _ImportBackendException(
+                data['error']?.toString() ??
+                    'Failed to save imported transactions',
+                code: data['code']?.toString(),
+                status: (data['status'] as num?)?.toInt(),
+              );
+            }
+            throw Exception(
+              event.data?.toString() ?? 'Failed to save imported transactions',
+            );
+          }
+        }
+
+        if (responseData != null) {
+          return responseData;
+        }
+
+        throw Exception(
+          'We received an unexpected response while saving your import.',
+        );
+      } catch (error) {
+        lastError = error;
+        final status = error is _ImportBackendException ? error.status : null;
+        final shouldRetry =
+            !receivedAnyEvent &&
+            _isRetryableBatchFailure(error: error, status: status);
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw Exception('save-transactions-batch streaming failed unexpectedly');
   }
 
   ({int succeeded, int failed, String? errorMessage}) _countChunkResults({
@@ -836,6 +948,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       isImporting: true,
       importedCount: 0,
       failedCount: 0,
+      clearImportStatusMessage: true,
       clearErrorMessage: true,
     );
 
@@ -885,6 +998,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         importedCount: 0,
         failedCount: preFilterFailed,
         step: ImportStep.preview,
+        clearImportStatusMessage: true,
         errorMessage: preFilterFailed > 0
             ? 'We could not import any rows from this file. Please review and fix the highlighted rows, then try again.'
             : 'There is nothing new to import. All selected rows are duplicates.',
@@ -912,7 +1026,18 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       };
     }).toList(growable: false);
 
-    // 3. Chunk into batches of ≤500 and call save-transactions-batch.
+    final totalTransactions = transactions.length;
+    final debugTraceId = _createImportDebugTraceId(authUser.uid);
+
+    state = state.copyWith(
+      importStatusMessage: _buildImportProgressMessage(
+        message: 'Preparing import...',
+        currentItem: 0,
+        totalItems: totalTransactions,
+      ),
+    );
+
+    // 3. Chunk into manageable batches and call save-transactions-batch.
     int totalSucceeded = 0;
     int totalFailed = preFilterFailed;
     String? firstBatchFailureMessage;
@@ -926,6 +1051,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
         final body = <String, dynamic>{
           'userId': authUser.uid,
+          'debugTraceId': '$debugTraceId:$offset-$end',
+          'progressOffset': offset,
+          'progressTotal': totalTransactions,
           'transactions': chunk,
           if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
             'householdId': targetHouseholdId,
@@ -934,7 +1062,14 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         };
 
         try {
-          final data = await _invokeSaveTransactionsBatchWithRetry(body: body);
+          final data = await _streamSaveTransactionsBatch(
+            body: body,
+            onProgress: (event) {
+              state = state.copyWith(
+                importStatusMessage: event.displayMessage,
+              );
+            },
+          );
           final counted = _countChunkResults(
             data: data,
             expectedCount: chunk.length,
@@ -952,6 +1087,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         state = state.copyWith(
           importedCount: totalSucceeded,
           failedCount: totalFailed,
+          importStatusMessage: _buildImportProgressMessage(
+            message: 'Saving transactions...',
+            currentItem: totalSucceeded + totalFailed,
+            totalItems: totalTransactions,
+          ),
         );
       }
     } catch (error) {
@@ -963,6 +1103,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       importedCount: totalSucceeded,
       failedCount: totalFailed,
       step: ImportStep.preview,
+      clearImportStatusMessage: true,
       errorMessage: firstBatchFailureMessage,
     );
   }

@@ -386,7 +386,12 @@ class PreviewStep extends ConsumerWidget {
       }
     }
 
-    if (accounts.isNotEmpty && selectedAccount == null) {
+    final hasExplicitSelection =
+        selectedAccountId != null && selectedAccountId.isNotEmpty;
+
+    if (accounts.isNotEmpty &&
+        selectedAccount == null &&
+        !hasExplicitSelection) {
       final preferredAccountId = _resolvePreferredDefaultAccountId(accounts);
       if (preferredAccountId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -502,7 +507,7 @@ class PreviewStep extends ConsumerWidget {
         children: [
           Expanded(
             child: Text(
-              context.l10n.account,
+              context.l10n.wallet,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

@@ -155,8 +155,12 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
     final shouldReconcileVisibility = shouldBlock != _isBlockingDialogVisible;
     final parsingMessageChanged =
         previous?.parsingStatusMessage != next.parsingStatusMessage;
+    final importMessageChanged =
+        previous?.importStatusMessage != next.importStatusMessage;
     final shouldRefreshSubMessage =
-        shouldBlock && _isBlockingDialogVisible && parsingMessageChanged;
+        shouldBlock &&
+            _isBlockingDialogVisible &&
+            (parsingMessageChanged || importMessageChanged);
 
     if (!shouldReconcileVisibility && !shouldRefreshSubMessage) return;
 
@@ -176,7 +180,9 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         _blockingDialogController = showEnhancedBlockingDialog(
           context: context,
           message: message,
-          subMessage: latest.isParsing ? latest.parsingStatusMessage : null,
+          subMessage: latest.isParsing
+              ? latest.parsingStatusMessage
+              : latest.importStatusMessage,
           showElapsedTime: true,
           enableCancelAfterSeconds: 0,
           onCancel: null,
@@ -193,6 +199,8 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         if (latest.isParsing) {
           _blockingDialogController
               ?.updateSubMessage(latest.parsingStatusMessage);
+        } else if (latest.isImporting) {
+          _blockingDialogController?.updateSubMessage(latest.importStatusMessage);
         } else {
           _blockingDialogController?.updateSubMessage(null);
         }

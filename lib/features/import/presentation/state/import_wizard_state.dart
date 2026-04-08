@@ -20,6 +20,7 @@ class ImportWizardState {
   final bool isParsing;
   final String? parsingStatusMessage;
   final bool isImporting;
+  final String? importStatusMessage;
   final String? errorMessage;
   final int importedCount;
   final int failedCount;
@@ -48,6 +49,7 @@ class ImportWizardState {
     this.isParsing = false,
     this.parsingStatusMessage,
     this.isImporting = false,
+    this.importStatusMessage,
     this.errorMessage,
     this.importedCount = 0,
     this.failedCount = 0,
@@ -73,6 +75,8 @@ class ImportWizardState {
     String? parsingStatusMessage,
     bool clearParsingStatusMessage = false,
     bool? isImporting,
+    String? importStatusMessage,
+    bool clearImportStatusMessage = false,
     String? errorMessage,
     bool clearErrorMessage = false,
     int? importedCount,
@@ -102,6 +106,9 @@ class ImportWizardState {
           ? null
           : (parsingStatusMessage ?? this.parsingStatusMessage),
       isImporting: isImporting ?? this.isImporting,
+      importStatusMessage: clearImportStatusMessage
+          ? null
+          : (importStatusMessage ?? this.importStatusMessage),
       errorMessage:
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       importedCount: importedCount ?? this.importedCount,
