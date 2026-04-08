@@ -317,10 +317,18 @@ class WalletActions {
     if (data is Map<String, dynamic> && data['success'] == true) {
       return;
     }
-    final message = data is Map<String, dynamic>
-        ? data['error']?.toString() ?? fallback
-        : fallback;
-    throw Exception(message);
+    if (data is Map<String, dynamic>) {
+      final message = (data['error'] ?? data['message'])?.toString().trim();
+      throw {
+        'error': (message == null || message.isEmpty) ? fallback : message,
+        if (data['code'] != null) 'code': data['code'].toString(),
+        if (data['status'] is int) 'status': data['status'] as int,
+        if (data['details'] != null) 'details': data['details'],
+        if (data['hint'] != null) 'hint': data['hint'],
+      };
+    }
+
+    throw Exception(fallback);
   }
 
   void _invalidateAll() {

@@ -8,6 +8,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_transfer_sheet.dart';
@@ -69,6 +71,20 @@ class WalletDetailsPage extends HookConsumerWidget {
     final isDefaultResolvedAccount = latestWallet.id == defaultAccountId;
 
     final effectiveHouseholdId = _resolveScopedHouseholdId(householdScope);
+    final currentMonthStart =
+        DateTime(DateTime.now().year, DateTime.now().month);
+    final detailsScopeQuery = WalletsScopeQuery(
+      userId: currentUserId,
+      householdId: effectiveHouseholdId,
+      selectedCurrency: selectedCurrencyCode,
+      currentMonthStart: currentMonthStart,
+    );
+    final detailsMonthQuery = WalletsMonthQuery(
+      scope: detailsScopeQuery,
+      monthStart: currentMonthStart,
+    );
+    final detailsMonthSnapshotAsync =
+        ref.watch(walletsMonthSnapshotProvider(detailsMonthQuery));
     final walletFeedQuery = TransactionsFeedQuery(
       userId: currentUserId,
       householdId: effectiveHouseholdId,
@@ -94,6 +110,31 @@ class WalletDetailsPage extends HookConsumerWidget {
     );
     final monthFeedState = ref.watch(transactionsFeedProvider(monthFeedQuery));
 
+    useEffect(() {
+      if (walletFeedState.error != null) {
+        debugPrint(
+          '[WalletDetailsPage][transactionsFeedProvider] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$selectedCurrencyCode includeUnassignedAccount=$isDefaultResolvedAccount error=${walletFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+        );
+      }
+
+      if (monthFeedState.error != null) {
+        debugPrint(
+          '[WalletDetailsPage][monthFeedState] accountId=${latestWallet.id} userId=$currentUserId householdId=$effectiveHouseholdId currency=$selectedCurrencyCode startDate=${monthStart.toIso8601String()} endDate=${monthEnd.toIso8601String()} includeUnassignedAccount=$isDefaultResolvedAccount error=${monthFeedState.error} rpcCandidates=get_user_transactions_page_v1,get_user_transactions_summary_v1',
+        );
+      }
+      return null;
+    }, [
+      walletFeedState.error,
+      monthFeedState.error,
+      latestWallet.id,
+      currentUserId,
+      effectiveHouseholdId,
+      selectedCurrencyCode,
+      isDefaultResolvedAccount,
+      monthStart,
+      monthEnd,
+    ]);
+
     final scopedExpenses = walletFeedState.items;
     final walletColor =
         parseWalletColor(latestWallet.color, colorScheme.primary);
@@ -104,7 +145,9 @@ class WalletDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-    final currentBalanceCents = latestWallet.currentBalanceCents;
+    final currentBalanceCents = detailsMonthSnapshotAsync
+            .valueOrNull?.walletBalances[latestWallet.id] ??
+        latestWallet.currentBalanceCents;
     final totalIncome = monthFeedState.summary.incomeTotal;
     final totalSpent = monthFeedState.summary.expenseTotal;
 

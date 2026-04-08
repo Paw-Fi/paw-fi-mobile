@@ -26,6 +26,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -135,7 +136,10 @@ class AccountsPage extends HookConsumerWidget {
     );
 
     // Start wallets spotlight tour when on wallets tab and data is loaded
-    if (currentTabIndex == 3 && !walletsAsync.isLoading && !walletsAsync.hasError && auth.uid.isNotEmpty) {
+    if (currentTabIndex == 3 &&
+        !walletsAsync.isLoading &&
+        !walletsAsync.hasError &&
+        auth.uid.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         walletsTourController.start(context);
@@ -215,7 +219,7 @@ class AccountsPage extends HookConsumerWidget {
           : null,
       body: SafeArea(
         child: walletsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const _WalletsPageSkeleton(),
           error: (error, _) => Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -224,6 +228,11 @@ class AccountsPage extends HookConsumerWidget {
           ),
           data: (_) {
             final wallets = effectiveWallets;
+            // Show skeleton if wallets are empty but still loading
+            if (wallets.isEmpty &&
+                (walletsAsync.isLoading || !walletsAsync.hasValue)) {
+              return const _WalletsPageSkeleton();
+            }
             final selectedMonthIndex =
                 selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
             final selectedMonth = availableMonths[selectedMonthIndex];
@@ -330,7 +339,8 @@ class AccountsPage extends HookConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   TextButton.icon(
-                    onPressed: () => AppToast.info(context, context.l10n.comingSoon),
+                    onPressed: () =>
+                        AppToast.info(context, context.l10n.comingSoon),
                     icon:
                         Icon(Icons.sync, color: colorScheme.primary, size: 20),
                     label: Text(
@@ -1235,4 +1245,244 @@ class _OrganicAccountTileClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _WalletsPageSkeleton extends StatelessWidget {
+  const _WalletsPageSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Skeletonizer(
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        children: [
+          // Skeleton for _WalletsOverviewCard
+          Container(
+            width: double.infinity,
+            height: 260,
+            decoration: BoxDecoration(
+              color: colorScheme.cardSurface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: colorScheme.pocketHeaderBorder,
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row with title and month chip
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Bone.text(words: 2, fontSize: 15),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Bone.text(words: 1, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Large amount
+                Bone.text(words: 1, fontSize: 36),
+                const SizedBox(height: 16),
+                // Chart placeholder
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Income/Spent row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Bone.text(words: 1, fontSize: 12),
+                          const SizedBox(height: 4),
+                          Bone.text(words: 1, fontSize: 16),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Bone.text(words: 1, fontSize: 12),
+                          const SizedBox(height: 4),
+                          Bone.text(words: 1, fontSize: 16),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Skeleton for wallet stack - 3 skeleton cards
+          Container(
+            height: 400,
+            child: Stack(
+              children: [
+                // Skeleton card 1 (bottom)
+                Positioned(
+                  top: 150,
+                  left: 0,
+                  right: 0,
+                  height: 130,
+                  child: _SkeletonWalletCard(colorScheme: colorScheme),
+                ),
+                // Skeleton card 2 (middle)
+                Positioned(
+                  top: 80,
+                  left: 0,
+                  right: 0,
+                  height: 130,
+                  child: _SkeletonWalletCard(colorScheme: colorScheme),
+                ),
+                // Skeleton card 3 (top, expanded)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 240,
+                  child: _SkeletonWalletCard(
+                    colorScheme: colorScheme,
+                    isExpanded: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Skeleton buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Bone.icon(size: 20),
+              const SizedBox(width: 8),
+              Bone.text(words: 2, fontSize: 14),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Bone.icon(size: 20),
+              const SizedBox(width: 8),
+              Bone.text(words: 2, fontSize: 14),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonWalletCard extends StatelessWidget {
+  final ColorScheme colorScheme;
+  final bool isExpanded;
+
+  const _SkeletonWalletCard({
+    required this.colorScheme,
+    this.isExpanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.cardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.border.withValues(alpha: 0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: isExpanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Wallet name
+                Bone.text(words: 2, fontSize: 18),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Icon circle
+                    Bone.circle(size: 36),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Balance label
+                        Bone.text(words: 1, fontSize: 10),
+                        const SizedBox(height: 4),
+                        // Balance amount
+                        Bone.text(words: 1, fontSize: 24),
+                      ],
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Progress bar placeholder
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Tap hint
+                Center(
+                  child: Bone.text(words: 3, fontSize: 12),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                // Icon circle
+                Bone.circle(size: 36),
+                const SizedBox(width: 12),
+                // Wallet name
+                Expanded(
+                  child: Bone.text(words: 2, fontSize: 16),
+                ),
+                const SizedBox(width: 12),
+                // Amount
+                Bone.text(words: 1, fontSize: 20),
+              ],
+            ),
+    );
+  }
 }

@@ -256,6 +256,9 @@ class ErrorHandler {
 
     if (error.status != null && error.status! >= 500 ||
         code == 'SERVER_ERROR') {
+      if (message.isNotEmpty && _isSafeUserMessage(message)) {
+        return _capitalizeFirst(message);
+      }
       return 'Something went wrong on our side. Please try again.';
     }
 
