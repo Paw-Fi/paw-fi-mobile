@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
@@ -45,6 +46,7 @@ class AccountsPage extends HookConsumerWidget {
     final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
     final actions = ref.watch(walletActionsProvider);
     final auth = ref.watch(authProvider);
+    final analyticsState = ref.watch(analyticsProvider);
     final prefs = ref.read(sharedPreferencesProvider);
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
@@ -92,6 +94,9 @@ class AccountsPage extends HookConsumerWidget {
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
     final locale = Localizations.localeOf(context);
+    final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
+      analyticsState.contact?.preferredTimezone,
+    );
 
     // Spotlight keys for the wallets feature tour
     final netWorthSpotlightKey = useMemoized(() => GlobalKey(), []);
@@ -338,19 +343,23 @@ class AccountsPage extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  TextButton.icon(
-                    onPressed: () =>
-                        AppToast.info(context, context.l10n.comingSoon),
-                    icon:
-                        Icon(Icons.sync, color: colorScheme.primary, size: 20),
-                    label: Text(
-                      context.l10n.connectBank,
-                      style: TextStyle(
+                  if (shouldShowConnectBankButton)
+                    TextButton.icon(
+                      onPressed: () =>
+                          AppToast.info(context, context.l10n.comingSoon),
+                      icon: Icon(
+                        Icons.sync,
                         color: colorScheme.primary,
-                        fontWeight: FontWeight.w700,
+                        size: 20,
+                      ),
+                      label: Text(
+                        context.l10n.connectBank,
+                        style: TextStyle(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             );
@@ -359,6 +368,73 @@ class AccountsPage extends HookConsumerWidget {
       ),
     ));
   }
+}
+
+bool _isPlaidSupportedTimezone(String? preferredTimezone) {
+  final normalized =
+      canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) {
+    return false;
+  }
+
+  if (normalized.startsWith('us/')) {
+    return true;
+  }
+
+  const supportedPlaidIanaTimezones = <String>{
+    'america/new_york',
+    'america/detroit',
+    'america/kentucky/louisville',
+    'america/kentucky/monticello',
+    'america/indiana/indianapolis',
+    'america/indiana/vincennes',
+    'america/indiana/winamac',
+    'america/indiana/marengo',
+    'america/indiana/petersburg',
+    'america/indiana/vevay',
+    'america/chicago',
+    'america/indiana/tell_city',
+    'america/indiana/knox',
+    'america/menominee',
+    'america/north_dakota/center',
+    'america/north_dakota/new_salem',
+    'america/north_dakota/beulah',
+    'america/denver',
+    'america/boise',
+    'america/phoenix',
+    'america/los_angeles',
+    'america/anchorage',
+    'america/juneau',
+    'america/sitka',
+    'america/metlakatla',
+    'america/yakutat',
+    'america/nome',
+    'america/adak',
+    'pacific/honolulu',
+    'america/st_johns',
+    'america/halifax',
+    'america/glace_bay',
+    'america/moncton',
+    'america/goose_bay',
+    'america/toronto',
+    'america/iqaluit',
+    'america/winnipeg',
+    'america/rankin_inlet',
+    'america/resolute',
+    'america/regina',
+    'america/swift_current',
+    'america/edmonton',
+    'america/cambridge_bay',
+    'america/inuvik',
+    'america/creston',
+    'america/dawson_creek',
+    'america/fort_nelson',
+    'america/vancouver',
+    'america/whitehorse',
+    'america/dawson',
+  };
+
+  return supportedPlaidIanaTimezones.contains(normalized);
 }
 
 class _AnimatedNumberText extends StatelessWidget {
