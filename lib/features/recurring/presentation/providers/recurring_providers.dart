@@ -1060,11 +1060,11 @@ class RecurringTransactionSaveNotifier
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
         'household_id': householdId,
-        if (accountId != null) 'account_id': accountId,
+        'account_id': accountId,
       };
-      if (description != null && description.trim().isNotEmpty) {
-        updates['raw_text'] = description.trim();
-      }
+      updates['raw_text'] = description != null && description.trim().isNotEmpty
+          ? description.trim()
+          : null;
 
       _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
       _debugPrint('   userId: $userId');
@@ -1115,7 +1115,8 @@ class RecurringTransactionSaveNotifier
           // If the previous recurring expense was personal (no household),
           // we are converting personal -> group: mirror unified_transaction_sheet
           // by creating the initial split group via customSplits.
-          if (previousHouseholdId == null) {
+          if (previousHouseholdId == null ||
+              previousHouseholdId != householdId) {
             requestBody['customSplits'] = splitsPayload;
           } else {
             // Existing group recurring expense: mirror unified_transaction_sheet
@@ -1261,14 +1262,15 @@ class RecurringTransactionSaveNotifier
         'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
-        if (accountId != null) 'account_id': accountId,
+        'household_id': householdId,
+        'account_id': accountId,
       };
-      if (description != null && description.trim().isNotEmpty) {
-        updatesIncome['raw_text'] = description.trim();
-      }
-      if (source != null && source.trim().isNotEmpty) {
-        updatesIncome['source'] = source.trim();
-      }
+      updatesIncome['raw_text'] =
+          description != null && description.trim().isNotEmpty
+              ? description.trim()
+              : null;
+      updatesIncome['source'] =
+          source != null && source.trim().isNotEmpty ? source.trim() : null;
 
       final response = await supabase.functions.invoke(
         'update-expense',
@@ -1276,6 +1278,7 @@ class RecurringTransactionSaveNotifier
           'userId': userId,
           'expenseId': expenseId,
           'updates': updatesIncome,
+          if (householdId != null) 'householdId': householdId,
           // Keep update-expense date validation aligned with the caller's
           // local calendar day.
           'clientTimezoneOffsetMinutes':

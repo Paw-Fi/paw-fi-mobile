@@ -20,12 +20,15 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
   _TestRecurringSaveNotifier(Ref ref) : super(ref);
 
   bool updateCalled = false;
+  Map<String, dynamic>? lastUpdateArgs;
 
   @override
   Future<RecurringTransaction?> updateRecurringExpense({
@@ -52,6 +55,29 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     String? accountId,
   }) async {
     updateCalled = true;
+    lastUpdateArgs = {
+      'userId': userId,
+      'expenseId': expenseId,
+      'amount': amount,
+      'category': category,
+      'currency': currency,
+      'startDate': startDate,
+      'frequency': frequency,
+      'endDate': endDate,
+      'interval': interval,
+      'description': description,
+      'hasReminder': hasReminder,
+      'reminderValue': reminderValue,
+      'reminderUnit': reminderUnit,
+      'ownerType': ownerType,
+      'privacyScope': privacyScope,
+      'householdId': householdId,
+      'previousHouseholdId': previousHouseholdId,
+      'customSplitType': customSplitType,
+      'customSplits': customSplits,
+      'payerUserId': payerUserId,
+      'accountId': accountId,
+    };
     return RecurringTransaction(
       id: expenseId,
       date: startDate,
@@ -313,26 +339,56 @@ HouseholdMember _member(String userId, String name) {
   );
 }
 
+WalletEntity _wallet({
+  required String id,
+  required String name,
+  String? householdId,
+  bool isDefault = false,
+}) {
+  return WalletEntity(
+    id: id,
+    userId: 'user_1',
+    householdId: householdId,
+    name: name,
+    icon: 'wallet',
+    color: '#000000',
+    openingBalanceCents: 0,
+    goalAmountCents: null,
+    isDefault: isDefault,
+    isSystem: false,
+    isArchived: false,
+    currentBalanceCents: 0,
+  );
+}
+
 RecurringTransaction _recurringExpense({
   required String id,
-  required String householdId,
+  String? householdId,
+  String? accountId,
+  String description = 'Test',
+  String category = 'rent',
+  double amount = 50.0,
+  String currency = 'USD',
+  RecurrenceRule? recurrenceRule,
 }) {
   return RecurringTransaction(
     id: id,
     date: DateTime(2026, 1, 1),
-    category: 'rent',
-    description: 'Test',
+    category: category,
+    description: description,
     source: null,
-    amount: 50.0,
-    currency: 'USD',
+    amount: amount,
+    currency: currency,
     ownerType: 'me',
     privacyScope: 'full',
     householdId: householdId,
     payerUserId: 'user_1',
-    recurrenceRule: RecurrenceRule(
-      frequency: 'monthly',
-      anchorDate: DateTime(2026, 1, 1),
-    ),
+    accountId: accountId,
+    recurrenceRule: recurrenceRule ??
+        RecurrenceRule(
+          frequency: 'monthly',
+          anchorDate: DateTime(2026, 1, 1),
+        ),
     type: 'expense',
     attachments: const [],
     createdAt: DateTime(2026, 1, 1),
@@ -818,5 +874,166 @@ void main() {
     expect(recurringNotifier!.skippedDate, expectedSkippedDate);
     expect(recurringNotifier!.deleteCalled, isFalse);
     await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets(
+      'Edit in personal view exposes space selection and saves moved scope with the chosen wallet',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final householdRepository = _FakeHouseholdRepository(
+      members: <HouseholdMember>[
+        _member('user_1', 'Alice'),
+        _member('user_2', 'Bob'),
+      ],
+      splits: const [],
+    );
+
+    final households = <Household>[
+      Household(
+        id: 'h1',
+        name: 'Test Household',
+        ownerId: 'user_1',
+        currency: 'USD',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+      Household(
+        id: 'p1',
+        name: 'Private Space',
+        ownerId: 'user_1',
+        currency: 'USD',
+        isPortfolio: true,
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+    ];
+    final personalWallets = <WalletEntity>[
+      _wallet(id: 'w_personal_default', name: 'Cash', isDefault: true),
+      _wallet(id: 'w_personal_alt', name: 'Main Card'),
+    ];
+    final householdWallets = <WalletEntity>[
+      _wallet(
+        id: 'w_household_default',
+        name: 'Shared Wallet',
+        householdId: 'h1',
+        isDefault: true,
+      ),
+      _wallet(
+        id: 'w_household_alt',
+        name: 'Family Card',
+        householdId: 'h1',
+      ),
+    ];
+
+    _TestRecurringSaveNotifier? saveNotifier;
+
+    final container = ProviderContainer(
+      overrides: [
+        recurringTransactionSaveProvider.overrideWith((ref) {
+          saveNotifier = _TestRecurringSaveNotifier(ref);
+          return saveNotifier!;
+        }),
+        authProvider.overrideWith(() => _MockAuth()),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        householdRepositoryProvider.overrideWithValue(householdRepository),
+        userHouseholdsProvider('user_1').overrideWith(
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1')
+            ..state = AsyncValue.data(households),
+        ),
+        walletsByHouseholdIdProvider(null).overrideWith(
+          (ref) async => personalWallets,
+        ),
+        walletsByHouseholdIdProvider('h1').overrideWith(
+          (ref) async => householdWallets,
+        ),
+        householdMembersProvider('h1').overrideWith(
+          (ref) => HouseholdMembersNotifier(householdRepository, 'h1'),
+        ),
+        householdScopeProvider.overrideWith((ref) {
+          final viewMode = ref.watch(viewModeProvider).mode;
+          final selected = ref.watch(selectedHouseholdProvider);
+          return HouseholdScope(
+            viewMode: viewMode,
+            selected: selected,
+            portfolioHouseholdIds: const {'p1'},
+          );
+        }),
+        selectedHouseholdProvider.overrideWith(
+          (ref) => SelectedHouseholdNotifier(ref, prefs, 'user_1'),
+        ),
+        viewModeProvider.overrideWith(
+          (ref) => ViewModeNotifier()..setMode(ViewMode.personal),
+        ),
+        homeFilterProvider.overrideWith(
+          (ref) => HomeFilterNotifier()..setSelectedCurrency('USD'),
+        ),
+      ],
+    );
+
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AddRecurringSheet(
+              type: 'expense',
+              existingTransaction: _recurringExpense(
+                id: 'exp_move_scope',
+                accountId: 'w_personal_default',
+                recurrenceRule: RecurrenceRule(
+                  frequency: 'monthly',
+                  anchorDate: DateTime(2026, 1, 1),
+                  endDate: DateTime(2026, 12, 31),
+                  interval: 2,
+                  reminderEnabled: true,
+                  reminderValue: 3,
+                  reminderUnit: 'days',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final context = tester.element(find.byType(AddRecurringSheet));
+    final l10n = AppLocalizations.of(context)!;
+
+    expect(find.text(l10n.space), findsOneWidget);
+
+    await tester.tap(find.text(l10n.space));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Test Household').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(l10n.wallet));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Family Card').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.check));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(saveNotifier, isNotNull);
+    expect(saveNotifier!.updateCalled, isTrue);
+    expect(saveNotifier!.lastUpdateArgs?['householdId'], 'h1');
+    expect(saveNotifier!.lastUpdateArgs?['previousHouseholdId'], isNull);
+    expect(saveNotifier!.lastUpdateArgs?['accountId'], 'w_household_alt');
+    expect(saveNotifier!.lastUpdateArgs?['frequency'], 'monthly');
+    expect(saveNotifier!.lastUpdateArgs?['interval'], 2);
+    expect(
+      saveNotifier!.lastUpdateArgs?['endDate'],
+      DateTime(2026, 12, 31),
+    );
+    expect(saveNotifier!.lastUpdateArgs?['hasReminder'], isTrue);
+    expect(saveNotifier!.lastUpdateArgs?['reminderValue'], 3);
+    expect(saveNotifier!.lastUpdateArgs?['reminderUnit'], 'days');
   });
 }

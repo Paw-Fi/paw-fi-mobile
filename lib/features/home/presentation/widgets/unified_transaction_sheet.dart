@@ -356,6 +356,19 @@ class _UnifiedTransactionSheetState
   bool get isNewExpense => widget.newExpense != null;
   bool get isExistingExpense => widget.existingExpense != null;
   String? get _effectiveSplitGroupId {
+    final existingHouseholdId = widget.existingExpense?.householdId;
+    if (existingHouseholdId == null) return null;
+
+    final householdScope = ref.read(householdScopeProvider);
+    if (householdScope.isPortfolioId(existingHouseholdId)) {
+      return null;
+    }
+
+    final targetHouseholdId = _resolveAccountTarget().householdId;
+    if (targetHouseholdId != existingHouseholdId) {
+      return null;
+    }
+
     final resolved = _resolvedSplitGroupId;
     if (resolved != null && resolved.isNotEmpty) return resolved;
     final existing = widget.existingExpense?.splitGroupId;
@@ -2909,7 +2922,9 @@ class _UnifiedTransactionSheetState
         }
 
         if (_editedDescription != null) {
-          updates['raw_text'] = _editedDescription;
+          final trimmedDescription = _editedDescription!.trim();
+          updates['raw_text'] =
+              trimmedDescription.isEmpty ? null : trimmedDescription;
         }
 
         updates['account_id'] = selectedFinancialAccountId;
@@ -2950,6 +2965,10 @@ class _UnifiedTransactionSheetState
         // For expenses that already have a split group, we may instead send an
         // update payload to adjust the existing split configuration.
         final existingSplitGroupId = _effectiveSplitGroupId;
+        final sameSharedHousehold = isSharedSpace &&
+            originalHouseholdId != null &&
+            targetHouseholdId == originalHouseholdId &&
+            !originalIsPortfolio;
         // Persist payer changes for shared expenses even without split edits
         if (isSharedSpace) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
@@ -2957,15 +2976,16 @@ class _UnifiedTransactionSheetState
           updates['payerUserId'] = payer; // compatibility with edge fn
         }
 
+        final canCreateSplitGroupForTarget = !sameSharedHousehold ||
+            (existingSplitGroupId == null && _hasCheckedSplitGroup);
         final shouldCreateSplitGroupForExisting = isSharedSpace &&
-            existingSplitGroupId == null &&
-            _hasCheckedSplitGroup &&
+            canCreateSplitGroupForTarget &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
         final hasExistingSplitGroup =
-            isSharedSpace && existingSplitGroupId != null;
+            sameSharedHousehold && existingSplitGroupId != null;
 
         final householdChanged = originalHouseholdId != targetHouseholdId;
         final portfolioChanged = targetHouseholdId != null &&
@@ -3169,13 +3189,15 @@ class _UnifiedTransactionSheetState
           //
           debugPrint(' Triggering comprehensive UI refresh...');
 
-          // Get the household from the edited expense
-          final editedHouseholdId = targetHouseholdId ?? originalHouseholdId;
+          final editedHouseholdId = targetHouseholdId;
 
-          // Refresh the household where expense exists (if it's shared)
+          // Refresh the scope where the expense now exists.
           if (editedHouseholdId != null) {
             debugPrint(' Refreshing expense household UI');
             _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
+          } else {
+            debugPrint(' Refreshing expense personal UI');
+            _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
           // ALSO refresh the current view
@@ -3190,6 +3212,20 @@ class _UnifiedTransactionSheetState
           } else {
             debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
+          }
+
+          if (originalHouseholdId != editedHouseholdId) {
+            if (originalHouseholdId != null &&
+                originalHouseholdId != currentHouseholdId &&
+                originalHouseholdId != editedHouseholdId) {
+              debugPrint(' Refreshing PREVIOUS household view');
+              _refreshHouseholdUiAfterExpenseChange(originalHouseholdId);
+            } else if (originalHouseholdId == null &&
+                currentScope.isHouseholdView &&
+                editedHouseholdId != null) {
+              debugPrint(' Refreshing PREVIOUS personal view');
+              _refreshPersonalUiAfterExpenseChange(user.uid);
+            }
           }
 
           // Close the sheet so when user reopens it, they see fresh data

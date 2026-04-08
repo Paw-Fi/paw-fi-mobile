@@ -122,28 +122,7 @@ class TransactionListTile extends StatelessWidget {
               ),
             ),
           );
-        }
-        final trimmedAccountLabel = accountLabel?.trim() ?? '';
-        if (trimmedAccountLabel.isNotEmpty) {
-          chips.add(
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: colorScheme.secondary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                trimmedAccountLabel,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.secondary,
-                  letterSpacing: 0.2,
-                ),
-              ),
-            ),
-          );
-        }
+        }   
 
         Widget? subtitleNode;
         if (subtitleWidget != null) {

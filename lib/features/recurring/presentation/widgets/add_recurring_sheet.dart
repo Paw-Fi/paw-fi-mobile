@@ -23,8 +23,6 @@ import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
-import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
-import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -65,6 +63,30 @@ String _normalizeCategoryRemapKey(String? category) {
   if (categoryColors.containsKey(raw)) return raw;
   if (!raw.contains(' ')) return normalizeCategory(raw);
   return raw;
+}
+
+class _RecurringAccountOption {
+  final ActiveWalletType type;
+  final String? householdId;
+  final String label;
+  final bool isPortfolio;
+
+  const _RecurringAccountOption({
+    required this.type,
+    required this.label,
+    this.householdId,
+    this.isPortfolio = false,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! _RecurringAccountOption) return false;
+    return type == other.type && householdId == other.householdId;
+  }
+
+  @override
+  int get hashCode => Object.hash(type, householdId);
 }
 
 class AddRecurringSheet extends HookConsumerWidget {
@@ -160,9 +182,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isLoading = useState<bool>(false);
 
     // View mode / household selection for default sharing behaviour
-    final viewMode = ref.watch(viewModeProvider);
     final householdScope = ref.watch(householdScopeProvider);
-    final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
     final authState = ref.watch(authProvider);
     final currentUserId = authState.uid.isNotEmpty ? authState.uid : null;
 
@@ -170,42 +190,37 @@ class AddRecurringSheet extends HookConsumerWidget {
     final isExistingPortfolio = existingHouseholdId != null &&
         householdScope.isPortfolioId(existingHouseholdId);
 
-    final isPortfolioContext = () {
-      if (householdScope.activeAccountType == ActiveWalletType.portfolio) {
-        return true;
+    final initialAccountType = () {
+      if (isExistingPortfolio) {
+        return ActiveWalletType.portfolio;
       }
-      if (existingTransaction?.householdId != null) {
-        return householdScope.isPortfolioId(existingTransaction!.householdId);
+      if (existingHouseholdId != null) {
+        return ActiveWalletType.household;
       }
-      return householdScope.activeAccountHouseholdId != null &&
-          householdScope.isPortfolioId(householdScope.activeAccountHouseholdId);
+      return householdScope.activeAccountType;
     }();
-
-    final canShowSharingSection = currentUserId != null &&
-        !isPortfolioContext &&
-        (householdScope.activeAccountType == ActiveWalletType.household ||
-            (isEditing &&
-                existingTransaction?.householdId != null &&
-                !isExistingPortfolio));
+    final initialAccountHouseholdId =
+        existingHouseholdId ?? householdScope.activeAccountHouseholdId;
+    final selectedAccountType = useState<ActiveWalletType>(initialAccountType);
+    final selectedAccountHouseholdId =
+        useState<String?>(initialAccountHouseholdId);
 
     // Sharing + split state (expenses only)
     final isSharedWithHousehold = useState<bool>(
-      existingTransaction != null
-          ? (!isExistingPortfolio && existingTransaction!.householdId != null)
-          : (householdScope.activeAccountType == ActiveWalletType.household &&
-              householdScope.activeAccountHouseholdId != null),
+      selectedAccountType.value == ActiveWalletType.household &&
+          selectedAccountHouseholdId.value != null,
     );
     final selectedHouseholdId = useState<String?>(
-      existingTransaction?.householdId ??
-          householdScope.activeAccountHouseholdId,
+      selectedAccountType.value == ActiveWalletType.household
+          ? selectedAccountHouseholdId.value
+          : null,
     );
     // Initialize payer to current user for ADD mode + household sharing
     final selectedPayerUserId = useState<String?>(
       existingTransaction?.payerUserId ??
           (!isEditing &&
-                  householdScope.activeAccountType ==
-                      ActiveWalletType.household &&
-                  householdScope.activeAccountHouseholdId != null
+                  selectedAccountType.value == ActiveWalletType.household &&
+                  selectedAccountHouseholdId.value != null
               ? currentUserId
               : null),
     );
@@ -216,24 +231,147 @@ class AddRecurringSheet extends HookConsumerWidget {
     final householdsAsync = currentUserId != null
         ? ref.watch(userHouseholdsProvider(currentUserId))
         : const AsyncValue<List<Household>>.data([]);
+    final selectedFinancialAccountId =
+        useState<String?>(existingTransaction?.accountId);
+    final hasManuallySelectedFinancialAccount = useState<bool>(false);
+    final availableHouseholds =
+        householdsAsync.valueOrNull ?? const <Household>[];
+    final shareableHouseholds = availableHouseholds
+        .where((household) => !household.isPortfolio)
+        .toList(growable: false);
+    final portfolioHouseholds = availableHouseholds
+        .where((household) => household.isPortfolio)
+        .toList(growable: false);
 
-    final forcedPortfolioHouseholdId =
-        (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
-    final walletScopeHouseholdId = forcedPortfolioHouseholdId ??
-        switch (householdScope.activeAccountType) {
-          ActiveWalletType.personal => null,
-          ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
-          ActiveWalletType.household =>
-            isSharedWithHousehold.value ? selectedHouseholdId.value : null,
-        };
+    Household? findHouseholdById(String? householdId) {
+      if (householdId == null) return null;
+      for (final household in availableHouseholds) {
+        if (household.id == householdId) return household;
+      }
+      return null;
+    }
+
+    List<_RecurringAccountOption> buildAccountOptions() {
+      final options = <_RecurringAccountOption>[
+        _RecurringAccountOption(
+          type: ActiveWalletType.personal,
+          label: context.l10n.personalScope,
+        ),
+      ];
+
+      for (final household in availableHouseholds) {
+        final isPortfolio = household.isPortfolio;
+        options.add(
+          _RecurringAccountOption(
+            type: isPortfolio
+                ? ActiveWalletType.portfolio
+                : ActiveWalletType.household,
+            householdId: household.id,
+            isPortfolio: isPortfolio,
+            label: isPortfolio
+                ? '${household.name} · ${context.l10n.privateSpace}'
+                : '${household.name} · ${context.l10n.sharedSpace}',
+          ),
+        );
+      }
+
+      return options;
+    }
+
+    _RecurringAccountOption currentAccountOption() {
+      return _RecurringAccountOption(
+        type: selectedAccountType.value,
+        householdId: selectedAccountType.value == ActiveWalletType.personal
+            ? null
+            : selectedAccountHouseholdId.value,
+        label: '',
+        isPortfolio: selectedAccountType.value == ActiveWalletType.portfolio,
+      );
+    }
+
+    String accountDisplayValue() {
+      if (householdsAsync.isLoading &&
+          selectedAccountType.value != ActiveWalletType.personal) {
+        return context.l10n.loading;
+      }
+
+      switch (selectedAccountType.value) {
+        case ActiveWalletType.personal:
+          return context.l10n.personalScope;
+        case ActiveWalletType.portfolio:
+          final household = findHouseholdById(selectedAccountHouseholdId.value);
+          return household?.name ?? context.l10n.privateSpace;
+        case ActiveWalletType.household:
+          final household = findHouseholdById(selectedAccountHouseholdId.value);
+          return household?.name ?? context.l10n.tapToSet;
+      }
+    }
+
+    void clearSplitConfig() {
+      customSplitType.value = null;
+      customSplits.value = null;
+      initialSplitSignature.value = null;
+    }
+
+    Future<void> handleEditSpace() async {
+      if (householdsAsync.isLoading) return;
+
+      final options = buildAccountOptions();
+      if (options.length <= 1) return;
+
+      final current = currentAccountOption();
+      final initial = options.contains(current) ? current : options.first;
+
+      final selected =
+          await showTransactionSelectionSheet<_RecurringAccountOption>(
+        context: context,
+        items: options,
+        getLabel: (option) => option.label,
+        initial: initial,
+      );
+
+      if (selected == null || selected == current) return;
+
+      final previousHouseholdId = selectedHouseholdId.value;
+      final nextHouseholdId = selected.type == ActiveWalletType.household
+          ? selected.householdId
+          : null;
+
+      selectedAccountType.value = selected.type;
+      selectedAccountHouseholdId.value = selected.householdId;
+      selectedFinancialAccountId.value = null;
+      hasManuallySelectedFinancialAccount.value = false;
+
+      if (selected.type == ActiveWalletType.household) {
+        isSharedWithHousehold.value = nextHouseholdId != null;
+        selectedHouseholdId.value = nextHouseholdId;
+        if (previousHouseholdId != nextHouseholdId) {
+          clearSplitConfig();
+        }
+        selectedPayerUserId.value ??=
+            existingTransaction?.payerUserId ?? currentUserId;
+      } else {
+        isSharedWithHousehold.value = false;
+        selectedHouseholdId.value = null;
+        if (previousHouseholdId != null) {
+          clearSplitConfig();
+        }
+      }
+    }
+
+    final canShowSharingSection = currentUserId != null &&
+        selectedAccountType.value == ActiveWalletType.household &&
+        selectedAccountHouseholdId.value != null;
+    final walletScopeHouseholdId = switch (selectedAccountType.value) {
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => selectedAccountHouseholdId.value,
+      ActiveWalletType.household => selectedHouseholdId.value,
+    };
 
     final scopedAccountsAsync =
         ref.watch(walletsByHouseholdIdProvider(walletScopeHouseholdId));
     final scopedAccounts =
         scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
-    final selectedFinancialAccountId =
-        useState<String?>(existingTransaction?.accountId);
-    final hasManuallySelectedFinancialAccount = useState<bool>(false);
 
     useEffect(() {
       if (scopedAccounts.isEmpty) {
@@ -287,8 +425,89 @@ class AddRecurringSheet extends HookConsumerWidget {
       hasManuallySelectedFinancialAccount.value,
     ]);
 
+    useEffect(() {
+      String? resolvePreferredHouseholdId(List<Household> households) {
+        if (households.isEmpty) return null;
+        final preferredIds = <String?>[
+          existingHouseholdId,
+          selectedAccountHouseholdId.value,
+          householdScope.activeAccountHouseholdId,
+        ];
+        for (final candidateId in preferredIds) {
+          if (candidateId != null &&
+              households.any((household) => household.id == candidateId)) {
+            return candidateId;
+          }
+        }
+        return households.first.id;
+      }
+
+      switch (selectedAccountType.value) {
+        case ActiveWalletType.personal:
+          if (selectedAccountHouseholdId.value != null) {
+            selectedAccountHouseholdId.value = null;
+          }
+          if (selectedHouseholdId.value != null) {
+            clearSplitConfig();
+            selectedHouseholdId.value = null;
+          }
+          if (isSharedWithHousehold.value) {
+            isSharedWithHousehold.value = false;
+          }
+          return null;
+        case ActiveWalletType.portfolio:
+          final resolvedPortfolioId = resolvePreferredHouseholdId(
+            portfolioHouseholds,
+          );
+          if (selectedAccountHouseholdId.value != resolvedPortfolioId) {
+            selectedAccountHouseholdId.value = resolvedPortfolioId;
+          }
+          if (selectedHouseholdId.value != null) {
+            clearSplitConfig();
+            selectedHouseholdId.value = null;
+          }
+          if (isSharedWithHousehold.value) {
+            isSharedWithHousehold.value = false;
+          }
+          return null;
+        case ActiveWalletType.household:
+          final resolvedHouseholdId = resolvePreferredHouseholdId(
+            shareableHouseholds,
+          );
+          if (selectedAccountHouseholdId.value != resolvedHouseholdId) {
+            selectedAccountHouseholdId.value = resolvedHouseholdId;
+          }
+          if (selectedHouseholdId.value != resolvedHouseholdId) {
+            if (selectedHouseholdId.value != null &&
+                selectedHouseholdId.value != resolvedHouseholdId) {
+              clearSplitConfig();
+            }
+            selectedHouseholdId.value = resolvedHouseholdId;
+          }
+          final shouldShare = resolvedHouseholdId != null;
+          if (isSharedWithHousehold.value != shouldShare) {
+            isSharedWithHousehold.value = shouldShare;
+          }
+          if (shouldShare) {
+            selectedPayerUserId.value ??=
+                existingTransaction?.payerUserId ?? currentUserId;
+          }
+          return null;
+      }
+    }, [
+      selectedAccountType.value,
+      shareableHouseholds,
+      portfolioHouseholds,
+      householdScope.activeAccountHouseholdId,
+      existingHouseholdId,
+      existingTransaction?.payerUserId,
+      currentUserId,
+    ]);
+
     final membersAsync =
-        (isSharedWithHousehold.value && selectedHouseholdId.value != null)
+        (selectedAccountType.value == ActiveWalletType.household &&
+                isSharedWithHousehold.value &&
+                selectedHouseholdId.value != null)
             ? ref.watch(householdMembersProvider(selectedHouseholdId.value!))
             : const AsyncValue<List<HouseholdMember>>.data([]);
 
@@ -312,6 +531,11 @@ class AddRecurringSheet extends HookConsumerWidget {
       if (!isSharedWithHousehold.value) {
         _debugPrint(
             '🏠 [RECURRING LOAD SPLIT] Skipping - isSharedWithHousehold is FALSE');
+        return null;
+      }
+      if (selectedHouseholdId.value != existingTransaction?.householdId) {
+        _debugPrint(
+            '🏠 [RECURRING LOAD SPLIT] Skipping - target household differs from original household');
         return null;
       }
 
@@ -443,6 +667,7 @@ class AddRecurringSheet extends HookConsumerWidget {
       isExpense,
       existingTransaction?.id,
       existingTransaction?.householdId,
+      selectedHouseholdId.value,
       isSharedWithHousehold.value,
       membersAsync,
     ]);
@@ -450,12 +675,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     // Parsed amount used for split editor defaults
     final parsedAmount = double.tryParse(amountController.text.trim());
     final hasAmountForSplit = parsedAmount != null && parsedAmount > 0;
-
-    // Track when amount flips from empty -> has value so we can auto-set sharing once
-    final hasAmountEverBeenSet = useRef(false);
-    if (hasAmountForSplit && !hasAmountEverBeenSet.value) {
-      hasAmountEverBeenSet.value = true;
-    }
     final previousAmountRef = useRef<double?>(
       isEditing ? existingTransaction?.amount : null,
     );
@@ -470,7 +689,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     useEffect(() {
       _debugPrint('🏠 [ADD RECURRING] Initializing payer for household mode');
       _debugPrint('   isEditing: $isEditing');
-      _debugPrint('   viewMode: ${viewMode.mode}');
       _debugPrint('   isSharedWithHousehold: ${isSharedWithHousehold.value}');
       _debugPrint('   selectedHouseholdId: ${selectedHouseholdId.value}');
 
@@ -492,7 +710,7 @@ class AddRecurringSheet extends HookConsumerWidget {
 
       // Only for ADD mode in household mode
       if (!isEditing &&
-          householdScope.activeAccountType == ActiveWalletType.household &&
+          selectedAccountType.value == ActiveWalletType.household &&
           isSharedWithHousehold.value &&
           selectedHouseholdId.value != null &&
           selectedPayerUserId.value == null &&
@@ -501,82 +719,14 @@ class AddRecurringSheet extends HookConsumerWidget {
         selectedPayerUserId.value = currentUserId;
       }
       return null;
-    }, []);
-
-    // When amount becomes available for the first time in ADD mode, ensure sharing defaults to view mode
-    // CRITICAL FIX: Always set sharing state based on view mode, not just the first time
-    // This ensures the toggle properly reflects the current mode when it becomes visible
-    useEffect(() {
-      if (isEditing) return null;
-      if (!hasAmountForSplit) return null;
-
-      final shouldBeShared =
-          householdScope.activeAccountType == ActiveWalletType.household;
-
-      // Always update when amount is present to ensure correct state
-      // Previous logic only updated if hasAmountEverBeenSet, but this could miss cases
-      // where the state got out of sync
-      _debugPrint(
-          '🔄 [ADD RECURRING] Amount present; ensuring isSharedWithHousehold matches view mode');
-      _debugPrint('   Should be shared (view mode only): $shouldBeShared');
-      _debugPrint('   ViewMode: ${viewMode.mode}');
-      _debugPrint(
-          '   HouseholdId (selected state): ${selectedHouseholdState.householdId}');
-      _debugPrint(
-          '   Current isSharedWithHousehold: ${isSharedWithHousehold.value}');
-      _debugPrint(
-          '   HouseholdId (selected local): ${selectedHouseholdId.value}');
-
-      // If in household mode but no household selected yet, pick one from available households
-      if (shouldBeShared && selectedHouseholdId.value == null) {
-        final households = householdsAsync.valueOrNull;
-        final shareableHouseholds =
-            households?.where((h) => !h.isPortfolio).toList(growable: false);
-        if (shareableHouseholds != null && shareableHouseholds.isNotEmpty) {
-          final preferredId = selectedHouseholdState.householdId;
-          selectedHouseholdId.value = (preferredId != null &&
-                  shareableHouseholds.any((h) => h.id == preferredId))
-              ? preferredId
-              : shareableHouseholds.first.id;
-          _debugPrint(
-              '   ✅ [ADD RECURRING] Auto-selected householdId: ${selectedHouseholdId.value}');
-        } else {
-          _debugPrint(
-              '   ⚠️ [ADD RECURRING] No households available to auto-select');
-        }
-      }
-
-      final resolvedShouldShare = shouldBeShared &&
-          (selectedHouseholdState.householdId != null ||
-              selectedHouseholdId.value != null);
-      _debugPrint(
-          '   Resolved shouldShare (after household pick): $resolvedShouldShare');
-
-      // Only update if it doesn't match the expected state
-      // This prevents unnecessary rebuilds but ensures correctness
-      if (isSharedWithHousehold.value != resolvedShouldShare) {
-        _debugPrint(
-            '   ⚠️ State mismatch! Correcting to: $resolvedShouldShare');
-        isSharedWithHousehold.value = resolvedShouldShare;
-        if (resolvedShouldShare) {
-          selectedPayerUserId.value ??=
-              existingTransaction?.payerUserId ?? currentUserId;
-        } else if (viewMode.mode != ViewMode.household) {
-          selectedHouseholdId.value = null;
-        }
-      }
-
-      // Mark that we've processed the amount at least once
-      if (!hasAmountEverBeenSet.value) {
-        hasAmountEverBeenSet.value = true;
-      }
-
-      return null;
     }, [
-      hasAmountForSplit,
-      householdScope.activeAccountType,
-      selectedHouseholdState.householdId,
-      householdsAsync.value,
+      isEditing,
+      selectedAccountType.value,
+      isSharedWithHousehold.value,
+      selectedHouseholdId.value,
+      selectedPayerUserId.value,
+      currentUserId,
+      existingTransaction?.payerUserId,
     ]);
 
     // Whenever the amount changes for NEW recurring expenses, clear any
@@ -708,20 +858,16 @@ class AddRecurringSheet extends HookConsumerWidget {
         }
 
         RecurringTransaction? result;
+        final effectiveHouseholdId = switch (selectedAccountType.value) {
+          ActiveWalletType.personal => null,
+          ActiveWalletType.portfolio => selectedAccountHouseholdId.value,
+          ActiveWalletType.household => selectedHouseholdId.value,
+        };
 
-        final forcedPortfolioHouseholdId =
-            (isEditing && isExistingPortfolio) ? existingHouseholdId : null;
-        final effectiveHouseholdId = forcedPortfolioHouseholdId ??
-            switch (householdScope.activeAccountType) {
-              ActiveWalletType.personal => null,
-              ActiveWalletType.portfolio =>
-                householdScope.activeAccountHouseholdId,
-              ActiveWalletType.household =>
-                isSharedWithHousehold.value ? selectedHouseholdId.value : null,
-            };
-
-        final isPortfolioScope = effectiveHouseholdId != null &&
-            householdScope.isPortfolioId(effectiveHouseholdId);
+        final isPortfolioScope =
+            selectedAccountType.value == ActiveWalletType.portfolio ||
+                (effectiveHouseholdId != null &&
+                    householdScope.isPortfolioId(effectiveHouseholdId));
         final selectedAccountId = selectedFinancialAccountId.value ??
             (() {
               for (final account in scopedAccounts) {
@@ -730,10 +876,13 @@ class AddRecurringSheet extends HookConsumerWidget {
               return scopedAccounts.isNotEmpty ? scopedAccounts.first.id : null;
             })();
         // Only household-group accounts support shared splits.
-        final shareWithHousehold = !isPortfolioScope &&
-            isSharedWithHousehold.value &&
-            selectedHouseholdId.value != null;
+        final shareWithHousehold =
+            selectedAccountType.value == ActiveWalletType.household &&
+                !isPortfolioScope &&
+                isSharedWithHousehold.value &&
+                selectedHouseholdId.value != null;
         final activeHouseholdId = effectiveHouseholdId;
+        final originalHouseholdId = existingTransaction?.householdId;
         final hasSplitConfig = customSplitType.value != null &&
             customSplits.value != null &&
             customSplits.value!.isNotEmpty;
@@ -744,14 +893,28 @@ class AddRecurringSheet extends HookConsumerWidget {
               )
             : null;
         final initialSignature = initialSplitSignature.value;
-        final shouldCreateSplitGroup = shareWithHousehold &&
-            hasSplitConfig &&
-            (existingTransaction?.householdId == null);
-        final shouldSendSplitUpdate = shareWithHousehold &&
-            hasSplitConfig &&
-            initialSignature != null &&
+        final sameSharedHousehold = shareWithHousehold &&
+            originalHouseholdId != null &&
+            originalHouseholdId == activeHouseholdId;
+        final existingSplitGroupId = existingTransaction?.splitGroupId;
+        final amountChanged = isEditing &&
+            existingTransaction != null &&
+            (existingTransaction!.amount - amount).abs() > 0.0001;
+        final currencyChanged = isEditing &&
+            existingTransaction != null &&
+            existingTransaction!.currency.toUpperCase() !=
+                selectedCurrency.value.toUpperCase();
+        final splitConfigChanged = initialSignature != null &&
             currentSplitSignature != null &&
             currentSplitSignature != initialSignature;
+        final shouldCreateSplitGroup = shareWithHousehold &&
+            hasSplitConfig &&
+            (!sameSharedHousehold || existingSplitGroupId == null);
+        final shouldSendSplitUpdate = shareWithHousehold &&
+            hasSplitConfig &&
+            sameSharedHousehold &&
+            existingSplitGroupId != null &&
+            (amountChanged || currencyChanged || splitConfigChanged);
         _debugPrint(
             '💾 [RECURRING SAVE] share=$shareWithHousehold hh=$activeHouseholdId payer=${selectedPayerUserId.value}');
         _debugPrint('   Custom split type: ${customSplitType.value}');
@@ -983,6 +1146,36 @@ class AddRecurringSheet extends HookConsumerWidget {
             _debugPrint(
                 '   ♻️  Invalidating pocketsProvider family (personal scope)');
             ref.invalidate(pocketsProvider);
+          }
+
+          final previousHouseholdId = existingTransaction?.householdId;
+          if (isEditing && previousHouseholdId != activeHouseholdId) {
+            if (previousHouseholdId != null &&
+                previousHouseholdId != currentHouseholdId &&
+                previousHouseholdId != activeHouseholdId) {
+              _debugPrint(
+                  '🔄 [REFRESH] Refreshing previous household scope: $previousHouseholdId');
+              ref
+                  .read(cacheInvalidatorProvider)
+                  .invalidateHouseholdData(previousHouseholdId);
+              ref.invalidate(householdSplitsProvider);
+              ref.invalidate(cachedHouseholdSplitsProvider);
+              await ref
+                  .read(
+                    recurringTransactionsProvider(previousHouseholdId).notifier,
+                  )
+                  .refresh(userId);
+              ref.invalidate(pocketsProvider);
+            } else if (previousHouseholdId == null &&
+                currentScope.activeAccountType != ActiveWalletType.personal &&
+                activeHouseholdId != null) {
+              _debugPrint(
+                  '🔄 [REFRESH] Refreshing previous personal scope after move');
+              await ref
+                  .read(recurringTransactionsProvider(null).notifier)
+                  .refresh(userId);
+              ref.invalidate(pocketsProvider);
+            }
           }
 
           // Keep currency selector counts up-to-date.
@@ -1426,6 +1619,18 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         _buildDetailCard(
                           colorScheme: colorScheme,
+                          label: context.l10n.space,
+                          value: accountDisplayValue(),
+                          isValuePlaceholder: householdsAsync.isLoading &&
+                              selectedAccountType.value !=
+                                  ActiveWalletType.personal,
+                          onTap: handleEditSpace,
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
                           label: context.l10n.wallet,
                           value: () {
                             if (scopedAccountsAsync.isLoading) {
@@ -1540,90 +1745,33 @@ class AddRecurringSheet extends HookConsumerWidget {
 
                         const SizedBox(height: 20),
 
-                        // Household sharing + split (expenses only, non-portfolio contexts)
-                        if (canShowSharingSection) ...[
-                          householdsAsync.when(
-                            data: (households) {
-                              final shareableHouseholds = households
-                                  .where((h) => !h.isPortfolio)
-                                  .toList(growable: false);
-
-                              final selectedId = selectedHouseholdId.value;
-                              final hasValidShareSelection =
-                                  selectedId != null &&
-                                      shareableHouseholds
-                                          .any((h) => h.id == selectedId);
-                              if (isSharedWithHousehold.value &&
-                                  !hasValidShareSelection) {
-                                isSharedWithHousehold.value = false;
-                                selectedHouseholdId.value = null;
-                                customSplitType.value = null;
-                                customSplits.value = null;
-                              }
-                              if (!hasAmountForSplit) {
-                                // Require an amount before configuring splits
-                                return Text(
-                                  context.l10n.pleaseEnterAmount,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: colorScheme.mutedForeground,
-                                  ),
-                                );
-                              }
-
-                              if (shareableHouseholds.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-
-                              if (!isExpense) {
-                                // For income: only allow sharing toggle, no split editor
-                                return _buildSharingToggleOnly(
-                                  context,
-                                  colorScheme,
-                                  shareableHouseholds,
-                                  isSharedWithHousehold,
-                                  selectedHouseholdId,
-                                );
-                              }
-
-                              final householdId = selectedHouseholdId.value;
-                              final isHouseholdModeEnabled =
-                                  isSharedWithHousehold.value &&
-                                      householdId != null &&
-                                      householdId.isNotEmpty;
-                              final isPortfolio = householdId != null &&
-                                  householdScope.isPortfolioId(householdId);
-
-                              if (!isHouseholdModeEnabled || isPortfolio) {
-                                return _buildSharingToggleOnly(
-                                  context,
-                                  colorScheme,
-                                  shareableHouseholds,
-                                  isSharedWithHousehold,
-                                  selectedHouseholdId,
-                                );
-                              }
-
-                              return _buildSharingAndSplitSection(
-                                context: context,
-                                colorScheme: colorScheme,
-                                households: shareableHouseholds,
-                                isSharedWithHousehold: isSharedWithHousehold,
-                                selectedHouseholdId: selectedHouseholdId,
-                                membersAsync: membersAsync,
-                                selectedPayerUserId: selectedPayerUserId,
-                                customSplitType: customSplitType,
-                                customSplits: customSplits,
-                                amountController: amountController,
-                                currencySymbol: resolveCurrencySymbol(
-                                    selectedCurrency.value),
-                                isEditing: isEditing,
-                                currentUserId: currentUserId,
-                              );
-                            },
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, __) => const SizedBox.shrink(),
-                          ),
+                        if (canShowSharingSection && isExpense) ...[
+                          if (!hasAmountForSplit)
+                            Text(
+                              context.l10n.pleaseEnterAmount,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            )
+                          else if (shareableHouseholds.isNotEmpty)
+                            _buildSharingAndSplitSection(
+                              context: context,
+                              colorScheme: colorScheme,
+                              households: shareableHouseholds,
+                              isSharedWithHousehold: isSharedWithHousehold,
+                              selectedHouseholdId: selectedHouseholdId,
+                              membersAsync: membersAsync,
+                              selectedPayerUserId: selectedPayerUserId,
+                              customSplitType: customSplitType,
+                              customSplits: customSplits,
+                              amountController: amountController,
+                              currencySymbol:
+                                  resolveCurrencySymbol(selectedCurrency.value),
+                              isEditing: isEditing,
+                              currentUserId: currentUserId,
+                              showSharingControls: false,
+                            ),
                           const SizedBox(height: 20),
                         ],
 
@@ -2192,58 +2340,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
   }
 
-  /// Simple sharing toggle used for incomes (no split editor)
-  Widget _buildSharingToggleOnly(
-    BuildContext context,
-    ColorScheme colorScheme,
-    List<Household> households,
-    ValueNotifier<bool> isSharedWithHousehold,
-    ValueNotifier<String?> selectedHouseholdId,
-  ) {
-    if (households.isEmpty) {
-      if (isSharedWithHousehold.value) {
-        isSharedWithHousehold.value = false;
-      }
-      if (selectedHouseholdId.value != null) {
-        selectedHouseholdId.value = null;
-      }
-      return const SizedBox.shrink();
-    }
-    return MonekoInput(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              context.l10n.shareWithHousehold,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-          MonekoSwitch(
-            value: isSharedWithHousehold.value,
-            activeColor: colorScheme.primary,
-            onChanged: (value) {
-              if (!value) {
-                isSharedWithHousehold.value = false;
-                return;
-              }
-              isSharedWithHousehold.value = true;
-              final currentId = selectedHouseholdId.value;
-              if (currentId == null ||
-                  !households.any((h) => h.id == currentId)) {
-                selectedHouseholdId.value = households.first.id;
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Full sharing + split editor section for recurring expenses
   Widget _buildSharingAndSplitSection({
     required BuildContext context,
@@ -2259,6 +2355,7 @@ class AddRecurringSheet extends HookConsumerWidget {
     required String currencySymbol,
     required bool isEditing,
     required String? currentUserId,
+    bool showSharingControls = true,
   }) {
     if (households.isEmpty) {
       if (isSharedWithHousehold.value) {
@@ -2272,101 +2369,101 @@ class AddRecurringSheet extends HookConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Toggle + household dropdown
-        MonekoInput(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.l10n.shareWithHousehold,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurface,
+        if (showSharingControls) ...[
+          MonekoInput(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          context.l10n.shareWithHousehold,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
-                    ),
-                    MonekoSwitch(
-                      value: isSharedWithHousehold.value,
-                      onChanged: (value) {
-                        if (!value) {
-                          isSharedWithHousehold.value = false;
-                          selectedHouseholdId.value = null;
-                          customSplitType.value = null;
-                          customSplits.value = null;
-                          return;
-                        }
-                        if (households.isEmpty) return;
-                        isSharedWithHousehold.value = true;
-                        final currentId = selectedHouseholdId.value;
-                        if (currentId == null ||
-                            !households.any((h) => h.id == currentId)) {
-                          selectedHouseholdId.value = households.first.id;
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              if (isSharedWithHousehold.value)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: colorScheme.muted.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: () {
-                        final currentId = selectedHouseholdId.value;
-                        if (currentId != null &&
-                            households.any((h) => h.id == currentId)) {
-                          return currentId;
-                        }
-                        return households.first.id;
-                      }(),
-                      isExpanded: true,
-                      icon: Icon(
-                        Icons.arrow_drop_down,
-                        color: colorScheme.onSurface,
+                      MonekoSwitch(
+                        value: isSharedWithHousehold.value,
+                        onChanged: (value) {
+                          if (!value) {
+                            isSharedWithHousehold.value = false;
+                            selectedHouseholdId.value = null;
+                            customSplitType.value = null;
+                            customSplits.value = null;
+                            return;
+                          }
+                          if (households.isEmpty) return;
+                          isSharedWithHousehold.value = true;
+                          final currentId = selectedHouseholdId.value;
+                          if (currentId == null ||
+                              !households.any((h) => h.id == currentId)) {
+                            selectedHouseholdId.value = households.first.id;
+                          }
+                        },
                       ),
-                      items: households
-                          .map(
-                            (h) => DropdownMenuItem<String>(
-                              value: h.id,
-                              child: Text(
-                                h.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: colorScheme.onSurface,
+                    ],
+                  ),
+                ),
+                if (isSharedWithHousehold.value)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: () {
+                          final currentId = selectedHouseholdId.value;
+                          if (currentId != null &&
+                              households.any((h) => h.id == currentId)) {
+                            return currentId;
+                          }
+                          return households.first.id;
+                        }(),
+                        isExpanded: true,
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: colorScheme.onSurface,
+                        ),
+                        items: households
+                            .map(
+                              (h) => DropdownMenuItem<String>(
+                                value: h.id,
+                                child: Text(
+                                  h.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: colorScheme.onSurface,
+                                  ),
                                 ),
                               ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        selectedHouseholdId.value = value;
-                        // Reset splits when switching households
-                        customSplitType.value = null;
-                        customSplits.value = null;
-                      },
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          selectedHouseholdId.value = value;
+                          customSplitType.value = null;
+                          customSplits.value = null;
+                        },
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         if (isSharedWithHousehold.value)
           membersAsync.when(
             data: (members) {
