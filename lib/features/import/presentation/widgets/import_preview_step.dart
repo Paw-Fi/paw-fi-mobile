@@ -283,7 +283,7 @@ class PreviewStep extends ConsumerWidget {
         SystemSound.play(SystemSoundType.click);
 
         if (item.value == 'personal') {
-          notifier.setTargetAccount(householdId: null, isPortfolio: false);
+          notifier.setTargetWallet(householdId: null, isPortfolio: false);
           return;
         }
 
@@ -297,7 +297,7 @@ class PreviewStep extends ConsumerWidget {
               break;
             }
           }
-          notifier.setTargetAccount(
+          notifier.setTargetWallet(
             householdId: householdId,
             isPortfolio: picked?.isPortfolio ?? false,
           );
@@ -395,7 +395,7 @@ class PreviewStep extends ConsumerWidget {
       final preferredAccountId = _resolvePreferredDefaultAccountId(accounts);
       if (preferredAccountId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          notifier.setTargetFinancialAccount(preferredAccountId);
+          notifier.setTargetFinancialWallet(preferredAccountId);
         });
       }
     }
@@ -463,7 +463,7 @@ class PreviewStep extends ConsumerWidget {
           final raw = item.value;
           if (raw is String && raw.startsWith('account:')) {
             final accountId = raw.replaceFirst('account:', '').trim();
-            notifier.setTargetFinancialAccount(accountId);
+            notifier.setTargetFinancialWallet(accountId);
           }
         },
         child: Container(
@@ -529,7 +529,7 @@ class PreviewStep extends ConsumerWidget {
     if (result == null) return;
 
     try {
-      final createdId = await notifier.createAccountForTarget(
+      final createdId = await notifier.createWalletForTarget(
         name: result.name,
         icon: result.icon,
         color: result.color,
@@ -538,7 +538,7 @@ class PreviewStep extends ConsumerWidget {
         isDefault: result.isDefault,
       );
       if (createdId != null && createdId.isNotEmpty) {
-        notifier.setTargetFinancialAccount(createdId);
+        notifier.setTargetFinancialWallet(createdId);
       }
       if (context.mounted) {
         AppToast.success(context, context.l10n.save);

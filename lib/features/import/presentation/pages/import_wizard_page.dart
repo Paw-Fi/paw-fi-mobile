@@ -63,7 +63,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
     if (widget.lockPersonalTarget) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ref.read(importWizardProvider.notifier).setTargetAccount(
+        ref.read(importWizardProvider.notifier).setTargetWallet(
               householdId: null,
               isPortfolio: false,
             );

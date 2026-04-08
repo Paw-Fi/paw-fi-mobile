@@ -833,7 +833,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     state = state.copyWith(skipDuplicates: value);
   }
 
-  void setTargetAccount({String? householdId, required bool isPortfolio}) {
+  void setTargetWallet({String? householdId, required bool isPortfolio}) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
     final updatedRows = markDuplicates(
@@ -849,7 +849,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     );
   }
 
-  void setTargetFinancialAccount(String? accountId) {
+  void setTargetFinancialWallet(String? accountId) {
     final normalized =
         (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
     state = state.copyWith(
@@ -858,7 +858,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     );
   }
 
-  Future<String?> createAccountForTarget({
+  Future<String?> createWalletForTarget({
     required String name,
     required String icon,
     required String color,
@@ -884,7 +884,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final payload = response.data as Map<String, dynamic>?;
     if (payload == null || payload['success'] != true) {
       final message =
-          payload?['error']?.toString() ?? 'Failed to create account';
+          payload?['error']?.toString() ?? 'Failed to create wallet';
       throw Exception(message);
     }
 
