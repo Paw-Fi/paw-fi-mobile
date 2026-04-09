@@ -1,9 +1,34 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class _EmptyAuthNotifier extends Auth {
+  @override
+  AppUser build() => AppUser.empty;
+}
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    try {
+      await Supabase.initialize(
+        url: 'http://localhost',
+        anonKey: 'test-anon-key',
+      );
+    } catch (_) {
+      // Other tests may have already initialized the singleton.
+    }
+  });
+
   test('defaultScopedAccountProvider resolves default wallet', () async {
     const wallets = [
       WalletEntity(
@@ -46,5 +71,26 @@ void main() {
     await container.read(scopedWalletsProvider.future);
     final resolved = container.read(defaultScopedAccountProvider);
     expect(resolved?.id, 'a2');
+  });
+
+  test('scopedWalletsProvider stays empty while auth is not ready', () async {
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(_EmptyAuthNotifier.new),
+        householdScopeProvider.overrideWith(
+          (ref) => const HouseholdScope(
+            viewMode: ViewMode.personal,
+            selected: SelectedHouseholdState(),
+            portfolioHouseholdIds: <String>{},
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(scopedWalletsProvider.future),
+      completion(isEmpty),
+    );
   });
 }

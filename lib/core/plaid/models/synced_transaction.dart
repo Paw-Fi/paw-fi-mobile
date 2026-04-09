@@ -53,6 +53,7 @@ List<SyncedTransaction> parseSyncedTransactions(dynamic payload) {
       sharedMemberIds: null,
       splitGroupId: null,
       bankAccountId: map['bank_account_id'] as String?,
+      walletId: map['account_id'] as String?,
       type: map['type'] as String?,
     );
 
