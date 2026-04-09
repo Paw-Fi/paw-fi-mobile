@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -10,6 +12,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -21,6 +24,11 @@ class _FakeAuthNotifier extends Auth {
   AppUser build() {
     return const AppUser(uid: 'u1', email: 'u1@example.com');
   }
+}
+
+class _EmptyAuthNotifier extends Auth {
+  @override
+  AppUser build() => AppUser.empty;
 }
 
 class _FakeWalletsDataService implements WalletsDataService {
@@ -64,6 +72,63 @@ class _ThrowingWalletsDataService implements WalletsDataService {
   }
 }
 
+class _DelayedWalletsDataService implements WalletsDataService {
+  _DelayedWalletsDataService({required this.snapshotCompleter});
+
+  final Completer<void> snapshotCompleter;
+
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    return WalletsHistorySummary(
+      availableMonths: [DateTime(2026, 4, 1)],
+      netWorthSeries: [
+        WalletNetWorthPoint(
+          monthStart: DateTime(2026, 4, 1),
+          netWorthCents: 1200,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+    WalletsMonthQuery query,
+  ) async {
+    await snapshotCompleter.future;
+    return WalletsMonthSnapshot(
+      monthStart: query.monthStart,
+      monthEndExclusive:
+          DateTime(query.monthStart.year, query.monthStart.month + 1, 1),
+      incomeTotalCents: 500,
+      spentTotalCents: 300,
+      netWorthCents: 1200,
+      walletBalances: const {'a1': 1200},
+    );
+  }
+}
+
+class _FailingSnapshotWalletsDataService implements WalletsDataService {
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    return WalletsHistorySummary(
+      availableMonths: [DateTime(2026, 4, 1)],
+      netWorthSeries: [
+        WalletNetWorthPoint(
+          monthStart: DateTime(2026, 4, 1),
+          netWorthCents: 1200,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+    WalletsMonthQuery query,
+  ) async {
+    throw Exception('snapshot failed');
+  }
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -99,8 +164,9 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
           appPreferredTimezoneProvider.overrideWith((ref) => null),
-          mainShellTabIndexProvider.overrideWith((ref) => 3),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
           scopedWalletsProvider.overrideWith((ref) async => wallets),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
@@ -135,7 +201,8 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(_FakeAuthNotifier.new),
-          mainShellTabIndexProvider.overrideWith((ref) => 3),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(initiallyActive: true),
@@ -181,7 +248,8 @@ void main() {
       ProviderScope(
         overrides: [
           authProvider.overrideWith(_FakeAuthNotifier.new),
-          mainShellTabIndexProvider.overrideWith((ref) => 3),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(initiallyActive: true),
@@ -207,5 +275,184 @@ void main() {
 
     expect(find.text('Loft Shared Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets('wallets page stays in skeleton state while auth is not ready',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_EmptyAuthNotifier.new),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('Total Net Worth'), findsNothing);
+    expect(find.text('New Wallet'), findsNothing);
+  });
+
+  testWidgets(
+      'wallets page stays in skeleton state while auth session headers are unavailable',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          walletAuthHeadersProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('Total Net Worth'), findsNothing);
+    expect(find.text('New Wallet'), findsNothing);
+    expect(find.text('No wallets yet'), findsNothing);
+  });
+
+  testWidgets('wallets page keeps skeleton until selected snapshot resolves',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final snapshotCompleter = Completer<void>();
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 1200,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          appPreferredTimezoneProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+          walletsDataServiceProvider.overrideWithValue(
+            _DelayedWalletsDataService(snapshotCompleter: snapshotCompleter),
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pump();
+
+    expect(find.text('Total Net Worth'), findsNothing);
+    expect(find.text('Spending'), findsNothing);
+
+    snapshotCompleter.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Total Net Worth'), findsWidgets);
+    expect(find.text('Spending'), findsWidgets);
+  });
+
+  testWidgets('wallets page shows overview error when snapshot load fails',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 1200,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          appPreferredTimezoneProvider.overrideWith((ref) => null),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+          walletsDataServiceProvider.overrideWithValue(
+            _FailingSnapshotWalletsDataService(),
+          ),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('snapshot failed'), findsOneWidget);
   });
 }

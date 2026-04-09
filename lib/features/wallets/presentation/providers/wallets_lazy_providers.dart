@@ -11,6 +11,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 
@@ -99,6 +100,19 @@ final walletsHistoryProvider =
   (ref, query) async {
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
+    final authHeaders = ref.watch(walletAuthHeadersProvider);
+    if (query.userId.trim().isEmpty || authHeaders == null) {
+      return WalletsHistorySummary(
+        availableMonths: [query.currentMonthStart],
+        netWorthSeries: [
+          WalletNetWorthPoint(
+            monthStart: query.currentMonthStart,
+            netWorthCents: 0,
+          ),
+        ],
+      );
+    }
+
     final service = ref.watch(walletsDataServiceProvider);
     return service.fetchHistory(query);
   },
@@ -109,6 +123,22 @@ final walletsMonthSnapshotProvider =
   (ref, query) async {
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
+    final authHeaders = ref.watch(walletAuthHeadersProvider);
+    if (query.scope.userId.trim().isEmpty || authHeaders == null) {
+      return WalletsMonthSnapshot(
+        monthStart: query.monthStart,
+        monthEndExclusive: DateTime(
+          query.monthStart.year,
+          query.monthStart.month + 1,
+          1,
+        ),
+        incomeTotalCents: 0,
+        spentTotalCents: 0,
+        netWorthCents: 0,
+        walletBalances: const <String, int>{},
+      );
+    }
+
     final service = ref.watch(walletsDataServiceProvider);
     return service.fetchMonthSnapshot(query);
   },
@@ -151,7 +181,7 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
   WalletsScopeQuery query, {
   required DateTime endInclusive,
 }) async {
-  final wallets = await _fetchScopedWallets(query.householdId);
+  final wallets = await _fetchScopedWallets(ref, query.householdId);
   final actualTransactions = await _fetchWalletActualTransactions(
     ref,
     query,
@@ -183,9 +213,16 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
   );
 }
 
-Future<List<WalletEntity>> _fetchScopedWallets(String? householdId) async {
+Future<List<WalletEntity>> _fetchScopedWallets(
+    Ref ref, String? householdId) async {
+  final authHeaders = ref.read(walletAuthHeadersProvider);
+  if (authHeaders == null) {
+    return const <WalletEntity>[];
+  }
+
   final response = await supabase.functions.invoke(
     'list-wallets',
+    headers: authHeaders,
     body: {
       if (householdId != null && householdId.trim().isNotEmpty)
         'householdId': householdId,

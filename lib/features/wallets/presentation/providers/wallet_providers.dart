@@ -6,6 +6,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -22,8 +23,16 @@ final walletScopeHouseholdIdProvider = Provider<String?>((ref) {
 final walletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
+  final authHeaders = ref.watch(walletAuthHeadersProvider);
+  if (authHeaders == null) {
+    // Avoid caching a transient unauthorized fetch during the post-login
+    // handoff before auth state is ready in Riverpod.
+    return const <WalletEntity>[];
+  }
+
   final response = await supabase.functions.invoke(
     'list-wallets',
+    headers: authHeaders,
     body: {
       if (householdId != null && householdId.trim().isNotEmpty)
         'householdId': householdId,
@@ -74,9 +83,15 @@ List<WalletEntity> _mergeOptimisticAccounts(
 
 final archivedScopedAccountsProvider =
     FutureProvider<List<WalletEntity>>((ref) async {
+  final authHeaders = ref.watch(walletAuthHeadersProvider);
+  if (authHeaders == null) {
+    return const <WalletEntity>[];
+  }
+
   final householdId = ref.watch(walletScopeHouseholdIdProvider);
   final response = await supabase.functions.invoke(
     'list-wallets',
+    headers: authHeaders,
     body: {
       'includeArchived': true,
       if (householdId != null) 'householdId': householdId,
@@ -140,6 +155,14 @@ class WalletActions {
 
   final Ref ref;
 
+  Map<String, String> _requireAuthHeaders() {
+    final authHeaders = ref.read(walletAuthHeadersProvider);
+    if (authHeaders == null) {
+      throw Exception('Authentication session could not be established');
+    }
+    return authHeaders;
+  }
+
   void setOptimisticWallet(WalletEntity account) {
     debugPrint(
       '[Accounts][Optimistic] set accountId=${account.id} name=${account.name} color=${account.color} opening=${account.openingBalanceCents}',
@@ -200,8 +223,10 @@ class WalletActions {
     bool isDefault = false,
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
+    final authHeaders = _requireAuthHeaders();
     final response = await supabase.functions.invoke(
       'save-wallet',
+      headers: authHeaders,
       body: {
         'name': name,
         'icon': icon,
@@ -227,11 +252,13 @@ class WalletActions {
     bool? isDefault,
     bool invalidate = true,
   }) async {
+    final authHeaders = _requireAuthHeaders();
     debugPrint(
       '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
       'update-wallet',
+      headers: authHeaders,
       body: {
         'accountId': walletId,
         if (name != null) 'name': name,
@@ -252,8 +279,10 @@ class WalletActions {
   }
 
   Future<void> archiveAccount(String accountId) async {
+    final authHeaders = _requireAuthHeaders();
     final response = await supabase.functions.invoke(
       'archive-wallet',
+      headers: authHeaders,
       body: {'accountId': accountId},
     );
     _throwIfFailed(response.data, 'Failed to archive wallet');
@@ -261,8 +290,10 @@ class WalletActions {
   }
 
   Future<void> restoreAccount(String accountId) async {
+    final authHeaders = _requireAuthHeaders();
     final response = await supabase.functions.invoke(
       'restore-wallet',
+      headers: authHeaders,
       body: {'accountId': accountId},
     );
     _throwIfFailed(response.data, 'Failed to restore wallet');
@@ -277,8 +308,10 @@ class WalletActions {
     required DateTime date,
     String? note,
   }) async {
+    final authHeaders = _requireAuthHeaders();
     final response = await supabase.functions.invoke(
       'create-wallet-transfer',
+      headers: authHeaders,
       body: {
         'fromAccountId': fromAccountId,
         'toAccountId': toAccountId,
@@ -298,11 +331,13 @@ class WalletActions {
     String? note,
     bool invalidate = true,
   }) async {
+    final authHeaders = _requireAuthHeaders();
     debugPrint(
       '[Accounts][Balance] start accountId=$walletId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
     );
     final response = await supabase.functions.invoke(
       'update-wallet-balance',
+      headers: authHeaders,
       body: {
         'accountId': walletId,
         'targetBalanceCents': targetBalanceCents,

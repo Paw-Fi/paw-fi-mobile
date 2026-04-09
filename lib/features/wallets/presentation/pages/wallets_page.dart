@@ -16,6 +16,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -51,7 +52,21 @@ class AccountsPage extends HookConsumerWidget {
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final actions = ref.watch(walletActionsProvider);
     final auth = ref.watch(authProvider);
+    final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
     final prefs = ref.read(sharedPreferencesProvider);
+
+    if (!isPreviewMode &&
+        (auth.uid.isEmpty ||
+            (auth.uid.isNotEmpty && walletAuthHeaders == null))) {
+      return const StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
+          body: SafeArea(
+            child: _WalletsPageSkeleton(),
+          ),
+        ),
+      );
+    }
+
     final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final householdScope = ref.watch(householdScopeProvider);
@@ -308,6 +323,30 @@ class AccountsPage extends HookConsumerWidget {
                         selectedSnapshotAsync!.valueOrNull!,
                       )
                     : _buildOpeningSnapshot(wallets);
+
+            final overviewError = historyAsync.hasError
+                ? historyAsync.error
+                : selectedSnapshotAsync?.hasError == true
+                    ? selectedSnapshotAsync!.error
+                    : null;
+
+            if (overviewError != null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(overviewError.toString()),
+                ),
+              );
+            }
+
+            final isWalletOverviewLoading = !isPreviewMode &&
+                (historyAsync.valueOrNull == null ||
+                    selectedSnapshotAsync == null ||
+                    selectedSnapshotAsync.valueOrNull == null);
+
+            if (isWalletOverviewLoading) {
+              return const _WalletsPageSkeleton();
+            }
 
             return RefreshIndicator(
               onRefresh: onRefresh,
@@ -1081,9 +1120,8 @@ class _WalletStackCard extends StatelessWidget {
         Text(
           '${isNegative ? '-' : ''}$symbol${formatLocalizedNumber(context, double.parse(formatAmount(amount.abs())))}',
           style: TextStyle(
-            color: isNegative
-                ? colorScheme.destructive
-                : colorScheme.foreground,
+            color:
+                isNegative ? colorScheme.destructive : colorScheme.foreground,
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.4,

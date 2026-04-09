@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 
@@ -54,6 +55,8 @@ void main() {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
       appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
@@ -71,6 +74,8 @@ void main() {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
       appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
@@ -90,6 +95,8 @@ void main() {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
       appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
       walletsDataServiceProvider.overrideWithValue(service),
     ]);
     addTearDown(container.dispose);
@@ -101,5 +108,43 @@ void main() {
     container.read(walletsRefreshSignalProvider.notifier).state += 1;
     await container.read(walletsHistoryProvider(scope).future);
     expect(service.historyCalls, 2);
+  });
+
+  test('wallets history and snapshot stay inert while auth query is empty',
+      () async {
+    final service = _FakeWalletsDataService();
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider.overrideWith((ref) => null),
+      walletsDataServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final emptyScope = WalletsScopeQuery(
+      userId: '',
+      householdId: null,
+      selectedCurrency: 'USD',
+      currentMonthStart: DateTime(2026, 4, 1),
+    );
+    final snapshotQuery = WalletsMonthQuery(
+      scope: emptyScope,
+      monthStart: DateTime(2026, 4, 1),
+    );
+
+    final history =
+        await container.read(walletsHistoryProvider(emptyScope).future);
+    final snapshot = await container
+        .read(walletsMonthSnapshotProvider(snapshotQuery).future);
+
+    expect(service.historyCalls, 0);
+    expect(service.snapshotCalls, 0);
+    expect(history.availableMonths, [DateTime(2026, 4, 1)]);
+    expect(history.netWorthSeries, hasLength(1));
+    expect(history.netWorthSeries.single.monthStart, DateTime(2026, 4, 1));
+    expect(history.netWorthSeries.single.netWorthCents, 0);
+    expect(snapshot.netWorthCents, 0);
+    expect(snapshot.incomeTotalCents, 0);
+    expect(snapshot.spentTotalCents, 0);
+    expect(snapshot.walletBalances, isEmpty);
   });
 }

@@ -211,12 +211,6 @@ class HomeHeaderSliver extends ConsumerWidget {
       if (user.uid.isEmpty) return;
 
       ref.invalidate(userHouseholdsProvider(user.uid));
-      if (next.householdId != null && next.householdId!.isNotEmpty) {
-        await ref
-            .read(selectedHouseholdProvider.notifier)
-            .selectHousehold(next.householdId!);
-        ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-      }
 
       final targetCurrency = next.currencyCode?.toUpperCase();
       if (targetCurrency != null && targetCurrency.isNotEmpty) {

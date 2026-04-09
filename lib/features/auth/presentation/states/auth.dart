@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -21,6 +22,8 @@ class Auth extends _$Auth {
 
   @override
   AppUser build() {
+    ref.read(authAccessTokenProvider.notifier).state =
+        supabase.auth.currentSession?.accessToken;
     initListener();
     final user = AppUser.fromSession(supabase.auth.currentSession);
     unawaited(_syncSiriShortcutAuthContext(supabase.auth.currentSession));
@@ -42,6 +45,8 @@ class Auth extends _$Auth {
   initListener() {
     _authStateSubscription =
         supabase.auth.onAuthStateChange.listen((data) async {
+      ref.read(authAccessTokenProvider.notifier).state =
+          data.session?.accessToken;
       state = AppUser.fromSession(data.session);
 
       final event = data.event;
@@ -430,6 +435,8 @@ class Auth extends _$Auth {
     _authStateSubscription.cancel();
   }
 }
+
+final authAccessTokenProvider = StateProvider<String?>((ref) => null);
 
 final currentUserIdProvider = Provider<String?>((ref) {
   final user = ref.watch(authProvider);
