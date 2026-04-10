@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -10,6 +11,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
@@ -17,6 +19,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
@@ -138,18 +141,37 @@ class AccountsPage extends HookConsumerWidget {
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
       preferredTimezone,
     );
+    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
+    final isConvertedPaidUser = subscription?.status == 'active' &&
+        !(subscription?.isFreePlan ?? true);
     final bankConnectionsAsync = isPreviewMode
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);
-    final scopedPlaidReauthConnections =
+    final scopedPlaidConnections =
         (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
             .where(
               (connection) =>
                   connection.provider == 'plaid' &&
-                  connection.status == 'needs_reauth' &&
                   _isConnectionInWalletsScope(connection, householdScope),
             )
             .toList(growable: false);
+    final scopedPlaidReauthConnections =
+        scopedPlaidConnections
+            .where(
+              (connection) => connection.needsReconnect,
+            )
+            .toList(growable: false);
+    final refreshEligiblePlaidConnections = scopedPlaidConnections
+        .where(
+          (connection) =>
+              isConvertedPaidUser &&
+              connection.isHealthy &&
+              !connection.needsReconnect &&
+              (connection.nextManualRefreshEligibleAt == null ||
+                  connection.nextManualRefreshEligibleAt!
+                      .isBefore(DateTime.now())),
+        )
+        .toList(growable: false);
 
     useEffect(() {
       final targetIndex = availableMonths.indexOf(activeCarouselMonth);
@@ -465,39 +487,117 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     ),
                   if (shouldShowConnectBankButton)
-                    TextButton.icon(
-                      onPressed: () async {
-                        if (isPreviewMode) {
-                          AppToast.info(
-                            context,
-                            context.l10n.previewMockUpdatesApplied,
-                          );
-                          return;
-                        }
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            if (isPreviewMode) {
+                              AppToast.info(
+                                context,
+                                context.l10n.previewMockUpdatesApplied,
+                              );
+                              return;
+                            }
 
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => PlaidSyncWalkthroughPage(
-                              targetHouseholdId:
-                                  _resolveWalletsScopeHouseholdId(
-                                householdScope,
+                            await Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => PlaidSyncWalkthroughPage(
+                                  targetHouseholdId:
+                                      _resolveWalletsScopeHouseholdId(
+                                    householdScope,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.sync,
+                            color: colorScheme.primary,
+                            size: 20,
+                          ),
+                          label: Text(
+                            context.l10n.connectBank,
+                            style: TextStyle(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (scopedPlaidConnections.isNotEmpty)
+                          PopupMenuButton<_PlaidConnectionMenuAction>(
+                            tooltip: 'More bank actions',
+                            onSelected: (action) async {
+                              if (action != _PlaidConnectionMenuAction.requestRefresh) {
+                                return;
+                              }
+
+                              if (!isConvertedPaidUser) {
+                                AppToast.info(
+                                  context,
+                                  'Manual bank refresh is available after your trial converts to a paid subscription.',
+                                );
+                                return;
+                              }
+
+                              final selectedConnection =
+                                  await _selectRefreshBankConnection(
+                                context,
+                                refreshEligiblePlaidConnections,
+                              );
+                              if (selectedConnection == null || !context.mounted) {
+                                return;
+                              }
+
+                              final response = await supabase.functions.invoke(
+                                'plaid-item-control',
+                                body: {
+                                  'action': 'request_refresh',
+                                  'connectionId': selectedConnection.id,
+                                },
+                              );
+                              final payload =
+                                  response.data as Map<String, dynamic>?;
+                              if (response.status >= 400) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                AppToast.error(
+                                  context,
+                                  payload?['error']?.toString() ??
+                                      'Could not request a bank refresh right now.',
+                                );
+                                return;
+                              }
+
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ref.invalidate(bankConnectionsProvider);
+                              AppToast.info(
+                                context,
+                                'Bank update requested. Plaid may take a while before new transactions appear.',
+                              );
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem<_PlaidConnectionMenuAction>(
+                                value:
+                                    _PlaidConnectionMenuAction.requestRefresh,
+                                enabled: refreshEligiblePlaidConnections
+                                    .isNotEmpty,
+                                child: const Text('Ask bank for update'),
+                              ),
+                            ],
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(
+                                Icons.more_horiz_rounded,
+                                color: colorScheme.mutedForeground,
                               ),
                             ),
                           ),
-                        );
-                      },
-                      icon: Icon(
-                        Icons.sync,
-                        color: colorScheme.primary,
-                        size: 20,
-                      ),
-                      label: Text(
-                        context.l10n.connectBank,
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      ],
                     ),
                 ],
               ),
@@ -510,6 +610,10 @@ class AccountsPage extends HookConsumerWidget {
 }
 
 bool _isPlaidSupportedTimezone(String? preferredTimezone) {
+  if(kDebugMode)
+  {
+    return true;
+  }
   final normalized =
       canonicalTimezoneValue(preferredTimezone)?.trim().toLowerCase();
   if (normalized == null || normalized.isEmpty) {
@@ -1621,6 +1725,74 @@ Future<BankConnection?> _selectReconnectBankConnection(
   );
 }
 
+Future<BankConnection?> _selectRefreshBankConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+) async {
+  if (connections.isEmpty) {
+    AppToast.info(
+      context,
+      'No connected bank is currently eligible for a manual refresh.',
+    );
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose a bank to refresh',
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This asks Plaid to request fresh data from the bank. It can take minutes or longer before anything changes.',
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.account_balance_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(connection.displayName),
+                  subtitle: const Text('Manual refresh available'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+enum _PlaidConnectionMenuAction {
+  requestRefresh,
+}
+
 class _PreviewWalletsPageData {
   const _PreviewWalletsPageData({
     required this.wallets,
@@ -1747,7 +1919,7 @@ class _WalletsPageSkeleton extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Bone.text(words: 2, fontSize: 15),
+                    const Bone.text(words: 2, fontSize: 15),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -1758,13 +1930,13 @@ class _WalletsPageSkeleton extends StatelessWidget {
                             .withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(100),
                       ),
-                      child: Bone.text(words: 1, fontSize: 12),
+                      child: const Bone.text(words: 1, fontSize: 12),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 // Large amount
-                Bone.text(words: 1, fontSize: 36),
+                const Bone.text(words: 1, fontSize: 36),
                 const SizedBox(height: 16),
                 // Chart placeholder
                 Expanded(
@@ -1778,14 +1950,14 @@ class _WalletsPageSkeleton extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 // Income/Spent row
-                Row(
+                const Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Bone.text(words: 1, fontSize: 12),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Bone.text(words: 1, fontSize: 16),
                         ],
                       ),
@@ -1795,7 +1967,7 @@ class _WalletsPageSkeleton extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Bone.text(words: 1, fontSize: 12),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Bone.text(words: 1, fontSize: 16),
                         ],
                       ),
@@ -1807,7 +1979,7 @@ class _WalletsPageSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           // Skeleton for wallet stack - 3 skeleton cards
-          Container(
+          SizedBox(
             height: 400,
             child: Stack(
               children: [
@@ -1843,20 +2015,20 @@ class _WalletsPageSkeleton extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           // Skeleton buttons
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Bone.icon(size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Bone.text(words: 2, fontSize: 14),
             ],
           ),
           const SizedBox(height: 4),
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Bone.icon(size: 20),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Bone.text(words: 2, fontSize: 14),
             ],
           ),
@@ -1898,9 +2070,9 @@ class _SkeletonWalletCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Wallet name
-                Bone.text(words: 2, fontSize: 18),
+                const Bone.text(words: 2, fontSize: 18),
                 const SizedBox(height: 18),
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // Icon circle
@@ -1910,7 +2082,7 @@ class _SkeletonWalletCard extends StatelessWidget {
                       children: [
                         // Balance label
                         Bone.text(words: 1, fontSize: 10),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         // Balance amount
                         Bone.text(words: 1, fontSize: 24),
                       ],
@@ -1928,21 +2100,21 @@ class _SkeletonWalletCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 // Tap hint
-                Center(
+                const Center(
                   child: Bone.text(words: 3, fontSize: 12),
                 ),
               ],
             )
-          : Row(
+          : const Row(
               children: [
                 // Icon circle
                 Bone.circle(size: 36),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 // Wallet name
                 Expanded(
                   child: Bone.text(words: 2, fontSize: 16),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 // Amount
                 Bone.text(words: 1, fontSize: 20),
               ],

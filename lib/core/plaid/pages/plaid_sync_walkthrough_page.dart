@@ -99,6 +99,9 @@ class _PlaidSyncWalkthroughPageState
     final linkTokenResponse = await client.functions.invoke(
       'plaid-create-link-token',
       body: {
+        'mode': (connectionId != null && connectionId.isNotEmpty)
+            ? 'reconnect'
+            : 'new',
         'platform': Platform.isAndroid ? 'android' : 'ios',
         if ((connectionId == null || connectionId.isEmpty) &&
             countryCode.isNotEmpty)

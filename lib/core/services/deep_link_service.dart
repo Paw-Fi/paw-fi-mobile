@@ -17,6 +17,7 @@ import 'package:moneko/features/settings/presentation/widgets/telegram_verificat
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -116,11 +117,24 @@ class DeepLinkService {
 
       final params = uri.queryParameters;
       final errorCode = params['error_code'];
+      final errorMessage = params['error_message'];
 
       // Only log non-sensitive status info
       _debugPrint('🏦 Plaid callback status received');
       if (errorCode != null) {
         _debugPrint('🏦 Plaid callback contains error details');
+      }
+
+      ref.invalidate(bankConnectionsProvider);
+
+      final navCtx = rootNavigatorKey.currentContext;
+      if ((navCtx?.mounted ?? false) && errorCode != null) {
+        AppToast.error(
+          navCtx!,
+          errorMessage?.isNotEmpty == true
+              ? errorMessage!
+              : 'Bank reconnect was not completed. Please try again.',
+        );
       }
 
       return;
@@ -357,7 +371,6 @@ class DeepLinkService {
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
 
-    final navigatorContext = rootNavigatorKey.currentContext;
     var dialogShown = false;
 
     try {
@@ -369,9 +382,10 @@ class DeepLinkService {
 
       final pendingState = ref.read(pendingBankLinkStateProvider);
 
-      if (navigatorContext?.mounted ?? false) {
+      final loadingContext = rootNavigatorKey.currentContext;
+      if (loadingContext != null && loadingContext.mounted) {
         showBlockingProcessingDialog(
-          context: navigatorContext!,
+          context: loadingContext,
           message: 'Syncing your bank data...',
         );
         dialogShown = true;
@@ -408,7 +422,7 @@ class DeepLinkService {
 
       ref.read(pendingBankLinkStateProvider.notifier).state = null;
 
-      final currentContext = navigatorContext;
+      final currentContext = rootNavigatorKey.currentContext;
       if (currentContext != null && currentContext.mounted) {
         final navigator =
             Navigator.maybeOf(currentContext, rootNavigator: true);
@@ -425,15 +439,15 @@ class DeepLinkService {
       }
     } catch (e) {
       _debugPrint('❌ Error handling Tink callback');
-      if (navigatorContext?.mounted ?? false) {
+      final errorContext = rootNavigatorKey.currentContext;
+      if (errorContext != null && errorContext.mounted) {
         AppToast.error(
-            navigatorContext!, 'Failed to connect bank: ${e.toString()}');
+            errorContext, 'Failed to connect bank: ${e.toString()}');
       }
     } finally {
       ref.read(pendingBankLinkStateProvider.notifier).state = null;
-      if (dialogShown && navigatorContext?.mounted == true) {
-        final navigator =
-            Navigator.maybeOf(navigatorContext!, rootNavigator: true);
+      if (dialogShown) {
+        final navigator = rootNavigatorKey.currentState;
         if (navigator?.canPop() ?? false) {
           navigator!.pop();
         }

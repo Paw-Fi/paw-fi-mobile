@@ -40,6 +40,9 @@ class PlaidSyncReviewPage extends ConsumerStatefulWidget {
 }
 
 class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
+  static const Duration _syncPollInterval = Duration(seconds: 2);
+  static const Duration _syncWaitTimeout = Duration(seconds: 45);
+
   late List<BankSyncReviewAccount> _accounts;
   late String _selectedBankAccountId;
   List<SyncedTransaction> _transactions = const [];
@@ -86,7 +89,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     try {
       await _ensureLinkedWallets();
-      final result = await _syncTransactions();
+      final result = await _awaitBackendSyncAndLoadTransactions();
       final resolvedCurrency = _resolveCurrencyCode(result.transactions);
 
       ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
@@ -168,29 +171,36 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     _accounts = updatedAccounts;
   }
 
-  Future<ParsedSyncedTransactions> _syncTransactions() async {
-    final client = Supabase.instance.client;
-    final functionName = widget.session.provider == 'tink'
-        ? 'tink-sync-transactions'
-        : 'plaid-sync-transactions';
+  Future<ParsedSyncedTransactions> _awaitBackendSyncAndLoadTransactions() async {
+    final deadline = DateTime.now().add(_syncWaitTimeout);
+    PlaidSyncStatus? latestSyncStatus;
 
-    final response = await client.functions.invoke(
-      functionName,
-      body: {
-        'connectionId': widget.session.connectionId,
-        if (widget.session.targetHouseholdId != null)
-          'targetHouseholdId': widget.session.targetHouseholdId,
-      },
-    );
+    while (DateTime.now().isBefore(deadline)) {
+      final snapshot = await _fetchConnectionSyncSnapshot();
+      latestSyncStatus = snapshot.syncStatus ?? latestSyncStatus;
 
-    if (response.status >= 400) {
-      final payload = response.data as Map<String, dynamic>?;
-      final message =
-          payload?['error']?.toString() ?? 'Failed to sync bank transactions';
-      throw Exception(message);
+      if (snapshot.requiresReconnect) {
+        throw Exception(
+          'This bank needs to be reconnected before transaction syncing can continue.',
+        );
+      }
+
+      final transactions = await _loadSyncedTransactionsFromDatabase();
+      if (snapshot.lastSuccessfulSyncAt != null || transactions.isNotEmpty) {
+        return ParsedSyncedTransactions(
+          transactions: transactions,
+          syncStatus: latestSyncStatus,
+        );
+      }
+
+      await Future<void>.delayed(_syncPollInterval);
     }
 
-    return parseSyncedTransactionPayload(response.data);
+    final fallbackTransactions = await _loadSyncedTransactionsFromDatabase();
+    return ParsedSyncedTransactions(
+      transactions: fallbackTransactions,
+      syncStatus: latestSyncStatus,
+    );
   }
 
   Future<void> _refreshAfterSync() async {
@@ -360,6 +370,65 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     return ExpenseEntry.fromJson(row);
   }
 
+  Future<_ConnectionSyncSnapshot> _fetchConnectionSyncSnapshot() async {
+    final row = await Supabase.instance.client
+        .from('bank_connections')
+        .select(
+          'status, item_status, relink_state, last_successful_sync_at, metadata',
+        )
+        .eq('id', widget.session.connectionId)
+        .maybeSingle();
+
+    if (row == null) {
+      return const _ConnectionSyncSnapshot();
+    }
+
+    final metadata = row['metadata'];
+    final metadataMap = metadata is Map<String, dynamic>
+        ? metadata
+        : <String, dynamic>{};
+    final syncStatus = _parseConnectionSyncStatus(metadataMap);
+
+    return _ConnectionSyncSnapshot(
+      requiresReconnect: row['status'] == 'needs_reauth' ||
+          row['relink_state'] == 'required' ||
+          row['item_status'] == 'pending_relink',
+      lastSuccessfulSyncAt: row['last_successful_sync_at'] != null
+          ? DateTime.tryParse(row['last_successful_sync_at'].toString())
+          : null,
+      syncStatus: syncStatus,
+    );
+  }
+
+  Future<List<SyncedTransaction>> _loadSyncedTransactionsFromDatabase() async {
+    final bankAccountIds =
+        _accounts.map((account) => account.bankAccountId).toList(growable: false);
+    if (bankAccountIds.isEmpty) {
+      return const [];
+    }
+
+    final rows = await Supabase.instance.client
+        .from('expenses')
+        .select(
+          'id, contact_id, user_id, household_id, date, amount_cents, currency, '
+          'category, created_at, updated_at, raw_text, bank_account_id, '
+          'account_id, type, is_recurring, recurrence_rule',
+        )
+        .inFilter('bank_account_id', bankAccountIds)
+        .isFilter('deleted_at', null)
+        .order('date', ascending: false)
+        .limit(200);
+
+    return (rows as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map((row) => SyncedTransaction(
+              expense: ExpenseEntry.fromJson(row),
+              isRecurring: row['is_recurring'] == true,
+              recurrenceRule: row['recurrence_rule'] as Map<String, dynamic>?,
+            ))
+        .toList(growable: false);
+  }
+
   Future<void> _handleDone() async {
     if (_isPreparing || _isUpdatingWallet) {
       return;
@@ -513,6 +582,40 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       ),
     );
   }
+}
+
+PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
+  final initialUpdateComplete = metadata['initial_update_complete'] as bool?;
+  final historicalUpdateComplete =
+      metadata['historical_update_complete'] as bool?;
+  final webhookCode = metadata['last_webhook_code']?.toString();
+  final updatedAt = DateTime.tryParse(metadata['sync_status_updated_at']?.toString() ?? '');
+
+  if (initialUpdateComplete == null &&
+      historicalUpdateComplete == null &&
+      webhookCode == null &&
+      updatedAt == null) {
+    return null;
+  }
+
+  return PlaidSyncStatus(
+    initialUpdateComplete: initialUpdateComplete,
+    historicalUpdateComplete: historicalUpdateComplete,
+    webhookCode: webhookCode,
+    updatedAt: updatedAt,
+  );
+}
+
+class _ConnectionSyncSnapshot {
+  const _ConnectionSyncSnapshot({
+    this.requiresReconnect = false,
+    this.lastSuccessfulSyncAt,
+    this.syncStatus,
+  });
+
+  final bool requiresReconnect;
+  final DateTime? lastSuccessfulSyncAt;
+  final PlaidSyncStatus? syncStatus;
 }
 
 class _HistoricalSyncStatusCard extends StatelessWidget {
