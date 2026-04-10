@@ -7,13 +7,15 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
+import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
@@ -136,6 +138,18 @@ class AccountsPage extends HookConsumerWidget {
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
       preferredTimezone,
     );
+    final bankConnectionsAsync = isPreviewMode
+        ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
+        : ref.watch(bankConnectionsProvider);
+    final scopedPlaidReauthConnections =
+        (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
+            .where(
+              (connection) =>
+                  connection.provider == 'plaid' &&
+                  connection.status == 'needs_reauth' &&
+                  _isConnectionInWalletsScope(connection, householdScope),
+            )
+            .toList(growable: false);
 
     useEffect(() {
       final targetIndex = availableMonths.indexOf(activeCarouselMonth);
@@ -405,10 +419,73 @@ class AccountsPage extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  if (scopedPlaidReauthConnections.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () async {
+                        if (isPreviewMode) {
+                          AppToast.info(
+                            context,
+                            context.l10n.previewMockUpdatesApplied,
+                          );
+                          return;
+                        }
+
+                        final selectedConnection =
+                            await _selectReconnectBankConnection(
+                          context,
+                          scopedPlaidReauthConnections,
+                        );
+                        if (selectedConnection == null || !context.mounted) {
+                          return;
+                        }
+
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PlaidSyncWalkthroughPage(
+                              targetHouseholdId:
+                                  _resolveWalletsScopeHouseholdId(
+                                householdScope,
+                              ),
+                              connectionId: selectedConnection.id,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: Icon(
+                        Icons.refresh_rounded,
+                        color: colorScheme.destructive,
+                        size: 20,
+                      ),
+                      label: Text(
+                        'Reconnect Bank',
+                        style: TextStyle(
+                          color: colorScheme.destructive,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   if (shouldShowConnectBankButton)
                     TextButton.icon(
-                      onPressed: () =>
-                          AppToast.info(context, context.l10n.comingSoon),
+                      onPressed: () async {
+                        if (isPreviewMode) {
+                          AppToast.info(
+                            context,
+                            context.l10n.previewMockUpdatesApplied,
+                          );
+                          return;
+                        }
+
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PlaidSyncWalkthroughPage(
+                              targetHouseholdId:
+                                  _resolveWalletsScopeHouseholdId(
+                                householdScope,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                       icon: Icon(
                         Icons.sync,
                         color: colorScheme.primary,
@@ -1470,6 +1547,78 @@ String? _resolveWalletsScopeHouseholdId(HouseholdScope scope) {
     case ActiveWalletType.household:
       return scope.selectedHouseholdId;
   }
+}
+
+bool _isConnectionInWalletsScope(
+  BankConnection connection,
+  HouseholdScope scope,
+) {
+  final scopeHouseholdId = _resolveWalletsScopeHouseholdId(scope);
+  if (scopeHouseholdId == null) {
+    return connection.householdId == null || connection.householdId!.isEmpty;
+  }
+
+  return connection.householdId == scopeHouseholdId;
+}
+
+Future<BankConnection?> _selectReconnectBankConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+) async {
+  if (connections.isEmpty) {
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose a bank to reconnect',
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Reconnect the bank that needs attention so transaction syncing can resume.',
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.account_balance_rounded,
+                    color: colorScheme.primary,
+                  ),
+                  title: Text(connection.displayName),
+                  subtitle: const Text('Needs reconnection'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _PreviewWalletsPageData {

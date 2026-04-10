@@ -50,22 +50,23 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
 
   eventSub = PlaidLink.onEvent.listen((event) {
     final name = event.name.toLowerCase();
-    if (name.contains('handoff') || name.contains('exit')) closeLink();
+    if (name.contains('exit')) {
+      completeOnce(null);
+      closeLink();
+    }
   });
 
-  final configuration = LinkTokenConfiguration(token: linkToken);
+  try {
+    final configuration = LinkTokenConfiguration(token: linkToken);
+    await PlaidLink.create(configuration: configuration);
+    await PlaidLink.open();
+    return await completer.future;
+  } finally {
+    await successSub.cancel();
+    await exitSub.cancel();
+    await eventSub.cancel();
 
-  await PlaidLink.create(configuration: configuration);
-  await PlaidLink.open();
-
-  final result = await completer.future;
-
-  await successSub.cancel();
-  await exitSub.cancel();
-  await eventSub.cancel();
-
-  // Extra safety: ensure the Plaid UI is closed before returning to app UI
-  closeLink();
-
-  return result;
+    // Ensure the Plaid UI is closed before returning to app UI.
+    closeLink();
+  }
 }

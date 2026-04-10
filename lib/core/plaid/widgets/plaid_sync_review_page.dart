@@ -43,6 +43,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   late List<BankSyncReviewAccount> _accounts;
   late String _selectedBankAccountId;
   List<SyncedTransaction> _transactions = const [];
+  PlaidSyncStatus? _syncStatus;
   bool _isPreparing = true;
   bool _isUpdatingWallet = false;
   String? _errorMessage;
@@ -85,8 +86,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     try {
       await _ensureLinkedWallets();
-      final transactions = await _syncTransactions();
-      final resolvedCurrency = _resolveCurrencyCode(transactions);
+      final result = await _syncTransactions();
+      final resolvedCurrency = _resolveCurrencyCode(result.transactions);
 
       ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
         currencyCode: resolvedCurrency,
@@ -101,7 +102,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
       if (!mounted) return;
       setState(() {
-        _transactions = transactions;
+        _transactions = result.transactions;
+        _syncStatus = result.syncStatus;
         _isPreparing = false;
       });
     } catch (error) {
@@ -166,7 +168,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     _accounts = updatedAccounts;
   }
 
-  Future<List<SyncedTransaction>> _syncTransactions() async {
+  Future<ParsedSyncedTransactions> _syncTransactions() async {
     final client = Supabase.instance.client;
     final functionName = widget.session.provider == 'tink'
         ? 'tink-sync-transactions'
@@ -188,7 +190,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       throw Exception(message);
     }
 
-    return parseSyncedTransactions(response.data);
+    return parseSyncedTransactionPayload(response.data);
   }
 
   Future<void> _refreshAfterSync() async {
@@ -438,6 +440,14 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                     onEdit: _editSelectedWallet,
                   ),
                 ),
+              if (!_isPreparing &&
+                  _errorMessage == null &&
+                  widget.session.provider == 'plaid' &&
+                  (_syncStatus?.historicalUpdateComplete != true))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: _HistoricalSyncStatusCard(syncStatus: _syncStatus),
+                ),
               Expanded(
                 child: _errorMessage != null
                     ? _ReviewErrorState(
@@ -500,6 +510,69 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HistoricalSyncStatusCard extends StatelessWidget {
+  const _HistoricalSyncStatusCard({
+    required this.syncStatus,
+  });
+
+  final PlaidSyncStatus? syncStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final initialComplete = syncStatus?.initialUpdateComplete;
+    final title = initialComplete == false
+        ? 'Plaid is still preparing your first transaction download.'
+        : 'Recent transactions are ready. Historical imports may still be syncing.';
+    final description = initialComplete == false
+        ? 'Keep this wallet connected. We will continue importing your bank history in the background as Plaid finishes the initial pull.'
+        : 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.border,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.history_rounded,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colorScheme.foreground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: colorScheme.mutedForeground,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

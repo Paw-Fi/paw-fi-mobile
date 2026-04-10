@@ -21,9 +21,11 @@ class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
   const PlaidSyncWalkthroughPage({
     super.key,
     this.targetHouseholdId,
+    this.connectionId,
   });
 
   final String? targetHouseholdId;
+  final String? connectionId;
 
   @override
   ConsumerState<PlaidSyncWalkthroughPage> createState() =>
@@ -32,10 +34,13 @@ class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
 
 class _PlaidSyncWalkthroughPageState
     extends ConsumerState<PlaidSyncWalkthroughPage> {
+  static const int _plaidInitialTransactionsDaysRequested = 730;
+
   final PageController _pageController = PageController();
   int _currentPage = 0;
   bool _isConnecting = false;
   final int _numPages = 4;
+  String? _plaidExchangeIdempotencyKey;
 
   @override
   void dispose() {
@@ -90,16 +95,26 @@ class _PlaidSyncWalkthroughPageState
     required String countryCode,
     required String userId,
   }) async {
+    final connectionId = widget.connectionId?.trim();
     final linkTokenResponse = await client.functions.invoke(
       'plaid-create-link-token',
       body: {
         'platform': Platform.isAndroid ? 'android' : 'ios',
-        if (countryCode.isNotEmpty) 'countryCode': countryCode,
+        if ((connectionId == null || connectionId.isEmpty) &&
+            countryCode.isNotEmpty)
+          'countryCode': countryCode,
+        if (connectionId != null && connectionId.isNotEmpty)
+          'connectionId': connectionId,
+        if (connectionId == null || connectionId.isEmpty)
+          'transactionsDaysRequested': _plaidInitialTransactionsDaysRequested,
       },
     );
 
     if (linkTokenResponse.status >= 400) {
-      throw Exception('Failed to create link token');
+      throw Exception(_extractFunctionError(
+        linkTokenResponse.data,
+        fallback: 'Failed to create link token',
+      ));
     }
 
     final linkData = linkTokenResponse.data as Map<String, dynamic>?;
@@ -120,8 +135,10 @@ class _PlaidSyncWalkthroughPageState
       'plaid-exchange-public-token',
       body: {
         'publicToken': linkResult.publicToken,
-        'countryCode': countryCode,
-        'idempotencyKey': generateIdempotencyKey(userId),
+        if (connectionId == null || connectionId.isEmpty)
+          'countryCode': countryCode,
+        'idempotencyKey': _plaidExchangeIdempotencyKey ??=
+            generateIdempotencyKey(userId),
         if (widget.targetHouseholdId != null)
           'targetHouseholdId': widget.targetHouseholdId,
         if (linkResult.institutionId != null)
@@ -132,7 +149,10 @@ class _PlaidSyncWalkthroughPageState
     );
 
     if (exchangeResponse.status >= 400) {
-      throw Exception('Failed to exchange token');
+      throw Exception(_extractFunctionError(
+        exchangeResponse.data,
+        fallback: 'Failed to exchange token',
+      ));
     }
 
     final exchangeData = exchangeResponse.data as Map<String, dynamic>?;
@@ -410,6 +430,20 @@ class _PlaidSyncWalkthroughPageState
       ),
     );
   }
+}
+
+String _extractFunctionError(
+  dynamic payload, {
+  required String fallback,
+}) {
+  if (payload is Map<String, dynamic>) {
+    final error = payload['error']?.toString().trim();
+    if (error != null && error.isNotEmpty) {
+      return error;
+    }
+  }
+
+  return fallback;
 }
 
 class _WalkthroughStep extends StatelessWidget {
