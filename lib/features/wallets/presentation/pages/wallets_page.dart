@@ -46,7 +46,7 @@ class AccountsPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedMonthIndexState = useState(0);
+    final previewSelectedMonthState = useState<DateTime?>(null);
     final monthPageController = usePageController(viewportFraction: 0.96);
     final colorScheme = Theme.of(context).colorScheme;
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
@@ -101,9 +101,8 @@ class AccountsPage extends HookConsumerWidget {
     final effectiveWallets = isPreviewMode
         ? previewWalletsData!.wallets
         : ref.watch(effectiveScopeWalletsProvider);
-    final AsyncValue<WalletsHistorySummary> historyAsync = isPreviewMode
-        ? AsyncValue.data(previewWalletsData!.history)
-        : ref.watch(walletsHistoryProvider(scopeQuery));
+    final walletsPageStateAsync =
+        isPreviewMode ? null : ref.watch(walletsPageStateProvider(scopeQuery));
     final viewMode = ref.watch(viewModeProvider);
     final AsyncValue<List<Household>> householdsAsync =
         viewMode.mode == ViewMode.personal
@@ -118,26 +117,17 @@ class AccountsPage extends HookConsumerWidget {
       ref.invalidate(scopedWalletsProvider);
       await ref.read(scopedWalletsProvider.future);
 
-      ref.invalidate(walletsHistoryProvider(scopeQuery));
-      final history = await ref.read(walletsHistoryProvider(scopeQuery).future);
-      final months = history.availableMonths.isEmpty
-          ? <DateTime>[scopeQuery.currentMonthStart]
-          : history.availableMonths;
-      final selectedMonthIndex =
-          selectedMonthIndexState.value.clamp(0, months.length - 1).toInt();
-      final selectedMonthQuery = WalletsMonthQuery(
-        scope: scopeQuery,
-        monthStart: months[selectedMonthIndex],
-      );
-      ref.invalidate(walletsMonthSnapshotProvider(selectedMonthQuery));
-      await ref.read(walletsMonthSnapshotProvider(selectedMonthQuery).future);
+      await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
     }
 
-    final availableMonths =
-        historyAsync.valueOrNull?.availableMonths.isNotEmpty == true
-            ? historyAsync.valueOrNull!.availableMonths
-            : <DateTime>[scopeQuery.currentMonthStart];
-    final maxMonthIndex = availableMonths.length - 1;
+    final walletsPageState = walletsPageStateAsync?.valueOrNull;
+    final availableMonths = isPreviewMode
+        ? previewWalletsData!.history.availableMonths
+        : walletsPageState?.visibleMonths ??
+            <DateTime>[scopeQuery.currentMonthStart];
+    final activeCarouselMonth = isPreviewMode
+        ? (previewSelectedMonthState.value ?? availableMonths.first)
+        : walletsPageState?.selectedMonthStart ?? availableMonths.first;
     final swipeHintPrefKey = _walletsMonthSwipeHintDismissedKey(auth.uid);
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
@@ -146,6 +136,26 @@ class AccountsPage extends HookConsumerWidget {
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
       preferredTimezone,
     );
+
+    useEffect(() {
+      final targetIndex = availableMonths.indexOf(activeCarouselMonth);
+      if (targetIndex < 0) {
+        return null;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!monthPageController.hasClients) {
+          return;
+        }
+        final currentPage = monthPageController.page?.round() ?? 0;
+        if (currentPage == targetIndex) {
+          return;
+        }
+        monthPageController.jumpToPage(targetIndex);
+      });
+
+      return null;
+    }, [availableMonths, activeCarouselMonth, monthPageController]);
 
     // Spotlight keys for the wallets feature tour
     final netWorthSpotlightKey = useMemoized(() => GlobalKey(), []);
@@ -200,53 +210,6 @@ class AccountsPage extends HookConsumerWidget {
       });
     }
 
-    if (selectedMonthIndexState.value > maxMonthIndex) {
-      selectedMonthIndexState.value = maxMonthIndex;
-    }
-
-    useEffect(() {
-      if (isPreviewMode || availableMonths.isEmpty || auth.uid.isEmpty) {
-        return null;
-      }
-
-      final selectedIndex =
-          selectedMonthIndexState.value.clamp(0, availableMonths.length - 1);
-      final prefetchQueries = <WalletsMonthQuery>{
-        WalletsMonthQuery(
-          scope: scopeQuery,
-          monthStart: availableMonths[selectedIndex],
-        ),
-      };
-
-      if (selectedIndex > 0) {
-        prefetchQueries.add(
-          WalletsMonthQuery(
-            scope: scopeQuery,
-            monthStart: availableMonths[selectedIndex - 1],
-          ),
-        );
-      }
-      if (selectedIndex < availableMonths.length - 1) {
-        prefetchQueries.add(
-          WalletsMonthQuery(
-            scope: scopeQuery,
-            monthStart: availableMonths[selectedIndex + 1],
-          ),
-        );
-      }
-
-      for (final query in prefetchQueries) {
-        unawaited(ref.read(walletsMonthSnapshotProvider(query).future));
-      }
-      return null;
-    }, [
-      isPreviewMode,
-      scopeQuery,
-      availableMonths,
-      selectedMonthIndexState.value,
-      auth.uid,
-    ]);
-
     Future<void> onAddAccount() async {
       if (isPreviewMode) {
         AppToast.info(context, context.l10n.previewMockUpdatesApplied);
@@ -264,6 +227,8 @@ class AccountsPage extends HookConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
         );
+        ref.invalidate(scopedWalletsProvider);
+        await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
         }
@@ -293,60 +258,39 @@ class AccountsPage extends HookConsumerWidget {
           ),
           data: (_) {
             final wallets = effectiveWallets;
+            if (!isPreviewMode && walletsPageState == null) {
+              final pageError = walletsPageStateAsync?.error;
+              if (pageError != null) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(pageError.toString()),
+                  ),
+                );
+              }
+              return const _WalletsPageSkeleton();
+            }
+
             // Show skeleton if wallets are empty but still loading
             if (wallets.isEmpty &&
                 (walletsAsync.isLoading || !walletsAsync.hasValue)) {
               return const _WalletsPageSkeleton();
             }
+            final selectedMonth = activeCarouselMonth;
+            final rawSelectedMonthIndex =
+                availableMonths.indexOf(selectedMonth);
             final selectedMonthIndex =
-                selectedMonthIndexState.value.clamp(0, maxMonthIndex).toInt();
-            final selectedMonth = availableMonths[selectedMonthIndex];
-            final selectedMonthQuery = WalletsMonthQuery(
-              scope: scopeQuery,
-              monthStart: selectedMonth,
-            );
-            // CRITICAL: the selected month card must use the recurring-aware
-            // month snapshot.
-            // STRICT REQUIREMENT: replacing this with a raw non-recurring
-            // snapshot makes the month carousel under-report wallet spend and
-            // balance whenever recurring transactions are scheduled.
+                rawSelectedMonthIndex >= 0 ? rawSelectedMonthIndex : 0;
             final previewSelectedSnapshot = isPreviewMode
                 ? previewWalletsData?.snapshotForMonth(selectedMonth)
                 : null;
-            final selectedSnapshotAsync = isPreviewMode
-                ? null
-                : ref.watch(walletsMonthSnapshotProvider(selectedMonthQuery));
             final selectedSnapshot = previewSelectedSnapshot != null
                 ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
-                : selectedSnapshotAsync?.valueOrNull != null
+                : walletsPageState?.displayedSnapshot != null
                     ? _accountsSnapshotFromMonthSnapshot(
-                        selectedSnapshotAsync!.valueOrNull!,
+                        walletsPageState!.displayedSnapshot!,
                       )
                     : _buildOpeningSnapshot(wallets);
-
-            final overviewError = historyAsync.hasError
-                ? historyAsync.error
-                : selectedSnapshotAsync?.hasError == true
-                    ? selectedSnapshotAsync!.error
-                    : null;
-
-            if (overviewError != null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(overviewError.toString()),
-                ),
-              );
-            }
-
-            final isWalletOverviewLoading = !isPreviewMode &&
-                (historyAsync.valueOrNull == null ||
-                    selectedSnapshotAsync == null ||
-                    selectedSnapshotAsync.valueOrNull == null);
-
-            if (isWalletOverviewLoading) {
-              return const _WalletsPageSkeleton();
-            }
 
             return RefreshIndicator(
               onRefresh: onRefresh,
@@ -364,7 +308,15 @@ class AccountsPage extends HookConsumerWidget {
                       controller: monthPageController,
                       reverse: true,
                       onPageChanged: (index) {
-                        selectedMonthIndexState.value = index;
+                        final monthStart = availableMonths[index];
+                        if (isPreviewMode) {
+                          previewSelectedMonthState.value = monthStart;
+                        } else {
+                          unawaited(ref
+                              .read(
+                                  walletsPageStateProvider(scopeQuery).notifier)
+                              .selectMonth(monthStart));
+                        }
                         if (hasDismissedSwipeHintState.value) {
                           return;
                         }
@@ -372,27 +324,36 @@ class AccountsPage extends HookConsumerWidget {
                         unawaited(prefs.setBool(swipeHintPrefKey, true));
                       },
                       itemBuilder: (context, index) {
-                        final isActive = selectedMonthIndexState.value == index;
+                        final monthStart = availableMonths[index];
+                        final isActive = selectedMonthIndex == index;
+                        final monthSnapshot = isPreviewMode
+                            ? previewWalletsData?.snapshotForMonth(monthStart)
+                            : walletsPageState
+                                ?.cachedSnapshotsByMonth[monthStart];
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Container(
                             key: isActive ? netWorthSpotlightKey : null,
                             child: _WalletsOverviewCard(
                               availableMonths: availableMonths,
-                              selectedMonthIndex: index,
-                              isActive: isActive,
-                              scopeQuery: scopeQuery,
-                              history: historyAsync.valueOrNull,
+                              monthStart: monthStart,
+                              selectedMonthStart: selectedMonth,
+                              snapshot: monthSnapshot != null
+                                  ? _accountsSnapshotFromMonthSnapshot(
+                                      monthSnapshot)
+                                  : selectedSnapshot,
+                              history: isPreviewMode
+                                  ? previewWalletsData?.history
+                                  : walletsPageState?.history,
                               currencyCode: selectedCurrencyCode,
                               hasDismissedSwipeHint:
                                   hasDismissedSwipeHintState.value,
-                              activeSnapshot: selectedSnapshot,
-                              activeMonthIndex: selectedMonthIndexState.value,
-                              previewMonthSnapshot: isPreviewMode
-                                  ? previewWalletsData?.snapshotForMonth(
-                                      availableMonths[index],
-                                    )
+                              error: !isPreviewMode && isActive
+                                  ? walletsPageState!.selectedMonthError
                                   : null,
+                              isLoading: !isPreviewMode &&
+                                  isActive &&
+                                  walletsPageState!.isSelectedMonthLoading,
                             ),
                           ),
                         );
@@ -567,49 +528,35 @@ class _AnimatedNumberText extends StatelessWidget {
 
 class _WalletsOverviewCard extends HookConsumerWidget {
   final List<DateTime> availableMonths;
-  final int selectedMonthIndex;
-  final bool isActive;
-  final WalletsScopeQuery scopeQuery;
+  final DateTime monthStart;
+  final DateTime selectedMonthStart;
+  final _AccountsSnapshot snapshot;
   final WalletsHistorySummary? history;
   final String currencyCode;
   final bool hasDismissedSwipeHint;
-  final _AccountsSnapshot activeSnapshot;
-  final int activeMonthIndex;
-  final WalletsMonthSnapshot? previewMonthSnapshot;
+  final bool isLoading;
+  final Object? error;
 
   const _WalletsOverviewCard({
     required this.availableMonths,
-    required this.selectedMonthIndex,
-    required this.isActive,
-    required this.scopeQuery,
+    required this.monthStart,
+    required this.selectedMonthStart,
+    required this.snapshot,
     required this.history,
     required this.currencyCode,
     required this.hasDismissedSwipeHint,
-    required this.activeSnapshot,
-    required this.activeMonthIndex,
-    required this.previewMonthSnapshot,
+    required this.isLoading,
+    required this.error,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final symbol = resolveCurrencySymbol(currencyCode);
-    final monthLabel = MaterialLocalizations.of(context)
-        .formatMonthYear(availableMonths[selectedMonthIndex]);
-
-    final targetMonthIndex = isActive ? selectedMonthIndex : activeMonthIndex;
-    final monthQuery = WalletsMonthQuery(
-      scope: scopeQuery,
-      monthStart: availableMonths[selectedMonthIndex],
-    );
-    final snapshotAsync = previewMonthSnapshot == null
-        ? ref.watch(walletsMonthSnapshotProvider(monthQuery))
-        : null;
-    final selectedSnapshot = previewMonthSnapshot != null
-        ? _accountsSnapshotFromMonthSnapshot(previewMonthSnapshot!)
-        : snapshotAsync?.valueOrNull != null
-            ? _accountsSnapshotFromMonthSnapshot(snapshotAsync!.valueOrNull!)
-            : activeSnapshot;
+    final monthLabel =
+        MaterialLocalizations.of(context).formatMonthYear(monthStart);
+    final rawTargetMonthIndex = availableMonths.indexOf(selectedMonthStart);
+    final targetMonthIndex = rawTargetMonthIndex >= 0 ? rawTargetMonthIndex : 0;
 
     final spots = useMemoized(() {
       final timeAscendingMonths = availableMonths.reversed.toList();
@@ -699,21 +646,98 @@ class _WalletsOverviewCard extends HookConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: _AnimatedNumberText(
-              value: isActive
-                  ? selectedSnapshot.netWorth
-                  : activeSnapshot.netWorth,
-              symbol: symbol,
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                color: colorScheme.foreground,
-                letterSpacing: -1.0,
-                height: 1.1,
-              ),
+          Container(
+            key: isLoading
+                ? const ValueKey('wallets-overview-loading')
+                : ValueKey('wallets-overview-loaded-$monthLabel'),
+            child: Skeletonizer(
+              enabled: isLoading,
+              child: error != null
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        error.toString(),
+                        style: TextStyle(
+                          color: colorScheme.destructive,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: _AnimatedNumberText(
+                            value: snapshot.netWorth,
+                            symbol: symbol,
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              color: colorScheme.foreground,
+                              letterSpacing: -1.0,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    context.l10n.totalIncome,
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _AnimatedNumberText(
+                                    value: snapshot.totalIncome,
+                                    symbol: symbol,
+                                    style: TextStyle(
+                                      color: colorScheme.foreground,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    context.l10n.totalSpent,
+                                    style: TextStyle(
+                                      color: colorScheme.mutedForeground,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _AnimatedNumberText(
+                                    value: snapshot.totalSpent,
+                                    symbol: symbol,
+                                    style: TextStyle(
+                                      color: colorScheme.foreground,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
             ),
           ),
           if (timeAscendingMonthsSize > 1) const SizedBox(height: 16),
@@ -806,65 +830,6 @@ class _WalletsOverviewCard extends HookConsumerWidget {
                 },
               ),
             ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.totalIncome,
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _AnimatedNumberText(
-                      value: isActive
-                          ? selectedSnapshot.totalIncome
-                          : activeSnapshot.totalIncome,
-                      symbol: symbol,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.totalSpent,
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _AnimatedNumberText(
-                      value: isActive
-                          ? selectedSnapshot.totalSpent
-                          : activeSnapshot.totalSpent,
-                      symbol: symbol,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
           if (!hasDismissedSwipeHint && availableMonths.length > 1) ...[
             const Spacer(),
             SwipeHintRow(text: context.l10n.swipeRightPreviousMonths),

@@ -171,6 +171,120 @@ class WalletsHistorySummary {
   }
 }
 
+class WalletsPageState {
+  WalletsPageState({
+    required WalletsHistorySummary history,
+    required List<DateTime> visibleMonths,
+    required DateTime selectedMonthStart,
+    required Map<DateTime, WalletsMonthSnapshot> cachedSnapshotsByMonth,
+    required Set<DateTime> loadingMonths,
+    required Map<DateTime, Object> monthErrorsByMonth,
+    required DateTime lastResolvedSelectedMonthStart,
+    this.isRefreshing = false,
+  })  : history = history,
+        visibleMonths = visibleMonths
+            .map(normalizeWalletMonthStart)
+            .toList(growable: false),
+        selectedMonthStart = normalizeWalletMonthStart(selectedMonthStart),
+        cachedSnapshotsByMonth = <DateTime, WalletsMonthSnapshot>{
+          for (final entry in cachedSnapshotsByMonth.entries)
+            normalizeWalletMonthStart(entry.key): entry.value,
+        },
+        loadingMonths = loadingMonths.map(normalizeWalletMonthStart).toSet(),
+        monthErrorsByMonth = <DateTime, Object>{
+          for (final entry in monthErrorsByMonth.entries)
+            normalizeWalletMonthStart(entry.key): entry.value,
+        },
+        lastResolvedSelectedMonthStart =
+            normalizeWalletMonthStart(lastResolvedSelectedMonthStart);
+
+  final WalletsHistorySummary history;
+  final List<DateTime> visibleMonths;
+  final DateTime selectedMonthStart;
+  final Map<DateTime, WalletsMonthSnapshot> cachedSnapshotsByMonth;
+  final Set<DateTime> loadingMonths;
+  final Map<DateTime, Object> monthErrorsByMonth;
+  final DateTime lastResolvedSelectedMonthStart;
+  final bool isRefreshing;
+
+  WalletsMonthSnapshot? get selectedSnapshot =>
+      cachedSnapshotsByMonth[selectedMonthStart];
+
+  WalletsMonthSnapshot? get displayedSnapshot =>
+      selectedSnapshot ??
+      cachedSnapshotsByMonth[lastResolvedSelectedMonthStart];
+
+  bool get isSelectedMonthLoading => loadingMonths.contains(selectedMonthStart);
+
+  Object? get selectedMonthError => monthErrorsByMonth[selectedMonthStart];
+
+  int get selectedMonthIndex => visibleMonths.indexOf(selectedMonthStart);
+
+  WalletsPageState copyWith({
+    WalletsHistorySummary? history,
+    List<DateTime>? visibleMonths,
+    DateTime? selectedMonthStart,
+    Map<DateTime, WalletsMonthSnapshot>? cachedSnapshotsByMonth,
+    Set<DateTime>? loadingMonths,
+    Map<DateTime, Object>? monthErrorsByMonth,
+    DateTime? lastResolvedSelectedMonthStart,
+    bool? isRefreshing,
+  }) {
+    return WalletsPageState(
+      history: history ?? this.history,
+      visibleMonths: visibleMonths ?? this.visibleMonths,
+      selectedMonthStart: selectedMonthStart ?? this.selectedMonthStart,
+      cachedSnapshotsByMonth:
+          cachedSnapshotsByMonth ?? this.cachedSnapshotsByMonth,
+      loadingMonths: loadingMonths ?? this.loadingMonths,
+      monthErrorsByMonth: monthErrorsByMonth ?? this.monthErrorsByMonth,
+      lastResolvedSelectedMonthStart:
+          lastResolvedSelectedMonthStart ?? this.lastResolvedSelectedMonthStart,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+    );
+  }
+}
+
+DateTime normalizeWalletMonthStart(DateTime date) {
+  return DateTime(date.year, date.month, 1);
+}
+
+List<DateTime> buildWalletMonthWindow({
+  required DateTime anchorMonth,
+  required int count,
+}) {
+  final normalizedAnchor = normalizeWalletMonthStart(anchorMonth);
+  return List<DateTime>.generate(
+    count,
+    (index) => DateTime(
+      normalizedAnchor.year,
+      normalizedAnchor.month - index,
+      1,
+    ),
+    growable: false,
+  );
+}
+
+List<DateTime> appendOlderWalletMonthBatch({
+  required List<DateTime> visibleMonths,
+  required int batchSize,
+}) {
+  if (visibleMonths.isEmpty) {
+    return const <DateTime>[];
+  }
+
+  final oldestVisibleMonth = normalizeWalletMonthStart(visibleMonths.last);
+  return List<DateTime>.generate(
+    batchSize,
+    (index) => DateTime(
+      oldestVisibleMonth.year,
+      oldestVisibleMonth.month - index - 1,
+      1,
+    ),
+    growable: false,
+  );
+}
+
 int _toInt(dynamic value) {
   if (value == null) {
     return 0;
