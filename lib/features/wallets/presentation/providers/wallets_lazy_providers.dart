@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
@@ -143,6 +145,247 @@ final walletsMonthSnapshotProvider =
     return service.fetchMonthSnapshot(query);
   },
 );
+
+final walletsPageStateProvider = AsyncNotifierProvider.family<
+    WalletsPageStateNotifier, WalletsPageState, WalletsScopeQuery>(
+  WalletsPageStateNotifier.new,
+);
+
+class WalletsPageStateNotifier
+    extends FamilyAsyncNotifier<WalletsPageState, WalletsScopeQuery> {
+  late final WalletsScopeQuery _query;
+
+  static const _initialVisibleMonthCount = 3;
+  static const _appendMonthBatchSize = 3;
+
+  WalletsDataService get _service => ref.read(walletsDataServiceProvider);
+
+  @override
+  Future<WalletsPageState> build(WalletsScopeQuery arg) async {
+    _query = arg;
+    final history = await _service.fetchHistory(_query);
+    final visibleMonths = buildWalletMonthWindow(
+      anchorMonth: _query.currentMonthStart,
+      count: _initialVisibleMonthCount,
+    );
+    final snapshots = await _fetchSnapshots(visibleMonths);
+
+    return WalletsPageState(
+      history: history,
+      visibleMonths: visibleMonths,
+      selectedMonthStart: _query.currentMonthStart,
+      cachedSnapshotsByMonth: snapshots,
+      loadingMonths: const <DateTime>{},
+      monthErrorsByMonth: const <DateTime, Object>{},
+      lastResolvedSelectedMonthStart: _query.currentMonthStart,
+    );
+  }
+
+  Future<void> refresh() async {
+    final previous = state.valueOrNull;
+    if (previous == null) {
+      state = const AsyncLoading();
+      state = await AsyncValue.guard(() => build(_query));
+      return;
+    }
+
+    state = AsyncData(previous.copyWith(isRefreshing: true));
+
+    try {
+      final history = await _service.fetchHistory(_query);
+      final selectedMonth =
+          normalizeWalletMonthStart(previous.selectedMonthStart);
+      final refreshedSnapshot = await _service.fetchMonthSnapshot(
+        WalletsMonthQuery(scope: _query, monthStart: selectedMonth),
+      );
+
+      final refreshedState = previous.copyWith(
+        history: history,
+        cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+          ...previous.cachedSnapshotsByMonth,
+          selectedMonth: refreshedSnapshot,
+        },
+        monthErrorsByMonth: <DateTime, Object>{
+          ...previous.monthErrorsByMonth,
+        }..remove(selectedMonth),
+        loadingMonths: <DateTime>{
+          ...previous.loadingMonths,
+        }..remove(selectedMonth),
+        lastResolvedSelectedMonthStart: selectedMonth,
+        isRefreshing: false,
+      );
+      state = AsyncData(refreshedState);
+
+      final monthsToWarm = refreshedState.visibleMonths
+          .where((month) => month != selectedMonth)
+          .toList(growable: false);
+      unawaited(_prefetchMonths(monthsToWarm));
+    } catch (_) {
+      state = AsyncData(previous.copyWith(isRefreshing: false));
+    }
+  }
+
+  Future<void> selectMonth(DateTime monthStart) async {
+    final current = state.valueOrNull;
+    if (current == null) {
+      return;
+    }
+
+    final normalizedMonth = normalizeWalletMonthStart(monthStart);
+    var nextVisibleMonths = current.visibleMonths;
+    final shouldAppendOlderMonths = current.visibleMonths.isNotEmpty &&
+        normalizedMonth == current.visibleMonths.last;
+    final appendedMonths = shouldAppendOlderMonths
+        ? appendOlderWalletMonthBatch(
+            visibleMonths: current.visibleMonths,
+            batchSize: _appendMonthBatchSize,
+          )
+        : const <DateTime>[];
+
+    if (appendedMonths.isNotEmpty) {
+      nextVisibleMonths = <DateTime>[
+        ...current.visibleMonths,
+        ...appendedMonths
+      ];
+    }
+
+    if (current.cachedSnapshotsByMonth.containsKey(normalizedMonth)) {
+      state = AsyncData(current.copyWith(
+        visibleMonths: nextVisibleMonths,
+        selectedMonthStart: normalizedMonth,
+        lastResolvedSelectedMonthStart: normalizedMonth,
+        monthErrorsByMonth: <DateTime, Object>{
+          ...current.monthErrorsByMonth,
+        }..remove(normalizedMonth),
+      ));
+      if (appendedMonths.isNotEmpty) {
+        unawaited(_prefetchMonths(appendedMonths));
+      }
+      return;
+    }
+
+    state = AsyncData(current.copyWith(
+      visibleMonths: nextVisibleMonths,
+      selectedMonthStart: normalizedMonth,
+      loadingMonths: <DateTime>{...current.loadingMonths, normalizedMonth},
+      monthErrorsByMonth: <DateTime, Object>{
+        ...current.monthErrorsByMonth,
+      }..remove(normalizedMonth),
+    ));
+
+    if (appendedMonths.isNotEmpty) {
+      unawaited(_prefetchMonths(
+          appendedMonths.where((month) => month != normalizedMonth)));
+    }
+
+    unawaited(_resolveSelectedMonth(normalizedMonth));
+  }
+
+  Future<Map<DateTime, WalletsMonthSnapshot>> _fetchSnapshots(
+    List<DateTime> months,
+  ) async {
+    final entries = await Future.wait(
+      months.map((month) async {
+        final normalizedMonth = normalizeWalletMonthStart(month);
+        final snapshot = await _service.fetchMonthSnapshot(
+          WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
+        );
+        return MapEntry(normalizedMonth, snapshot);
+      }),
+    );
+
+    return <DateTime, WalletsMonthSnapshot>{
+      for (final entry in entries) entry.key: entry.value,
+    };
+  }
+
+  Future<void> _prefetchMonths(Iterable<DateTime> months) async {
+    for (final month in months) {
+      final current = state.valueOrNull;
+      if (current == null) {
+        return;
+      }
+      final normalizedMonth = normalizeWalletMonthStart(month);
+      if (current.cachedSnapshotsByMonth.containsKey(normalizedMonth) ||
+          current.loadingMonths.contains(normalizedMonth)) {
+        continue;
+      }
+
+      state = AsyncData(current.copyWith(
+        loadingMonths: <DateTime>{...current.loadingMonths, normalizedMonth},
+      ));
+
+      try {
+        final snapshot = await _service.fetchMonthSnapshot(
+          WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
+        );
+        final latest = state.valueOrNull;
+        if (latest == null) {
+          return;
+        }
+        state = AsyncData(latest.copyWith(
+          cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+            ...latest.cachedSnapshotsByMonth,
+            normalizedMonth: snapshot,
+          },
+          loadingMonths: <DateTime>{...latest.loadingMonths}
+            ..remove(normalizedMonth),
+          monthErrorsByMonth: <DateTime, Object>{
+            ...latest.monthErrorsByMonth,
+          }..remove(normalizedMonth),
+        ));
+      } catch (error) {
+        final latest = state.valueOrNull;
+        if (latest == null) {
+          return;
+        }
+        state = AsyncData(latest.copyWith(
+          loadingMonths: <DateTime>{...latest.loadingMonths}
+            ..remove(normalizedMonth),
+          monthErrorsByMonth: <DateTime, Object>{
+            ...latest.monthErrorsByMonth,
+            normalizedMonth: error,
+          },
+        ));
+      }
+    }
+  }
+
+  Future<void> _resolveSelectedMonth(DateTime monthStart) async {
+    try {
+      final snapshot = await _service.fetchMonthSnapshot(
+        WalletsMonthQuery(scope: _query, monthStart: monthStart),
+      );
+      final current = state.valueOrNull;
+      if (current == null) {
+        return;
+      }
+      state = AsyncData(current.copyWith(
+        cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+          ...current.cachedSnapshotsByMonth,
+          monthStart: snapshot,
+        },
+        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
+        monthErrorsByMonth: <DateTime, Object>{
+          ...current.monthErrorsByMonth,
+        }..remove(monthStart),
+        lastResolvedSelectedMonthStart: monthStart,
+      ));
+    } catch (error) {
+      final current = state.valueOrNull;
+      if (current == null) {
+        return;
+      }
+      state = AsyncData(current.copyWith(
+        loadingMonths: <DateTime>{...current.loadingMonths}..remove(monthStart),
+        monthErrorsByMonth: <DateTime, Object>{
+          ...current.monthErrorsByMonth,
+          monthStart: error,
+        },
+      ));
+    }
+  }
+}
 
 class _WalletRecurringAwareData {
   const _WalletRecurringAwareData({

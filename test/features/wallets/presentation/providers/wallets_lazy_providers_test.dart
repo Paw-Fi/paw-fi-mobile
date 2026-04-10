@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
@@ -10,6 +12,7 @@ class _FakeWalletsDataService implements WalletsDataService {
   int snapshotCalls = 0;
   WalletsScopeQuery? lastHistoryQuery;
   WalletsMonthQuery? lastSnapshotQuery;
+  final List<DateTime> snapshotMonths = <DateTime>[];
 
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
@@ -31,6 +34,7 @@ class _FakeWalletsDataService implements WalletsDataService {
       WalletsMonthQuery query) async {
     snapshotCalls += 1;
     lastSnapshotQuery = query;
+    snapshotMonths.add(query.monthStart);
     return WalletsMonthSnapshot(
       monthStart: query.monthStart,
       monthEndExclusive:
@@ -147,4 +151,93 @@ void main() {
     expect(snapshot.spentTotalCents, 0);
     expect(snapshot.walletBalances, isEmpty);
   });
+
+  test('walletsPageStateProvider bootstraps current month plus two previous',
+      () async {
+    final service = _FakeWalletsDataService();
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsDataServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final state =
+        await container.read(walletsPageStateProvider(buildScope()).future);
+
+    expect(
+      state.visibleMonths,
+      [DateTime(2026, 4, 1), DateTime(2026, 3, 1), DateTime(2026, 2, 1)],
+    );
+    expect(state.selectedMonthStart, DateTime(2026, 4, 1));
+    expect(state.lastResolvedSelectedMonthStart, DateTime(2026, 4, 1));
+    expect(state.cachedSnapshotsByMonth.keys, state.visibleMonths.toSet());
+    expect(service.snapshotMonths, state.visibleMonths);
+  });
+
+  test(
+      'walletsPageStateProvider appends older batch and preserves last resolved month while loading uncached month',
+      () async {
+    final januaryCompleter = Completer<void>();
+    final service = _SelectiveDelayWalletsDataService(
+      delayedMonths: <DateTime, Completer<void>>{
+        DateTime(2026, 1, 1): januaryCompleter,
+      },
+    );
+    final container = ProviderContainer(overrides: [
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      walletAuthHeadersProvider
+          .overrideWith((ref) => const {'Authorization': 'Bearer test'}),
+      walletsDataServiceProvider.overrideWithValue(service),
+    ]);
+    addTearDown(container.dispose);
+
+    final provider = walletsPageStateProvider(buildScope());
+    await container.read(provider.future);
+
+    final notifier = container.read(provider.notifier);
+    await notifier.selectMonth(DateTime(2026, 2, 1));
+    await notifier.selectMonth(DateTime(2026, 1, 1));
+
+    final loadingState = container.read(provider).requireValue;
+    expect(
+      loadingState.visibleMonths,
+      [
+        DateTime(2026, 4, 1),
+        DateTime(2026, 3, 1),
+        DateTime(2026, 2, 1),
+        DateTime(2026, 1, 1),
+        DateTime(2025, 12, 1),
+        DateTime(2025, 11, 1),
+      ],
+    );
+    expect(loadingState.selectedMonthStart, DateTime(2026, 1, 1));
+    expect(loadingState.lastResolvedSelectedMonthStart, DateTime(2026, 2, 1));
+    expect(loadingState.loadingMonths, contains(DateTime(2026, 1, 1)));
+
+    januaryCompleter.complete();
+    await pumpEventQueue();
+
+    final resolvedState = container.read(provider).requireValue;
+    expect(resolvedState.lastResolvedSelectedMonthStart, DateTime(2026, 1, 1));
+    expect(
+        resolvedState.cachedSnapshotsByMonth, contains(DateTime(2026, 1, 1)));
+  });
+}
+
+class _SelectiveDelayWalletsDataService extends _FakeWalletsDataService {
+  _SelectiveDelayWalletsDataService({required this.delayedMonths});
+
+  final Map<DateTime, Completer<void>> delayedMonths;
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+      WalletsMonthQuery query) async {
+    final completer = delayedMonths[query.monthStart];
+    if (completer != null) {
+      await completer.future;
+    }
+    return super.fetchMonthSnapshot(query);
+  }
 }

@@ -129,6 +129,59 @@ class _FailingSnapshotWalletsDataService implements WalletsDataService {
   }
 }
 
+class _WindowedWalletsDataService implements WalletsDataService {
+  _WindowedWalletsDataService({required this.delayedMonths});
+
+  final Map<DateTime, Completer<void>> delayedMonths;
+
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    return WalletsHistorySummary(
+      availableMonths: [
+        DateTime(2026, 4, 1),
+        DateTime(2026, 3, 1),
+        DateTime(2026, 2, 1),
+      ],
+      netWorthSeries: [
+        WalletNetWorthPoint(
+          monthStart: DateTime(2026, 2, 1),
+          netWorthCents: 900,
+        ),
+        WalletNetWorthPoint(
+          monthStart: DateTime(2026, 3, 1),
+          netWorthCents: 1000,
+        ),
+        WalletNetWorthPoint(
+          monthStart: DateTime(2026, 4, 1),
+          netWorthCents: 1200,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+    WalletsMonthQuery query,
+  ) async {
+    final completer = delayedMonths[query.monthStart];
+    if (completer != null) {
+      await completer.future;
+    }
+
+    return WalletsMonthSnapshot(
+      monthStart: query.monthStart,
+      monthEndExclusive:
+          DateTime(query.monthStart.year, query.monthStart.month + 1, 1),
+      incomeTotalCents: 500,
+      spentTotalCents: 300,
+      netWorthCents: 1200 - ((4 - query.monthStart.month) * 100),
+      walletBalances: {
+        'a1': 1200 - ((4 - query.monthStart.month) * 100),
+      },
+    );
+  }
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -454,5 +507,88 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('snapshot failed'), findsOneWidget);
+  });
+
+  testWidgets('wallets page keeps wallet stack visible while older month loads',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    final januaryCompleter = Completer<void>();
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 1200,
+      ),
+    ];
+    final container = ProviderContainer(overrides: [
+      authProvider.overrideWith(_FakeAuthNotifier.new),
+      authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+      appPreferredTimezoneProvider.overrideWith((ref) => null),
+      mainShellTabIndexProvider.overrideWith((ref) => 0),
+      sharedPreferencesProvider.overrideWithValue(prefs),
+      scopedWalletsProvider.overrideWith((ref) async => wallets),
+      effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+      walletsDataServiceProvider.overrideWithValue(
+        _WindowedWalletsDataService(
+          delayedMonths: {DateTime(2026, 1, 1): januaryCompleter},
+        ),
+      ),
+      householdScopeProvider.overrideWith(
+        (ref) => const HouseholdScope(
+          viewMode: ViewMode.personal,
+          selected: SelectedHouseholdState(),
+          portfolioHouseholdIds: <String>{},
+        ),
+      ),
+      viewModeProvider.overrideWith(
+        (ref) => ViewModeNotifier()..setPersonalMode(),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final scope = WalletsScopeQuery(
+      userId: 'u1',
+      householdId: null,
+      selectedCurrency: 'USD',
+      currentMonthStart: DateTime(2026, 4, 1),
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await container
+        .read(walletsPageStateProvider(scope).notifier)
+        .selectMonth(DateTime(2026, 2, 1));
+    await tester.pump();
+    await container
+        .read(walletsPageStateProvider(scope).notifier)
+        .selectMonth(DateTime(2026, 1, 1));
+    await tester.pump();
+
+    expect(
+        find.byKey(const ValueKey('wallets-overview-loading')), findsOneWidget);
+    expect(find.text('Spending'), findsWidgets);
+    expect(find.text('New Wallet'), findsOneWidget);
+
+    januaryCompleter.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+        find.byKey(const ValueKey('wallets-overview-loading')), findsNothing);
   });
 }
