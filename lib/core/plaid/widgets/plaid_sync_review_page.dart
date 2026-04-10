@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -7,11 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
 import 'package:moneko/core/plaid/models/synced_transaction.dart';
-import 'package:moneko/core/plaid/widgets/plaid_sync_review_wallet_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
@@ -23,6 +22,7 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
+import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -205,6 +205,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       _awaitBackendSyncAndLoadTransactions() async {
     final deadline = DateTime.now().add(_syncWaitTimeout);
     PlaidSyncStatus? latestSyncStatus;
+    var attemptedDirectPlaidFetch = false;
 
     while (DateTime.now().isBefore(deadline)) {
       final snapshot = await _fetchConnectionSyncSnapshot();
@@ -217,9 +218,38 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       }
 
       final transactions = await _loadSyncedTransactionsFromDatabase();
-      if (snapshot.lastSuccessfulSyncAt != null || transactions.isNotEmpty) {
+      final isStillWaitingForPlaidImport =
+          transactions.isEmpty && _isPlaidStillImporting(snapshot.syncStatus);
+      if (transactions.isNotEmpty) {
         return ParsedSyncedTransactions(
           transactions: transactions,
+          syncStatus: latestSyncStatus,
+        );
+      }
+
+      if (widget.session.provider == 'plaid' && !attemptedDirectPlaidFetch) {
+        attemptedDirectPlaidFetch = true;
+        final directResult = await _loadTransactionsFromPlaidSyncFunction();
+        latestSyncStatus = directResult.syncStatus ?? latestSyncStatus;
+
+        if (directResult.requiresReconnect) {
+          throw Exception(
+            'This bank needs to be reconnected before transaction syncing can continue.',
+          );
+        }
+
+        if (directResult.transactions.isNotEmpty) {
+          return ParsedSyncedTransactions(
+            transactions: directResult.transactions,
+            syncStatus: latestSyncStatus,
+          );
+        }
+      }
+
+      if (snapshot.lastSuccessfulSyncAt != null &&
+          !isStillWaitingForPlaidImport) {
+        return ParsedSyncedTransactions(
+          transactions: const [],
           syncStatus: latestSyncStatus,
         );
       }
@@ -228,9 +258,17 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
 
     final fallbackTransactions = await _loadSyncedTransactionsFromDatabase();
+    if (fallbackTransactions.isNotEmpty || widget.session.provider != 'plaid') {
+      return ParsedSyncedTransactions(
+        transactions: fallbackTransactions,
+        syncStatus: latestSyncStatus,
+      );
+    }
+
+    final directResult = await _loadTransactionsFromPlaidSyncFunction();
     return ParsedSyncedTransactions(
-      transactions: fallbackTransactions,
-      syncStatus: latestSyncStatus,
+      transactions: directResult.transactions,
+      syncStatus: directResult.syncStatus ?? latestSyncStatus,
     );
   }
 
@@ -460,6 +498,29 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         .toList(growable: false);
   }
 
+  Future<_DirectPlaidFetchResult> _loadTransactionsFromPlaidSyncFunction()
+      async {
+    final response = await Supabase.instance.client.functions.invoke(
+      'plaid-sync-transactions',
+      body: {
+        'connectionId': widget.session.connectionId,
+        if (widget.session.targetHouseholdId != null)
+          'targetHouseholdId': widget.session.targetHouseholdId,
+      },
+    );
+
+    if (response.status >= 400) {
+      return const _DirectPlaidFetchResult(transactions: []);
+    }
+
+    final parsed = parseSyncedTransactionPayload(response.data);
+    return _DirectPlaidFetchResult(
+      transactions: parsed.transactions,
+      syncStatus: parsed.syncStatus,
+      requiresReconnect: _payloadRequiresReconnect(response.data),
+    );
+  }
+
   Future<void> _handleDone() async {
     if (!_canDismissReview) {
       return;
@@ -487,6 +548,11 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final grouped = _groupByMonth(_selectedTransactions);
     final monthKeys = grouped.keys.toList()
       ..sort((a, b) => b.asDate.compareTo(a.asDate));
+    final showHistoricalSyncBanner =
+        !_isPreparing &&
+        _errorMessage == null &&
+        widget.session.provider == 'plaid' &&
+        _shouldShowHistoricalSyncStatus(_syncStatus);
 
     return PopScope(
       canPop: false,
@@ -513,104 +579,124 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           ),
         ),
         body: SafeArea(
-          child: Column(
-            children: [
-              if (_accounts.length > 1)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemBuilder: (context, index) {
-                        final account = _accounts[index];
-                        final isSelected =
-                            account.bankAccountId == _selectedBankAccountId;
-                        return ChoiceChip(
-                          label: Text(account.displayName),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedBankAccountId = account.bankAccountId;
-                            });
-                          },
-                        );
-                      },
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemCount: _accounts.length,
-                    ),
-                  ),
-                ),
-              if (selected != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: PlaidSyncReviewWalletCard(
-                    account: selected,
-                    displayBalanceCents:
-                        _displayBalanceCentsForAccount(selected),
-                    isBusy: _isPreparing || _isUpdatingWallet,
-                    onEdit: _editSelectedWallet,
-                  ),
-                ),
-              if (!_isPreparing &&
-                  _errorMessage == null &&
-                  widget.session.provider == 'plaid' &&
-                  (_syncStatus?.historicalUpdateComplete != true))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: _HistoricalSyncStatusCard(syncStatus: _syncStatus),
-                ),
-              Expanded(
-                child: _errorMessage != null
-                    ? _ReviewErrorState(
-                        message: _errorMessage!,
-                        onRetry: _prepareReview,
-                      )
-                    : _isPreparing
-                        ? _ReviewLoadingState(
-                            accountName: selected?.walletName,
+          child: _errorMessage != null
+              ? _ReviewErrorState(
+                  message: _errorMessage!,
+                  onRetry: _prepareReview,
+                )
+              : _isPreparing
+                  ? _ReviewLoadingState(
+                      accountName: selected?.walletName,
+                    )
+                  : CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        if (_accounts.length > 1)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                              child: SizedBox(
+                                height: 40,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemBuilder: (context, index) {
+                                    final account = _accounts[index];
+                                    final isSelected =
+                                        account.bankAccountId ==
+                                        _selectedBankAccountId;
+                                    return ChoiceChip(
+                                      label: Text(account.displayName),
+                                      selected: isSelected,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          _selectedBankAccountId =
+                                              account.bankAccountId;
+                                        });
+                                      },
+                                    );
+                                  },
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(width: 8),
+                                  itemCount: _accounts.length,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (selected != null)
+                          SliverPersistentHeader(
+                            pinned: true,
+                            delegate: _WalletHeaderDelegate(
+                              account: selected,
+                              displayBalanceCents:
+                                  _displayBalanceCentsForAccount(selected),
+                              isBusy: _isPreparing || _isUpdatingWallet,
+                              onEdit: _editSelectedWallet,
+                            ),
+                          ),
+                        if (showHistoricalSyncBanner)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                0,
+                                16,
+                                12,
+                              ),
+                              child: _HistoricalSyncStatusCard(
+                                syncStatus: _syncStatus!,
+                              ),
+                            ),
+                          ),
+                        if (_selectedTransactions.isEmpty &&
+                            _isTransactionsStillSyncing)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _ReviewLoadingState(
+                              accountName: selected?.walletName,
+                              title:
+                                  'Plaid is still importing your first transactions.',
+                              description:
+                                  'Keep this screen open for a moment while we finish linking the wallet and pull in the initial activity.',
+                            ),
                           )
-                        : _selectedTransactions.isEmpty &&
-                                _isTransactionsStillSyncing
-                            ? _ReviewLoadingState(
-                                accountName: selected?.walletName,
-                                title:
-                                    'Plaid is still importing your first transactions.',
-                                description:
-                                    'Keep this screen open for a moment while we finish linking the wallet and pull in the initial activity.',
-                              )
-                            : _selectedTransactions.isEmpty
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                      ),
-                                      child: Text(
-                                        context.l10n.noTransactionsFound,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: colorScheme.mutedForeground,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : ListView(
-                                    padding:
-                                        const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                                    children: [
-                                      for (final month in monthKeys)
-                                        _MonthSection(
-                                          title: DateFormat('MMMM yyyy')
-                                              .format(month.asDate),
-                                          transactions: grouped[month]!,
-                                          onDelete: _deleteTransaction,
-                                          onEdit: _editTransaction,
-                                        ),
-                                    ],
+                        else if (_selectedTransactions.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: Text(
+                                  context.l10n.noTransactionsFound,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: colorScheme.mutedForeground,
                                   ),
-              ),
-            ],
-          ),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                            sliver: SliverList.list(
+                              children: [
+                                for (final month in monthKeys)
+                                  _MonthSection(
+                                    title: DateFormat('MMMM yyyy').format(
+                                      month.asDate,
+                                    ),
+                                    transactions: grouped[month]!,
+                                    onDelete: _deleteTransaction,
+                                    onEdit: _editTransaction,
+                                  ),
+                                const SizedBox(height: 12),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
         ),
         bottomNavigationBar: _canCompleteReview
             ? SafeArea(
@@ -638,13 +724,58 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 }
 
+bool _isPlaidStillImporting(PlaidSyncStatus? syncStatus) {
+  if (syncStatus == null) {
+    return false;
+  }
+
+  return syncStatus.initialUpdateComplete != true ||
+      syncStatus.historicalUpdateComplete != true;
+}
+
+bool _shouldShowHistoricalSyncStatus(PlaidSyncStatus? syncStatus) {
+  if (syncStatus == null) {
+    return false;
+  }
+
+  return syncStatus.initialUpdateComplete == false ||
+      syncStatus.historicalUpdateComplete == false;
+}
+
+bool _payloadRequiresReconnect(dynamic payload) {
+  if (payload is! Map<String, dynamic>) {
+    return false;
+  }
+
+  final connections = payload['connections'];
+  if (connections is! List) {
+    return false;
+  }
+
+  for (final item in connections.whereType<Map<String, dynamic>>()) {
+    final error = item['error']?.toString().toLowerCase() ?? '';
+    if (error.contains('login is required') ||
+        error.contains('re-authentication') ||
+        error.contains('reconnected')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
-  final initialUpdateComplete = metadata['initial_update_complete'] as bool?;
+  final nested = metadata['plaid_sync_status'];
+  final syncStatus = nested is Map<String, dynamic>
+      ? nested
+      : <String, dynamic>{};
+  final initialUpdateComplete =
+      syncStatus['initial_update_complete'] as bool?;
   final historicalUpdateComplete =
-      metadata['historical_update_complete'] as bool?;
-  final webhookCode = metadata['last_webhook_code']?.toString();
+      syncStatus['historical_update_complete'] as bool?;
+  final webhookCode = syncStatus['webhook_code']?.toString();
   final updatedAt =
-      DateTime.tryParse(metadata['sync_status_updated_at']?.toString() ?? '');
+      DateTime.tryParse(syncStatus['updated_at']?.toString() ?? '');
 
   if (initialUpdateComplete == null &&
       historicalUpdateComplete == null &&
@@ -673,6 +804,136 @@ class _ConnectionSyncSnapshot {
   final PlaidSyncStatus? syncStatus;
 }
 
+class _DirectPlaidFetchResult {
+  const _DirectPlaidFetchResult({
+    required this.transactions,
+    this.syncStatus,
+    this.requiresReconnect = false,
+  });
+
+  final List<SyncedTransaction> transactions;
+  final PlaidSyncStatus? syncStatus;
+  final bool requiresReconnect;
+}
+
+class _WalletHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _WalletHeaderDelegate({
+    required this.account,
+    required this.displayBalanceCents,
+    required this.isBusy,
+    required this.onEdit,
+  });
+
+  final BankSyncReviewAccount account;
+  final int displayBalanceCents;
+  final bool isBusy;
+  final VoidCallback onEdit;
+
+  @override
+  double get minExtent => 131;
+
+  @override
+  double get maxExtent => 276;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = ((shrinkOffset) / (maxExtent - minExtent))
+        .clamp(0.0, 1.0);
+    final easedProgress = Curves.easeOutCubic.transform(progress);
+    final cardHeight = lerpDouble(260, 90, easedProgress)!;
+
+    return ColoredBox(
+      color: colorScheme.appBackground,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            height: cardHeight,
+            child: _ReviewWalletCard(
+              account: account,
+              displayBalanceCents: displayBalanceCents,
+              isBusy: isBusy,
+              onEdit: onEdit,
+              isExpanded: easedProgress < 0.45,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _WalletHeaderDelegate oldDelegate) {
+    return account != oldDelegate.account ||
+        displayBalanceCents != oldDelegate.displayBalanceCents ||
+        isBusy != oldDelegate.isBusy;
+  }
+}
+
+class _ReviewWalletCard extends StatelessWidget {
+  const _ReviewWalletCard({
+    required this.account,
+    required this.displayBalanceCents,
+    required this.isBusy,
+    required this.onEdit,
+    required this.isExpanded,
+  });
+
+  final BankSyncReviewAccount account;
+  final int displayBalanceCents;
+  final bool isBusy;
+  final VoidCallback onEdit;
+  final bool isExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return WalletStackCard(
+      wallet: WalletEntity(
+        id: account.walletId ?? account.bankAccountId,
+        userId: '',
+        householdId: null,
+        name: account.walletName,
+        icon: account.walletIcon,
+        color: account.walletColor,
+        openingBalanceCents: account.openingBalanceCents,
+        goalAmountCents: account.goalAmountCents,
+        isDefault: account.isDefault,
+        isSystem: false,
+        isArchived: false,
+        currentBalanceCents: displayBalanceCents,
+      ),
+      currencyCode: account.currency,
+      displayBalanceCents: displayBalanceCents,
+      isExpanded: isExpanded,
+      subtitle: account.displayName,
+      showBalanceChevron: false,
+      headerAction: TextButton(
+        onPressed: isBusy ? null : onEdit,
+        style: TextButton.styleFrom(
+          foregroundColor: colorScheme.foreground,
+          backgroundColor: colorScheme.surface.withValues(alpha: 0.72),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+            side: BorderSide(color: colorScheme.border),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
+        child: Text(
+          context.l10n.edit,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
 class _HistoricalSyncStatusCard extends StatelessWidget {
   const _HistoricalSyncStatusCard({
     required this.syncStatus,
@@ -684,17 +945,12 @@ class _HistoricalSyncStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final initialComplete = syncStatus?.initialUpdateComplete;
-    final historicalComplete = syncStatus?.historicalUpdateComplete;
     final title = initialComplete == false
         ? 'Plaid is still preparing your first transaction download.'
-        : historicalComplete == false
-            ? 'Recent transactions are ready. Historical imports may still be syncing.'
-            : 'Plaid is finalizing your sync status.';
+        : 'Recent transactions are ready. Historical imports may still be syncing.';
     final description = initialComplete == false
         ? 'Keep this wallet connected. We will continue importing your bank history in the background as Plaid finishes the initial pull.'
-        : historicalComplete == false
-            ? 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.'
-            : 'We are still waiting for Plaid to confirm the latest sync status. This usually resolves on its own shortly.';
+        : 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -872,79 +1128,78 @@ class _MonthSection extends StatelessWidget {
   final Future<void> Function(SyncedTransaction) onEdit;
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+    Widget build(BuildContext context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: colorScheme.homeCardSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colorScheme.homeCardBorder,
+            width: 1,
           ),
-        ],
-      ),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.homeCardShadow,
+              blurRadius: 32,
+              offset: const Offset(0, 8),
+              spreadRadius: -4,
+            ),
+          ],
+        ),
       child: Material(
         color: colorScheme.surface.withValues(alpha: 0.0),
         borderRadius: BorderRadius.circular(24),
         clipBehavior: Clip.antiAlias,
-        child: ExpansionTile(
-          iconColor: colorScheme.mutedForeground,
-          collapsedIconColor: colorScheme.mutedForeground,
-          initiallyExpanded: true,
-          title: Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-            ),
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            dividerColor: colorScheme.surface.withValues(alpha: 0.0),
           ),
-          children: [
-            for (final tx in transactions)
-              Slidable(
-                key: ValueKey(tx.expense.id),
-                endActionPane: ActionPane(
-                  motion: const ScrollMotion(),
-                  extentRatio: 0.22,
-                  children: [
-                    SlidableAction(
-                      onPressed: (_) => onDelete(tx),
-                      backgroundColor: colorScheme.destructive,
-                      foregroundColor: colorScheme.onError,
-                      icon: Icons.delete,
-                      label: context.l10n.delete,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TransactionListTile(
-                    onTap: () => onEdit(tx),
-                    category: tx.expense.category ?? 'other',
-                    title: getCategoryTranslation(
-                      context,
-                      tx.expense.category ?? 'other',
-                    ),
-                    description: tx.expense.rawText,
+          child: ExpansionTile(
+            iconColor: colorScheme.mutedForeground,
+            collapsedIconColor: colorScheme.mutedForeground,
+            initiallyExpanded: true,
+            title: Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+              ),
+            ),
+            children: [
+              for (final tx in transactions)
+                Slidable(
+                  key: ValueKey(tx.expense.id),
+                  endActionPane: ActionPane(
+                    motion: const ScrollMotion(),
+                    extentRatio: 0.22,
+                    children: [
+                      SlidableAction(
+                        onPressed: (_) => onDelete(tx),
+                        backgroundColor: colorScheme.destructive,
+                        foregroundColor: colorScheme.onError,
+                        icon: Icons.delete,
+                        label: context.l10n.delete,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ],
+                  ),
+                  child: buildExpenseTransactionTile(
+                    context: context,
+                    category: tx.expense.category,
+                    rawText: tx.expense.rawText,
                     date: tx.expense.date,
                     amount: tx.expense.amount,
                     currency: tx.expense.currency ?? 'USD',
                     isIncome: (tx.expense.type ?? 'expense').toLowerCase() ==
                         'income',
+                    onTap: () => onEdit(tx),
                   ),
                 ),
-              ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );

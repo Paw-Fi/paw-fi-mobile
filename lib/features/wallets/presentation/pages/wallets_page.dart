@@ -488,6 +488,7 @@ class AccountsPage extends HookConsumerWidget {
                   if (shouldShowConnectBankButton)
                     Row(
                       mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         TextButton.icon(
                           onPressed: () async {

@@ -24,7 +24,7 @@ class PlaidSyncReviewWalletCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SizedBox(
-      height: 304,
+      height: 260,
       child: WalletStackCard(
         wallet: WalletEntity(
           id: account.walletId ?? account.bankAccountId,

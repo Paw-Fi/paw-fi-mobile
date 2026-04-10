@@ -297,17 +297,7 @@ class WalletStackCard extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (metadataChips.isNotEmpty) ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: metadataChips,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                 
                   if (showGoalProgress) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
