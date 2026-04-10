@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
 import 'package:moneko/core/plaid/models/synced_transaction.dart';
+import 'package:moneko/core/plaid/widgets/plaid_sync_review_wallet_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -22,7 +23,6 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
-import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolver.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -78,6 +78,36 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     return _transactions
         .where((tx) => tx.expense.bankAccountId == selected.bankAccountId)
         .toList(growable: false);
+  }
+
+  bool get _isTransactionsStillSyncing {
+    if (_isPreparing || widget.session.provider != 'plaid') {
+      return false;
+    }
+
+    return _syncStatus?.initialUpdateComplete == false;
+  }
+
+  bool get _canCompleteReview {
+    return _canDismissReview && !_isTransactionsStillSyncing;
+  }
+
+  bool get _canDismissReview {
+    return !_isPreparing && !_isUpdatingWallet && _errorMessage == null;
+  }
+
+  int _displayBalanceCentsForAccount(BankSyncReviewAccount account) {
+    final syncedDeltaCents = _transactions
+        .where((item) => item.expense.bankAccountId == account.bankAccountId)
+        .fold<int>(0, (sum, item) {
+      final type = (item.expense.type ?? 'expense').toLowerCase();
+      final signedAmount = type == 'income'
+          ? item.expense.amountCents
+          : -item.expense.amountCents;
+      return sum + signedAmount;
+    });
+
+    return account.openingBalanceCents + syncedDeltaCents;
   }
 
   Future<void> _prepareReview() async {
@@ -171,7 +201,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     _accounts = updatedAccounts;
   }
 
-  Future<ParsedSyncedTransactions> _awaitBackendSyncAndLoadTransactions() async {
+  Future<ParsedSyncedTransactions>
+      _awaitBackendSyncAndLoadTransactions() async {
     final deadline = DateTime.now().add(_syncWaitTimeout);
     PlaidSyncStatus? latestSyncStatus;
 
@@ -384,9 +415,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     }
 
     final metadata = row['metadata'];
-    final metadataMap = metadata is Map<String, dynamic>
-        ? metadata
-        : <String, dynamic>{};
+    final metadataMap =
+        metadata is Map<String, dynamic> ? metadata : <String, dynamic>{};
     final syncStatus = _parseConnectionSyncStatus(metadataMap);
 
     return _ConnectionSyncSnapshot(
@@ -401,8 +431,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<List<SyncedTransaction>> _loadSyncedTransactionsFromDatabase() async {
-    final bankAccountIds =
-        _accounts.map((account) => account.bankAccountId).toList(growable: false);
+    final bankAccountIds = _accounts
+        .map((account) => account.bankAccountId)
+        .toList(growable: false);
     if (bankAccountIds.isEmpty) {
       return const [];
     }
@@ -430,12 +461,21 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<void> _handleDone() async {
-    if (_isPreparing || _isUpdatingWallet) {
+    if (!_canDismissReview) {
       return;
     }
+
     try {
       await _refreshAfterSync();
     } catch (_) {}
+
+    if (_isTransactionsStillSyncing && mounted) {
+      AppToast.info(
+        context,
+        'Plaid is still syncing older activity in the background.',
+      );
+    }
+
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -451,7 +491,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop || _isPreparing || _isUpdatingWallet) {
+        if (didPop || !_canDismissReview) {
           return;
         }
         unawaited(_handleDone());
@@ -459,14 +499,15 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       child: Scaffold(
         backgroundColor: colorScheme.appBackground,
         appBar: AppBar(
+          automaticallyImplyLeading: false,
           backgroundColor: colorScheme.appBackground,
           elevation: 0,
-          leading: IconButton(
-            onPressed: _isPreparing || _isUpdatingWallet
-                ? null
-                : () => unawaited(_handleDone()),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          ),
+          leading: _canDismissReview
+              ? IconButton(
+                  onPressed: () => unawaited(_handleDone()),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                )
+              : const SizedBox.shrink(),
           title: Text(
             selected == null ? context.l10n.transactions : selected.walletName,
           ),
@@ -503,8 +544,10 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
               if (selected != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: _WalletReviewCard(
+                  child: PlaidSyncReviewWalletCard(
                     account: selected,
+                    displayBalanceCents:
+                        _displayBalanceCentsForAccount(selected),
                     isBusy: _isPreparing || _isUpdatingWallet,
                     onEdit: _editSelectedWallet,
                   ),
@@ -527,58 +570,69 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                         ? _ReviewLoadingState(
                             accountName: selected?.walletName,
                           )
-                        : _selectedTransactions.isEmpty
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                  ),
-                                  child: Text(
-                                    context.l10n.noTransactionsFound,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: colorScheme.mutedForeground,
-                                    ),
-                                  ),
-                                ),
+                        : _selectedTransactions.isEmpty &&
+                                _isTransactionsStillSyncing
+                            ? _ReviewLoadingState(
+                                accountName: selected?.walletName,
+                                title:
+                                    'Plaid is still importing your first transactions.',
+                                description:
+                                    'Keep this screen open for a moment while we finish linking the wallet and pull in the initial activity.',
                               )
-                            : ListView(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                                children: [
-                                  for (final month in monthKeys)
-                                    _MonthSection(
-                                      title: DateFormat('MMMM yyyy')
-                                          .format(month.asDate),
-                                      transactions: grouped[month]!,
-                                      onDelete: _deleteTransaction,
-                                      onEdit: _editTransaction,
+                            : _selectedTransactions.isEmpty
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                      ),
+                                      child: Text(
+                                        context.l10n.noTransactionsFound,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: colorScheme.mutedForeground,
+                                        ),
+                                      ),
                                     ),
-                                ],
-                              ),
+                                  )
+                                : ListView(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                                    children: [
+                                      for (final month in monthKeys)
+                                        _MonthSection(
+                                          title: DateFormat('MMMM yyyy')
+                                              .format(month.asDate),
+                                          transactions: grouped[month]!,
+                                          onDelete: _deleteTransaction,
+                                          onEdit: _editTransaction,
+                                        ),
+                                    ],
+                                  ),
               ),
             ],
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SizedBox(
-              height: 52,
-              child: FilledButton(
-                onPressed: _handleDone,
-                style: FilledButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+        bottomNavigationBar: _canCompleteReview
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _handleDone,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: colorScheme.primary,
+                        foregroundColor: colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(context.l10n.done),
+                    ),
                   ),
                 ),
-                child: Text(context.l10n.done),
-              ),
-            ),
-          ),
-        ),
+              )
+            : null,
       ),
     );
   }
@@ -589,7 +643,8 @@ PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
   final historicalUpdateComplete =
       metadata['historical_update_complete'] as bool?;
   final webhookCode = metadata['last_webhook_code']?.toString();
-  final updatedAt = DateTime.tryParse(metadata['sync_status_updated_at']?.toString() ?? '');
+  final updatedAt =
+      DateTime.tryParse(metadata['sync_status_updated_at']?.toString() ?? '');
 
   if (initialUpdateComplete == null &&
       historicalUpdateComplete == null &&
@@ -629,28 +684,46 @@ class _HistoricalSyncStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final initialComplete = syncStatus?.initialUpdateComplete;
+    final historicalComplete = syncStatus?.historicalUpdateComplete;
     final title = initialComplete == false
         ? 'Plaid is still preparing your first transaction download.'
-        : 'Recent transactions are ready. Historical imports may still be syncing.';
+        : historicalComplete == false
+            ? 'Recent transactions are ready. Historical imports may still be syncing.'
+            : 'Plaid is finalizing your sync status.';
     final description = initialComplete == false
         ? 'Keep this wallet connected. We will continue importing your bank history in the background as Plaid finishes the initial pull.'
-        : 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.';
+        : historicalComplete == false
+            ? 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.'
+            : 'We are still waiting for Plaid to confirm the latest sync status. This usually resolves on its own shortly.';
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.border,
-        ),
+        color: colorScheme.sheetBackground,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colorScheme.sheetBorder),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.history_rounded,
-            color: colorScheme.primary,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.42),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.history_rounded,
+              color: colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -681,150 +754,16 @@ class _HistoricalSyncStatusCard extends StatelessWidget {
   }
 }
 
-class _WalletReviewCard extends StatelessWidget {
-  const _WalletReviewCard({
-    required this.account,
-    required this.isBusy,
-    required this.onEdit,
-  });
-
-  final BankSyncReviewAccount account;
-  final bool isBusy;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final baseColor =
-        parseWalletColor(account.walletColor, colorScheme.primary);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.cardSurface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.border),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: baseColor.withValues(alpha: 0.16),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  resolveWalletIcon(account.walletIcon),
-                  color: baseColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      account.walletName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colorScheme.foreground,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      account.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colorScheme.mutedForeground,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: isBusy ? null : onEdit,
-                child: Text(context.l10n.edit),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _WalletMetaChip(
-                label: account.currency,
-                colorScheme: colorScheme,
-              ),
-              if (account.subtype != null)
-                _WalletMetaChip(
-                  label: account.subtype!,
-                  colorScheme: colorScheme,
-                ),
-              if (account.isDefault)
-                _WalletMetaChip(
-                  label: context.l10n.primary,
-                  colorScheme: colorScheme,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _WalletMetaChip extends StatelessWidget {
-  const _WalletMetaChip({
-    required this.label,
-    required this.colorScheme,
-  });
-
-  final String label;
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: colorScheme.onSurfaceVariant,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
 class _ReviewLoadingState extends StatelessWidget {
   const _ReviewLoadingState({
     required this.accountName,
+    this.title,
+    this.description,
   });
 
   final String? accountName;
+  final String? title;
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -838,9 +777,10 @@ class _ReviewLoadingState extends StatelessWidget {
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
             Text(
-              accountName == null
-                  ? 'Preparing your bank sync...'
-                  : 'Syncing transactions into $accountName...',
+              title ??
+                  (accountName == null
+                      ? 'Preparing your bank sync...'
+                      : 'Syncing transactions into $accountName...'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.foreground,
@@ -849,7 +789,8 @@ class _ReviewLoadingState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'We are creating your wallet links and importing recent transactions.',
+              description ??
+                  'We are creating your wallet links and importing recent transactions.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,
