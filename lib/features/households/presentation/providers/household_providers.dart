@@ -19,6 +19,7 @@ import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
 import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
+import '../../../home/presentation/state/dashboard_lazy_providers.dart';
 import 'household_optimistic_providers.dart';
 
 // ============================================================================
@@ -401,6 +402,7 @@ class HouseholdSummaryParams {
 final householdSummaryProvider =
     FutureProvider.family<HouseholdSummary?, HouseholdSummaryParams>(
   (ref, params) async {
+    ref.watch(dashboardRefreshSignalProvider);
     final repository = ref.watch(householdRepositoryProvider);
 
     // Use a tighter timeout so dashboard widgets fail fast instead of

@@ -22,8 +22,6 @@ class Auth extends _$Auth {
 
   @override
   AppUser build() {
-    ref.read(authAccessTokenProvider.notifier).state =
-        supabase.auth.currentSession?.accessToken;
     initListener();
     final user = AppUser.fromSession(supabase.auth.currentSession);
     unawaited(_syncSiriShortcutAuthContext(supabase.auth.currentSession));
@@ -45,8 +43,6 @@ class Auth extends _$Auth {
   initListener() {
     _authStateSubscription =
         supabase.auth.onAuthStateChange.listen((data) async {
-      ref.read(authAccessTokenProvider.notifier).state =
-          data.session?.accessToken;
       state = AppUser.fromSession(data.session);
 
       final event = data.event;
@@ -436,7 +432,10 @@ class Auth extends _$Auth {
   }
 }
 
-final authAccessTokenProvider = StateProvider<String?>((ref) => null);
+final authAccessTokenProvider = Provider<String?>((ref) {
+  ref.watch(authProvider);
+  return supabase.auth.currentSession?.accessToken;
+});
 
 final currentUserIdProvider = Provider<String?>((ref) {
   final user = ref.watch(authProvider);
