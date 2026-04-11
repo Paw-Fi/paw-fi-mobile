@@ -9,13 +9,15 @@ import 'package:moneko/core/constants/deep_links.dart';
 import 'package:moneko/core/app/router.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
 import 'package:moneko/core/notifications/notification_intent_parser.dart';
+import 'package:moneko/core/plaid/models/bank_sync_review_session.dart';
+import 'package:moneko/core/plaid/widgets/plaid_sync_review_page.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/settings/presentation/widgets/whatsapp_verification_modal.dart';
 import 'package:moneko/features/settings/presentation/widgets/telegram_verification_modal.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
 import 'package:go_router/go_router.dart';
@@ -115,11 +117,24 @@ class DeepLinkService {
 
       final params = uri.queryParameters;
       final errorCode = params['error_code'];
+      final errorMessage = params['error_message'];
 
       // Only log non-sensitive status info
       _debugPrint('🏦 Plaid callback status received');
       if (errorCode != null) {
         _debugPrint('🏦 Plaid callback contains error details');
+      }
+
+      ref.invalidate(bankConnectionsProvider);
+
+      final navCtx = rootNavigatorKey.currentContext;
+      if ((navCtx?.mounted ?? false) && errorCode != null) {
+        AppToast.error(
+          navCtx!,
+          errorMessage?.isNotEmpty == true
+              ? errorMessage!
+              : 'Bank reconnect was not completed. Please try again.',
+        );
       }
 
       return;
@@ -356,7 +371,6 @@ class DeepLinkService {
     // Wait a bit to ensure app is fully loaded
     await Future.delayed(const Duration(milliseconds: 300));
 
-    final navigatorContext = rootNavigatorKey.currentContext;
     var dialogShown = false;
 
     try {
@@ -366,79 +380,74 @@ class DeepLinkService {
         return;
       }
 
-      if (navigatorContext?.mounted ?? false) {
+      final pendingState = ref.read(pendingBankLinkStateProvider);
+
+      final loadingContext = rootNavigatorKey.currentContext;
+      if (loadingContext != null && loadingContext.mounted) {
         showBlockingProcessingDialog(
-          context: navigatorContext!,
+          context: loadingContext,
           message: 'Syncing your bank data...',
         );
         dialogShown = true;
       }
 
-      // Sync transactions using credentialsId with state for CSRF validation
-      final syncResponse = await supabase.functions.invoke(
+      final prepareResponse = await supabase.functions.invoke(
         'tink-sync-transactions',
         body: {
           'credentialsId': credentialsId,
           'state': state,
+          'prepareOnly': true,
+          if (pendingState?.targetHouseholdId != null)
+            'targetHouseholdId': pendingState!.targetHouseholdId,
         },
       );
 
-      if (syncResponse.status >= 400) {
-        throw Exception('Failed to sync Tink transactions');
+      if (prepareResponse.status >= 400) {
+        throw Exception('Failed to prepare Tink bank connection');
       }
 
-      final data = syncResponse.data as Map<String, dynamic>?;
-      final connections = data?['connections'] as List<dynamic>?;
-      final addedTransactions = data?['addedTransactions'] as List<dynamic>?;
-
-      String? connectionId;
-      if (connections != null && connections.isNotEmpty) {
-        final row = connections.first as Map<String, dynamic>;
-        connectionId = row['connectionId'] as String?;
+      final data = prepareResponse.data as Map<String, dynamic>?;
+      if (data == null) {
+        throw Exception('Missing Tink connection payload');
       }
 
-      String? syncedCurrency;
-      if (addedTransactions != null && addedTransactions.isNotEmpty) {
-        final tx = addedTransactions.first as Map<String, dynamic>;
-        syncedCurrency = tx['currency'] as String?;
-      }
-
-      String? householdId;
-      if (connectionId != null) {
-        final row = await supabase
-            .from('bank_connections')
-            .select('household_id')
-            .eq('id', connectionId)
-            .maybeSingle();
-        if (row != null) {
-          householdId = row['household_id'] as String?;
-        }
-      }
-
-      _debugPrint('✅ Tink transactions synced successfully');
-
-      // Refresh data
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
-      ref.read(bankSyncResultProvider.notifier).state = BankSyncResult(
-        householdId: householdId,
-        currencyCode: syncedCurrency,
+      final session = BankSyncReviewSession.fromResponse(
+        data: data,
+        provider: 'tink',
+        targetHouseholdId: pendingState?.targetHouseholdId,
       );
+      if (!session.hasAccounts) {
+        throw Exception('No supported bank accounts were returned');
+      }
 
-      // Show success message
-      if (navigatorContext?.mounted ?? false) {
-        AppToast.success(navigatorContext!, 'Bank connected successfully!');
-        navigatorContext.go('/dashboard');
+      ref.read(pendingBankLinkStateProvider.notifier).state = null;
+
+      final currentContext = rootNavigatorKey.currentContext;
+      if (currentContext != null && currentContext.mounted) {
+        final navigator =
+            Navigator.maybeOf(currentContext, rootNavigator: true);
+        if (dialogShown && (navigator?.canPop() ?? false)) {
+          navigator!.pop();
+          dialogShown = false;
+        }
+
+        await Navigator.of(currentContext, rootNavigator: true).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PlaidSyncReviewPage(session: session),
+          ),
+        );
       }
     } catch (e) {
       _debugPrint('❌ Error handling Tink callback');
-      if (navigatorContext?.mounted ?? false) {
+      final errorContext = rootNavigatorKey.currentContext;
+      if (errorContext != null && errorContext.mounted) {
         AppToast.error(
-            navigatorContext!, 'Failed to connect bank: ${e.toString()}');
+            errorContext, 'Failed to connect bank: ${e.toString()}');
       }
     } finally {
-      if (dialogShown && navigatorContext?.mounted == true) {
-        final navigator =
-            Navigator.maybeOf(navigatorContext!, rootNavigator: true);
+      ref.read(pendingBankLinkStateProvider.notifier).state = null;
+      if (dialogShown) {
+        final navigator = rootNavigatorKey.currentState;
         if (navigator?.canPop() ?? false) {
           navigator!.pop();
         }

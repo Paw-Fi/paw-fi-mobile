@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
+import 'package:moneko/core/plaid/pages/plaid_sync_walkthrough_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -244,6 +246,68 @@ void main() {
 
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
+  });
+
+  testWidgets('connect bank pushes Plaid walkthrough in supported timezone',
+      (tester) async {
+    final prefs = await SharedPreferences.getInstance();
+    const wallets = [
+      WalletEntity(
+        id: 'a1',
+        userId: 'u1',
+        householdId: null,
+        name: 'Spending',
+        icon: 'wallet',
+        color: '#6B7280',
+        openingBalanceCents: 0,
+        goalAmountCents: null,
+        isDefault: true,
+        isSystem: true,
+        isArchived: false,
+        currentBalanceCents: 1200,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authProvider.overrideWith(_FakeAuthNotifier.new),
+          authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          appPreferredTimezoneProvider.overrideWith(
+            (ref) => 'America/New_York',
+          ),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
+          mainShellTabIndexProvider.overrideWith((ref) => 0),
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
+          walletsDataServiceProvider
+              .overrideWithValue(_FakeWalletsDataService()),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
+          viewModeProvider.overrideWith(
+            (ref) => ViewModeNotifier()..setPersonalMode(),
+          ),
+        ],
+        child: const MaterialApp(home: AccountsPage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('Connect Bank'),
+      find.byType(ListView).first,
+      const Offset(0, -300),
+    );
+    await tester.tap(find.text('Connect Bank'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PlaidSyncWalkthroughPage), findsOneWidget);
   });
 
   testWidgets('wallets page renders preview wallet data in preview mode',
