@@ -8,14 +8,16 @@ import 'package:moneko/features/import/domain/import_models.dart';
 /// The dedupe key now includes a normalized description to prevent false
 /// positives for same-day/same-amount transactions with different descriptions.
 List<ImportParsedRow> markDuplicates(
-  List<ImportParsedRow> rows,
-  List<ExpenseEntry> existing,
-) {
-  final existingKeys = existing.map(_keyForExpense).toSet();
+    List<ImportParsedRow> rows, List<ExpenseEntry> existing,
+    {String? targetAccountId}) {
+  final existingKeys = existing
+      .map((entry) => _keyForExpense(entry, targetAccountId: targetAccountId))
+      .whereType<String>()
+      .toSet();
   final seenKeys = <String, int>{}; // key → first row index
 
   return rows.map((row) {
-    final key = _keyForRow(row);
+    final key = _keyForRow(row, targetAccountId: targetAccountId);
     if (key == null) {
       return row.copyWith(
         isDuplicate: false,
@@ -64,7 +66,10 @@ List<ImportParsedRow> markDuplicates(
 ///
 /// The description is truncated to the first 40 chars (normalized) to avoid
 /// minor whitespace or punctuation differences causing false negatives.
-String? _keyForRow(ImportParsedRow row) {
+String? _keyForRow(
+  ImportParsedRow row, {
+  String? targetAccountId,
+}) {
   if (!row.isValid) return null;
   final date = row.date!;
   final dateKey = '${date.year}-${date.month}-${date.day}';
@@ -72,18 +77,27 @@ String? _keyForRow(ImportParsedRow row) {
   final currency = (row.currency ?? '').trim().toUpperCase();
   final type = (row.type ?? 'expense').trim().toLowerCase();
   final desc = _normalizeDescription(row.description);
-  return '$dateKey|${row.amountCents}|$currency|$category|$type|$desc';
+  final accountKey = (targetAccountId ?? '').trim();
+  return '$dateKey|${row.amountCents}|$currency|$category|$type|$accountKey|$desc';
 }
 
 /// Builds a composite key from an existing database entry.
-String _keyForExpense(ExpenseEntry entry) {
+String? _keyForExpense(
+  ExpenseEntry entry, {
+  String? targetAccountId,
+}) {
   final date = entry.date.toLocal();
   final dateKey = '${date.year}-${date.month}-${date.day}';
   final category = (entry.category ?? '').trim().toLowerCase();
   final currency = (entry.currency ?? '').trim().toUpperCase();
   final type = (entry.type ?? 'expense').trim().toLowerCase();
+  final accountKey =
+      targetAccountId == null ? '' : (entry.walletId ?? '').trim();
+  if (targetAccountId != null && accountKey != targetAccountId.trim()) {
+    return null;
+  }
   final desc = _normalizeDescription(entry.rawText);
-  return '$dateKey|${entry.amountCents}|$currency|$category|$type|$desc';
+  return '$dateKey|${entry.amountCents}|$currency|$category|$type|$accountKey|$desc';
 }
 
 /// Normalizes a description for dedupe comparison:

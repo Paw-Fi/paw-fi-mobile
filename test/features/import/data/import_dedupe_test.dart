@@ -46,4 +46,47 @@ void main() {
     expect(result[0].isDuplicate, isTrue);
     expect(result[1].isDuplicate, isFalse);
   });
+
+  test('uses selected account when checking existing duplicates', () {
+    final existing = [
+      ExpenseEntry(
+        id: '1',
+        date: DateTime(2026, 2, 1),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'Food',
+        createdAt: DateTime(2026, 2, 1),
+        type: 'expense',
+        rawText: 'Lunch',
+        walletId: 'wallet-a',
+      ),
+    ];
+
+    final rows = [
+      ImportParsedRow(
+        index: 0,
+        date: DateTime(2026, 2, 1),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'Food',
+        description: 'Lunch',
+        type: 'expense',
+        errors: const [],
+      ),
+    ];
+
+    final sameAccount = markDuplicates(
+      rows,
+      existing,
+      targetAccountId: 'wallet-a',
+    );
+    final differentAccount = markDuplicates(
+      rows,
+      existing,
+      targetAccountId: 'wallet-b',
+    );
+
+    expect(sameAccount.single.isDuplicate, isTrue);
+    expect(differentAccount.single.isDuplicate, isFalse);
+  });
 }

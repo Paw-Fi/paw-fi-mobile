@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -15,6 +16,10 @@ import 'package:moneko/features/import/presentation/state/import_wizard_state.da
 class FakeAnalyticsNotifier extends AnalyticsNotifier {
   FakeAnalyticsNotifier(super.ref) {
     state = AnalyticsData(allExpenses: const []);
+  }
+
+  void setExpenses(List<dynamic> expenses) {
+    state = state.copyWith(allExpenses: expenses.cast());
   }
 }
 
@@ -137,6 +142,66 @@ void main() {
     notifier.state = notifier.state.copyWith(parsedRows: const []);
 
     expect(() => notifier.deleteParsedRow(999), returnsNormally);
+  });
+
+  test('setTargetFinancialWallet recalculates duplicates for selected account',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final analyticsNotifier =
+        container.read(analyticsProvider.notifier) as FakeAnalyticsNotifier;
+    analyticsNotifier.setExpenses([
+      ExpenseEntry(
+        id: 'existing-1',
+        date: DateTime(2024, 1, 1),
+        amountCents: 1200,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime(2024, 1, 1),
+        type: 'expense',
+        rawText: 'Lunch',
+        walletId: 'wallet-a',
+      ),
+    ]);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    notifier.state = notifier.state.copyWith(
+      parsedRows: [
+        const ImportParsedRow(
+          index: 0,
+          date: null,
+          amountCents: null,
+          category: null,
+          description: null,
+          currency: null,
+          type: null,
+          errors: [],
+        ).copyWith(
+          date: DateTime(2024, 1, 1),
+          amountCents: 1200,
+          category: 'food',
+          description: 'Lunch',
+          currency: 'USD',
+          type: 'expense',
+          errors: const [],
+        ),
+      ],
+    );
+
+    notifier.setTargetFinancialWallet('wallet-a');
+
+    final updated = container.read(importWizardProvider).parsedRows.single;
+    expect(updated.isDuplicate, isTrue);
+    expect(updated.duplicateReason, DuplicateReason.inDb);
   });
 
   test('deleted rows stay removed after reparse', () async {

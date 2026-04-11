@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +14,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/import/data/import_batch_results.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
 import 'package:moneko/features/import/data/import_excel_parser.dart';
 import 'package:moneko/features/import/data/import_local_parser.dart';
@@ -21,6 +23,8 @@ import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
@@ -335,8 +339,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     required int currentItem,
     required int totalItems,
   }) {
-    final normalizedCurrent =
-        currentItem < 0 ? 0 : (currentItem > totalItems ? totalItems : currentItem);
+    final normalizedCurrent = currentItem < 0
+        ? 0
+        : (currentItem > totalItems ? totalItems : currentItem);
     return formatStreamingProgressMessage(
       message,
       currentItem: normalizedCurrent,
@@ -468,14 +473,23 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           return responseData;
         }
 
+        if (receivedAnyEvent) {
+          return _invokeSaveTransactionsBatchWithRetry(body: body);
+        }
+
         throw Exception(
           'We received an unexpected response while saving your import.',
         );
       } catch (error) {
         lastError = error;
         final status = error is _ImportBackendException ? error.status : null;
-        final shouldRetry =
-            !receivedAnyEvent &&
+        final shouldConfirmWithDirectInvoke = receivedAnyEvent &&
+            error is! _ImportBackendException &&
+            _isRetryableBatchFailure(error: error, status: status);
+        if (shouldConfirmWithDirectInvoke) {
+          return _invokeSaveTransactionsBatchWithRetry(body: body);
+        }
+        final shouldRetry = !receivedAnyEvent &&
             _isRetryableBatchFailure(error: error, status: status);
         if (shouldRetry && attempt < maxAttempts) {
           await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
@@ -492,77 +506,20 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     throw Exception('save-transactions-batch streaming failed unexpectedly');
   }
 
-  ({int succeeded, int failed, String? errorMessage}) _countChunkResults({
+  ({int succeeded, int failed, int skipped, String? errorMessage})
+      _countChunkResults({
     required dynamic data,
     required int expectedCount,
   }) {
-    if (data is! Map<String, dynamic>) {
-      return (
-        succeeded: 0,
-        failed: expectedCount,
-        errorMessage:
-            'We received an unexpected response while importing your file. Please try again.',
-      );
-    }
-
-    final resultsRaw = data['results'];
-    if (resultsRaw is List) {
-      final seenIndices = <int>{};
-      var succeeded = 0;
-      var failed = 0;
-
-      for (final item in resultsRaw) {
-        if (item is! Map) continue;
-        final index = (item['index'] as num?)?.toInt();
-        if (index == null || index < 0 || index >= expectedCount) continue;
-        if (!seenIndices.add(index)) continue;
-
-        if (item['success'] == true) {
-          succeeded += 1;
-        } else {
-          failed += 1;
-        }
-      }
-
-      final unresolved = expectedCount - seenIndices.length;
-      if (unresolved > 0) {
-        failed += unresolved;
-      }
-
-      final errorMessage = unresolved > 0
-          ? 'Some rows were not acknowledged by the server. Please retry import.'
-          : null;
-
-      return (
-        succeeded: succeeded,
-        failed: failed,
-        errorMessage: errorMessage,
-      );
-    }
-
-    final summary = data['summary'];
-    if (summary is Map<String, dynamic>) {
-      final summarySucceeded = (summary['succeeded'] as num?)?.toInt() ?? 0;
-      final summaryFailed = (summary['failed'] as num?)?.toInt() ?? 0;
-      final accounted = summarySucceeded + summaryFailed;
-      if (accounted == expectedCount) {
-        return (
-          succeeded: summarySucceeded,
-          failed: summaryFailed,
-          errorMessage: summaryFailed > 0
-              ? 'Some rows could not be imported. Please review your file and try again.'
-              : null,
-        );
-      }
-    }
-
-    final backendSuccess = data['success'] == true;
+    final counted = countImportBatchResults(
+      data: data,
+      expectedCount: expectedCount,
+    );
     return (
-      succeeded: backendSuccess ? expectedCount : 0,
-      failed: backendSuccess ? 0 : expectedCount,
-      errorMessage: backendSuccess
-          ? null
-          : 'Some rows could not be imported. Please review your file and try again.',
+      succeeded: counted.succeeded,
+      failed: counted.failed,
+      skipped: counted.skipped,
+      errorMessage: counted.errorMessage,
     );
   }
 
@@ -839,6 +796,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final updatedRows = markDuplicates(
       state.parsedRows,
       _existingExpensesForTarget(normalized),
+      targetAccountId: null,
     );
     state = state.copyWith(
       targetHouseholdId: normalized,
@@ -847,15 +805,28 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       clearTargetAccountId: true,
       parsedRows: updatedRows,
     );
+    if (normalized != null) {
+      _prefetchHouseholdExpensesForDedupe(normalized);
+    }
   }
 
   void setTargetFinancialWallet(String? accountId) {
     final normalized =
         (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
+    final updatedRows = markDuplicates(
+      state.parsedRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: normalized,
+    );
     state = state.copyWith(
       targetAccountId: normalized,
       clearTargetAccountId: normalized == null,
+      parsedRows: updatedRows,
     );
+    final householdId = state.targetHouseholdId;
+    if (householdId != null && householdId.isNotEmpty) {
+      _prefetchHouseholdExpensesForDedupe(householdId);
+    }
   }
 
   Future<String?> createWalletForTarget({
@@ -915,7 +886,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (pos < 0) return;
     rows[pos] = _applyImportDefaults(updated);
     final deduped = markDuplicates(
-        rows, _existingExpensesForTarget(state.targetHouseholdId));
+      rows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
     state = state.copyWith(parsedRows: deduped);
   }
 
@@ -924,7 +898,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (!rows.any((r) => r.index == index)) return;
     final updatedRows = rows.where((r) => r.index != index).toList();
     final deduped = markDuplicates(
-        updatedRows, _existingExpensesForTarget(state.targetHouseholdId));
+      updatedRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
 
     final deleted = {...state.deletedRowIndices, index};
     state = state.copyWith(parsedRows: deduped, deletedRowIndices: deleted);
@@ -973,7 +950,15 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       );
       if (resolved is String && resolved.trim().isNotEmpty) {
         effectiveAccountId = resolved.trim();
-        state = state.copyWith(targetAccountId: effectiveAccountId);
+        final updatedRows = markDuplicates(
+          state.parsedRows,
+          _existingExpensesForTarget(targetHouseholdId),
+          targetAccountId: effectiveAccountId,
+        );
+        state = state.copyWith(
+          targetAccountId: effectiveAccountId,
+          parsedRows: updatedRows,
+        );
       }
     }
 
@@ -1040,6 +1025,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     // 3. Chunk into manageable batches and call save-transactions-batch.
     int totalSucceeded = 0;
     int totalFailed = preFilterFailed;
+    int totalSkipped = 0;
     String? firstBatchFailureMessage;
 
     try {
@@ -1052,8 +1038,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         final body = <String, dynamic>{
           'userId': authUser.uid,
           'debugTraceId': '$debugTraceId:$offset-$end',
+          'manualImportMode': true,
           'progressOffset': offset,
           'progressTotal': totalTransactions,
+          'skipSemanticDuplicates': state.skipDuplicates,
           'transactions': chunk,
           if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
             'householdId': targetHouseholdId,
@@ -1077,6 +1065,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
           totalSucceeded += counted.succeeded;
           totalFailed += counted.failed;
+          totalSkipped += counted.skipped;
           firstBatchFailureMessage ??= counted.errorMessage;
         } catch (error) {
           totalFailed += chunk.length;
@@ -1089,7 +1078,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
           failedCount: totalFailed,
           importStatusMessage: _buildImportProgressMessage(
             message: 'Saving transactions...',
-            currentItem: totalSucceeded + totalFailed,
+            currentItem: totalSucceeded + totalFailed + totalSkipped,
             totalItems: totalTransactions,
           ),
         );
@@ -1127,10 +1116,26 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             .toList(growable: false);
 
     return markDuplicates(
-        filteredRows, _existingExpensesForTarget(state.targetHouseholdId));
+      filteredRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
   }
 
   List<ExpenseEntry> _existingExpensesForTarget(String? householdId) {
+    if (householdId != null && householdId.isNotEmpty) {
+      final cached = _ref
+          .read(
+            cachedHouseholdExpensesProvider(
+              HouseholdExpensesParams(householdId: householdId),
+            ),
+          )
+          .valueOrNull;
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
+    }
+
     final allExpenses = _ref.read(analyticsProvider).allExpenses;
     if (householdId == null || householdId.isEmpty) {
       return allExpenses
@@ -1144,6 +1149,27 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     return allExpenses
         .where((expense) => expense.householdId == householdId)
         .toList();
+  }
+
+  void _prefetchHouseholdExpensesForDedupe(String householdId) {
+    unawaited(
+      _ref
+          .read(
+        cachedHouseholdExpensesProvider(
+          HouseholdExpensesParams(householdId: householdId),
+        ).future,
+      )
+          .then((expenses) {
+        if (state.targetHouseholdId != householdId) return;
+        state = state.copyWith(
+          parsedRows: markDuplicates(
+            state.parsedRows,
+            expenses,
+            targetAccountId: state.targetAccountId,
+          ),
+        );
+      }).catchError((_) {}),
+    );
   }
 
   ImportParsedRow _validateRow(ImportParsedRow row) {

@@ -157,10 +157,9 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         previous?.parsingStatusMessage != next.parsingStatusMessage;
     final importMessageChanged =
         previous?.importStatusMessage != next.importStatusMessage;
-    final shouldRefreshSubMessage =
-        shouldBlock &&
-            _isBlockingDialogVisible &&
-            (parsingMessageChanged || importMessageChanged);
+    final shouldRefreshSubMessage = shouldBlock &&
+        _isBlockingDialogVisible &&
+        (parsingMessageChanged || importMessageChanged);
 
     if (!shouldReconcileVisibility && !shouldRefreshSubMessage) return;
 
@@ -200,7 +199,8 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
           _blockingDialogController
               ?.updateSubMessage(latest.parsingStatusMessage);
         } else if (latest.isImporting) {
-          _blockingDialogController?.updateSubMessage(latest.importStatusMessage);
+          _blockingDialogController
+              ?.updateSubMessage(latest.importStatusMessage);
         } else {
           _blockingDialogController?.updateSubMessage(null);
         }
@@ -251,7 +251,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         _isCompletionDialogVisible = false;
       }
 
-      _refreshDataAfterImport(next);
+      await _refreshDataAfterImport(next);
 
       ref.read(importWizardProvider.notifier).resetAfterImport();
       if (!mounted) return;
@@ -259,18 +259,17 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
     });
   }
 
-  void _refreshDataAfterImport(ImportWizardState next) {
+  Future<void> _refreshDataAfterImport(ImportWizardState next) async {
     final authState = ref.read(authProvider);
     final userId = authState.uid;
     if (userId.isEmpty) return;
 
     final targetHouseholdId = next.targetHouseholdId;
     if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
-      unawaited(
-        ref
-            .read(analyticsProvider.notifier)
-            .loadData(userId, forceReload: true),
-      );
+      await ref.read(analyticsProvider.notifier).loadData(
+            userId,
+            forceReload: true,
+          );
     } else {
       ref
           .read(cacheInvalidatorProvider)
@@ -283,6 +282,17 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       ref.invalidate(householdBudgetsProvider);
       ref.invalidate(householdMembersProvider);
       ref.invalidate(appInitializationV2Provider);
+      try {
+        await ref.read(analyticsProvider.notifier).loadData(
+              userId,
+              forceReload: true,
+            );
+        await ref.read(
+          cachedHouseholdExpensesProvider(
+            HouseholdExpensesParams(householdId: targetHouseholdId),
+          ).future,
+        );
+      } catch (_) {}
     }
 
     ref.invalidate(pocketsProvider);
