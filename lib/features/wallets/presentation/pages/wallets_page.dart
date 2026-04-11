@@ -492,6 +492,8 @@ class AccountsPage extends HookConsumerWidget {
                       children: [
                         TextButton.icon(
                           onPressed: () async {
+                            AppToast.info(context, context.l10n.comingSoon);
+                            return;
                             if (isPreviewMode) {
                               AppToast.info(
                                 context,

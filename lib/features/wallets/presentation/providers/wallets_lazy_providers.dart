@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
@@ -7,6 +8,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart'
+    show supabaseClientProvider;
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart'
     show PocketsScopeType, loadScopedRecurringTransactions;
@@ -16,6 +19,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
 
@@ -24,8 +28,34 @@ abstract class WalletsDataService {
   Future<WalletsMonthSnapshot> fetchMonthSnapshot(WalletsMonthQuery query);
 }
 
-class SupabaseWalletsDataService implements WalletsDataService {
-  SupabaseWalletsDataService(this.ref);
+abstract class WalletsRpcRunner {
+  Future<dynamic> run(
+    String rpcName, {
+    required Map<String, dynamic> params,
+  });
+}
+
+abstract class WalletsLegacyDataLoader {
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query);
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(WalletsMonthQuery query);
+}
+
+class SupabaseWalletsRpcRunner implements WalletsRpcRunner {
+  const SupabaseWalletsRpcRunner(this._client);
+
+  final SupabaseClient _client;
+
+  @override
+  Future<dynamic> run(
+    String rpcName, {
+    required Map<String, dynamic> params,
+  }) {
+    return _client.rpc(rpcName, params: params);
+  }
+}
+
+class LocalWalletsLegacyDataLoader implements WalletsLegacyDataLoader {
+  LocalWalletsLegacyDataLoader(this.ref);
 
   final Ref ref;
 
@@ -93,9 +123,110 @@ class SupabaseWalletsDataService implements WalletsDataService {
   }
 }
 
+class SupabaseWalletsDataService implements WalletsDataService {
+  SupabaseWalletsDataService(this.ref);
+
+  final Ref ref;
+
+  WalletsRpcRunner get _rpcRunner => ref.read(walletsRpcRunnerProvider);
+  WalletsLegacyDataLoader get _legacyLoader =>
+      ref.read(walletsLegacyDataLoaderProvider);
+
+  @override
+  Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    try {
+      final response = await _rpcRunner.run(
+        'get_wallets_history_v2',
+        params: query.toHistoryRpcParams(),
+      );
+      return WalletsHistorySummary.fromJson(
+        _parseWalletsRpcPayload(
+          response,
+          rpcName: 'get_wallets_history_v2',
+        ),
+      );
+    } catch (error) {
+      if (!_isMissingWalletsRpcFunctionError(error,
+          rpcName: 'get_wallets_history_v2')) {
+        rethrow;
+      }
+      _debugWalletsMissingRpc('get_wallets_history_v2');
+      return _legacyLoader.fetchHistory(query);
+    }
+  }
+
+  @override
+  Future<WalletsMonthSnapshot> fetchMonthSnapshot(
+      WalletsMonthQuery query) async {
+    try {
+      final response = await _rpcRunner.run(
+        'get_wallets_month_snapshot_v2',
+        params: query.toRpcParams(),
+      );
+      return WalletsMonthSnapshot.fromJson(
+        _parseWalletsRpcPayload(
+          response,
+          rpcName: 'get_wallets_month_snapshot_v2',
+        ),
+      );
+    } catch (error) {
+      if (!_isMissingWalletsRpcFunctionError(error,
+          rpcName: 'get_wallets_month_snapshot_v2')) {
+        rethrow;
+      }
+      _debugWalletsMissingRpc('get_wallets_month_snapshot_v2');
+      return _legacyLoader.fetchMonthSnapshot(query);
+    }
+  }
+}
+
+final walletsLegacyDataLoaderProvider =
+    Provider<WalletsLegacyDataLoader>((ref) {
+  return LocalWalletsLegacyDataLoader(ref);
+});
+
+final walletsRpcRunnerProvider = Provider<WalletsRpcRunner>((ref) {
+  return SupabaseWalletsRpcRunner(ref.watch(supabaseClientProvider));
+});
+
 final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
   return SupabaseWalletsDataService(ref);
 });
+
+Map<String, dynamic> _parseWalletsRpcPayload(
+  dynamic response, {
+  required String rpcName,
+}) {
+  if (response is Map<String, dynamic>) {
+    return response;
+  }
+  if (response is Map) {
+    return Map<String, dynamic>.from(response);
+  }
+  throw StateError('$rpcName returned an unexpected payload: $response');
+}
+
+bool _isMissingWalletsRpcFunctionError(
+  Object error, {
+  required String rpcName,
+}) {
+  if (error is! PostgrestException) {
+    return false;
+  }
+
+  if (error.code == '42883') {
+    return true;
+  }
+
+  return error.message.toLowerCase().contains(rpcName.toLowerCase());
+}
+
+void _debugWalletsMissingRpc(String rpcName) {
+  debugPrint(
+    '[Wallets] RPC $rpcName missing; deploy migration '
+    '20260408170000_add_recurring_aware_wallets_and_pockets_rpcs.sql',
+  );
+}
 
 final walletsHistoryProvider =
     FutureProvider.family<WalletsHistorySummary, WalletsScopeQuery>(
