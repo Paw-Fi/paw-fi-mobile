@@ -19,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -57,6 +58,16 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final recurringPreferenceReady = useState(false);
     final prefs = ref.read(sharedPreferencesProvider);
+    final pageTraceRef = useRef<PocketsDebugTrace?>(null);
+    pageTraceRef.value ??= PocketsDebugTrace(
+      label: 'PocketsPageOpen',
+      enabled: ref.read(pocketsDebugLoggingEnabledProvider),
+      logSink: ref.read(pocketsDebugLogSinkProvider),
+      contextFields: {
+        'user': user.uid.isEmpty ? '<empty>' : user.uid,
+      },
+    );
+    final pageTrace = pageTraceRef.value!;
     final pocketsSwipeHintPrefKey =
         _pocketsMonthSwipeHintDismissedKey(user.uid);
     final hasDismissedSwipeHintState =
@@ -73,6 +84,45 @@ class PocketsPage extends HookConsumerWidget {
         householdScope.activeAccountType == ActiveWalletType.household
             ? householdScope.selectedHouseholdId
             : null;
+
+    useEffect(() {
+      pageTrace.mark('page-mounted');
+      return null;
+    }, const []);
+
+    useEffect(() {
+      pageTrace.mark('page-state', {
+        'viewMode': viewMode.mode.name,
+        'isPreviewMode': isPreviewMode,
+        'selectedCurrency': resolvedSelectedCurrency,
+        'householdScope': householdScope.activeAccountType.name,
+        'resolvedHousehold': resolvedHouseholdId,
+        'includeRecurring': includeUpcomingRecurring,
+      });
+      return null;
+    }, [
+      viewMode.mode,
+      isPreviewMode,
+      resolvedSelectedCurrency,
+      householdScope.activeAccountType,
+      resolvedHouseholdId,
+      includeUpcomingRecurring,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('households-async-state', {
+        'loading': householdsAsync.isLoading,
+        'hasValue': householdsAsync.hasValue,
+        'hasError': householdsAsync.hasError,
+        'count': householdsAsync.valueOrNull?.length,
+      });
+      return null;
+    }, [
+      householdsAsync.isLoading,
+      householdsAsync.hasValue,
+      householdsAsync.hasError,
+      householdsAsync.valueOrNull?.length,
+    ]);
 
     // Prefetch policy:
     // - Keep initial paint fast (only the settled month must render)
@@ -96,6 +146,7 @@ class PocketsPage extends HookConsumerWidget {
     final currentPageIndexState = useState<int>(initialPage);
     final pendingJumpTargetIndexState = useState<int?>(null);
     final currentMonthState = useState(initialMonth);
+    final prefetchUnlockedState = useState(false);
 
     // Reset to initial page when the global filter changes
     useEffect(() {
@@ -106,6 +157,7 @@ class PocketsPage extends HookConsumerWidget {
       currentPageIndexState.value = initialPage;
       pendingJumpTargetIndexState.value = null;
       currentMonthState.value = initialMonth;
+      prefetchUnlockedState.value = false;
       return null;
     }, [initialMonth]);
 
@@ -197,18 +249,27 @@ class PocketsPage extends HookConsumerWidget {
     // Prefetch a small month window (settled month + neighbors) without
     // rebuilding the UI when the background data arrives.
     useEffect(() {
+      if (!recurringPreferenceReady.value) {
+        return null;
+      }
+
       final settledIndex = settledPageIndexState.value;
       final currentPageIndex = currentPageIndexState.value;
       final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+      final effectivePrefetchPastMonths =
+          prefetchUnlockedState.value ? prefetchPastMonths : 0;
+      final effectivePrefetchTowardPresentMonths =
+          prefetchUnlockedState.value ? prefetchTowardPresentMonths : 0;
 
       Future.microtask(() {
         Iterable<int> indicesForCenter(int center) sync* {
-          final startIndex = (center - prefetchPastMonths) < 0
+          final startIndex = (center - effectivePrefetchPastMonths) < 0
               ? 0
-              : (center - prefetchPastMonths);
-          final endIndex = (center + prefetchTowardPresentMonths) > initialPage
-              ? initialPage
-              : (center + prefetchTowardPresentMonths);
+              : (center - effectivePrefetchPastMonths);
+          final endIndex =
+              (center + effectivePrefetchTowardPresentMonths) > initialPage
+                  ? initialPage
+                  : (center + effectivePrefetchTowardPresentMonths);
 
           for (var index = startIndex; index <= endIndex; index++) {
             yield index;
@@ -222,6 +283,14 @@ class PocketsPage extends HookConsumerWidget {
         } else {
           indices.addAll(indicesForCenter(currentPageIndex));
         }
+
+        pageTrace.mark('prefetch-window-scheduled', {
+          'prefetchUnlocked': prefetchUnlockedState.value,
+          'settledIndex': settledIndex,
+          'currentIndex': currentPageIndex,
+          'pendingTarget': pendingJumpTargetIndex,
+          'indices': indices.toList(growable: false),
+        });
 
         for (final index in indices) {
           final offset = index - initialPage;
@@ -274,6 +343,8 @@ class PocketsPage extends HookConsumerWidget {
       settledPageIndexState.value,
       currentPageIndexState.value,
       pendingJumpTargetIndexState.value,
+      recurringPreferenceReady.value,
+      prefetchUnlockedState.value,
       householdScope.activeAccountType,
       householdScope.activeAccountHouseholdId,
       resolvedHouseholdId,
@@ -314,6 +385,7 @@ class PocketsPage extends HookConsumerWidget {
 
     useEffect(() {
       final initialValue = ref.read(includeUpcomingRecurringInPocketsProvider);
+      pageTrace.mark('recurring-preference-load-start');
       Future<void>(() async {
         try {
           final prefs = await SharedPreferences.getInstance();
@@ -335,9 +407,13 @@ class PocketsPage extends HookConsumerWidget {
             ref.read(includeUpcomingRecurringInPocketsProvider.notifier).state =
                 storedValue;
           }
+          pageTrace.mark('recurring-preference-load-success', {
+            'storedValue': storedValue,
+          });
         } finally {
           if (context.mounted) {
             recurringPreferenceReady.value = true;
+            pageTrace.mark('recurring-preference-ready');
           }
         }
       });
@@ -345,6 +421,7 @@ class PocketsPage extends HookConsumerWidget {
     }, const []);
 
     if (!recurringPreferenceReady.value) {
+      pageTrace.mark('page-blocked', const {'reason': 'recurring-preference'});
       return StatusBarOverlayRegion(
           child: AdaptiveScaffold(
         body: Center(
@@ -358,6 +435,7 @@ class PocketsPage extends HookConsumerWidget {
 
     if (householdScope.activeAccountType == ActiveWalletType.household) {
       if (householdsAsync.isLoading) {
+        pageTrace.mark('page-blocked', const {'reason': 'households-loading'});
         return StatusBarOverlayRegion(
             child: AdaptiveScaffold(
           body: Center(
@@ -376,6 +454,7 @@ class PocketsPage extends HookConsumerWidget {
       }
 
       if (householdsAsync.hasError) {
+        pageTrace.mark('page-blocked', const {'reason': 'households-error'});
         return StatusBarOverlayRegion(
             child: AdaptiveScaffold(
           body: Center(
@@ -417,6 +496,7 @@ class PocketsPage extends HookConsumerWidget {
       }
 
       if (households.isEmpty) {
+        pageTrace.mark('page-blocked', const {'reason': 'no-households'});
         return StatusBarOverlayRegion(
             child: AdaptiveScaffold(
           body: const HouseholdOnboardingPage(),
@@ -430,6 +510,8 @@ class PocketsPage extends HookConsumerWidget {
       }
 
       if (resolvedHouseholdId == null) {
+        pageTrace
+            .mark('page-blocked', const {'reason': 'no-selected-household'});
         return StatusBarOverlayRegion(
             child: AdaptiveScaffold(
           body: Center(
@@ -497,6 +579,70 @@ class PocketsPage extends HookConsumerWidget {
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
     final isPocketsLoading = currentPocketsState.isLoading;
+    final didLogUsefulPaintRef = useRef<bool>(false);
+
+    useEffect(() {
+      if (!recurringPreferenceReady.value ||
+          currentPocketsState.isLoading ||
+          prefetchUnlockedState.value) {
+        return null;
+      }
+      prefetchUnlockedState.value = true;
+      pageTrace.mark('prefetch-unlocked', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+      });
+      return null;
+    }, [
+      recurringPreferenceReady.value,
+      currentPocketsState.isLoading,
+      prefetchUnlockedState.value,
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('current-pocket-state', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+        'loading': currentPocketsState.isLoading,
+        'error': currentPocketsState.error,
+        'editingCount': currentPocketsState.editing.length,
+        'totalBudget': currentPocketsState.totalBudget,
+        'uncategorizedCount': currentPocketsState.uncategorized.length,
+        'hasChanges': hasChanges,
+      });
+      return null;
+    }, [
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+      currentPocketsState.isLoading,
+      currentPocketsState.error,
+      currentPocketsState.editing.length,
+      currentPocketsState.totalBudget,
+      currentPocketsState.uncategorized.length,
+      hasChanges,
+    ]);
+
+    useEffect(() {
+      if (didLogUsefulPaintRef.value || currentPocketsState.isLoading) {
+        return null;
+      }
+      didLogUsefulPaintRef.value = true;
+      pageTrace.mark('first-useful-paint', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+        'editingCount': currentPocketsState.editing.length,
+        'totalBudget': currentPocketsState.totalBudget,
+      });
+      return null;
+    }, [
+      currentPocketsState.isLoading,
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+      currentPocketsState.editing.length,
+      currentPocketsState.totalBudget,
+    ]);
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
@@ -520,10 +666,15 @@ class PocketsPage extends HookConsumerWidget {
               final settledIndex = settledPageIndexState.value;
               final currentPageIndex = currentPageIndexState.value;
               final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+              final effectivePrefetchPastMonths =
+                  prefetchUnlockedState.value ? prefetchPastMonths : 0;
+              final effectivePrefetchTowardPresentMonths =
+                  prefetchUnlockedState.value ? prefetchTowardPresentMonths : 0;
 
               bool isInWindow(int index, int centerIndex) {
-                return index >= (centerIndex - prefetchPastMonths) &&
-                    index <= (centerIndex + prefetchTowardPresentMonths);
+                return index >= (centerIndex - effectivePrefetchPastMonths) &&
+                    index <=
+                        (centerIndex + effectivePrefetchTowardPresentMonths);
               }
 
               final shouldBuildFullView = isInWindow(index, settledIndex) ||

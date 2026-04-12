@@ -14,7 +14,9 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -152,19 +154,68 @@ class _PocketsMonthCache {
   }
 }
 
+Duration _pocketsCacheTtl(
+  _CacheKey key,
+  DateTime monthStart,
+) {
+  final now = DateTime.now();
+  final currentMonthStart = DateTime(now.year, now.month, 1);
+
+  if (monthStart.isAfter(currentMonthStart)) {
+    return const Duration(seconds: 20);
+  }
+
+  if (monthStart == currentMonthStart) {
+    if (key.includeUpcomingRecurring) {
+      return const Duration(seconds: 15);
+    }
+    return const Duration(seconds: 45);
+  }
+
+  return const Duration(minutes: 30);
+}
+
 final _pocketsMonthCache = _PocketsMonthCache();
+
+void _invalidatePocketsCachesForUser(Ref ref, String userId) {
+  if (userId.trim().isEmpty) {
+    _pocketsMonthCache.clear();
+    return;
+  }
+
+  _pocketsMonthCache.invalidateUser(userId);
+  ref.read(pocketsPersistedCacheBypassCountProvider.notifier).state++;
+  unawaited(() async {
+    try {
+      await clearAllPersistedPocketsCachesForUser(ref, userId: userId);
+    } finally {
+      final notifier =
+          ref.read(pocketsPersistedCacheBypassCountProvider.notifier);
+      notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+    }
+  }());
+}
 
 // Global cache invalidation hooks.
 // We keep this provider separate so it can listen once per ProviderContainer.
 final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
   // Clear all caches when auth user changes (login/logout).
   ref.listen(authProvider, (previous, next) {
+    if (previous == null) {
+      return;
+    }
     final prevId = previous?.uid ?? '';
     final nextId = next.uid;
     if (prevId != nextId) {
       _pocketsMonthCache.clear();
+      if (prevId.isNotEmpty) {
+        _invalidatePocketsCachesForUser(ref, prevId);
+      }
+      if (nextId.isNotEmpty) {
+        _invalidatePocketsCachesForUser(ref, nextId);
+      }
     }
-  }, fireImmediately: true);
+  });
 
   // Invalidate caches when the active account scope changes (personal/portfolio/household)
   // or when household selection changes. Even though cache keys include these fields,
@@ -175,7 +226,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (previous.mode != next.mode) {
       final uid = ref.read(authProvider).uid;
       if (uid.isNotEmpty) {
-        _pocketsMonthCache.invalidateUser(uid);
+        _invalidatePocketsCachesForUser(ref, uid);
       } else {
         _pocketsMonthCache.clear();
       }
@@ -189,7 +240,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (prevId != nextId) {
       final uid = ref.read(authProvider).uid;
       if (uid.isNotEmpty) {
-        _pocketsMonthCache.invalidateUser(uid);
+        _invalidatePocketsCachesForUser(ref, uid);
       } else {
         _pocketsMonthCache.clear();
       }
@@ -202,7 +253,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (previous != next) {
       final uid = ref.read(authProvider).uid;
       if (uid.isNotEmpty) {
-        _pocketsMonthCache.invalidateUser(uid);
+        _invalidatePocketsCachesForUser(ref, uid);
       } else {
         _pocketsMonthCache.clear();
       }
@@ -215,7 +266,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (previous != next) {
       final uid = ref.read(authProvider).uid;
       if (uid.isNotEmpty) {
-        _pocketsMonthCache.invalidateUser(uid);
+        _invalidatePocketsCachesForUser(ref, uid);
       } else {
         _pocketsMonthCache.clear();
       }
@@ -595,8 +646,7 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
     return const <ExpenseEntry>[];
   }
 
-  final projectedExpenses =
-      projectRecurringTransactionsAsExpenseEntries(
+  final projectedExpenses = projectRecurringTransactionsAsExpenseEntries(
     recurringTransactions: recurringTransactions
         .where((transaction) => transaction.type.toLowerCase() == 'expense')
         .toList(growable: false),
@@ -744,6 +794,68 @@ class PocketsState {
         uncategorized: [],
         uncategorizedExpenses: {},
       );
+
+  Map<String, dynamic> toCacheJson() {
+    return {
+      'is_loading': isLoading,
+      'error': error,
+      'saved': saved.map((pocket) => pocket.toJson()).toList(growable: false),
+      'editing':
+          editing.map((pocket) => pocket.toJson()).toList(growable: false),
+      'budget_id': budgetId,
+      'period_month': periodMonth.toIso8601String(),
+      'previous_budget': previousBudget,
+      'has_previous_month_pockets': hasPreviousMonthPockets,
+      'currency': currency,
+      'total_budget': totalBudget,
+      'saved_total_budget': savedTotalBudget,
+      'unallocated_spend': unallocatedSpend,
+      'uncategorized':
+          uncategorized.map((item) => item.toJson()).toList(growable: false),
+      'uncategorized_expenses': uncategorizedExpenses,
+    };
+  }
+
+  factory PocketsState.fromCacheJson(Map<String, dynamic> json) {
+    return PocketsState(
+      isLoading: json['is_loading'] == true,
+      error: json['error'] as String?,
+      saved: ((json['saved'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false),
+      editing: ((json['editing'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false),
+      budgetId: json['budget_id'] as String?,
+      periodMonth: DateTime.parse(
+        json['period_month'] as String? ??
+            DateTime(1970, 1, 1).toIso8601String(),
+      ),
+      previousBudget: (json['previous_budget'] as num?)?.toDouble() ?? 0,
+      hasPreviousMonthPockets: json['has_previous_month_pockets'] == true,
+      currency: json['currency'] as String? ?? 'USD',
+      totalBudget: (json['total_budget'] as num?)?.toDouble() ?? 0,
+      savedTotalBudget: (json['saved_total_budget'] as num?)?.toDouble() ?? 0,
+      unallocatedSpend: (json['unallocated_spend'] as num?)?.toDouble() ?? 0,
+      uncategorized: ((json['uncategorized'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) =>
+              UncategorizedCategory.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false),
+      uncategorizedExpenses:
+          ((json['uncategorized_expenses'] as Map?) ?? const {}).map(
+        (key, value) => MapEntry(
+          key.toString(),
+          ((value as List?) ?? const [])
+              .cast<Map>()
+              .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
 }
 
 class UncategorizedCategory {
@@ -754,6 +866,20 @@ class UncategorizedCategory {
 
   final String category;
   final double amount;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'amount': amount,
+    };
+  }
+
+  factory UncategorizedCategory.fromJson(Map<String, dynamic> json) {
+    return UncategorizedCategory(
+      category: json['category'] as String? ?? 'uncategorized',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 class PocketsNotifier extends StateNotifier<PocketsState> {
@@ -857,14 +983,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   }
 
   Future<void> _load({bool bypassCache = false}) async {
-    _debugLog(
-        '[Pockets] Starting _load for scope: ${params.scope}, month: ${params.periodMonth}');
+    final trace = _createPocketsTrace(
+      ref,
+      label: 'PocketsLoad',
+      contextFields: {
+        ..._describePocketsScopeParams(params),
+        'bypassCache': bypassCache,
+      },
+    );
+    trace.mark('load-start');
     if (!mounted) return;
 
     // Ensure global invalidation listeners are registered.
     ref.watch(_pocketsMonthCacheInvalidationProvider);
 
     if (_isPreview) {
+      trace.mark('preview-state-applied');
       state = state.copyWith(isLoading: true, clearError: true);
       _applyPreviewState();
       return;
@@ -893,6 +1027,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           params.householdId ?? (_isPreview ? 'preview-house-1' : null);
 
       if (isHousehold && householdId == null) {
+        trace.mark('load-empty-state', const {'reason': 'missing-household'});
         if (!mounted) return;
         state = PocketsState(
           isLoading: false,
@@ -914,6 +1049,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
 
       if (isPortfolio && householdId == null) {
+        trace.mark('load-error-state', const {'reason': 'missing-portfolio'});
         if (!mounted) return;
         state = PocketsState(
           isLoading: false,
@@ -956,22 +1092,37 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         allowCurrencyFallback: allowCurrencyFallback,
       );
       _lastCacheKey = cacheKey;
+      final persistedCacheKey = pocketsPersistedCacheKey(
+        userId: authUser.uid,
+        scope: scopeType.name,
+        householdId: householdId,
+        periodMonth: periodMonth,
+        currency: selectedCurrency,
+        includeUpcomingRecurring: params.includeUpcomingRecurring,
+        allowCurrencyFallback: allowCurrencyFallback,
+      );
+      final bypassPersistedCache =
+          ref.read(pocketsPersistedCacheBypassCountProvider) > 0;
 
       final now = DateTime.now();
       if (!bypassCache) {
         final cached = _pocketsMonthCache.getAny(cacheKey, now);
         if (cached != null) {
+          final isFresh = _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
+          trace.mark('cache-hit', {
+            'editingCount': cached.editing.length,
+            'isFresh': isFresh,
+            'totalBudget': cached.totalBudget,
+          });
           // Serve cached state immediately.
           if (!mounted) return;
           state = cached.copyWith(isLoading: false, clearError: true);
 
           // If stale, refresh in the background (deduped per key).
-          final isFresh = _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
           if (!isFresh) {
             final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
             if (existingInFlight == null) {
-              _debugLog(
-                  '[Pockets][Cache] Stale cache hit; refreshing in background ($periodMonth/$selectedCurrency)');
+              trace.mark('background-refresh-start');
               unawaited(
                 _refreshFromBackend(
                   cacheKey: cacheKey,
@@ -982,6 +1133,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   initialCurrency: initialCurrency,
                   allowCurrencyFallback: allowCurrencyFallback,
                   showLoadingIndicator: false,
+                  trace: trace,
                 ).then((loaded) {
                   if (!mounted) return;
                   // Avoid clobbering local edits.
@@ -989,18 +1141,72 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   if (_lastCacheKey != cacheKey) return;
                   state = loaded;
                 }).catchError((Object error, StackTrace stackTrace) {
-                  _debugLog(
-                    '[Pockets][Cache] Background refresh failed: $error',
-                  );
+                  trace.mark('background-refresh-error', {'error': error});
                 }),
               );
+            } else {
+              trace.mark('background-refresh-inflight-hit');
             }
           }
           return;
         }
+
+        if (!bypassPersistedCache) {
+          final persistedPayload = readPersistedPocketsCache(
+            ref,
+            key: persistedCacheKey,
+          );
+          if (persistedPayload != null) {
+            final statePayload =
+                resolvePersistedPocketsStatePayload(persistedPayload);
+            if (statePayload != null) {
+              final persistedState = PocketsState.fromCacheJson(statePayload)
+                  .copyWith(isLoading: false, clearError: true);
+              final cachedAt =
+                  resolvePersistedPocketsCachedAt(persistedPayload);
+              final isFresh = cachedAt != null
+                  ? now.difference(cachedAt) <=
+                      _pocketsCacheTtl(cacheKey, monthStart)
+                  : false;
+              trace.mark('persisted-cache-hit', {
+                'editingCount': persistedState.editing.length,
+                'isFresh': isFresh,
+                'totalBudget': persistedState.totalBudget,
+              });
+              _pocketsMonthCache.set(cacheKey, persistedState, now);
+              if (!mounted) return;
+              state = persistedState;
+              if (!isFresh) {
+                Future<void>(() async {
+                  try {
+                    final loaded = await _refreshFromBackend(
+                      cacheKey: cacheKey,
+                      monthStart: monthStart,
+                      periodMonth: periodMonth,
+                      scopeType: scopeType,
+                      householdId: householdId,
+                      initialCurrency: initialCurrency,
+                      allowCurrencyFallback: allowCurrencyFallback,
+                      showLoadingIndicator: false,
+                      trace: trace,
+                    );
+                    if (!mounted) return;
+                    if (state.hasChanges) return;
+                    if (_lastCacheKey != cacheKey) return;
+                    state = loaded;
+                  } catch (error) {
+                    trace.mark('background-refresh-error', {'error': error});
+                  }
+                });
+              }
+              return;
+            }
+          }
+        }
       }
 
       // No cache (or bypass requested), show loader.
+      trace.mark('cache-miss', {'periodMonth': periodMonth});
       state = state.copyWith(isLoading: true, clearError: true);
 
       _debugLog(
@@ -1015,11 +1221,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         initialCurrency: initialCurrency,
         allowCurrencyFallback: allowCurrencyFallback,
         showLoadingIndicator: true,
+        trace: trace,
       );
       if (!mounted) return;
       state = loadedState;
+      trace.mark('load-success', {
+        'editingCount': loadedState.editing.length,
+        'totalBudget': loadedState.totalBudget,
+        'uncategorizedCount': loadedState.uncategorized.length,
+      });
       return;
     } catch (e) {
+      trace.mark('load-error', {'error': e});
       if (!mounted) return;
       state = state.copyWith(
           isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
@@ -1085,15 +1298,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String initialCurrency,
     required bool allowCurrencyFallback,
     required bool showLoadingIndicator,
+    required PocketsDebugTrace trace,
   }) async {
     final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
     if (existingInFlight != null) {
+      trace.mark('backend-inflight-hit');
       return existingInFlight;
     }
 
     Future<PocketsState> doFetch() async {
       final authUser = ref.read(authProvider);
       var selectedCurrency = initialCurrency;
+
+      trace.mark('rpc-start', {
+        'periodMonth': periodMonth,
+        'requestedCurrency': initialCurrency,
+      });
 
       final payload = await _fetchPocketsMonthPayload(
         userId: authUser.uid,
@@ -1184,6 +1404,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // monthly pocket totals will double count.
       final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
+      trace.mark('rpc-success', {
+        'budgetId': budgetId ?? '<none>',
+        'envelopeCount': envRows.length,
+        'actualExpenseCount': actualExpenseRows.length,
+        'filteredActualExpenseCount': filteredActualExpenses.length,
+        'selectedCurrency': selectedCurrency,
+      });
+
+      trace.mark('projection-start');
       final projectedRecurringExpenses = await loadProjectedPocketMonthExpenses(
         userId: authUser.uid,
         scope: scopeType,
@@ -1193,6 +1422,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         includeUpcomingRecurring: params.includeUpcomingRecurring,
         actualExpenses: filteredActualExpenses,
       );
+      trace.mark('projection-success', {
+        'projectedRecurringCount': projectedRecurringExpenses.length,
+      });
       // CRITICAL: keep projected recurring expenses in the monthly pocket
       // calculation.
       // STRICT REQUIREMENT: pocket totals/spent amounts must include recurring
@@ -1413,7 +1645,48 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           allowCurrencyFallback: cacheKey.allowCurrencyFallback,
         );
         _pocketsMonthCache.set(effectiveKey, loaded, completedAt);
+        unawaited(
+          persistPocketsCache(
+            ref,
+            key: pocketsPersistedCacheKey(
+              userId: cacheKey.userId,
+              scope: cacheKey.scope.name,
+              householdId: cacheKey.householdId,
+              periodMonth: cacheKey.periodMonth,
+              currency: loaded.currency.toUpperCase(),
+              includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
+              allowCurrencyFallback: cacheKey.allowCurrencyFallback,
+            ),
+            payload: {
+              'cached_at': completedAt.toIso8601String(),
+              'state': loaded.toCacheJson(),
+            },
+          ),
+        );
       }
+      unawaited(
+        persistPocketsCache(
+          ref,
+          key: pocketsPersistedCacheKey(
+            userId: cacheKey.userId,
+            scope: cacheKey.scope.name,
+            householdId: cacheKey.householdId,
+            periodMonth: cacheKey.periodMonth,
+            currency: cacheKey.currency,
+            includeUpcomingRecurring: cacheKey.includeUpcomingRecurring,
+            allowCurrencyFallback: cacheKey.allowCurrencyFallback,
+          ),
+          payload: {
+            'cached_at': completedAt.toIso8601String(),
+            'state': loaded.toCacheJson(),
+          },
+        ),
+      );
+      trace.mark('backend-state-ready', {
+        'editingCount': loaded.editing.length,
+        'totalBudget': loaded.totalBudget,
+        'unallocatedSpend': loaded.unallocatedSpend,
+      });
       return loaded;
     } finally {
       _pocketsMonthCache.clearInFlight(cacheKey);
@@ -2366,32 +2639,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
 final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
     PocketsState, PocketsScopeParams>((ref, params) {
-  // If this provider is invalidated (e.g., pull-to-refresh), drop the cached
-  // snapshot so the new notifier performs a true refetch.
-  ref.onDispose(() {
-    final authUserId = ref.read(authProvider).uid;
-    if (authUserId.isEmpty) return;
-
-    final month = params.periodMonth ?? DateTime.now();
-    final monthStart = DateTime(month.year, month.month, 1);
-    final periodMonth = _formatDate(monthStart);
-    final currency =
-        (params.currency ?? ref.read(selectedHomeCurrencyCodeProvider) ?? '')
-            .trim()
-            .toUpperCase();
-
-    final key = (
-      userId: authUserId,
-      scope: params.scope,
-      householdId: params.householdId,
-      periodMonth: periodMonth,
-      currency: currency.isEmpty ? 'USD' : currency,
-      includeUpcomingRecurring: params.includeUpcomingRecurring,
-      allowCurrencyFallback: params.isBootstrapCurrency,
-    );
-    _pocketsMonthCache.invalidate(key);
-  });
-
   // Ensure we always have the latest selected household id when in household scope
   if (params.scope == PocketsScopeType.household &&
       params.householdId == null) {
@@ -2410,6 +2657,30 @@ final pocketsProvider = StateNotifierProvider.family<PocketsNotifier,
   }
   return PocketsNotifier(ref, params);
 });
+
+PocketsDebugTrace _createPocketsTrace(
+  Ref ref, {
+  required String label,
+  Map<String, Object?> contextFields = const <String, Object?>{},
+}) {
+  return PocketsDebugTrace(
+    label: label,
+    enabled: ref.read(pocketsDebugLoggingEnabledProvider),
+    logSink: ref.read(pocketsDebugLogSinkProvider),
+    contextFields: contextFields,
+  );
+}
+
+Map<String, Object?> _describePocketsScopeParams(PocketsScopeParams params) {
+  return {
+    'scope': params.scope.name,
+    'household': params.householdId ?? '<none>',
+    'month': params.periodMonth,
+    'currency': (params.currency ?? '<none>').toUpperCase(),
+    'bootstrapCurrency': params.isBootstrapCurrency,
+    'includeRecurring': params.includeUpcomingRecurring,
+  };
+}
 
 String _formatDate(DateTime date) {
   final y = date.year.toString().padLeft(4, '0');
