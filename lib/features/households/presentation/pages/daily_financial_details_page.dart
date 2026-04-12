@@ -42,17 +42,21 @@ class DailyFinancialDetailsPage extends StatelessWidget {
       return t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day &&
-          !t.isRecurring &&
           (t.currency ?? '').trim().toUpperCase() == currency;
     }).toList();
 
     final projectedRecurringEntriesForDay =
-        projectRecurringTransactionsAsExpenseEntries(
+        mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: dailyTransactions,
       recurringTransactions: recurringTransactions,
       rangeStart: date,
       rangeEnd: date,
       selectedCurrency: currency,
-    );
+      includeFutureOccurrences: true,
+    ).where((expense) {
+      return extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
+          null;
+    }).toList();
 
     String? tryExtractRecurringId(String syntheticId) {
       final d = DateTime(date.year, date.month, date.day);
@@ -75,6 +79,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
         .map((e) => tryExtractRecurringId(e.id))
         .whereType<String>()
         .toSet();
+    final chartTransactions = [
+      ...dailyTransactions,
+      ...projectedRecurringEntriesForDay,
+    ];
 
     // Filter recurring transactions for this specific day
     final dailyRecurring = recurringTransactions
@@ -133,13 +141,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Spending Breakdown Chart
-                  if (dailyTransactions.any((t) =>
+                  if (chartTransactions.any((t) =>
                       (t.type ?? 'expense').toLowerCase() != 'income')) ...[
                     _DailySpendingChart(
-                      transactions: [
-                        ...dailyTransactions,
-                        ...projectedRecurringEntriesForDay,
-                      ],
+                      transactions: chartTransactions,
                       currency: currency,
                     ),
                     const SizedBox(height: 24),

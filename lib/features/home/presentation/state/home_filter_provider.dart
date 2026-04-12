@@ -87,7 +87,6 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   // Filter expenses locally by currency AND view mode
   final filtered = allExpenses
       .where((expense) {
-        if (expense.isRecurring) return false;
         final expCurrency = (expense.currency ?? '').toUpperCase();
         final currencyOk = selectedCurrency == null ||
             expCurrency.isEmpty ||
@@ -122,7 +121,6 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   return all.where((tx) {
-    if (tx.isRecurring) return false;
     final txCurrency = (tx.currency ?? '').toUpperCase();
     final currencyOk = selectedCurrency == null ||
         txCurrency.isEmpty ||

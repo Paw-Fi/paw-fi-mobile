@@ -19,25 +19,29 @@ abstract class DashboardDataService {
       DashboardScopeQuery query);
 }
 
-
 class PreviewDashboardDataService implements DashboardDataService {
   const PreviewDashboardDataService();
 
   @override
-  Future<DashboardSnapshotSummary> fetchSnapshot(DashboardScopeQuery query) async {
+  Future<DashboardSnapshotSummary> fetchSnapshot(
+      DashboardScopeQuery query) async {
     final expenses = PreviewMockData.expenses.where((entry) {
       final matchesHousehold = query.householdId == null
           ? (entry.householdId == null || (entry.householdId?.isEmpty ?? false))
           : entry.householdId == query.householdId;
       final matchesCurrency = query.normalizedCurrency == null ||
           (entry.currency ?? '').toUpperCase() == query.normalizedCurrency;
-      final matchesStart = query.startDate == null || !entry.date.isBefore(query.startDate!);
-      final matchesEnd = query.endDate == null || !entry.date.isAfter(query.endDate!);
-      return !entry.isRecurring && matchesHousehold && matchesCurrency && matchesStart && matchesEnd;
+      final matchesStart =
+          query.startDate == null || !entry.date.isBefore(query.startDate!);
+      final matchesEnd =
+          query.endDate == null || !entry.date.isAfter(query.endDate!);
+      return matchesHousehold && matchesCurrency && matchesStart && matchesEnd;
     }).toList();
 
-    final expenseRows = expenses.where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income');
-    final incomeRows = expenses.where((entry) => (entry.type ?? 'expense').toLowerCase() == 'income');
+    final expenseRows = expenses
+        .where((entry) => (entry.type ?? 'expense').toLowerCase() != 'income');
+    final incomeRows = expenses
+        .where((entry) => (entry.type ?? 'expense').toLowerCase() == 'income');
     final categoryTotals = <String, DashboardCategorySummary>{};
     for (final entry in expenseRows) {
       final category = (entry.category ?? 'uncategorized').toLowerCase();
@@ -50,16 +54,24 @@ class PreviewDashboardDataService implements DashboardDataService {
     }
     return DashboardSnapshotSummary(
       transactionCount: expenses.length,
-      expenseTotal: expenseRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
-      incomeTotal: incomeRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
-      hasMultipleCurrencies: expenses.map((e) => (e.currency ?? '').toUpperCase()).where((e) => e.isNotEmpty).toSet().length > 1,
+      expenseTotal:
+          expenseRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
+      incomeTotal:
+          incomeRows.fold<double>(0, (sum, entry) => sum + entry.amount.abs()),
+      hasMultipleCurrencies: expenses
+              .map((e) => (e.currency ?? '').toUpperCase())
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .length >
+          1,
       categorySummaries: categoryTotals.values.toList(growable: false),
       periodTotals: const <DateTime, double>{},
     );
   }
 
   @override
-  Future<List<ExpenseEntry>> fetchRecentTransactions(DashboardRecentTransactionsRequest request) async {
+  Future<List<ExpenseEntry>> fetchRecentTransactions(
+      DashboardRecentTransactionsRequest request) async {
     final all = await fetchCalendarTransactions(request.query);
     all.sort((a, b) {
       final byDate = b.date.compareTo(a.date);
@@ -70,17 +82,27 @@ class PreviewDashboardDataService implements DashboardDataService {
   }
 
   @override
-  Future<List<ExpenseEntry>> fetchCalendarTransactions(DashboardScopeQuery query) async {
-    return PreviewMockData.expenses.where((entry) {
-      final matchesHousehold = query.householdId == null
-          ? (entry.householdId == null || (entry.householdId?.isEmpty ?? false))
-          : entry.householdId == query.householdId;
-      final matchesCurrency = query.normalizedCurrency == null ||
-          (entry.currency ?? '').toUpperCase() == query.normalizedCurrency;
-      final matchesStart = query.startDate == null || !entry.date.isBefore(query.startDate!);
-      final matchesEnd = query.endDate == null || !entry.date.isAfter(query.endDate!);
-      return !entry.isRecurring && matchesHousehold && matchesCurrency && matchesStart && matchesEnd;
-    }).map((entry) => entry.copyWith()).toList(growable: false);
+  Future<List<ExpenseEntry>> fetchCalendarTransactions(
+      DashboardScopeQuery query) async {
+    return PreviewMockData.expenses
+        .where((entry) {
+          final matchesHousehold = query.householdId == null
+              ? (entry.householdId == null ||
+                  (entry.householdId?.isEmpty ?? false))
+              : entry.householdId == query.householdId;
+          final matchesCurrency = query.normalizedCurrency == null ||
+              (entry.currency ?? '').toUpperCase() == query.normalizedCurrency;
+          final matchesStart =
+              query.startDate == null || !entry.date.isBefore(query.startDate!);
+          final matchesEnd =
+              query.endDate == null || !entry.date.isAfter(query.endDate!);
+          return matchesHousehold &&
+              matchesCurrency &&
+              matchesStart &&
+              matchesEnd;
+        })
+        .map((entry) => entry.copyWith())
+        .toList(growable: false);
   }
 }
 

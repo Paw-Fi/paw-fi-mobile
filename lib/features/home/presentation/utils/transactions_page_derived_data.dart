@@ -3,6 +3,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 
 class TransactionsPageFilterInput {
   final List<ExpenseEntry> baseExpenses;
@@ -104,17 +105,21 @@ TransactionsPageDerivedData deriveTransactionsPageData(
   TransactionsPageFilterInput input,
 ) {
   final categories = input.baseExpenses
-      .where((expense) => !expense.isRecurring)
       .map((expense) => (expense.category ?? 'uncategorized').toLowerCase())
       .toSet()
       .toList()
     ..sort();
 
-  var expenses =
-      input.baseExpenses.where((expense) => !expense.isRecurring).toList();
+  var expenses = input.baseExpenses.toList();
 
   if (input.projectedRecurringExpenses.isNotEmpty) {
-    expenses = [...expenses, ...input.projectedRecurringExpenses];
+    expenses = [
+      ...expenses,
+      ...dedupeProjectedRecurringExpenseEntries(
+        projectedExpenses: input.projectedRecurringExpenses,
+        actualExpenses: expenses,
+      ),
+    ];
   }
 
   if (input.pinnedHouseholdId == null) {

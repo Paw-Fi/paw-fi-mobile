@@ -54,9 +54,6 @@ Widget buildHouseholdMemberSpendingCard(
         : <String, ExpenseSplitGroup>{};
 
     for (final t in transactions) {
-      // Never count recurring template rows as real transactions.
-      if (t.isRecurring) continue;
-
       final tdate = DateTime(t.date.year, t.date.month, t.date.day);
       final code = (t.currency ?? '').trim().toUpperCase();
       final currencyOk =

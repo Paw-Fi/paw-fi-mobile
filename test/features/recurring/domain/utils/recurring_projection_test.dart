@@ -188,6 +188,172 @@ void main() {
   });
 
   test(
+      'mergeActualExpensesWithProjectedRecurring counts only overdue occurrences when future entries are disabled',
+      () {
+    final overdue = RecurringTransaction(
+      id: 'rent',
+      date: DateTime(2026, 4, 10),
+      category: 'housing',
+      description: 'Rent',
+      amount: 950.0,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 4, 10),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 4, 1),
+    );
+    final upcoming = RecurringTransaction(
+      id: 'internet',
+      date: DateTime(2026, 4, 25),
+      category: 'bills',
+      description: 'Internet',
+      amount: 50.0,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 4, 25),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 4, 1),
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: const [],
+      recurringTransactions: [overdue, upcoming],
+      rangeStart: DateTime(2026, 4, 1),
+      rangeEnd: DateTime(2026, 4, 30),
+      selectedCurrency: 'USD',
+      includeFutureOccurrences: false,
+      now: DateTime(2026, 4, 15),
+    );
+
+    expect(merged, hasLength(1));
+    expect(merged.single.id,
+        buildProjectedRecurringExpenseId('rent', DateTime(2026, 4, 10)));
+  });
+
+  test(
+      'mergeActualExpensesWithProjectedRecurring keeps actual recurring rows and dedupes matching projections',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'rent',
+      userId: 'user_1',
+      date: DateTime(2026, 4, 10),
+      category: 'housing',
+      description: 'Rent',
+      amount: 950.0,
+      currency: 'USD',
+      ownerType: 'me',
+      privacyScope: 'full',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 4, 10),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 4, 1),
+    );
+    final actualRecurringExpense = ExpenseEntry(
+      id: 'expense_1',
+      userId: 'user_1',
+      date: DateTime(2026, 4, 10),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 4, 10),
+      rawText: 'Rent',
+      type: 'expense',
+      isRecurring: true,
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: [actualRecurringExpense],
+      recurringTransactions: [recurring],
+      rangeStart: DateTime(2026, 4, 1),
+      rangeEnd: DateTime(2026, 4, 30),
+      selectedCurrency: 'USD',
+      includeFutureOccurrences: false,
+      now: DateTime(2026, 4, 15),
+    );
+
+    expect(merged, hasLength(1));
+    expect(merged.single.id, actualRecurringExpense.id);
+    expect(merged.single.isRecurring, isTrue);
+  });
+
+  test(
+      'mergeActualExpensesWithProjectedRecurring does not count future-dated actual recurring rows before they are due',
+      () {
+    final actualFutureRecurringExpense = ExpenseEntry(
+      id: 'expense_future',
+      userId: 'user_1',
+      date: DateTime(2026, 4, 25),
+      amountCents: 95000,
+      currency: 'USD',
+      category: 'housing',
+      createdAt: DateTime(2026, 4, 1),
+      rawText: 'Rent',
+      type: 'expense',
+      isRecurring: true,
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: [actualFutureRecurringExpense],
+      recurringTransactions: const [],
+      rangeStart: DateTime(2026, 4, 1),
+      rangeEnd: DateTime(2026, 4, 30),
+      selectedCurrency: 'USD',
+      includeFutureOccurrences: false,
+      now: DateTime(2026, 4, 15),
+    );
+
+    expect(merged, isEmpty);
+  });
+
+  test(
+      'dedupes projected recurring income entries when actual income already exists',
+      () {
+    final projectedIncome = ExpenseEntry(
+      id: buildProjectedRecurringExpenseId('salary', DateTime(2026, 4, 10)),
+      userId: 'user_1',
+      date: DateTime(2026, 4, 10),
+      amountCents: 250000,
+      currency: 'USD',
+      category: 'income',
+      createdAt: DateTime(2026, 4, 1),
+      rawText: 'Salary',
+      type: 'income',
+    );
+    final actualIncome = ExpenseEntry(
+      id: 'income_1',
+      userId: 'user_1',
+      date: DateTime(2026, 4, 10),
+      amountCents: 250000,
+      currency: 'USD',
+      category: 'income',
+      createdAt: DateTime(2026, 4, 10),
+      rawText: 'Salary',
+      type: 'income',
+      isRecurring: true,
+    );
+
+    final deduped = dedupeProjectedRecurringExpenseEntries(
+      projectedExpenses: [projectedIncome],
+      actualExpenses: [actualIncome],
+    );
+
+    expect(deduped, isEmpty);
+  });
+
+  test(
       'does not collapse distinct recurring expenses that share date and amount',
       () {
     final projected = ExpenseEntry(

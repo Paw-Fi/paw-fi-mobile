@@ -245,9 +245,8 @@ List<ExpenseEntry> projectRecurringTransactionsAsExpenseEntries({
     for (final day in occurrences()) {
       // Skip excluded dates
       if (excludedKeys.contains(_dateKey(day))) continue;
-      final ownerUserId = (r.payerUserId != null && r.payerUserId!.isNotEmpty)
-          ? r.payerUserId
-          : r.userId;
+      final ownerUserId =
+          (r.userId != null && r.userId!.isNotEmpty) ? r.userId : r.payerUserId;
 
       result.add(
         ExpenseEntry(
@@ -307,15 +306,69 @@ List<ExpenseEntry> dedupeProjectedRecurringExpenseEntries({
     return projectedExpenses;
   }
 
-  final actualKeys = actualExpenses
-      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
-      .map(_projectedExpenseComparisonKey)
-      .toSet();
+  final actualKeys = actualExpenses.map(_projectedExpenseComparisonKey).toSet();
 
   return projectedExpenses
       .where((expense) =>
           !actualKeys.contains(_projectedExpenseComparisonKey(expense)))
       .toList(growable: false);
+}
+
+List<ExpenseEntry> mergeActualExpensesWithProjectedRecurring({
+  required List<ExpenseEntry> actualExpenses,
+  required List<RecurringTransaction> recurringTransactions,
+  required DateTime rangeStart,
+  required DateTime rangeEnd,
+  String? selectedCurrency,
+  bool includeFutureOccurrences = true,
+  DateTime? now,
+}) {
+  final normalizedStart = _dateOnly(rangeStart);
+  final normalizedEnd = _dateOnly(rangeEnd);
+  final today = _dateOnly(now ?? DateTime.now());
+  final projectionEnd =
+      includeFutureOccurrences ? normalizedEnd : _minDate(normalizedEnd, today);
+  final currencyFilter = selectedCurrency?.trim().toUpperCase();
+  final filteredActualExpenses = actualExpenses.where((expense) {
+    final expenseDay = _dateOnly(expense.date);
+    if (expenseDay.isBefore(normalizedStart) ||
+        expenseDay.isAfter(projectionEnd)) {
+      return false;
+    }
+    if (currencyFilter == null || currencyFilter.isEmpty) {
+      return true;
+    }
+    final expenseCurrency = expense.currency?.trim().toUpperCase() ?? '';
+    return expenseCurrency.isEmpty || expenseCurrency == currencyFilter;
+  }).toList(growable: false);
+
+  if (recurringTransactions.isEmpty) {
+    return filteredActualExpenses;
+  }
+
+  if (projectionEnd.isBefore(normalizedStart)) {
+    return filteredActualExpenses;
+  }
+
+  final projectedExpenses = projectRecurringTransactionsAsExpenseEntries(
+    recurringTransactions: recurringTransactions,
+    rangeStart: normalizedStart,
+    rangeEnd: projectionEnd,
+    selectedCurrency: selectedCurrency,
+  );
+  final dedupedProjectedExpenses = dedupeProjectedRecurringExpenseEntries(
+    projectedExpenses: projectedExpenses,
+    actualExpenses: filteredActualExpenses,
+  );
+
+  if (dedupedProjectedExpenses.isEmpty) {
+    return filteredActualExpenses;
+  }
+
+  return <ExpenseEntry>[
+    ...filteredActualExpenses,
+    ...dedupedProjectedExpenses,
+  ];
 }
 
 String _projectedExpenseComparisonKey(ExpenseEntry expense) {

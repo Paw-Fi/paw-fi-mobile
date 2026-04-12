@@ -74,7 +74,6 @@ final budgetDashboardProvider =
 
         // Add Personal (Where householdId is null or empty)
         for (final e in analytics.allExpenses) {
-          if (e.isRecurring) continue;
           if (e.householdId == null || e.householdId!.isEmpty) {
             add(ConsolidatedTransaction(
               entry: e,
@@ -111,7 +110,6 @@ final budgetDashboardProvider =
 
           final expenses = expensesAsync.valueOrNull ?? [];
           for (final e in expenses) {
-            if (e.isRecurring) continue;
             add(ConsolidatedTransaction(
               entry: e,
               spaceLabel: h.name,

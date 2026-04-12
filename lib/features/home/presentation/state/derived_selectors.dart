@@ -1,6 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 
 /// Daily net cashflow series (income - expenses) grouped by date
@@ -51,9 +52,11 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
       .map((d) => '${d.year}-${d.month.toString().padLeft(2, '0')}')
       .toList();
   final map = {for (final k in keys) k: 0.0};
+  final actualExpensesByKey = <String, List<ExpenseEntry>>{
+    for (final key in keys) key: <ExpenseEntry>[],
+  };
 
   for (final e in data.allExpenses) {
-    if (e.isRecurring) continue;
     // Expense-only
     if ((e.type ?? 'expense').toLowerCase() == 'income') continue;
     if (setCurrency != null && (e.currency?.toUpperCase() != setCurrency)) {
@@ -62,30 +65,30 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
     final key = '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}';
     if (map.containsKey(key)) {
       map[key] = (map[key] ?? 0) + e.amount.abs();
+      actualExpensesByKey[key]!.add(e);
     }
   }
 
-  // Add recurring expenses occurrence sums for each of the last 3 months
   recurringExpensesAV.when(
     data: (items) {
       final now = DateTime.now();
-      for (final item in items) {
-        if (item.type != 'expense') continue;
-        // Only include active recurring transactions as of now
-        if (!_isActiveNow(item, now)) continue;
-        if (setCurrency != null && item.currency.toUpperCase() != setCurrency) {
-          continue;
-        }
-        for (final month in months) {
-          final start = DateTime(month.year, month.month, 1);
-          final end = DateTime(month.year, month.month + 1, 0);
-          final count = _occurrencesInMonth(item, start, end);
-          if (count > 0) {
-            final key =
-                '${start.year}-${start.month.toString().padLeft(2, '0')}';
-            map[key] = (map[key] ?? 0) + item.amount.abs() * count;
-          }
-        }
+      for (final month in months) {
+        final start = DateTime(month.year, month.month, 1);
+        final end = DateTime(month.year, month.month + 1, 0);
+        final key = '${start.year}-${start.month.toString().padLeft(2, '0')}';
+        final mergedExpenses = mergeActualExpensesWithProjectedRecurring(
+          actualExpenses: actualExpensesByKey[key] ?? const <ExpenseEntry>[],
+          recurringTransactions: items,
+          rangeStart: start,
+          rangeEnd: end,
+          selectedCurrency: setCurrency,
+          includeFutureOccurrences: false,
+          now: now,
+        );
+        map[key] = mergedExpenses.fold<double>(
+          0,
+          (sum, expense) => sum + expense.amount.abs(),
+        );
       }
     },
     loading: () {},
@@ -93,97 +96,6 @@ final momTrendProvider = Provider<Map<String, double>>((ref) {
   );
   return map;
 });
-
-int _occurrencesInMonth(
-  RecurringTransaction item,
-  DateTime monthStart,
-  DateTime monthEnd,
-) {
-  final rule = item.recurrenceRule;
-  if (rule == null) {
-    final d = item.date.toLocal();
-    return (d.year == monthStart.year && d.month == monthStart.month) ? 1 : 0;
-  }
-
-  final anchor = rule.anchorDate.toLocal();
-  final endLocal = rule.endDate?.toLocal();
-  if (endLocal != null && endLocal.isBefore(monthStart)) return 0;
-
-  final interval = rule.interval ?? 1;
-  final freq = rule.frequency.toLowerCase();
-  switch (freq) {
-    case 'daily':
-      return _countOccurrencesByStep(anchor, monthStart,
-          _minDate(monthEnd, endLocal), Duration(days: interval));
-    case 'weekly':
-      return _countOccurrencesByStep(anchor, monthStart,
-          _minDate(monthEnd, endLocal), Duration(days: 7 * interval));
-    case 'biweekly':
-      return _countOccurrencesByStep(anchor, monthStart,
-          _minDate(monthEnd, endLocal), const Duration(days: 14));
-    case 'monthly':
-      return _occursMonthly(anchor, interval, monthStart) ? 1 : 0;
-    case 'yearly':
-      return _occursYearly(anchor, interval, monthStart) ? 1 : 0;
-    default:
-      return (anchor.year == monthStart.year &&
-              anchor.month == monthStart.month)
-          ? 1
-          : 0;
-  }
-}
-
-int _countOccurrencesByStep(
-  DateTime anchor,
-  DateTime rangeStart,
-  DateTime rangeEnd,
-  Duration step,
-) {
-  if (anchor.isAfter(rangeEnd)) return 0;
-  final first = _firstOnOrAfter(anchor, rangeStart, step);
-  if (first.isAfter(rangeEnd)) return 0;
-  final totalDays = rangeEnd.difference(first).inDays;
-  final stepDays = step.inDays;
-  if (stepDays <= 0) return 0;
-  return 1 + (totalDays ~/ stepDays);
-}
-
-DateTime _firstOnOrAfter(DateTime anchor, DateTime start, Duration step) {
-  if (!start.isAfter(anchor)) return anchor;
-  final diffDays = start.difference(anchor).inDays;
-  final stepDays = step.inDays;
-  final remainder = diffDays % stepDays;
-  return remainder == 0
-      ? start
-      : start.add(Duration(days: stepDays - remainder));
-}
-
-bool _occursMonthly(DateTime anchor, int interval, DateTime monthStart) {
-  final months =
-      (monthStart.year - anchor.year) * 12 + (monthStart.month - anchor.month);
-  if (months < 0) return false;
-  return months % interval == 0;
-}
-
-bool _occursYearly(DateTime anchor, int interval, DateTime monthStart) {
-  if (monthStart.month != anchor.month) return false;
-  final years = monthStart.year - anchor.year;
-  if (years < 0) return false;
-  return years % interval == 0;
-}
-
-DateTime _minDate(DateTime a, DateTime? b) {
-  if (b == null) return a;
-  return a.isBefore(b) ? a : b;
-}
-
-bool _isActiveNow(RecurringTransaction item, DateTime now) {
-  final rule = item.recurrenceRule;
-  if (rule == null) return true;
-  final end = rule.endDate;
-  if (end == null) return true;
-  return !end.isBefore(now);
-}
 
 /// Budget runway gauge inputs (estimated days until budget consumed)
 class RunwayInfo {

@@ -53,15 +53,23 @@ class _FinancialCalendarWidgetState
   final DateTime _today = DateTime.now();
 
   Map<DateTime, Map<String, double>> _buildRecurringDailyTotals({
+    required List<ExpenseEntry> actualTransactions,
     required DateTime rangeStart,
     required DateTime rangeEnd,
   }) {
-    final projected = projectRecurringTransactionsAsExpenseEntries(
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: actualTransactions,
       recurringTransactions: widget.recurringTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: widget.currency,
+      includeFutureOccurrences: true,
     );
+    final projected = merged
+        .where((expense) =>
+            extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
+            null)
+        .toList(growable: false);
 
     final totals = <DateTime, Map<String, double>>{};
 
@@ -157,9 +165,6 @@ class _FinancialCalendarWidgetState
 
     // 1. Actual Transactions
     for (final t in transactions) {
-      // Recurring rows are template rows; projected recurring below handles them.
-      // Counting them as actuals would double-count on their anchor day.
-      if (t.isRecurring) continue;
       if (t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day) {
@@ -202,11 +207,6 @@ class _FinancialCalendarWidgetState
       rangeEnd = _focusedWeekStart.add(const Duration(days: 6));
     }
 
-    final recurringDailyTotals = _buildRecurringDailyTotals(
-      rangeStart: rangeStart,
-      rangeEnd: rangeEnd,
-    );
-
     final query = DashboardScopeQuery(
       userId: widget.userId,
       householdId: widget.householdId,
@@ -224,6 +224,11 @@ class _FinancialCalendarWidgetState
     }
     final resolvedTransactions =
         transactionsAsync.valueOrNull ?? widget.transactions;
+    final recurringDailyTotals = _buildRecurringDailyTotals(
+      actualTransactions: resolvedTransactions,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+    );
 
     return GestureDetector(
       onHorizontalDragEnd: _handleHorizontalSwipe,
