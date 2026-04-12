@@ -8,6 +8,7 @@ import 'dart:async';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/features/auth/auth.dart';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
@@ -19,6 +20,7 @@ import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
 import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
+import '../../../home/presentation/state/home_debug_tracing.dart';
 import '../../../home/presentation/state/dashboard_lazy_providers.dart';
 import 'household_optimistic_providers.dart';
 
@@ -61,33 +63,103 @@ final deviceRegistrationServiceProvider =
 // STATE NOTIFIERS
 // ============================================================================
 
+final preloadedUserHouseholdsProvider =
+    StateProvider.family<List<Household>?, String>((ref, userId) => null);
+
 /// User households state notifier
 class UserHouseholdsNotifier
     extends StateNotifier<AsyncValue<List<Household>>> {
   final HouseholdRepository _repository;
   final String _userId;
   final Ref _ref;
+  Future<void>? _inFlightLoad;
+  Future<void>? _deferredInitialLoad;
 
-  UserHouseholdsNotifier(this._repository, this._userId, this._ref)
-      : super(const AsyncValue.loading()) {
-    load();
+  UserHouseholdsNotifier(
+    this._repository,
+    this._userId,
+    this._ref, {
+    bool deferInitialLoad = false,
+    List<Household>? initialHouseholds,
+  }) : super(_initialHouseholdsState(_userId, initialHouseholds)) {
+    if (!state.hasValue) {
+      if (deferInitialLoad) {
+        _deferredInitialLoad = _scheduleDeferredInitialLoad();
+      } else {
+        load();
+      }
+    }
+  }
+
+  static AsyncValue<List<Household>> _initialHouseholdsState(
+    String userId,
+    List<Household>? initialHouseholds,
+  ) {
+    if (userId.isEmpty) {
+      return const AsyncValue.data(<Household>[]);
+    }
+
+    if (initialHouseholds != null) {
+      return AsyncValue.data(initialHouseholds);
+    }
+
+    return const AsyncValue.loading();
+  }
+
+  Future<void> _scheduleDeferredInitialLoad() async {
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted || state.hasValue || _inFlightLoad != null) {
+      return;
+    }
+    await load();
   }
 
   Future<void> load() async {
+    if (_inFlightLoad != null) {
+      return _inFlightLoad!;
+    }
+
+    final completer = Completer<void>();
+    _inFlightLoad = completer.future;
+    final trace = HomeDebugTrace(
+      label: 'UserHouseholdsProvider',
+      enabled: _ref.read(homeDebugLoggingEnabledProvider),
+      logSink: _ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': _userId.isEmpty ? '<empty>' : _userId},
+    );
+    trace.mark('load-start');
     if (!mounted) return;
 
     // Preview mode: return mock households instantly
     final preview = _ref.read(previewModeProvider);
     if (preview.isActive) {
       state = AsyncValue.data(PreviewMockData.households);
+      trace.mark('preview-hit', {'count': PreviewMockData.households.length});
       return;
     }
 
-    state = const AsyncValue.loading();
-    final result =
-        await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    try {
+      state = const AsyncValue.loading();
+      final result =
+          await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+      if (!mounted) return;
+      state = result;
+      trace.mark('load-finished', {
+        'hasError': result.hasError,
+        'count': result.valueOrNull?.length,
+        'error': result.hasError ? result.error : null,
+      });
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+      _inFlightLoad = null;
+    }
+  }
+
+  void hydrate(List<Household> households) {
     if (!mounted) return;
-    state = result;
+    state = AsyncValue.data(households);
   }
 
   Future<void> createHousehold({
@@ -111,7 +183,17 @@ final userHouseholdsProvider = StateNotifierProvider.family<
     UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
   (ref, userId) {
     final repository = ref.watch(householdRepositoryProvider);
-    return UserHouseholdsNotifier(repository, userId, ref);
+    final seededHouseholds = ref.watch(preloadedUserHouseholdsProvider(userId));
+    final deferInitialLoad = seededHouseholds == null;
+    final notifier = UserHouseholdsNotifier(
+      repository,
+      userId,
+      ref,
+      deferInitialLoad: deferInitialLoad,
+      initialHouseholds: seededHouseholds,
+    );
+
+    return notifier;
   },
 );
 
@@ -402,6 +484,18 @@ class HouseholdSummaryParams {
 final householdSummaryProvider =
     FutureProvider.family<HouseholdSummary?, HouseholdSummaryParams>(
   (ref, params) async {
+    final trace = HomeDebugTrace(
+      label: 'HouseholdSummaryProvider',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {
+        'household': params.householdId,
+        'currency': params.currency,
+        'start': params.startDate,
+        'end': params.endDate,
+      },
+    );
+    trace.mark('load-start');
     ref.watch(dashboardRefreshSignalProvider);
     final repository = ref.watch(householdRepositoryProvider);
 
@@ -426,19 +520,24 @@ final householdSummaryProvider =
               endDate: params.endDate,
             )
             .timeout(timeout);
+        trace.mark('load-success', {'hasSummary': summary != null});
         return summary;
       } on TimeoutException catch (e) {
         lastError = e;
+        trace.mark('load-timeout', {'attempt': attempt});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider timeout (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
       } on FunctionException catch (e) {
         lastError = e;
+        trace.mark(
+            'load-function-error', {'attempt': attempt, 'status': e.status});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider function error ${e.status} (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
         // For auth/permission issues, do not keep retrying
         if (e.status == 401 || e.status == 403) break;
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
+        trace.mark('load-error', {'attempt': attempt, 'error': e});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
       }

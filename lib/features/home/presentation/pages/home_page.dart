@@ -27,6 +27,7 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -35,6 +36,7 @@ import 'package:moneko/features/home/presentation/pages/thai_language_prompt_log
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/app/locale_provider.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
@@ -77,7 +79,12 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isCheckingThaiLanguagePrompt = false;
 
   late final SpotlightTourController _fabTourController;
+  late final HomeDebugTrace _homeTrace;
   String? _lastHomeDebugSignature;
+  String? _lastHomePerfSignature;
+  String? _lastPersonalRepoSignature;
+  String? _lastPersonalDashboardSignature;
+  bool _didLogFirstUsefulPaint = false;
 
   static const bool _enableDebugLogs =
       bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -93,6 +100,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.initState();
 
     _fabTourController = ref.read(homeSpotlightControllerProvider);
+    _homeTrace = HomeDebugTrace(
+      label: 'HomePageOpen',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+    );
+    _homeTrace.mark('page-mounted');
 
     // Initialize filters on first mount
     // NOTE: Analytics data is loaded by app_initialization_provider - no need to trigger here
@@ -860,20 +873,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     ref.watch(userCategoryConfigProvider);
-    final dashboardContact =
-        ref.watch(dashboardUserContactProvider).valueOrNull;
-    final dashboardBudgets =
-        ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
-            const <DailyBudgetEntry>[];
+    final initUserContact = ref
+        .watch(appInitializationV2Provider.select((state) => state.data?.user));
     final filterState = ref.watch(homeFilterProvider);
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final householdScope = ref.watch(householdScopeProvider);
     final portfolioHouseholdIds = householdScope.portfolioHouseholdIds;
-    final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
-      dashboardContact?.preferredTimezone,
-    );
-    final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
     ref.listen<HomePageCommand?>(homePageCommandProvider, (previous, next) {
       if (next == null) {
         return;
@@ -884,6 +890,29 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     // Global currency remains shared; date ranges move to per-card filters
     final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
+
+    final homePerfSignature = [
+      'scope=${householdScope.activeAccountType.name}',
+      'householdsLoading=${householdsAsync.isLoading}',
+      'householdsHasError=${householdsAsync.hasError}',
+      'householdsCount=${householdsAsync.valueOrNull?.length ?? 0}',
+      'shouldShowFab=$shouldShowFab',
+      'selectedCurrency=${selectedCurrency ?? '<none>'}',
+      'user=${user.uid.isEmpty ? '<empty>' : user.uid}',
+    ].join('|');
+    if (_lastHomePerfSignature != homePerfSignature) {
+      _lastHomePerfSignature = homePerfSignature;
+      _homeTrace.mark('page-state', {
+        'scope': householdScope.activeAccountType.name,
+        'householdsLoading': householdsAsync.isLoading,
+        'householdsHasError': householdsAsync.hasError,
+        'householdsCount': householdsAsync.valueOrNull?.length,
+        'shouldShowFab': shouldShowFab,
+        'selectedCurrency': selectedCurrency,
+        'user': user.uid.isEmpty ? '<empty>' : user.uid,
+      });
+    }
 
     _maybeLogHomeDebugSnapshot(
       householdScope: householdScope,
@@ -891,32 +920,19 @@ class _HomePageState extends ConsumerState<HomePage> {
       selectedCurrency: selectedCurrency,
     );
 
-    // Net cashflow card: its own per-card filter (still uses allExpenses for previous-period math)
-    final netFilterState =
-        ref.watch(cardDateFilterProvider(HomeCardFilterId.netCashflow));
-    final netRange = getDateRangeFromFilter(
-      netFilterState.dateRangeFilter,
-      netFilterState.customStartDate,
-      netFilterState.customEndDate,
-      now: userNow,
-    );
-    final netFrom = netRange['from']!;
-    final netTo = netRange['to']!;
-
-    // Budgets filtered for the net cashflow / spending breakdown cards (by date + currency)
-    final netBudgets = dashboardBudgets.where((budget) {
-      final d = DateTime(budget.date.year, budget.date.month, budget.date.day);
-      final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
-      final currencyOk = selectedCurrency == null ||
-          (budget.currency?.toUpperCase() == selectedCurrency);
-      return dateOk && currencyOk;
-    }).toList();
-
     final isInitialAnalyticsLoading = false;
 
-    final shouldShowFab = _shouldShowFAB(householdScope, householdsAsync);
+    _scheduleThaiLanguagePromptCheck(initUserContact);
 
-    _scheduleThaiLanguagePromptCheck(dashboardContact);
+    if (!_didLogFirstUsefulPaint &&
+        !isInitialAnalyticsLoading &&
+        (!householdScope.isHouseholdView || !householdsAsync.isLoading)) {
+      _didLogFirstUsefulPaint = true;
+      _homeTrace.mark('first-useful-paint', {
+        'scope': householdScope.activeAccountType.name,
+        'selectedCurrency': selectedCurrency,
+      });
+    }
 
     if (shouldShowFab && !user.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -936,6 +952,19 @@ class _HomePageState extends ConsumerState<HomePage> {
           Consumer(
             builder: (context, ref, _) {
               final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
+              final repoSignature = [
+                'loading=${repoAsync.isLoading}',
+                'hasError=${repoAsync.hasError}',
+                'hasValue=${repoAsync.hasValue}',
+              ].join('|');
+              if (_lastPersonalRepoSignature != repoSignature) {
+                _lastPersonalRepoSignature = repoSignature;
+                _homeTrace.mark('personal-repository-async-state', {
+                  'loading': repoAsync.isLoading,
+                  'hasError': repoAsync.hasError,
+                  'hasValue': repoAsync.hasValue,
+                });
+              }
 
               return repoAsync.when(
                 loading: () => const SliverToBoxAdapter(
@@ -949,8 +978,53 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Text('${context.l10n.errorInitializingRepository}: $e'),
                 ),
                 data: (_) {
+                  final dashboardContact =
+                      ref.watch(dashboardUserContactProvider).valueOrNull;
+                  final dashboardBudgets =
+                      ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
+                          const <DailyBudgetEntry>[];
+                  final timezoneOffsetMinutes =
+                      resolveUserTimezoneOffsetMinutes(
+                    dashboardContact?.preferredTimezone,
+                  );
+                  final userNow =
+                      userNowFromOffsetMinutes(timezoneOffsetMinutes);
+                  final netFilterState = ref.watch(
+                    cardDateFilterProvider(HomeCardFilterId.netCashflow),
+                  );
+                  final netRange = getDateRangeFromFilter(
+                    netFilterState.dateRangeFilter,
+                    netFilterState.customStartDate,
+                    netFilterState.customEndDate,
+                    now: userNow,
+                  );
+                  final netFrom = netRange['from']!;
+                  final netTo = netRange['to']!;
+                  final netBudgets = dashboardBudgets.where((budget) {
+                    final d = DateTime(
+                        budget.date.year, budget.date.month, budget.date.day);
+                    final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
+                    final currencyOk = selectedCurrency == null ||
+                        (budget.currency?.toUpperCase() == selectedCurrency);
+                    return dateOk && currencyOk;
+                  }).toList();
                   final dashboardAsync =
                       ref.watch(personalDashboardProvider(user.uid));
+                  final dashboardSignature = [
+                    'loading=${dashboardAsync.isLoading}',
+                    'hasError=${dashboardAsync.hasError}',
+                    'hasValue=${dashboardAsync.hasValue}',
+                    'count=${dashboardAsync.valueOrNull?.length ?? 0}',
+                  ].join('|');
+                  if (_lastPersonalDashboardSignature != dashboardSignature) {
+                    _lastPersonalDashboardSignature = dashboardSignature;
+                    _homeTrace.mark('personal-dashboard-async-state', {
+                      'loading': dashboardAsync.isLoading,
+                      'hasError': dashboardAsync.hasError,
+                      'hasValue': dashboardAsync.hasValue,
+                      'widgetCount': dashboardAsync.valueOrNull?.length,
+                    });
+                  }
 
                   return dashboardAsync.when(
                     loading: () => const SliverToBoxAdapter(

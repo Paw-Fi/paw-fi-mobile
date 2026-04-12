@@ -11,6 +11,8 @@ import '../pages/household_onboarding_page.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
@@ -36,6 +38,20 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   String? _dashboardWarmupKey;
+  late final HomeDebugTrace _householdTrace;
+  String? _lastHouseholdTraceSignature;
+  bool _didLogFirstUsefulPaint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _householdTrace = HomeDebugTrace(
+      label: 'HouseholdHomeContent',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+    );
+    _householdTrace.mark('widget-mounted');
+  }
 
   /// Calculate user's personal share of household expenses
   ///
@@ -132,6 +148,18 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required String selectedCurrency,
     required List<DashboardWidgetConfig> configs,
   }) async {
+    final warmupTrace = HomeDebugTrace(
+      label: 'HouseholdDashboardWarmup',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {
+        'household': household.id,
+        'currency': selectedCurrency,
+      },
+    );
+    warmupTrace.mark('warmup-start', {
+      'widgetCount': configs.length,
+    });
     final visibleConfigs = configs.where((config) => config.isVisible).toList();
 
     final summaryParams = <HouseholdSummaryParams>{};
@@ -164,19 +192,33 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       final recurringProvider = recurringTransactionsProvider(household.id);
       final recurringState = ref.read(recurringProvider);
       if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
+        warmupTrace.mark('warmup-recurring-start');
         await ref
             .read(recurringProvider.notifier)
             .loadRecurringTransactions(userId);
+        warmupTrace.mark('warmup-recurring-success');
       }
     }
 
     ref.read(householdMembersProvider(household.id));
+    warmupTrace.mark('warmup-members-read');
 
     for (final params in summaryParams) {
       try {
+        warmupTrace.mark('warmup-summary-start', {
+          'rangeStart': params.startDate,
+          'rangeEnd': params.endDate,
+        });
         await ref.read(householdSummaryProvider(params).future);
-      } catch (_) {}
+        warmupTrace.mark('warmup-summary-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-summary-error', {'error': error});
+      }
     }
+
+    warmupTrace.mark('warmup-complete', {
+      'summaryCount': summaryParams.length,
+    });
   }
 
   String _buildDashboardWarmupKey({
@@ -243,6 +285,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
 
+    final householdsSignature = [
+      'user=${userId ?? '<none>'}',
+      'loading=${householdsAsync.isLoading}',
+      'hasError=${householdsAsync.hasError}',
+      'count=${householdsAsync.valueOrNull?.length ?? 0}',
+      'refresh=$dashboardRefreshSignal',
+    ].join('|');
+    if (_lastHouseholdTraceSignature != householdsSignature) {
+      _lastHouseholdTraceSignature = householdsSignature;
+      _householdTrace.mark('households-async-state', {
+        'user': userId ?? '<none>',
+        'loading': householdsAsync.isLoading,
+        'hasError': householdsAsync.hasError,
+        'count': householdsAsync.valueOrNull?.length,
+        'refreshSignal': dashboardRefreshSignal,
+      });
+    }
+
     return householdsAsync.when(
       loading: () => SliverFillRemaining(
         hasScrollBody: false,
@@ -258,6 +318,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       ),
       data: (households) {
         if (households.isEmpty) {
+          _householdTrace
+              .mark('content-blocked', const {'reason': 'no-households'});
           // Show onboarding when user has no households
           // Use SliverToBoxAdapter with LayoutBuilder to provide proper sizing
           return SliverToBoxAdapter(
@@ -286,18 +348,23 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 )
               : households.first;
 
+          _householdTrace.mark('selected-household', {
+            'household': household.id,
+            'selectedId': selectedId,
+          });
+
           // Filters
           final filterState = ref.watch(homeFilterProvider);
-          final dashboardContact =
-              ref.watch(dashboardUserContactProvider).valueOrNull;
+          final initUserContact = ref.watch(
+              appInitializationV2Provider.select((state) => state.data?.user));
           final rawCurrency =
               (filterState.selectedCurrency?.trim().isNotEmpty == true
                       ? filterState.selectedCurrency!.trim()
-                      : (dashboardContact?.preferredCurrency
+                      : (initUserContact?.preferredCurrency
                                   ?.trim()
                                   .isNotEmpty ==
                               true
-                          ? dashboardContact!.preferredCurrency!.trim()
+                          ? initUserContact!.preferredCurrency!.trim()
                           : household.currency))
                   .toUpperCase();
           final selectedCurrency = rawCurrency;
@@ -307,6 +374,12 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           // based on their specific date range configuration.
 
           final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
+
+          _householdTrace.mark('repository-async-state', {
+            'loading': repoAsync.isLoading,
+            'hasError': repoAsync.hasError,
+            'hasValue': repoAsync.hasValue,
+          });
 
           return repoAsync.when(
             loading: () =>
@@ -321,6 +394,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
             data: (_) {
               final dashboardAsync =
                   ref.watch(householdDashboardProvider(household.id));
+
+              _householdTrace.mark('dashboard-config-async-state', {
+                'household': household.id,
+                'loading': dashboardAsync.isLoading,
+                'hasError': dashboardAsync.hasError,
+                'hasValue': dashboardAsync.hasValue,
+                'widgetCount': dashboardAsync.valueOrNull?.length,
+              });
 
               return dashboardAsync.when(
                 loading: () =>
@@ -346,6 +427,15 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     selectedCurrency: selectedCurrency,
                     configs: configs,
                   );
+
+                  if (!_didLogFirstUsefulPaint) {
+                    _didLogFirstUsefulPaint = true;
+                    _householdTrace.mark('first-useful-paint', {
+                      'household': household.id,
+                      'widgetCount': configs.length,
+                      'selectedCurrency': selectedCurrency,
+                    });
+                  }
 
                   return DraggableDashboardList(
                     configs: configs,

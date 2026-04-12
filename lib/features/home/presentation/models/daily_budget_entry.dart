@@ -51,4 +51,14 @@ class DailyBudgetEntry {
       currency: canonicalizeCurrencyCode(json['currency'] as String?),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'contact_id': contactId,
+      'date': formatDateOnlyYmd(date),
+      'amount_cents': amountCents,
+      'currency': currency,
+    };
+  }
 }

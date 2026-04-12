@@ -1,5 +1,6 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 /// View mode for home page
 enum ViewMode {
@@ -46,29 +47,22 @@ class ViewModeState {
 /// View mode notifier
 class ViewModeNotifier extends StateNotifier<ViewModeState> {
   static const _storageKey = 'moneko_view_mode';
+  final SharedPreferences _prefs;
 
-  ViewModeNotifier() : super(const ViewModeState(mode: ViewMode.household)) {
-    _loadPersistedMode();
-  }
+  ViewModeNotifier(this._prefs)
+      : super(ViewModeState(mode: _readInitialMode(_prefs)));
 
-  Future<void> _loadPersistedMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getString(_storageKey);
-      if (stored == 'household') {
-        state = state.copyWith(mode: ViewMode.household);
-      } else if (stored == 'personal') {
-        state = state.copyWith(mode: ViewMode.personal);
-      }
-    } catch (_) {
-      // Non-fatal: default remains household
+  static ViewMode _readInitialMode(SharedPreferences prefs) {
+    final stored = prefs.getString(_storageKey);
+    if (stored == 'personal') {
+      return ViewMode.personal;
     }
+    return ViewMode.household;
   }
 
   Future<void> _persist(ViewMode mode) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
+      await _prefs.setString(
           _storageKey, mode == ViewMode.household ? 'household' : 'personal');
     } catch (_) {
       // ignore persistence errors
@@ -97,5 +91,5 @@ class ViewModeNotifier extends StateNotifier<ViewModeState> {
 
 /// View mode provider
 final viewModeProvider = StateNotifierProvider<ViewModeNotifier, ViewModeState>(
-  (ref) => ViewModeNotifier(),
+  (ref) => ViewModeNotifier(ref.read(sharedPreferencesProvider)),
 );

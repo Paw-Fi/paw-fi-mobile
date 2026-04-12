@@ -1,27 +1,48 @@
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/currency_summary.dart';
 import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart';
 import 'package:moneko/features/home/presentation/models/user_contact.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final dashboardUserContactProvider =
     FutureProvider.autoDispose<UserContact?>((ref) async {
+  final trace = HomeDebugTrace(
+    label: 'DashboardUserContact',
+    enabled: ref.read(homeDebugLoggingEnabledProvider),
+    logSink: ref.read(homeDebugLogSinkProvider),
+  );
   ref.watch(dashboardRefreshSignalProvider);
   final preview = ref.watch(previewModeProvider);
   if (preview.isActive) {
+    trace.mark('preview-hit');
     return PreviewMockData.contact;
   }
 
   final userId = ref.watch(authProvider.select((user) => user.uid));
   if (userId.isEmpty) {
+    trace.mark('load-skipped', const {'reason': 'empty-user'});
     return null;
   }
+
+  final cachedContact = ref
+      .watch(appInitializationV2Provider.select((state) => state.data?.user));
+  if (cachedContact != null) {
+    trace.mark('cache-hit', {'user': userId});
+    return cachedContact;
+  }
+
+  trace.mark('load-start', {'user': userId});
 
   final response = await supabase
       .from('user_contacts')
@@ -33,23 +54,69 @@ final dashboardUserContactProvider =
       .maybeSingle();
 
   if (response == null) {
+    trace.mark('load-success', const {'hasContact': false});
     return null;
   }
+  trace.mark('load-success', const {'hasContact': true});
   return UserContact.fromJson(Map<String, dynamic>.from(response));
 });
 
 final dashboardPersonalBudgetsProvider =
     FutureProvider.autoDispose<List<DailyBudgetEntry>>((ref) async {
+  final trace = HomeDebugTrace(
+    label: 'DashboardPersonalBudgets',
+    enabled: ref.read(homeDebugLoggingEnabledProvider),
+    logSink: ref.read(homeDebugLogSinkProvider),
+  );
   ref.watch(dashboardRefreshSignalProvider);
   final preview = ref.watch(previewModeProvider);
   if (preview.isActive) {
+    trace.mark('preview-hit');
     return const <DailyBudgetEntry>[];
   }
 
   final contact = await ref.watch(dashboardUserContactProvider.future);
   final contactId = contact?.id;
   if (contactId == null || contactId.isEmpty) {
+    trace.mark('load-skipped', const {'reason': 'missing-contact'});
     return const <DailyBudgetEntry>[];
+  }
+
+  trace.mark('load-start', {'contactId': contactId});
+
+  ref.watch(dashboardCacheInvalidationProvider);
+  final bypassPersistedCache =
+      ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+  final cacheKey = dashboardBudgetsCacheKey(contactId: contactId);
+  final sessionCached =
+      readDashboardSessionCache<List<DailyBudgetEntry>>(cacheKey);
+  if (sessionCached != null &&
+      DateTime.now().difference(sessionCached.cachedAt) <=
+          dashboardBudgetsCacheTtl) {
+    trace.mark('session-cache-hit', {'count': sessionCached.value.length});
+    return sessionCached.value;
+  }
+
+  if (!bypassPersistedCache) {
+    final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
+    final statePayload = persistedPayload == null
+        ? null
+        : readDashboardStatePayload(persistedPayload);
+    final cachedAt = persistedPayload == null
+        ? null
+        : readDashboardCachedAt(persistedPayload);
+    if (statePayload != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) <= dashboardBudgetsCacheTtl) {
+      final budgets = ((statePayload['items'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) =>
+              DailyBudgetEntry.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+      trace.mark('persisted-cache-hit', {'count': budgets.length});
+      writeDashboardSessionCache(cacheKey, budgets);
+      return budgets;
+    }
   }
 
   final response = await supabase
@@ -59,10 +126,19 @@ final dashboardPersonalBudgetsProvider =
       .limit(5000)
       .order('date', ascending: true);
 
-  return (response as List)
+  final budgets = (response as List)
       .map((row) =>
           DailyBudgetEntry.fromJson(Map<String, dynamic>.from(row as Map)))
       .toList(growable: false);
+  writeDashboardSessionCache(cacheKey, budgets);
+  unawaited(writeDashboardPersistedCache(ref, cacheKey, {
+    'cached_at': DateTime.now().toIso8601String(),
+    'state': {
+      'items': budgets.map((item) => item.toJson()).toList(growable: false),
+    },
+  }));
+  trace.mark('load-success', {'count': budgets.length});
+  return budgets;
 });
 
 final dashboardSelectedHomeCurrencyCodeProvider = Provider<String>((ref) {

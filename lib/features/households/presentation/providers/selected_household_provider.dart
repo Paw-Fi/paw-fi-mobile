@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import '../../domain/entities/household.dart';
 import 'household_providers.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -82,9 +83,20 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
   /// Initialize - loads selected household from storage
   Future<void> initialize({List<Household>? preloadedHouseholds}) async {
+    final trace = HomeDebugTrace(
+      label: 'SelectedSpaceProvider',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': _userId.isEmpty ? '<empty>' : _userId},
+    );
+    trace.mark('initialize-start', {
+      'hasPreloadedSpaces': preloadedHouseholds != null,
+      'storedSpaceId': state.householdId,
+    });
     final preview = ref.read(previewModeProvider);
     if (_userId.isEmpty && !preview.isActive) {
       state = const SelectedHouseholdState();
+      trace.mark('initialize-skipped', const {'reason': 'empty-user'});
       return;
     }
 
@@ -101,6 +113,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       if (households == null || households.isEmpty) {
         debugPrint('📭 No households found for user (or load failed)');
         state = const SelectedHouseholdState(isLoading: false);
+        trace.mark('initialize-empty', const {'reason': 'no-spaces'});
         return;
       }
 
@@ -151,6 +164,10 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       // Persist to storage (per-user key)
       await _saveToStorage(selectedId);
+      trace.mark('initialize-success', {
+        'selectedSpaceId': selectedId,
+        'spaceCount': households.length,
+      });
     } catch (e, stack) {
       debugPrint('❌ Error initializing selected household: $e');
       debugPrint('Stack: $stack');
@@ -159,6 +176,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
         isLoading: false,
         error: e.toString(),
       );
+      trace.mark('initialize-error', {'error': e});
     }
   }
 
@@ -169,6 +187,13 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     Duration timeout = const Duration(seconds: 15),
     Duration pollInterval = const Duration(milliseconds: 150),
   }) async {
+    final trace = HomeDebugTrace(
+      label: 'SelectedSpaceWaitForSpaces',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': userId.isEmpty ? '<empty>' : userId},
+    );
+    trace.mark('wait-start');
     final stopwatch = Stopwatch()..start();
 
     while (stopwatch.elapsed < timeout) {
@@ -176,12 +201,14 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
 
       // If we have data and not loading, return it
       if (state.hasValue && !state.isLoading) {
+        trace.mark('wait-success', {'count': state.value?.length});
         return state.value;
       }
 
       // If there's an error and not loading, return null
       if (state.hasError && !state.isLoading) {
         debugPrint('⚠️ Households resolved with error: ${state.error}');
+        trace.mark('wait-error', {'error': state.error});
         return null;
       }
 
@@ -193,18 +220,32 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
     final finalState = ref.read(userHouseholdsProvider(userId));
     debugPrint(
         '⚠️ Timeout (${timeout.inSeconds}s) waiting for households, hasValue=${finalState.hasValue}');
+    trace.mark('wait-timeout', {
+      'hasValue': finalState.hasValue,
+      'count': finalState.valueOrNull?.length,
+      'error': finalState.error,
+    });
     return finalState.valueOrNull;
   }
 
   /// Select a household by ID
   Future<void> selectHousehold(String householdId) async {
+    final trace = HomeDebugTrace(
+      label: 'SelectedSpaceProvider',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': _userId.isEmpty ? '<empty>' : _userId},
+    );
+    trace.mark('select-start', {'spaceId': householdId});
     if (_userId.isEmpty) {
       state = state.copyWith(error: 'User not authenticated');
+      trace.mark('select-error', const {'reason': 'empty-user'});
       return;
     }
 
     if (householdId.trim().isEmpty) {
       debugPrint('⚠️ selectHousehold called with empty ID, ignoring');
+      trace.mark('select-skipped', const {'reason': 'empty-space-id'});
       return;
     }
 
@@ -242,9 +283,13 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       if (_operationId != operationId) return;
       if (resolved != null) {
         debugPrint('✅ Selected household: ${resolved.name}');
+        trace
+            .mark('select-success', {'spaceId': householdId, 'resolved': true});
       } else {
         debugPrint(
             '⚠️ Selected household persisted but could not be resolved yet');
+        trace.mark(
+            'select-success', {'spaceId': householdId, 'resolved': false});
       }
     } catch (e, stack) {
       debugPrint('❌ Error selecting household: $e');
@@ -253,6 +298,7 @@ class SelectedHouseholdNotifier extends StateNotifier<SelectedHouseholdState> {
       // Keep the selected ID if possible, so the choice persists even if fetching fails.
       state = state.copyWith(error: e.toString());
       await _saveToStorage(householdId);
+      trace.mark('select-error', {'spaceId': householdId, 'error': e});
     }
   }
 

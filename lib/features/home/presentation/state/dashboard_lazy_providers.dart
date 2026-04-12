@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -114,6 +117,19 @@ class SupabaseDashboardDataService implements DashboardDataService {
   @override
   Future<DashboardSnapshotSummary> fetchSnapshot(
       DashboardScopeQuery query) async {
+    final trace = HomeDebugTrace(
+      label: 'DashboardSnapshotRpc',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': query.userId,
+        'household': query.householdId ?? '<none>',
+        'currency': query.normalizedCurrency ?? '<none>',
+        'start': query.startDate,
+        'end': query.endDate,
+      },
+    );
+    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_snapshot_v1',
       params: <String, dynamic>{
@@ -151,7 +167,7 @@ class SupabaseDashboardDataService implements DashboardDataService {
           _centsToDouble(row['amount_cents']);
     }
 
-    return DashboardSnapshotSummary(
+    final summary = DashboardSnapshotSummary(
       transactionCount: (payload['transaction_count'] as num?)?.toInt() ?? 0,
       expenseTotal: _centsToDouble(payload['expense_total_cents']),
       incomeTotal: _centsToDouble(payload['income_total_cents']),
@@ -159,12 +175,30 @@ class SupabaseDashboardDataService implements DashboardDataService {
       categorySummaries: categorySummaries,
       periodTotals: periodTotals,
     );
+    trace.mark('rpc-success', {
+      'transactionCount': summary.transactionCount,
+      'expenseTotal': summary.expenseTotal,
+      'incomeTotal': summary.incomeTotal,
+    });
+    return summary;
   }
 
   @override
   Future<List<ExpenseEntry>> fetchRecentTransactions(
     DashboardRecentTransactionsRequest request,
   ) async {
+    final trace = HomeDebugTrace(
+      label: 'DashboardRecentTransactionsRpc',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': request.query.userId,
+        'household': request.query.householdId ?? '<none>',
+        'currency': request.query.normalizedCurrency ?? '<none>',
+        'limit': request.limit,
+      },
+    );
+    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_recent_transactions_v1',
       params: <String, dynamic>{
@@ -175,12 +209,27 @@ class SupabaseDashboardDataService implements DashboardDataService {
       },
     );
 
-    return _parseExpenseEntries(response);
+    final entries = _parseExpenseEntries(response);
+    trace.mark('rpc-success', {'count': entries.length});
+    return entries;
   }
 
   @override
   Future<List<ExpenseEntry>> fetchCalendarTransactions(
       DashboardScopeQuery query) async {
+    final trace = HomeDebugTrace(
+      label: 'DashboardCalendarTransactionsRpc',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': query.userId,
+        'household': query.householdId ?? '<none>',
+        'currency': query.normalizedCurrency ?? '<none>',
+        'start': query.startDate,
+        'end': query.endDate,
+      },
+    );
+    trace.mark('rpc-start');
     final response = await _client.rpc(
       'get_dashboard_calendar_transactions_v1',
       params: <String, dynamic>{
@@ -192,7 +241,9 @@ class SupabaseDashboardDataService implements DashboardDataService {
       },
     );
 
-    return _parseExpenseEntries(response);
+    final entries = _parseExpenseEntries(response);
+    trace.mark('rpc-success', {'count': entries.length});
+    return entries;
   }
 
   List<ExpenseEntry> _parseExpenseEntries(dynamic response) {
@@ -228,8 +279,33 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(dashboardCacheInvalidationProvider);
     final service = ref.watch(dashboardDataServiceProvider);
-    return service.fetchSnapshot(query);
+    final trace = HomeDebugTrace(
+      label: 'DashboardSummaryProvider',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': query.userId,
+        'household': query.householdId ?? '<none>',
+        'currency': query.normalizedCurrency ?? '<none>',
+        'start': query.startDate,
+        'end': query.endDate,
+      },
+    );
+    final cacheKey =
+        'dashboard:summary:v1:${query.userId}:${query.householdId ?? 'personal'}:${query.normalizedCurrency ?? '<none>'}:${query.formattedStartDate ?? '<none>'}:${query.formattedEndDate ?? '<none>'}:${query.normalizedIntervalGranularity ?? '<none>'}';
+    final sessionCached =
+        readDashboardSessionCache<DashboardSnapshotSummary>(cacheKey);
+    if (sessionCached != null &&
+        DateTime.now().difference(sessionCached.cachedAt) <=
+            dashboardTransactionsCacheTtl(query.startDate, query.endDate)) {
+      trace.mark('session-cache-hit');
+      return sessionCached.value;
+    }
+    final summary = await service.fetchSnapshot(query);
+    writeDashboardSessionCache(cacheKey, summary);
+    return summary;
   },
 );
 
@@ -237,8 +313,65 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, DashboardRecentTransactionsRequest>(
   (ref, request) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(dashboardCacheInvalidationProvider);
     final service = ref.watch(dashboardDataServiceProvider);
-    return service.fetchRecentTransactions(request);
+    final cacheKey = dashboardRecentCacheKey(
+      userId: request.query.userId,
+      householdId: request.query.householdId,
+      currency: request.query.normalizedCurrency,
+      limit: request.limit,
+    );
+    final sessionCached =
+        readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
+    final trace = HomeDebugTrace(
+      label: 'DashboardRecentTransactionsProvider',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': request.query.userId,
+        'household': request.query.householdId ?? '<none>',
+        'currency': request.query.normalizedCurrency ?? '<none>',
+        'limit': request.limit,
+      },
+    );
+    final bypassPersistedCache =
+        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+    if (sessionCached != null &&
+        DateTime.now().difference(sessionCached.cachedAt) <=
+            dashboardRecentTransactionsCacheTtl) {
+      trace.mark('session-cache-hit', {'count': sessionCached.value.length});
+      return sessionCached.value;
+    }
+    if (!bypassPersistedCache) {
+      final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
+      final statePayload = persistedPayload == null
+          ? null
+          : readDashboardStatePayload(persistedPayload);
+      final cachedAt = persistedPayload == null
+          ? null
+          : readDashboardCachedAt(persistedPayload);
+      if (statePayload != null &&
+          cachedAt != null &&
+          DateTime.now().difference(cachedAt) <=
+              dashboardRecentTransactionsCacheTtl) {
+        final entries = ((statePayload['items'] as List?) ?? const [])
+            .cast<Map>()
+            .map((row) => ExpenseEntry.fromJson(Map<String, dynamic>.from(row)))
+            .toList(growable: false);
+        trace.mark('persisted-cache-hit', {'count': entries.length});
+        writeDashboardSessionCache(cacheKey, entries);
+        return entries;
+      }
+    }
+    final entries = await service.fetchRecentTransactions(request);
+    writeDashboardSessionCache(cacheKey, entries);
+    unawaited(writeDashboardPersistedCache(ref, cacheKey, {
+      'cached_at': DateTime.now().toIso8601String(),
+      'state': {
+        'items': entries.map((item) => item.toJson()).toList(growable: false),
+      },
+    }));
+    return entries;
   },
 );
 
@@ -246,7 +379,65 @@ final dashboardCalendarTransactionsProvider =
     FutureProvider.autoDispose.family<List<ExpenseEntry>, DashboardScopeQuery>(
   (ref, query) async {
     ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(dashboardCacheInvalidationProvider);
     final service = ref.watch(dashboardDataServiceProvider);
-    return service.fetchCalendarTransactions(query);
+    final cacheKey = dashboardCalendarCacheKey(
+      userId: query.userId,
+      householdId: query.householdId,
+      currency: query.normalizedCurrency,
+      start: query.formattedStartDate,
+      end: query.formattedEndDate,
+    );
+    final ttl = dashboardTransactionsCacheTtl(query.startDate, query.endDate);
+    final bypassPersistedCache =
+        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+    final sessionCached =
+        readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
+    final trace = HomeDebugTrace(
+      label: 'DashboardCalendarTransactionsProvider',
+      enabled: foundation.kDebugMode,
+      logSink: foundation.debugPrint,
+      contextFields: {
+        'user': query.userId,
+        'household': query.householdId ?? '<none>',
+        'currency': query.normalizedCurrency ?? '<none>',
+        'start': query.startDate,
+        'end': query.endDate,
+      },
+    );
+    if (sessionCached != null &&
+        DateTime.now().difference(sessionCached.cachedAt) <= ttl) {
+      trace.mark('session-cache-hit', {'count': sessionCached.value.length});
+      return sessionCached.value;
+    }
+    if (!bypassPersistedCache) {
+      final persistedPayload = readDashboardPersistedCache(ref, cacheKey);
+      final statePayload = persistedPayload == null
+          ? null
+          : readDashboardStatePayload(persistedPayload);
+      final cachedAt = persistedPayload == null
+          ? null
+          : readDashboardCachedAt(persistedPayload);
+      if (statePayload != null &&
+          cachedAt != null &&
+          DateTime.now().difference(cachedAt) <= ttl) {
+        final entries = ((statePayload['items'] as List?) ?? const [])
+            .cast<Map>()
+            .map((row) => ExpenseEntry.fromJson(Map<String, dynamic>.from(row)))
+            .toList(growable: false);
+        trace.mark('persisted-cache-hit', {'count': entries.length});
+        writeDashboardSessionCache(cacheKey, entries);
+        return entries;
+      }
+    }
+    final entries = await service.fetchCalendarTransactions(query);
+    writeDashboardSessionCache(cacheKey, entries);
+    unawaited(writeDashboardPersistedCache(ref, cacheKey, {
+      'cached_at': DateTime.now().toIso8601String(),
+      'state': {
+        'items': entries.map((item) => item.toJson()).toList(growable: false),
+      },
+    }));
+    return entries;
   },
 );

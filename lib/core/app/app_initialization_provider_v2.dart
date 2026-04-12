@@ -358,6 +358,16 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             preferExistingState: true,
           );
 
+          ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
+              initData.households;
+          if (initData.households.isNotEmpty) {
+            unawaited(
+              ref
+                  .read(selectedHouseholdProvider.notifier)
+                  .initialize(preloadedHouseholds: initData.households),
+            );
+          }
+
           debugPrint(
               '✅ [InitV2] Loaded from cache (${stopwatch.elapsedMilliseconds}ms)');
           debugPrint(
@@ -440,9 +450,13 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       debugPrint(
           '🏠 [InitV2] Loading households and initializing selected household...');
-      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
+          initData.households;
+      ref
+          .read(userHouseholdsProvider(userId).notifier)
+          .hydrate(initData.households);
       final householdsState = ref.read(userHouseholdsProvider(userId));
-      final households = householdsState.valueOrNull ?? const <Household>[];
+      final households = initData.households;
       if (!householdsState.hasError && households.isEmpty) {
         debugPrint('📭 [InitV2] No households found for user after init');
         // Ensure scope defaults to personal when there are no spaces/accounts.
@@ -451,11 +465,21 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         ref.read(viewModeProvider.notifier).setPersonalMode();
       } else {
         if (households.isNotEmpty) {
-          await ref
-              .read(selectedHouseholdProvider.notifier)
-              .initialize(preloadedHouseholds: households);
-          debugPrint(
-              '✅ [InitV2] Selected household initialized during app init');
+          final selectedState = ref.read(selectedHouseholdProvider);
+          final selectedId =
+              selectedState.householdId ?? selectedState.household?.id;
+          final selectedStillExists = selectedId != null &&
+              households.any((household) => household.id == selectedId);
+          if (!selectedStillExists || selectedState.household == null) {
+            await ref
+                .read(selectedHouseholdProvider.notifier)
+                .initialize(preloadedHouseholds: households);
+            debugPrint(
+                '✅ [InitV2] Selected household initialized during app init');
+          } else {
+            debugPrint(
+                '✅ [InitV2] Selected household already valid, skipping re-init');
+          }
         } else {
           debugPrint(
               '⚠️ [InitV2] Households failed to load; keeping previous scope');

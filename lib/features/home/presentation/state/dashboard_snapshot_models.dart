@@ -114,6 +114,22 @@ class DashboardCategorySummary {
     required this.amount,
     required this.transactionCount,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'category': category,
+      'amount': amount,
+      'transaction_count': transactionCount,
+    };
+  }
+
+  factory DashboardCategorySummary.fromJson(Map<String, dynamic> json) {
+    return DashboardCategorySummary(
+      category: json['category'] as String? ?? 'uncategorized',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      transactionCount: (json['transaction_count'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 
 class DashboardSnapshotSummary {
@@ -140,4 +156,40 @@ class DashboardSnapshotSummary {
         hasMultipleCurrencies = false,
         categorySummaries = const <DashboardCategorySummary>[],
         periodTotals = const <DateTime, double>{};
+
+  Map<String, dynamic> toJson() {
+    return {
+      'transaction_count': transactionCount,
+      'expense_total': expenseTotal,
+      'income_total': incomeTotal,
+      'has_multiple_currencies': hasMultipleCurrencies,
+      'category_summaries': categorySummaries
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'period_totals': {
+        for (final entry in periodTotals.entries)
+          entry.key.toIso8601String(): entry.value,
+      },
+    };
+  }
+
+  factory DashboardSnapshotSummary.fromJson(Map<String, dynamic> json) {
+    final periodTotalsJson =
+        json['period_totals'] as Map<String, dynamic>? ?? const {};
+    return DashboardSnapshotSummary(
+      transactionCount: (json['transaction_count'] as num?)?.toInt() ?? 0,
+      expenseTotal: (json['expense_total'] as num?)?.toDouble() ?? 0,
+      incomeTotal: (json['income_total'] as num?)?.toDouble() ?? 0,
+      hasMultipleCurrencies: json['has_multiple_currencies'] == true,
+      categorySummaries: ((json['category_summaries'] as List?) ?? const [])
+          .cast<Map>()
+          .map((row) =>
+              DashboardCategorySummary.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false),
+      periodTotals: periodTotalsJson.map(
+        (key, value) =>
+            MapEntry(DateTime.parse(key), (value as num?)?.toDouble() ?? 0),
+      ),
+    );
+  }
 }
