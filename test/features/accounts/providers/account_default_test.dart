@@ -3,6 +3,18 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 
+class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
+  _StaticScopedWalletsNotifier(this.wallets);
+
+  final List<WalletEntity> wallets;
+
+  @override
+  Future<List<WalletEntity>> build() async => wallets;
+
+  @override
+  Future<List<WalletEntity>> refreshFromNetwork() async => wallets;
+}
+
 void main() {
   test('accountByIdProvider returns null when id missing', () async {
     const wallets = [
@@ -24,7 +36,8 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        scopedWalletsProvider.overrideWith((ref) async => wallets),
+        scopedWalletsProvider
+            .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       ],
     );
     addTearDown(container.dispose);

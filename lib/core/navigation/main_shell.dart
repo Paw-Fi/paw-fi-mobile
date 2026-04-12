@@ -31,6 +31,8 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 
@@ -47,6 +49,13 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
     final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
+    final auth = ref.watch(authProvider);
+    final walletAuthHeaders =
+        previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
+    final walletScopeHouseholdId = previewState.isActive
+        ? null
+        : ref.watch(walletScopeHouseholdIdProvider);
+    final warmedWalletsKeyRef = useRef<String?>(null);
     final showSubscriptionVerificationBanner =
         subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
             subscriptionGateStatus == SubscriptionGateStatus.unknown;
@@ -59,6 +68,52 @@ class MainShell extends HookConsumerWidget {
       visitedTabs.value = <int>{...visitedTabs.value, currentIndex};
       return null;
     }, [currentIndex]);
+
+    useEffect(() {
+      if (previewState.isActive ||
+          auth.uid.isEmpty ||
+          walletAuthHeaders == null ||
+          walletScopeHouseholdId == null &&
+              ref.read(walletScopeHouseholdIdProvider) != null) {
+        return null;
+      }
+
+      final warmKey = [
+        auth.uid,
+        walletScopeHouseholdId ?? '<none>',
+      ].join('|');
+      if (warmedWalletsKeyRef.value == warmKey) {
+        return null;
+      }
+
+      final sessionWallets =
+          ref.read(walletsListSessionCacheProvider)[walletsListCacheKey(
+        userId: auth.uid,
+        householdId: walletScopeHouseholdId,
+      )];
+      final persistedWalletsRaw =
+          ref.read(sharedPreferencesProvider).getString(walletsListCacheKey(
+                userId: auth.uid,
+                householdId: walletScopeHouseholdId,
+              ));
+      if (sessionWallets != null || persistedWalletsRaw != null) {
+        warmedWalletsKeyRef.value = warmKey;
+        return null;
+      }
+
+      warmedWalletsKeyRef.value = warmKey;
+      final timer = Timer(const Duration(milliseconds: 800), () async {
+        try {
+          await ref.read(scopedWalletsProvider.future);
+        } catch (_) {}
+      });
+      return timer.cancel;
+    }, [
+      previewState.isActive,
+      auth.uid,
+      walletAuthHeaders != null,
+      walletScopeHouseholdId,
+    ]);
 
     Future<void> clearPreviewDataCaches() async {
       // Always reset shell navigation first.
@@ -219,7 +274,7 @@ class MainShell extends HookConsumerWidget {
     }, growable: false);
 
     return StatusBarOverlayRegion(
-      child: AdaptiveScaffold(      
+      child: AdaptiveScaffold(
         body: SafeArea(
           child: Material(
             color: colorScheme.appBackground,

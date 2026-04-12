@@ -12,6 +12,7 @@ import 'package:moneko/features/home/presentation/state/transaction_edit_state.d
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void _debugPrint(String? message, {int? wrapWidth}) {
@@ -215,6 +216,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // Keep other tabs in sync (pockets + currency counts).
       ref.invalidate(pocketsProvider);
       ref.invalidate(currencyTransactionCountsProvider);
+      ref.read(walletActionsProvider).refreshAccountData();
 
       state = state.copyWith(
         isLoading: false,

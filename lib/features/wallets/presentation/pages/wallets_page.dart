@@ -22,6 +22,7 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallet_details_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
@@ -59,10 +60,37 @@ class AccountsPage extends HookConsumerWidget {
     final auth = ref.watch(authProvider);
     final walletAuthHeaders = ref.watch(walletAuthHeadersProvider);
     final prefs = ref.read(sharedPreferencesProvider);
+    final pageTraceRef = useRef<WalletsDebugTrace?>(null);
+    pageTraceRef.value ??= WalletsDebugTrace(
+      label: 'WalletsPageOpen',
+      enabled: ref.read(walletsDebugLoggingEnabledProvider),
+      logSink: ref.read(walletsDebugLogSinkProvider),
+      contextFields: {
+        'user': auth.uid.isEmpty ? '<empty>' : auth.uid,
+      },
+    );
+    final pageTrace = pageTraceRef.value!;
+
+    useEffect(() {
+      pageTrace.mark('page-mounted');
+      return null;
+    }, const []);
+
+    useEffect(() {
+      pageTrace.mark('auth-state', {
+        'hasUser': auth.uid.isNotEmpty,
+        'hasWalletAuthHeaders': walletAuthHeaders != null,
+      });
+      return null;
+    }, [auth.uid, walletAuthHeaders != null]);
 
     if (!isPreviewMode &&
         (auth.uid.isEmpty ||
             (auth.uid.isNotEmpty && walletAuthHeaders == null))) {
+      pageTrace.mark('page-blocked-before-wallet-load', {
+        'reason':
+            auth.uid.isEmpty ? 'empty-user' : 'missing-wallet-auth-headers',
+      });
       return const StatusBarOverlayRegion(
         child: AdaptiveScaffold(
           body: SafeArea(
@@ -81,19 +109,12 @@ class AccountsPage extends HookConsumerWidget {
     // and wallets drift away from pockets/details again.
     final effectiveNowForUser =
         effectiveNow(preferredTimezone: preferredTimezone);
-    final currentMonthStart =
-        DateTime(effectiveNowForUser.year, effectiveNowForUser.month);
     // CRITICAL: the wallets landing page must stay wired to recurring-aware
     // month history and month snapshot providers.
     // STRICT REQUIREMENT: if this page switches back to non-recurring month
     // data, recurring bills disappear from the main wallets cards even while
     // details and pockets still project them.
-    final scopeQuery = WalletsScopeQuery(
-      userId: auth.uid,
-      householdId: _resolveWalletsScopeHouseholdId(householdScope),
-      selectedCurrency: selectedCurrencyCode,
-      currentMonthStart: currentMonthStart,
-    );
+    final scopeQuery = ref.watch(walletsScopeQueryProvider);
     final previewWalletsData = isPreviewMode
         ? _buildPreviewWalletsPageData(
             selectedCurrencyCode: selectedCurrencyCode,
@@ -119,9 +140,7 @@ class AccountsPage extends HookConsumerWidget {
         return;
       }
 
-      ref.invalidate(scopedWalletsProvider);
-      await ref.read(scopedWalletsProvider.future);
-
+      await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
       await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
     }
 
@@ -147,6 +166,60 @@ class AccountsPage extends HookConsumerWidget {
     final bankConnectionsAsync = isPreviewMode
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);
+
+    useEffect(() {
+      pageTrace.mark('wallets-async-state', {
+        'loading': walletsAsync.isLoading,
+        'hasValue': walletsAsync.hasValue,
+        'hasError': walletsAsync.hasError,
+        'error': walletsAsync.hasError ? walletsAsync.error : null,
+        'walletCount': walletsAsync.valueOrNull?.length,
+      });
+      return null;
+    }, [
+      walletsAsync.isLoading,
+      walletsAsync.hasValue,
+      walletsAsync.hasError,
+      walletsAsync.valueOrNull?.length,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('wallets-page-state-async', {
+        'enabled': !isPreviewMode,
+        'loading': walletsPageStateAsync?.isLoading ?? false,
+        'hasValue': walletsPageStateAsync?.hasValue ?? false,
+        'hasError': walletsPageStateAsync?.hasError ?? false,
+        'error': walletsPageStateAsync?.hasError == true
+            ? walletsPageStateAsync?.error
+            : null,
+        'visibleMonths':
+            walletsPageStateAsync?.valueOrNull?.visibleMonths.length,
+      });
+      return null;
+    }, [
+      isPreviewMode,
+      walletsPageStateAsync?.isLoading ?? false,
+      walletsPageStateAsync?.hasValue ?? false,
+      walletsPageStateAsync?.hasError ?? false,
+      walletsPageStateAsync?.valueOrNull?.visibleMonths.length,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('bank-connections-async-state', {
+        'loading': bankConnectionsAsync.isLoading,
+        'hasValue': bankConnectionsAsync.hasValue,
+        'hasError': bankConnectionsAsync.hasError,
+        'error':
+            bankConnectionsAsync.hasError ? bankConnectionsAsync.error : null,
+        'count': bankConnectionsAsync.valueOrNull?.length,
+      });
+      return null;
+    }, [
+      bankConnectionsAsync.isLoading,
+      bankConnectionsAsync.hasValue,
+      bankConnectionsAsync.hasError,
+      bankConnectionsAsync.valueOrNull?.length,
+    ]);
     final scopedPlaidConnections =
         (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
             .where(
@@ -171,6 +244,31 @@ class AccountsPage extends HookConsumerWidget {
                       .isBefore(DateTime.now())),
         )
         .toList(growable: false);
+    final readyForUsefulPaint =
+        walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
+    final didLogUsefulPaintRef = useRef<bool>(false);
+
+    useEffect(() {
+      if (!readyForUsefulPaint || didLogUsefulPaintRef.value) {
+        return null;
+      }
+      didLogUsefulPaintRef.value = true;
+      pageTrace.mark('first-useful-paint', {
+        'hasOverview': isPreviewMode || walletsPageState != null,
+        'hasWallets': walletsAsync.hasValue,
+        'walletCount': effectiveWallets.length,
+        'visibleMonths': walletsPageState?.visibleMonths.length ?? 0,
+        'selectedMonth': walletsPageState?.selectedMonthStart,
+      });
+      return null;
+    }, [
+      readyForUsefulPaint,
+      isPreviewMode || walletsPageState != null,
+      walletsAsync.hasValue,
+      effectiveWallets.length,
+      walletsPageState?.visibleMonths.length,
+      walletsPageState?.selectedMonthStart,
+    ]);
 
     useEffect(() {
       final targetIndex = availableMonths.indexOf(activeCarouselMonth);
@@ -262,7 +360,7 @@ class AccountsPage extends HookConsumerWidget {
           goalAmountCents: result.goalAmountCents,
           isDefault: result.isDefault,
         );
-        ref.invalidate(scopedWalletsProvider);
+        await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
         await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
         if (context.mounted) {
           AppToast.success(context, context.l10n.save);
@@ -283,331 +381,305 @@ class AccountsPage extends HookConsumerWidget {
             )
           : null,
       body: SafeArea(
-        child: walletsAsync.when(
-          loading: () => const _WalletsPageSkeleton(),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(error.toString()),
-            ),
-          ),
-          data: (_) {
-            final wallets = effectiveWallets;
-            if (!isPreviewMode && walletsPageState == null) {
-              final pageError = walletsPageStateAsync?.error;
-              if (pageError != null) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(pageError.toString()),
-                  ),
-                );
-              }
-              return const _WalletsPageSkeleton();
-            }
+        child: Builder(builder: (context) {
+          final wallets = effectiveWallets;
+          final hasWalletsContent = walletsAsync.hasValue || wallets.isNotEmpty;
+          final hasOverviewContent = isPreviewMode || walletsPageState != null;
 
-            // Show skeleton if wallets are empty but still loading
-            if (wallets.isEmpty &&
-                (walletsAsync.isLoading || !walletsAsync.hasValue)) {
-              return const _WalletsPageSkeleton();
+          if (!hasWalletsContent && !hasOverviewContent) {
+            final walletsError = walletsAsync.error;
+            final pageError = walletsPageStateAsync?.error;
+            if (walletsError != null || pageError != null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text((walletsError ?? pageError).toString()),
+                ),
+              );
             }
-            final selectedMonth = activeCarouselMonth;
-            final rawSelectedMonthIndex =
-                availableMonths.indexOf(selectedMonth);
-            final selectedMonthIndex =
-                rawSelectedMonthIndex >= 0 ? rawSelectedMonthIndex : 0;
-            final previewSelectedSnapshot = isPreviewMode
-                ? previewWalletsData?.snapshotForMonth(selectedMonth)
-                : null;
-            final selectedSnapshot = previewSelectedSnapshot != null
-                ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
-                : walletsPageState?.displayedSnapshot != null
-                    ? _accountsSnapshotFromMonthSnapshot(
-                        walletsPageState!.displayedSnapshot!,
-                      )
-                    : _buildOpeningSnapshot(wallets);
+            return const _WalletsPageSkeleton();
+          }
 
-            return RefreshIndicator(
-              onRefresh: onRefresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                children: [
-                  SizedBox(
-                    height: (!hasDismissedSwipeHintState.value &&
-                            availableMonths.length > 1)
-                        ? 290
-                        : 260,
-                    child: PageView.builder(
-                      itemCount: availableMonths.length,
-                      controller: monthPageController,
-                      reverse: true,
-                      onPageChanged: (index) {
-                        final monthStart = availableMonths[index];
-                        if (isPreviewMode) {
-                          previewSelectedMonthState.value = monthStart;
-                        } else {
-                          unawaited(ref
-                              .read(
-                                  walletsPageStateProvider(scopeQuery).notifier)
-                              .selectMonth(monthStart));
-                        }
-                        if (hasDismissedSwipeHintState.value) {
-                          return;
-                        }
-                        hasDismissedSwipeHintState.value = true;
-                        unawaited(prefs.setBool(swipeHintPrefKey, true));
-                      },
-                      itemBuilder: (context, index) {
-                        final monthStart = availableMonths[index];
-                        final isActive = selectedMonthIndex == index;
-                        final monthSnapshot = isPreviewMode
-                            ? previewWalletsData?.snapshotForMonth(monthStart)
-                            : walletsPageState
-                                ?.cachedSnapshotsByMonth[monthStart];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Container(
-                            key: isActive ? netWorthSpotlightKey : null,
-                            child: _WalletsOverviewCard(
-                              availableMonths: availableMonths,
-                              monthStart: monthStart,
-                              selectedMonthStart: selectedMonth,
-                              snapshot: monthSnapshot != null
-                                  ? _accountsSnapshotFromMonthSnapshot(
-                                      monthSnapshot)
-                                  : selectedSnapshot,
-                              history: isPreviewMode
-                                  ? previewWalletsData?.history
-                                  : walletsPageState?.history,
-                              currencyCode: selectedCurrencyCode,
-                              hasDismissedSwipeHint:
-                                  hasDismissedSwipeHintState.value,
-                              error: !isPreviewMode && isActive
-                                  ? walletsPageState!.selectedMonthError
-                                  : null,
-                              isLoading: !isPreviewMode &&
-                                  isActive &&
-                                  walletsPageState!.isSelectedMonthLoading,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (wallets.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: colorScheme.sheetBackground,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colorScheme.border),
-                      ),
-                      child: Text(
-                        context.l10n.noWalletsYet,
-                        style: TextStyle(
-                          color: colorScheme.mutedForeground,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+          final selectedMonth = activeCarouselMonth;
+          final rawSelectedMonthIndex = availableMonths.indexOf(selectedMonth);
+          final selectedMonthIndex =
+              rawSelectedMonthIndex >= 0 ? rawSelectedMonthIndex : 0;
+          final previewSelectedSnapshot = isPreviewMode
+              ? previewWalletsData?.snapshotForMonth(selectedMonth)
+              : null;
+          final selectedSnapshot = previewSelectedSnapshot != null
+              ? _accountsSnapshotFromMonthSnapshot(previewSelectedSnapshot)
+              : walletsPageState?.displayedSnapshot != null
+                  ? _accountsSnapshotFromMonthSnapshot(
+                      walletsPageState!.displayedSnapshot!,
                     )
-                  else
-                    Container(
-                      key: walletStackSpotlightKey,
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 24, top: 12),
-                        child: _WalletAccountStack(
-                          wallets: wallets,
-                          currencyCode: selectedCurrencyCode,
-                          walletBalances: selectedSnapshot.walletBalances,
-                          isPreviewMode: isPreviewMode,
+                  : _buildOpeningSnapshot(wallets);
+
+          return RefreshIndicator(
+            onRefresh: onRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                SizedBox(
+                  height: (!hasDismissedSwipeHintState.value &&
+                          availableMonths.length > 1)
+                      ? 290
+                      : 260,
+                  child: PageView.builder(
+                    itemCount: availableMonths.length,
+                    controller: monthPageController,
+                    reverse: true,
+                    onPageChanged: (index) {
+                      final monthStart = availableMonths[index];
+                      if (isPreviewMode) {
+                        previewSelectedMonthState.value = monthStart;
+                      } else {
+                        unawaited(ref
+                            .read(walletsPageStateProvider(scopeQuery).notifier)
+                            .selectMonth(monthStart));
+                      }
+                      if (hasDismissedSwipeHintState.value) {
+                        return;
+                      }
+                      hasDismissedSwipeHintState.value = true;
+                      unawaited(prefs.setBool(swipeHintPrefKey, true));
+                    },
+                    itemBuilder: (context, index) {
+                      final monthStart = availableMonths[index];
+                      final isActive = selectedMonthIndex == index;
+                      final monthSnapshot = isPreviewMode
+                          ? previewWalletsData?.snapshotForMonth(monthStart)
+                          : walletsPageState
+                              ?.cachedSnapshotsByMonth[monthStart];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Container(
+                          key: isActive ? netWorthSpotlightKey : null,
+                          child: _WalletsOverviewCard(
+                            availableMonths: availableMonths,
+                            monthStart: monthStart,
+                            selectedMonthStart: selectedMonth,
+                            snapshot: monthSnapshot != null
+                                ? _accountsSnapshotFromMonthSnapshot(
+                                    monthSnapshot,
+                                  )
+                                : selectedSnapshot,
+                            history: isPreviewMode
+                                ? previewWalletsData?.history
+                                : walletsPageState?.history,
+                            currencyCode: selectedCurrencyCode,
+                            hasDismissedSwipeHint:
+                                hasDismissedSwipeHintState.value,
+                            error: !isPreviewMode && isActive
+                                ? walletsPageState?.selectedMonthError
+                                : null,
+                            isLoading: !isPreviewMode &&
+                                isActive &&
+                                (walletsPageState?.isSelectedMonthLoading ??
+                                    true),
+                          ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (!hasWalletsContent && walletsAsync.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 24, top: 12),
+                    child: _WalletStackLoadingSection(),
+                  )
+                else if (wallets.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Text(
+                      context.l10n.noWalletsYet,
+                      style: TextStyle(
+                        color: colorScheme.mutedForeground,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                  )
+                else
                   Container(
-                    key: newWalletSpotlightKey,
-                    child: TextButton.icon(
-                      onPressed: onAddAccount,
-                      icon: Icon(Icons.add, color: colorScheme.primary),
-                      label: Text(
-                        context.l10n.newWallet,
-                        style: TextStyle(
-                          color: colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    key: walletStackSpotlightKey,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24, top: 12),
+                      child: _WalletAccountStack(
+                        wallets: wallets,
+                        currencyCode: selectedCurrencyCode,
+                        walletBalances: selectedSnapshot.walletBalances,
+                        isPreviewMode: isPreviewMode,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  if (scopedPlaidReauthConnections.isNotEmpty)
-                    TextButton.icon(
-                      onPressed: () async {
-                        if (isPreviewMode) {
-                          AppToast.info(
-                            context,
-                            context.l10n.previewMockUpdatesApplied,
-                          );
-                          return;
-                        }
-
-                        final selectedConnection =
-                            await _selectReconnectBankConnection(
-                          context,
-                          scopedPlaidReauthConnections,
-                        );
-                        if (selectedConnection == null || !context.mounted) {
-                          return;
-                        }
-
-                        await Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => PlaidSyncWalkthroughPage(
-                              targetHouseholdId:
-                                  _resolveWalletsScopeHouseholdId(
-                                householdScope,
-                              ),
-                              connectionId: selectedConnection.id,
-                            ),
-                          ),
-                        );
-                      },
-                      icon: Icon(
-                        Icons.refresh_rounded,
-                        color: colorScheme.destructive,
-                        size: 20,
-                      ),
-                      label: Text(
-                        'Reconnect Bank',
-                        style: TextStyle(
-                          color: colorScheme.destructive,
-                          fontWeight: FontWeight.w700,
-                        ),
+                Container(
+                  key: newWalletSpotlightKey,
+                  child: TextButton.icon(
+                    onPressed: onAddAccount,
+                    icon: Icon(Icons.add, color: colorScheme.primary),
+                    label: Text(
+                      context.l10n.newWallet,
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  if (shouldShowConnectBankButton)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            AppToast.info(context, context.l10n.comingSoon);
-                            return;
-                            if (isPreviewMode) {
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (scopedPlaidReauthConnections.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () async {
+                      if (isPreviewMode) {
+                        AppToast.info(
+                          context,
+                          context.l10n.previewMockUpdatesApplied,
+                        );
+                        return;
+                      }
+
+                      final selectedConnection =
+                          await _selectReconnectBankConnection(
+                        context,
+                        scopedPlaidReauthConnections,
+                      );
+                      if (selectedConnection == null || !context.mounted) {
+                        return;
+                      }
+
+                      await Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PlaidSyncWalkthroughPage(
+                            targetHouseholdId: _resolveWalletsScopeHouseholdId(
+                              householdScope,
+                            ),
+                            connectionId: selectedConnection.id,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      color: colorScheme.destructive,
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Reconnect Bank',
+                      style: TextStyle(
+                        color: colorScheme.destructive,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                if (shouldShowConnectBankButton)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          AppToast.info(context, context.l10n.comingSoon);
+                          return;
+                        },
+                        icon: Icon(
+                          Icons.sync,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        label: Text(
+                          context.l10n.connectBank,
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      if (scopedPlaidConnections.isNotEmpty)
+                        PopupMenuButton<_PlaidConnectionMenuAction>(
+                          tooltip: 'More bank actions',
+                          onSelected: (action) async {
+                            if (action !=
+                                _PlaidConnectionMenuAction.requestRefresh) {
+                              return;
+                            }
+
+                            if (!isConvertedPaidUser) {
                               AppToast.info(
                                 context,
-                                context.l10n.previewMockUpdatesApplied,
+                                'Manual bank refresh is available after your trial converts to a paid subscription.',
                               );
                               return;
                             }
 
-                            await Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => PlaidSyncWalkthroughPage(
-                                  targetHouseholdId:
-                                      _resolveWalletsScopeHouseholdId(
-                                    householdScope,
-                                  ),
-                                ),
-                              ),
+                            final selectedConnection =
+                                await _selectRefreshBankConnection(
+                              context,
+                              refreshEligiblePlaidConnections,
                             );
-                          },
-                          icon: Icon(
-                            Icons.sync,
-                            color: colorScheme.primary,
-                            size: 20,
-                          ),
-                          label: Text(
-                            context.l10n.connectBank,
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (scopedPlaidConnections.isNotEmpty)
-                          PopupMenuButton<_PlaidConnectionMenuAction>(
-                            tooltip: 'More bank actions',
-                            onSelected: (action) async {
-                              if (action !=
-                                  _PlaidConnectionMenuAction.requestRefresh) {
-                                return;
-                              }
+                            if (selectedConnection == null ||
+                                !context.mounted) {
+                              return;
+                            }
 
-                              if (!isConvertedPaidUser) {
-                                AppToast.info(
-                                  context,
-                                  'Manual bank refresh is available after your trial converts to a paid subscription.',
-                                );
-                                return;
-                              }
-
-                              final selectedConnection =
-                                  await _selectRefreshBankConnection(
-                                context,
-                                refreshEligiblePlaidConnections,
-                              );
-                              if (selectedConnection == null ||
-                                  !context.mounted) {
-                                return;
-                              }
-
-                              final response = await supabase.functions.invoke(
-                                'plaid-item-control',
-                                body: {
-                                  'action': 'request_refresh',
-                                  'connectionId': selectedConnection.id,
-                                },
-                              );
-                              final payload =
-                                  response.data as Map<String, dynamic>?;
-                              if (response.status >= 400) {
-                                if (!context.mounted) {
-                                  return;
-                                }
-                                AppToast.error(
-                                  context,
-                                  payload?['error']?.toString() ??
-                                      'Could not request a bank refresh right now.',
-                                );
-                                return;
-                              }
-
+                            final response = await supabase.functions.invoke(
+                              'plaid-item-control',
+                              body: {
+                                'action': 'request_refresh',
+                                'connectionId': selectedConnection.id,
+                              },
+                            );
+                            final payload =
+                                response.data as Map<String, dynamic>?;
+                            if (response.status >= 400) {
                               if (!context.mounted) {
                                 return;
                               }
-                              ref.invalidate(bankConnectionsProvider);
-                              AppToast.info(
+                              AppToast.error(
                                 context,
-                                'Bank update requested. Plaid may take a while before new transactions appear.',
+                                payload?['error']?.toString() ??
+                                    'Could not request a bank refresh right now.',
                               );
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem<_PlaidConnectionMenuAction>(
-                                value:
-                                    _PlaidConnectionMenuAction.requestRefresh,
-                                enabled:
-                                    refreshEligiblePlaidConnections.isNotEmpty,
-                                child: const Text('Ask bank for update'),
-                              ),
-                            ],
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(
-                                Icons.more_horiz_rounded,
-                                color: colorScheme.mutedForeground,
-                              ),
+                              return;
+                            }
+
+                            if (!context.mounted) {
+                              return;
+                            }
+                            ref.invalidate(bankConnectionsProvider);
+                            AppToast.info(
+                              context,
+                              'Bank update requested. Plaid may take a while before new transactions appear.',
+                            );
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem<_PlaidConnectionMenuAction>(
+                              value: _PlaidConnectionMenuAction.requestRefresh,
+                              enabled:
+                                  refreshEligiblePlaidConnections.isNotEmpty,
+                              child: const Text('Ask bank for update'),
+                            ),
+                          ],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              Icons.more_horiz_rounded,
+                              color: colorScheme.mutedForeground,
                             ),
                           ),
-                      ],
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+          );
+        }),
       ),
     ));
   }
@@ -1679,6 +1751,53 @@ class _WalletsPageSkeleton extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WalletStackLoadingSection extends StatelessWidget {
+  const _WalletStackLoadingSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Skeletonizer(
+      effect: ShimmerEffect(
+        baseColor: colorScheme.skeletonBase,
+        highlightColor: colorScheme.skeletonHighlight,
+      ),
+      child: SizedBox(
+        height: 400,
+        child: Stack(
+          children: [
+            Positioned(
+              top: 150,
+              left: 0,
+              right: 0,
+              height: 130,
+              child: _SkeletonWalletCard(colorScheme: colorScheme),
+            ),
+            Positioned(
+              top: 80,
+              left: 0,
+              right: 0,
+              height: 130,
+              child: _SkeletonWalletCard(colorScheme: colorScheme),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 240,
+              child: _SkeletonWalletCard(
+                colorScheme: colorScheme,
+                isExpanded: true,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

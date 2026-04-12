@@ -19,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 
@@ -494,6 +495,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     }
 
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Refresh pockets so budget calculations reflect the new expense.
     // Note: currencyTransactionCountsProvider auto-recomputes reactively

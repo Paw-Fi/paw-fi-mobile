@@ -14,6 +14,18 @@ class _EmptyAuthNotifier extends Auth {
   AppUser build() => AppUser.empty;
 }
 
+class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
+  _StaticScopedWalletsNotifier(this.wallets);
+
+  final List<WalletEntity> wallets;
+
+  @override
+  Future<List<WalletEntity>> build() async => wallets;
+
+  @override
+  Future<List<WalletEntity>> refreshFromNetwork() async => wallets;
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,7 +75,8 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
-        scopedWalletsProvider.overrideWith((ref) async => wallets),
+        scopedWalletsProvider
+            .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       ],
     );
     addTearDown(container.dispose);

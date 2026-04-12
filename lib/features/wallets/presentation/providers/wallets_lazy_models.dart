@@ -124,6 +124,23 @@ class WalletsMonthSnapshot {
       },
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'month_start': _formatDate(monthStart),
+      'month_end_exclusive': _formatDate(monthEndExclusive),
+      'income_total_cents': incomeTotalCents,
+      'spent_total_cents': spentTotalCents,
+      'net_worth_cents': netWorthCents,
+      'wallet_balances': [
+        for (final entry in walletBalances.entries)
+          {
+            'wallet_id': entry.key,
+            'balance_cents': entry.value,
+          }
+      ],
+    };
+  }
 }
 
 class WalletNetWorthPoint {
@@ -140,6 +157,13 @@ class WalletNetWorthPoint {
       monthStart: _toMonthDate(json['month_start']),
       netWorthCents: _toInt(json['net_worth_cents']),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'month_start': _formatDate(monthStart),
+      'net_worth_cents': netWorthCents,
+    };
   }
 }
 
@@ -168,6 +192,15 @@ class WalletsHistorySummary {
       availableMonths: availableMonths,
       netWorthSeries: netWorthSeries,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'available_months':
+          availableMonths.map(_formatDate).toList(growable: false),
+      'net_worth_series':
+          netWorthSeries.map((point) => point.toJson()).toList(growable: false),
+    };
   }
 }
 
@@ -241,6 +274,50 @@ class WalletsPageState {
       lastResolvedSelectedMonthStart:
           lastResolvedSelectedMonthStart ?? this.lastResolvedSelectedMonthStart,
       isRefreshing: isRefreshing ?? this.isRefreshing,
+    );
+  }
+
+  Map<String, dynamic> toCacheJson() {
+    return {
+      'history': history.toJson(),
+      'visible_months': visibleMonths.map(_formatDate).toList(growable: false),
+      'selected_month_start': _formatDate(selectedMonthStart),
+      'cached_snapshots_by_month': {
+        for (final entry in cachedSnapshotsByMonth.entries)
+          _formatDate(entry.key): entry.value.toJson(),
+      },
+      'last_resolved_selected_month_start':
+          _formatDate(lastResolvedSelectedMonthStart),
+    };
+  }
+
+  factory WalletsPageState.fromCacheJson(Map<String, dynamic> json) {
+    final visibleMonths =
+        (json['visible_months'] as List<dynamic>? ?? const <dynamic>[])
+            .map(_toMonthDate)
+            .toList(growable: false);
+    final snapshotsJson =
+        json['cached_snapshots_by_month'] as Map<String, dynamic>? ??
+            const <String, dynamic>{};
+
+    return WalletsPageState(
+      history: WalletsHistorySummary.fromJson(
+        Map<String, dynamic>.from(
+          json['history'] as Map? ?? const <String, dynamic>{},
+        ),
+      ),
+      visibleMonths: visibleMonths,
+      selectedMonthStart: _toMonthDate(json['selected_month_start']),
+      cachedSnapshotsByMonth: {
+        for (final entry in snapshotsJson.entries)
+          _toMonthDate(entry.key): WalletsMonthSnapshot.fromJson(
+            Map<String, dynamic>.from(entry.value as Map),
+          ),
+      },
+      loadingMonths: const <DateTime>{},
+      monthErrorsByMonth: const <DateTime, Object>{},
+      lastResolvedSelectedMonthStart:
+          _toMonthDate(json['last_resolved_selected_month_start']),
     );
   }
 }

@@ -383,7 +383,8 @@ void main() {
     expect(legacyLoader.lastSnapshotQuery, query);
   });
 
-  test('walletsPageStateProvider bootstraps current month plus two previous',
+  test(
+      'walletsPageStateProvider bootstraps current month and defers older months',
       () async {
     final service = _FakeWalletsDataService();
     final container = ProviderContainer(overrides: [
@@ -403,8 +404,11 @@ void main() {
     );
     expect(state.selectedMonthStart, DateTime(2026, 4, 1));
     expect(state.lastResolvedSelectedMonthStart, DateTime(2026, 4, 1));
-    expect(state.cachedSnapshotsByMonth.keys, state.visibleMonths.toSet());
-    expect(service.snapshotMonths, state.visibleMonths);
+    expect(
+      state.cachedSnapshotsByMonth.keys,
+      {DateTime(2026, 4, 1)},
+    );
+    expect(service.snapshotMonths.first, DateTime(2026, 4, 1));
   });
 
   test(

@@ -5,6 +5,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -17,11 +19,30 @@ import 'package:moneko/features/recurring/domain/models/recurring_transaction.da
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/utils/wallet_snapshot_math.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final walletsRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
+final walletsScopeQueryProvider = Provider<WalletsScopeQuery>((ref) {
+  final auth = ref.watch(authProvider);
+  final selectedCurrencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
+  final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
+  final householdScope = ref.watch(householdScopeProvider);
+  final effectiveNowForUser =
+      effectiveNow(preferredTimezone: preferredTimezone);
+
+  return WalletsScopeQuery(
+    userId: auth.uid,
+    householdId: _resolveWalletsScopeHouseholdId(householdScope),
+    selectedCurrency: selectedCurrencyCode,
+    currentMonthStart:
+        DateTime(effectiveNowForUser.year, effectiveNowForUser.month),
+  );
+});
 
 abstract class WalletsDataService {
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query);
@@ -134,23 +155,36 @@ class SupabaseWalletsDataService implements WalletsDataService {
 
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsHistoryRpc',
+      contextFields: _walletsScopeDebugFields(query),
+    );
+    trace.mark('history-rpc-start', const {'rpc': 'get_wallets_history_v2'});
     try {
       final response = await _rpcRunner.run(
         'get_wallets_history_v2',
         params: query.toHistoryRpcParams(),
       );
-      return WalletsHistorySummary.fromJson(
+      final history = WalletsHistorySummary.fromJson(
         _parseWalletsRpcPayload(
           response,
           rpcName: 'get_wallets_history_v2',
         ),
       );
+      trace.mark('history-rpc-success', {
+        'months': history.availableMonths.length,
+        'seriesPoints': history.netWorthSeries.length,
+      });
+      return history;
     } catch (error) {
       if (!_isMissingWalletsRpcFunctionError(error,
           rpcName: 'get_wallets_history_v2')) {
+        trace.mark('history-rpc-error', {'error': error});
         rethrow;
       }
       _debugWalletsMissingRpc('get_wallets_history_v2');
+      trace.mark('history-rpc-fallback', const {'reason': 'missing-v2-rpc'});
       return _legacyLoader.fetchHistory(query);
     }
   }
@@ -158,23 +192,38 @@ class SupabaseWalletsDataService implements WalletsDataService {
   @override
   Future<WalletsMonthSnapshot> fetchMonthSnapshot(
       WalletsMonthQuery query) async {
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsMonthSnapshotRpc',
+      contextFields: _walletsMonthDebugFields(query),
+    );
+    trace.mark('month-snapshot-rpc-start',
+        const {'rpc': 'get_wallets_month_snapshot_v2'});
     try {
       final response = await _rpcRunner.run(
         'get_wallets_month_snapshot_v2',
         params: query.toRpcParams(),
       );
-      return WalletsMonthSnapshot.fromJson(
+      final snapshot = WalletsMonthSnapshot.fromJson(
         _parseWalletsRpcPayload(
           response,
           rpcName: 'get_wallets_month_snapshot_v2',
         ),
       );
+      trace.mark('month-snapshot-rpc-success', {
+        'walletBalanceCount': snapshot.walletBalances.length,
+        'netWorthCents': snapshot.netWorthCents,
+      });
+      return snapshot;
     } catch (error) {
       if (!_isMissingWalletsRpcFunctionError(error,
           rpcName: 'get_wallets_month_snapshot_v2')) {
+        trace.mark('month-snapshot-rpc-error', {'error': error});
         rethrow;
       }
       _debugWalletsMissingRpc('get_wallets_month_snapshot_v2');
+      trace.mark(
+          'month-snapshot-rpc-fallback', const {'reason': 'missing-v2-rpc'});
       return _legacyLoader.fetchMonthSnapshot(query);
     }
   }
@@ -294,26 +343,54 @@ class WalletsPageStateNotifier
   @override
   Future<WalletsPageState> build(WalletsScopeQuery arg) async {
     _query = arg;
-    final history = await _service.fetchHistory(_query);
-    final visibleMonths = buildWalletMonthWindow(
-      anchorMonth: _query.currentMonthStart,
-      count: _initialVisibleMonthCount,
+    ref.watch(walletsRefreshSignalProvider);
+    ref.watch(dashboardRefreshSignalProvider);
+    final bypassPersistedCache =
+        ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsPageStateBuild',
+      contextFields: _walletsScopeDebugFields(_query),
     );
-    final snapshots = await _fetchSnapshots(visibleMonths);
+    try {
+      trace.mark('build-start');
+      final sessionCache = ref.read(walletsPageStateSessionCacheProvider);
+      final sessionState = sessionCache[walletsPageStateCacheKey(_query)];
+      if (sessionState != null) {
+        trace.mark('session-cache-hit', {
+          'visibleMonths': sessionState.visibleMonths.length,
+          'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
+        });
+        return sessionState;
+      }
 
-    return WalletsPageState(
-      history: history,
-      visibleMonths: visibleMonths,
-      selectedMonthStart: _query.currentMonthStart,
-      cachedSnapshotsByMonth: snapshots,
-      loadingMonths: const <DateTime>{},
-      monthErrorsByMonth: const <DateTime, Object>{},
-      lastResolvedSelectedMonthStart: _query.currentMonthStart,
-    );
+      if (!bypassPersistedCache) {
+        final cachedState = _readPersistedCachedPageState();
+        if (cachedState != null) {
+          trace.mark('cache-hit', {
+            'visibleMonths': cachedState.visibleMonths.length,
+            'snapshotCount': cachedState.cachedSnapshotsByMonth.length,
+          });
+          Future<void>(() async {
+            try {
+              await refresh();
+            } catch (_) {}
+          });
+          return cachedState;
+        }
+      }
+
+      trace.mark('cache-miss');
+      return _loadInitialState(trace: trace);
+    } catch (error) {
+      trace.mark('build-error', {'error': error});
+      rethrow;
+    }
   }
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
+    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
     if (previous == null) {
       state = const AsyncLoading();
       state = await AsyncValue.guard(() => build(_query));
@@ -322,13 +399,27 @@ class WalletsPageStateNotifier
 
     state = AsyncData(previous.copyWith(isRefreshing: true));
 
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsPageRefresh',
+      contextFields: _walletsScopeDebugFields(_query),
+    );
+
     try {
-      final history = await _service.fetchHistory(_query);
+      trace.mark('refresh-start');
       final selectedMonth =
           normalizeWalletMonthStart(previous.selectedMonthStart);
-      final refreshedSnapshot = await _service.fetchMonthSnapshot(
-        WalletsMonthQuery(scope: _query, monthStart: selectedMonth),
-      );
+      final results = await Future.wait<dynamic>([
+        _service.fetchHistory(_query),
+        _service.fetchMonthSnapshot(
+          WalletsMonthQuery(scope: _query, monthStart: selectedMonth),
+        ),
+      ]);
+      if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+        return;
+      }
+      final history = results[0] as WalletsHistorySummary;
+      final refreshedSnapshot = results[1] as WalletsMonthSnapshot;
 
       final refreshedState = previous.copyWith(
         history: history,
@@ -346,12 +437,18 @@ class WalletsPageStateNotifier
         isRefreshing: false,
       );
       state = AsyncData(refreshedState);
+      _storePageState(refreshedState);
+      trace.mark('refresh-success', {
+        'selectedMonth': selectedMonth,
+        'visibleMonths': refreshedState.visibleMonths.length,
+      });
 
       final monthsToWarm = refreshedState.visibleMonths
           .where((month) => month != selectedMonth)
           .toList(growable: false);
       unawaited(_prefetchMonths(monthsToWarm));
-    } catch (_) {
+    } catch (error) {
+      trace.mark('refresh-error', {'error': error});
       state = AsyncData(previous.copyWith(isRefreshing: false));
     }
   }
@@ -389,6 +486,7 @@ class WalletsPageStateNotifier
           ...current.monthErrorsByMonth,
         }..remove(normalizedMonth),
       ));
+      _storePageState(state.valueOrNull ?? current);
       if (appendedMonths.isNotEmpty) {
         unawaited(_prefetchMonths(appendedMonths));
       }
@@ -403,6 +501,7 @@ class WalletsPageStateNotifier
         ...current.monthErrorsByMonth,
       }..remove(normalizedMonth),
     ));
+    _storePageState(state.valueOrNull ?? current);
 
     if (appendedMonths.isNotEmpty) {
       unawaited(_prefetchMonths(
@@ -412,28 +511,89 @@ class WalletsPageStateNotifier
     unawaited(_resolveSelectedMonth(normalizedMonth));
   }
 
-  Future<Map<DateTime, WalletsMonthSnapshot>> _fetchSnapshots(
-    List<DateTime> months,
-  ) async {
-    final entries = await Future.wait(
-      months.map((month) async {
-        final normalizedMonth = normalizeWalletMonthStart(month);
-        final snapshot = await _service.fetchMonthSnapshot(
-          WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
-        );
-        return MapEntry(normalizedMonth, snapshot);
-      }),
+  Future<WalletsPageState> _loadInitialState({
+    required WalletsDebugTrace trace,
+  }) async {
+    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    final selectedMonth = normalizeWalletMonthStart(_query.currentMonthStart);
+    final visibleMonths = buildWalletMonthWindow(
+      anchorMonth: _query.currentMonthStart,
+      count: _initialVisibleMonthCount,
     );
+    final results = await Future.wait<dynamic>([
+      _service.fetchHistory(_query),
+      _service.fetchMonthSnapshot(
+        WalletsMonthQuery(scope: _query, monthStart: selectedMonth),
+      ),
+    ]);
+    if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+      return state.valueOrNull ??
+          WalletsPageState(
+            history: const WalletsHistorySummary(
+              availableMonths: <DateTime>[],
+              netWorthSeries: <WalletNetWorthPoint>[],
+            ),
+            visibleMonths: visibleMonths,
+            selectedMonthStart: selectedMonth,
+            cachedSnapshotsByMonth: const <DateTime, WalletsMonthSnapshot>{},
+            loadingMonths: const <DateTime>{},
+            monthErrorsByMonth: const <DateTime, Object>{},
+            lastResolvedSelectedMonthStart: selectedMonth,
+          );
+    }
+    final history = results[0] as WalletsHistorySummary;
+    final selectedSnapshot = results[1] as WalletsMonthSnapshot;
 
-    return <DateTime, WalletsMonthSnapshot>{
-      for (final entry in entries) entry.key: entry.value,
-    };
+    trace.mark('history-loaded', {
+      'availableMonths': history.availableMonths.length,
+      'visibleMonths': visibleMonths.length,
+    });
+    trace.mark('initial-selected-snapshot-loaded', {
+      'walletBalanceCount': selectedSnapshot.walletBalances.length,
+    });
+
+    final initialState = WalletsPageState(
+      history: history,
+      visibleMonths: visibleMonths,
+      selectedMonthStart: selectedMonth,
+      cachedSnapshotsByMonth: <DateTime, WalletsMonthSnapshot>{
+        selectedMonth: selectedSnapshot,
+      },
+      loadingMonths: const <DateTime>{},
+      monthErrorsByMonth: const <DateTime, Object>{},
+      lastResolvedSelectedMonthStart: selectedMonth,
+    );
+    _storePageState(initialState);
+    trace.mark('initial-state-ready', {'snapshotCount': 1});
+
+    Future<void>(() async {
+      try {
+        await _prefetchMonths(
+          visibleMonths.where((month) => month != selectedMonth),
+        );
+      } catch (_) {}
+    });
+    return initialState;
   }
 
   Future<void> _prefetchMonths(Iterable<DateTime> months) async {
-    for (final month in months) {
+    final monthsList =
+        months.map(normalizeWalletMonthStart).toList(growable: false);
+    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsSnapshotPrefetch',
+      contextFields: {
+        ..._walletsScopeDebugFields(_query),
+        'months':
+            monthsList.map(_walletsDebugMonthValue).toList(growable: false),
+      },
+    );
+    trace.mark('prefetch-start', {'count': monthsList.length});
+    for (final month in monthsList) {
       final current = state.valueOrNull;
       if (current == null) {
+        trace.mark('prefetch-aborted', const {'reason': 'state-unavailable'});
         return;
       }
       final normalizedMonth = normalizeWalletMonthStart(month);
@@ -450,6 +610,9 @@ class WalletsPageStateNotifier
         final snapshot = await _service.fetchMonthSnapshot(
           WalletsMonthQuery(scope: _query, monthStart: normalizedMonth),
         );
+        if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+          return;
+        }
         final latest = state.valueOrNull;
         if (latest == null) {
           return;
@@ -465,6 +628,8 @@ class WalletsPageStateNotifier
             ...latest.monthErrorsByMonth,
           }..remove(normalizedMonth),
         ));
+        _storePageState(state.valueOrNull ?? latest);
+        trace.mark('prefetch-success', {'month': normalizedMonth});
       } catch (error) {
         final latest = state.valueOrNull;
         if (latest == null) {
@@ -478,15 +643,32 @@ class WalletsPageStateNotifier
             normalizedMonth: error,
           },
         ));
+        trace.mark('prefetch-error', {
+          'month': normalizedMonth,
+          'error': error,
+        });
       }
     }
   }
 
   Future<void> _resolveSelectedMonth(DateTime monthStart) async {
+    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    final trace = _createWalletsTrace(
+      ref,
+      label: 'WalletsSelectedMonth',
+      contextFields: {
+        ..._walletsScopeDebugFields(_query),
+        'month': monthStart,
+      },
+    );
+    trace.mark('selected-month-start');
     try {
       final snapshot = await _service.fetchMonthSnapshot(
         WalletsMonthQuery(scope: _query, monthStart: monthStart),
       );
+      if (refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+        return;
+      }
       final current = state.valueOrNull;
       if (current == null) {
         return;
@@ -502,6 +684,10 @@ class WalletsPageStateNotifier
         }..remove(monthStart),
         lastResolvedSelectedMonthStart: monthStart,
       ));
+      _storePageState(state.valueOrNull ?? current);
+      trace.mark('selected-month-success', {
+        'walletBalanceCount': snapshot.walletBalances.length,
+      });
     } catch (error) {
       final current = state.valueOrNull;
       if (current == null) {
@@ -514,7 +700,21 @@ class WalletsPageStateNotifier
           monthStart: error,
         },
       ));
+      trace.mark('selected-month-error', {'error': error});
     }
+  }
+
+  WalletsPageState? _readPersistedCachedPageState() {
+    return readPersistedWalletsPageState(ref, _query);
+  }
+
+  void _storePageState(WalletsPageState pageState) {
+    final cacheKey = walletsPageStateCacheKey(_query);
+    ref.read(walletsPageStateSessionCacheProvider.notifier).state = {
+      ...ref.read(walletsPageStateSessionCacheProvider),
+      cacheKey: pageState,
+    };
+    unawaited(persistWalletsPageState(ref, _query, pageState));
   }
 }
 
@@ -555,16 +755,31 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
   WalletsScopeQuery query, {
   required DateTime endInclusive,
 }) async {
+  final trace = _createWalletsTrace(
+    ref,
+    label: 'WalletsLegacyLoad',
+    contextFields: {
+      ..._walletsScopeDebugFields(query),
+      'endInclusive': endInclusive,
+    },
+  );
+  trace.mark('legacy-load-start');
   final wallets = await _fetchScopedWallets(ref, query.householdId);
+  trace.mark('legacy-wallets-loaded', {'count': wallets.length});
   final actualTransactions = await _fetchWalletActualTransactions(
     ref,
     query,
     endInclusive: endInclusive,
   );
+  trace.mark('legacy-actual-transactions-loaded', {
+    'count': actualTransactions.length,
+  });
   final recurringTransactions = await _fetchScopedRecurringTransactions(
     ref,
     query,
   );
+  trace
+      .mark('legacy-recurring-loaded', {'count': recurringTransactions.length});
   final projectionRangeStart = _resolveWalletProjectionRangeStart(
     actualTransactions: actualTransactions,
     recurringTransactions: recurringTransactions,
@@ -577,6 +792,10 @@ Future<_WalletRecurringAwareData> _loadWalletRecurringAwareData(
     rangeStart: projectionRangeStart,
     rangeEndInclusive: endInclusive,
   );
+  trace.mark('legacy-projection-built', {
+    'rangeStart': projectionRangeStart,
+    'projectedCount': projectedTransactions.length,
+  });
 
   return _WalletRecurringAwareData(
     wallets: wallets,
@@ -621,6 +840,15 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
   WalletsScopeQuery query, {
   required DateTime endInclusive,
 }) async {
+  final trace = _createWalletsTrace(
+    ref,
+    label: 'WalletsLegacyActualTransactions',
+    contextFields: {
+      ..._walletsScopeDebugFields(query),
+      'endInclusive': endInclusive,
+    },
+  );
+  trace.mark('fetch-all-pages-start');
   final service = ref.read(transactionsFeedServiceProvider);
   final scope = ref.read(householdScopeProvider);
   final transactions = await service.fetchAllPages(
@@ -638,17 +866,28 @@ Future<List<ExpenseEntry>> _fetchWalletActualTransactions(
     ),
   );
 
-  return filterWalletTransactions(
+  final filtered = filterWalletTransactions(
     allExpenses: transactions,
     scope: scope,
     selectedCurrency: query.selectedCurrency,
   );
+  trace.mark('fetch-all-pages-success', {
+    'rawCount': transactions.length,
+    'filteredCount': filtered.length,
+  });
+  return filtered;
 }
 
 Future<List<RecurringTransaction>> _fetchScopedRecurringTransactions(
   Ref ref,
   WalletsScopeQuery query,
 ) {
+  final trace = _createWalletsTrace(
+    ref,
+    label: 'WalletsLegacyRecurringTransactions',
+    contextFields: _walletsScopeDebugFields(query),
+  );
+  trace.mark('recurring-fetch-start');
   final householdScope = ref.read(householdScopeProvider);
   final scope = switch (householdScope.activeAccountType) {
     ActiveWalletType.personal => PocketsScopeType.personal,
@@ -660,7 +899,57 @@ Future<List<RecurringTransaction>> _fetchScopedRecurringTransactions(
     userId: query.userId,
     scope: scope,
     householdId: query.householdId,
+  ).then((transactions) {
+    trace.mark('recurring-fetch-success', {'count': transactions.length});
+    return transactions;
+  });
+}
+
+WalletsDebugTrace _createWalletsTrace(
+  Ref ref, {
+  required String label,
+  Map<String, Object?> contextFields = const <String, Object?>{},
+}) {
+  return WalletsDebugTrace(
+    label: label,
+    enabled: ref.read(walletsDebugLoggingEnabledProvider),
+    logSink: ref.read(walletsDebugLogSinkProvider),
+    contextFields: contextFields,
   );
+}
+
+Map<String, Object?> _walletsScopeDebugFields(WalletsScopeQuery query) {
+  return {
+    'user': query.userId,
+    'household': query.householdId ?? '<none>',
+    'currency': query.selectedCurrency,
+    'month': query.currentMonthStart,
+  };
+}
+
+Map<String, Object?> _walletsMonthDebugFields(WalletsMonthQuery query) {
+  return {
+    ..._walletsScopeDebugFields(query.scope),
+    'targetMonth': query.monthStart,
+  };
+}
+
+String _walletsDebugMonthValue(DateTime month) {
+  final normalized = normalizeWalletMonthStart(month);
+  final year = normalized.year.toString().padLeft(4, '0');
+  final value = normalized.month.toString().padLeft(2, '0');
+  return '$year-$value';
+}
+
+String? _resolveWalletsScopeHouseholdId(HouseholdScope scope) {
+  switch (scope.activeAccountType) {
+    case ActiveWalletType.personal:
+      return null;
+    case ActiveWalletType.portfolio:
+      return scope.activeAccountHouseholdId;
+    case ActiveWalletType.household:
+      return scope.selectedHouseholdId;
+  }
 }
 
 DateTime _resolveWalletProjectionRangeStart({

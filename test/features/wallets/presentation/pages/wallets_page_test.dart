@@ -33,6 +33,18 @@ class _EmptyAuthNotifier extends Auth {
   AppUser build() => AppUser.empty;
 }
 
+class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
+  _StaticScopedWalletsNotifier(this.wallets);
+
+  final List<WalletEntity> wallets;
+
+  @override
+  Future<List<WalletEntity>> build() async => wallets;
+
+  @override
+  Future<List<WalletEntity>> refreshFromNetwork() async => wallets;
+}
+
 class _FakeWalletsDataService implements WalletsDataService {
   @override
   Future<WalletsHistorySummary> fetchHistory(WalletsScopeQuery query) async {
@@ -223,7 +235,8 @@ void main() {
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
           walletsDataServiceProvider
               .overrideWithValue(_FakeWalletsDataService()),
@@ -279,7 +292,8 @@ void main() {
           bankConnectionsProvider.overrideWith((ref) async => const []),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
           walletsDataServiceProvider
               .overrideWithValue(_FakeWalletsDataService()),
@@ -488,7 +502,8 @@ void main() {
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
           walletsDataServiceProvider.overrideWithValue(
             _DelayedWalletsDataService(snapshotCompleter: snapshotCompleter),
@@ -548,7 +563,8 @@ void main() {
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
-          scopedWalletsProvider.overrideWith((ref) async => wallets),
+          scopedWalletsProvider
+              .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
           effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
           walletsDataServiceProvider.overrideWithValue(
             _FailingSnapshotWalletsDataService(),
@@ -599,7 +615,8 @@ void main() {
       appPreferredTimezoneProvider.overrideWith((ref) => null),
       mainShellTabIndexProvider.overrideWith((ref) => 0),
       sharedPreferencesProvider.overrideWithValue(prefs),
-      scopedWalletsProvider.overrideWith((ref) async => wallets),
+      scopedWalletsProvider
+          .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
       effectiveScopeWalletsProvider.overrideWith((ref) => wallets),
       walletsDataServiceProvider.overrideWithValue(
         _WindowedWalletsDataService(

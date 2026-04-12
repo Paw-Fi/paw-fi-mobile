@@ -7,6 +7,8 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -23,33 +25,51 @@ final walletScopeHouseholdIdProvider = Provider<String?>((ref) {
 final walletsByHouseholdIdProvider =
     FutureProvider.family<List<WalletEntity>, String?>(
         (ref, householdId) async {
+  final trace = WalletsDebugTrace(
+    label: 'WalletsByHousehold',
+    enabled: ref.read(walletsDebugLoggingEnabledProvider),
+    logSink: ref.read(walletsDebugLogSinkProvider),
+    contextFields: {
+      'household': householdId?.trim().isEmpty ?? true ? '<none>' : householdId,
+    },
+  );
   final authHeaders = ref.watch(walletAuthHeadersProvider);
   if (authHeaders == null) {
     // Avoid caching a transient unauthorized fetch during the post-login
     // handoff before auth state is ready in Riverpod.
+    trace.mark(
+        'wallets-fetch-skipped', const {'reason': 'missing-auth-headers'});
     return const <WalletEntity>[];
   }
 
-  final response = await supabase.functions.invoke(
-    'list-wallets',
-    headers: authHeaders,
-    body: {
-      if (householdId != null && householdId.trim().isNotEmpty)
-        'householdId': householdId,
-    },
-  );
+  try {
+    trace.mark('wallets-fetch-start');
+    final response = await supabase.functions.invoke(
+      'list-wallets',
+      headers: authHeaders,
+      body: {
+        if (householdId != null && householdId.trim().isNotEmpty)
+          'householdId': householdId,
+      },
+    );
 
-  final payload = response.data as Map<String, dynamic>?;
-  if (payload == null || payload['success'] != true) {
-    final message = payload?['error']?.toString() ?? 'Failed to load wallets';
-    throw Exception(message);
+    final payload = response.data as Map<String, dynamic>?;
+    if (payload == null || payload['success'] != true) {
+      final message = payload?['error']?.toString() ?? 'Failed to load wallets';
+      throw Exception(message);
+    }
+
+    final data = payload['data'] as List<dynamic>? ?? const [];
+    final wallets = data
+        .whereType<Map<String, dynamic>>()
+        .map(WalletEntity.fromJson)
+        .toList(growable: false);
+    trace.mark('wallets-fetch-success', {'count': wallets.length});
+    return wallets;
+  } catch (error) {
+    trace.mark('wallets-fetch-exception', {'error': error});
+    rethrow;
   }
-
-  final data = payload['data'] as List<dynamic>? ?? const [];
-  return data
-      .whereType<Map<String, dynamic>>()
-      .map(WalletEntity.fromJson)
-      .toList(growable: false);
 });
 
 final optimisticScopedAccountsOverridesProvider =
@@ -113,10 +133,126 @@ final archivedScopedAccountsProvider =
       .toList(growable: false);
 });
 
-final scopedWalletsProvider = FutureProvider<List<WalletEntity>>((ref) async {
-  final householdId = ref.watch(walletScopeHouseholdIdProvider);
-  return ref.watch(walletsByHouseholdIdProvider(householdId).future);
-});
+final scopedWalletsProvider =
+    AsyncNotifierProvider<ScopedWalletsNotifier, List<WalletEntity>>(
+        ScopedWalletsNotifier.new);
+
+class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
+  @override
+  Future<List<WalletEntity>> build() async {
+    final user = ref.watch(authProvider);
+    final householdId = ref.watch(walletScopeHouseholdIdProvider);
+    final authHeaders = ref.watch(walletAuthHeadersProvider);
+    final bypassPersistedCache =
+        ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
+    final cacheKey = walletsListCacheKey(
+      userId: user.uid,
+      householdId: householdId,
+    );
+    final trace = WalletsDebugTrace(
+      label: 'ScopedWalletsProvider',
+      enabled: ref.read(walletsDebugLoggingEnabledProvider),
+      logSink: ref.read(walletsDebugLogSinkProvider),
+      contextFields: {
+        'user': user.uid.isEmpty ? '<empty>' : user.uid,
+        'household': householdId ?? '<none>',
+      },
+    );
+
+    if (user.uid.isEmpty) {
+      trace.mark('build-skipped', const {'reason': 'empty-user'});
+      return const <WalletEntity>[];
+    }
+
+    if (authHeaders == null) {
+      trace.mark('build-skipped', const {'reason': 'missing-auth-headers'});
+      return const <WalletEntity>[];
+    }
+
+    final sessionCache = ref.read(walletsListSessionCacheProvider);
+    final cachedSessionWallets = sessionCache[cacheKey];
+    if (cachedSessionWallets != null) {
+      trace.mark('session-cache-hit', {'count': cachedSessionWallets.length});
+      return cachedSessionWallets;
+    }
+
+    if (!bypassPersistedCache) {
+      final persistedWallets = readPersistedWalletsList(
+        ref,
+        userId: user.uid,
+        householdId: householdId,
+      );
+      if (persistedWallets != null) {
+        trace.mark('persisted-cache-hit', {'count': persistedWallets.length});
+        Future<void>(() {
+          ref.read(walletsListSessionCacheProvider.notifier).state = {
+            ...ref.read(walletsListSessionCacheProvider),
+            cacheKey: persistedWallets,
+          };
+        });
+        Future<void>(() async {
+          try {
+            await refreshFromNetwork();
+          } catch (_) {}
+        });
+        return persistedWallets;
+      }
+    }
+
+    trace.mark('cache-miss');
+    return refreshFromNetwork();
+  }
+
+  Future<List<WalletEntity>> refreshFromNetwork() async {
+    final user = ref.read(authProvider);
+    final householdId = ref.read(walletScopeHouseholdIdProvider);
+    final refreshGeneration = ref.read(walletsRefreshSignalProvider);
+    if (user.uid.isEmpty) {
+      return const <WalletEntity>[];
+    }
+
+    final authHeaders = ref.read(walletAuthHeadersProvider);
+    if (authHeaders == null) {
+      return state.valueOrNull ??
+          readPersistedWalletsList(
+            ref,
+            userId: user.uid,
+            householdId: householdId,
+          ) ??
+          const <WalletEntity>[];
+    }
+
+    final requestKey = walletsListCacheKey(
+      userId: user.uid,
+      householdId: householdId,
+    );
+    final wallets =
+        await ref.read(walletsByHouseholdIdProvider(householdId).future);
+    final currentKey = walletsListCacheKey(
+      userId: ref.read(authProvider).uid,
+      householdId: ref.read(walletScopeHouseholdIdProvider),
+    );
+    if (requestKey != currentKey ||
+        refreshGeneration != ref.read(walletsRefreshSignalProvider)) {
+      return state.valueOrNull ?? const <WalletEntity>[];
+    }
+
+    ref.read(walletsListSessionCacheProvider.notifier).state = {
+      ...ref.read(walletsListSessionCacheProvider),
+      requestKey: wallets,
+    };
+    unawaited(
+      persistWalletsList(
+        ref,
+        userId: user.uid,
+        householdId: householdId,
+        wallets: wallets,
+      ),
+    );
+    state = AsyncData(wallets);
+    return wallets;
+  }
+}
 
 final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
   final baseAccounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
@@ -380,8 +516,29 @@ class WalletActions {
     ref.invalidate(archivedScopedAccountsProvider);
     ref.invalidate(walletsHistoryProvider);
     ref.invalidate(walletsMonthSnapshotProvider);
+    ref.invalidate(walletsScopeQueryProvider);
+    ref.invalidate(walletsPageStateProvider);
     ref.read(walletsRefreshSignalProvider.notifier).state += 1;
     final userId = ref.read(authProvider).uid;
+    if (userId.isNotEmpty) {
+      ref.read(walletsListSessionCacheProvider.notifier).state = const {};
+      ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
+      ref.read(walletsPersistedCacheBypassCountProvider.notifier).state++;
+      unawaited(
+        (() async {
+          try {
+            await clearAllWalletsCachesForUser(
+              ref,
+              userId: userId,
+            );
+          } finally {
+            final notifier =
+                ref.read(walletsPersistedCacheBypassCountProvider.notifier);
+            notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+          }
+        })(),
+      );
+    }
     if (userId.isNotEmpty) {
       debugPrint(
           '[Accounts][Invalidate] trigger analytics reload userId=$userId');
