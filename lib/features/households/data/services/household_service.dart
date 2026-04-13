@@ -749,6 +749,44 @@ class HouseholdService {
     return (result as int?) ?? 0;
   }
 
+  Future<List<Map<String, dynamic>>> getPairwiseSettlementBalancesV2({
+    required String householdId,
+    String? currency,
+  }) async {
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    final result = await _supabase.rpc(
+      'households_get_pairwise_settlement_balances_v2',
+      params: {
+        'p_household_id': householdId,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
+      },
+    );
+
+    return (result as List?)?.cast<Map<String, dynamic>>() ??
+        const <Map<String, dynamic>>[];
+  }
+
+  Future<List<Map<String, dynamic>>> getSettlementBreakdownRowsV2({
+    required String householdId,
+    required String memberUserId,
+    String? currency,
+  }) async {
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    final result = await _supabase.rpc(
+      'households_get_settlement_breakdown_v2',
+      params: {
+        'p_household_id': householdId,
+        'p_other_user_id': memberUserId,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
+      },
+    );
+
+    return (result as List?)?.cast<Map<String, dynamic>>() ??
+        const <Map<String, dynamic>>[];
+  }
+
   // ============================================================================
   // EXPRESS NETTING SUPPORT (pair-wise)
   // ============================================================================

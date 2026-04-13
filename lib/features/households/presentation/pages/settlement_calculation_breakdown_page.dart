@@ -1,57 +1,45 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
-import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 
-class SettlementCalculationBreakdownPage extends StatelessWidget {
+class SettlementCalculationBreakdownPage extends ConsumerWidget {
+  final String householdId;
   final String currentUserId;
   final String memberUserId;
   final String memberDisplayName;
   final String currencyCode;
-  final List<ExpenseEntry> transactions;
-  final List<ExpenseSplitGroup> splits;
-  final int paidToCents;
-  final int paidFromCents;
-  final int finalSettleAmountCents;
+  final int netCents;
 
   const SettlementCalculationBreakdownPage({
     super.key,
+    required this.householdId,
     required this.currentUserId,
     required this.memberUserId,
     required this.memberDisplayName,
     required this.currencyCode,
-    required this.transactions,
-    required this.splits,
-    required this.paidToCents,
-    required this.paidFromCents,
-    required this.finalSettleAmountCents,
+    required this.netCents,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final transactionById = {for (final t in transactions) t.id: t};
-    final rows = _buildRows(transactionById);
-
-    final youOweRows = rows
-        .where((row) => row.direction == _Direction.youOwe)
-        .toList()
-      ..sort((a, b) => b.transaction.date.compareTo(a.transaction.date));
-    final theyOweRows = rows
-        .where((row) => row.direction == _Direction.theyOweYou)
-        .toList()
-      ..sort((a, b) => b.transaction.date.compareTo(a.transaction.date));
-
-    final youOweTotal =
-        youOweRows.fold<int>(0, (sum, row) => sum + row.splitAmountCents);
-    final theyOweTotal =
-        theyOweRows.fold<int>(0, (sum, row) => sum + row.splitAmountCents);
+    final breakdownAsync = ref.watch(
+      householdSettlementBreakdownV2Provider(
+        SettlementBreakdownV2Params(
+          householdId: householdId,
+          memberUserId: memberUserId,
+          currency: currencyCode,
+        ),
+      ),
+    );
 
     return Scaffold(
       backgroundColor: scheme.appBackground,
@@ -75,136 +63,117 @@ class SettlementCalculationBreakdownPage extends StatelessWidget {
             currentUserId: currentUserId,
             memberUserId: memberUserId,
             memberDisplayName: memberDisplayName,
-            youOweTotal: youOweTotal,
-            theyOweTotal: theyOweTotal,
-            paidToCents: paidToCents,
-            paidFromCents: paidFromCents,
-            finalSettleAmountCents: finalSettleAmountCents,
+            netCents: netCents,
             currencyCode: currencyCode,
           ),
           const SizedBox(height: 18),
-          _BreakdownSection(
-            title: '${context.l10n.youOwe} $memberDisplayName',
-            currencyCode: currencyCode,
-            rows: youOweRows,
-            emptyLabel: context.l10n.noSplitTransactionsFound,
-          ),
-          const SizedBox(height: 16),
-          _BreakdownSection(
-            title: '$memberDisplayName ${context.l10n.owesYou}',
-            currencyCode: currencyCode,
-            rows: theyOweRows,
-            emptyLabel: context.l10n.noSplitTransactionsFound,
-          ),
-          const SizedBox(height: 16),
-          _BreakdownSection(
-            title: '$memberDisplayName ${context.l10n.owesYou}',
-            currencyCode: currencyCode,
-            rows: theyOweRows,
-            emptyLabel: context.l10n.noSplitTransactionsFound,
+          breakdownAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                context.l10n.errorLoadingData,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: scheme.mutedForeground,
+                ),
+              ),
+            ),
+            data: (rows) {
+              final youOweRows = rows
+                  .where((row) => row.direction == _Direction.youOwe)
+                  .toList();
+              final theyOweRows = rows
+                  .where((row) => row.direction == _Direction.theyOweYou)
+                  .toList();
+
+              if (kDebugMode) {
+                final breakdownNet = youOweRows.fold<int>(
+                      0,
+                      (sum, row) => sum + row.remainingAmountCents,
+                    ) -
+                    theyOweRows.fold<int>(
+                      0,
+                      (sum, row) => sum + row.remainingAmountCents,
+                    );
+                if (breakdownNet != netCents) {
+                  debugPrint(
+                    '[SettlementBreakdownPage] household=$householdId member=$memberUserId canonicalNet=$netCents breakdownNet=$breakdownNet rows=${rows.length}',
+                  );
+                }
+              }
+
+              return Column(
+                children: [
+                  if (youOweRows.isNotEmpty)
+                    _BreakdownSection(
+                      title: '${context.l10n.youOwe} $memberDisplayName',
+                      currencyCode: currencyCode,
+                      rows: youOweRows,
+                      emptyLabel: context.l10n.noSplitTransactionsFound,
+                    ),
+                  if (youOweRows.isNotEmpty && theyOweRows.isNotEmpty)
+                    const SizedBox(height: 16),
+                  if (theyOweRows.isNotEmpty)
+                    _BreakdownSection(
+                      title: '$memberDisplayName ${context.l10n.owesYou}',
+                      currencyCode: currencyCode,
+                      rows: theyOweRows,
+                      emptyLabel: context.l10n.noSplitTransactionsFound,
+                    ),
+                  if (youOweRows.isEmpty && theyOweRows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        context.l10n.noSplitTransactionsFound,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: scheme.mutedForeground,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
-
-  List<_BreakdownRowData> _buildRows(
-      Map<String, ExpenseEntry> transactionById) {
-    final normalizedCurrency = currencyCode.trim().toUpperCase();
-    final output = <_BreakdownRowData>[];
-
-    for (final group in splits) {
-      if (group.currency.trim().toUpperCase() != normalizedCurrency) continue;
-      final lines = group.splitLines ?? const <ExpenseSplitLine>[];
-      if (lines.isEmpty) continue;
-
-      final transaction = transactionById[group.expenseId];
-      if (transaction == null) continue;
-      if ((transaction.type ?? 'expense').toLowerCase() == 'income') continue;
-
-      for (final line in lines) {
-        if (line.isSettled) continue;
-        final splitAmountCents = (line.amountCents ?? 0).abs();
-        if (splitAmountCents <= 0) continue;
-
-        if (group.payerUserId == memberUserId && line.userId == currentUserId) {
-          output.add(_BreakdownRowData(
-            direction: _Direction.youOwe,
-            splitAmountCents: splitAmountCents,
-            transaction: transaction,
-          ));
-        }
-
-        if (group.payerUserId == currentUserId && line.userId == memberUserId) {
-          output.add(_BreakdownRowData(
-            direction: _Direction.theyOweYou,
-            splitAmountCents: splitAmountCents,
-            transaction: transaction,
-          ));
-        }
-      }
-    }
-
-    return output;
-  }
 }
 
-enum _Direction { youOwe, theyOweYou }
-
-class _BreakdownRowData {
-  final _Direction direction;
-  final int splitAmountCents;
-  final ExpenseEntry transaction;
-
-  const _BreakdownRowData({
-    required this.direction,
-    required this.splitAmountCents,
-    required this.transaction,
-  });
-}
+typedef _Direction = SettlementBreakdownDirectionV2;
+typedef _BreakdownRowData = SettlementBreakdownRowV2;
 
 class _SummaryCard extends StatelessWidget {
   final String currentUserId;
   final String memberUserId;
   final String memberDisplayName;
-  final int youOweTotal;
-  final int theyOweTotal;
-  final int paidToCents;
-  final int paidFromCents;
-  final int finalSettleAmountCents;
+  final int netCents;
   final String currencyCode;
 
   const _SummaryCard({
     required this.currentUserId,
     required this.memberUserId,
     required this.memberDisplayName,
-    required this.youOweTotal,
-    required this.theyOweTotal,
-    required this.paidToCents,
-    required this.paidFromCents,
-    required this.finalSettleAmountCents,
+    required this.netCents,
     required this.currencyCode,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final netBeforeSettlements = youOweTotal - theyOweTotal;
-    final settlementAdjustment = paidFromCents - paidToCents;
-    final netAfterSettlements = netBeforeSettlements + settlementAdjustment;
-    final netAmount =
-        formatCurrency(netAfterSettlements.abs() / 100.0, currencyCode);
-    final isNetPayer = netAfterSettlements > 0;
-    final nothingToSettle = netAfterSettlements == 0;
+    final netAmount = formatCurrency(netCents.abs() / 100.0, currencyCode);
+    final isNetPayer = netCents > 0;
+    final nothingToSettle = netCents == 0;
     final netLabel = isNetPayer
         ? context.l10n.youOwe
-        : netAfterSettlements < 0
+        : netCents < 0
             ? context.l10n.theyOweYou
             : context.l10n.nothingToSettle;
 
     return Column(
       children: [
-        // Connection visual: You <--> Them
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: Row(
@@ -248,10 +217,7 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
         ),
-
         const SizedBox(height: 16),
-
-        // Amount display card
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
@@ -388,7 +354,7 @@ class _BreakdownSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final totalCents =
-        rows.fold<int>(0, (sum, row) => sum + row.splitAmountCents);
+        rows.fold<int>(0, (sum, row) => sum + row.remainingAmountCents);
 
     return Container(
       decoration: BoxDecoration(
@@ -437,28 +403,27 @@ class _BreakdownSection extends StatelessWidget {
             )
           else
             ...rows.map((row) {
-              final transaction = row.transaction;
+              final isIncome =
+                  (row.expenseType ?? 'expense').toLowerCase() == 'income';
               final totalAmount = formatCurrency(
-                transaction.amountCents.abs() / 100.0,
-                transaction.currency ?? currencyCode,
+                row.totalAmountCents.abs() / 100.0,
+                currencyCode,
               );
 
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: TransactionListTile(
-                  category: transaction.category ?? context.l10n.other,
-                  title: transaction.rawText ??
-                      transaction.category ??
+                  category: row.expenseCategory ?? context.l10n.other,
+                  title: row.expenseRawText ??
+                      row.expenseDescription ??
+                      row.expenseCategory ??
                       context.l10n.expense,
-                  description: transaction.rawText,
-                  date: transaction.date,
-                  amount: row.splitAmountCents / 100.0,
+                  description: row.expenseRawText ?? row.expenseDescription,
+                  date: row.expenseDate,
+                  amount: row.remainingAmountCents / 100.0,
                   currency: currencyCode,
-                  isIncome: false,
-                  onTap: () => showUnifiedTransactionSheet(
-                    context,
-                    existingExpense: transaction,
-                  ),
+                  isIncome: isIncome,
+                  onTap: null,
                   trailingWidget: Text(
                     context.l10n.ofTotalAmount(totalAmount),
                     style: TextStyle(

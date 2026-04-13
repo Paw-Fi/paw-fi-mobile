@@ -8,11 +8,11 @@ import 'dart:async';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
-import 'package:moneko/features/auth/auth.dart';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
 import '../../domain/entities/expense_split.dart';
+import '../../domain/entities/settlement_v2.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../domain/utils/settlement_net_calculator.dart';
 import '../../domain/repositories/household_repository.dart';
@@ -22,6 +22,7 @@ import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
 import '../../../home/presentation/state/home_debug_tracing.dart';
 import '../../../home/presentation/state/dashboard_lazy_providers.dart';
+import 'cached_providers.dart';
 import 'household_optimistic_providers.dart';
 
 // ============================================================================
@@ -73,7 +74,6 @@ class UserHouseholdsNotifier
   final String _userId;
   final Ref _ref;
   Future<void>? _inFlightLoad;
-  Future<void>? _deferredInitialLoad;
 
   UserHouseholdsNotifier(
     this._repository,
@@ -84,7 +84,7 @@ class UserHouseholdsNotifier
   }) : super(_initialHouseholdsState(_userId, initialHouseholds)) {
     if (!state.hasValue) {
       if (deferInitialLoad) {
-        _deferredInitialLoad = _scheduleDeferredInitialLoad();
+        _scheduleDeferredInitialLoad();
       } else {
         load();
       }
@@ -520,7 +520,7 @@ final householdSummaryProvider =
               endDate: params.endDate,
             )
             .timeout(timeout);
-        trace.mark('load-success', {'hasSummary': summary != null});
+        trace.mark('load-success', {'hasSummary': true});
         return summary;
       } on TimeoutException catch (e) {
         lastError = e;
@@ -911,6 +911,86 @@ class SettlementHistoryParams {
   @override
   int get hashCode => householdId.hashCode ^ limit.hashCode;
 }
+
+class PairwiseSettlementBalancesParams {
+  final String householdId;
+  final String? currency;
+
+  PairwiseSettlementBalancesParams({
+    required this.householdId,
+    String? currency,
+  }) : currency = currency?.trim().toUpperCase();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PairwiseSettlementBalancesParams &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          currency == other.currency;
+
+  @override
+  int get hashCode => householdId.hashCode ^ (currency?.hashCode ?? 0);
+}
+
+class SettlementBreakdownV2Params {
+  final String householdId;
+  final String memberUserId;
+  final String? currency;
+
+  SettlementBreakdownV2Params({
+    required this.householdId,
+    required this.memberUserId,
+    String? currency,
+  }) : currency = currency?.trim().toUpperCase();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettlementBreakdownV2Params &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          memberUserId == other.memberUserId &&
+          currency == other.currency;
+
+  @override
+  int get hashCode =>
+      householdId.hashCode ^ memberUserId.hashCode ^ (currency?.hashCode ?? 0);
+}
+
+final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
+    .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
+  (ref, params) async {
+    ref.watch(
+      cachedHouseholdSplitsProvider(
+        HouseholdSplitsParams(householdId: params.householdId),
+      ),
+    );
+    ref.watch(householdSettlementPaymentsProvider(params.householdId));
+
+    final service = ref.watch(householdServiceProvider);
+    final rows = await service.getPairwiseSettlementBalancesV2(
+      householdId: params.householdId,
+      currency: params.currency,
+    );
+
+    return rows.map(SettlementPairwiseBalance.fromJson).toList();
+  },
+);
+
+final householdSettlementBreakdownV2Provider = FutureProvider.autoDispose
+    .family<List<SettlementBreakdownRowV2>, SettlementBreakdownV2Params>(
+  (ref, params) async {
+    final service = ref.watch(householdServiceProvider);
+    final rows = await service.getSettlementBreakdownRowsV2(
+      householdId: params.householdId,
+      memberUserId: params.memberUserId,
+      currency: params.currency,
+    );
+
+    return rows.map(SettlementBreakdownRowV2.fromJson).toList();
+  },
+);
 
 class SettlementLine {
   final String splitGroupId;

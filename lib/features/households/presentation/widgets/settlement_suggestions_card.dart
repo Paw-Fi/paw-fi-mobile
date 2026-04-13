@@ -4,10 +4,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/settle_up_sheet.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -49,22 +51,35 @@ class _SettlementSuggestionsCardState
       return const SizedBox.shrink();
     }
 
-    // Watch the combined settlement overview provider — single source of
-    // truth for both splits and settlement payments. Keyed by householdId
-    // only. Both underlying providers are invalidated after settlement by
-    // SettleUpSheet._confirmAndSettle().
+    final balancesAsync = ref.watch(
+      householdPairwiseSettlementBalancesV2Provider(
+        PairwiseSettlementBalancesParams(
+          householdId: widget.summary.householdId,
+          currency: widget.currency,
+        ),
+      ),
+    );
     final overviewAsync = ref.watch(
       settlementOverviewProvider(widget.summary.householdId),
     );
 
-    return overviewAsync.when(
-      loading: () => _buildLoadingCard(context, colorScheme),
-      error: (_, __) => _buildLoadingCard(context, colorScheme),
-      data: (overview) {
-        final providerSplits = overview.splits;
-        final settlementPayments = overview.payments;
+    if (balancesAsync.isLoading && overviewAsync.isLoading) {
+      return _buildLoadingCard(context, colorScheme);
+    }
 
-        // 1. Calculate Data
+    if (balancesAsync.hasError && !overviewAsync.hasValue) {
+      return _buildLoadingCard(context, colorScheme);
+    }
+
+    final balances = balancesAsync.valueOrNull;
+    final overview = overviewAsync.valueOrNull;
+
+    if (balances == null && overview == null) {
+      return _buildLoadingCard(context, colorScheme);
+    }
+
+    return Builder(
+      builder: (context) {
         String nameFor(String userId) {
           final fromMembers = widget.members?.firstWhere(
             (m) => m.userId == userId,
@@ -98,13 +113,20 @@ class _SettlementSuggestionsCardState
               context.l10n.member;
         }
 
-        final mySuggestions = _buildNetSuggestions(
-          providerSplits,
-          widget.currency,
-          currentUserId,
-          nameFor,
-          settlementPayments: settlementPayments,
-        );
+        final mySuggestions = balances != null
+            ? _buildSuggestionsFromBalances(
+                balances,
+                currentUserId,
+                nameFor,
+              )
+            : _buildLegacySuggestions(
+                overview?.splits,
+                widget.currency,
+                currentUserId,
+                nameFor,
+                settlementPayments:
+                    overview?.payments ?? const <SettlementPaymentRecord>[],
+              );
 
         // 4. Calculate Stats for Current User
         int youOweTotal = 0;
@@ -203,7 +225,7 @@ class _SettlementSuggestionsCardState
                                         householdId: widget.summary.householdId,
                                         isExpress: true,
                                         amountHintCents: youOweTotal,
-                                        splits: providerSplits,
+                                        splits: widget.splits,
                                         targetUserId: null,
                                         currency: widget.currency,
                                       )
@@ -267,7 +289,7 @@ class _SettlementSuggestionsCardState
                               householdId: widget.summary.householdId,
                               isExpress: true,
                               amountHintCents: s.amountCents,
-                              splits: providerSplits,
+                              splits: widget.splits,
                               targetUserId: isPayer ? s.toUserId : s.fromUserId,
                               currency: widget.currency,
                             ),
@@ -304,7 +326,6 @@ class _SettlementSuggestionsCardState
       child: const Center(child: CircularProgressIndicator()),
     );
   }
-
 
   Widget _buildAllSettledState(BuildContext context, ColorScheme colorScheme) {
     return Center(
@@ -348,7 +369,37 @@ class _SettlementSuggestionsCardState
     );
   }
 
-  List<_Suggestion> _buildNetSuggestions(
+  List<_Suggestion> _buildSuggestionsFromBalances(
+    List<SettlementPairwiseBalance> balances,
+    String currentUserId,
+    String Function(String) nameFor,
+  ) {
+    final out = <_Suggestion>[];
+    for (final balance in balances) {
+      if (balance.netCents > 0) {
+        out.add(_Suggestion(
+          fromUserId: currentUserId,
+          toUserId: balance.otherUserId,
+          fromName: nameFor(currentUserId),
+          toName: nameFor(balance.otherUserId),
+          amountCents: balance.netCents,
+        ));
+      } else if (balance.netCents < 0) {
+        out.add(_Suggestion(
+          fromUserId: balance.otherUserId,
+          toUserId: currentUserId,
+          fromName: nameFor(balance.otherUserId),
+          toName: nameFor(currentUserId),
+          amountCents: balance.netCents.abs(),
+        ));
+      }
+    }
+
+    out.sort((a, b) => b.amountCents.compareTo(a.amountCents));
+    return out;
+  }
+
+  List<_Suggestion> _buildLegacySuggestions(
     List<ExpenseSplitGroup>? splits,
     String? currency,
     String currentUserId,
