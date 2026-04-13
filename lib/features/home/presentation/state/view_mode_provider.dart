@@ -47,22 +47,41 @@ class ViewModeState {
 /// View mode notifier
 class ViewModeNotifier extends StateNotifier<ViewModeState> {
   static const _storageKey = 'moneko_view_mode';
-  final SharedPreferences _prefs;
+  final SharedPreferences? _prefs;
 
-  ViewModeNotifier(this._prefs)
-      : super(ViewModeState(mode: _readInitialMode(_prefs)));
+  ViewModeNotifier([this._prefs])
+      : super(ViewModeState(mode: _readInitialMode(_prefs))) {
+    if (_prefs == null) {
+      _loadPersistedModeFallback();
+    }
+  }
 
-  static ViewMode _readInitialMode(SharedPreferences prefs) {
-    final stored = prefs.getString(_storageKey);
+  static ViewMode _readInitialMode(SharedPreferences? prefs) {
+    final stored = prefs?.getString(_storageKey);
     if (stored == 'personal') {
       return ViewMode.personal;
     }
     return ViewMode.household;
   }
 
+  Future<void> _loadPersistedModeFallback() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_storageKey);
+      if (stored == 'household') {
+        state = state.copyWith(mode: ViewMode.household);
+      } else if (stored == 'personal') {
+        state = state.copyWith(mode: ViewMode.personal);
+      }
+    } catch (_) {
+      // Non-fatal fallback for tests/legacy constructor usage.
+    }
+  }
+
   Future<void> _persist(ViewMode mode) async {
     try {
-      await _prefs.setString(
+      final prefs = _prefs ?? await SharedPreferences.getInstance();
+      await prefs.setString(
           _storageKey, mode == ViewMode.household ? 'household' : 'personal');
     } catch (_) {
       // ignore persistence errors

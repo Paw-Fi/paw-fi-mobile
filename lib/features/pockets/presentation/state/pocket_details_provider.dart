@@ -131,14 +131,12 @@ final pocketDetailsProvider =
 
   final res = await query.order('date', ascending: false);
   final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
-  // CRITICAL: the raw expenses query can still return recurring template rows.
-  // STRICT REQUIREMENT: filter those templates out before merging projected
-  // month occurrences, or pocket details will double count recurring spend.
+  // CRITICAL: keep pocket details aligned with the main pockets page totals.
+  // STRICT REQUIREMENT: exclude only income rows here so recurring expenses
+  // remain visible and totals stay consistent with the primary pockets flow.
   final actualTransactions = transactionRows
       .map(ExpenseEntry.fromJson)
-      .where((expense) =>
-          !expense.isRecurring &&
-          (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 
   final preferredTimezone =

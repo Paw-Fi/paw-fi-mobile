@@ -11,6 +11,9 @@ import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/domain/repositories/household_repository.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
@@ -19,7 +22,6 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_providers.
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _FakeAuthNotifier extends Auth {
   @override
@@ -43,6 +45,11 @@ class _StaticScopedWalletsNotifier extends ScopedWalletsNotifier {
 
   @override
   Future<List<WalletEntity>> refreshFromNetwork() async => wallets;
+}
+
+class _StubHouseholdRepository implements HouseholdRepository {
+  @override
+  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeWalletsDataService implements WalletsDataService {
@@ -200,11 +207,11 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     SharedPreferences.setMockInitialValues({});
+  });
 
-    await Supabase.initialize(
-      url: 'http://localhost',
-      anonKey: 'test-anon-key',
-    );
+  setUp(() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
   });
 
   testWidgets('wallets page renders rpc-backed wallet snapshot',
@@ -232,6 +239,7 @@ void main() {
         overrides: [
           authProvider.overrideWith(_FakeAuthNotifier.new),
           authAccessTokenProvider.overrideWith((ref) => 'token-123'),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
           sharedPreferencesProvider.overrideWithValue(prefs),
@@ -255,13 +263,15 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Spending'), findsWidgets);
     expect(find.text('Total Net Worth'), findsWidgets);
   });
 
-  testWidgets('connect bank pushes Plaid walkthrough in supported timezone',
+  testWidgets(
+      'connect bank button remains on wallets page in supported timezone',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
     const wallets = [
@@ -319,9 +329,11 @@ void main() {
       const Offset(0, -300),
     );
     await tester.tap(find.text('Connect Bank'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
 
-    expect(find.byType(PlaidSyncWalkthroughPage), findsOneWidget);
+    expect(find.byType(PlaidSyncWalkthroughPage), findsNothing);
+    expect(find.text('Connect Bank'), findsOneWidget);
   });
 
   testWidgets('wallets page renders preview wallet data in preview mode',
@@ -334,6 +346,7 @@ void main() {
           authProvider.overrideWith(_FakeAuthNotifier.new),
           authAccessTokenProvider.overrideWith((ref) => 'token-123'),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(initiallyActive: true),
@@ -374,6 +387,16 @@ void main() {
       'wallets page renders household preview wallet data without live service',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
+    final previewHouseholds = <Household>[
+      Household(
+        id: 'preview-house-1',
+        name: 'Preview Shared Space',
+        ownerId: 'u1',
+        currency: 'USD',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+    ];
 
     await tester.pumpWidget(
       ProviderScope(
@@ -381,12 +404,21 @@ void main() {
           authProvider.overrideWith(_FakeAuthNotifier.new),
           authAccessTokenProvider.overrideWith((ref) => 'token-123'),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           previewModeProvider.overrideWith(
             (ref) => PreviewModeNotifier(initiallyActive: true),
           ),
           walletsDataServiceProvider
               .overrideWithValue(_ThrowingWalletsDataService()),
+          userHouseholdsProvider.overrideWith(
+            (ref, userId) => UserHouseholdsNotifier(
+              _StubHouseholdRepository(),
+              userId,
+              ref,
+              initialHouseholds: previewHouseholds,
+            ),
+          ),
           householdScopeProvider.overrideWith(
             (ref) => const HouseholdScope(
               viewMode: ViewMode.household,
@@ -417,6 +449,7 @@ void main() {
         overrides: [
           authProvider.overrideWith(_EmptyAuthNotifier.new),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           householdScopeProvider.overrideWith(
             (ref) => const HouseholdScope(
@@ -450,6 +483,7 @@ void main() {
           authProvider.overrideWith(_FakeAuthNotifier.new),
           walletAuthHeadersProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           householdScopeProvider.overrideWith(
             (ref) => const HouseholdScope(
@@ -473,7 +507,7 @@ void main() {
     expect(find.text('No wallets yet'), findsNothing);
   });
 
-  testWidgets('wallets page keeps skeleton until selected snapshot resolves',
+  testWidgets('wallets page remains usable while selected snapshot resolves',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
     final snapshotCompleter = Completer<void>();
@@ -501,6 +535,7 @@ void main() {
           authAccessTokenProvider.overrideWith((ref) => 'token-123'),
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           scopedWalletsProvider
               .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
@@ -525,8 +560,8 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Total Net Worth'), findsNothing);
-    expect(find.text('Spending'), findsNothing);
+    expect(find.text('Total Net Worth'), findsOneWidget);
+    expect(find.text('Spending'), findsWidgets);
 
     snapshotCompleter.complete();
     await tester.pumpAndSettle();
@@ -535,7 +570,8 @@ void main() {
     expect(find.text('Spending'), findsWidgets);
   });
 
-  testWidgets('wallets page shows overview error when snapshot load fails',
+  testWidgets(
+      'wallets page keeps wallet content visible when snapshot load fails',
       (tester) async {
     final prefs = await SharedPreferences.getInstance();
     const wallets = [
@@ -562,6 +598,7 @@ void main() {
           authAccessTokenProvider.overrideWith((ref) => 'token-123'),
           appPreferredTimezoneProvider.overrideWith((ref) => null),
           mainShellTabIndexProvider.overrideWith((ref) => 0),
+          bankConnectionsProvider.overrideWith((ref) async => const []),
           sharedPreferencesProvider.overrideWithValue(prefs),
           scopedWalletsProvider
               .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),
@@ -584,9 +621,11 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('snapshot failed'), findsOneWidget);
+    expect(find.text('Total Net Worth'), findsOneWidget);
+    expect(find.text('Spending'), findsWidgets);
   });
 
   testWidgets('wallets page keeps wallet stack visible while older month loads',
@@ -614,6 +653,7 @@ void main() {
       authAccessTokenProvider.overrideWith((ref) => 'token-123'),
       appPreferredTimezoneProvider.overrideWith((ref) => null),
       mainShellTabIndexProvider.overrideWith((ref) => 0),
+      bankConnectionsProvider.overrideWith((ref) async => const []),
       sharedPreferencesProvider.overrideWithValue(prefs),
       scopedWalletsProvider
           .overrideWith(() => _StaticScopedWalletsNotifier(wallets)),

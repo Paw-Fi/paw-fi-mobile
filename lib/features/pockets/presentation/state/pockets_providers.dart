@@ -669,15 +669,11 @@ Future<List<ExpenseEntry>> loadProjectedPocketMonthExpenses({
 List<ExpenseEntry> filterPocketActualExpenses(
   Iterable<ExpenseEntry> expenses,
 ) {
-  // CRITICAL: exclude recurring template rows from "actual" spend before
-  // merging projected occurrences.
-  // STRICT REQUIREMENT: recurring templates are configuration rows, not posted
-  // month spend. Keeping them here causes double counting once projected month
-  // rows are added on top.
+  // CRITICAL: treat all non-income expenses as actual spend here so pockets
+  // retain the same totals and recurring behavior used elsewhere in the app.
+  // STRICT REQUIREMENT: do not exclude recurring expenses from this filter.
   return expenses
-      .where((expense) =>
-          !expense.isRecurring &&
-          (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 }
 
