@@ -937,7 +937,7 @@ void main() {
         sharedPreferencesProvider.overrideWithValue(prefs),
         householdRepositoryProvider.overrideWithValue(householdRepository),
         userHouseholdsProvider('user_1').overrideWith(
-          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1')
+          (ref) => UserHouseholdsNotifier(householdRepository, 'user_1', ref)
             ..state = AsyncValue.data(households),
         ),
         walletsByHouseholdIdProvider(null).overrideWith(

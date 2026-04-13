@@ -18,7 +18,9 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
+import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
@@ -66,54 +68,6 @@ extension PaywallModeX on PaywallMode {
       PaywallMode.trial => 'trial',
       PaywallMode.resubscribe => 'resubscribe',
     };
-  }
-}
-
-// --- DATA ---
-class PlanOption {
-  final String id; // Unique ID for UI selection
-  final String serverPlanId; // 'plus' or 'lifetime'
-  final String? billingInterval; // 'monthly', 'yearly', or null for lifetime
-  // iOS-only (IAP). Android uses Stripe web checkout.
-  final String? storeProductId;
-  final SubscriptionProduct? catalogProduct;
-  final String name;
-  final String? storePrice;
-  final double? displayPriceUsd;
-  final double? originalPriceUsd;
-  final String tagline;
-  final bool isPopular;
-  final String? badgeText;
-
-  const PlanOption({
-    required this.id,
-    required this.serverPlanId,
-    this.billingInterval,
-    this.storeProductId,
-    this.catalogProduct,
-    required this.name,
-    required this.storePrice,
-    this.displayPriceUsd,
-    this.originalPriceUsd,
-    required this.tagline,
-    this.isPopular = false,
-    this.badgeText,
-  });
-
-  String get periodDisplay {
-    if (billingInterval == 'monthly') return '/month';
-    if (billingInterval == 'yearly') return '/year';
-    return 'once';
-  }
-
-  String get priceDisplay {
-    if (storePrice != null && storePrice!.isNotEmpty) {
-      return storePrice!;
-    }
-    if (displayPriceUsd != null) {
-      return '\$${displayPriceUsd!.toStringAsFixed(2)}';
-    }
-    return '...';
   }
 }
 
@@ -1098,6 +1052,8 @@ class PaywallScreen extends HookConsumerWidget {
       didInitiateRestore.value = true;
       lastIapErrorShown.value = null;
       didSeeIapProcessing.value = false;
+      final storeUnavailableMessage =
+          context.l10n.paywallErrorStoreUnavailableShort;
       await analytics.trackAction(
         flowName: 'onboarding_funnel',
         pageId: 'paywall',
@@ -1120,7 +1076,7 @@ class PaywallScreen extends HookConsumerWidget {
         if (useIap) {
           final iapState = iapStateAsync.valueOrNull;
           if (iapState == null || !iapState.storeAvailable) {
-            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+            throw Exception(storeUnavailableMessage);
           }
 
           await ref.read(iapControllerProvider.notifier).restorePurchases();
@@ -1162,6 +1118,7 @@ class PaywallScreen extends HookConsumerWidget {
             provider: useIap ? 'iap' : 'stripe',
             includePurchaseEvent: true,
           );
+          if (!context.mounted) return;
           AppToast.success(context, context.l10n.paywallRestoreSuccess);
           return;
         }
@@ -1241,7 +1198,7 @@ class PaywallScreen extends HookConsumerWidget {
                             const PaywallAppRatingBadge(),
                             const SizedBox(height: 32),
                             // --- SUBSCRIPTION PLANS ---
-                            _UnifiedPlanCard(
+                            UnifiedPlanCard(
                               plans: plans,
                               selectedPlanId: selectedPlanId.value,
                               onPlanSelected: (id) {
@@ -1267,6 +1224,8 @@ class PaywallScreen extends HookConsumerWidget {
                                   ),
                                 );
                               },
+                              isNewUser: currentPlanId == 'free',
+                              isCurrentPlan: null, // Always allow on paywall
                             ),
                             const SizedBox(height: 32),
 
@@ -1633,177 +1592,3 @@ class PaywallScreen extends HookConsumerWidget {
 
 // --- COMPONENTS ---
 
-class _UnifiedPlanCard extends StatelessWidget {
-  final List<PlanOption> plans;
-  final String selectedPlanId;
-  final ValueChanged<String> onPlanSelected;
-
-  const _UnifiedPlanCard({
-    required this.plans,
-    required this.selectedPlanId,
-    required this.onPlanSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: plans.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final plan = entry.value;
-          final isSelected = selectedPlanId == plan.id;
-          final trialText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.paywallYearlyTrial,
-            'monthly' => context.l10n.paywallMonthlyTrial,
-            _ => null,
-          };
-          final supportingText = plan.serverPlanId == 'lifetime'
-              ? context.l10n.paywallLifetimeSupport
-              : context.l10n.paywallFamilySharing;
-          final periodText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.perYear,
-            'monthly' => context.l10n.perMonth,
-            _ => '',
-          };
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: idx == 0 ? 0 : 6,
-              right: idx == plans.length - 1
-                  ? 24
-                  : 6, // extra right padding on the last item for overscroll buffer
-            ),
-            child: GestureDetector(
-              onTap: () => onPlanSelected(plan.id),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                constraints: const BoxConstraints.tightFor(
-                  width: 188,
-                  height: 150,
-                ),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF17181D) : scheme.surface,
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF7458FF)
-                        : scheme.outlineVariant.withValues(alpha: 0.3),
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            plan.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        if (plan.badgeText != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF7458FF),
-                                  Color(0xFFA855F7),
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              plan.badgeText!,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (trialText != null) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Color(0xFF8B5CF6),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              trialText,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF8B5CF6),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Text(
-                      supportingText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: scheme.mutedForeground,
-                      ),
-                    ),
-                    const Spacer(),
-                    RichText(
-                      text: TextSpan(
-                        text: plan.priceDisplay,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF8B5CF6),
-                          letterSpacing: -0.5,
-                        ),
-                        children: [
-                          if (periodText.isNotEmpty)
-                            TextSpan(
-                              text: periodText,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF8B5CF6),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}

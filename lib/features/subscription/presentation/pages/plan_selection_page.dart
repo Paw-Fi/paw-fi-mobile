@@ -19,6 +19,8 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
+import 'package:moneko/features/subscription/data/models/plan_option.dart';
+import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
@@ -64,54 +66,6 @@ extension PlanSelectionModeX on PlanSelectionMode {
       PlanSelectionMode.trial => 'trial',
       PlanSelectionMode.resubscribe => 'resubscribe',
     };
-  }
-}
-
-// --- DATA ---
-class PlanOption {
-  final String id; // Unique ID for UI selection
-  final String serverPlanId; // 'plus' or 'lifetime'
-  final String? billingInterval; // 'monthly', 'yearly', or null for lifetime
-  // iOS-only (IAP). Android uses Stripe web checkout.
-  final String? storeProductId;
-  final SubscriptionProduct? catalogProduct;
-  final String name;
-  final String? storePrice;
-  final double? displayPriceUsd;
-  final double? originalPriceUsd;
-  final String tagline;
-  final bool isPopular;
-  final String? badgeText;
-
-  const PlanOption({
-    required this.id,
-    required this.serverPlanId,
-    this.billingInterval,
-    this.storeProductId,
-    this.catalogProduct,
-    required this.name,
-    required this.storePrice,
-    this.displayPriceUsd,
-    this.originalPriceUsd,
-    required this.tagline,
-    this.isPopular = false,
-    this.badgeText,
-  });
-
-  String get periodDisplay {
-    if (billingInterval == 'monthly') return '/month';
-    if (billingInterval == 'yearly') return '/year';
-    return 'once';
-  }
-
-  String get priceDisplay {
-    if (storePrice != null && storePrice!.isNotEmpty) {
-      return storePrice!;
-    }
-    if (displayPriceUsd != null) {
-      return '\$${displayPriceUsd!.toStringAsFixed(2)}';
-    }
-    return '...';
   }
 }
 
@@ -1113,21 +1067,13 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const SizedBox(height: 32),
 
                             // --- SUBSCRIPTION PLANS ---
-                            ...plans.map((plan) {
-                              final planIsCurrent = isCurrentPlan(plan);
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: _AppleStylePlanCard(
-                                  plan: plan,
-                                  isSelected: selectedPlanId.value == plan.id,
-                                  isCurrentPlan: planIsCurrent,
-                                  onTap: planIsCurrent
-                                      ? null
-                                      : () => selectedPlanId.value = plan.id,
-                                  isNewUser: isNewUser,
-                                ),
-                              );
-                            }),
+                            UnifiedPlanCard(
+                              plans: plans,
+                              selectedPlanId: selectedPlanId.value,
+                              onPlanSelected: (id) => selectedPlanId.value = id,
+                              isCurrentPlan: isCurrentPlan,
+                              isNewUser: isNewUser,
+                            ),
 
                             const SizedBox(height: 12),
                             const PaywallBenefitsChecklist(),
@@ -1169,7 +1115,13 @@ class PlanSelectionPage extends HookConsumerWidget {
                             title: Text(
                               mode == PlanSelectionMode.trial
                                   ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                                  : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
+                                  : context.l10n.paywallSubTerms(
+                                      activePlanOption.priceDisplay,
+                                      activePlanOption.billingInterval ==
+                                              'monthly'
+                                          ? '/month'
+                                          : '/year',
+                                    ),
                               style: TextStyle(
                                 color: colorScheme.mutedForeground,
                                 fontSize: 13,
@@ -1254,7 +1206,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                         ],
 
                         // Restore Purchases (Always visible)
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
                         GestureDetector(
                           onTap: isProcessing ? null : onRestorePurchases,
                           child: Text(
@@ -1267,7 +1219,6 @@ class PlanSelectionPage extends HookConsumerWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -1283,200 +1234,40 @@ class PlanSelectionPage extends HookConsumerWidget {
 
 // --- COMPONENTS ---
 
-class _AppleStylePlanCard extends StatelessWidget {
-  final PlanOption plan;
-  final bool isSelected;
-  final bool isCurrentPlan;
-  final VoidCallback? onTap;
-  final bool isNewUser;
-
-  const _AppleStylePlanCard({
-    required this.plan,
-    required this.isSelected,
-    required this.isCurrentPlan,
-    required this.onTap,
-    required this.isNewUser,
-  });
+class _LifetimeView extends StatelessWidget {
+  const _LifetimeView();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final isDisabled = isCurrentPlan;
-    final backgroundColor =
-        isDisabled ? scheme.onSurface.withValues(alpha: 0.03) : scheme.surface;
-    final borderColor = isDisabled
-        ? Colors.transparent
-        : isSelected
-            ? scheme.primary
-            : scheme.outlineVariant.withValues(alpha: 0.3);
-
-    return GestureDetector(
-      onTap: isDisabled ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: borderColor,
-            width: 2,
-          ),
-          boxShadow: isSelected && !isDisabled
-              ? [
-                  BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.1),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4))
-                ]
-              : [
-                  if (!isDisabled)
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2))
-                ],
-        ),
-        child: Row(
-          children: [
-            // Indicator
-            if (!isDisabled) ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? scheme.primary
-                        : scheme.outlineVariant.withValues(alpha: 0.8),
-                    width: 2,
+    return StatusBarOverlayRegion(
+      child: AdaptiveScaffold(
+        appBar: const AdaptiveAppBar(title: ''),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.l10n.activeLifetimeStatus,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
                   ),
-                  color: isSelected ? scheme.primary : Colors.transparent,
                 ),
-                child: isSelected
-                    ? Center(
-                        child: Icon(Icons.check,
-                            size: 14, color: scheme.onPrimary))
-                    : null,
-              ),
-            ] else ...[
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: scheme.onSurface.withValues(alpha: 0.1),
-                ),
-                child: Center(
-                  child: Icon(Icons.check,
-                      size: 14, color: scheme.onSurface.withValues(alpha: 0.5)),
-                ),
-              ),
-            ],
-            const SizedBox(width: 16),
-
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        plan.name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: isDisabled
-                              ? scheme.onSurface.withValues(alpha: 0.5)
-                              : scheme.onSurface,
-                        ),
-                      ),
-                      if (isCurrentPlan) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scheme.onSurface.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Current Plan',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ),
-                      ] else if (plan.badgeText != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: scheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            plan.badgeText!,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                const SizedBox(height: 12),
+                Text(
+                  context.l10n.paywallLifetimeSupport,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.mutedForeground,
+                    fontSize: 14,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        plan.priceDisplay,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: isDisabled
-                              ? scheme.onSurface.withValues(alpha: 0.5)
-                              : scheme.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        plan.periodDisplay,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDisabled
-                              ? scheme.onSurface.withValues(alpha: 0.4)
-                              : scheme.mutedForeground,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (plan.billingInterval != null && isNewUser) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Free for first month, cancel anytime',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1486,131 +1277,29 @@ class _AppleStylePlanCard extends StatelessWidget {
 class _LegalLinks extends StatelessWidget {
   const _LegalLinks();
 
-  Future<void> _launchUrl(BuildContext context, String url) async {
-    try {
-      final uri = Uri.parse(url);
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        AppToast.error(context, context.l10n.couldNotOpenLink);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        TextButton(
-          onPressed: () =>
-              _launchUrl(context, 'https://moneko.io/privacy-policy'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'Privacy',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
-          ),
-        ),
-        Text(' • ',
-            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
-        TextButton(
-          onPressed: () =>
-              _launchUrl(context, 'https://moneko.io/terms-of-service'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'Terms',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse('https://moneko.io/terms-of-service');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text(
+          context.l10n.paywallTermsPrivacy,
+          style: TextStyle(
+            color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        Text(' • ',
-            style: TextStyle(fontSize: 12, color: scheme.mutedForeground)),
-        TextButton(
-          onPressed: () => _launchUrl(context, 'https://moneko.io/eula'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            minimumSize:
-                const Size(0, 44), // Accessibility: 44px minimum tap target
-          ),
-          child: Text(
-            'EULA',
-            style: TextStyle(fontSize: 12, color: scheme.primary),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _LifetimeView extends StatelessWidget {
-  const _LifetimeView();
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return StatusBarOverlayRegion(
-        child: AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: ''),
-      body: Material(
-        color: scheme.appBackground,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: scheme.primary.withValues(alpha: 0.1),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
-                      )
-                    ],
-                  ),
-                  child: Icon(Icons.verified_rounded,
-                      size: 48, color: scheme.primary),
-                ),
-                const SizedBox(height: 32),
-                Text(
-                  'Lifetime Member',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: scheme.onSurface,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'You have full access forever.\nThank you for supporting Moneko.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                    color: scheme.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ));
-  }
-}
