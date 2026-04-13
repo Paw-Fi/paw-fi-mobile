@@ -73,7 +73,7 @@
   "anErrorOccurred": "エラーが発生しました",
   "unknownError": "不明なエラー",
   "goToHome": "ホームに戻る",
-  "paymentSuccessfulCheckingSubscription": "✅ 支払い完了！サブスクリプションを確認しています...",
+  "paymentSuccessfulCheckingSubscription": "お支払いが完了しました！サブスクリプションが有効になりました。",
   "paymentFailed": "支払いが失敗しました",
   "paymentCanceled": "ℹ️ 支払いはキャンセルされました",
   "whatsappVerifiedSuccessfully": "✅ WhatsAppの認証が完了しました！",
@@ -2613,5 +2613,11 @@
   "walletsStackTourDescription": "ウォレットをタップすると展開して詳細を表示できます。もう一度タップするとウォレットページが開き、すべての取引を確認できます。",
   "walletsNewWalletTourTitle": "新しいウォレットを追加",
   "walletsNewWalletTourDescription": "現金や貯金、管理したい口座に合わせてカスタムウォレットを作成できます。目標を設定して、進捗をチェックしましょう。",
-  "initialBalance": "初期残高"
+  "initialBalance": "初期残高",
+  "freeTrial": "無料トライアル",
+  "dayLeft": "残り{count}日",
+  "daysLeft": "残り{count}日",
+  "upgrade": "アップグレード",
+  "viewPlans": "プランを見る",
+  "dismiss": "閉じる"
 }

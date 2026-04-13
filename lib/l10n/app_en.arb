@@ -85,7 +85,7 @@
   "monekoEncounteredAnError": "Moneko encountered an error",
   "unknownError": "Unknown error",
   "goToHome": "Go to Home",
-  "paymentSuccessfulCheckingSubscription": "✅ Payment successful! Checking subscription...",
+  "paymentSuccessfulCheckingSubscription": "Payment successful! Your subscription is now active.",
   "paymentFailed": "Payment failed",
   "paymentCanceled": "Payment canceled",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp verified successfully!",
@@ -2632,5 +2632,11 @@
   "walletsStackTourDescription": "Tap any wallet to expand and view details. Tap again to open the wallet page and see all transactions.",
   "walletsNewWalletTourTitle": "Add New Wallets",
   "walletsNewWalletTourDescription": "Create custom wallets for cash, savings, or any account you want to track. Set goals and monitor progress!",
-  "initialBalance": "Initial Balance"
+  "initialBalance": "Initial Balance",
+  "freeTrial": "Free trial",
+  "dayLeft": "{count} day left",
+  "daysLeft": "{count} days left",
+  "upgrade": "Upgrade",
+  "viewPlans": "View plans",
+  "dismiss": "Dismiss"
 }

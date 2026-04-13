@@ -85,7 +85,7 @@
   "monekoEncounteredAnError": "Moneko พบข้อผิดพลาด",
   "unknownError": "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ",
   "goToHome": "กลับหน้าแรก",
-  "paymentSuccessfulCheckingSubscription": "✅ ชำระเงินสำเร็จ! กำลังตรวจสอบสถานะสมาชิก...",
+  "paymentSuccessfulCheckingSubscription": "ชำระเงินสำเร็จ! การสมัครสมาชิกของคุณเปิดใช้งานแล้ว",
   "paymentFailed": "ชำระเงินไม่สำเร็จ",
   "paymentCanceled": "ℹ️ ยกเลิกการชำระเงินแล้ว",
   "whatsappVerifiedSuccessfully": "✅ ยืนยันเบอร์ WhatsApp สำเร็จแล้ว!",
@@ -2630,5 +2630,11 @@
   "walletsStackTourDescription": "แตะกระเป๋าใดก็ได้เพื่อขยายและดูรายละเอียด แตะอีกครั้งเพื่อเปิดหน้ากระเป๋าและดูรายการธุรกรรมทั้งหมด",
   "walletsNewWalletTourTitle": "เพิ่มกระเป๋าใหม่",
   "walletsNewWalletTourDescription": "สร้างกระเป๋าแบบกำหนดเองสำหรับเงินสด เงินออม หรือบัญชีใด ๆ ที่คุณต้องการติดตาม ตั้งเป้าหมายและดูความคืบหน้าได้เลย!",
-  "initialBalance": "ยอดคงเหลือเริ่มต้น"
+  "initialBalance": "ยอดคงเหลือเริ่มต้น",
+  "freeTrial": "ทดลองใช้ฟรี",
+  "dayLeft": "เหลืออีก {count} วัน",
+  "daysLeft": "เหลืออีก {count} วัน",
+  "upgrade": "อัปเกรด",
+  "viewPlans": "ดูแพ็กเกจ",
+  "dismiss": "ปิด"
 }

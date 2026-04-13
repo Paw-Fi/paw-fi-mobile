@@ -1,9 +1,12 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, debugPrint;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -14,6 +17,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
+import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -136,6 +140,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
+    final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
 
@@ -161,6 +166,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final didInitiateCheckout = useRef(false);
     final didInitiateRestore = useRef(false);
     final didCompletePlanSelectionFlow = useRef(false);
+    final checkoutAttemptCounter = useRef(0);
 
     void runAfterBuild(VoidCallback callback) {
       runAfterBuildIfMounted(context, callback);
@@ -177,18 +183,84 @@ class PlanSelectionPage extends HookConsumerWidget {
     }
 
     Future<void> completePlanSelectionFlowToDashboard({
-      required PlanOption option,
-      required String source,
-      required String provider,
-      required bool includePurchaseEvent,
+      PlanOption? option,
+      String? source,
+      String? provider,
+      bool includePurchaseEvent = false,
     }) async {
       if (didCompletePlanSelectionFlow.value) return;
       didCompletePlanSelectionFlow.value = true;
       didInitiateCheckout.value = false;
       didInitiateRestore.value = false;
 
-      if (context.mounted) {
+      dismissProcessingDialog('plan selection flow completed');
+
+      if (!context.mounted) return;
+
+      final successMessage = source == 'restore'
+          ? context.l10n.subscriptionStatusRestored
+          : context.l10n.paymentSuccessfulCheckingSubscription;
+      final toastContext = rootNavigatorKey.currentContext;
+      final effectiveToastContext =
+          toastContext != null && toastContext.mounted ? toastContext : context;
+      final router = GoRouter.of(context);
+
+      AppToast.success(effectiveToastContext, successMessage);
+
+      if (router.canPop()) {
+        router.pop();
+      } else {
         context.go('/dashboard');
+      }
+    }
+
+    Future<void> verifySubscriptionAndCompleteCheckout(String trigger) async {
+      try {
+        _debugLog(
+            '🔄 verifySubscriptionAndCompleteCheckout start | trigger=$trigger');
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+        await Future<void>.delayed(const Duration(milliseconds: 1000));
+
+        if (!context.mounted) return;
+
+        final subscriptionAsync = ref.read(subscriptionManagementProvider);
+        final subscriptionData = subscriptionAsync.valueOrNull?.subscription;
+        final isActive = subscriptionData?.isSubscribed ?? false;
+
+        _debugLog(
+          '📊 Checkout verification snapshot | trigger=$trigger '
+          'hasValue=${subscriptionAsync.hasValue} hasError=${subscriptionAsync.hasError} '
+          'plan=${subscriptionData?.plan} status=${subscriptionData?.status} '
+          'provider=${subscriptionData?.provider} interval=${subscriptionData?.billingInterval} '
+          'isSubscribed=$isActive',
+        );
+
+        if (isActive) {
+          await completePlanSelectionFlowToDashboard(
+            source: 'checkout',
+            provider: 'iap',
+            includePurchaseEvent: true,
+          );
+          return;
+        }
+
+        didInitiateCheckout.value = false;
+        AppToast.error(
+          context,
+          'Purchase completed but subscription not activated. Please restart the app.',
+        );
+      } catch (e, stack) {
+        _debugLog(
+            '❌ verifySubscriptionAndCompleteCheckout failed | trigger=$trigger error=$e');
+        _debugLog('Stack: $stack');
+        didInitiateCheckout.value = false;
+        if (context.mounted) {
+          dismissProcessingDialog('iap verification error');
+          AppToast.error(
+            context,
+            'Purchase completed but failed to verify subscription. Please restart the app.',
+          );
+        }
       }
     }
 
@@ -248,11 +320,16 @@ class PlanSelectionPage extends HookConsumerWidget {
         _debugLog(
           '🧪 IAP state change | prevProcessing=$prevProcessing nextProcessing=$nextProcessing '
           'prevError=${prevState?.lastError ?? ""} nextError=${nextState?.lastError ?? ""} '
+          'prevErrorCode=${prevState?.lastErrorCode ?? ""} nextErrorCode=${nextState?.lastErrorCode ?? ""} '
+          'prevInitiated=${prevState?.initiatedProductId ?? ""} nextInitiated=${nextState?.initiatedProductId ?? ""} '
+          'prevCompleted=${prevState?.lastCompletedProductId ?? ""} nextCompleted=${nextState?.lastCompletedProductId ?? ""} '
           'storeAvailable=${nextState?.storeAvailable ?? false} '
-          'dialogOpen=${processingDialogOpen.value}',
+          'dialogOpen=${processingDialogOpen.value} dialogKind=${processingDialogKind.value} '
+          'didInitiateCheckout=${didInitiateCheckout.value} didSeeIapProcessing=${didSeeIapProcessing.value}',
         );
 
         if (next.hasError) {
+          didInitiateCheckout.value = false;
           dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
           showIapError(
@@ -270,6 +347,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
+          didInitiateCheckout.value = false;
           _debugLog('🚨 IAP purchase error detected: $nextError');
           _debugLog('🚨 Calling showIapError...');
           showIapError(nextError, 'lastError', nextErrorCode);
@@ -294,94 +372,67 @@ class PlanSelectionPage extends HookConsumerWidget {
           _debugLog('✅ Purchase successful! Refreshing subscription...');
 
           // Schedule async work without blocking the listener
-          Future.microtask(() async {
-            try {
-              // Refresh subscription state - cross-invalidation ensures both providers stay in sync
-              _debugLog('🔄 Refreshing subscription state...');
-              await ref.read(subscriptionManagementProvider.notifier).refresh();
-              // Note: subscriptionNotifierProvider is cross-invalidated automatically
-
-              // Wait a bit longer to ensure Supabase propagation
-              await Future.delayed(const Duration(milliseconds: 1000));
-
-              if (!context.mounted) return;
-
-              // Verify subscription is actually active before navigating
-              final subscriptionAsync =
-                  ref.read(subscriptionManagementProvider);
-              final subscriptionDetails = subscriptionAsync.valueOrNull;
-              final subscriptionData = subscriptionDetails?.subscription;
-
-              // Use the Subscription model's isSubscribed check (includes expiry validation)
-              final isActive = subscriptionData?.isSubscribed ?? false;
-
-              _debugLog('📊 Full subscription check:');
-              _debugLog(
-                  '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
-              _debugLog(
-                  '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
-              _debugLog(
-                  '  - SubscriptionDetails: ${subscriptionDetails != null}');
-              _debugLog('  - Subscription model: ${subscriptionData != null}');
-              _debugLog('  - plan: ${subscriptionData?.plan}');
-              _debugLog('  - status: ${subscriptionData?.status}');
-              _debugLog('  - provider: ${subscriptionData?.provider}');
-              _debugLog(
-                  '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
-              _debugLog('  - now: ${DateTime.now()}');
-              if (subscriptionData?.currentPeriodEnd != null) {
-                _debugLog(
-                    '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
-              }
-              _debugLog('  - isSubscribed (from model): $isActive');
-
-              if (isActive) {
-                _debugLog(
-                    '✅ Subscription confirmed active, waiting for plan selection completion effect');
-              } else {
-                _debugLog('❌ Subscription not active after purchase!');
-                AppToast.error(
-                  context,
-                  'Purchase completed but subscription not activated. Please restart the app.',
-                );
-              }
-            } catch (e, stack) {
-              _debugLog('❌ Error refreshing subscription: $e');
-              _debugLog('Stack: $stack');
-
-              // Show error to user instead of navigating
-              if (context.mounted) {
-                dismissProcessingDialog('iap verification error');
-                AppToast.error(
-                  context,
-                  'Purchase completed but failed to verify subscription. Please restart the app.',
-                );
-              }
-            }
-          });
+          Future.microtask(() =>
+              verifySubscriptionAndCompleteCheckout('has_new_completion'));
         }
 
         if (!prevProcessing && nextProcessing) {
           _debugLog('⏳ IAP processing started');
           didSeeIapProcessing.value = true;
         }
+
+        if (prevProcessing &&
+            !nextProcessing &&
+            nextError == null &&
+            nextCompletedProductId == null) {
+          _debugLog(
+            '⚠️ IAP processing ended without error/completion marker; '
+            'dialogOpen=${processingDialogOpen.value} initiated=${nextState?.initiatedProductId}',
+          );
+          if (didInitiateCheckout.value) {
+            dismissProcessingDialog('iap processing ended without completion');
+            Future.microtask(() => verifySubscriptionAndCompleteCheckout(
+                'processing_ended_without_completion_marker'));
+          }
+        }
       });
     }
 
     useEffect(() {
       if (!useIap) return null;
+      _debugLog(
+        '🧭 IAP dialog effect | dialogOpen=${processingDialogOpen.value} '
+        'dialogKind=${processingDialogKind.value} iapProcessing=$iapProcessing '
+        'didSeeIapProcessing=${didSeeIapProcessing.value} '
+        'iapLastError="$iapLastError" iapLastErrorCode=${iapLastErrorCode ?? ""}',
+      );
       if (processingDialogKind.value != _ProcessingDialogKind.iapPurchase) {
+        _debugLog('🧭 IAP dialog effect skip: kind is not iapPurchase');
         return null;
       }
-      if (!processingDialogOpen.value) return null;
+      if (!processingDialogOpen.value) {
+        _debugLog('🧭 IAP dialog effect skip: dialog already closed');
+        return null;
+      }
+
+      if (iapProcessing && !didSeeIapProcessing.value) {
+        didSeeIapProcessing.value = true;
+        _debugLog(
+            '🧭 IAP dialog effect: recovered missing processing transition -> didSeeIapProcessing=true');
+      }
 
       if (iapLastError.isNotEmpty) {
+        _debugLog('🧭 IAP dialog effect: lastError present -> showIapError');
         runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
       }
 
       if (didSeeIapProcessing.value && !iapProcessing) {
+        _debugLog(
+            '🧭 IAP dialog effect: processing finished -> dismiss dialog');
         runAfterBuild(() => dismissProcessingDialog('iap processing ended'));
+      } else {
+        _debugLog('🧭 IAP dialog effect: keep waiting');
       }
 
       return null;
@@ -546,34 +597,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       orElse: () => plans.first,
     );
 
-    useEffect(() {
-      if (didCompletePlanSelectionFlow.value) return null;
-      final shouldExitAfterSubscriptionUpdate = hasActiveSubscription &&
-          (didInitiateCheckout.value || didInitiateRestore.value);
-      if (shouldExitAfterSubscriptionUpdate) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          completePlanSelectionFlowToDashboard(
-            option: activePlanOption,
-            source: didInitiateRestore.value
-                ? 'restore'
-                : didInitiateCheckout.value
-                    ? 'checkout'
-                    : 'existing_subscription',
-            provider: useIap ? 'iap' : 'stripe',
-            includePurchaseEvent:
-                didInitiateCheckout.value || didInitiateRestore.value,
-          );
-        });
-      }
-      return null;
-    }, [
-      hasActiveSubscription,
-      useIap,
-      activePlanOption.id,
-      didInitiateCheckout.value,
-      didInitiateRestore.value,
-    ]);
-
     final requiresAutoRenewAcknowledgement =
         activePlanOption.serverPlanId != 'lifetime';
     final canConfirmAutoRenew =
@@ -581,6 +604,44 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
+
+    useEffect(() {
+      if (didCompletePlanSelectionFlow.value) return null;
+      if (!hasActiveSubscription) return null;
+      if (!didInitiateCheckout.value && !didInitiateRestore.value) {
+        return null;
+      }
+
+      _debugLog(
+        '✅ Active subscription detected on plan selection; scheduling flow completion '
+        '| checkout=${didInitiateCheckout.value} restore=${didInitiateRestore.value} '
+        'mode=${mode.queryValue} option=${activePlanOption.id}',
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(() async {
+          if (!context.mounted || didCompletePlanSelectionFlow.value) return;
+
+          await completePlanSelectionFlowToDashboard(
+            option: activePlanOption,
+            source: didInitiateRestore.value ? 'restore' : 'checkout',
+            provider: useIap ? 'iap' : 'stripe',
+            includePurchaseEvent:
+                didInitiateCheckout.value || didInitiateRestore.value,
+          );
+        }());
+      });
+
+      return null;
+    }, [
+      hasActiveSubscription,
+      useIap,
+      activePlanOption.id,
+      mode.queryValue,
+      currentSub?.subscription?.plan,
+      currentSub?.subscription?.status,
+      currentSub?.subscription?.provider,
+    ]);
 
     useEffect(() {
       if (!requiresAutoRenewAcknowledgement) {
@@ -593,6 +654,12 @@ class PlanSelectionPage extends HookConsumerWidget {
     }, [activePlanOption.id]);
 
     bool isCurrentPlan(PlanOption option) {
+      final shouldBlockSamePlan =
+          hasActiveSubscription && currentStatus == 'active';
+      if (!shouldBlockSamePlan) {
+        return false;
+      }
+
       if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
         return true;
       }
@@ -603,19 +670,6 @@ class PlanSelectionPage extends HookConsumerWidget {
       return false;
     }
 
-    if (hasActiveSubscription && currentPlanId == 'lifetime') {
-      return StatusBarOverlayRegion(
-          child: AdaptiveScaffold(
-        body: Material(
-          color: colorScheme.appBackground,
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      ));
-    }
-
-    // DIRECT RETURN FOR LIFETIME USERS
     if (currentPlanId == 'lifetime') {
       return const _LifetimeView();
     }
@@ -751,8 +805,13 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     // Action Logic
     Future<void> onMainAction() async {
+      checkoutAttemptCounter.value += 1;
+      final attemptId = checkoutAttemptCounter.value;
       _debugLog(
-        '🧭 onMainAction start | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} storeReady=$isStoreReady useIap=$useIap',
+        '🧭 onMainAction start | attempt=$attemptId '
+        'plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} '
+        'storeReady=$isStoreReady useIap=$useIap hasActiveSubscription=$hasActiveSubscription '
+        'currentPlan=$currentPlanId currentInterval=$currentInterval currentStatus=$currentStatus currentProvider=$currentProvider',
       );
       print(
           '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
@@ -792,11 +851,13 @@ class PlanSelectionPage extends HookConsumerWidget {
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
-            didSeeIapProcessing.value = false;
+            didSeeIapProcessing.value =
+                iapStateAsync.valueOrNull?.isProcessing ?? false;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
-                '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
+                '🧾 Dialog open set to true (iap). attempt=$attemptId plan=${activePlanOption.id} '
+                'initialDidSeeIapProcessing=${didSeeIapProcessing.value}');
             showBlockingProcessingDialog(
               context: context,
               message: 'Processing your purchase...',
@@ -939,7 +1000,6 @@ class PlanSelectionPage extends HookConsumerWidget {
             provider: useIap ? 'iap' : 'stripe',
             includePurchaseEvent: true,
           );
-          AppToast.success(context, context.l10n.subscriptionStatusRestored);
           return;
         }
 
@@ -957,7 +1017,8 @@ class PlanSelectionPage extends HookConsumerWidget {
       } catch (e) {
         didInitiateRestore.value = false;
         if (context.mounted) {
-          AppToast.error(context, '${context.l10n.failedToRestore}: ${e.toString()}');
+          AppToast.error(
+              context, '${context.l10n.failedToRestore}: ${e.toString()}');
         }
       } finally {
         dismissProcessingDialog('restore purchases');
@@ -1007,232 +1068,213 @@ class PlanSelectionPage extends HookConsumerWidget {
       appBar: const AdaptiveAppBar(title: ''),
       body: Material(
         color: colorScheme.appBackground,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Header
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: Text(
-                            'EARLY BIRD SALE',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.primary,
-                              letterSpacing: 0.5,
+        child: Stack(
+          children: [
+            const PaywallBackgroundDecoration(),
+            SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Header
+                            const SizedBox(height: 24),
+                            Text(
+                              mode == PlanSelectionMode.trial
+                                  ? 'Start your free trial'
+                                  : 'Subscribe Now',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          mode == PlanSelectionMode.trial
-                              ? 'Start your free trial'
-                              : 'Subscribe Now',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          mode == PlanSelectionMode.trial
-                              ? 'Pick a plan. You won\'t be charged until your trial ends.'
-                              : 'Pick a plan to get back to full access.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // --- SUBSCRIPTION PLANS ---
-                        ...plans.map((plan) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _AppleStylePlanCard(
-                              plan: plan,
-                              isSelected: selectedPlanId.value == plan.id,
-                              onTap: () => selectedPlanId.value = plan.id,
-                              isNewUser: isNewUser,
-                            ),
-                          );
-                        }),
-
-                        const SizedBox(height: 12),
-
-                        // Features Link
-                        GestureDetector(
-                          onTap: () {
-                            showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                isScrollControlled: true,
-                                builder: (_) => const _CleanFeatureSheet());
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'Compare features',
+                            const SizedBox(height: 8),
+                            Text(
+                              mode == PlanSelectionMode.trial
+                                  ? 'Pick a plan. You won\'t be charged until your trial ends.'
+                                  : 'Pick a plan to get back to full access.',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: colorScheme.primary,
+                                fontSize: 16,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const PaywallHeroIcon(),
+                            const SizedBox(height: 24),
+                            const PaywallAppRatingBadge(),
+                            const SizedBox(height: 32),
+
+                            // --- SUBSCRIPTION PLANS ---
+                            ...plans.map((plan) {
+                              final planIsCurrent = isCurrentPlan(plan);
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: _AppleStylePlanCard(
+                                  plan: plan,
+                                  isSelected: selectedPlanId.value == plan.id,
+                                  isCurrentPlan: planIsCurrent,
+                                  onTap: planIsCurrent
+                                      ? null
+                                      : () => selectedPlanId.value = plan.id,
+                                  isNewUser: isNewUser,
+                                ),
+                              );
+                            }),
+
+                            const SizedBox(height: 12),
+                            const PaywallBenefitsChecklist(),
+                            const SizedBox(height: 40),
+                            const PaywallReviewsSection(),
+                            const SizedBox(height: 12),
+                            const _LegalLinks(),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Bottom Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.appBackground,
+                      border: Border(
+                          top: BorderSide(
+                              color: colorScheme.outlineVariant
+                                  .withValues(alpha: 0.5))),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (requiresAutoRenewAcknowledgement) ...[
+                          CheckboxListTile(
+                            value: hasAcknowledgedAutoRenew.value,
+                            onChanged: isProcessing
+                                ? null
+                                : (value) => hasAcknowledgedAutoRenew.value =
+                                    value ?? false,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            activeColor: colorScheme.primary,
+                            checkColor: colorScheme.onPrimary,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              mode == PlanSelectionMode.trial
+                                  ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
+                                  : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 13,
+                                height: 1.35,
                               ),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                        ],
+                        PrimaryAdaptiveButton(
+                          onPressed: isProcessing ||
+                                  !canConfirmAutoRenew ||
+                                  !isStoreReady ||
+                                  isCurrentPlan(activePlanOption)
+                              ? null
+                              : onMainAction,
+                          child: Text(
+                            isProcessing
+                                ? 'Processing...'
+                                : !isStoreReady
+                                    ? 'Store unavailable'
+                                    : isCurrentPlan(activePlanOption)
+                                        ? 'Current Plan'
+                                        : mode == PlanSelectionMode.trial &&
+                                                activePlanOption.serverPlanId !=
+                                                    'lifetime'
+                                            ? 'Start your free month'
+                                            : activePlanOption.serverPlanId ==
+                                                    'lifetime'
+                                                ? 'Get Lifetime Access'
+                                                : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        const _LegalLinks(),
+
+                        // Cancel / Manage Subscription Button
+                        // ONLY shown if user is NOT on free plan
+                        if (currentPlanId != 'free' &&
+                            (currentProvider == null ||
+                                (currentProvider != 'app_store' &&
+                                    currentProvider != 'play_store'))) ...[
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap: isProcessing ? null : onCancelSubscription,
+                            child: Text(
+                              'Cancel Subscription',
+                              style: TextStyle(
+                                color: colorScheme.mutedForeground,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                decoration: TextDecoration.underline,
+                                decorationColor: colorScheme.mutedForeground
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        if (currentPlanId != 'free' &&
+                            (currentProvider == 'app_store' ||
+                                currentProvider == 'play_store') &&
+                            currentPlanId != 'lifetime') ...[
+                          const SizedBox(height: 16),
+                          GestureDetector(
+                            onTap:
+                                isProcessing ? null : onManageStoreSubscription,
+                            child: Text(
+                              'Manage Subscription',
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
+                                decorationColor:
+                                    colorScheme.primary.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        // Restore Purchases (Always visible)
                         const SizedBox(height: 24),
+                        GestureDetector(
+                          onTap: isProcessing ? null : onRestorePurchases,
+                          child: Text(
+                            'Restore Purchases',
+                            style: TextStyle(
+                              color: colorScheme.mutedForeground
+                                  .withValues(alpha: 0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
-
-              // Bottom Actions
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                decoration: BoxDecoration(
-                  color: colorScheme.appBackground,
-                  border: Border(
-                      top: BorderSide(
-                          color: colorScheme.outlineVariant
-                              .withValues(alpha: 0.5))),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (requiresAutoRenewAcknowledgement) ...[
-                      CheckboxListTile(
-                        value: hasAcknowledgedAutoRenew.value,
-                        onChanged: isProcessing
-                            ? null
-                            : (value) =>
-                                hasAcknowledgedAutoRenew.value = value ?? false,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        activeColor: colorScheme.primary,
-                        checkColor: colorScheme.onPrimary,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          mode == PlanSelectionMode.trial
-                              ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                              : 'Subscription automatically renews at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} unless canceled at least 24 hours before the end of the current period. You can manage and cancel subscriptions in your account settings on the App Store.',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 13,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    PrimaryAdaptiveButton(
-                      onPressed:
-                          isProcessing || !canConfirmAutoRenew || !isStoreReady
-                              ? null
-                              : onMainAction,
-                      child: Text(
-                        isProcessing
-                            ? 'Processing...'
-                            : !isStoreReady
-                                ? 'Store unavailable'
-                                : mode == PlanSelectionMode.trial &&
-                                        activePlanOption.serverPlanId !=
-                                            'lifetime'
-                                    ? 'Start your free month'
-                                    : activePlanOption.serverPlanId ==
-                                            'lifetime'
-                                        ? 'Get Lifetime Access'
-                                        : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-
-                    // Cancel / Manage Subscription Button
-                    // ONLY shown if user is NOT on free plan
-                    if (currentPlanId != 'free' &&
-                        (currentProvider == null ||
-                            (currentProvider != 'app_store' &&
-                                currentProvider != 'play_store'))) ...[
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: isProcessing ? null : onCancelSubscription,
-                        child: Text(
-                          'Cancel Subscription',
-                          style: TextStyle(
-                            color: colorScheme.mutedForeground,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                            decorationColor: colorScheme.mutedForeground
-                                .withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    if (currentPlanId != 'free' &&
-                        (currentProvider == 'app_store' ||
-                            currentProvider == 'play_store') &&
-                        currentPlanId != 'lifetime') ...[
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: isProcessing ? null : onManageStoreSubscription,
-                        child: Text(
-                          'Manage Subscription',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
-                            decorationColor:
-                                colorScheme.primary.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Restore Purchases (Always visible)
-                    const SizedBox(height: 24),
-                    GestureDetector(
-                      onTap: isProcessing ? null : onRestorePurchases,
-                      child: Text(
-                        'Restore Purchases',
-                        style: TextStyle(
-                          color: colorScheme.mutedForeground
-                              .withValues(alpha: 0.7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     ));
@@ -1244,12 +1286,14 @@ class PlanSelectionPage extends HookConsumerWidget {
 class _AppleStylePlanCard extends StatelessWidget {
   final PlanOption plan;
   final bool isSelected;
-  final VoidCallback onTap;
+  final bool isCurrentPlan;
+  final VoidCallback? onTap;
   final bool isNewUser;
 
   const _AppleStylePlanCard({
     required this.plan,
     required this.isSelected,
+    required this.isCurrentPlan,
     required this.onTap,
     required this.isNewUser,
   });
@@ -1258,13 +1302,17 @@ class _AppleStylePlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    final backgroundColor = scheme.surface;
-    final borderColor = isSelected
-        ? scheme.primary
-        : scheme.outlineVariant.withValues(alpha: 0.3);
+    final isDisabled = isCurrentPlan;
+    final backgroundColor =
+        isDisabled ? scheme.onSurface.withValues(alpha: 0.03) : scheme.surface;
+    final borderColor = isDisabled
+        ? Colors.transparent
+        : isSelected
+            ? scheme.primary
+            : scheme.outlineVariant.withValues(alpha: 0.3);
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: isDisabled ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
@@ -1272,8 +1320,11 @@ class _AppleStylePlanCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: borderColor, width: 2),
-          boxShadow: isSelected
+          border: Border.all(
+            color: borderColor,
+            width: 2,
+          ),
+          boxShadow: isSelected && !isDisabled
               ? [
                   BoxShadow(
                       color: scheme.primary.withValues(alpha: 0.1),
@@ -1281,34 +1332,50 @@ class _AppleStylePlanCard extends StatelessWidget {
                       offset: const Offset(0, 4))
                 ]
               : [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2))
+                  if (!isDisabled)
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
                 ],
         ),
         child: Row(
           children: [
-            // Radio Indicator
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? scheme.primary
-                      : scheme.outlineVariant.withValues(alpha: 0.8),
-                  width: 2,
+            // Indicator
+            if (!isDisabled) ...[
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? scheme.primary
+                        : scheme.outlineVariant.withValues(alpha: 0.8),
+                    width: 2,
+                  ),
+                  color: isSelected ? scheme.primary : Colors.transparent,
                 ),
-                color: isSelected ? scheme.primary : Colors.transparent,
+                child: isSelected
+                    ? Center(
+                        child: Icon(Icons.check,
+                            size: 14, color: scheme.onPrimary))
+                    : null,
               ),
-              child: isSelected
-                  ? Center(
-                      child:
-                          Icon(Icons.check, size: 14, color: scheme.onPrimary))
-                  : null,
-            ),
+            ] else ...[
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: scheme.onSurface.withValues(alpha: 0.1),
+                ),
+                child: Center(
+                  child: Icon(Icons.check,
+                      size: 14, color: scheme.onSurface.withValues(alpha: 0.5)),
+                ),
+              ),
+            ],
             const SizedBox(width: 16),
 
             // Content
@@ -1323,10 +1390,30 @@ class _AppleStylePlanCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: scheme.onSurface,
+                          color: isDisabled
+                              ? scheme.onSurface.withValues(alpha: 0.5)
+                              : scheme.onSurface,
                         ),
                       ),
-                      if (plan.badgeText != null) ...[
+                      if (isCurrentPlan) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: scheme.onSurface.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Current Plan',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: scheme.onSurface.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                      ] else if (plan.badgeText != null) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -1356,7 +1443,9 @@ class _AppleStylePlanCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: scheme.onSurface,
+                          color: isDisabled
+                              ? scheme.onSurface.withValues(alpha: 0.5)
+                              : scheme.onSurface,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -1365,7 +1454,9 @@ class _AppleStylePlanCard extends StatelessWidget {
                         plan.periodDisplay,
                         style: TextStyle(
                           fontSize: 14,
-                          color: scheme.mutedForeground,
+                          color: isDisabled
+                              ? scheme.onSurface.withValues(alpha: 0.4)
+                              : scheme.mutedForeground,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -1457,75 +1548,6 @@ class _LegalLinks extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CleanFeatureSheet extends StatelessWidget {
-  const _CleanFeatureSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final features = [
-      'Unlimited AI Insights',
-      'Automatic Bank Sync',
-      'Smart Budgeting Goals',
-      'Export to CSV',
-      'Recurring Bill Tracking',
-      'Priority Support',
-      'Ad-free Experience',
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: scheme.outlineVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Included in Premium',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: scheme.onSurface,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ...features.map((f) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle_outline_rounded,
-                        size: 22, color: scheme.primary),
-                    const SizedBox(width: 14),
-                    Text(f,
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: scheme.onSurface.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w400)),
-                  ],
-                ),
-              )),
-        ],
-      ),
     );
   }
 }

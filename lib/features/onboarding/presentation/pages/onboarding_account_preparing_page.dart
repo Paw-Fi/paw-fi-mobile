@@ -779,72 +779,130 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
-                Icon(
-                  setupError.value != null
-                      ? Icons.auto_awesome_rounded
-                      : isDone.value
-                          ? Icons.check_circle_rounded
-                          : Icons.auto_awesome_rounded,
-                  size: 58,
-                  color: setupError.value != null
-                      ? colorScheme.primary
-                      : isDone.value
-                          ? colorScheme.success
-                          : colorScheme.primary,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  setupError.value != null
-                      ? context.l10n.onboardingPreparingTitleError
-                      : isDone.value
-                          ? context.l10n.onboardingPreparingTitleDone
-                          : context.l10n.onboardingPreparingTitleLoading,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  setupError.value != null
-                      ? (setupError.value == 'budget_validation_failed'
-                          ? context.l10n.onboardingPreparingBodyErrorDashboard
-                          : context.l10n.onboardingPreparingBodyErrorRetry)
-                      : isDone.value
-                          ? context.l10n.onboardingPreparingBodyDone
-                          : context.l10n.onboardingPreparingBodyLoading,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress.value,
-                    minHeight: 10,
-                    backgroundColor:
-                        colorScheme.mutedForeground.withValues(alpha: 0.2),
-                    color: isDone.value
-                        ? colorScheme.success
-                        : colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  progressLabel.value,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
                 const Spacer(),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                          CurvedAnimation(
+                              curve: Curves.easeOutBack, parent: animation),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: setupError.value != null
+                      ? Icon(
+                          setupError.value == 'budget_validation_failed'
+                              ? Icons.warning_rounded
+                              : Icons.error_outline_rounded,
+                          key: const ValueKey('error'),
+                          size: 72,
+                          color: colorScheme.destructive,
+                        )
+                      : isDone.value
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              key: const ValueKey('done'),
+                              size: 72,
+                              color: colorScheme.success,
+                            )
+                          : _AnimatedPulsingIcon(
+                              key: const ValueKey('loading'),
+                              color: colorScheme.primary,
+                            ),
+                ),
+                const SizedBox(height: 32),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    setupError.value != null
+                        ? context.l10n.onboardingPreparingTitleError
+                        : isDone.value
+                            ? context.l10n.onboardingPreparingTitleDone
+                            : context.l10n.onboardingPreparingTitleLoading,
+                    key: ValueKey(setupError.value != null
+                        ? 'error'
+                        : isDone.value
+                            ? 'done'
+                            : 'loading'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    setupError.value != null
+                        ? (setupError.value == 'budget_validation_failed'
+                            ? context.l10n.onboardingPreparingBodyErrorDashboard
+                            : context.l10n.onboardingPreparingBodyErrorRetry)
+                        : isDone.value
+                            ? context.l10n.onboardingPreparingBodyDone
+                            : context.l10n.onboardingPreparingBodyLoading,
+                    key: ValueKey(setupError.value != null
+                        ? 'error_body'
+                        : isDone.value
+                            ? 'done_body'
+                            : 'loading_body'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 48),
+                AnimatedOpacity(
+                  opacity:
+                      (isDone.value || setupError.value != null) ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 400),
+                  child: Column(
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: progress.value),
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) => ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: value,
+                            minHeight: 8,
+                            backgroundColor: colorScheme.mutedForeground
+                                .withValues(alpha: 0.15),
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(
+                          progressLabel.value,
+                          key: ValueKey(progressLabel.value),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(flex: 2),
                 SizedBox(
                   height: 52,
                   child: IgnorePointer(
@@ -869,5 +927,49 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         ),
       ),
     ));
+  }
+}
+
+class _AnimatedPulsingIcon extends HookWidget {
+  const _AnimatedPulsingIcon({super.key, required this.color});
+  
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useAnimationController(
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    final scale = useAnimation(
+      Tween<double>(begin: 0.95, end: 1.05).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      ),
+    );
+
+    final opacity = useAnimation(
+      Tween<double>(begin: 0.5, end: 1.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      ),
+    );
+
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.1 * opacity),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.auto_awesome_rounded,
+            size: 36,
+            color: color.withValues(alpha: opacity),
+          ),
+        ),
+      ),
+    );
   }
 }

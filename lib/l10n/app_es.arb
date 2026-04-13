@@ -73,7 +73,7 @@
   "anErrorOccurred": "Ocurrió un error",
   "unknownError": "Error desconocido",
   "goToHome": "Ir al inicio",
-  "paymentSuccessfulCheckingSubscription": "✅ ¡Pago completado! Comprobando suscripción...",
+  "paymentSuccessfulCheckingSubscription": "¡Pago realizado con éxito! Tu suscripción ya está activa.",
   "paymentFailed": "Error en el pago",
   "paymentCanceled": "ℹ️ Pago cancelado",
   "whatsappVerifiedSuccessfully": "✅ ¡WhatsApp verificado correctamente!",
@@ -2615,5 +2615,11 @@
   "walletsStackTourDescription": "Toca cualquier billetera para desplegarla y ver los detalles. Vuelve a tocarla para abrir su página y ver todas las transacciones.",
   "walletsNewWalletTourTitle": "Añade nuevas billeteras",
   "walletsNewWalletTourDescription": "Crea billeteras personalizadas para efectivo, ahorros o cualquier cuenta que quieras seguir. Establece metas y controla tu progreso.",
-  "initialBalance": "Saldo inicial"
+  "initialBalance": "Saldo inicial",
+  "freeTrial": "Prueba gratis",
+  "dayLeft": "Queda {count} día",
+  "daysLeft": "Quedan {count} días",
+  "upgrade": "Mejorar plan",
+  "viewPlans": "Ver planes",
+  "dismiss": "Cerrar"
 }

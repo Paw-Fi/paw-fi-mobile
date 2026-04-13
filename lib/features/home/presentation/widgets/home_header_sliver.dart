@@ -797,6 +797,9 @@ class HomeHeaderSliver extends ConsumerWidget {
                         await SpotlightTourController.resetAllTours();
                         final prefs = ref.read(sharedPreferencesProvider);
                         final userId = ref.read(authProvider).uid;
+                        final trialBannerDismissedPrefix = userId.isEmpty
+                            ? 'trial_reminder_banner_dismissed_milestone:'
+                            : 'trial_reminder_banner_dismissed_milestone:$userId:';
                         await prefs.remove(
                           'home_connect_social_dismissed_steps_v1',
                         );
@@ -804,9 +807,17 @@ class HomeHeaderSliver extends ConsumerWidget {
                             'accounts_month_swipe_hint_dismissed:$userId');
                         await prefs.remove(
                             'pockets_month_swipe_hint_dismissed:$userId');
+                        final trialBannerKeys = prefs
+                            .getKeys()
+                            .where((key) =>
+                                key.startsWith(trialBannerDismissedPrefix))
+                            .toList(growable: false);
+                        for (final key in trialBannerKeys) {
+                          await prefs.remove(key);
+                        }
                         ref.invalidate(dismissedChecklistStepsProvider);
                         debugPrint(
-                          '🔁 Spotlight tours + accounts/pockets swipe hints reset for debugging',
+                          '🔁 Spotlight tours + accounts/pockets swipe hints + trial reminder banner state reset for debugging',
                         );
                       },
                     ),

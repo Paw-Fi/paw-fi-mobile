@@ -73,7 +73,7 @@
   "anErrorOccurred": "ایک خرابی پیش آئی۔",
   "unknownError": "نامعلوم خرابی۔",
   "goToHome": "ہوم پر جائیں",
-  "paymentSuccessfulCheckingSubscription": "✅ ادائیگی کامیاب! سبسکرپشن چیک کی جا رہی ہے۔۔۔",
+  "paymentSuccessfulCheckingSubscription": "ادائیگی کامیاب ہو گئی! آپ کی سبسکرپشن اب فعال ہے۔",
   "paymentFailed": "ادائیگی ناکام",
   "paymentCanceled": "ℹ️ ادائیگی منسوخ کر دی گئی",
   "whatsappVerifiedSuccessfully": "✅ واٹس ایپ کامیابی سے تصدیق ہو گیا!",
@@ -2559,5 +2559,11 @@
   "walletsStackTourDescription": "کسی بھی والیٹ پر ٹیپ کریں تاکہ وہ کھل جائے اور تفصیلات نظر آئیں۔ دوبارہ ٹیپ کریں تاکہ والیٹ کا صفحہ کھلے اور تمام ٹرانزیکشنز دیکھ سکیں۔",
   "walletsNewWalletTourTitle": "نئے والیٹس شامل کریں",
   "walletsNewWalletTourDescription": "کیش، بچت یا کسی بھی ایسے اکاؤنٹ کے لیے کسٹم والیٹس بنائیں جسے آپ ٹریک کرنا چاہتے ہیں۔ اہداف مقرر کریں اور اپنی پیش رفت دیکھیں!",
-  "initialBalance": "ابتدائی بیلنس"
+  "initialBalance": "ابتدائی بیلنس",
+  "freeTrial": "مفت آزمائش",
+  "dayLeft": "{count} دن باقی ہے",
+  "daysLeft": "{count} دن باقی ہیں",
+  "upgrade": "اپ گریڈ کریں",
+  "viewPlans": "پلان دیکھیں",
+  "dismiss": "بند کریں"
 }

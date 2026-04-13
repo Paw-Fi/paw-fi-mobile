@@ -1151,23 +1151,34 @@ class _WalletAccountStack extends HookConsumerWidget {
     const gap = 20.0;
 
     const bottomBuffer = 0.0;
-    final stackHeight = orderedAccounts.isEmpty
-        ? 0.0
-        : (orderedAccounts.length == 1)
-            ? expandedCardHeight + bottomBuffer
-            : (expandedCardHeight +
-                gap +
-                (orderedAccounts.length - 2) * tightSpacing +
-                unselectedCardHeight +
-                bottomBuffer);
+    
+    int safeSelectedIdx = orderedAccounts.indexWhere((a) => a.id == selectedId);
+    if (safeSelectedIdx == -1 && orderedAccounts.isNotEmpty) {
+      safeSelectedIdx = orderedAccounts.length - 1;
+    }
+
+    double calculateStackHeight() {
+      if (orderedAccounts.isEmpty) return 0.0;
+      if (orderedAccounts.length == 1) return expandedCardHeight + bottomBuffer;
+      
+      if (safeSelectedIdx == orderedAccounts.length - 1) {
+        return safeSelectedIdx * tightSpacing + expandedCardHeight + bottomBuffer;
+      }
+      return safeSelectedIdx * tightSpacing + 
+             expandedCardHeight + 
+             gap + 
+             (orderedAccounts.length - 2 - safeSelectedIdx) * tightSpacing + 
+             unselectedCardHeight + 
+             bottomBuffer;
+    }
+    final stackHeight = calculateStackHeight();
 
     double getTop(int index, WalletEntity wallet) {
-      if (wallet.id == selectedId) return 0.0;
-
-      final selectedIdx = orderedAccounts.indexWhere((a) => a.id == selectedId);
-      final positionInOthers = index < selectedIdx ? index : index - 1;
-
-      return expandedCardHeight + gap + (positionInOthers * tightSpacing);
+      if (index <= safeSelectedIdx) {
+        return index * tightSpacing;
+      } else {
+        return safeSelectedIdx * tightSpacing + expandedCardHeight + gap + (index - safeSelectedIdx - 1) * tightSpacing;
+      }
     }
 
     final renderAccounts = [...orderedAccounts];

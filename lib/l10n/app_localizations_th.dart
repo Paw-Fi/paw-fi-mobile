@@ -169,7 +169,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get goToHome => 'กลับหน้าแรก';
 
   @override
-  String get paymentSuccessfulCheckingSubscription => '✅ ชำระเงินสำเร็จ! กำลังตรวจสอบสถานะสมาชิก...';
+  String get paymentSuccessfulCheckingSubscription => 'ชำระเงินสำเร็จ! การสมัครสมาชิกของคุณเปิดใช้งานแล้ว';
 
   @override
   String get paymentFailed => 'ชำระเงินไม่สำเร็จ';
@@ -6893,4 +6893,26 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get initialBalance => 'ยอดคงเหลือเริ่มต้น';
+
+  @override
+  String get freeTrial => 'ทดลองใช้ฟรี';
+
+  @override
+  String dayLeft(Object count) {
+    return 'เหลืออีก $count วัน';
+  }
+
+  @override
+  String daysLeft(Object count) {
+    return 'เหลืออีก $count วัน';
+  }
+
+  @override
+  String get upgrade => 'อัปเกรด';
+
+  @override
+  String get viewPlans => 'ดูแพ็กเกจ';
+
+  @override
+  String get dismiss => 'ปิด';
 }

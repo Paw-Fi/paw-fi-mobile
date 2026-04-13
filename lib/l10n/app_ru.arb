@@ -73,7 +73,7 @@
   "anErrorOccurred": "Произошла ошибка",
   "unknownError": "Неизвестная ошибка",
   "goToHome": "На главную",
-  "paymentSuccessfulCheckingSubscription": "✅ Оплата прошла! Проверяем подписку...",
+  "paymentSuccessfulCheckingSubscription": "Оплата прошла успешно! Ваша подписка уже активна.",
   "paymentFailed": "Платёж не прошёл",
   "paymentCanceled": "ℹ️ Платёж отменён",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp успешно подтверждён!",
@@ -662,7 +662,7 @@
   "@householdOverview": {},
   "household": "Общее пространство",
   "viewAll": "Смотреть все",
-  "manage": "Управлять",
+  "manage": "Управление",
   "noBudgetsYet": "Бюджетов пока нет",
   "createSharedBudgetDescription": "Создайте общий бюджет, чтобы следить за тратами вместе",
   "errorLoadingBudgets": "Ошибка загрузки бюджетов",
@@ -2563,5 +2563,11 @@
   "walletsStackTourDescription": "Нажмите на любой кошелёк, чтобы развернуть его и посмотреть детали. Нажмите ещё раз, чтобы открыть страницу кошелька и увидеть все транзакции.",
   "walletsNewWalletTourTitle": "Добавьте новые кошельки",
   "walletsNewWalletTourDescription": "Создавайте собственные кошельки для наличных, сбережений или любых счетов, которые хотите отслеживать. Ставьте цели и следите за прогрессом!",
-  "initialBalance": "Начальный баланс"
+  "initialBalance": "Начальный баланс",
+  "freeTrial": "Бесплатный пробный период",
+  "dayLeft": "Остался {count} день",
+  "daysLeft": "Осталось {count} дней",
+  "upgrade": "Обновить тариф",
+  "viewPlans": "Посмотреть тарифы",
+  "dismiss": "Закрыть"
 }

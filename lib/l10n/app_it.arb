@@ -73,7 +73,7 @@
   "anErrorOccurred": "Si è verificato un errore",
   "unknownError": "Errore sconosciuto",
   "goToHome": "Vai alla Home",
-  "paymentSuccessfulCheckingSubscription": "✅ Pagamento riuscito! Verifica abbonamento in corso...",
+  "paymentSuccessfulCheckingSubscription": "Pagamento riuscito! Il tuo abbonamento è ora attivo.",
   "paymentFailed": "Pagamento non riuscito",
   "paymentCanceled": "ℹ️ Pagamento annullato",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp verificato con successo!",
@@ -2560,5 +2560,11 @@
   "walletsStackTourDescription": "Tocca un wallet per espanderlo e vedere i dettagli. Toccalo di nuovo per aprire la pagina del wallet e visualizzare tutte le transazioni.",
   "walletsNewWalletTourTitle": "Aggiungi nuovi wallet",
   "walletsNewWalletTourDescription": "Crea wallet personalizzati per contanti, risparmi o qualsiasi conto che vuoi tenere sotto controllo. Imposta obiettivi e monitora i tuoi progressi!",
-  "initialBalance": "Saldo iniziale"
+  "initialBalance": "Saldo iniziale",
+  "freeTrial": "Prova gratuita",
+  "dayLeft": "Manca {count} giorno",
+  "daysLeft": "Mancano {count} giorni",
+  "upgrade": "Fai l'upgrade",
+  "viewPlans": "Visualizza i piani",
+  "dismiss": "Chiudi"
 }

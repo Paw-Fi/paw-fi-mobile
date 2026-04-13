@@ -73,7 +73,7 @@
   "anErrorOccurred": "Сталася помилка",
   "unknownError": "Невідома помилка",
   "goToHome": "На головну",
-  "paymentSuccessfulCheckingSubscription": "✅ Оплата успішна! Перевіряємо підписку...",
+  "paymentSuccessfulCheckingSubscription": "Оплату успішно завершено! Вашу підписку вже активовано.",
   "paymentFailed": "Оплата не вдалася",
   "paymentCanceled": "ℹ️ Оплату скасовано",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp успішно підтверджено!",
@@ -637,7 +637,7 @@
   "@householdOverview": {},
   "household": "Спільний простір",
   "viewAll": "Усі",
-  "manage": "Керувати",
+  "manage": "Керування",
   "noBudgetsYet": "Бюджетів ще немає",
   "createSharedBudgetDescription": "Створіть спільний бюджет, щоб разом стежити за витратами",
   "errorLoadingBudgets": "Помилка завантаження бюджетів",
@@ -2605,5 +2605,11 @@
   "walletsStackTourDescription": "Натисніть на будь-який гаманець, щоб розгорнути його й переглянути деталі. Натисніть ще раз, щоб відкрити сторінку гаманця та побачити всі транзакції.",
   "walletsNewWalletTourTitle": "Додайте нові гаманці",
   "walletsNewWalletTourDescription": "Створюйте власні гаманці для готівки, заощаджень або будь-яких рахунків, які хочете відстежувати. Ставте цілі та стежте за прогресом!",
-  "initialBalance": "Початковий баланс"
+  "initialBalance": "Початковий баланс",
+  "freeTrial": "Безкоштовний пробний період",
+  "dayLeft": "Залишився {count} день",
+  "daysLeft": "Залишилося {count} днів",
+  "upgrade": "Оновити тариф",
+  "viewPlans": "Переглянути тарифи",
+  "dismiss": "Закрити"
 }

@@ -286,8 +286,10 @@ GoRouter router(RouterRef ref) {
               '🔐 Auth redirect [V2]: state=${appInitStateV2.state}, isAuth=$isAuthenticated, subGate=$subscriptionGateStatus, path=${state.matchedLocation}');
         }
 
-        final isSubscriptionChecking = subscriptionGateStatus.isLoading;
         final requiresPaywall = subscriptionGateStatus.requiresPaywall;
+        final isSubscriptionChecking = subscriptionGateStatus.isLoading;
+        final everSubscribed =
+            isAuthenticated ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false) : false;
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
         if (appInitStateV2.state == AppInitState.failed &&
@@ -315,35 +317,12 @@ GoRouter router(RouterRef ref) {
             }
             // Always check onboarding first
             if (!hasOnboarded) {
-              if (kIsWeb) {
-                return '/onboarding?stage=post';
-              }
-              if (isSubscriptionChecking) {
-                return null;
-              }
-              if (requiresPaywall) {
-                final everSubscribed =
-                    prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-                if (everSubscribed) {
-                  return '/paywall?mode=resubscribe';
-                }
-                return '/paywall?mode=trial';
-              }
               return '/onboarding?stage=post';
             }
-            // On web: skip paywall and go straight to dashboard
-            if (kIsWeb) {
-              return '/dashboard';
+            if (!isSubscriptionChecking && requiresPaywall && everSubscribed) {
+              return '/paywall?mode=resubscribe';
             }
-            if (requiresPaywall) {
-              final everSubscribed =
-                  prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-              if (everSubscribed) {
-                return '/paywall?mode=resubscribe';
-              }
-              return '/paywall?mode=trial';
-            }
-            return '/dashboard'; // Navigate immediately, UI will show skeletons
+            return '/dashboard';
           } else {
             if (hasCompletedPreauth) {
               return '/onboarding?stage=save_budget';
@@ -370,9 +349,21 @@ GoRouter router(RouterRef ref) {
           return null;
         }
 
-        // Post-auth onboarding is only for authenticated users.
+        // Post-auth onboarding is only allowed while onboarding is still incomplete.
+        // Once the flow marks onboarding as complete, force the user onward instead of
+        // leaving them on the onboarding route waiting for a widget-level navigation.
         if (isAuthenticated && isOnPostOnboardingPage) {
-          return null;
+          if (!hasOnboarded) {
+            return null;
+          }
+
+          if (kDebugMode) {
+            debugPrint(
+              '✅ [RouterV2] Post-auth onboarding already completed; redirecting away from ${state.matchedLocation}',
+            );
+          }
+
+          return '/dashboard';
         }
 
         if (!isAuthenticated && isOnPrepareOnboardingPage) {
@@ -402,23 +393,6 @@ GoRouter router(RouterRef ref) {
             !isOnPostOnboardingPage &&
             !isOnAuthPage &&
             !isOnSplashPage) {
-          if (kIsWeb) {
-            return '/onboarding?stage=post';
-          }
-
-          if (isSubscriptionChecking) {
-            return null;
-          }
-
-          if (requiresPaywall && !isOnPaywallPage && !isOnPlanSelectionPage) {
-            final everSubscribed =
-                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-            if (everSubscribed) {
-              return '/paywall?mode=resubscribe';
-            }
-            return '/paywall?mode=trial';
-          }
-
           return '/onboarding?stage=post';
         }
 
@@ -451,44 +425,14 @@ GoRouter router(RouterRef ref) {
           }
           // Always prioritize onboarding
           if (!hasOnboarded) {
-            if (kIsWeb) {
-              return '/onboarding?stage=post';
-            }
-            if (isSubscriptionChecking) {
-              return null;
-            }
-            if (requiresPaywall) {
-              final everSubscribed =
-                  prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-              if (everSubscribed) {
-                return '/paywall?mode=resubscribe';
-              }
-              return '/paywall?mode=trial';
-            }
             return '/onboarding?stage=post';
           }
-          // If subscription is still loading, allow navigation (don't redirect yet)
-          if (isSubscriptionChecking) {
-            return null;
-          }
-          // Check subscription status
-          if (requiresPaywall) {
-            // On web: skip paywall and go straight to dashboard
-            if (kIsWeb) return '/dashboard';
-            // Check if user ever had a subscription to determine paywall mode
-            final everSubscribed =
-                prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-            if (everSubscribed) {
-              return '/paywall?mode=resubscribe';
-            } else {
-              return '/paywall?mode=trial';
-            }
+          if (!isSubscriptionChecking && requiresPaywall && everSubscribed) {
+            return '/paywall?mode=resubscribe';
           }
           return '/dashboard';
         }
 
-        // If authenticated but no subscription and trying to access protected pages
-        // Only redirect to paywall if subscription is confirmed loaded and onboarding completed
         if (!isPreview &&
             !kIsWeb &&
             isAuthenticated &&
@@ -496,18 +440,12 @@ GoRouter router(RouterRef ref) {
             hasOnboarded &&
             !isSubscriptionChecking &&
             requiresPaywall &&
+            everSubscribed &&
             !isOnPaywallPage &&
             !isOnPlanSelectionPage &&
             !isOnboardingPage &&
             !isOnPrepareOnboardingPage) {
-          // Check if user ever had a subscription to determine paywall mode
-          final everSubscribed =
-              prefs.getBool('ever_subscribed:${auth.uid}') ?? false;
-          if (everSubscribed) {
-            return '/paywall?mode=resubscribe';
-          } else {
-            return '/paywall?mode=trial';
-          }
+          return '/paywall?mode=resubscribe';
         }
 
         // Allow navigation (includes when subscription is loading)

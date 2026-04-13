@@ -73,7 +73,7 @@
   "anErrorOccurred": "发生错误",
   "unknownError": "未知错误",
   "goToHome": "返回首页",
-  "paymentSuccessfulCheckingSubscription": "✅ 付款成功！正在检查订阅状态...",
+  "paymentSuccessfulCheckingSubscription": "支付成功！你的订阅现已生效。",
   "paymentFailed": "付款失败",
   "paymentCanceled": "ℹ️ 付款已取消",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp 验证成功！",
@@ -2609,5 +2609,11 @@
   "walletsStackTourDescription": "点按任意钱包即可展开并查看详情；再次点按即可打开钱包页面并查看所有交易。",
   "walletsNewWalletTourTitle": "添加新钱包",
   "walletsNewWalletTourDescription": "为现金、储蓄或任何您想追踪的账户创建自定义钱包。设定目标并跟踪进度！",
-  "initialBalance": "初始余额"
+  "initialBalance": "初始余额",
+  "freeTrial": "免费试用",
+  "dayLeft": "还剩{count}天",
+  "daysLeft": "还剩{count}天",
+  "upgrade": "升级",
+  "viewPlans": "查看订阅方案",
+  "dismiss": "关闭"
 }

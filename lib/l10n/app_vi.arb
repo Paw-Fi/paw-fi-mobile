@@ -73,7 +73,7 @@
   "anErrorOccurred": "Đã xảy ra lỗi",
   "unknownError": "Lỗi không xác định",
   "goToHome": "Về Trang chủ",
-  "paymentSuccessfulCheckingSubscription": "✅ Thanh toán thành công! Đang kiểm tra gói đăng ký...",
+  "paymentSuccessfulCheckingSubscription": "Thanh toán thành công! Gói đăng ký của bạn hiện đã được kích hoạt.",
   "paymentFailed": "Thanh toán thất bại",
   "paymentCanceled": "ℹ️ Đã hủy thanh toán",
   "whatsappVerifiedSuccessfully": "✅ Đã xác minh WhatsApp thành công!",
@@ -2612,5 +2612,11 @@
   "walletsStackTourDescription": "Chạm vào bất kỳ ví nào để mở rộng và xem chi tiết. Chạm thêm một lần nữa để mở trang ví và xem toàn bộ giao dịch.",
   "walletsNewWalletTourTitle": "Thêm ví mới",
   "walletsNewWalletTourDescription": "Tạo ví tùy chỉnh cho tiền mặt, tiết kiệm hoặc bất kỳ tài khoản nào bạn muốn theo dõi. Đặt mục tiêu và theo dõi tiến độ!",
-  "initialBalance": "Số dư ban đầu"
+  "initialBalance": "Số dư ban đầu",
+  "freeTrial": "Dùng thử miễn phí",
+  "dayLeft": "Còn {count} ngày",
+  "daysLeft": "Còn {count} ngày",
+  "upgrade": "Nâng cấp",
+  "viewPlans": "Xem các gói",
+  "dismiss": "Đóng"
 }

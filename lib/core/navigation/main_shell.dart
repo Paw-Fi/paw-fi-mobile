@@ -35,6 +35,7 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
@@ -321,6 +322,7 @@ class MainShell extends HookConsumerWidget {
                       },
                     ),
                   ),
+                const TrialReminderBannerGate(),
                 const HomeHeaderSliver(),
                 Expanded(
                   child: Stack(

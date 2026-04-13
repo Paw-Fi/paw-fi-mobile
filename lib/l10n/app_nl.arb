@@ -73,7 +73,7 @@
   "anErrorOccurred": "Er is een fout opgetreden",
   "unknownError": "Onbekende fout",
   "goToHome": "Ga naar Start",
-  "paymentSuccessfulCheckingSubscription": "✅ Betaling gelukt! Abonnement controleren...",
+  "paymentSuccessfulCheckingSubscription": "Betaling geslaagd! Je abonnement is nu actief.",
   "paymentFailed": "Betaling mislukt",
   "paymentCanceled": "ℹ️ Betaling geannuleerd",
   "whatsappVerifiedSuccessfully": "✅ WhatsApp succesvol geverifieerd!",
@@ -2560,5 +2560,11 @@
   "walletsStackTourDescription": "Tik op een wallet om deze uit te klappen en details te bekijken. Tik nogmaals om de walletpagina te openen en alle transacties te zien.",
   "walletsNewWalletTourTitle": "Nieuwe wallets toevoegen",
   "walletsNewWalletTourDescription": "Maak aangepaste wallets voor contant geld, spaargeld of andere rekeningen die je wilt bijhouden. Stel doelen in en volg je voortgang.",
-  "initialBalance": "Beginsaldo"
+  "initialBalance": "Beginsaldo",
+  "freeTrial": "Gratis proefperiode",
+  "dayLeft": "Nog {count} dag",
+  "daysLeft": "Nog {count} dagen",
+  "upgrade": "Upgraden",
+  "viewPlans": "Abonnementen bekijken",
+  "dismiss": "Sluiten"
 }

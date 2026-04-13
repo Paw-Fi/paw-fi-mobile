@@ -1,19 +1,19 @@
 {
-  "initialBalance": {
-    "en": "Initial Balance",
-    "de": "Anfangssaldo",
-    "es": "Saldo inicial",
-    "fr": "Solde initial",
-    "it": "Saldo iniziale",
-    "ja": "初期残高",
-    "kr": "초기 잔액",
-    "nl": "Beginsaldo",
-    "ur": "ابتدائی بیلنس",
-    "ru": "Начальный баланс",
-    "th": "ยอดคงเหลือเริ่มต้น",
-    "uk": "Початковий баланс",
-    "zh": "初始余额",
-    "zh_TW": "初始餘額",
-    "vi": "Số dư ban đầu"
+  "paymentSuccessfulCheckingSubscription": {
+    "en": "Payment successful! Your subscription is now active.",
+    "de": "Zahlung erfolgreich! Dein Abonnement ist jetzt aktiv.",
+    "es": "¡Pago realizado con éxito! Tu suscripción ya está activa.",
+    "fr": "Paiement réussi ! Votre abonnement est maintenant actif.",
+    "it": "Pagamento riuscito! Il tuo abbonamento è ora attivo.",
+    "ja": "お支払いが完了しました！サブスクリプションが有効になりました。",
+    "kr": "결제가 완료되었습니다! 이제 구독이 활성화되었습니다.",
+    "nl": "Betaling geslaagd! Je abonnement is nu actief.",
+    "ur": "ادائیگی کامیاب ہو گئی! آپ کی سبسکرپشن اب فعال ہے۔",
+    "ru": "Оплата прошла успешно! Ваша подписка уже активна.",
+    "th": "ชำระเงินสำเร็จ! การสมัครสมาชิกของคุณเปิดใช้งานแล้ว",
+    "uk": "Оплату успішно завершено! Вашу підписку вже активовано.",
+    "zh": "支付成功！你的订阅现已生效。",
+    "zh_TW": "付款成功！你的訂閱現在已啟用。",
+    "vi": "Thanh toán thành công! Gói đăng ký của bạn hiện đã được kích hoạt."
   }
 }

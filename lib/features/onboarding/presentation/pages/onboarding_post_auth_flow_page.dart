@@ -32,17 +32,24 @@ Future<void> _maybeShowOnboardingReviewPrompt(
   WidgetRef ref, {
   required bool fromSettings,
 }) async {
-  if (fromSettings) return;
+  if (fromSettings) {
+    return;
+  }
 
   final prefs = ref.read(sharedPreferencesProvider);
   final hasPrompted = prefs.getBool(_kOnboardingReviewPromptShownKey) ?? false;
-  if (hasPrompted) return;
+  if (hasPrompted) {
+    return;
+  }
 
   final inAppReview = InAppReview.instance;
   final isAvailable = await inAppReview.isAvailable();
-  if (!isAvailable) return;
+  if (!isAvailable) {
+    return;
+  }
 
   await prefs.setBool(_kOnboardingReviewPromptShownKey, true);
+
   try {
     await inAppReview.requestReview();
   } catch (_) {}

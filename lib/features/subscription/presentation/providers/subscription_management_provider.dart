@@ -113,12 +113,9 @@ class SubscriptionManagementNotifier
     await _updateSubscription(action: 'resume');
   }
 
-  Future<void> grantPaywallReturnTrial({
-    int trialDays = 14,
-  }) async {
+  Future<void> grantPaywallReturnTrial() async {
     await _updateSubscription(
       action: 'grant_paywall_return_trial',
-      trialDays: trialDays,
     );
   }
 
@@ -142,7 +139,6 @@ class SubscriptionManagementNotifier
     String? plan,
     String? billingInterval,
     int? prorationDate,
-    int? trialDays,
     DateTime? exitedAtUtc,
     bool refreshAfterUpdate = true,
   }) async {
@@ -159,7 +155,6 @@ class SubscriptionManagementNotifier
           if (plan != null) 'plan': plan,
           if (billingInterval != null) 'billingInterval': billingInterval,
           if (prorationDate != null) 'prorationDate': prorationDate,
-          if (trialDays != null) 'trialDays': trialDays,
           if (exitedAtUtc != null)
             'exitAtIso': exitedAtUtc.toUtc().toIso8601String(),
         },

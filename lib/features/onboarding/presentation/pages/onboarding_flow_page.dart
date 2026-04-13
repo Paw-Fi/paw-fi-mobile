@@ -36,7 +36,6 @@ import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -345,7 +344,7 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         color: colorScheme.appBackground,
         child: Stack(
           children: [
-            const _OnboardingPaywallBackground(),
+            const _OnboardingHeroBackground(),
             SafeArea(
               bottom: false,
               child: Column(
@@ -373,10 +372,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
                             onPressed: () =>
                                 context.go('/onboarding?stage=post&debug=post'),
                             child: const Text('Debug post'),
-                          ),
-                          TextButton(
-                            onPressed: () => context.go('/paywall?mode=trial'),
-                            child: const Text('Debug paywall'),
                           ),
                         ],
                       ),
@@ -408,8 +403,8 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
   }
 }
 
-class _OnboardingPaywallBackground extends StatelessWidget {
-  const _OnboardingPaywallBackground();
+class _OnboardingHeroBackground extends StatelessWidget {
+  const _OnboardingHeroBackground();
 
   @override
   Widget build(BuildContext context) {
@@ -1563,10 +1558,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
                         tooltip: 'Debug next',
                       ),
                       const SizedBox(width: 8),
-                      TextButton(
-                        onPressed: () => context.go('/paywall?mode=trial'),
-                        child: const Text('Debug paywall'),
-                      ),
                     ],
                   ),
                 ),
@@ -1684,38 +1675,15 @@ class OnboardingFlowPage extends HookConsumerWidget {
       );
       Navigator.of(context).pop();
     } else {
-      const isWeb = kIsWeb;
-      final hasSubscription = ref.read(hasActiveSubscriptionProvider);
-      final isSubscriptionLoaded = ref.read(isSubscriptionLoadedProvider);
-      if (!isWeb && isSubscriptionLoaded && !hasSubscription) {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _authenticatedOnboardingPageId(2),
-          stepIndex: 2,
-          actionId: 'authenticated_onboarding_completed',
-          result: 'success',
-          properties: const <String, Object?>{
-            'step_group': 'authenticated_onboarding',
-            'step_key': 'ai_log',
-            'next_route': '/paywall',
-          },
-        );
-        await analytics.endPage(
-          reason: 'authenticated_onboarding_completed',
-          transitionTo: 'paywall',
-        );
-        context.go('/paywall');
-      } else {
-        await analytics.completeSession(
-          flowName: 'onboarding_funnel',
-          pageId: _authenticatedOnboardingPageId(2),
-          stepIndex: 2,
-          properties: const <String, Object?>{
-            'completion_target': 'dashboard',
-          },
-        );
-        context.go('/dashboard');
-      }
+      await analytics.completeSession(
+        flowName: 'onboarding_funnel',
+        pageId: _authenticatedOnboardingPageId(2),
+        stepIndex: 2,
+        properties: const <String, Object?>{
+          'completion_target': 'dashboard',
+        },
+      );
+      context.go('/dashboard');
     }
   }
 }
