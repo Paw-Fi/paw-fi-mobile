@@ -741,6 +741,7 @@ class SettingsPage extends HookConsumerWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  useSafeArea: true,
                   builder: (context) {
                     final scheme = Theme.of(context).colorScheme;
                     return Material(

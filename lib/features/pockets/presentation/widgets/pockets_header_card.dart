@@ -334,6 +334,7 @@ class PocketsHeaderCard extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

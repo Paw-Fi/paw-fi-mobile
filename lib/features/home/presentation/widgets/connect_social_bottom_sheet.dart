@@ -74,6 +74,7 @@ class ConnectSocialBottomSheet extends StatelessWidget {
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
+                        useSafeArea: true,
                         backgroundColor: Colors.transparent,
                         builder: (context) => const TelegramTutorialModal(),
                       );
@@ -97,6 +98,7 @@ class ConnectSocialBottomSheet extends StatelessWidget {
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
+                        useSafeArea: true,
                         backgroundColor: Colors.transparent,
                         builder: (context) => const WhatsAppTutorialModal(),
                       );

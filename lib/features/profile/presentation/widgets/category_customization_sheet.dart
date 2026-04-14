@@ -48,6 +48,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: colorScheme.sheetBackground,
         builder: (sheetContext) {
           return _CategoryUpsertSheet(

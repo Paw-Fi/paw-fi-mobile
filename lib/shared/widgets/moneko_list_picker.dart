@@ -91,8 +91,10 @@ class MonekoListPicker {
             alpha: 0.0,
           ),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) {
         final scheme = Theme.of(ctx).colorScheme;
+        final bottomInset = MediaQuery.of(ctx).viewPadding.bottom;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,
@@ -132,12 +134,15 @@ class MonekoListPicker {
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    itemCount: items.length,
+                    itemCount: items.length + 1,
                     separatorBuilder: (_, __) => Divider(
                       height: 1,
                       color: scheme.border.withValues(alpha: 0.4),
                     ),
                     itemBuilder: (context, index) {
+                      if (index == items.length) {
+                        return SizedBox(height: bottomInset + 8);
+                      }
                       final item = items[index];
                       final label = labelBuilder(item);
                       final selected = item == initial;

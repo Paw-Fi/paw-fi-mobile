@@ -1860,6 +1860,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   ) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: colorScheme.appBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

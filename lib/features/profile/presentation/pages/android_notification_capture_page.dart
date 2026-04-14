@@ -715,6 +715,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: colorScheme.sheetBackground,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),

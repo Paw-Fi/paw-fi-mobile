@@ -331,6 +331,7 @@ Future<void> showHouseholdInvitationSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     enableDrag: true,
     backgroundColor: Theme.of(context).colorScheme.surface.withValues(

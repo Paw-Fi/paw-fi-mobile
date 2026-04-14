@@ -9,6 +9,7 @@ void showCreateGoalSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) => const _CreateGoalSheet(),
   );
 }

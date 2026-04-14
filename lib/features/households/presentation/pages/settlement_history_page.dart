@@ -733,6 +733,7 @@ class _SettlementHistoryPageState extends ConsumerState<SettlementHistoryPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       builder: (context) => SettlementDetailsSheet(
         event: event,

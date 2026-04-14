@@ -2083,6 +2083,7 @@ class _UnifiedTransactionSheetState
       result = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: Theme.of(context).colorScheme.sheetBackground,
         builder: (context) => Container(
           padding: EdgeInsets.only(

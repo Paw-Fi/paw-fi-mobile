@@ -148,6 +148,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.black,
       builder: (context) {
         return const _TutorialVideoModal(

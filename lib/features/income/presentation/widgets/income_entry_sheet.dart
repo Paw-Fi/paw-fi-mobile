@@ -21,6 +21,7 @@ void showIncomeEntrySheet(BuildContext context) {
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     builder: (context) => const _IncomeEntrySheet(),
   );

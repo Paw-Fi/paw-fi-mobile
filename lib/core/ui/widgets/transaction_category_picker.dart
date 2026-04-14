@@ -80,6 +80,7 @@ Future<String?> showCategoryPicker({
   return await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       return CategoryPickerBottomSheet(

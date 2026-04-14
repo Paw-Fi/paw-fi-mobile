@@ -88,7 +88,9 @@ Future<T?> showTransactionSelectionSheet<T>({
       context: context,
       backgroundColor: scheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) {
+        final bottomInset = MediaQuery.of(context).viewPadding.bottom;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,
@@ -111,10 +113,13 @@ Future<T?> showTransactionSelectionSheet<T>({
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    itemCount: items.length,
+                    itemCount: items.length + 1,
                     separatorBuilder: (_, __) => Divider(
                         height: 1, color: scheme.border.withValues(alpha: 0.4)),
                     itemBuilder: (context, i) {
+                      if (i == items.length) {
+                        return SizedBox(height: bottomInset + 8);
+                      }
                       final value = items[i];
                       final label = getLabel(value);
                       final selected = value == initial;
