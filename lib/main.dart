@@ -181,7 +181,15 @@ void main() {
     if (!kIsWeb) {
       ui.PlatformDispatcher.instance.onError =
           (Object error, StackTrace stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        final fatal = shouldReportFatalFlutterError(error);
+        FirebaseCrashlytics.instance.recordError(
+          error,
+          stack,
+          fatal: fatal,
+          reason: fatal
+              ? 'platform_dispatcher_fatal'
+              : 'platform_dispatcher_non_fatal',
+        );
         return true; // handled
       };
     }
@@ -194,7 +202,13 @@ void main() {
         final StackTrace st = errorAndStackTrace.last is StackTrace
             ? (errorAndStackTrace.last as StackTrace)
             : StackTrace.fromString(errorAndStackTrace.last.toString());
-        FirebaseCrashlytics.instance.recordError(err, st, fatal: true);
+        final fatal = shouldReportFatalFlutterError(err);
+        FirebaseCrashlytics.instance.recordError(
+          err,
+          st,
+          fatal: fatal,
+          reason: fatal ? 'isolate_fatal' : 'isolate_non_fatal',
+        );
       });
       Isolate.current.addErrorListener(errorPort.sendPort);
     }
@@ -288,7 +302,13 @@ void main() {
   }, (error, stack) {
     // Record uncaught zone errors as fatal (only on non-web)
     if (!kIsWeb) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      final fatal = shouldReportFatalFlutterError(error);
+      FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        fatal: fatal,
+        reason: fatal ? 'zone_fatal' : 'zone_non_fatal',
+      );
     }
   });
 }

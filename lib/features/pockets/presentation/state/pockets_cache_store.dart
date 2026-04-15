@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 final pocketsPersistedCacheBypassCountProvider = StateProvider<int>((ref) => 0);
@@ -84,7 +85,7 @@ Future<void> clearAllPersistedPocketsCachesForUser(
   final prefix = 'pockets:month:v1:$userId:';
   final keysToRemove = prefs
       .getKeys()
-      .where((key) => key.startsWith(prefix))
+      .where((String key) => key.startsWith(prefix))
       .toList(growable: false);
 
   for (final key in keysToRemove) {
@@ -92,7 +93,7 @@ Future<void> clearAllPersistedPocketsCachesForUser(
   }
 }
 
-dynamic _readPrefsOrNull(Ref ref) {
+SharedPreferences? _readPrefsOrNull(Ref ref) {
   try {
     return ref.read(sharedPreferencesProvider);
   } catch (_) {

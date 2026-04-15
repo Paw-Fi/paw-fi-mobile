@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_models.dart';
@@ -155,7 +156,8 @@ Future<void> clearAllWalletsCachesForUser(
   final keysToRemove = prefs
       .getKeys()
       .where(
-        (key) => key.startsWith(listPrefix) || key.startsWith(pageStatePrefix),
+        (String key) =>
+            key.startsWith(listPrefix) || key.startsWith(pageStatePrefix),
       )
       .toList(growable: false);
 
@@ -164,7 +166,7 @@ Future<void> clearAllWalletsCachesForUser(
   }
 }
 
-dynamic _readPrefsOrNull(Ref ref) {
+SharedPreferences? _readPrefsOrNull(Ref ref) {
   try {
     return ref.read(sharedPreferencesProvider);
   } catch (_) {

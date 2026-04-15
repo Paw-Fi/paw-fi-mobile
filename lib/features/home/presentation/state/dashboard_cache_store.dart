@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
@@ -111,7 +112,9 @@ Future<void> clearAllDashboardPersistedCachesForUser(
   ];
   final keys = prefs
       .getKeys()
-      .where((key) => prefixes.any((prefix) => key.startsWith(prefix)))
+      .where(
+        (String key) => prefixes.any((prefix) => key.startsWith(prefix)),
+      )
       .toList(growable: false);
 
   for (final key in keys) {
@@ -173,7 +176,7 @@ final dashboardCacheInvalidationProvider = Provider<void>((ref) {
   });
 });
 
-dynamic _readPrefsOrNull(Ref ref) {
+SharedPreferences? _readPrefsOrNull(Ref ref) {
   try {
     return ref.read(sharedPreferencesProvider);
   } catch (_) {

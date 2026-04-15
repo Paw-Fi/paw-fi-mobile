@@ -170,10 +170,16 @@ class Auth extends _$Auth {
 
   bool _isFlowStateNotFound(Object error) {
     if (error is AuthApiException) {
-      return error.code?.toLowerCase() == 'flow_state_not_found';
+      final code = error.code?.toLowerCase();
+      final statusCode = error.statusCode?.toLowerCase();
+      if (code == 'flow_state_not_found' ||
+          statusCode == 'flow_state_not_found') {
+        return true;
+      }
     }
     final message = error.toString().toLowerCase();
-    return message.contains('flow_state_not_found');
+    return message.contains('flow_state_not_found') ||
+        message.contains('flow state not found');
   }
 
   bool _isNetworkError(Object error) {
