@@ -59,7 +59,10 @@ Widget buildHouseholdMemberSpendingCard(
     }
   }
 
-  final memberContributions = (totalsByUser.isNotEmpty && members != null)
+  final hasComputedMemberData =
+      transactions != null && from != null && to != null && members != null;
+
+  final memberContributions = hasComputedMemberData
       ? members.map((member) {
           final cents = totalsByUser[member.userId] ?? 0;
           final count = countsByUser[member.userId] ?? 0;

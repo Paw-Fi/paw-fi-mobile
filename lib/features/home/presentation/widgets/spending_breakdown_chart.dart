@@ -129,13 +129,15 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
                           if (event is FlTapDownEvent) {
                             if (response?.touchedSection != null) {
                               setState(() {
-                                final nextIndex =
-                                    response!.touchedSection!.touchedSectionIndex;
-                                _touchedIndex =
-                                    _touchedIndex == nextIndex ? null : nextIndex;
+                                final nextIndex = response!
+                                    .touchedSection!.touchedSectionIndex;
+                                _touchedIndex = _touchedIndex == nextIndex
+                                    ? null
+                                    : nextIndex;
                               });
                             }
-                          } else if (event is FlTapUpEvent || event is FlTapCancelEvent) {
+                          } else if (event is FlTapUpEvent ||
+                              event is FlTapCancelEvent) {
                             setState(() => _touchedIndex = null);
                           }
                         },
@@ -366,6 +368,7 @@ class SpendingBreakdownChart extends StatefulWidget {
   final List<DailyBudgetEntry> budgets;
   final UserContact? contact;
   final DateRangeFilter dateRangeFilter;
+  final DateTime? referenceNow;
   final String? selectedCurrency;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
@@ -377,6 +380,7 @@ class SpendingBreakdownChart extends StatefulWidget {
     required this.budgets,
     required this.contact,
     required this.dateRangeFilter,
+    this.referenceNow,
     this.selectedCurrency,
     this.customStartDate,
     this.customEndDate,
@@ -394,6 +398,7 @@ class _SpendingBreakdownChartState extends State<SpendingBreakdownChart> {
       widget.dateRangeFilter,
       widget.customStartDate,
       widget.customEndDate,
+      now: widget.referenceNow,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -494,6 +499,7 @@ Widget buildSpendingBreakdownChart(
   List<DailyBudgetEntry> budgets,
   UserContact? contact,
   DateRangeFilter dateRangeFilter, {
+  DateTime? referenceNow,
   String? selectedCurrency,
   DateTime? customStartDate,
   DateTime? customEndDate,
@@ -504,6 +510,7 @@ Widget buildSpendingBreakdownChart(
     budgets: budgets,
     contact: contact,
     dateRangeFilter: dateRangeFilter,
+    referenceNow: referenceNow,
     selectedCurrency: selectedCurrency,
     customStartDate: customStartDate,
     customEndDate: customEndDate,

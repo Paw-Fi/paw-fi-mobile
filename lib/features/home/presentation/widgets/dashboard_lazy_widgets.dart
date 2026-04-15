@@ -379,6 +379,7 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       const [],
       analyticsContact,
       config.dateRange,
+      referenceNow: userNow,
       selectedCurrency: filterState.selectedCurrency,
       customStartDate: config.customStartDate,
       customEndDate: config.customEndDate,

@@ -544,6 +544,7 @@ class _GuestCarouselItem extends StatelessWidget {
             imagePath,
             height: 320,
             fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
           ),
         ),
         const SizedBox(height: 12),

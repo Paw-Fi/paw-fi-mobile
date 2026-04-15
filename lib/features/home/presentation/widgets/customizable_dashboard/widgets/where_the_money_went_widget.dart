@@ -27,11 +27,14 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // Filter expenses by selected currency if applicable
-    var filteredExpenses = expenses;
+    var filteredExpenses = expenses
+        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
+        .toList();
     if (currency != null) {
       final curr = currency!.toUpperCase();
-      filteredExpenses =
-          expenses.where((e) => e.currency?.toUpperCase() == curr).toList();
+      filteredExpenses = filteredExpenses
+          .where((e) => e.currency?.toUpperCase() == curr)
+          .toList();
     }
 
     // Aggregate by category for quick stats/legends

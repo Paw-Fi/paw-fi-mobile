@@ -14,6 +14,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
@@ -23,6 +24,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/household_dashboard_lazy_widgets.dart';
 
@@ -147,6 +149,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required Household household,
     required String selectedCurrency,
     required List<DashboardWidgetConfig> configs,
+    required DateTime referenceNow,
   }) async {
     final warmupTrace = HomeDebugTrace(
       label: 'HouseholdDashboardWarmup',
@@ -163,24 +166,108 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     final visibleConfigs = configs.where((config) => config.isVisible).toList();
 
     final summaryParams = <HouseholdSummaryParams>{};
+    final calendarQueries = <DashboardScopeQuery>{};
     var needsRecurring = false;
+    var needsSplits = false;
 
     for (final config in visibleConfigs) {
+      final range = getDateRangeFromFilter(
+        config.dateRange,
+        config.customStartDate,
+        config.customEndDate,
+        now: referenceNow,
+      );
+
       switch (config.type) {
         case DashboardWidgetType.householdSpentByYou:
           needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
           break;
         case DashboardWidgetType.householdBudgetOverview:
-        case DashboardWidgetType.householdFairness:
-        case DashboardWidgetType.householdSettlement:
-        case DashboardWidgetType.householdMemberSpending:
-        case DashboardWidgetType.householdSpendingBreakdownChart:
-        case DashboardWidgetType.householdWhereTheMoneyWent:
+          needsRecurring = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
           summaryParams.add(buildHouseholdSummaryParams(
             household: household,
             selectedCurrency: selectedCurrency,
             config: config,
+            referenceNow: referenceNow,
           ));
+          break;
+        case DashboardWidgetType.householdFairness:
+          needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdSettlement:
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdMemberSpending:
+          needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdSpendingBreakdownChart:
+        case DashboardWidgetType.householdWhereTheMoneyWent:
+          needsRecurring = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
           break;
         case DashboardWidgetType.householdFinancialCalendar:
           needsRecurring = true;
@@ -204,6 +291,33 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
 
     ref.read(householdMembersProvider(household.id));
     warmupTrace.mark('warmup-members-read');
+
+    if (needsSplits) {
+      try {
+        warmupTrace.mark('warmup-splits-start');
+        await ref.read(
+          householdSplitsProvider(HouseholdSplitsParams(
+            householdId: household.id,
+          )).future,
+        );
+        warmupTrace.mark('warmup-splits-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-splits-error', {'error': error});
+      }
+    }
+
+    for (final query in calendarQueries) {
+      try {
+        warmupTrace.mark('warmup-calendar-start', {
+          'rangeStart': query.formattedStartDate,
+          'rangeEnd': query.formattedEndDate,
+        });
+        await ref.read(dashboardCalendarTransactionsProvider(query).future);
+        warmupTrace.mark('warmup-calendar-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-calendar-error', {'error': error});
+      }
+    }
 
     for (final params in summaryParams) {
       try {
@@ -250,6 +364,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required Household household,
     required String selectedCurrency,
     required List<DashboardWidgetConfig> configs,
+    required DateTime referenceNow,
   }) {
     if (_dashboardWarmupKey == warmupKey) return;
 
@@ -263,6 +378,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         household: household,
         selectedCurrency: selectedCurrency,
         configs: configs,
+        referenceNow: referenceNow,
       ));
     });
   }
@@ -370,6 +486,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                           : household.currency))
                   .toUpperCase();
           final selectedCurrency = rawCurrency;
+          final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
+              initUserContact?.preferredTimezone);
+          final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data
@@ -428,6 +547,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                     household: household,
                     selectedCurrency: selectedCurrency,
                     configs: configs,
+                    referenceNow: userNow,
                   );
 
                   if (!_didLogFirstUsefulPaint) {
@@ -473,6 +593,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                       DashboardWidgetType.householdFinancialCalendar: (context,
@@ -495,6 +616,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                       DashboardWidgetType.householdFairness: (context,
@@ -506,6 +628,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                       DashboardWidgetType.householdSettlement: (context,
@@ -517,6 +640,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                       DashboardWidgetType.householdMemberSpending: (context,
@@ -528,6 +652,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                       DashboardWidgetType.householdRecentTransactions: (context,
@@ -548,6 +673,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                                   household: household,
                                   config: config,
                                   selectedCurrency: selectedCurrency,
+                                  referenceNow: userNow,
                                 ),
                               ),
                       DashboardWidgetType.householdWhereTheMoneyWent: (context,
@@ -559,6 +685,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               household: household,
                               config: config,
                               selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
                           ),
                     },
