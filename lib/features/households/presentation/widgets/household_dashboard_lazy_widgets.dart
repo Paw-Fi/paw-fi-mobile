@@ -22,6 +22,8 @@ import 'package:moneko/features/households/presentation/widgets/group_fairness_m
 import 'package:moneko/features/households/presentation/widgets/household_budget_overview_card.dart';
 import 'package:moneko/features/households/presentation/widgets/household_member_spending_card.dart';
 import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
+import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -58,31 +60,75 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userId = ref.watch(currentUserIdProvider);
+    if (userId == null || userId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final range = getDateRangeFromFilter(
       config.dateRange,
       config.customStartDate,
       config.customEndDate,
     );
-    final params = buildHouseholdSummaryParams(
-      household: household,
+    final query = DashboardScopeQuery(
+      userId: userId,
+      householdId: household.id,
       selectedCurrency: selectedCurrency,
-      config: config,
+      startDate: range['from'],
+      endDate: range['to'],
     );
-    final summaryAsync = ref.watch(householdSummaryProvider(params));
+    final transactionsAsync =
+        ref.watch(dashboardCalendarTransactionsProvider(query));
+    final splitsParams = HouseholdSplitsParams(householdId: household.id);
+    final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
+    final recurringState =
+        ref.watch(recurringTransactionsProvider(household.id));
+    if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
+      Future.microtask(() {
+        ref
+            .read(recurringTransactionsProvider(household.id).notifier)
+            .loadRecurringTransactions(userId);
+      });
+    }
 
-    if (summaryAsync.isLoading && !summaryAsync.hasValue) {
+    if ((transactionsAsync.isLoading && !transactionsAsync.hasValue) ||
+        (splitsAsync.isLoading && !splitsAsync.hasValue)) {
       return _buildSpentByYouSkeleton(
           context, selectedCurrency, config.dateRange);
     }
-
-    final summary = summaryAsync.valueOrNull;
-    if (summary == null || userId == null) {
-      return const SizedBox.shrink();
+    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      return _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+      );
+    }
+    if (splitsAsync.hasError && !splitsAsync.hasValue) {
+      return _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
+      );
     }
 
-    final spentByUser = summary.memberContributions
-        .where((contribution) => contribution.userId == userId)
-        .fold<int>(0, (sum, item) => sum + item.totalSpentCents);
+    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      recurringTransactions: recurringState.data.valueOrNull ?? const [],
+      rangeStart: range['from']!,
+      rangeEnd: range['to']!,
+      selectedCurrency: selectedCurrency,
+      includeFutureOccurrences: false,
+    );
+    final totals = computeSplitAwareMemberSpendingTotals(
+      transactions: mergedTransactions,
+      from: range['from']!,
+      to: range['to']!,
+      splits: splitsAsync.valueOrNull ?? const [],
+      selectedCurrency: selectedCurrency,
+    );
+    final spentByUser = totals.totalForUser(userId);
 
     final syntheticExpense = buildSyntheticSpentByUserExpense(
       userId: userId,

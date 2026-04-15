@@ -354,6 +354,97 @@ void main() {
   });
 
   test(
+      'mergeActualExpensesWithProjectedRecurring includes personal monthly anchor-day occurrence through today',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'personal-rent',
+      userId: 'user_1',
+      date: DateTime(2026, 1, 12),
+      category: 'rent',
+      description: '',
+      amount: 12000.0,
+      currency: 'INR',
+      ownerType: 'me',
+      privacyScope: 'full',
+      householdId: null,
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 1, 12),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 1, 12),
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: const [],
+      recurringTransactions: [recurring],
+      rangeStart: DateTime(2026, 4, 1),
+      rangeEnd: DateTime(2026, 4, 30),
+      selectedCurrency: 'INR',
+      includeFutureOccurrences: false,
+      now: DateTime(2026, 4, 15),
+    );
+
+    expect(merged, hasLength(1));
+    expect(merged.single.date, DateTime(2026, 4, 12));
+    expect(
+      extractRecurringTransactionIdFromProjectedExpenseId(merged.single.id),
+      'personal-rent',
+    );
+  });
+
+  test(
+      'mergeActualExpensesWithProjectedRecurring dedupes household monthly anchor-day projection when actual exists',
+      () {
+    final recurring = RecurringTransaction(
+      id: 'household-rent',
+      userId: 'user_1',
+      date: DateTime(2026, 3, 10),
+      category: 'rent',
+      description: '',
+      amount: 12000.0,
+      currency: 'INR',
+      ownerType: 'me',
+      privacyScope: 'full',
+      householdId: 'house-1',
+      recurrenceRule: RecurrenceRule(
+        frequency: 'monthly',
+        anchorDate: DateTime(2026, 3, 10),
+      ),
+      type: 'expense',
+      attachments: const [],
+      createdAt: DateTime(2026, 3, 10),
+    );
+    final actual = ExpenseEntry(
+      id: 'actual-house-rent',
+      userId: 'user_1',
+      householdId: 'house-1',
+      date: DateTime(2026, 4, 10),
+      amountCents: 1200000,
+      currency: 'INR',
+      category: 'rent',
+      rawText: '',
+      type: 'expense',
+      createdAt: DateTime(2026, 4, 10),
+      isRecurring: true,
+    );
+
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: [actual],
+      recurringTransactions: [recurring],
+      rangeStart: DateTime(2026, 4, 1),
+      rangeEnd: DateTime(2026, 4, 30),
+      selectedCurrency: 'INR',
+      includeFutureOccurrences: false,
+      now: DateTime(2026, 4, 15),
+    );
+
+    expect(merged, hasLength(1));
+    expect(merged.single.id, 'actual-house-rent');
+  });
+
+  test(
       'does not collapse distinct recurring expenses that share date and amount',
       () {
     final projected = ExpenseEntry(

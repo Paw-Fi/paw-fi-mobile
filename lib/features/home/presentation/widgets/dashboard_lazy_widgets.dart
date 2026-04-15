@@ -80,6 +80,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         colorScheme,
         config.dateRange,
         currency,
+        userNow,
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
@@ -98,6 +99,7 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       mergedTransactions,
       contact,
       config.dateRange,
+      referenceNow: userNow,
       selectedCurrency: filterState.selectedCurrency,
       customStartDate: config.customStartDate,
       customEndDate: config.customEndDate,
@@ -488,6 +490,7 @@ Widget _buildSpendingSkeleton(
   ColorScheme colorScheme,
   DateRangeFilter dateFilter,
   String currency,
+  DateTime referenceNow,
 ) {
   return Skeletonizer(
     effect: ShimmerEffect(
@@ -509,6 +512,7 @@ Widget _buildSpendingSkeleton(
       ],
       null,
       dateFilter,
+      referenceNow: referenceNow,
       selectedCurrency: currency,
     ),
   );

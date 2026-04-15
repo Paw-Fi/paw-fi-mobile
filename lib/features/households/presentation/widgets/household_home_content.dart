@@ -168,6 +168,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     for (final config in visibleConfigs) {
       switch (config.type) {
         case DashboardWidgetType.householdSpentByYou:
+          needsRecurring = true;
+          break;
         case DashboardWidgetType.householdBudgetOverview:
         case DashboardWidgetType.householdFairness:
         case DashboardWidgetType.householdSettlement:
@@ -286,7 +288,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
 
     final householdsSignature = [
-      'user=${userId ?? '<none>'}',
+      'user=$userId',
       'loading=${householdsAsync.isLoading}',
       'hasError=${householdsAsync.hasError}',
       'count=${householdsAsync.valueOrNull?.length ?? 0}',
@@ -295,7 +297,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     if (_lastHouseholdTraceSignature != householdsSignature) {
       _lastHouseholdTraceSignature = householdsSignature;
       _householdTrace.mark('households-async-state', {
-        'user': userId ?? '<none>',
+        'user': userId,
         'loading': householdsAsync.isLoading,
         'hasError': householdsAsync.hasError,
         'count': householdsAsync.valueOrNull?.length,

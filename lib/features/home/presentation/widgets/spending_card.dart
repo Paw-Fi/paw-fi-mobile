@@ -17,6 +17,7 @@ class SpendingCard extends StatefulWidget {
   final List<ExpenseEntry> expenses;
   final UserContact? contact;
   final DateRangeFilter dateFilter;
+  final DateTime? referenceNow;
   final String? selectedCurrency;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
@@ -27,6 +28,7 @@ class SpendingCard extends StatefulWidget {
     required this.expenses,
     required this.contact,
     required this.dateFilter,
+    this.referenceNow,
     this.selectedCurrency,
     this.customStartDate,
     this.customEndDate,
@@ -50,6 +52,7 @@ class _SpendingCardState extends State<SpendingCard> {
       widget.dateFilter,
       widget.customStartDate,
       widget.customEndDate,
+      now: widget.referenceNow,
     );
     final from = range['from']!;
     final to = range['to']!;
@@ -90,7 +93,7 @@ class _SpendingCardState extends State<SpendingCard> {
 
     if (sortedDates.isEmpty) {
       isFallback = true;
-      final now = DateTime.now();
+      final now = widget.referenceNow ?? DateTime.now();
       effectiveDates = _generateFallbackDates(now, intervalType);
       effectiveAllCumulativeData =
           List.generate(effectiveDates.length, (i) => FlSpot(i.toDouble(), 0));
@@ -204,7 +207,7 @@ class _SpendingCardState extends State<SpendingCard> {
                     spot.y * animationValue,
                   );
                 }).toList();
-                
+
                 return LineChart(
                   LineChartData(
                     gridData: const FlGridData(show: false),
@@ -231,17 +234,19 @@ class _SpendingCardState extends State<SpendingCard> {
 
                             return Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: widget.dateFilter == DateRangeFilter.thisMonth
+                              child: widget.dateFilter ==
+                                      DateRangeFilter.thisMonth
                                   ? Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          DateFormat('d', localeName).format(date),
+                                          DateFormat('d', localeName)
+                                              .format(date),
                                           style: TextStyle(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
-                                            color:
-                                                widget.colorScheme.mutedForeground,
+                                            color: widget
+                                                .colorScheme.mutedForeground,
                                             height: 1.0,
                                           ),
                                         ),
@@ -252,8 +257,8 @@ class _SpendingCardState extends State<SpendingCard> {
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w500,
-                                            color:
-                                                widget.colorScheme.mutedForeground,
+                                            color: widget
+                                                .colorScheme.mutedForeground,
                                             height: 1.0,
                                           ),
                                         ),
@@ -264,7 +269,8 @@ class _SpendingCardState extends State<SpendingCard> {
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
-                                        color: widget.colorScheme.mutedForeground,
+                                        color:
+                                            widget.colorScheme.mutedForeground,
                                       ),
                                     ),
                             );
@@ -280,11 +286,11 @@ class _SpendingCardState extends State<SpendingCard> {
                         getTooltipColor: (touchedSpot) =>
                             widget.colorScheme.surface,
                         tooltipBorder: BorderSide(
-                            color:
-                                widget.colorScheme.outline.withValues(alpha: 0.1)),
+                            color: widget.colorScheme.outline
+                                .withValues(alpha: 0.1)),
                         tooltipRoundedRadius: 12,
-                        tooltipPadding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        tooltipPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         getTooltipItems: (touchedSpots) {
                           return touchedSpots.map((spot) {
                             if (spot.spotIndex >= visibleDates.length) {
@@ -293,12 +299,13 @@ class _SpendingCardState extends State<SpendingCard> {
                             final date = visibleDates[spot.spotIndex];
                             final locale = Localizations.localeOf(context);
                             final localeName = intlSafeLocaleName(locale);
-                            final formattedDate =
-                                widget.dateFilter == DateRangeFilter.thisMonth &&
-                                        intervalType == 'daily'
-                                    ? DateFormat('d MMM', localeName).format(date)
-                                    : formatDateForInterval(date, intervalType);
-                            final currencyCode = widget.selectedCurrency ?? 'USD';
+                            final formattedDate = widget.dateFilter ==
+                                        DateRangeFilter.thisMonth &&
+                                    intervalType == 'daily'
+                                ? DateFormat('d MMM', localeName).format(date)
+                                : formatDateForInterval(date, intervalType);
+                            final currencyCode =
+                                widget.selectedCurrency ?? 'USD';
                             final symbol = resolveCurrencySymbol(currencyCode);
                             final localizedY =
                                 formatLocalizedNumber(context, spot.y);
@@ -324,8 +331,8 @@ class _SpendingCardState extends State<SpendingCard> {
                           }).toList();
                         },
                       ),
-                      touchCallback:
-                          (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                      touchCallback: (FlTouchEvent event,
+                          LineTouchResponse? touchResponse) {
                         setState(() {
                           if (event is FlPanEndEvent ||
                               event is FlPanCancelEvent ||
@@ -372,7 +379,8 @@ class _SpendingCardState extends State<SpendingCard> {
                               );
                             }
                             // Show dots on touch
-                            if (_touchedIndex != null && index == _touchedIndex) {
+                            if (_touchedIndex != null &&
+                                index == _touchedIndex) {
                               return FlDotCirclePainter(
                                 radius: 6,
                                 color: widget.colorScheme.primary,
@@ -392,7 +400,8 @@ class _SpendingCardState extends State<SpendingCard> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              widget.colorScheme.primary.withValues(alpha: 0.2 * animationValue),
+                              widget.colorScheme.primary
+                                  .withValues(alpha: 0.2 * animationValue),
                               widget.colorScheme.primary.withValues(alpha: 0.0),
                             ],
                           ),
@@ -537,7 +546,8 @@ Widget buildSpendingCard(
     List<ExpenseEntry> expenses,
     UserContact? contact,
     DateRangeFilter dateFilter,
-    {String? selectedCurrency,
+    {DateTime? referenceNow,
+    String? selectedCurrency,
     DateTime? customStartDate,
     DateTime? customEndDate}) {
   return SpendingCard(
@@ -545,6 +555,7 @@ Widget buildSpendingCard(
     expenses: expenses,
     contact: contact,
     dateFilter: dateFilter,
+    referenceNow: referenceNow,
     selectedCurrency: selectedCurrency,
     customStartDate: customStartDate,
     customEndDate: customEndDate,
