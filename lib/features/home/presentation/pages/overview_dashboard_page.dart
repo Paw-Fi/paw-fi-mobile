@@ -354,12 +354,15 @@ class OverviewDashboardPage extends ConsumerWidget {
                 final selectedFilter =
                     await showModalBottomSheet<DateRangeFilter>(
                   context: context,
+                  useSafeArea: true,
                   backgroundColor: colorScheme.sheetBackground,
                   shape: const RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   builder: (sheetContext) {
+                    final bottomInset =
+                        MediaQuery.of(sheetContext).viewPadding.bottom;
                     return SafeArea(
                       child: ListView(
                         shrinkWrap: true,
@@ -396,6 +399,7 @@ class OverviewDashboardPage extends ConsumerWidget {
                                   Navigator.of(sheetContext).pop(filter),
                             );
                           }),
+                          SizedBox(height: bottomInset + 8),
                         ],
                       ),
                     );

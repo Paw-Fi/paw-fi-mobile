@@ -23,6 +23,8 @@ import 'package:moneko/features/onboarding/domain/onboarding_budget_sync_service
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'dart:io';
 
@@ -32,6 +34,10 @@ const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
 const _kBudgetSyncFailurePrefix = 'onboarding_budget_sync_failures:';
 const _kCurrencySyncTimeout = Duration(seconds: 8);
+const _kPaywallReturnTrialGrantedPrefix = 'paywall_return_trial:';
+const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
+const _kTrialGrantTimeout = Duration(seconds: 20);
+const _kPostGrantRefreshTimeout = Duration(seconds: 8);
 
 class _ExistingAccountState {
   const _ExistingAccountState({
@@ -87,6 +93,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final didStart = useState(false);
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     final isPrimaryActionEnabled = isDone.value || setupError.value != null;
+    final isGrantingOnboardingTrial = useRef(false);
 
     useEffect(() {
       unawaited(
@@ -359,6 +366,138 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
     }
 
+    String paywallReturnTrialGrantedKey(String userId) =>
+        '$_kPaywallReturnTrialGrantedPrefix$userId:granted';
+
+    Future<bool?> hasSubscriptionRow(String userId) async {
+      try {
+        final row = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+        return row != null;
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] hasSubscriptionRow failed: $error\n$stackTrace',
+        );
+        return null;
+      }
+    }
+
+    Future<void> ensureOnboardingSubscription({
+      required String userId,
+      required _ExistingAccountState existingState,
+      required void Function({
+        double? progressValue,
+        String? label,
+        bool? done,
+      }) setProgressState,
+    }) async {
+      if (isGrantingOnboardingTrial.value) return;
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final alreadyGrantedLocally =
+          prefs.getBool(paywallReturnTrialGrantedKey(userId)) ?? false;
+
+      await ref
+          .read(subscriptionManagementProvider.notifier)
+          .refresh()
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+        debugPrint(
+          '[OnboardingPrep] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
+        );
+      });
+      await ref
+          .read(subscriptionNotifierProvider.notifier)
+          .refresh()
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+        debugPrint(
+          '[OnboardingPrep] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
+        );
+      });
+
+      final subscriptionDetails =
+          ref.read(subscriptionManagementProvider).valueOrNull;
+      final hasActiveSubscription =
+          subscriptionDetails?.hasActiveSubscription ?? false;
+      if (hasActiveSubscription) {
+        debugPrint(
+          '[OnboardingPrep] Active subscription detected; skipping onboarding trial bootstrap',
+        );
+        return;
+      }
+
+      final hasSubscriptionNow = await hasSubscriptionRow(userId);
+      if (hasSubscriptionNow == null) {
+        debugPrint(
+          '[OnboardingPrep] Subscription row check unavailable; skipping onboarding trial bootstrap',
+        );
+        return;
+      }
+      if (hasSubscriptionNow || existingState.hasSubscriptionData) {
+        debugPrint(
+          '[OnboardingPrep] Existing non-active subscription found; leaving account unchanged for resubscribe flow',
+        );
+        return;
+      }
+
+      if (alreadyGrantedLocally) {
+        debugPrint(
+          '[OnboardingPrep] Onboarding trial already granted locally; skipping duplicate activation',
+        );
+        return;
+      }
+
+      isGrantingOnboardingTrial.value = true;
+      try {
+        setProgressState(
+          progressValue: 0.1,
+          label: context.l10n.onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
+        );
+        debugPrint(
+          '[OnboardingPrep] No subscription detected; activating onboarding free trial',
+        );
+        await ref
+            .read(subscriptionManagementProvider.notifier)
+            .grantPaywallReturnTrial()
+            .timeout(_kTrialGrantTimeout);
+
+        await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+
+        try {
+          await ref
+              .read(subscriptionManagementProvider.notifier)
+              .refresh()
+              .timeout(_kPostGrantRefreshTimeout);
+          await ref
+              .read(subscriptionNotifierProvider.notifier)
+              .refresh()
+              .timeout(_kPostGrantRefreshTimeout);
+        } catch (refreshError, refreshStackTrace) {
+          debugPrint(
+            '[OnboardingPrep] Post-grant refresh failed: $refreshError\n$refreshStackTrace',
+          );
+        }
+      } on TimeoutException catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] Free trial activation timed out: $error\n$stackTrace',
+        );
+      } catch (error, stackTrace) {
+        final message = error.toString().toLowerCase();
+        if (message.contains('already granted') ||
+            message.contains('already has active subscription access')) {
+          await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+        }
+        debugPrint(
+          '[OnboardingPrep] Free trial activation failed: $error\n$stackTrace',
+        );
+      } finally {
+        isGrantingOnboardingTrial.value = false;
+      }
+    }
+
     Future<void> runSync() async {
       if (didStart.value || isDone.value) return;
       didStart.value = true;
@@ -396,6 +535,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           '$_kBudgetSyncFailurePrefix${user.uid}:$budgetSyncScope';
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
       final existingState = await loadExistingAccountState(user.uid);
+      await ensureOnboardingSubscription(
+        userId: user.uid,
+        existingState: existingState,
+        setProgressState: setProgressState,
+      );
       final hasExistingData = existingState.hasMeaningfulData;
       final isExternalSubscriptionNewUser =
           existingState.isExternalSubscriptionNewUser;
@@ -888,15 +1032,16 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                       const SizedBox(height: 16),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
-                        child: Text(
-                          progressLabel.value,
+                        child: _ShimmeringText(
+                          text: progressLabel.value,
                           key: ValueKey(progressLabel.value),
-                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: colorScheme.mutedForeground,
                           ),
+                          shimmering:
+                              setupError.value == null && !isDone.value,
                         ),
                       ),
                     ],
@@ -927,6 +1072,81 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         ),
       ),
     ));
+  }
+}
+
+class _ShimmeringText extends HookWidget {
+  const _ShimmeringText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.shimmering = true,
+  });
+
+  final String text;
+  final TextStyle style;
+  final bool shimmering;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final controller = useAnimationController(
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    useEffect(() {
+      if (shimmering) {
+        controller.repeat();
+      } else {
+        controller.stop();
+      }
+      return null;
+    }, [shimmering]);
+
+    final animation = useAnimation(
+      Tween<double>(begin: -1.0, end: 2.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOutSine),
+      ),
+    );
+
+    if (!shimmering) {
+      return Text(
+        text,
+        key: key,
+        textAlign: TextAlign.center,
+        style: style,
+      );
+    }
+
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) {
+        final highlightColor = colorScheme.primary.withValues(alpha: 0.8);
+        final baseColor = style.color ?? colorScheme.mutedForeground;
+
+        return LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          stops: [
+            (animation - 0.3).clamp(0.0, 1.0),
+            animation.clamp(0.0, 1.0),
+            (animation + 0.3).clamp(0.0, 1.0),
+          ],
+          colors: [
+            baseColor,
+            highlightColor,
+            baseColor,
+          ],
+        ).createShader(bounds);
+      },
+      child: Text(
+        text,
+        key: key,
+        textAlign: TextAlign.center,
+        style: style,
+      ),
+    );
   }
 }
 

@@ -14,6 +14,7 @@ Future<void> showBudgetStatusSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       return Container(

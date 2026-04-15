@@ -290,11 +290,14 @@ class WalletLoginButton extends HookConsumerWidget {
   Future<String?> _pickChain(BuildContext context) async {
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surface.withValues(
             alpha: 0.0,
           ),
       builder: (ctx) {
         final scheme = Theme.of(ctx).colorScheme;
+        final bottomInset = MediaQuery.of(ctx).viewPadding.bottom;
         return Container(
           decoration: BoxDecoration(
             color: scheme.card,
@@ -321,9 +324,10 @@ class WalletLoginButton extends HookConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx, null),
-                  child: Text(ctx.l10n.cancel),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(context.l10n.cancel),
                 ),
+                SizedBox(height: bottomInset + 8),
               ],
             ),
           ),

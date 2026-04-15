@@ -1469,6 +1469,7 @@ Future<BankConnection?> _selectReconnectBankConnection(
   return showModalBottomSheet<BankConnection>(
     context: context,
     showDragHandle: true,
+    useSafeArea: true,
     builder: (context) {
       final colorScheme = Theme.of(context).colorScheme;
       return SafeArea(
@@ -1533,6 +1534,7 @@ Future<BankConnection?> _selectRefreshBankConnection(
   return showModalBottomSheet<BankConnection>(
     context: context,
     showDragHandle: true,
+    useSafeArea: true,
     builder: (context) {
       final colorScheme = Theme.of(context).colorScheme;
       return SafeArea(

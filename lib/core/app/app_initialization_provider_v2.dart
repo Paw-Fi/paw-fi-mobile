@@ -240,8 +240,11 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   String? _lastRpcFinishedAt;
 
   static const Duration _initRpcTimeout = Duration(seconds: 10);
+  static const Duration _kCurrencySyncTimeout = Duration(seconds: 8);
   static const int _initRpcMaxAttempts = 2;
   static const Duration _initRpcBaseRetryDelay = Duration(milliseconds: 600);
+  static const String _preferredCurrencyCheckedPrefix =
+      'preferred_currency_checked';
 
   @override
   AppInitializationState build() {
@@ -302,6 +305,88 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     }
   }
 
+  void _syncMissingPreferredCurrencyInBackground(
+    String userId, {
+    required UserContact? user,
+  }) {
+    unawaited(Future<void>(() async {
+      if (ref.read(authProvider).uid != userId) {
+        return;
+      }
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final cacheKey = '$_preferredCurrencyCheckedPrefix:$userId';
+      final currentPreferred = _normalizeCurrencyCode(user?.preferredCurrency);
+      final hasChecked = prefs.getBool(cacheKey) ?? false;
+      if (hasChecked && currentPreferred != null) {
+        return;
+      }
+
+      if (currentPreferred != null) {
+        await prefs.setBool(cacheKey, true);
+        return;
+      }
+
+      Map<String, dynamic>? latestContact;
+      try {
+        final response = await supabase
+            .from('user_contacts')
+            .select('preferred_currency,updated_at,created_at')
+            .eq('user_id', userId)
+            .order('updated_at', ascending: false)
+            .order('created_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        if (response != null) {
+          latestContact = Map<String, dynamic>.from(response);
+        }
+      } catch (error) {
+        debugPrint('⚠️ [InitV2] Failed to verify preferred currency: $error');
+        return;
+      }
+
+      final latestPreferred =
+          _normalizeCurrencyCode(latestContact?['preferred_currency'] as String?);
+      if (latestPreferred != null) {
+        await prefs.setBool(cacheKey, true);
+        return;
+      }
+
+      final fallbackCurrency =
+          _normalizeCurrencyCode(ref.read(selectedHomeCurrencyCodeProvider)) ??
+              'USD';
+
+      try {
+        final response = await supabase.functions.invoke(
+          'update-preferred-currency',
+          body: {
+            'userId': userId,
+            'currency': fallbackCurrency,
+          },
+        ).timeout(_kCurrencySyncTimeout);
+
+        if (response.status >= 400) {
+          throw Exception('Currency sync failed (${response.status})');
+        }
+
+        final payload = response.data;
+        final ok = payload is Map<String, dynamic> ? payload['ok'] == true : false;
+        if (!ok) {
+          throw Exception('Currency sync failed (invalid payload)');
+        }
+
+        await prefs.setBool(cacheKey, true);
+        await ref
+            .read(currencyPreferenceServiceProvider)
+            .setSelectedCurrency(fallbackCurrency);
+      } catch (error) {
+        debugPrint(
+          '⚠️ [InitV2] Failed to backfill preferred currency during init: $error',
+        );
+      }
+    }));
+  }
+
   /// Initialize app with cache-first strategy
   Future<void> _initialize() async {
     final operationId = ++_operationId;
@@ -356,6 +441,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
           await _initializeSelectedCurrency(
             initData.user,
             preferExistingState: true,
+          );
+          _syncMissingPreferredCurrencyInBackground(
+            userId,
+            user: initData.user,
           );
 
           ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
@@ -424,6 +513,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       await _initializeSelectedCurrency(
         initData.user,
         preferExistingState: false,
+      );
+      _syncMissingPreferredCurrencyInBackground(
+        userId,
+        user: initData.user,
       );
 
       // Update state with fresh data

@@ -303,6 +303,7 @@ Future<void> showWhatsAppVerificationModal(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) {

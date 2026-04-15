@@ -13,6 +13,7 @@ void showEnvelopeModeSettingsModal(
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (context) {
       var forecastEnabled = includeUpcomingRecurring;

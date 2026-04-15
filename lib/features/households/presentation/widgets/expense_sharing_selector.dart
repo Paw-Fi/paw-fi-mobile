@@ -234,6 +234,7 @@ class _ExpenseSharingSelectorState
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       builder: (context) => _MemberPickerSheet(
         householdId: _householdId!,
         selectedMemberIds: _memberIds,

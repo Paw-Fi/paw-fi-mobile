@@ -103,6 +103,7 @@ Future<void> showMultiTransactionReviewSheet(
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     builder: (context) => _MultiTransactionReviewSheet(
       transactions: transactions,
@@ -410,6 +411,7 @@ class _MultiTransactionReviewSheetState
     final result = await showModalBottomSheet<_EditTransactionResult>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor:
           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {
@@ -1242,6 +1244,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor:
           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {

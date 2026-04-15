@@ -21,7 +21,6 @@ class _AnimatedAmountText extends StatelessWidget {
   final TextStyle style;
 
   const _AnimatedAmountText({
-    super.key,
     required this.value,
     required this.symbol,
     required this.style,
@@ -366,7 +365,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                           child: Column(
                             children: [
                               Text(
-                                '${symbol}${formatLocalizedNumber(context, double.parse(formatAmount(getAmountValue())))}',
+                                '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(getAmountValue())))}',
                                 style: TextStyle(
                                   fontSize: 44,
                                   fontWeight: FontWeight.w600,
@@ -733,7 +732,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
                           ),
                         ),
                         subtitle: Text(
-                          '${symbol}${formatLocalizedNumber(context, double.parse(formatAmount(wallet.currentBalanceCents / 100.0)))}',
+                          '$symbol${formatLocalizedNumber(context, double.parse(formatAmount(wallet.currentBalanceCents / 100.0)))}',
                           style: TextStyle(
                             color: colorScheme.mutedForeground,
                             fontSize: 13,

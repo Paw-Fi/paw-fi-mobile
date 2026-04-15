@@ -17,6 +17,7 @@ class MonekoBottomSheet {
     Clip? clipBehavior,
     BoxConstraints? constraints,
     bool useRootNavigator = false,
+    bool useSafeArea = true,
   }) {
     if (Platform.isIOS) {
       return showCupertinoModalPopup<T>(
@@ -46,6 +47,7 @@ class MonekoBottomSheet {
         isDismissible: isDismissible,
         enableDrag: enableDrag,
         useRootNavigator: useRootNavigator,
+        useSafeArea: useSafeArea,
       );
     }
   }

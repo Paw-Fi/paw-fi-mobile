@@ -206,7 +206,7 @@ class WalletsHistorySummary {
 
 class WalletsPageState {
   WalletsPageState({
-    required WalletsHistorySummary history,
+    required this.history,
     required List<DateTime> visibleMonths,
     required DateTime selectedMonthStart,
     required Map<DateTime, WalletsMonthSnapshot> cachedSnapshotsByMonth,
@@ -214,8 +214,7 @@ class WalletsPageState {
     required Map<DateTime, Object> monthErrorsByMonth,
     required DateTime lastResolvedSelectedMonthStart,
     this.isRefreshing = false,
-  })  : history = history,
-        visibleMonths = visibleMonths
+  })  : visibleMonths = visibleMonths
             .map(normalizeWalletMonthStart)
             .toList(growable: false),
         selectedMonthStart = normalizeWalletMonthStart(selectedMonthStart),

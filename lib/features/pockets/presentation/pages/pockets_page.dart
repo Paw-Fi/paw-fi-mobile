@@ -1064,6 +1064,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      useSafeArea: true,
                       isDismissible: false,
                       enableDrag: false,
                       backgroundColor:

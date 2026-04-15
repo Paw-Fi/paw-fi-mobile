@@ -129,16 +129,14 @@ class TrialReminderBannerGate extends HookConsumerWidget {
     }, [auth.uid]);
 
     final shouldShowTrialReminderBanner = !previewState.isActive &&
-        (kDebugMode
-            ? true
-            : isSubscriptionResolved &&
-                !hasConfirmedPaidAccess &&
-                effectiveTrialDaysLeft != null &&
-                trialReminderMilestone != null &&
-                hasResolvedTrialReminderVisibility.value &&
-                (trialReminderDismissedMilestone.value == null ||
-                    trialReminderMilestone <
-                        trialReminderDismissedMilestone.value!));
+        isSubscriptionResolved &&
+        !hasConfirmedPaidAccess &&
+        effectiveTrialDaysLeft != null &&
+        trialReminderMilestone != null &&
+        hasResolvedTrialReminderVisibility.value &&
+        (kDebugMode ||
+            trialReminderDismissedMilestone.value == null ||
+            trialReminderMilestone < trialReminderDismissedMilestone.value!);
 
     if (!shouldShowTrialReminderBanner) {
       return const SizedBox.shrink();
@@ -152,8 +150,34 @@ class TrialReminderBannerGate extends HookConsumerWidget {
           unawaited(() async {
             await context.push('/plan-selection?mode=resubscribe');
             if (auth.uid.isEmpty) return;
-            await ref.read(subscriptionNotifierProvider.notifier).refresh();
-            await ref.read(subscriptionManagementProvider.notifier).refresh();
+
+            Future<void> refreshSubscriptionState() async {
+              await ref.read(subscriptionNotifierProvider.notifier).refresh();
+              await ref
+                  .read(subscriptionManagementProvider.notifier)
+                  .refresh();
+            }
+
+            await refreshSubscriptionState();
+
+            for (var attempt = 0; attempt < 3; attempt++) {
+              final primary = ref.read(subscriptionNotifierProvider).valueOrNull;
+              final managed =
+                  ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+              final hasPaidAccessFromPrimary =
+                  (primary?.isSubscribed ?? false) &&
+                      primary?.status?.toLowerCase() != 'trialing';
+              final hasPaidAccessFromManagement =
+                  (managed?.isSubscribed ?? false) &&
+                      managed?.status?.toLowerCase() != 'trialing';
+
+              if (hasPaidAccessFromPrimary || hasPaidAccessFromManagement) {
+                break;
+              }
+
+              await Future<void>.delayed(const Duration(milliseconds: 800));
+              await refreshSubscriptionState();
+            }
           }());
         },
         onDismissTap: () {
@@ -162,8 +186,7 @@ class TrialReminderBannerGate extends HookConsumerWidget {
             return;
           }
 
-          if (trialReminderDismissKey == null ||
-              trialReminderMilestone == null) {
+          if (trialReminderDismissKey == null) {
             return;
           }
 

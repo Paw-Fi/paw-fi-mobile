@@ -69,6 +69,7 @@ void showScenarioResultSheet(
       context: context,
       backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) {
         // Consider anything opened from history (no meta.stats but with question)
         // as already saved so the icon appears filled. Fresh analyses (with
