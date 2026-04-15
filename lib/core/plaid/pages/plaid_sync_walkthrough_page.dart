@@ -65,10 +65,17 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
 
-    setState(() => _isConnecting = true);
-
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
     final provider = getProviderForCountry(selectedCountryCode);
+
+    // Handle coming soon countries
+    if (provider == BankProvider.comingSoon) {
+      AppToast.info(context, 'Bank connections in your country are coming soon!');
+      return;
+    }
+
+    setState(() => _isConnecting = true);
+
     final client = Supabase.instance.client;
 
     try {
@@ -78,7 +85,7 @@ class _PlaidSyncWalkthroughPageState
           countryCode: selectedCountryCode,
           userId: user.uid,
         );
-      } else {
+      } else if (provider == BankProvider.tink) {
         await _performTinkFlow(
           client: client,
           countryCode: selectedCountryCode,

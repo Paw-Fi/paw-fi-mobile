@@ -26,6 +26,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'dart:io';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -1032,7 +1033,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                       const SizedBox(height: 16),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
-                        child: _ShimmeringText(
+                        child: ShimmeringText(
                           text: progressLabel.value,
                           key: ValueKey(progressLabel.value),
                           style: TextStyle(
@@ -1072,81 +1073,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         ),
       ),
     ));
-  }
-}
-
-class _ShimmeringText extends HookWidget {
-  const _ShimmeringText({
-    super.key,
-    required this.text,
-    required this.style,
-    this.shimmering = true,
-  });
-
-  final String text;
-  final TextStyle style;
-  final bool shimmering;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final controller = useAnimationController(
-      duration: const Duration(milliseconds: 1500),
-    );
-
-    useEffect(() {
-      if (shimmering) {
-        controller.repeat();
-      } else {
-        controller.stop();
-      }
-      return null;
-    }, [shimmering]);
-
-    final animation = useAnimation(
-      Tween<double>(begin: -1.0, end: 2.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeInOutSine),
-      ),
-    );
-
-    if (!shimmering) {
-      return Text(
-        text,
-        key: key,
-        textAlign: TextAlign.center,
-        style: style,
-      );
-    }
-
-    return ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) {
-        final highlightColor = colorScheme.primary.withValues(alpha: 0.8);
-        final baseColor = style.color ?? colorScheme.mutedForeground;
-
-        return LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: [
-            (animation - 0.3).clamp(0.0, 1.0),
-            animation.clamp(0.0, 1.0),
-            (animation + 0.3).clamp(0.0, 1.0),
-          ],
-          colors: [
-            baseColor,
-            highlightColor,
-            baseColor,
-          ],
-        ).createShader(bounds);
-      },
-      child: Text(
-        text,
-        key: key,
-        textAlign: TextAlign.center,
-        style: style,
-      ),
-    );
   }
 }
 

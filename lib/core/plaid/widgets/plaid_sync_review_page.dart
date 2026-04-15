@@ -23,6 +23,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -1030,14 +1031,11 @@ class _ReviewLoadingState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(
-              title ??
+            ShimmeringText(
+              text: title ??
                   (accountName == null
                       ? 'Preparing your bank sync...'
                       : 'Syncing transactions into $accountName...'),
-              textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontWeight: FontWeight.w600,

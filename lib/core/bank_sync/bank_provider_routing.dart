@@ -7,22 +7,28 @@ import 'dart:math';
 
 /// Supported bank sync providers.
 enum BankProvider {
-  /// Plaid - US banks only
+  /// Plaid - US/Canada banks
   plaid,
 
-  /// Tink - All non-US countries
+  /// Tink - European and other supported countries
   tink,
+
+  /// Coming soon - Countries not yet supported
+  comingSoon,
 }
 
 /// Countries where Plaid is the primary provider.
-/// Currently only the United States.
-const Set<String> plaidSupportedCountries = {'US'};
+/// Add countries here to enable Plaid for them.
+const Set<String> plaidSupportedCountries = {
+  'US', // United States
+  'CA', // Canada
+};
 
 /// Countries where Tink is the primary provider.
 /// This includes all countries from plaidCountryOptions except US.
 const Set<String> tinkSupportedCountries = {
-  // Americas (non-US)
-  'CA', 'MX', 'BR', 'CL', 'PY', 'GT', 'DO',
+  // Americas (non-US/CA)
+  'MX', 'BR', 'CL', 'PY', 'GT', 'DO',
 
   // Africa & Middle East
   'NG', 'EG', 'GH', 'KE', 'ZA', 'AE', 'SA',
@@ -46,14 +52,18 @@ const Set<String> tinkSupportedCountries = {
 
 /// Returns the appropriate bank provider for the given country code.
 ///
-/// - Returns [BankProvider.plaid] for US
-/// - Returns [BankProvider.tink] for all other countries
+/// - Returns [BankProvider.plaid] for US/Canada
+/// - Returns [BankProvider.tink] for Tink-supported countries
+/// - Returns [BankProvider.comingSoon] for all other countries
 BankProvider getProviderForCountry(String countryCode) {
   final code = countryCode.toUpperCase();
   if (plaidSupportedCountries.contains(code)) {
     return BankProvider.plaid;
   }
-  return BankProvider.tink;
+  if (tinkSupportedCountries.contains(code)) {
+    return BankProvider.tink;
+  }
+  return BankProvider.comingSoon;
 }
 
 /// Returns whether the given country is supported by any bank provider.
@@ -70,6 +80,8 @@ String getProviderDisplayName(BankProvider provider) {
       return 'Plaid';
     case BankProvider.tink:
       return 'Tink';
+    case BankProvider.comingSoon:
+      return 'Coming Soon';
   }
 }
 

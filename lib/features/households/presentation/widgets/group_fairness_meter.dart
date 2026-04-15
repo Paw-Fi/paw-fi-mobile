@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
@@ -123,7 +124,7 @@ class GroupFairnessMeter extends StatelessWidget {
       final diff = (m.totalSpentCents - evenShare).toDouble();
       squaredError += (diff * diff);
     }
-    final rmse = (squaredError / members.length).sqrt();
+    final rmse = math.sqrt(squaredError / members.length);
     final fairness = (1.0 - (rmse / (total == 0 ? 1 : total))).clamp(0.0, 1.0);
 
     return Container(
@@ -251,20 +252,5 @@ extension on GroupFairnessMeter {
           ),
         )
         .toList(growable: false);
-  }
-}
-
-extension _Sqrt on double {
-  double sqrt() => Math.sqrt(this);
-}
-
-class Math {
-  static double sqrt(double x) => x <= 0 ? 0 : _sqrtNewton(x);
-  static double _sqrtNewton(double x) {
-    double r = x;
-    for (int i = 0; i < 12; i++) {
-      r = 0.5 * (r + x / r);
-    }
-    return r;
   }
 }
