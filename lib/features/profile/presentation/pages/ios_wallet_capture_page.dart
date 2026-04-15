@@ -12,6 +12,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/services/wallet_capture_service.dart';
+import 'package:moneko/core/services/wallet_capture_debug_service.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -36,9 +37,11 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final config = useState<WalletCaptureConfig>(WalletCaptureConfig.disabled);
     final isLoading = useState(true);
     final isSyncing = useState(false);
+    final isLoadingDebugReport = useState(false);
     final hasNotificationPermission = useState(true);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
+    final debugReport = useState<WalletCaptureDebugReport?>(null);
 
     // Load households
     final householdsAsync = authState.uid.isNotEmpty
@@ -46,6 +49,35 @@ class IosWalletCapturePage extends HookConsumerWidget {
         : const AsyncValue<List<Household>>.data([]);
 
     // Load config on mount — merges iOS native config with Supabase flag.
+    Future<void> loadDebugReport() async {
+      isLoadingDebugReport.value = true;
+      try {
+        debugReport.value =
+            await WalletCaptureDebugService.instance.getReport();
+      } catch (e) {
+        debugPrint('Failed to load wallet capture debug report: $e');
+      } finally {
+        isLoadingDebugReport.value = false;
+      }
+    }
+
+    Future<void> recordDebugEntry({
+      required String action,
+      required String message,
+      Map<String, dynamic> details = const <String, dynamic>{},
+    }) async {
+      try {
+        await WalletCaptureDebugService.instance.appendEntry(
+          source: 'flutter',
+          action: action,
+          message: message,
+          details: details,
+        );
+      } catch (e) {
+        debugPrint('Failed to append wallet capture debug entry: $e');
+      }
+    }
+
     useEffect(() {
       Future<void> checkNotificationPermission() async {
         final status = await Permission.notification.status;
@@ -94,6 +126,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
       Future<void> initAll() async {
         await checkNotificationPermission();
         await loadConfig();
+        await loadDebugReport();
       }
 
       initAll();
@@ -111,7 +144,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
       }
     });
 
-    Future<void> syncCredentials() async {
+    Future<void> syncCredentials({bool showSuccessToast = true}) async {
       isSyncing.value = true;
       try {
         final session = Supabase.instance.client.auth.currentSession;
@@ -137,10 +170,12 @@ class IosWalletCapturePage extends HookConsumerWidget {
           userId: userId,
           expiresAt: session?.expiresAt,
         );
-        if (context.mounted) {
+        await loadDebugReport();
+        if (context.mounted && showSuccessToast) {
           AppToast.success(context, context.l10n.credentialsSyncedSuccessfully);
         }
       } catch (e) {
+        await loadDebugReport();
         if (context.mounted) {
           AppToast.error(
               context, '${context.l10n.failedToSyncCredentials}: $e');
@@ -197,19 +232,53 @@ class IosWalletCapturePage extends HookConsumerWidget {
 
       debugPrint(
           '[WalletCapture] toggleEnabled called: enabled=$enabled uid=${authState.uid} contactId=${contactId.value}');
+      await recordDebugEntry(
+        action: 'toggle-start',
+        message: 'Wallet capture switch toggled from the UI.',
+        details: {
+          'enabled': enabled,
+          'uid': authState.uid,
+          'contactId': contactId.value,
+        },
+      );
 
       try {
         // Write to iOS native layer.
         debugPrint('[WalletCapture] Writing to iOS native...');
         await WalletCaptureService.instance.setConfig(updated);
         debugPrint('[WalletCapture] iOS native write succeeded');
+        await recordDebugEntry(
+          action: 'toggle-native-write-success',
+          message: 'Wallet capture config was written to the iOS shared store.',
+          details: {
+            'enabled': updated.enabled,
+            'scopeId': updated.scopeId,
+            'scopeName': updated.scopeName,
+            'isPortfolio': updated.isPortfolio,
+          },
+        );
 
         // Write to Supabase via the update-wallet-capture-setting edge function
         // (service role bypass RLS — same pattern as update-preferred-currency).
         debugPrint('[WalletCapture] Calling edge function...');
+        await recordDebugEntry(
+          action: 'toggle-function-invoke-start',
+          message: 'Invoking update-wallet-capture-setting.',
+          details: {
+            'enabled': enabled,
+          },
+        );
         final fnResponse = await Supabase.instance.client.functions.invoke(
           'update-wallet-capture-setting',
           body: {'enabled': enabled},
+        );
+        await recordDebugEntry(
+          action: 'toggle-function-invoke-finished',
+          message: 'update-wallet-capture-setting returned a response.',
+          details: {
+            'status': fnResponse.status,
+            'data': fnResponse.data?.toString() ?? '<null>',
+          },
         );
         if (fnResponse.status != 200) {
           throw Exception(
@@ -221,11 +290,27 @@ class IosWalletCapturePage extends HookConsumerWidget {
         }
         debugPrint(
             '[WalletCapture] Edge function OK — contactId=${contactId.value}');
+        await loadDebugReport();
       } catch (e, st) {
         debugPrint('[WalletCapture] toggleEnabled error: $e');
         debugPrint('[WalletCapture] Stack trace: $st');
         // Roll back optimistic update on failure.
         config.value = previous;
+        try {
+          await WalletCaptureService.instance.setConfig(previous);
+        } catch (rollbackError) {
+          debugPrint(
+              'Failed to roll back native wallet capture config: $rollbackError');
+        }
+        await recordDebugEntry(
+          action: 'toggle-error',
+          message: 'Wallet capture toggle failed before completion.',
+          details: {
+            'error': e.toString(),
+            'rolledBackEnabled': previous.enabled,
+          },
+        );
+        await loadDebugReport();
         if (context.mounted) {
           AppToast.error(context, context.l10n.failedToUpdateSetting);
         }
@@ -281,10 +366,27 @@ class IosWalletCapturePage extends HookConsumerWidget {
       config.value = updated;
       try {
         await WalletCaptureService.instance.setConfig(updated);
+        await loadDebugReport();
       } catch (e) {
         if (context.mounted) {
           AppToast.error(context, context.l10n.failedToUpdateDestination);
         }
+      }
+    }
+
+    Future<void> clearDebugReport() async {
+      isLoadingDebugReport.value = true;
+      try {
+        await WalletCaptureDebugService.instance.clearReport();
+        debugReport.value =
+            await WalletCaptureDebugService.instance.getReport();
+      } catch (e) {
+        if (context.mounted) {
+          AppToast.error(
+              context, 'Failed to clear wallet capture debug log: $e');
+        }
+      } finally {
+        isLoadingDebugReport.value = false;
       }
     }
 
@@ -307,7 +409,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           ? null
           : [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -315,6 +417,9 @@ class IosWalletCapturePage extends HookConsumerWidget {
     );
 
     final isEnabled = config.value.enabled;
+    final debugSnapshot = debugReport.value?.snapshot;
+    final debugEntries =
+        debugReport.value?.entries ?? const <WalletCaptureDebugEntry>[];
 
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
@@ -397,7 +502,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                 color: isDark
                                     ? colorScheme.surfaceContainer
                                     : colorScheme.surfaceContainerHighest
-                                        .withOpacity(0.3),
+                                        .withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: colorScheme.surfaceBorder,
@@ -594,11 +699,260 @@ class IosWalletCapturePage extends HookConsumerWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+                Container(
+                  decoration: cardDecoration,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Debug report',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Reproduce the failure, then refresh this report to inspect the last native shortcut steps.',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: colorScheme.mutedForeground,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isLoadingDebugReport.value)
+                            SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator.adaptive(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          SizedBox(
+                            width: 160,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: isLoadingDebugReport.value
+                                  ? null
+                                  : () => loadDebugReport(),
+                              child: const Text('Refresh report'),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 160,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: isSyncing.value
+                                  ? null
+                                  : () =>
+                                      syncCredentials(showSuccessToast: false),
+                              child: Text(
+                                isSyncing.value
+                                    ? 'Syncing…'
+                                    : 'Sync credentials',
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 160,
+                            child: AdaptiveButton(
+                              onPressed: isLoadingDebugReport.value
+                                  ? null
+                                  : () => clearDebugReport(),
+                              label: 'Clear log',
+                              style: AdaptiveButtonStyle.gray,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      if (debugSnapshot != null) ...[
+                        _DebugStatusRow(
+                          label: 'Ready',
+                          value: debugSnapshot.isReady ? 'Yes' : 'No',
+                        ),
+                        _DebugStatusRow(
+                          label: 'Supabase config',
+                          value: debugSnapshot.hasSupabaseConfig
+                              ? 'Present'
+                              : 'Missing',
+                        ),
+                        _DebugStatusRow(
+                          label: 'Credentials',
+                          value: debugSnapshot.hasCredentials
+                              ? 'Present'
+                              : 'Missing',
+                        ),
+                        _DebugStatusRow(
+                          label: 'Wallet capture',
+                          value: debugSnapshot.walletCaptureEnabled
+                              ? 'Enabled'
+                              : 'Disabled',
+                        ),
+                        _DebugStatusRow(
+                          label: 'Destination',
+                          value:
+                              '${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})',
+                        ),
+                        _DebugStatusRow(
+                          label: 'Token state',
+                          value: debugSnapshot.isAccessTokenExpired
+                              ? 'Expired'
+                              : 'Usable',
+                        ),
+                        if (debugSnapshot.expiresAt > 0)
+                          _DebugStatusRow(
+                            label: 'Expires at',
+                            value: DateTime.fromMillisecondsSinceEpoch(
+                              debugSnapshot.expiresAt * 1000,
+                              isUtc: true,
+                            ).toIso8601String(),
+                          ),
+                      ],
+                      const SizedBox(height: 20),
+                      Text(
+                        'Recent native events',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (debugEntries.isEmpty)
+                        Text(
+                          'No events recorded yet.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: colorScheme.mutedForeground,
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            for (final entry in debugEntries.reversed)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerHighest
+                                      .withValues(alpha: isDark ? 0.35 : 0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colorScheme.surfaceBorder,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${entry.timestamp} • ${entry.source} / ${entry.action}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      entry.message,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                    if (entry.details.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        entry.details.entries
+                                            .map((detail) =>
+                                                '${detail.key}: ${detail.value}')
+                                            .join('\n'),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: colorScheme.mutedForeground,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
     ));
+  }
+}
+
+class _DebugStatusRow extends StatelessWidget {
+  const _DebugStatusRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: colorScheme.mutedForeground,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
