@@ -28,6 +28,7 @@ import 'package:moneko/features/pockets/presentation/state/pocket_details_provid
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -1056,36 +1057,12 @@ class _UnifiedTransactionSheetState
 
                       // Actions
                       if (isExistingExpense)
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            onPressed: _isDeleting ? null : _handleDelete,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              foregroundColor: colorScheme.error,
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              backgroundColor:
-                                  colorScheme.error.withValues(alpha: 0.1),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: _isDeleting
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          colorScheme.error),
-                                    ),
-                                  )
-                                : Text(isIncomeMode
-                                    ? context.l10n.deleteIncome
-                                    : context.l10n.deleteExpense),
-                          ),
+                        DestructiveAdaptiveButton(
+                          onPressed: _isDeleting ? null : _handleDelete,
+                          isLoading: _isDeleting,
+                          child: Text(isIncomeMode
+                              ? context.l10n.deleteIncome
+                              : context.l10n.deleteExpense),
                         ),
 
                       // Bottom spacer for scroll
@@ -1425,7 +1402,7 @@ class _UnifiedTransactionSheetState
                     ),
                   ),
                 ),
-                MonekoSwitch(
+                AdaptiveSwitch(
                   value: _selectedAccountType == ActiveWalletType.household,
                   onChanged: (value) {
                     debugPrint(

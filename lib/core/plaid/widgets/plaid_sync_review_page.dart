@@ -23,6 +23,7 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -392,6 +393,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<void> _editTransaction(SyncedTransaction transaction) async {
+    final originalCategory = transaction.expense.category;
     await showUnifiedTransactionSheet(
       context,
       existingExpense: transaction.expense,
@@ -416,6 +418,129 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         return SyncedTransaction(
           expense: refreshedExpense,
           isRecurring: refreshedExpense.isRecurring,
+          recurrenceRule: item.recurrenceRule,
+        );
+      }).toList(growable: false);
+    });
+
+    // Check if category changed and offer to apply to all matching transactions
+    final newCategory = refreshedExpense?.category;
+    final originalNormalized = (originalCategory?.trim().isEmpty ?? true) ? 'uncategorized' : originalCategory!.trim().toLowerCase();
+    final newNormalized = (newCategory?.trim().isEmpty ?? true) ? 'uncategorized' : newCategory!.trim().toLowerCase();
+
+    if (newNormalized != originalNormalized && mounted) {
+      await _maybeApplyCategoryToAll(
+        originalCategory: originalCategory ?? 'uncategorized',
+        newCategory: newCategory ?? 'uncategorized',
+      );
+    }
+  }
+
+  Future<void> _maybeApplyCategoryToAll({
+    required String originalCategory,
+    required String newCategory,
+  }) async {
+    final normalizedOriginal = originalCategory.trim().toLowerCase();
+
+    // Count how many transactions have the original category (excluding the one just edited)
+    final matchingTransactions = _transactions.where((t) {
+      final txCategory = (t.expense.category?.trim().isEmpty ?? true) ? 'uncategorized' : t.expense.category!.trim().toLowerCase();
+      return txCategory == normalizedOriginal;
+    }).toList();
+
+    if (matchingTransactions.isEmpty) return;
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Apply to all transactions?',
+      description: 'Apply "$newCategory" to ${matchingTransactions.length} transactions with category "$originalCategory"?',
+      confirmLabel: 'Apply to All',
+      cancelLabel: 'Only this one',
+    );
+
+    if (result?.confirmed == true && mounted) {
+      await _applyCategoryToAllTransactions(matchingTransactions, newCategory);
+    }
+  }
+
+  Future<void> _applyCategoryToAllTransactions(
+    List<SyncedTransaction> transactions,
+    String newCategory,
+  ) async {
+    final user = ref.read(authProvider);
+    final updatedIds = <String>[];
+
+    try {
+      // Update each transaction via the update-expense edge function
+      for (final tx in transactions) {
+        try {
+          final response = await Supabase.instance.client.functions.invoke(
+            'update-expense',
+            body: {
+              'expenseId': tx.expense.id,
+              'userId': user.uid,
+              'category': newCategory,
+            },
+          );
+
+          final payload = response.data as Map<String, dynamic>?;
+          final success = response.status < 400 && (payload?['success'] == true || payload == null);
+          if (success) {
+            updatedIds.add(tx.expense.id);
+          }
+        } catch (_) {
+          // Continue with other transactions even if one fails
+        }
+      }
+
+      // Refresh the transactions from database to get updated data
+      await _refreshTransactionsAfterBatchUpdate(updatedIds, newCategory);
+
+      if (mounted && updatedIds.isNotEmpty) {
+        AppToast.success(context, 'Updated ${updatedIds.length} transactions');
+      }
+    } catch (error) {
+      if (mounted) {
+        AppToast.error(context, 'Failed to update some transactions: $error');
+      }
+    }
+  }
+
+  Future<void> _refreshTransactionsAfterBatchUpdate(
+    List<String> updatedIds,
+    String newCategory,
+  ) async {
+    if (updatedIds.isEmpty) return;
+
+    // Fetch updated expenses from database
+    final rows = await Supabase.instance.client
+        .from('expenses')
+        .select(
+          'id, contact_id, user_id, household_id, date, amount_cents, currency, '
+          'category, created_at, updated_at, raw_text, bank_account_id, '
+          'account_id, type, is_recurring, recurrence_rule',
+        )
+        .inFilter('id', updatedIds)
+        .isFilter('deleted_at', null);
+
+    final updatedExpenses = (rows as List<dynamic>)
+        .whereType<Map<String, dynamic>>()
+        .map((row) => ExpenseEntry.fromJson(row))
+        .toList();
+
+    if (!mounted) return;
+
+    setState(() {
+      _transactions = _transactions.map((item) {
+        final updatedExpense = updatedExpenses
+            .where((e) => e.id == item.expense.id)
+            .firstOrNull;
+        if (updatedExpense == null) {
+          return item;
+        }
+        return SyncedTransaction(
+          expense: updatedExpense,
+          isRecurring: updatedExpense.isRecurring,
           recurrenceRule: item.recurrenceRule,
         );
       }).toList(growable: false);

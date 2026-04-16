@@ -21,6 +21,7 @@ import 'package:moneko/core/ui/widgets/transaction_date_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_list_picker.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/date_formatter.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
@@ -1579,179 +1580,477 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 20,),
+
+                        // Detail cards grouped in single section
+                        MonekoInput(
+                          child: Column(
+                            children: [
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.amount,
+                                value: amountController.text.trim().isEmpty
+                                    ? '0.00'
+                                    : amountController.text.trim(),
+                                isFirst: true,
+                                onTap: () async {
+                                  final result = await MonekoAlertDialog.show(
+                                    context: context,
+                                    title: context.l10n.editAmount,
+                                    description: null,
+                                    confirmLabel: context.l10n.save,
+                                    cancelLabel: context.l10n.cancel,
+                                    inputConfig: MonekoAlertDialogInputConfig(
+                                      initialValue:
+                                          amountController.text.trim(),
+                                      placeholder: context.l10n.amount,
+                                      isRequired: true,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      validationPattern:
+                                          RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
+                                      validationMessage:
+                                          context.l10n.pleaseEnterValidAmount,
+                                    ),
+                                  );
+
+                                  if (!context.mounted ||
+                                      result == null ||
+                                      !result.confirmed ||
+                                      result.text == null) {
+                                    return;
+                                  }
+
+                                  amountController.text = result.text!.trim();
+                                },
+                              ),
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.space,
+                                value: accountDisplayValue(),
+                                isValuePlaceholder: householdsAsync.isLoading &&
+                                    selectedAccountType.value !=
+                                        ActiveWalletType.personal,
+                                onTap: handleEditSpace,
+                              ),
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.wallet,
+                                value: () {
+                                  if (scopedAccountsAsync.isLoading) {
+                                    return context.l10n.loading;
+                                  }
+                                  if (scopedAccounts.isEmpty) {
+                                    return context.l10n.tapToSet;
+                                  }
+                                  final currentId =
+                                      selectedFinancialAccountId.value;
+                                  if (currentId != null) {
+                                    for (final account in scopedAccounts) {
+                                      if (account.id == currentId) {
+                                        return account.name;
+                                      }
+                                    }
+                                  }
+                                  final fallback = scopedAccounts.firstWhere(
+                                    (account) => account.isDefault,
+                                    orElse: () => scopedAccounts.first,
+                                  );
+                                  return fallback.name;
+                                }(),
+                                isValuePlaceholder: scopedAccounts.isEmpty,
+                                onTap: () async {
+                                  if (scopedAccounts.isEmpty) return;
+                                  final currentId =
+                                      selectedFinancialAccountId.value;
+                                  final initial = scopedAccounts.firstWhere(
+                                    (account) => account.id == currentId,
+                                    orElse: () => scopedAccounts.first,
+                                  );
+                                  final selected =
+                                      await showTransactionSelectionSheet<
+                                          WalletEntity>(
+                                    context: context,
+                                    items: scopedAccounts,
+                                    getLabel: (account) => account.name,
+                                    initial: initial,
+                                  );
+                                  if (selected != null) {
+                                    selectedFinancialAccountId.value =
+                                        selected.id;
+                                    hasManuallySelectedFinancialAccount.value =
+                                        true;
+                                  }
+                                },
+                              ),
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.category,
+                                value: selectedCategory.value != null
+                                    ? getCategoryTranslation(
+                                        context, selectedCategory.value!)
+                                    : context.l10n.selectCategory,
+                                isValuePlaceholder:
+                                    selectedCategory.value == null,
+                                onTap: () async {
+                                  final isIncomeMode = !isExpense;
+                                  UserCategoryLists? lists;
+                                  try {
+                                    lists = await ref.read(
+                                      userCategoryListsProvider.future,
+                                    );
+                                  } catch (_) {
+                                    lists = null;
+                                  }
+                                  if (!context.mounted) return;
+
+                                  final categories = isIncomeMode
+                                      ? (lists?.incomeCategories ??
+                                          getIncomeCategories())
+                                      : (lists?.expenseCategories ??
+                                          getExpenseCategories());
+
+                                  final result = await showCategoryPicker(
+                                    context: context,
+                                    // When no category is selected, pass an empty string so
+                                    // the picker shows with no preselection. Existing
+                                    // transactions still pass their actual category.
+                                    currentCategory:
+                                        selectedCategory.value ?? '',
+                                    isIncome: isIncomeMode,
+                                    allCategories: categories,
+                                    onCreateCategory: (name) =>
+                                        createUserCustomCategory(
+                                      ref: ref,
+                                      name: name,
+                                      isIncome: isIncomeMode,
+                                    ),
+                                  );
+                                  if (result != null) {
+                                    selectedCategory.value = result;
+                                  }
+                                },
+                              ),
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.currency,
+                                value: selectedCurrency.value.toUpperCase(),
+                                isLast: true,
+                                onTap: () async {
+                                  final result = await showCurrencyPicker(
+                                    context: context,
+                                    currentCurrency: selectedCurrency.value,
+                                  );
+                                  if (result != null) {
+                                    selectedCurrency.value = result;
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
 
                         const SizedBox(height: 20),
 
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.amount,
-                          value: amountController.text.trim().isEmpty
-                              ? '0.00'
-                              : amountController.text.trim(),
-                          onTap: () async {
-                            final result = await MonekoAlertDialog.show(
-                              context: context,
-                              title: context.l10n.editAmount,
-                              description: null,
-                              confirmLabel: context.l10n.save,
-                              cancelLabel: context.l10n.cancel,
-                              inputConfig: MonekoAlertDialogInputConfig(
-                                initialValue: amountController.text.trim(),
-                                placeholder: context.l10n.amount,
-                                isRequired: true,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                  decimal: true,
+                        // Frequency and date settings grouped in single section
+                        MonekoInput(
+                          child: Column(
+                            children: [
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.frequency,
+                                value: formatRecurrenceSelectionLabel(
+                                  context,
+                                  frequency: selectedFrequency.value,
+                                  interval: customInterval.value,
                                 ),
-                                validationPattern:
-                                    RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-                                validationMessage:
-                                    context.l10n.pleaseEnterValidAmount,
+                                isFirst: true,
+                                onTap: () async {
+                                  final result = await showRecurrencePicker(
+                                    context: context,
+                                    currentFrequency: selectedFrequency.value,
+                                    currentInterval: customInterval.value,
+                                  );
+                                  if (result == null) return;
+
+                                  selectedFrequency.value = result.frequency;
+                                  final interval = result.interval;
+                                  customInterval.value =
+                                      (interval != null && interval > 1)
+                                          ? interval
+                                          : null;
+                                },
                               ),
-                            );
-
-                            if (!context.mounted ||
-                                result == null ||
-                                !result.confirmed ||
-                                result.text == null) {
-                              return;
-                            }
-
-                            amountController.text = result.text!.trim();
-                          },
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.space,
-                          value: accountDisplayValue(),
-                          isValuePlaceholder: householdsAsync.isLoading &&
-                              selectedAccountType.value !=
-                                  ActiveWalletType.personal,
-                          onTap: handleEditSpace,
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.wallet,
-                          value: () {
-                            if (scopedAccountsAsync.isLoading) {
-                              return context.l10n.loading;
-                            }
-                            if (scopedAccounts.isEmpty) {
-                              return context.l10n.tapToSet;
-                            }
-                            final currentId = selectedFinancialAccountId.value;
-                            if (currentId != null) {
-                              for (final account in scopedAccounts) {
-                                if (account.id == currentId) {
-                                  return account.name;
-                                }
-                              }
-                            }
-                            final fallback = scopedAccounts.firstWhere(
-                              (account) => account.isDefault,
-                              orElse: () => scopedAccounts.first,
-                            );
-                            return fallback.name;
-                          }(),
-                          isValuePlaceholder: scopedAccounts.isEmpty,
-                          onTap: () async {
-                            if (scopedAccounts.isEmpty) return;
-                            final currentId = selectedFinancialAccountId.value;
-                            final initial = scopedAccounts.firstWhere(
-                              (account) => account.id == currentId,
-                              orElse: () => scopedAccounts.first,
-                            );
-                            final selected =
-                                await showTransactionSelectionSheet<
-                                    WalletEntity>(
-                              context: context,
-                              items: scopedAccounts,
-                              getLabel: (account) => account.name,
-                              initial: initial,
-                            );
-                            if (selected != null) {
-                              selectedFinancialAccountId.value = selected.id;
-                              hasManuallySelectedFinancialAccount.value = true;
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.category,
-                          value: selectedCategory.value != null
-                              ? getCategoryTranslation(
-                                  context, selectedCategory.value!)
-                              : context.l10n.selectCategory,
-                          isValuePlaceholder: selectedCategory.value == null,
-                          onTap: () async {
-                            final isIncomeMode = !isExpense;
-                            UserCategoryLists? lists;
-                            try {
-                              lists = await ref.read(
-                                userCategoryListsProvider.future,
-                              );
-                            } catch (_) {
-                              lists = null;
-                            }
-                            if (!context.mounted) return;
-
-                            final categories = isIncomeMode
-                                ? (lists?.incomeCategories ??
-                                    getIncomeCategories())
-                                : (lists?.expenseCategories ??
-                                    getExpenseCategories());
-
-                            final result = await showCategoryPicker(
-                              context: context,
-                              // When no category is selected, pass an empty string so
-                              // the picker shows with no preselection. Existing
-                              // transactions still pass their actual category.
-                              currentCategory: selectedCategory.value ?? '',
-                              isIncome: isIncomeMode,
-                              allCategories: categories,
-                              onCreateCategory: (name) =>
-                                  createUserCustomCategory(
-                                ref: ref,
-                                name: name,
-                                isIncome: isIncomeMode,
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
+                                label: context.l10n.startDate,
+                                value: formatLocalizedDate(
+                                    context, startDate.value,
+                                    includeYear: true),
+                                onTap: () async {
+                                  final result = await showTransactionDatePicker(
+                                    context: context,
+                                    currentDate: startDate.value,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime(2030),
+                                  );
+                                  if (result != null) {
+                                    startDate.value = result;
+                                  }
+                                },
                               ),
-                            );
-                            if (result != null) {
-                              selectedCategory.value = result;
-                            }
-                          },
+                              _buildDivider(colorScheme),
+                              // End date toggle row
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        context.l10n.setEndDate,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                    AdaptiveSwitch(
+                                      value: hasEndDate.value,
+                                      onChanged: (value) {
+                                        hasEndDate.value = value;
+                                        if (!value) {
+                                          endDate.value = null;
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // End date picker (if enabled)
+                              if (hasEndDate.value) ...[
+                                _buildDivider(colorScheme),
+                                _buildDetailCard(
+                                  colorScheme: colorScheme,
+                                  label: context.l10n.endDate,
+                                  value: endDate.value != null
+                                      ? formatLocalizedDate(
+                                          context, endDate.value!,
+                                          includeYear: true)
+                                      : context.l10n.selectEndDate,
+                                  isValuePlaceholder: endDate.value == null,
+                                  isLast: !hasEndDate.value,
+                                  onTap: () async {
+                                    final result =
+                                        await showTransactionDatePicker(
+                                      context: context,
+                                      currentDate: endDate.value ??
+                                          startDate.value
+                                              .add(const Duration(days: 365)),
+                                      firstDate: startDate.value,
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (result != null) {
+                                      endDate.value = DateTime(
+                                        result.year,
+                                        result.month,
+                                        result.day,
+                                      );
+                                    }
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
 
                         const SizedBox(height: 20),
 
-                        // Currency selector
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.currency,
-                          value: selectedCurrency.value.toUpperCase(),
-                          onTap: () async {
-                            final result = await showCurrencyPicker(
-                              context: context,
-                              currentCurrency: selectedCurrency.value,
-                            );
-                            if (result != null) {
-                              selectedCurrency.value = result;
-                            }
-                          },
+                        // Reminder section - 3 rows
+                        MonekoInput(
+                          child: Column(
+                            children: [
+                              // Row 1: Title + switch
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      context.l10n.setReminder,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    AdaptiveSwitch(
+                                      value: hasReminder.value,
+                                      onChanged: (value) {
+                                        hasReminder.value = value;
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Row 2: Configuration (when enabled)
+                              if (hasReminder.value) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 16, right: 16, bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      // Value picker
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final numbers = List.generate(
+                                              31, (index) => index + 1);
+                                          final result =
+                                              await MonekoListPicker.show<int>(
+                                            context: context,
+                                            items: numbers,
+                                            labelBuilder: (number) =>
+                                                number.toString(),
+                                            initial: reminderValue.value,
+                                          );
+                                          if (result != null) {
+                                            reminderValue.value = result;
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.muted
+                                                .withValues(alpha: 0.08),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                reminderValue.value.toString(),
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.foreground,
+                                                ),
+                                              ),
+                                              Icon(
+                                                Icons.arrow_drop_down,
+                                                color:
+                                                    colorScheme.mutedForeground,
+                                                size: 20,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Unit picker
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final result =
+                                              await showTransactionSelectionSheet<
+                                                  String>(
+                                            context: context,
+                                            items: ['days'],
+                                            getLabel: (unit) {
+                                              if (unit == 'days') {
+                                                return context.l10n.days;
+                                              }
+                                              return unit;
+                                            },
+                                            initial: reminderUnit.value,
+                                          );
+                                          if (result != null) {
+                                            reminderUnit.value = result;
+                                          }
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.muted
+                                                .withValues(alpha: 0.08),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                reminderUnit.value == 'days'
+                                                    ? context.l10n.days
+                                                    : context.l10n.hours,
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: colorScheme.foreground,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              Icon(
+                                                Icons.arrow_drop_down,
+                                                color:
+                                                    colorScheme.mutedForeground,
+                                                size: 20,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // "before" text
+                                      Text(
+                                        context.l10n.before,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: colorScheme.onSurface,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              // Row 3: Helper text (when enabled)
+                              if (hasReminder.value) ...[
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 16, right: 16, bottom: 12),
+                                  child: Text(
+                                    context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                                      reminderValue.value,
+                                      reminderUnit.value == 'days'
+                                          ? context.l10n.days
+                                          : context.l10n.hours,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: colorScheme.mutedForeground,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
 
-                        const SizedBox(height: 20),
-
+                        // Sharing section (for household expenses)
                         if (canShowSharingSection && isExpense) ...[
+                          const SizedBox(height: 20),
                           if (!hasAmountForSplit)
                             Text(
                               context.l10n.pleaseEnterAmount,
@@ -1778,491 +2077,177 @@ class AddRecurringSheet extends HookConsumerWidget {
                               currentUserId: currentUserId,
                               showSharingControls: false,
                             ),
-                          const SizedBox(height: 20),
                         ],
 
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.frequency,
-                          value: formatRecurrenceSelectionLabel(
-                            context,
-                            frequency: selectedFrequency.value,
-                            interval: customInterval.value,
-                          ),
-                          onTap: () async {
-                            final result = await showRecurrencePicker(
-                              context: context,
-                              currentFrequency: selectedFrequency.value,
-                              currentInterval: customInterval.value,
-                            );
-                            if (result == null) return;
-
-                            selectedFrequency.value = result.frequency;
-                            final interval = result.interval;
-                            customInterval.value =
-                                (interval != null && interval > 1)
-                                    ? interval
-                                    : null;
-                          },
-                        ),
-
+                        // Additional Info section - Notes
                         const SizedBox(height: 20),
-
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: context.l10n.startDate,
-                          value: formatLocalizedDate(context, startDate.value,
-                              includeYear: true),
-                          onTap: () async {
-                            final result = await showTransactionDatePicker(
-                              context: context,
-                              currentDate: startDate.value,
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                            );
-                            if (result != null) {
-                              startDate.value = result;
-                            }
-                          },
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // End date toggle (clickable container)
-                        GestureDetector(
-                          onTap: () {
-                            hasEndDate.value = !hasEndDate.value;
-                            if (!hasEndDate.value) {
-                              endDate.value = null;
-                            }
-                          },
-                          child: MonekoInput(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: hasEndDate.value,
-                                  activeColor: colorScheme.primary,
-                                  onChanged: (value) {
-                                    final checked = value ?? false;
-                                    hasEndDate.value = checked;
-                                    if (!checked) {
-                                      endDate.value = null;
-                                    }
-                                  },
+                        MonekoInput(
+                          child: InkWell(
+                            onTap: () async {
+                              final result = await MonekoAlertDialog.show(
+                                context: context,
+                                title: context.l10n.descriptionOptional,
+                                description: null,
+                                confirmLabel: context.l10n.save,
+                                cancelLabel: context.l10n.cancel,
+                                inputConfig: MonekoAlertDialogInputConfig(
+                                  initialValue:
+                                      descriptionController.text.trim(),
+                                  placeholder: context.l10n.addANote,
+                                  isRequired: false,
+                                  keyboardType: TextInputType.multiline,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    context.l10n.setEndDate,
-                                    style: TextStyle(
-                                      color: colorScheme.onSurface,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                              );
+
+                              if (!context.mounted ||
+                                  result == null ||
+                                  !result.confirmed ||
+                                  result.text == null) {
+                                return;
+                              }
+
+                              descriptionController.text = result.text!.trim();
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16.0, vertical: 12.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 70, // Fixed label width
+                                    child: Text(
+                                      context.l10n.notes,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurface,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // End date picker (if enabled)
-                        if (hasEndDate.value) ...[
-                          const SizedBox(height: 12),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.endDate,
-                            value: endDate.value != null
-                                ? formatLocalizedDate(context, endDate.value!,
-                                    includeYear: true)
-                                : context.l10n.selectEndDate,
-                            isValuePlaceholder: endDate.value == null,
-                            onTap: () async {
-                              final result = await showTransactionDatePicker(
-                                context: context,
-                                currentDate: endDate.value ??
-                                    startDate.value
-                                        .add(const Duration(days: 365)),
-                                firstDate: startDate.value,
-                                lastDate: DateTime(2030),
-                              );
-                              if (result != null) {
-                                endDate.value = DateTime(
-                                  result.year,
-                                  result.month,
-                                  result.day,
-                                );
-                              }
-                            },
-                          ),
-                        ],
-
-                        const SizedBox(height: 20),
-
-                        // Description
-                        _buildLabel(
-                            context.l10n.descriptionOptional, colorScheme),
-                        const SizedBox(height: 8),
-                        MonekoInput(
-                          child: TextField(
-                            controller: descriptionController,
-                            maxLines: 2,
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: context.l10n.addANote,
-                              hintStyle: TextStyle(
-                                color: colorScheme.onSurface
-                                    .withValues(alpha: 0.3),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      descriptionController.text.trim().isEmpty
+                                          ? context.l10n.addANote
+                                          : descriptionController.text.trim(),
+                                      textAlign: TextAlign.start,
+                                      maxLines: 4,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w400,
+                                        color: descriptionController.text
+                                                    .trim().isEmpty
+                                            ? colorScheme.onSurface
+                                                .withValues(alpha: 0.3)
+                                            : colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
                             ),
                           ),
                         ),
 
                         // Source (for income only)
                         if (!isExpense) ...[
-                          const SizedBox(height: 20),
-                          _buildLabel(context.l10n.sourceOptional, colorScheme),
-                          const SizedBox(height: 8),
-                          MonekoInput(
-                            child: TextField(
-                              controller: sourceController,
-                              style: TextStyle(
-                                color: colorScheme.onSurface,
-                              ),
-                              decoration: InputDecoration(
-                                hintText:
-                                    context.l10n.companyNameClientNameExample,
-                                hintStyle: TextStyle(
-                                  color: colorScheme.onSurface
-                                      .withValues(alpha: 0.3),
+                          const SizedBox(height: 12),
+                          _buildDetailCard(
+                            colorScheme: colorScheme,
+                            label: context.l10n.sourceOptional,
+                            value: sourceController.text.trim().isEmpty
+                                ? context.l10n.companyNameClientNameExample
+                                : sourceController.text.trim(),
+                            isValuePlaceholder:
+                                sourceController.text.trim().isEmpty,
+                            onTap: () async {
+                              final result = await MonekoAlertDialog.show(
+                                context: context,
+                                title: context.l10n.sourceOptional,
+                                description: null,
+                                confirmLabel: context.l10n.save,
+                                cancelLabel: context.l10n.cancel,
+                                inputConfig: MonekoAlertDialogInputConfig(
+                                  initialValue: sourceController.text.trim(),
+                                  placeholder:
+                                      context.l10n.companyNameClientNameExample,
+                                  isRequired: false,
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                              ),
-                            ),
+                              );
+
+                              if (!context.mounted ||
+                                  result == null ||
+                                  !result.confirmed ||
+                                  result.text == null) {
+                                return;
+                              }
+
+                              sourceController.text = result.text!.trim();
+                            },
                           ),
                         ],
 
-                        const SizedBox(height: 24),
-
-                        // Reminder toggle (clickable container)
-                        GestureDetector(
-                          onTap: () {
-                            hasReminder.value = !hasReminder.value;
-                          },
-                          child: MonekoInput(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Checkbox(
-                                  value: hasReminder.value,
-                                  activeColor: colorScheme.primary,
-                                  onChanged: (value) {
-                                    hasReminder.value = value ?? false;
-                                  },
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    context.l10n.setReminder,
-                                    style: TextStyle(
-                                      color: colorScheme.onSurface,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // Reminder configuration (if enabled)
-                        if (hasReminder.value) ...[
-                          const SizedBox(height: 12),
-                          MonekoInput(
-                            child: Builder(
-                              builder: (context) {
-                                // Detect word order based on language
-                                final lang = Localizations.localeOf(context)
-                                    .languageCode
-                                    .toLowerCase();
-                                final useSOV = {
-                                  'zh',
-                                  'ja',
-                                  'ko',
-                                  'hi',
-                                  'ur',
-                                  'tr',
-                                  'fa'
-                                }.contains(lang);
-
-                                // Build UI components
-                                final valueInput = GestureDetector(
-                                  onTap: () async {
-                                    final numbers =
-                                        List.generate(31, (index) => index + 1);
-                                    final result =
-                                        await MonekoListPicker.show<int>(
-                                      context: context,
-                                      items: numbers,
-                                      labelBuilder: (number) =>
-                                          number.toString(),
-                                      initial: reminderValue.value,
-                                    );
-                                    if (result != null) {
-                                      reminderValue.value = result;
-                                    }
-                                  },
-                                  child: Container(
-                                    width: 80,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 14),
-                                    decoration: BoxDecoration(
-                                      color: colorScheme.muted
-                                          .withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          reminderValue.value.toString(),
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.foreground,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.arrow_drop_down,
-                                          color: colorScheme.mutedForeground,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-
-                                final unitPicker = GestureDetector(
-                                  onTap: () async {
-                                    final result =
-                                        await showTransactionSelectionSheet<
-                                            String>(
-                                      context: context,
-                                      items: ['days'],
-                                      getLabel: (unit) {
-                                        if (unit == 'days') {
-                                          return context.l10n.days;
-                                        }
-                                        if (unit == 'hours') {
-                                          return context.l10n.hours;
-                                        }
-                                        return unit;
-                                      },
-                                      initial: reminderUnit.value,
-                                    );
-                                    if (result != null) {
-                                      reminderUnit.value = result;
-                                    }
-                                  },
-                                  child: IntrinsicWidth(
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                          minWidth: 80), // Minimum width
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.muted
-                                            .withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            reminderUnit.value == 'days'
-                                                ? context.l10n.days
-                                                : context.l10n.hours,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: colorScheme.foreground,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Icon(
-                                            Icons.arrow_drop_down,
-                                            color: colorScheme.mutedForeground,
-                                            size: 24,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-
-                                // Arrange based on word order
-                                List<Widget> rowChildren;
-                                if (useSOV) {
-                                  // SOV languages: beforePrefix [value][unit]beforeSuffix
-                                  // Chinese: 在 2天之前
-                                  rowChildren = [
-                                    Text(
-                                      context.l10n.beforePrefix,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    valueInput,
-                                    const SizedBox(width: 12),
-                                    unitPicker,
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      context.l10n.beforeSuffix,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ];
-                                } else {
-                                  // Default SVO: [value] [unit] before
-                                  // English: 2 days before
-                                  rowChildren = [
-                                    valueInput,
-                                    const SizedBox(width: 12),
-                                    unitPicker,
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      context.l10n.before,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: colorScheme.onSurface,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ];
-                                }
-
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: rowChildren,
-                                );
+                    // Save button
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isLoading.value
+                            ? null
+                            : () {
+                                handleSave();
                               },
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            context.l10n.youWillBeNotifiedBeforeEachOccurrence(
-                              reminderValue.value,
-                              reminderUnit.value == 'days'
-                                  ? context.l10n.days
-                                  : context.l10n.hours,
-                            ),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.mutedForeground,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-
-                        // Save button
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isLoading.value
-                                ? null
-                                : () {
-                                    handleSave();
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              foregroundColor: colorScheme.primaryForeground,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: isLoading.value
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        colorScheme.onPrimary,
-                                      ),
-                                    ),
-                                  )
-                                : Text(
-                                    isEditing
-                                        ? context
-                                            .l10n.updateRecurringTransaction
-                                        : context.l10n.addRecurringTransaction,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.primaryForeground,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-
-                        if (isEditing) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: isLoading.value ? null : handleDelete,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: colorScheme.destructive,
-                                side: BorderSide(
-                                  color: colorScheme.destructive
-                                      .withValues(alpha: 0.35),
+                        child: isLoading.value
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.onPrimary,
+                                  ),
                                 ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: Text(
-                                context.l10n.deleteRecurringTransaction,
+                              )
+                            : Text(
+                                isEditing
+                                    ? context
+                                        .l10n.updateRecurringTransaction
+                                    : context.l10n.addRecurringTransaction,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
-                  ),
+
+                    if (isEditing) ...[
+                      const SizedBox(height: 12),
+                      DestructiveAdaptiveButton(
+                        onPressed: isLoading.value ? null : handleDelete,
+                        child: Text(context.l10n.deleteRecurringTransaction),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
+    ),
+    ),
     );
   }
 
@@ -2316,33 +2301,32 @@ class AddRecurringSheet extends HookConsumerWidget {
     AppToast.success(toastContext, fallbackSuccessMessage);
   }
 
-  Widget _buildLabel(String text, ColorScheme colorScheme) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: colorScheme.onSurface.withValues(alpha: 0.7),
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
-      ),
-    );
-  }
-
   Widget _buildDetailCard({
     required ColorScheme colorScheme,
     required String label,
     required String value,
     required VoidCallback onTap,
     bool isValuePlaceholder = false,
+    bool isFirst = false,
+    bool isLast = false,
   }) {
-    return MonekoInput(
-      child: MonekoDisclosureRow(
-        label: label,
-        value: value,
-        onTap: onTap,
-        isFirst: true,
-        isLast: true,
-        isValuePlaceholder: isValuePlaceholder,
-      ),
+    return MonekoDisclosureRow(
+      label: label,
+      value: value,
+      onTap: onTap,
+      isFirst: isFirst,
+      isLast: isLast,
+      isValuePlaceholder: isValuePlaceholder,
+    );
+  }
+
+  Widget _buildDivider(ColorScheme colorScheme) {
+    return Divider(
+      height: 1,
+      thickness: 0.5,
+      indent: 16,
+      endIndent: 0,
+      color: colorScheme.onSurface.withValues(alpha: 0.1),
     );
   }
 
@@ -2395,7 +2379,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                      MonekoSwitch(
+                      AdaptiveSwitch(
                         value: isSharedWithHousehold.value,
                         onChanged: (value) {
                           if (!value) {

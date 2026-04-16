@@ -6,6 +6,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
@@ -592,31 +593,35 @@ class PreviewStep extends ConsumerWidget {
     WidgetRef ref,
     ImportParsedRow row,
   ) async {
-    final scheme = Theme.of(context).colorScheme;
     final notifier = ref.read(importWizardProvider.notifier);
+    bool isSaving = false;
+    final sheetKey = GlobalKey<EditRowSheetState>();
+    final originalCategory = row.category ?? 'uncategorized';
+
     final result = await MonekoBottomSheet.show<dynamic>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: scheme.sheetBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
+      title: context.l10n.importEditRowTitle,
+      onClose: () {
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      onConfirm: isSaving ? null : () async {
+        isSaving = true;
+        await sheetKey.currentState?.save();
+      },
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: scheme.sheetBackground,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(10)),
-              border: Border.all(
-                color: scheme.sheetBorder.withValues(alpha: 0.4),
-              ),
-            ),
-            child: EditRowSheet(row: row),
-          ),
+        return EditRowSheet(
+          key: sheetKey,
+          row: row,
+          onSave: (updatedRow) async {
+            isSaving = true;
+            notifier.updateParsedRow(updatedRow);
+            if (context.mounted) {
+              Navigator.of(context).pop(updatedRow);
+            }
+          },
         );
       },
     );
@@ -624,7 +629,53 @@ class PreviewStep extends ConsumerWidget {
     if (result == 'delete') {
       notifier.deleteParsedRow(row.index);
     } else if (result is ImportParsedRow) {
-      notifier.updateParsedRow(result);
+      // Check if category changed and offer to apply to all matching rows
+      final newCategory = result.category ?? 'uncategorized';
+      final originalNormalized = originalCategory.trim().toLowerCase();
+      final newNormalized = newCategory.trim().toLowerCase();
+
+      if (newNormalized != originalNormalized && context.mounted) {
+        await _maybeApplyCategoryToAllImportRows(
+          context: context,
+          ref: ref,
+          originalCategory: originalCategory,
+          newCategory: newCategory,
+        );
+      }
+    }
+  }
+
+  Future<void> _maybeApplyCategoryToAllImportRows({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String originalCategory,
+    required String newCategory,
+  }) async {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final state = ref.read(importWizardProvider);
+    final normalizedOriginal = originalCategory.trim().toLowerCase();
+
+    // Count how many rows have the original category (excluding the one just edited)
+    final matchingRows = state.parsedRows.where((r) {
+      final rowCategory = (r.category?.trim().isEmpty ?? true) ? 'uncategorized' : r.category!.trim().toLowerCase();
+      return rowCategory == normalizedOriginal;
+    }).toList();
+
+    if (matchingRows.isEmpty) return;
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Apply to all transactions?',
+      description: 'Apply "$newCategory" to ${matchingRows.length} transactions with category "$originalCategory"?',
+      confirmLabel: 'Apply to All',
+      cancelLabel: 'Only this one',
+    );
+
+    if (result?.confirmed == true) {
+      for (final matchingRow in matchingRows) {
+        final updatedRow = matchingRow.copyWith(category: newCategory);
+        notifier.updateParsedRow(updatedRow);
+      }
     }
   }
 }

@@ -907,6 +907,37 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     state = state.copyWith(parsedRows: deduped, deletedRowIndices: deleted);
   }
 
+  /// Apply a new category to all parsed rows that currently have [fromCategory].
+  /// This is used when the user edits one row's category and wants to apply
+  /// the same change to all matching rows in the import.
+  void applyCategoryToAllRows(String fromCategory, String toCategory) {
+    final normalizedFrom = (fromCategory.trim().isEmpty) ? 'uncategorized' : fromCategory.trim().toLowerCase();
+    final normalizedTo = (toCategory.trim().isEmpty) ? 'uncategorized' : toCategory.trim();
+
+    if (normalizedFrom == normalizedTo) return;
+
+    final rows = [...state.parsedRows];
+    var changedCount = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      final rowCategory = (row.category?.trim().isEmpty ?? true) ? 'uncategorized' : row.category!.trim().toLowerCase();
+      if (rowCategory == normalizedFrom) {
+        rows[i] = row.copyWith(category: normalizedTo);
+        changedCount++;
+      }
+    }
+
+    if (changedCount == 0) return;
+
+    final deduped = markDuplicates(
+      rows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
+    state = state.copyWith(parsedRows: deduped);
+  }
+
   Future<void> importRows() async {
     final table = state.table;
     final mapping = state.mapping;

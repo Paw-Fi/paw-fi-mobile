@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -495,7 +496,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                             context.l10n.shareWithHousehold,
                             style: TextStyle(color: colorScheme.foreground),
                           ),
-                          MonekoSwitch(
+                          AdaptiveSwitch(
                             value: _shareWithHousehold,
                             onChanged: (value) {
                               setState(() {
