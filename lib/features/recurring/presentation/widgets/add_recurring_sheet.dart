@@ -47,6 +47,7 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/core/preview/preview_mode_provider.dart';
+import 'package:moneko/features/recurring/presentation/utils/reminder_before_affixes.dart';
 
 // Prevent accidental PII/financial logging.
 // Enable explicitly with: --dart-define=MONEKO_DEBUG_LOGS=true
@@ -180,6 +181,11 @@ class AddRecurringSheet extends HookConsumerWidget {
     );
     final reminderUnit = useState<String>(
       existingRule?.reminderUnit ?? 'days',
+    );
+    final reminderBeforeAffixes = resolveReminderBeforeAffixes(
+      before: context.l10n.before,
+      beforePrefix: context.l10n.beforePrefix,
+      beforeSuffix: context.l10n.beforeSuffix,
     );
     final isLoading = useState<bool>(false);
 
@@ -1961,6 +1967,18 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
+                                      if (reminderBeforeAffixes
+                                          .prefix.isNotEmpty) ...[
+                                        Text(
+                                          reminderBeforeAffixes.prefix,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: colorScheme.onSurface,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
                                       // Value picker
                                       GestureDetector(
                                         onTap: () async {
@@ -2061,16 +2079,18 @@ class AddRecurringSheet extends HookConsumerWidget {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      // "before" text
-                                      Text(
-                                        context.l10n.before,
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: colorScheme.onSurface,
-                                          fontWeight: FontWeight.w500,
+                                      if (reminderBeforeAffixes
+                                          .suffix.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          reminderBeforeAffixes.suffix,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: colorScheme.onSurface,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),
