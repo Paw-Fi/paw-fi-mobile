@@ -52,6 +52,29 @@ void main() {
       expect(row.expenseType, 'expense');
       expect(row.totalAmountCents, 5000);
       expect(row.remainingAmountCents, 2500);
+      expect(row.isAdjustment, isFalse);
+    });
+
+    test('fromJson allows synthetic adjustment rows', () {
+      final row = SettlementBreakdownRowV2.fromJson({
+        'direction': 'you_owe',
+        'expense_id': null,
+        'split_group_id': null,
+        'split_line_id': null,
+        'expense_date': '2026-04-17T00:00:00.000Z',
+        'expense_description': 'Settlement adjustment',
+        'expense_category': null,
+        'expense_raw_text': null,
+        'expense_type': 'adjustment',
+        'total_amount_cents': 1640415,
+        'remaining_amount_cents': 1640415,
+      });
+
+      expect(row.expenseId, isNull);
+      expect(row.splitGroupId, isNull);
+      expect(row.splitLineId, isNull);
+      expect(row.expenseType, 'adjustment');
+      expect(row.isAdjustment, isTrue);
     });
   });
 }

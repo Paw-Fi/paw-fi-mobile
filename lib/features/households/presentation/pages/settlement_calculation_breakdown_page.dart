@@ -4,8 +4,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/utils/settlement_breakdown_calculator.dart';
+import 'package:moneko/features/households/presentation/utils/settlement_breakdown_display.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
@@ -16,6 +21,10 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
   final String memberUserId;
   final String memberDisplayName;
   final String currencyCode;
+  final List<ExpenseEntry> transactions;
+  final List<ExpenseSplitGroup> splits;
+  final int paidToCents;
+  final int paidFromCents;
   final int netCents;
 
   const SettlementCalculationBreakdownPage({
@@ -25,12 +34,29 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
     required this.memberUserId,
     required this.memberDisplayName,
     required this.currencyCode,
+    this.transactions = const <ExpenseEntry>[],
+    this.splits = const <ExpenseSplitGroup>[],
+    this.paidToCents = 0,
+    this.paidFromCents = 0,
     required this.netCents,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final legacyTransactionsAsync = transactions.isNotEmpty
+        ? AsyncValue.data(transactions)
+        : ref.watch(cachedHouseholdExpensesProvider(
+            HouseholdExpensesParams(householdId: householdId),
+          ));
+    final legacySplitsAsync = splits.isNotEmpty
+        ? AsyncValue.data(splits)
+        : ref.watch(cachedHouseholdSplitsProvider(
+            HouseholdSplitsParams(householdId: householdId),
+          ));
+    final legacyPaymentsAsync = ref.watch(
+      householdSettlementPaymentsProvider(householdId),
+    );
     final breakdownAsync = ref.watch(
       householdSettlementBreakdownV2Provider(
         SettlementBreakdownV2Params(
@@ -69,25 +95,62 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
           const SizedBox(height: 18),
           breakdownAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                context.l10n.errorLoadingData,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: scheme.mutedForeground,
-                ),
-              ),
-            ),
-            data: (rows) {
-              final youOweRows = rows
-                  .where((row) => row.direction == _Direction.youOwe)
-                  .toList();
-              final theyOweRows = rows
-                  .where((row) => row.direction == _Direction.theyOweYou)
-                  .toList();
+            error: (_, __) {
+              final legacyRows = _buildLegacyRows(
+                transactions: legacyTransactionsAsync.valueOrNull,
+                splits: legacySplitsAsync.valueOrNull,
+                paidToCents: legacyPaymentsAsync.valueOrNull
+                        ?.where((payment) =>
+                            (payment.currency?.trim().toUpperCase() ?? '') ==
+                                currencyCode.trim().toUpperCase() &&
+                            payment.payerUserId == memberUserId &&
+                            payment.participantUserId == currentUserId)
+                        .fold<int>(
+                            0, (sum, payment) => sum + payment.amountCents) ??
+                    paidToCents,
+                paidFromCents: legacyPaymentsAsync.valueOrNull
+                        ?.where((payment) =>
+                            (payment.currency?.trim().toUpperCase() ?? '') ==
+                                currencyCode.trim().toUpperCase() &&
+                            payment.payerUserId == currentUserId &&
+                            payment.participantUserId == memberUserId)
+                        .fold<int>(
+                            0, (sum, payment) => sum + payment.amountCents) ??
+                    paidFromCents,
+              );
+              if (legacyRows != null) {
+                return _buildBreakdownSections(
+                  context,
+                  scheme,
+                  legacyRows,
+                );
+              }
 
+              if (legacyTransactionsAsync.isLoading ||
+                  legacySplitsAsync.isLoading ||
+                  legacyPaymentsAsync.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  context.l10n.errorLoadingData,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: scheme.mutedForeground,
+                  ),
+                ),
+              );
+            },
+            data: (rows) {
               if (kDebugMode) {
+                final youOweRows = rows
+                    .where((row) => row.direction == _Direction.youOwe)
+                    .toList();
+                final theyOweRows = rows
+                    .where((row) => row.direction == _Direction.theyOweYou)
+                    .toList();
                 final breakdownNet = youOweRows.fold<int>(
                       0,
                       (sum, row) => sum + row.remainingAmountCents,
@@ -103,42 +166,124 @@ class SettlementCalculationBreakdownPage extends ConsumerWidget {
                 }
               }
 
-              return Column(
-                children: [
-                  if (youOweRows.isNotEmpty)
-                    _BreakdownSection(
-                      title: '${context.l10n.youOwe} $memberDisplayName',
-                      currencyCode: currencyCode,
-                      rows: youOweRows,
-                      emptyLabel: context.l10n.noSplitTransactionsFound,
-                    ),
-                  if (youOweRows.isNotEmpty && theyOweRows.isNotEmpty)
-                    const SizedBox(height: 16),
-                  if (theyOweRows.isNotEmpty)
-                    _BreakdownSection(
-                      title: '$memberDisplayName ${context.l10n.owesYou}',
-                      currencyCode: currencyCode,
-                      rows: theyOweRows,
-                      emptyLabel: context.l10n.noSplitTransactionsFound,
-                    ),
-                  if (youOweRows.isEmpty && theyOweRows.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        context.l10n.noSplitTransactionsFound,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: scheme.mutedForeground,
-                        ),
-                      ),
-                    ),
-                ],
+              return _buildBreakdownSections(
+                context,
+                scheme,
+                rows,
               );
             },
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildBreakdownSections(
+    BuildContext context,
+    ColorScheme scheme,
+    List<_BreakdownRowData> rows,
+  ) {
+    final youOweRows =
+        rows.where((row) => row.direction == _Direction.youOwe).toList();
+    final theyOweRows =
+        rows.where((row) => row.direction == _Direction.theyOweYou).toList();
+    final adjustmentCents = calculateSettlementBreakdownAdjustmentCents(
+      fallbackNetCents: netCents,
+      rows: rows,
+    );
+    final hasPositiveAdjustment = adjustmentCents > 0;
+    final hasNegativeAdjustment = adjustmentCents < 0;
+
+    return Column(
+      children: [
+        if (youOweRows.isNotEmpty)
+          _BreakdownSection(
+            title: '${context.l10n.youOwe} $memberDisplayName',
+            currencyCode: currencyCode,
+            rows: youOweRows,
+            emptyLabel: context.l10n.noSplitTransactionsFound,
+          ),
+        if (youOweRows.isNotEmpty && theyOweRows.isNotEmpty)
+          const SizedBox(height: 16),
+        if (theyOweRows.isNotEmpty)
+          _BreakdownSection(
+            title: '$memberDisplayName ${context.l10n.owesYou}',
+            currencyCode: currencyCode,
+            rows: theyOweRows,
+            emptyLabel: context.l10n.noSplitTransactionsFound,
+          ),
+        if ((youOweRows.isNotEmpty || theyOweRows.isNotEmpty) &&
+            (hasPositiveAdjustment || hasNegativeAdjustment))
+          const SizedBox(height: 16),
+        if (hasPositiveAdjustment)
+          _AdjustmentSection(
+            title: '${context.l10n.youOwe} ${context.l10n.adjustment}',
+            currencyCode: currencyCode,
+            amountCents: adjustmentCents,
+            description: context.l10n.settlement,
+          ),
+        if (hasNegativeAdjustment)
+          _AdjustmentSection(
+            title: '${context.l10n.adjustment} ${context.l10n.owesYou}',
+            currencyCode: currencyCode,
+            amountCents: adjustmentCents.abs(),
+            description: context.l10n.settlement,
+          ),
+        if (youOweRows.isEmpty && theyOweRows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              context.l10n.noSplitTransactionsFound,
+              style: TextStyle(
+                fontSize: 13,
+                color: scheme.mutedForeground,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<_BreakdownRowData>? _buildLegacyRows({
+    required List<ExpenseEntry>? transactions,
+    required List<ExpenseSplitGroup>? splits,
+    required int paidToCents,
+    required int paidFromCents,
+  }) {
+    if ((transactions == null || transactions.isEmpty) &&
+        (splits == null || splits.isEmpty)) {
+      return null;
+    }
+
+    final legacy = computeSettlementBreakdownData(
+      currentUserId: currentUserId,
+      memberUserId: memberUserId,
+      currencyCode: currencyCode,
+      transactions: transactions ?? const <ExpenseEntry>[],
+      splits: splits ?? const <ExpenseSplitGroup>[],
+      paidToCents: paidToCents,
+      paidFromCents: paidFromCents,
+    );
+
+    return legacy.rows
+        .map(
+          (row) => SettlementBreakdownRowV2(
+            direction: row.direction == SettlementBreakdownDirection.youOwe
+                ? SettlementBreakdownDirectionV2.youOwe
+                : SettlementBreakdownDirectionV2.theyOweYou,
+            expenseId: row.transaction.id,
+            splitGroupId: row.transaction.splitGroupId ?? '',
+            splitLineId: row.transaction.id,
+            expenseDate: row.transaction.date,
+            expenseDescription: row.transaction.rawText,
+            expenseCategory: row.transaction.category,
+            expenseRawText: row.transaction.rawText,
+            expenseType: row.transaction.type,
+            totalAmountCents: row.transaction.amountCents.abs(),
+            remainingAmountCents: row.splitAmountCents,
+          ),
+        )
+        .toList();
   }
 }
 
@@ -405,6 +550,7 @@ class _BreakdownSection extends StatelessWidget {
             ...rows.map((row) {
               final isIncome =
                   (row.expenseType ?? 'expense').toLowerCase() == 'income';
+              final isAdjustment = row.isAdjustment;
               final totalAmount = formatCurrency(
                 row.totalAmountCents.abs() / 100.0,
                 currencyCode,
@@ -413,12 +559,18 @@ class _BreakdownSection extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: TransactionListTile(
-                  category: row.expenseCategory ?? context.l10n.other,
-                  title: row.expenseRawText ??
-                      row.expenseDescription ??
-                      row.expenseCategory ??
-                      context.l10n.expense,
-                  description: row.expenseRawText ?? row.expenseDescription,
+                  category: isAdjustment
+                      ? context.l10n.adjustment
+                      : row.expenseCategory ?? context.l10n.other,
+                  title: isAdjustment
+                      ? context.l10n.adjustment
+                      : row.expenseRawText ??
+                          row.expenseDescription ??
+                          row.expenseCategory ??
+                          context.l10n.expense,
+                  description: isAdjustment
+                      ? context.l10n.settlement
+                      : row.expenseRawText ?? row.expenseDescription,
                   date: row.expenseDate,
                   amount: row.remainingAmountCents / 100.0,
                   currency: currencyCode,
@@ -437,6 +589,92 @@ class _BreakdownSection extends StatelessWidget {
             }),
           const SizedBox(height: 8),
         ],
+      ),
+    );
+  }
+}
+
+class _AdjustmentSection extends StatelessWidget {
+  final String title;
+  final String currencyCode;
+  final int amountCents;
+  final String description;
+
+  const _AdjustmentSection({
+    required this.title,
+    required this.currencyCode,
+    required this.amountCents,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.homeCardBorder, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.foreground,
+                    ),
+                  ),
+                ),
+                Text(
+                  formatCurrency(amountCents / 100.0, currencyCode),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: scheme.foreground,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color:
+                        scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.tune_rounded,
+                    size: 18,
+                    color: scheme.mutedForeground,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: scheme.mutedForeground,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

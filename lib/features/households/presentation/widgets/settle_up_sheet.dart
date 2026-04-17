@@ -15,6 +15,7 @@ import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -53,6 +54,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   bool _isProcessing = false;
   int _youOweCents = 0;
   int _youAreOwedCents = 0;
+  int _paidToCents = 0;
+  int _paidFromCents = 0;
   final TextEditingController _noteController = TextEditingController();
   int _maxSettleCents = 0;
   String _settlementCurrencyCode = 'USD';
@@ -146,6 +149,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     setState(() {
       _youOweCents = netYouOwe;
       _youAreOwedCents = netYouAreOwed;
+      _paidToCents = balance.paidToCents;
+      _paidFromCents = balance.paidFromCents;
       _maxSettleCents = maxSettleCents;
       _settlementCurrencyCode = currencyCode;
     });
@@ -206,6 +211,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     setState(() {
       _youOweCents = result.youOweCents;
       _youAreOwedCents = result.youAreOwedCents;
+      _paidToCents = result.paidToCents;
+      _paidFromCents = result.paidFromCents;
       _maxSettleCents = maxSettleCents;
       _settlementCurrencyCode = currencyCode;
     });
@@ -216,6 +223,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     required String householdId,
     required String currentUserId,
     required HouseholdMember member,
+    required List<ExpenseSplitGroup> splits,
+    required List<ExpenseEntry> transactions,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -227,6 +236,10 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
               ? member.userName!.trim()
               : (member.userEmail ?? context.l10n.member),
           currencyCode: _settlementCurrencyCode,
+          transactions: transactions,
+          splits: splits,
+          paidToCents: _paidToCents,
+          paidFromCents: _paidFromCents,
           netCents: _youOweCents - _youAreOwedCents,
         ),
       ),
@@ -250,7 +263,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
+    final expensesAsync = ref.watch(cachedHouseholdExpensesProvider(
+      HouseholdExpensesParams(householdId: widget.householdId),
+    ));
+    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(
+      HouseholdSplitsParams(householdId: widget.householdId),
+    ));
     final userId = Supabase.instance.client.auth.currentUser?.id;
+    final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
+    final effectiveSplits =
+        splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[];
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
@@ -428,6 +450,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                     _selectedMemberId = id;
                                     _youOweCents = 0;
                                     _youAreOwedCents = 0;
+                                    _paidToCents = 0;
+                                    _paidFromCents = 0;
                                     _maxSettleCents = 0;
                                     _pendingAmountText = null;
                                   });
@@ -484,6 +508,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                 householdId: widget.householdId,
                                 currentUserId: userId,
                                 member: member,
+                                splits: effectiveSplits,
+                                transactions: transactions,
                               );
                             }
                           : null,

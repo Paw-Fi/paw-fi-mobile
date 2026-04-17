@@ -52,9 +52,9 @@ class SettlementPairwiseBalance {
 
 class SettlementBreakdownRowV2 {
   final SettlementBreakdownDirectionV2 direction;
-  final String expenseId;
-  final String splitGroupId;
-  final String splitLineId;
+  final String? expenseId;
+  final String? splitGroupId;
+  final String? splitLineId;
   final DateTime expenseDate;
   final String? expenseDescription;
   final String? expenseCategory;
@@ -65,9 +65,9 @@ class SettlementBreakdownRowV2 {
 
   const SettlementBreakdownRowV2({
     required this.direction,
-    required this.expenseId,
-    required this.splitGroupId,
-    required this.splitLineId,
+    this.expenseId,
+    this.splitGroupId,
+    this.splitLineId,
     required this.expenseDate,
     this.expenseDescription,
     this.expenseCategory,
@@ -77,14 +77,16 @@ class SettlementBreakdownRowV2 {
     required this.remainingAmountCents,
   });
 
+  bool get isAdjustment => (expenseType ?? '').toLowerCase() == 'adjustment';
+
   factory SettlementBreakdownRowV2.fromJson(Map<String, dynamic> json) {
     return SettlementBreakdownRowV2(
       direction: SettlementBreakdownDirectionV2.fromJson(
         json['direction'] as String,
       ),
-      expenseId: json['expense_id'] as String,
-      splitGroupId: json['split_group_id'] as String,
-      splitLineId: json['split_line_id'] as String,
+      expenseId: json['expense_id'] as String?,
+      splitGroupId: json['split_group_id'] as String?,
+      splitLineId: json['split_line_id'] as String?,
       expenseDate: DateTime.parse(json['expense_date'] as String),
       expenseDescription: json['expense_description'] as String?,
       expenseCategory: json['expense_category'] as String?,
