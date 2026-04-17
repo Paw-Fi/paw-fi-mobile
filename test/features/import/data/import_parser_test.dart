@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 void main() {
   test('decodeImportTextFromBytes supports UTF-8', () {
@@ -120,7 +122,24 @@ void main() {
     expect(parsed.errors, isEmpty);
     expect(parsed.date, DateTime(2026, 2, 1));
     expect(parsed.amountCents, 1250);
-    expect(parsed.category, 'Food');
+    expect(parsed.category, 'food & drinks');
+  });
+
+  test('parseRow canonicalizes localized built-in category labels', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.category: 2,
+      },
+    );
+    final ru = lookupAppLocalizations(const Locale('ru'));
+    final parsed = parseRow(
+      ['2026-02-01', '12.50', ru.categorySoftwareTools],
+      mapping,
+    );
+
+    expect(parsed.category, 'software tools');
   });
 
   test('parseRow treats a single mapped debit column as an expense', () {

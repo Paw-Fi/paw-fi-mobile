@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/utils/currency.dart';
 
@@ -549,7 +550,8 @@ String _resolveCategory({
   required String resolvedType,
 }) {
   if (rawCategory != null && rawCategory.trim().isNotEmpty) {
-    return rawCategory.trim();
+    final trimmed = rawCategory.trim();
+    return resolveBuiltinCategoryKeyAcrossLocales(trimmed) ?? trimmed;
   }
 
   final inferred = _inferCategoryFromDescription(

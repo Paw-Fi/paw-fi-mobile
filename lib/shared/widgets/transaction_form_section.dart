@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/transaction_type_toggle.dart';
@@ -74,11 +75,14 @@ class TransactionFormSection extends StatelessWidget {
     return isIncome ? '+$symbol$formatted' : '$symbol$formatted';
   }
 
-  String get _displayCategory {
+  String _displayCategory(BuildContext context) {
     if (categoryTranslator != null) {
       return categoryTranslator!(category);
     }
-    return category.isEmpty ? 'Uncategorized' : category;
+    return getCategoryTranslation(
+      context,
+      category.isEmpty ? 'uncategorized' : category,
+    );
   }
 
   String _formatDate(BuildContext context) {
@@ -104,9 +108,9 @@ class TransactionFormSection extends StatelessWidget {
         children: [
           // Amount Hero (outside container)
           if (showAmountHero) _buildAmountHero(context),
-      
+
           if (showAmountHero) const SizedBox(height: 24),
-      
+
           // Form Fields (parent should wrap this in a container)
           _buildFormFields(context),
         ],
@@ -164,7 +168,7 @@ class TransactionFormSection extends StatelessWidget {
               // Category
               MonekoDisclosureRow(
                 label: context.l10n.category,
-                value: _displayCategory,
+                value: _displayCategory(context),
                 onTap: onEditCategory,
                 isFirst: true,
               ),

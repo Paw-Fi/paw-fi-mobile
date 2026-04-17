@@ -8,6 +8,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -672,8 +673,8 @@ class PreviewStep extends ConsumerWidget {
       title: context.l10n.applyToAllTransactions,
       description: context.l10n.applyCategoryToAllDescription(
         matchingRows.length,
-        newCategory,
-        originalCategory,
+        getCategoryTranslation(context, newCategory),
+        getCategoryTranslation(context, originalCategory),
       ),
       confirmLabel: context.l10n.applyToAll,
       cancelLabel: context.l10n.onlyThisOne,
@@ -781,6 +782,8 @@ class TransactionPreviewTile extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isError = row.errors.isNotEmpty;
     final isDuplicate = row.isDuplicate;
+    final localizedCategory =
+        getCategoryTranslation(context, row.category ?? 'uncategorized');
 
     final amount = (row.amountCents ?? 0) / 100.0;
     final isIncome = (row.type ?? '').toLowerCase() == 'income';
@@ -816,7 +819,7 @@ class TransactionPreviewTile extends StatelessWidget {
               category: row.category ?? 'uncategorized',
               title: row.description?.isNotEmpty == true
                   ? row.description!
-                  : (row.category ?? 'Uncategorized'),
+                  : localizedCategory,
               date: row.date,
               amount: amount,
               currency: row.currency ?? 'USD',

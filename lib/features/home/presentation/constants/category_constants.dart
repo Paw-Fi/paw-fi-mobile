@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_icon_options.dart';
 import 'package:moneko/features/home/presentation/constants/custom_category_style_overrides.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 // Central palette derived from the Moneko brand plus accessible accent colors
 const List<Color> _fallbackPalette = [
@@ -512,13 +513,8 @@ IconData getCategoryIcon(String? category) {
   return categoryIcons[key] ?? Icons.sell;
 }
 
-/// Translates category names to localized strings
-String getCategoryTranslation(BuildContext context, String? category) {
-  final l10n = context.l10n;
-  final rawValue = (category ?? 'uncategorized').trim();
-  final rawKey = rawValue.toLowerCase();
-
-  final translations = <String, String>{
+Map<String, String> _categoryTranslationsFor(AppLocalizations l10n) {
+  return <String, String>{
     // Life & Home
     'groceries': l10n.categoryGroceries,
     'food & drinks': l10n.categoryFoodAndDrinks,
@@ -666,6 +662,60 @@ String getCategoryTranslation(BuildContext context, String? category) {
     'other': l10n.categoryOther,
     'uncategorized': l10n.categoryUncategorized,
   };
+}
+
+final Set<String> _builtinCategoryKeys = <String>{
+  ..._lifeAndHome,
+  ..._travelAndTransport,
+  ..._healthAndWellness,
+  ..._kids,
+  ..._pets,
+  ..._workAndLearning,
+  ..._funAndSocial,
+  ..._moneyInOut,
+  ..._communityAndServices,
+  ..._misc,
+};
+
+final Map<String, String> _builtinCategoryLookupAcrossLocales =
+    _buildBuiltinCategoryLookupAcrossLocales();
+
+Map<String, String> _buildBuiltinCategoryLookupAcrossLocales() {
+  final lookup = <String, String>{};
+  for (final locale in AppLocalizations.supportedLocales) {
+    final l10n = lookupAppLocalizations(locale);
+    final translations = _categoryTranslationsFor(l10n);
+    for (final entry in translations.entries) {
+      final localizedKey = entry.value.trim().toLowerCase();
+      if (localizedKey.isEmpty) continue;
+      lookup.putIfAbsent(localizedKey, () => entry.key);
+    }
+  }
+  return Map<String, String>.unmodifiable(lookup);
+}
+
+String? resolveBuiltinCategoryKeyAcrossLocales(String? category) {
+  final rawValue = (category ?? '').trim();
+  if (rawValue.isEmpty) return null;
+
+  final rawKey = rawValue.toLowerCase();
+  if (_builtinCategoryKeys.contains(rawKey)) {
+    return rawKey;
+  }
+
+  final normalized = normalizeCategory(rawValue);
+  if (_builtinCategoryKeys.contains(normalized)) {
+    return normalized;
+  }
+
+  return _builtinCategoryLookupAcrossLocales[rawKey];
+}
+
+/// Translates category names to localized strings
+String getCategoryTranslation(BuildContext context, String? category) {
+  final rawValue = (category ?? 'uncategorized').trim();
+  final rawKey = rawValue.toLowerCase();
+  final translations = _categoryTranslationsFor(context.l10n);
 
   if (rawKey.isEmpty) {
     return translations['uncategorized'] ?? _titleCase('uncategorized');
@@ -690,30 +740,7 @@ String? resolveBuiltinCategoryKey(BuildContext context, String? category) {
   final rawValue = (category ?? '').trim();
   if (rawValue.isEmpty) return null;
 
-  final rawKey = rawValue.toLowerCase();
-  final builtinCategories = <String>{
-    ...getExpenseCategories(),
-    ...getIncomeCategories(),
-  };
-
-  if (builtinCategories.contains(rawKey)) {
-    return rawKey;
-  }
-
-  final normalized = normalizeCategory(rawValue);
-  if (builtinCategories.contains(normalized)) {
-    return normalized;
-  }
-
-  for (final builtin in builtinCategories) {
-    final localized =
-        getCategoryTranslation(context, builtin).trim().toLowerCase();
-    if (localized == rawKey) {
-      return builtin;
-    }
-  }
-
-  return null;
+  return resolveBuiltinCategoryKeyAcrossLocales(rawValue);
 }
 
 /// Group title translations (English already provided; other locales can fill later)
