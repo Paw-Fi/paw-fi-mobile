@@ -911,8 +911,11 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   /// This is used when the user edits one row's category and wants to apply
   /// the same change to all matching rows in the import.
   void applyCategoryToAllRows(String fromCategory, String toCategory) {
-    final normalizedFrom = (fromCategory.trim().isEmpty) ? 'uncategorized' : fromCategory.trim().toLowerCase();
-    final normalizedTo = (toCategory.trim().isEmpty) ? 'uncategorized' : toCategory.trim();
+    final normalizedFrom = (fromCategory.trim().isEmpty)
+        ? 'uncategorized'
+        : fromCategory.trim().toLowerCase();
+    final normalizedTo =
+        (toCategory.trim().isEmpty) ? 'uncategorized' : toCategory.trim();
 
     if (normalizedFrom == normalizedTo) return;
 
@@ -921,7 +924,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final rowCategory = (row.category?.trim().isEmpty ?? true) ? 'uncategorized' : row.category!.trim().toLowerCase();
+      final rowCategory = (row.category?.trim().isEmpty ?? true)
+          ? 'uncategorized'
+          : row.category!.trim().toLowerCase();
       if (rowCategory == normalizedFrom) {
         rows[i] = row.copyWith(category: normalizedTo);
         changedCount++;
@@ -1132,9 +1137,23 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       ImportTable table, ImportMapping mapping,
       {Set<int>? deletedRowIndices}) {
     final rows = <ImportParsedRow>[];
+    final dateOrderHint = inferDateOrderHint(
+      table.rows,
+      mapping.fieldToColumnIndex[ImportField.date],
+    );
     for (var i = 0; i < table.rows.length; i++) {
-      rows.add(
-          _applyImportDefaults(parseRow(table.rows[i], mapping, index: i)));
+      final parsed = _applyImportDefaults(
+        parseRow(
+          table.rows[i],
+          mapping,
+          index: i,
+          dateOrderHint: dateOrderHint,
+        ),
+      );
+      if (_isSummaryFooterRow(parsed)) {
+        continue;
+      }
+      rows.add(parsed);
     }
 
     final effectiveDeletedRowIndices =
@@ -1230,6 +1249,25 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             ? normalizedCurrency
             : _fallbackImportCurrency();
     return _validateRow(row.copyWith(currency: effectiveCurrency));
+  }
+
+  bool _isSummaryFooterRow(ImportParsedRow row) {
+    if (row.date != null) return false;
+
+    final totalLikePattern = RegExp(
+      r'^(?:sub\s*total|subtotal|grand\s*total|total)\b',
+      caseSensitive: false,
+    );
+
+    for (final rawValue in row.rawValues ?? const <String>[]) {
+      final normalized = rawValue.trim().replaceAll(':', '');
+      if (normalized.isEmpty) continue;
+      if (totalLikePattern.hasMatch(normalized)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   String _fallbackImportCurrency() {

@@ -211,6 +211,8 @@ class ImportMapping {
   bool get hasRequiredFields {
     final hasDate = fieldToColumnIndex.containsKey(ImportField.date);
     final hasAmount = fieldToColumnIndex.containsKey(ImportField.amount) ||
+        fieldToColumnIndex.containsKey(ImportField.debit) ||
+        fieldToColumnIndex.containsKey(ImportField.credit) ||
         (fieldToColumnIndex.containsKey(ImportField.debit) &&
             fieldToColumnIndex.containsKey(ImportField.credit));
     return hasDate && hasAmount;

@@ -309,6 +309,46 @@ void main() {
     expect(row.issues, isNot(contains(RowIssue.missingCurrency)));
   });
 
+  test('summary footer rows are excluded from parsed import rows', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    const table = ImportTable(
+      headers: ['Item', 'Date', 'Expenses'],
+      rows: [
+        ['Resend', '10/01/2025', r'$20'],
+        ['', 'TOTAL:', r'$20'],
+      ],
+    );
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.description: 0,
+        ImportField.date: 1,
+        ImportField.debit: 2,
+      },
+    );
+
+    notifier.state = notifier.state.copyWith(
+      table: table,
+      mapping: mapping,
+    );
+
+    notifier.updateMapping(ImportField.debit, 2);
+
+    final updated = container.read(importWizardProvider).parsedRows;
+    expect(updated, hasLength(1));
+    expect(updated.single.description, 'Resend');
+  });
+
   test('reset clears wizard state back to initial step', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

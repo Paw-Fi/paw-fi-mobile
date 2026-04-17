@@ -110,6 +110,59 @@ void main() {
     expect(parsed.category, 'Food');
   });
 
+  test('parseRow treats a single mapped debit column as an expense', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.description: 0,
+        ImportField.date: 1,
+        ImportField.debit: 2,
+      },
+    );
+    final parsed = parseRow(
+      ['Resend', '10/01/2025', r'$20'],
+      mapping,
+    );
+
+    expect(parsed.isValid, isTrue);
+    expect(parsed.amountCents, 2000);
+    expect(parsed.type, 'expense');
+  });
+
+  test('parseRow respects an inferred day-first date order hint', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.description: 0,
+        ImportField.date: 1,
+        ImportField.debit: 2,
+      },
+    );
+    final parsed = parseRow(
+      ['Resend', '10/01/2025', r'$20'],
+      mapping,
+      dateOrderHint: ImportDateOrderHint.dayMonthYear,
+    );
+
+    expect(parsed.date, DateTime(2025, 1, 10));
+  });
+
+  test(
+      'parseRow infers software tools category from high-confidence SaaS merchants',
+      () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.description: 0,
+        ImportField.date: 1,
+        ImportField.debit: 2,
+      },
+    );
+    final parsed = parseRow(
+      ['Twilio (WhatsApp)', '26/01/2026', r'$99'],
+      mapping,
+    );
+
+    expect(parsed.category, 'software tools');
+  });
+
   test('parseDateValue parses English month with 12-hour time', () {
     final parsed = parseDateValue('Feb 05, 2025 7:08 AM');
 

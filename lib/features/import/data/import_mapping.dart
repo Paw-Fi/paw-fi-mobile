@@ -208,6 +208,8 @@ const _synonyms = <ImportField, List<String>>{
   ],
   ImportField.debit: [
     'debit',
+    'expense',
+    'expenses',
     'debitamount',
     'withdrawal',
     'withdrawals',
@@ -221,6 +223,8 @@ const _synonyms = <ImportField, List<String>>{
   ],
   ImportField.credit: [
     'credit',
+    'income',
+    'incomes',
     'creditamount',
     'deposit',
     'deposits',

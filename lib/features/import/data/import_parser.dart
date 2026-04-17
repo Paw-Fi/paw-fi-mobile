@@ -318,10 +318,17 @@ CsvFormatHint _detectFormatHint(List<String> headers) {
 // Row parsing
 // ---------------------------------------------------------------------------
 
+enum ImportDateOrderHint {
+  auto,
+  monthDayYear,
+  dayMonthYear,
+}
+
 ImportParsedRow parseRow(
   List<String> row,
   ImportMapping mapping, {
   int index = 0,
+  ImportDateOrderHint dateOrderHint = ImportDateOrderHint.auto,
 }) {
   final errors = <String>[];
 
@@ -340,14 +347,14 @@ ImportParsedRow parseRow(
   final typeValue = valueFor(ImportField.type);
   final referenceValue = valueFor(ImportField.reference);
   final balanceValue = valueFor(ImportField.balance);
-  final amountValue =
-      mapping.hasSplitDebitCredit ? null : valueFor(ImportField.amount);
-  final debitValue =
-      mapping.hasSplitDebitCredit ? valueFor(ImportField.debit) : null;
-  final creditValue =
-      mapping.hasSplitDebitCredit ? valueFor(ImportField.credit) : null;
+  final amountValue = valueFor(ImportField.amount);
+  final debitValue = valueFor(ImportField.debit);
+  final creditValue = valueFor(ImportField.credit);
 
-  final parsedDate = parseDateValue(dateValue);
+  final parsedDate = parseDateValue(
+    dateValue,
+    orderHint: dateOrderHint,
+  );
   if (parsedDate == null) {
     errors.add('invalid_date');
   }
@@ -356,16 +363,29 @@ ImportParsedRow parseRow(
   int? parsedAmount;
   if (mapping.hasSplitDebitCredit) {
     parsedAmount = _resolveDebitCreditAmount(debitValue, creditValue);
-  } else {
+  } else if (amountValue != null && amountValue.isNotEmpty) {
     parsedAmount = parseAmountCents(amountValue);
+  } else if ((debitValue?.isNotEmpty ?? false) ||
+      (creditValue?.isNotEmpty ?? false)) {
+    parsedAmount = _resolveSingleDirectionalAmount(
+      debit: debitValue,
+      credit: creditValue,
+    );
+  } else {
+    parsedAmount = null;
   }
 
   if (parsedAmount == null) {
     errors.add('invalid_amount');
   }
 
-  final normalizedCategory =
-      categoryValue?.isNotEmpty == true ? categoryValue : 'uncategorized';
+  final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
+      _normalizeUserFacingImportNote(referenceValue);
+  final normalizedCategory = _resolveCategory(
+    rawCategory: categoryValue,
+    fallbackDescription: finalDescription,
+    resolvedType: _resolveType(typeValue, parsedAmount),
+  );
   final normalizedCurrency = _normalizeCurrencyCode(currencyValue) ??
       _inferCurrencyCodeFromCandidates([
         amountValue,
@@ -374,10 +394,6 @@ ImportParsedRow parseRow(
         balanceValue,
       ]);
   final normalizedType = _resolveType(typeValue, parsedAmount);
-
-  // Compose description: prefer explicit description, fall back to reference.
-  final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
-      _normalizeUserFacingImportNote(referenceValue);
 
   return ImportParsedRow(
     index: index,
@@ -460,6 +476,91 @@ int? _resolveDebitCreditAmount(String? debit, String? credit) {
   return net;
 }
 
+int? _resolveSingleDirectionalAmount({
+  String? debit,
+  String? credit,
+}) {
+  final debitCents =
+      debit != null && debit.isNotEmpty ? parseAmountCents(debit) : null;
+  final creditCents =
+      credit != null && credit.isNotEmpty ? parseAmountCents(credit) : null;
+
+  if (debitCents == null && creditCents == null) return null;
+  if (debitCents != null && debitCents != 0) {
+    return -debitCents.abs();
+  }
+  if (creditCents != null && creditCents != 0) {
+    return creditCents.abs();
+  }
+  return 0;
+}
+
+String _resolveCategory({
+  required String? rawCategory,
+  required String? fallbackDescription,
+  required String resolvedType,
+}) {
+  if (rawCategory != null && rawCategory.trim().isNotEmpty) {
+    return rawCategory.trim();
+  }
+
+  final inferred = _inferCategoryFromDescription(
+    fallbackDescription,
+    type: resolvedType,
+  );
+  return inferred ?? 'uncategorized';
+}
+
+String? _inferCategoryFromDescription(
+  String? description, {
+  required String type,
+}) {
+  if (type == 'income') return null;
+
+  final normalized = description?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) return null;
+
+  const vendorCategoryMap = <String, String>{
+    'twilio': 'software tools',
+    'resend': 'software tools',
+    'windsurf': 'software tools',
+    'github': 'software tools',
+    'gitlab': 'software tools',
+    'vercel': 'software tools',
+    'netlify': 'software tools',
+    'cloudflare': 'software tools',
+    'digitalocean': 'software tools',
+    'notion': 'software tools',
+    'slack': 'software tools',
+    'zoom': 'software tools',
+    'figma': 'software tools',
+    'openai': 'software tools',
+    'anthropic': 'software tools',
+    'chatgpt': 'software tools',
+    'claude': 'software tools',
+    'cursor': 'software tools',
+    'apple developer': 'licensing & fees',
+    'developer program': 'licensing & fees',
+  };
+
+  for (final entry in vendorCategoryMap.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+
+  if (RegExp(
+    r'\b(software|saas|subscription|developer|license|licensing)\b',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return normalized.contains('license') || normalized.contains('licensing')
+        ? 'licensing & fees'
+        : 'software tools';
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Date parsing
 // ---------------------------------------------------------------------------
@@ -522,7 +623,10 @@ final List<String> _kDateFormats = [
   'MMMM d, yyyy HH:mm',
 ];
 
-DateTime? parseDateValue(String? value) {
+DateTime? parseDateValue(
+  String? value, {
+  ImportDateOrderHint orderHint = ImportDateOrderHint.auto,
+}) {
   if (value == null || value.trim().isEmpty) return null;
 
   // Strip leading/trailing quotes that some exporters leave in.
@@ -548,8 +652,10 @@ DateTime? parseDateValue(String? value) {
       )
       .trim();
 
-  // Try each date format.
-  for (final format in _kDateFormats) {
+  // Try each date format, preferring an inferred slash-date order when we have
+  // reliable evidence from the file (for example an "Expenses" export using
+  // dd/MM/yyyy throughout).
+  for (final format in _orderedDateFormats(orderHint)) {
     for (final locale in [null, 'en_US']) {
       try {
         final parsed = locale == null
@@ -560,6 +666,104 @@ DateTime? parseDateValue(String? value) {
     }
   }
   return null;
+}
+
+List<String> _orderedDateFormats(ImportDateOrderHint orderHint) {
+  if (orderHint == ImportDateOrderHint.auto) {
+    return _kDateFormats;
+  }
+
+  const monthDayFormats = <String>{
+    'MM/dd/yyyy',
+    'M/d/yyyy',
+    'MM/dd/yy',
+    'M/d/yy',
+    'MM-dd-yyyy',
+    'MM-dd-yy',
+    'MM/dd/yyyy HH:mm:ss',
+    'MM/dd/yyyy h:mm a',
+  };
+  const dayMonthFormats = <String>{
+    'dd/MM/yyyy',
+    'd/M/yyyy',
+    'dd/MM/yy',
+    'd/M/yy',
+    'dd-MM-yyyy',
+    'd-M-yyyy',
+    'dd-MM-yy',
+    'dd.MM.yyyy',
+    'd.M.yyyy',
+    'dd.MM.yy',
+    'dd/MM/yyyy HH:mm:ss',
+    'dd/MM/yyyy h:mm a',
+    'dd.MM.yyyy HH:mm:ss',
+    'dd.MM.yyyy h:mm a',
+  };
+
+  final preferred = orderHint == ImportDateOrderHint.dayMonthYear
+      ? dayMonthFormats
+      : monthDayFormats;
+  final secondary = orderHint == ImportDateOrderHint.dayMonthYear
+      ? monthDayFormats
+      : dayMonthFormats;
+
+  final ordered = <String>[];
+  for (final format in _kDateFormats) {
+    if (preferred.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  for (final format in _kDateFormats) {
+    if (!preferred.contains(format) && !secondary.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  for (final format in _kDateFormats) {
+    if (secondary.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  return ordered;
+}
+
+ImportDateOrderHint inferDateOrderHint(
+  List<List<String>> rows,
+  int? dateColumnIndex,
+) {
+  if (dateColumnIndex == null || dateColumnIndex < 0) {
+    return ImportDateOrderHint.auto;
+  }
+
+  var dayFirstSignals = 0;
+  var monthFirstSignals = 0;
+
+  final slashDatePattern = RegExp(
+    r'^\s*(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})',
+  );
+
+  for (final row in rows) {
+    if (dateColumnIndex >= row.length) continue;
+    final match = slashDatePattern.firstMatch(row[dateColumnIndex].trim());
+    if (match == null) continue;
+
+    final first = int.tryParse(match.group(1) ?? '');
+    final second = int.tryParse(match.group(2) ?? '');
+    if (first == null || second == null) continue;
+
+    if (first > 12 && second <= 12) {
+      dayFirstSignals++;
+    } else if (second > 12 && first <= 12) {
+      monthFirstSignals++;
+    }
+  }
+
+  if (dayFirstSignals > 0 && monthFirstSignals == 0) {
+    return ImportDateOrderHint.dayMonthYear;
+  }
+  if (monthFirstSignals > 0 && dayFirstSignals == 0) {
+    return ImportDateOrderHint.monthDayYear;
+  }
+  return ImportDateOrderHint.auto;
 }
 
 // ---------------------------------------------------------------------------
