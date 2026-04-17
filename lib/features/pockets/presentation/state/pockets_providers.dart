@@ -543,7 +543,7 @@ Future<List<RecurringTransaction>> loadScopedRecurringTransactions({
 // back to the correct wallet without account_id, and removing it reintroduces
 // the "wallet recurring transactions are missing" regression.
 const _recurringExpensesSelectFields =
-    'id, date, category, raw_text, breakdown, source, amount_cents, '
+    'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
     'currency, owner_type, privacy_scope, household_id, is_recurring, '
     'user_id, split_group_id, account_id, recurrence_rule, type, '
     'attachments, created_at, updated_at';

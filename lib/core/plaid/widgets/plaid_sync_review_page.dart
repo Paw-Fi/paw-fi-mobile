@@ -532,7 +532,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         .from('expenses')
         .select(
           'id, contact_id, user_id, household_id, date, amount_cents, currency, '
-          'category, created_at, updated_at, raw_text, bank_account_id, '
+          'category, created_at, updated_at, raw_text, merchant, bank_account_id, '
           'account_id, type, is_recurring, recurrence_rule',
         )
         .inFilter('id', updatedIds)
@@ -566,7 +566,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         .from('expenses')
         .select(
           'id, contact_id, user_id, household_id, date, amount_cents, currency, '
-          'category, created_at, updated_at, raw_text, split_group_id, '
+          'category, created_at, updated_at, raw_text, merchant, split_group_id, '
           'bank_account_id, account_id, type, is_recurring',
         )
         .eq('id', expenseId)
