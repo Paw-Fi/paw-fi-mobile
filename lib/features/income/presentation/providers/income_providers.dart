@@ -162,6 +162,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? source,
     String ownerType = 'me',
     String privacyScope = 'full',
@@ -191,6 +192,7 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
           if (description != null && description.isNotEmpty)
             'description': description,
+          if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
           if (source != null && source.isNotEmpty) 'source': source,
           'ownerType': ownerType,
           'privacyScope': privacyScope,

@@ -271,6 +271,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       rawText: updates.containsKey('raw_text')
           ? (updates['raw_text'] as String?)
           : expense.rawText,
+      merchant: updates.containsKey('merchant')
+          ? (updates['merchant'] as String?)
+          : expense.merchant,
       date: updates['date'] != null
           ? (() {
               final value = updates['date']?.toString();

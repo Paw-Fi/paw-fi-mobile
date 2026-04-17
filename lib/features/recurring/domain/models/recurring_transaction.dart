@@ -35,6 +35,7 @@ class RecurringTransaction {
   final DateTime date;
   final String category;
   final String? description;
+  final String? merchant;
   final String? source; // For income
   final double amount; // In major units
   final String currency;
@@ -56,6 +57,7 @@ class RecurringTransaction {
     required this.date,
     required this.category,
     this.description,
+    this.merchant,
     this.source,
     required this.amount,
     required this.currency,
@@ -132,6 +134,7 @@ class RecurringTransaction {
       date: parseDateOnly(json['date']),
       category: _sanitizeRequired(rawCategory, fallback: 'Uncategorized'),
       description: sanitizedDescription,
+      merchant: _sanitizeOptional(json['merchant'] as String?),
       source: _sanitizeOptional(json['source'] as String?),
       amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
@@ -206,6 +209,7 @@ class RecurringTransaction {
       'date': formatDateOnlyYmd(date),
       'category': category,
       'description': description,
+      'merchant': merchant,
       'source': source,
       'amountMajor': amount,
       'currency': currency,
@@ -230,6 +234,7 @@ class RecurringTransaction {
     DateTime? date,
     String? category,
     String? description,
+    String? merchant,
     String? source,
     double? amount,
     String? currency,
@@ -251,6 +256,7 @@ class RecurringTransaction {
       date: date ?? this.date,
       category: category ?? this.category,
       description: description ?? this.description,
+      merchant: merchant ?? this.merchant,
       source: source ?? this.source,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,

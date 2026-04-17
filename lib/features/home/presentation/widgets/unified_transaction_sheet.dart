@@ -196,6 +196,7 @@ class _UnifiedTransactionSheetState
   String? _editedCurrency;
   DateTime? _editedDate;
   String? _editedDescription;
+  String? _editedMerchant;
 
   void debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -422,6 +423,12 @@ class _UnifiedTransactionSheetState
     if (_editedDescription != null) return _editedDescription;
     if (isNewExpense) return widget.newExpense!.description;
     return widget.existingExpense!.rawText;
+  }
+
+  String? get merchant {
+    if (_editedMerchant != null) return _editedMerchant;
+    if (isNewExpense) return widget.newExpense!.merchant;
+    return widget.existingExpense!.merchant;
   }
 
   String? get receiptImageUrl {
@@ -766,6 +773,9 @@ class _UnifiedTransactionSheetState
     final displayDescription = isNewExpense && pendingExpense != null
         ? pendingExpense.description
         : description;
+    final displayMerchant = isNewExpense && pendingExpense != null
+        ? pendingExpense.merchant
+        : merchant;
     final displayBreakdown = isNewExpense
         ? (pendingExpense?.breakdown ?? widget.newExpense?.breakdown)
         : widget.existingExpense?.breakdown;
@@ -950,6 +960,16 @@ class _UnifiedTransactionSheetState
                               onTap: () => _handleEditCategory(
                                   displayCategory, userCategoryLists),
                               isFirst: true,
+                            ),
+                            _buildDivider(colorScheme),
+                            MonekoDisclosureRow(
+                              label: 'Merchant',
+                              value: displayMerchant?.trim().isNotEmpty == true
+                                  ? displayMerchant!.trim()
+                                  : context.l10n.tapToSet,
+                              onTap: () => _handleEditMerchant(displayMerchant),
+                              isValuePlaceholder:
+                                  displayMerchant?.trim().isNotEmpty != true,
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
@@ -2163,6 +2183,44 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  Future<void> _handleEditMerchant(String? currentMerchant) async {
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Merchant (optional)',
+      description: null,
+      confirmLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        initialValue: currentMerchant?.trim() ?? '',
+        placeholder: 'Add merchant',
+        isRequired: false,
+      ),
+    );
+
+    if (!mounted ||
+        result == null ||
+        !result.confirmed ||
+        result.text == null) {
+      return;
+    }
+
+    final value = result.text!.trim();
+    final normalized = value.isEmpty ? null : value;
+
+    if (isNewExpense) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state =
+            current.copyWith(merchant: normalized);
+      }
+      return;
+    }
+
+    setState(() {
+      _editedMerchant = normalized;
+    });
+  }
+
   Future<void> _loadMembers(String householdId) async {
     debugPrint('👥 [LOAD MEMBERS] Starting member load');
     debugPrint(
@@ -2705,6 +2763,7 @@ class _UnifiedTransactionSheetState
                 currency: expense.currency,
                 date: expenseDateTime,
                 description: expense.description,
+                merchant: expense.merchant,
                 householdId: effectiveHouseholdId,
                 accountId: selectedFinancialAccountId,
               );
@@ -2908,6 +2967,12 @@ class _UnifiedTransactionSheetState
           final trimmedDescription = _editedDescription!.trim();
           updates['raw_text'] =
               trimmedDescription.isEmpty ? null : trimmedDescription;
+        }
+
+        if (_editedMerchant != null) {
+          final trimmedMerchant = _editedMerchant!.trim();
+          updates['merchant'] =
+              trimmedMerchant.isEmpty ? null : trimmedMerchant;
         }
 
         updates['account_id'] = selectedFinancialAccountId;
