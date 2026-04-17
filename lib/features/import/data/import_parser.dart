@@ -5,6 +5,7 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/features/import/domain/import_models.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 final RegExp _opaqueImportIdPattern = RegExp(
   r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Z0-9_-]{10,})$',
@@ -171,7 +172,10 @@ ImportTable parseImportTable(String content, {bool hasHeader = true}) {
 
   List<String> headers;
   List<List<String>> dataRows;
-  if (hasHeader && usableRows.isNotEmpty) {
+  final headerLikely = hasHeader &&
+      usableRows.isNotEmpty &&
+      _looksLikeHeaderRow(usableRows.first);
+  if (headerLikely) {
     headers = usableRows.first;
     dataRows = usableRows.skip(1).toList();
   } else {
@@ -260,6 +264,88 @@ int _detectHeaderRowIndex(List<List<String>> rows) {
     }
   }
   return bestIndex;
+}
+
+const Set<String> _knownImportHeaderTokens = {
+  'item',
+  'date',
+  'time',
+  'datetime',
+  'timestamp',
+  'description',
+  'details',
+  'memo',
+  'note',
+  'notes',
+  'amount',
+  'expenses',
+  'expense',
+  'income',
+  'debit',
+  'credit',
+  'category',
+  'currency',
+  'type',
+  'balance',
+  'reference',
+  'payee',
+  'gross',
+  'fee',
+  'net',
+};
+
+bool _looksLikeHeaderRow(List<String> row) {
+  final nonEmpty =
+      row.map((cell) => cell.trim()).where((cell) => cell.isNotEmpty).toList();
+  if (nonEmpty.isEmpty) return false;
+
+  final normalized = nonEmpty
+      .map((cell) => cell.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''))
+      .toList();
+  final matchedHeaderCells = normalized.where((cell) {
+    return _knownImportHeaderTokens.any(
+      (token) => cell == token || (token.length >= 5 && cell.contains(token)),
+    );
+  }).length;
+  if (matchedHeaderCells > 0) return true;
+
+  final dataLikeCells =
+      nonEmpty.where(_looksLikeDataCellForHeaderDetection).length;
+  if (dataLikeCells >= (nonEmpty.length / 2).ceil()) {
+    return false;
+  }
+
+  final shortTextCells = nonEmpty.where((cell) {
+    return RegExp(r'[A-Za-z]').hasMatch(cell) &&
+        !RegExp(r'\d').hasMatch(cell) &&
+        cell.split(RegExp(r'\s+')).length <= 3;
+  }).length;
+  return shortTextCells >= (nonEmpty.length / 2).ceil();
+}
+
+bool _looksLikeDataCellForHeaderDetection(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return false;
+
+  if (parseDateValue(trimmed) != null) return true;
+  if (parseAmountCents(trimmed) != null) return true;
+  if (_normalizeCurrencyCode(trimmed) != null) return true;
+
+  const typeTokens = {
+    'income',
+    'expense',
+    'debit',
+    'credit',
+    'dr',
+    'cr',
+    'inflow',
+    'outflow',
+    'deposit',
+    'withdrawal',
+    'received',
+    'paid',
+  };
+  return typeTokens.contains(trimmed.toLowerCase());
 }
 
 // ---------------------------------------------------------------------------
@@ -412,45 +498,7 @@ String? _normalizeCurrencyCode(String? value) {
   if (value == null) return null;
   final trimmed = value.trim().replaceAll(RegExp("[\"']"), '');
   if (trimmed.isEmpty) return null;
-
-  final upper = trimmed.toUpperCase();
-  const directAliases = <String, String>{
-    r'$': 'USD',
-    'US\$': 'USD',
-    'USD': 'USD',
-    '€': 'EUR',
-    'EUR': 'EUR',
-    '£': 'GBP',
-    'GBP': 'GBP',
-    '¥': 'JPY',
-    'JPY': 'JPY',
-    '₹': 'INR',
-    'INR': 'INR',
-    '₨': 'PKR',
-    'PKR': 'PKR',
-    '₽': 'RUB',
-    'RUB': 'RUB',
-    '₩': 'KRW',
-    'KRW': 'KRW',
-    '₺': 'TRY',
-    'TRY': 'TRY',
-    '₴': 'UAH',
-    'UAH': 'UAH',
-    '₫': 'VND',
-    'VND': 'VND',
-    '฿': 'THB',
-    'THB': 'THB',
-  };
-
-  final aliasMatch = directAliases[upper];
-  if (aliasMatch != null) return aliasMatch;
-
-  final codeMatch = RegExp(r'(?<![A-Z])([A-Z]{3})(?![A-Z])').firstMatch(upper);
-  if (codeMatch != null) {
-    return codeMatch.group(1);
-  }
-
-  return null;
+  return extractCanonicalCurrencyCode(trimmed);
 }
 
 String? _inferCurrencyCodeFromCandidates(Iterable<String?> candidates) {
@@ -776,6 +824,7 @@ int? parseAmountCents(String? value) {
 
   // Strip surrounding quotes.
   cleaned = cleaned.replaceAll(RegExp("[\"']"), '');
+  cleaned = cleaned.replaceAll(RegExp(r'[−–—]'), '-');
 
   // Accounting-style negatives: "(1,234.56)" or "(1.234,56)"
   var negative = false;
@@ -789,13 +838,15 @@ int? parseAmountCents(String? value) {
   // (e.g. "USD", "EUR") that appear as leading/trailing text.
   cleaned = cleaned
       .replaceAll(RegExp(r'\p{Sc}', unicode: true), '')
-      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: true), '')
-      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: true), '')
+      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: false), '')
       .trim();
 
   // Detect leading minus after symbol stripping.
   if (cleaned.startsWith('-')) {
     negative = true;
+    cleaned = cleaned.substring(1).trim();
+  } else if (cleaned.startsWith('+')) {
     cleaned = cleaned.substring(1).trim();
   }
 
@@ -815,6 +866,12 @@ int? parseAmountCents(String? value) {
 ///   - Plain: no separators                                      → "1234.56"
 double? _parseNumericString(String value) {
   if (value.isEmpty) return null;
+
+  final normalizedGrouping = value.replaceAll(
+    RegExp(r"(?<=\d)[\s\u00A0\u202F'’](?=\d)"),
+    '',
+  );
+  value = normalizedGrouping;
 
   final hasDot = value.contains('.');
   final hasComma = value.contains(',');

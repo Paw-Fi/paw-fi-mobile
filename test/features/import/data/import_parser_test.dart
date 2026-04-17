@@ -1,7 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_test/flutter_test.dart';
+import 'package:moneko/features/import/data/import_mapping.dart';
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:intl/intl.dart';
@@ -91,6 +93,17 @@ void main() {
     expect(table.rows.length, 2);
     expect(table.rows.first[1], 'first line  \nsecond line');
     expect(table.rows.last[1], 'single line');
+  });
+
+  test('parseImportTable keeps first row when file has no header row', () {
+    const content = '2025-02-05,-12.50,Coffee shop\n'
+        '2025-02-06,-9.00,Bakery';
+
+    final table = parseImportTable(content);
+
+    expect(table.headers, ['Column 1', 'Column 2', 'Column 3']);
+    expect(table.rows.length, 2);
+    expect(table.rows.first, ['2025-02-05', '-12.50', 'Coffee shop']);
   });
 
   test('parseRow maps required fields and validates', () {
@@ -249,6 +262,25 @@ void main() {
     expect(parsed.amountCents, 1250);
   });
 
+  test('parseRow recognizes RUR aliases from amount text in local imports', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.debit: 1,
+      },
+    );
+
+    final parsed = parseRow(
+      ['04.01.2026', '1 110,00 RUR'],
+      mapping,
+      dateOrderHint: ImportDateOrderHint.dayMonthYear,
+    );
+
+    expect(parsed.currency, 'RUB');
+    expect(parsed.type, 'expense');
+    expect(parsed.amountCents, 111000);
+  });
+
   test('parseRow does not use opaque reference ids as description fallback',
       () {
     const mapping = ImportMapping(
@@ -276,5 +308,63 @@ void main() {
     final parsed = parseRow(row, mapping);
 
     expect(parsed.description, 'Blue Bottle coffee beans');
+  });
+
+  test('actual website expenses CSV auto-maps and stays expense-only',
+      () async {
+    final content =
+        await File('../Moneko Expenses - Website.csv').readAsString();
+    final table = parseImportTable(content);
+    final sampleRows =
+        table.rows.length > 10 ? table.rows.sublist(0, 10) : table.rows;
+    final mappingResult = autoMapFieldsWithConfidence(
+      table.headers,
+      sampleRows: sampleRows,
+    );
+    final dateOrderHint = inferDateOrderHint(
+      table.rows,
+      mappingResult.mapping.fieldToColumnIndex[ImportField.date],
+    );
+
+    final parsed = table.rows
+        .map(
+          (row) => parseRow(
+            row,
+            mappingResult.mapping,
+            dateOrderHint: dateOrderHint,
+          ),
+        )
+        .where((row) => row.amountCents != null)
+        .toList(growable: false);
+
+    expect(mappingResult.mapping.fieldToColumnIndex[ImportField.date], 1);
+    expect(mappingResult.mapping.fieldToColumnIndex[ImportField.debit], 2);
+    expect(
+      mappingResult.mapping.fieldToColumnIndex.containsKey(ImportField.amount),
+      isFalse,
+    );
+    expect(parsed, isNotEmpty);
+    expect(parsed.every((row) => row.type == 'expense'), isTrue);
+  });
+
+  test('headerless exports still auto-map date and amount columns', () {
+    const content = '2025-02-05,-12.50,Coffee shop\n'
+        '2025-02-06,-9.00,Bakery';
+    final table = parseImportTable(content);
+    final mappingResult = autoMapFieldsWithConfidence(
+      table.headers,
+      sampleRows: table.rows,
+    );
+
+    expect(mappingResult.mapping.fieldToColumnIndex[ImportField.date], 0);
+    expect(mappingResult.mapping.fieldToColumnIndex[ImportField.amount], 1);
+  });
+
+  test('parseAmountCents handles spaced, apostrophe, and unicode-minus values',
+      () {
+    expect(parseAmountCents('1 234,56'), 123456);
+    expect(parseAmountCents("1'234.56"), 123456);
+    expect(parseAmountCents('−1 234,56'), -123456);
+    expect(parseAmountCents('1 234,56'), 123456);
   });
 }
