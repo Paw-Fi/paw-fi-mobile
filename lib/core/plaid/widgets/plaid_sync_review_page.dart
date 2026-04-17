@@ -620,7 +620,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         .from('expenses')
         .select(
           'id, contact_id, user_id, household_id, date, amount_cents, currency, '
-          'category, created_at, updated_at, raw_text, bank_account_id, '
+          'category, created_at, updated_at, raw_text, merchant, bank_account_id, '
           'account_id, type, is_recurring, recurrence_rule',
         )
         .inFilter('bank_account_id', bankAccountIds)
@@ -1320,7 +1320,7 @@ class _MonthSection extends StatelessWidget {
                   child: buildExpenseTransactionTile(
                     context: context,
                     category: tx.expense.category,
-                    rawText: tx.expense.rawText,
+                    rawText: tx.expense.rawText ?? tx.expense.merchant,
                     date: tx.expense.date,
                     amount: tx.expense.amount,
                     currency: tx.expense.currency ?? 'USD',

@@ -89,6 +89,7 @@ ParsedSyncedTransactions parseSyncedTransactionPayload(dynamic payload) {
             ? DateTime.parse(map['updated_at'] as String)
             : null,
         rawText: map['raw_text'] as String?,
+        merchant: map['merchant'] as String?,
         receiptImageUrl: null,
         sharedMemberIds: null,
         splitGroupId: null,

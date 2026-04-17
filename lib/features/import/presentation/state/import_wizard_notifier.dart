@@ -1034,6 +1034,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
           DateTime(row.date!.year, row.date!.month, row.date!.day, 12);
+      final merchantLabel = row.description?.trim();
+      final hasValidMerchantLabel = merchantLabel != null &&
+          merchantLabel.isNotEmpty &&
+          merchantLabel.length <= 255;
 
       return <String, dynamic>{
         'type': row.type ?? 'expense',
@@ -1044,6 +1048,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         if (effectiveAccountId != null) 'accountId': effectiveAccountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         if (row.description != null) 'description': row.description,
+        if (hasValidMerchantLabel) 'merchant': merchantLabel,
       };
     }).toList(growable: false);
 

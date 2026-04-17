@@ -19,7 +19,6 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/bank_connection.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_debug_tracing.dart';
@@ -160,12 +159,10 @@ class AccountsPage extends HookConsumerWidget {
     final shouldShowConnectBankButton = _isPlaidSupportedTimezone(
       preferredTimezone,
     );
-    final subscription = ref.watch(subscriptionNotifierProvider).valueOrNull;
-    final isConvertedPaidUser =
-        subscription?.status == 'active' && !(subscription?.isFreePlan ?? true);
     final bankConnectionsAsync = isPreviewMode
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);
+    final isManualSyncingState = useState<bool>(false);
 
     useEffect(() {
       pageTrace.mark('wallets-async-state', {
@@ -233,17 +230,21 @@ class AccountsPage extends HookConsumerWidget {
           (connection) => connection.needsReconnect,
         )
         .toList(growable: false);
-    final refreshEligiblePlaidConnections = scopedPlaidConnections
+    final manualSyncCandidates = scopedPlaidConnections
         .where(
-          (connection) =>
-              isConvertedPaidUser &&
-              connection.isHealthy &&
-              !connection.needsReconnect &&
-              (connection.nextManualRefreshEligibleAt == null ||
-                  connection.nextManualRefreshEligibleAt!
-                      .isBefore(DateTime.now())),
+          (connection) => connection.isHealthy && !connection.needsReconnect,
         )
         .toList(growable: false);
+    final nowUtc = DateTime.now().toUtc();
+    final hasManualSyncEligibleConnection = manualSyncCandidates.any(
+      (connection) => _manualSyncRemaining(connection, nowUtc) == null,
+    );
+    final latestSuccessfulSyncAt =
+        _latestSuccessfulSyncAt(scopedPlaidConnections);
+    final nearestManualSyncReadyIn = _nearestManualSyncReadyIn(
+      manualSyncCandidates,
+      nowUtc,
+    );
     final readyForUsefulPaint =
         walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
     final didLogUsefulPaintRef = useRef<bool>(false);
@@ -601,80 +602,161 @@ class AccountsPage extends HookConsumerWidget {
                           ),
                         ),
                       ),
-                      if (scopedPlaidConnections.isNotEmpty)
-                        PopupMenuButton<_PlaidConnectionMenuAction>(
-                          tooltip: 'More bank actions',
-                          onSelected: (action) async {
-                            if (action !=
-                                _PlaidConnectionMenuAction.requestRefresh) {
-                              return;
-                            }
-
-                            if (!isConvertedPaidUser) {
-                              AppToast.info(
-                                context,
-                                'Manual bank refresh is available after your trial converts to a paid subscription.',
-                              );
-                              return;
-                            }
-
-                            final selectedConnection =
-                                await _selectRefreshBankConnection(
-                              context,
-                              refreshEligiblePlaidConnections,
-                            );
-                            if (selectedConnection == null ||
-                                !context.mounted) {
-                              return;
-                            }
-
-                            final response = await supabase.functions.invoke(
-                              'plaid-item-control',
-                              body: {
-                                'action': 'request_refresh',
-                                'connectionId': selectedConnection.id,
-                              },
-                            );
-                            final payload =
-                                response.data as Map<String, dynamic>?;
-                            if (response.status >= 400) {
-                              if (!context.mounted) {
-                                return;
-                              }
-                              AppToast.error(
-                                context,
-                                payload?['error']?.toString() ??
-                                    'Could not request a bank refresh right now.',
-                              );
-                              return;
-                            }
-
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ref.invalidate(bankConnectionsProvider);
-                            AppToast.info(
-                              context,
-                              'Bank update requested. Plaid may take a while before new transactions appear.',
-                            );
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem<_PlaidConnectionMenuAction>(
-                              value: _PlaidConnectionMenuAction.requestRefresh,
-                              enabled:
-                                  refreshEligiblePlaidConnections.isNotEmpty,
-                              child: const Text('Ask bank for update'),
-                            ),
-                          ],
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Icon(
-                              Icons.more_horiz_rounded,
-                              color: colorScheme.mutedForeground,
-                            ),
+                    ],
+                  ),
+                if (manualSyncCandidates.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: colorScheme.sheetBackground,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colorScheme.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                latestSuccessfulSyncAt == null
+                                    ? 'Synced never'
+                                    : 'Synced ${_formatRelativeTimeAgo(nowUtc, latestSuccessfulSyncAt)} ago',
+                                style: TextStyle(
+                                  color: colorScheme.foreground,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                nearestManualSyncReadyIn == null
+                                    ? 'Sync now'
+                                    : 'Sync available in ${_formatDurationCompact(nearestManualSyncReadyIn)}',
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                    ],
+                        const SizedBox(width: 12),
+                        FilledButton.icon(
+                          onPressed: isManualSyncingState.value
+                              ? null
+                              : () async {
+                                  if (isPreviewMode) {
+                                    AppToast.info(
+                                      context,
+                                      context.l10n.previewMockUpdatesApplied,
+                                    );
+                                    return;
+                                  }
+
+                                  final selectedConnection =
+                                      await _selectManualSyncBankConnection(
+                                    context,
+                                    manualSyncCandidates,
+                                    nowUtc,
+                                  );
+                                  if (selectedConnection == null ||
+                                      !context.mounted) {
+                                    return;
+                                  }
+
+                                  final remaining = _manualSyncRemaining(
+                                    selectedConnection,
+                                    nowUtc,
+                                  );
+                                  if (remaining != null) {
+                                    AppToast.info(
+                                      context,
+                                      'You can sync this bank once every 24 hours. Try again in ${_formatDurationCompact(remaining)}.',
+                                    );
+                                    return;
+                                  }
+
+                                  isManualSyncingState.value = true;
+                                  try {
+                                    final response =
+                                        await supabase.functions.invoke(
+                                      'plaid-sync-transactions',
+                                      body: {
+                                        'connectionId': selectedConnection.id,
+                                      },
+                                    );
+                                    final payload =
+                                        response.data as Map<String, dynamic>?;
+                                    if (response.status >= 400) {
+                                      if (!context.mounted) {
+                                        return;
+                                      }
+                                      AppToast.error(
+                                        context,
+                                        payload?['error']?.toString() ??
+                                            'Could not sync this bank right now.',
+                                      );
+                                      return;
+                                    }
+
+                                    final summary = payload?['summary']
+                                        as Map<String, dynamic>?;
+                                    final inserted =
+                                        _intFromDynamic(summary?['inserted']);
+                                    final updated =
+                                        _intFromDynamic(summary?['updated']);
+
+                                    ref.invalidate(bankConnectionsProvider);
+                                    await ref
+                                        .read(scopedWalletsProvider.notifier)
+                                        .refreshFromNetwork();
+                                    await ref
+                                        .read(
+                                            walletsPageStateProvider(scopeQuery)
+                                                .notifier)
+                                        .refresh();
+
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    AppToast.success(
+                                      context,
+                                      inserted + updated > 0
+                                          ? 'Sync completed. Added/updated ${inserted + updated} transactions.'
+                                          : 'Sync completed. No new transactions yet.',
+                                    );
+                                  } catch (error) {
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    AppToast.error(
+                                      context,
+                                      ErrorHandler.getUserFriendlyMessage(
+                                          error),
+                                    );
+                                  } finally {
+                                    isManualSyncingState.value = false;
+                                  }
+                                },
+                          icon: isManualSyncingState.value
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.sync_rounded, size: 18),
+                          label: Text(
+                            isManualSyncingState.value
+                                ? 'Syncing...'
+                                : hasManualSyncEligibleConnection
+                                    ? 'Sync now'
+                                    : 'Locked',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -1151,7 +1233,7 @@ class _WalletAccountStack extends HookConsumerWidget {
     const gap = 20.0;
 
     const bottomBuffer = 0.0;
-    
+
     int safeSelectedIdx = orderedAccounts.indexWhere((a) => a.id == selectedId);
     if (safeSelectedIdx == -1 && orderedAccounts.isNotEmpty) {
       safeSelectedIdx = orderedAccounts.length - 1;
@@ -1160,24 +1242,30 @@ class _WalletAccountStack extends HookConsumerWidget {
     double calculateStackHeight() {
       if (orderedAccounts.isEmpty) return 0.0;
       if (orderedAccounts.length == 1) return expandedCardHeight + bottomBuffer;
-      
+
       if (safeSelectedIdx == orderedAccounts.length - 1) {
-        return safeSelectedIdx * tightSpacing + expandedCardHeight + bottomBuffer;
+        return safeSelectedIdx * tightSpacing +
+            expandedCardHeight +
+            bottomBuffer;
       }
-      return safeSelectedIdx * tightSpacing + 
-             expandedCardHeight + 
-             gap + 
-             (orderedAccounts.length - 2 - safeSelectedIdx) * tightSpacing + 
-             unselectedCardHeight + 
-             bottomBuffer;
+      return safeSelectedIdx * tightSpacing +
+          expandedCardHeight +
+          gap +
+          (orderedAccounts.length - 2 - safeSelectedIdx) * tightSpacing +
+          unselectedCardHeight +
+          bottomBuffer;
     }
+
     final stackHeight = calculateStackHeight();
 
     double getTop(int index, WalletEntity wallet) {
       if (index <= safeSelectedIdx) {
         return index * tightSpacing;
       } else {
-        return safeSelectedIdx * tightSpacing + expandedCardHeight + gap + (index - safeSelectedIdx - 1) * tightSpacing;
+        return safeSelectedIdx * tightSpacing +
+            expandedCardHeight +
+            gap +
+            (index - safeSelectedIdx - 1) * tightSpacing;
       }
     }
 
@@ -1515,14 +1603,15 @@ Future<BankConnection?> _selectReconnectBankConnection(
   );
 }
 
-Future<BankConnection?> _selectRefreshBankConnection(
+Future<BankConnection?> _selectManualSyncBankConnection(
   BuildContext context,
   List<BankConnection> connections,
+  DateTime nowUtc,
 ) async {
   if (connections.isEmpty) {
     AppToast.info(
       context,
-      'No connected bank is currently eligible for a manual refresh.',
+      'No connected bank is available for manual sync right now.',
     );
     return null;
   }
@@ -1545,7 +1634,7 @@ Future<BankConnection?> _selectRefreshBankConnection(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Choose a bank to refresh',
+                'Choose a bank to sync',
                 style: TextStyle(
                   color: colorScheme.foreground,
                   fontSize: 18,
@@ -1554,7 +1643,7 @@ Future<BankConnection?> _selectRefreshBankConnection(
               ),
               const SizedBox(height: 8),
               Text(
-                'This asks Plaid to request fresh data from the bank. It can take minutes or longer before anything changes.',
+                'Manual sync pulls the latest available transactions for one connected bank.',
                 style: TextStyle(
                   color: colorScheme.mutedForeground,
                 ),
@@ -1568,7 +1657,11 @@ Future<BankConnection?> _selectRefreshBankConnection(
                     color: colorScheme.primary,
                   ),
                   title: Text(connection.displayName),
-                  subtitle: const Text('Manual refresh available'),
+                  subtitle: Text(
+                    _manualSyncRemaining(connection, nowUtc) == null
+                        ? 'Sync now available'
+                        : 'Available in ${_formatDurationCompact(_manualSyncRemaining(connection, nowUtc)!)}',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).pop(connection),
                 ),
@@ -1580,8 +1673,90 @@ Future<BankConnection?> _selectRefreshBankConnection(
   );
 }
 
-enum _PlaidConnectionMenuAction {
-  requestRefresh,
+Duration? _manualSyncRemaining(BankConnection connection, DateTime nowUtc) {
+  final lastSyncAt = connection.lastSuccessfulSyncAt?.toUtc();
+  if (lastSyncAt == null) {
+    return null;
+  }
+
+  final nextEligibleAt = lastSyncAt.add(const Duration(hours: 24));
+  if (!nextEligibleAt.isAfter(nowUtc)) {
+    return null;
+  }
+
+  return nextEligibleAt.difference(nowUtc);
+}
+
+DateTime? _latestSuccessfulSyncAt(List<BankConnection> connections) {
+  DateTime? latest;
+  for (final connection in connections) {
+    final value = connection.lastSuccessfulSyncAt;
+    if (value == null) {
+      continue;
+    }
+    if (latest == null || value.isAfter(latest)) {
+      latest = value;
+    }
+  }
+  return latest;
+}
+
+Duration? _nearestManualSyncReadyIn(
+  List<BankConnection> connections,
+  DateTime nowUtc,
+) {
+  Duration? nearest;
+  for (final connection in connections) {
+    final remaining = _manualSyncRemaining(connection, nowUtc);
+    if (remaining == null) {
+      return null;
+    }
+    if (nearest == null || remaining < nearest) {
+      nearest = remaining;
+    }
+  }
+  return nearest;
+}
+
+String _formatRelativeTimeAgo(DateTime nowUtc, DateTime timestamp) {
+  final difference = nowUtc.difference(timestamp.toUtc());
+  if (difference.inMinutes < 1) {
+    return 'just now';
+  }
+  if (difference.inHours < 1) {
+    return '${difference.inMinutes}m';
+  }
+  if (difference.inDays < 1) {
+    return '${difference.inHours}h';
+  }
+  return '${difference.inDays}d';
+}
+
+String _formatDurationCompact(Duration duration) {
+  final totalMinutes = duration.inMinutes;
+  if (totalMinutes <= 0) {
+    return 'less than 1m';
+  }
+
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  if (hours <= 0) {
+    return '${minutes}m';
+  }
+  if (minutes == 0) {
+    return '${hours}h';
+  }
+  return '${hours}h ${minutes}m';
+}
+
+int _intFromDynamic(dynamic value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 class _PreviewWalletsPageData {
