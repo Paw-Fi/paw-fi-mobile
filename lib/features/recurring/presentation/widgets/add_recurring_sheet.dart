@@ -117,6 +117,9 @@ class AddRecurringSheet extends HookConsumerWidget {
     final descriptionController = useTextEditingController(
       text: existingTransaction?.description ?? '',
     );
+    final merchantController = useTextEditingController(
+      text: existingTransaction?.merchant ?? '',
+    );
     final sourceController = useTextEditingController(
       text: existingTransaction?.source ?? '',
     );
@@ -940,6 +943,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   description: descriptionController.text.trim().isEmpty
                       ? null
                       : descriptionController.text.trim(),
+                  merchant: merchantController.text.trim().isEmpty
+                      ? null
+                      : merchantController.text.trim(),
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -974,6 +980,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   description: descriptionController.text.trim().isEmpty
                       ? null
                       : descriptionController.text.trim(),
+                  merchant: merchantController.text.trim().isEmpty
+                      ? null
+                      : merchantController.text.trim(),
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1004,6 +1013,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   description: descriptionController.text.trim().isEmpty
                       ? null
                       : descriptionController.text.trim(),
+                  merchant: merchantController.text.trim().isEmpty
+                      ? null
+                      : merchantController.text.trim(),
                   source: sourceController.text.trim().isEmpty
                       ? null
                       : sourceController.text.trim(),
@@ -1029,6 +1041,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                   description: descriptionController.text.trim().isEmpty
                       ? null
                       : descriptionController.text.trim(),
+                  merchant: merchantController.text.trim().isEmpty
+                      ? null
+                      : merchantController.text.trim(),
                   source: sourceController.text.trim().isEmpty
                       ? null
                       : sourceController.text.trim(),
@@ -1580,7 +1595,9 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20,),
+                        const SizedBox(
+                          height: 20,
+                        ),
 
                         // Detail cards grouped in single section
                         MonekoInput(
@@ -1795,7 +1812,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     context, startDate.value,
                                     includeYear: true),
                                 onTap: () async {
-                                  final result = await showTransactionDatePicker(
+                                  final result =
+                                      await showTransactionDatePicker(
                                     context: context,
                                     currentDate: startDate.value,
                                     firstDate: DateTime(2020),
@@ -2030,7 +2048,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                   padding: const EdgeInsets.only(
                                       left: 16, right: 16, bottom: 12),
                                   child: Text(
-                                    context.l10n.youWillBeNotifiedBeforeEachOccurrence(
+                                    context.l10n
+                                        .youWillBeNotifiedBeforeEachOccurrence(
                                       reminderValue.value,
                                       reminderUnit.value == 'days'
                                           ? context.l10n.days
@@ -2139,7 +2158,8 @@ class AddRecurringSheet extends HookConsumerWidget {
                                         fontSize: 16,
                                         fontWeight: FontWeight.w400,
                                         color: descriptionController.text
-                                                    .trim().isEmpty
+                                                .trim()
+                                                .isEmpty
                                             ? colorScheme.onSurface
                                                 .withValues(alpha: 0.3)
                                             : colorScheme.onSurface,
@@ -2150,6 +2170,40 @@ class AddRecurringSheet extends HookConsumerWidget {
                               ),
                             ),
                           ),
+                        ),
+
+                        const SizedBox(height: 12),
+                        _buildDetailCard(
+                          colorScheme: colorScheme,
+                          label: 'Merchant',
+                          value: merchantController.text.trim().isEmpty
+                              ? 'Add merchant'
+                              : merchantController.text.trim(),
+                          isValuePlaceholder:
+                              merchantController.text.trim().isEmpty,
+                          onTap: () async {
+                            final result = await MonekoAlertDialog.show(
+                              context: context,
+                              title: 'Merchant (optional)',
+                              description: null,
+                              confirmLabel: context.l10n.save,
+                              cancelLabel: context.l10n.cancel,
+                              inputConfig: MonekoAlertDialogInputConfig(
+                                initialValue: merchantController.text.trim(),
+                                placeholder: 'Add merchant',
+                                isRequired: false,
+                              ),
+                            );
+
+                            if (!context.mounted ||
+                                result == null ||
+                                !result.confirmed ||
+                                result.text == null) {
+                              return;
+                            }
+
+                            merchantController.text = result.text!.trim();
+                          },
                         ),
 
                         // Source (for income only)
@@ -2190,64 +2244,65 @@ class AddRecurringSheet extends HookConsumerWidget {
                           ),
                         ],
 
-                    // Save button
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isLoading.value
-                            ? null
-                            : () {
-                                handleSave();
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: colorScheme.primaryForeground,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        // Save button
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isLoading.value
+                                ? null
+                                : () {
+                                    handleSave();
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colorScheme.primary,
+                              foregroundColor: colorScheme.primaryForeground,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: isLoading.value
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        colorScheme.onPrimary,
+                                      ),
+                                    ),
+                                  )
+                                : Text(
+                                    isEditing
+                                        ? context
+                                            .l10n.updateRecurringTransaction
+                                        : context.l10n.addRecurringTransaction,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                           ),
                         ),
-                        child: isLoading.value
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.onPrimary,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                isEditing
-                                    ? context
-                                        .l10n.updateRecurringTransaction
-                                    : context.l10n.addRecurringTransaction,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
 
-                    if (isEditing) ...[
-                      const SizedBox(height: 12),
-                      DestructiveAdaptiveButton(
-                        onPressed: isLoading.value ? null : handleDelete,
-                        child: Text(context.l10n.deleteRecurringTransaction),
-                      ),
-                    ],
-                  ],
+                        if (isEditing) ...[
+                          const SizedBox(height: 12),
+                          DestructiveAdaptiveButton(
+                            onPressed: isLoading.value ? null : handleDelete,
+                            child:
+                                Text(context.l10n.deleteRecurringTransaction),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    ),
-    ),
     );
   }
 

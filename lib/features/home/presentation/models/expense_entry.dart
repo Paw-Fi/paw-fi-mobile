@@ -20,6 +20,7 @@ class ExpenseEntry {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String? rawText;
+  final String? merchant;
   final List<String>? breakdown;
   final String? receiptImageUrl;
   final List<String>? sharedMemberIds;
@@ -46,6 +47,7 @@ class ExpenseEntry {
     required this.createdAt,
     this.updatedAt,
     this.rawText,
+    this.merchant,
     this.breakdown,
     this.receiptImageUrl,
     this.sharedMemberIds,
@@ -106,6 +108,7 @@ class ExpenseEntry {
       updatedAt:
           json['updated_at'] != null ? parseInstant(json['updated_at']) : null,
       rawText: _sanitizeNullable(json['raw_text'] as String?),
+      merchant: _sanitizeNullable(json['merchant'] as String?),
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)
               .map((e) => sanitizeUtf16(e.toString()))
@@ -141,6 +144,7 @@ class ExpenseEntry {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'raw_text': rawText,
+      'merchant': merchant,
       'breakdown': breakdown,
       'receipt_image_url': receiptImageUrl,
       'shared_member_ids': sharedMemberIds,
@@ -170,6 +174,7 @@ class ExpenseEntry {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? rawText,
+    String? merchant,
     List<String>? breakdown,
     String? receiptImageUrl,
     List<String>? sharedMemberIds,
@@ -196,6 +201,7 @@ class ExpenseEntry {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rawText: rawText ?? this.rawText,
+      merchant: merchant ?? this.merchant,
       breakdown: breakdown ?? this.breakdown,
       receiptImageUrl: receiptImageUrl ?? this.receiptImageUrl,
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,

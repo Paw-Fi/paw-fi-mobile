@@ -157,7 +157,7 @@ class RecurringTransactionsNotifier
       final baseQuery = supabase
           .from('expenses')
           .select(
-            'id, date, category, raw_text, breakdown, source, amount_cents, '
+            'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
             'user_id, split_group_id, account_id, '
             'recurrence_rule, type, attachments, created_at, updated_at',
@@ -569,6 +569,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -616,6 +617,7 @@ class RecurringTransactionSaveNotifier
         'clientCreatedAt': clientCreatedAtIso,
         if (description != null && description.isNotEmpty)
           'description': description,
+        if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
         'isRecurring': true,
@@ -709,6 +711,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -756,6 +759,7 @@ class RecurringTransactionSaveNotifier
           'clientCreatedAt': clientCreatedAtIso,
           if (description != null && description.isNotEmpty)
             'description': description,
+          if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
           if (source != null && source.isNotEmpty) 'source': source,
           'ownerType': ownerType,
           'privacyScope': privacyScope,
@@ -806,6 +810,7 @@ class RecurringTransactionSaveNotifier
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? householdId,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
@@ -830,6 +835,8 @@ class RecurringTransactionSaveNotifier
         'clientCreatedAt': _buildClientCreatedAtIso(ref),
         if (description != null && description.trim().isNotEmpty)
           'description': description.trim(),
+        if (merchant != null && merchant.trim().isNotEmpty)
+          'merchant': merchant.trim(),
         'ownerType': recurringSeries.ownerType,
         'privacyScope': recurringSeries.privacyScope,
         'isRecurring': false,
@@ -929,6 +936,7 @@ class RecurringTransactionSaveNotifier
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? source,
     String? householdId,
     String? accountId,
@@ -953,6 +961,8 @@ class RecurringTransactionSaveNotifier
           'clientCreatedAt': _buildClientCreatedAtIso(ref),
           if (description != null && description.trim().isNotEmpty)
             'description': description.trim(),
+          if (merchant != null && merchant.trim().isNotEmpty)
+            'merchant': merchant.trim(),
           if (source != null && source.trim().isNotEmpty)
             'source': source.trim(),
           'ownerType': recurringSeries.ownerType,
@@ -1016,6 +1026,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -1068,6 +1079,9 @@ class RecurringTransactionSaveNotifier
       };
       updates['raw_text'] = description != null && description.trim().isNotEmpty
           ? description.trim()
+          : null;
+      updates['merchant'] = merchant != null && merchant.trim().isNotEmpty
+          ? merchant.trim()
           : null;
 
       _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
@@ -1223,6 +1237,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -1273,6 +1288,9 @@ class RecurringTransactionSaveNotifier
           description != null && description.trim().isNotEmpty
               ? description.trim()
               : null;
+      updatesIncome['merchant'] = merchant != null && merchant.trim().isNotEmpty
+          ? merchant.trim()
+          : null;
       updatesIncome['source'] =
           source != null && source.trim().isNotEmpty ? source.trim() : null;
 
