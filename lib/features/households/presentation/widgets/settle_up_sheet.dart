@@ -13,9 +13,9 @@ import '../providers/household_providers.dart';
 import '../providers/cached_providers.dart';
 import '../providers/household_derived_providers.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
+import 'package:moneko/features/households/domain/entities/settlement_v2.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -53,8 +53,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   bool _isProcessing = false;
   int _youOweCents = 0;
   int _youAreOwedCents = 0;
-  int _paidToCents = 0;
-  int _paidFromCents = 0;
   final TextEditingController _noteController = TextEditingController();
   int _maxSettleCents = 0;
   String _settlementCurrencyCode = 'USD';
@@ -74,8 +72,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
   Future<void> _recomputeFromSplits() async {
     final memberId = _selectedMemberId;
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (memberId == null || currentUserId == null) return;
+    if (memberId == null) return;
 
     final homeFilter = ref.read(homeFilterProvider);
     final currencyCode =
@@ -83,13 +80,84 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
             .trim()
             .toUpperCase();
 
-    // Await both providers to ensure we have fresh data — a synchronous
-    // ref.read().valueOrNull would return null if the provider hasn't
-    // finished loading, causing _maxSettleCents to be computed without
-    // settlement events (leading to over-settlement).
-    //
-    // Capture the futures before any async gap to avoid using ref after
-    // the widget is disposed.
+    final balancesFuture = ref.read(
+      householdPairwiseSettlementBalancesV2Provider(
+        PairwiseSettlementBalancesParams(
+          householdId: widget.householdId,
+          currency: currencyCode,
+        ),
+      ).future,
+    );
+
+    late final List<SettlementPairwiseBalance> balances;
+    try {
+      balances = await balancesFuture;
+    } on StateError {
+      return;
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          '[SettleUpSheet] v2 recompute failed; falling back to legacy calculator: $error\n$stackTrace',
+        );
+      }
+      await _recomputeFromLegacyData(
+        memberId: memberId,
+        currencyCode: currencyCode,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final balance = balances.firstWhere(
+      (entry) => entry.otherUserId == memberId,
+      orElse: () => SettlementPairwiseBalance(
+        otherUserId: memberId,
+        currency: currencyCode,
+        splitToCents: 0,
+        splitFromCents: 0,
+        paidToCents: 0,
+        paidFromCents: 0,
+        netCents: 0,
+      ),
+    );
+
+    if (kDebugMode) {
+      debugPrint(
+        '[SettleUpSheet] recompute v2 household=${widget.householdId} member=$memberId currency=$currencyCode net=${balance.netCents} splitTo=${balance.splitToCents} splitFrom=${balance.splitFromCents} paidTo=${balance.paidToCents} paidFrom=${balance.paidFromCents}',
+      );
+    }
+    final netYouOwe = balance.youOweCents;
+    final netYouAreOwed = balance.youAreOwedCents;
+
+    final maxSettleCents = widget.isExpressNetting
+        ? (netYouOwe - netYouAreOwed).abs()
+        : widget.settleTheyOweYou
+            ? netYouAreOwed
+            : netYouOwe;
+
+    if (kDebugMode) {
+      debugPrint(
+        '[SettleUpSheet] paidTo=${balance.paidToCents} paidFrom=${balance.paidFromCents} net=${balance.netCents} netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _youOweCents = netYouOwe;
+      _youAreOwedCents = netYouAreOwed;
+      _maxSettleCents = maxSettleCents;
+      _settlementCurrencyCode = currencyCode;
+    });
+  }
+
+  Future<void> _recomputeFromLegacyData({
+    required String memberId,
+    required String currencyCode,
+  }) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
     final splitsFuture = ref.read(
       cachedHouseholdSplitsProvider(
         HouseholdSplitsParams(householdId: widget.householdId),
@@ -111,34 +179,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
     if (!mounted) return;
 
-    // Prefer canonical provider splits (full, unfiltered) over caller-
-    // provided splits which may have been filtered (e.g. recurring
-    // templates removed). This aligns with the server-side RPC which
-    // includes ALL unsettled split lines.
-    final groups =
-        providerSplits.isNotEmpty ? providerSplits : (widget.splits ?? const <ExpenseSplitGroup>[]);
-
-    if (kDebugMode) {
-      debugPrint(
-        '[SettleUpSheet] recompute start household=${widget.householdId} member=$memberId current=$currentUserId currency=$currencyCode isExpress=${widget.isExpressNetting} settleTheyOweYou=${widget.settleTheyOweYou}',
-      );
-      debugPrint(
-        '[SettleUpSheet] splits: groups=${groups.length} payments: ${allPayments.length}',
-      );
-    }
-
-    // Reuse the canonical settlement payments provider (same source as the
-    // card). Filter in-memory to just this pair for performance.
-    final settlementPayments = allPayments.where((p) {
-      final isPair = (p.payerUserId == memberId &&
-              p.participantUserId == currentUserId) ||
-          (p.payerUserId == currentUserId &&
-              p.participantUserId == memberId);
-      return isPair;
+    final groups = providerSplits.isNotEmpty
+        ? providerSplits
+        : (widget.splits ?? const <ExpenseSplitGroup>[]);
+    final settlementPayments = allPayments.where((payment) {
+      return (payment.payerUserId == memberId &&
+              payment.participantUserId == currentUserId) ||
+          (payment.payerUserId == currentUserId &&
+              payment.participantUserId == memberId);
     }).toList();
 
-    // Use the centralized calculator (same formula as the card and
-    // the server-side RPC).
     final result = computePairwiseNet(
       splits: groups,
       currentUserId: currentUserId,
@@ -146,28 +196,16 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
       currencyFilter: currencyCode,
       settlementPayments: settlementPayments,
     );
-
-    final netYouOwe = result.youOweCents;
-    final netYouAreOwed = result.youAreOwedCents;
-
     final maxSettleCents = widget.isExpressNetting
-        ? (netYouOwe - netYouAreOwed).abs()
+        ? (result.youOweCents - result.youAreOwedCents).abs()
         : widget.settleTheyOweYou
-            ? netYouAreOwed
-            : netYouOwe;
-
-    if (kDebugMode) {
-      debugPrint(
-        '[SettleUpSheet] paidTo=${result.paidToCents} paidFrom=${result.paidFromCents} net=${result.netCents} netYouOwe=$netYouOwe netYouAreOwed=$netYouAreOwed maxSettle=$maxSettleCents',
-      );
-    }
+            ? result.youAreOwedCents
+            : result.youOweCents;
 
     if (!mounted) return;
     setState(() {
-      _youOweCents = netYouOwe;
-      _youAreOwedCents = netYouAreOwed;
-      _paidToCents = result.paidToCents;
-      _paidFromCents = result.paidFromCents;
+      _youOweCents = result.youOweCents;
+      _youAreOwedCents = result.youAreOwedCents;
       _maxSettleCents = maxSettleCents;
       _settlementCurrencyCode = currencyCode;
     });
@@ -175,25 +213,21 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
   void _openCalculationBreakdownPage(
     BuildContext context, {
+    required String householdId,
     required String currentUserId,
     required HouseholdMember member,
-    required List<ExpenseSplitGroup> splits,
-    required List<ExpenseEntry> transactions,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => SettlementCalculationBreakdownPage(
+          householdId: householdId,
           currentUserId: currentUserId,
           memberUserId: member.userId,
           memberDisplayName: (member.userName?.trim().isNotEmpty ?? false)
               ? member.userName!.trim()
               : (member.userEmail ?? context.l10n.member),
           currencyCode: _settlementCurrencyCode,
-          transactions: transactions,
-          splits: splits,
-          paidToCents: _paidToCents,
-          paidFromCents: _paidFromCents,
-          finalSettleAmountCents: _maxSettleCents,
+          netCents: _youOweCents - _youAreOwedCents,
         ),
       ),
     );
@@ -216,19 +250,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         widget.currency ?? (homeFilter.selectedCurrency ?? 'USD').toUpperCase();
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
-    final expensesAsync = ref.watch(cachedHouseholdExpensesProvider(
-      HouseholdExpensesParams(householdId: widget.householdId),
-    ));
-    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(
-      HouseholdSplitsParams(householdId: widget.householdId),
-    ));
     final userId = Supabase.instance.client.auth.currentUser?.id;
-    final transactions = expensesAsync.valueOrNull ?? const <ExpenseEntry>[];
-    // Prefer canonical provider splits (full, unfiltered) over caller-
-    // provided splits which may have been filtered. Mirrors the same
-    // rule used in _recomputeFromSplits().
-    final effectiveSplits =
-        splitsAsync.valueOrNull ?? widget.splits ?? const <ExpenseSplitGroup>[];
 
     final hasSelectedMember =
         _selectedMemberId != null || widget.specificMemberId != null;
@@ -406,8 +428,6 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                                     _selectedMemberId = id;
                                     _youOweCents = 0;
                                     _youAreOwedCents = 0;
-                                    _paidToCents = 0;
-                                    _paidFromCents = 0;
                                     _maxSettleCents = 0;
                                     _pendingAmountText = null;
                                   });
@@ -461,10 +481,9 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
 
                               _openCalculationBreakdownPage(
                                 context,
+                                householdId: widget.householdId,
                                 currentUserId: userId,
                                 member: member,
-                                splits: effectiveSplits,
-                                transactions: transactions,
                               );
                             }
                           : null,
@@ -675,8 +694,13 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
         ref.invalidate(householdMembersProvider(widget.householdId));
         ref.invalidate(householdSettlementHistoryProvider(
             SettlementHistoryParams(householdId: widget.householdId)));
-        ref.invalidate(
-            householdSettlementPaymentsProvider(widget.householdId));
+        ref.invalidate(householdSettlementPaymentsProvider(widget.householdId));
+        ref.invalidate(householdPairwiseSettlementBalancesV2Provider(
+          PairwiseSettlementBalancesParams(
+            householdId: widget.householdId,
+            currency: _settlementCurrencyCode,
+          ),
+        ));
       } catch (_) {}
 
       if (mounted) {
