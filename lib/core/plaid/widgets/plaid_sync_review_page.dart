@@ -179,8 +179,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (response.status >= 400 ||
           payload == null ||
           payload['success'] != true) {
-        final message =
-            payload?['error']?.toString() ?? 'Failed to create linked wallet';
+        final message = payload?['error']?.toString() ??
+            context.l10n.failedToCreateLinkedWallet;
         throw Exception(message);
       }
 
@@ -215,7 +215,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
       if (snapshot.requiresReconnect) {
         throw Exception(
-          'This bank needs to be reconnected before transaction syncing can continue.',
+          context.l10n.thisBankNeedsToBeReconnected,
         );
       }
 
@@ -236,7 +236,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
         if (directResult.requiresReconnect) {
           throw Exception(
-            'This bank needs to be reconnected before transaction syncing can continue.',
+            context.l10n.thisBankNeedsToBeReconnected,
           );
         }
 
@@ -377,8 +377,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final success = response.status < 400 &&
         (payload?['success'] == true || payload == null);
     if (!success) {
-      final message =
-          payload?['error']?.toString() ?? 'Failed to delete transaction';
+      final message = payload?['error']?.toString() ??
+          context.l10n.failedToDeleteTransaction;
       if (!mounted) return;
       AppToast.error(context, message);
       return;
@@ -425,8 +425,12 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     // Check if category changed and offer to apply to all matching transactions
     final newCategory = refreshedExpense?.category;
-    final originalNormalized = (originalCategory?.trim().isEmpty ?? true) ? 'uncategorized' : originalCategory!.trim().toLowerCase();
-    final newNormalized = (newCategory?.trim().isEmpty ?? true) ? 'uncategorized' : newCategory!.trim().toLowerCase();
+    final originalNormalized = (originalCategory?.trim().isEmpty ?? true)
+        ? 'uncategorized'
+        : originalCategory!.trim().toLowerCase();
+    final newNormalized = (newCategory?.trim().isEmpty ?? true)
+        ? 'uncategorized'
+        : newCategory!.trim().toLowerCase();
 
     if (newNormalized != originalNormalized && mounted) {
       await _maybeApplyCategoryToAll(
@@ -444,7 +448,9 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     // Count how many transactions have the original category (excluding the one just edited)
     final matchingTransactions = _transactions.where((t) {
-      final txCategory = (t.expense.category?.trim().isEmpty ?? true) ? 'uncategorized' : t.expense.category!.trim().toLowerCase();
+      final txCategory = (t.expense.category?.trim().isEmpty ?? true)
+          ? 'uncategorized'
+          : t.expense.category!.trim().toLowerCase();
       return txCategory == normalizedOriginal;
     }).toList();
 
@@ -452,10 +458,14 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Apply to all transactions?',
-      description: 'Apply "$newCategory" to ${matchingTransactions.length} transactions with category "$originalCategory"?',
-      confirmLabel: 'Apply to All',
-      cancelLabel: 'Only this one',
+      title: context.l10n.applyToAllTransactions,
+      description: context.l10n.applyCategoryToAllDescription(
+        newCategory,
+        matchingTransactions.length.toString(),
+        originalCategory,
+      ),
+      confirmLabel: context.l10n.applyToAll,
+      cancelLabel: context.l10n.onlyThisOne,
     );
 
     if (result?.confirmed == true && mounted) {
@@ -484,7 +494,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
           );
 
           final payload = response.data as Map<String, dynamic>?;
-          final success = response.status < 400 && (payload?['success'] == true || payload == null);
+          final success = response.status < 400 &&
+              (payload?['success'] == true || payload == null);
           if (success) {
             updatedIds.add(tx.expense.id);
           }
@@ -497,11 +508,15 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       await _refreshTransactionsAfterBatchUpdate(updatedIds, newCategory);
 
       if (mounted && updatedIds.isNotEmpty) {
-        AppToast.success(context, 'Updated ${updatedIds.length} transactions');
+        AppToast.success(
+            context,
+            context.l10n
+                .updatedTransactionsCount(updatedIds.length.toString()));
       }
     } catch (error) {
       if (mounted) {
-        AppToast.error(context, 'Failed to update some transactions: $error');
+        AppToast.error(context,
+            context.l10n.failedToUpdateSomeTransactions(error.toString()));
       }
     }
   }
@@ -532,9 +547,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
     setState(() {
       _transactions = _transactions.map((item) {
-        final updatedExpense = updatedExpenses
-            .where((e) => e.id == item.expense.id)
-            .firstOrNull;
+        final updatedExpense =
+            updatedExpenses.where((e) => e.id == item.expense.id).firstOrNull;
         if (updatedExpense == null) {
           return item;
         }
@@ -624,8 +638,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         .toList(growable: false);
   }
 
-  Future<_DirectPlaidFetchResult> _loadTransactionsFromPlaidSyncFunction()
-      async {
+  Future<_DirectPlaidFetchResult>
+      _loadTransactionsFromPlaidSyncFunction() async {
     final response = await Supabase.instance.client.functions.invoke(
       'plaid-sync-transactions',
       body: {
@@ -659,7 +673,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     if (_isTransactionsStillSyncing && mounted) {
       AppToast.info(
         context,
-        'Plaid is still syncing older activity in the background.',
+        context.l10n.plaidStillSyncingBackground,
       );
     }
 
@@ -674,8 +688,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final grouped = _groupByMonth(_selectedTransactions);
     final monthKeys = grouped.keys.toList()
       ..sort((a, b) => b.asDate.compareTo(a.asDate));
-    final showHistoricalSyncBanner =
-        !_isPreparing &&
+    final showHistoricalSyncBanner = !_isPreparing &&
         _errorMessage == null &&
         widget.session.provider == 'plaid' &&
         _shouldShowHistoricalSyncStatus(_syncStatus);
@@ -727,8 +740,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                                   scrollDirection: Axis.horizontal,
                                   itemBuilder: (context, index) {
                                     final account = _accounts[index];
-                                    final isSelected =
-                                        account.bankAccountId ==
+                                    final isSelected = account.bankAccountId ==
                                         _selectedBankAccountId;
                                     return ChoiceChip(
                                       label: Text(account.displayName),
@@ -780,9 +792,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
                             child: _ReviewLoadingState(
                               accountName: selected?.walletName,
                               title:
-                                  'Plaid is still importing your first transactions.',
-                              description:
-                                  'Keep this screen open for a moment while we finish linking the wallet and pull in the initial activity.',
+                                  context.l10n.plaidStillImportingTransactions,
+                              description: context.l10n.keepScreenOpenForImport,
                             ),
                           )
                         else if (_selectedTransactions.isEmpty)
@@ -892,11 +903,9 @@ bool _payloadRequiresReconnect(dynamic payload) {
 
 PlaidSyncStatus? _parseConnectionSyncStatus(Map<String, dynamic> metadata) {
   final nested = metadata['plaid_sync_status'];
-  final syncStatus = nested is Map<String, dynamic>
-      ? nested
-      : <String, dynamic>{};
-  final initialUpdateComplete =
-      syncStatus['initial_update_complete'] as bool?;
+  final syncStatus =
+      nested is Map<String, dynamic> ? nested : <String, dynamic>{};
+  final initialUpdateComplete = syncStatus['initial_update_complete'] as bool?;
   final historicalUpdateComplete =
       syncStatus['historical_update_complete'] as bool?;
   final webhookCode = syncStatus['webhook_code']?.toString();
@@ -968,8 +977,7 @@ class _WalletHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final progress = ((shrinkOffset) / (maxExtent - minExtent))
-        .clamp(0.0, 1.0);
+    final progress = ((shrinkOffset) / (maxExtent - minExtent)).clamp(0.0, 1.0);
     final easedProgress = Curves.easeOutCubic.transform(progress);
     final cardHeight = lerpDouble(260, 90, easedProgress)!;
 
@@ -1070,13 +1078,14 @@ class _HistoricalSyncStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final initialComplete = syncStatus?.initialUpdateComplete;
     final title = initialComplete == false
-        ? 'Plaid is still preparing your first transaction download.'
-        : 'Recent transactions are ready. Historical imports may still be syncing.';
+        ? l10n.plaidStillPreparingFirstDownload
+        : l10n.recentTransactionsReadyHistoricalSyncing;
     final description = initialComplete == false
-        ? 'Keep this wallet connected. We will continue importing your bank history in the background as Plaid finishes the initial pull.'
-        : 'Your newest activity is available now. Older history can continue appearing in the background until Plaid finishes the full backfill.';
+        ? l10n.keepWalletConnectedForBackgroundImport
+        : l10n.newestActivityAvailableOlderBackground;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1150,6 +1159,7 @@ class _ReviewLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1159,8 +1169,8 @@ class _ReviewLoadingState extends StatelessWidget {
             ShimmeringText(
               text: title ??
                   (accountName == null
-                      ? 'Preparing your bank sync...'
-                      : 'Syncing transactions into $accountName...'),
+                      ? l10n.preparingBankSync
+                      : l10n.syncingTransactionsIntoWallet(accountName!)),
               style: TextStyle(
                 color: colorScheme.foreground,
                 fontWeight: FontWeight.w600,
@@ -1168,8 +1178,7 @@ class _ReviewLoadingState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              description ??
-                  'We are creating your wallet links and importing recent transactions.',
+              description ?? l10n.creatingWalletLinksAndImportingTransactions,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.mutedForeground,
@@ -1214,7 +1223,7 @@ class _ReviewErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: onRetry,
-              child: const Text('Retry'),
+              child: Text(context.l10n.retry),
             ),
           ],
         ),
@@ -1251,26 +1260,26 @@ class _MonthSection extends StatelessWidget {
   final Future<void> Function(SyncedTransaction) onEdit;
 
   @override
-    Widget build(BuildContext context) {
-      final colorScheme = Theme.of(context).colorScheme;
-      return Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: colorScheme.homeCardSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: colorScheme.homeCardBorder,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colorScheme.homeCardShadow,
-              blurRadius: 32,
-              offset: const Offset(0, 8),
-              spreadRadius: -4,
-            ),
-          ],
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.homeCardBorder,
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
       child: Material(
         color: colorScheme.surface.withValues(alpha: 0.0),
         borderRadius: BorderRadius.circular(24),

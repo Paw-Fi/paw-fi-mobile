@@ -607,10 +607,12 @@ class PreviewStep extends ConsumerWidget {
           Navigator.of(context).pop();
         }
       },
-      onConfirm: isSaving ? null : () async {
-        isSaving = true;
-        await sheetKey.currentState?.save();
-      },
+      onConfirm: isSaving
+          ? null
+          : () async {
+              isSaving = true;
+              await sheetKey.currentState?.save();
+            },
       builder: (context) {
         return EditRowSheet(
           key: sheetKey,
@@ -657,7 +659,9 @@ class PreviewStep extends ConsumerWidget {
 
     // Count how many rows have the original category (excluding the one just edited)
     final matchingRows = state.parsedRows.where((r) {
-      final rowCategory = (r.category?.trim().isEmpty ?? true) ? 'uncategorized' : r.category!.trim().toLowerCase();
+      final rowCategory = (r.category?.trim().isEmpty ?? true)
+          ? 'uncategorized'
+          : r.category!.trim().toLowerCase();
       return rowCategory == normalizedOriginal;
     }).toList();
 
@@ -665,10 +669,14 @@ class PreviewStep extends ConsumerWidget {
 
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Apply to all transactions?',
-      description: 'Apply "$newCategory" to ${matchingRows.length} transactions with category "$originalCategory"?',
-      confirmLabel: 'Apply to All',
-      cancelLabel: 'Only this one',
+      title: context.l10n.applyToAllTransactions,
+      description: context.l10n.applyCategoryToAllDescription(
+        matchingRows.length,
+        newCategory,
+        originalCategory,
+      ),
+      confirmLabel: context.l10n.applyToAll,
+      cancelLabel: context.l10n.onlyThisOne,
     );
 
     if (result?.confirmed == true) {

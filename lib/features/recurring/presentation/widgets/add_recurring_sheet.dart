@@ -120,9 +120,6 @@ class AddRecurringSheet extends HookConsumerWidget {
     final merchantController = useTextEditingController(
       text: existingTransaction?.merchant ?? '',
     );
-    final sourceController = useTextEditingController(
-      text: existingTransaction?.source ?? '',
-    );
 
     // Rebuild when amount changes so splits can use the latest value
     useListenable(amountController);
@@ -1016,9 +1013,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
-                  source: sourceController.text.trim().isEmpty
-                      ? null
-                      : sourceController.text.trim(),
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1044,9 +1038,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                   merchant: merchantController.text.trim().isEmpty
                       ? null
                       : merchantController.text.trim(),
-                  source: sourceController.text.trim().isEmpty
-                      ? null
-                      : sourceController.text.trim(),
                   hasReminder: hasReminder.value,
                   reminderValue: hasReminder.value ? reminderValue.value : null,
                   reminderUnit: hasReminder.value ? reminderUnit.value : null,
@@ -1756,6 +1747,48 @@ class AddRecurringSheet extends HookConsumerWidget {
                               _buildDivider(colorScheme),
                               _buildDetailCard(
                                 colorScheme: colorScheme,
+                                label: isExpense
+                                    ? context.l10n.merchant
+                                    : context.l10n.source,
+                                value: merchantController.text.trim().isEmpty
+                                    ? (isExpense
+                                        ? context.l10n.addMerchant
+                                        : context.l10n.addSource)
+                                    : merchantController.text.trim(),
+                                isValuePlaceholder:
+                                    merchantController.text.trim().isEmpty,
+                                onTap: () async {
+                                  final result = await MonekoAlertDialog.show(
+                                    context: context,
+                                    title: isExpense
+                                        ? context.l10n.merchantOptional
+                                        : context.l10n.sourceOptional,
+                                    description: null,
+                                    confirmLabel: context.l10n.save,
+                                    cancelLabel: context.l10n.cancel,
+                                    inputConfig: MonekoAlertDialogInputConfig(
+                                      initialValue:
+                                          merchantController.text.trim(),
+                                      placeholder: isExpense
+                                          ? context.l10n.addMerchant
+                                          : context.l10n.addSource,
+                                      isRequired: false,
+                                    ),
+                                  );
+
+                                  if (!context.mounted ||
+                                      result == null ||
+                                      !result.confirmed ||
+                                      result.text == null) {
+                                    return;
+                                  }
+
+                                  merchantController.text = result.text!.trim();
+                                },
+                              ),
+                              _buildDivider(colorScheme),
+                              _buildDetailCard(
+                                colorScheme: colorScheme,
                                 label: context.l10n.currency,
                                 value: selectedCurrency.value.toUpperCase(),
                                 isLast: true,
@@ -2171,78 +2204,6 @@ class AddRecurringSheet extends HookConsumerWidget {
                             ),
                           ),
                         ),
-
-                        const SizedBox(height: 12),
-                        _buildDetailCard(
-                          colorScheme: colorScheme,
-                          label: 'Merchant',
-                          value: merchantController.text.trim().isEmpty
-                              ? 'Add merchant'
-                              : merchantController.text.trim(),
-                          isValuePlaceholder:
-                              merchantController.text.trim().isEmpty,
-                          onTap: () async {
-                            final result = await MonekoAlertDialog.show(
-                              context: context,
-                              title: 'Merchant (optional)',
-                              description: null,
-                              confirmLabel: context.l10n.save,
-                              cancelLabel: context.l10n.cancel,
-                              inputConfig: MonekoAlertDialogInputConfig(
-                                initialValue: merchantController.text.trim(),
-                                placeholder: 'Add merchant',
-                                isRequired: false,
-                              ),
-                            );
-
-                            if (!context.mounted ||
-                                result == null ||
-                                !result.confirmed ||
-                                result.text == null) {
-                              return;
-                            }
-
-                            merchantController.text = result.text!.trim();
-                          },
-                        ),
-
-                        // Source (for income only)
-                        if (!isExpense) ...[
-                          const SizedBox(height: 12),
-                          _buildDetailCard(
-                            colorScheme: colorScheme,
-                            label: context.l10n.sourceOptional,
-                            value: sourceController.text.trim().isEmpty
-                                ? context.l10n.companyNameClientNameExample
-                                : sourceController.text.trim(),
-                            isValuePlaceholder:
-                                sourceController.text.trim().isEmpty,
-                            onTap: () async {
-                              final result = await MonekoAlertDialog.show(
-                                context: context,
-                                title: context.l10n.sourceOptional,
-                                description: null,
-                                confirmLabel: context.l10n.save,
-                                cancelLabel: context.l10n.cancel,
-                                inputConfig: MonekoAlertDialogInputConfig(
-                                  initialValue: sourceController.text.trim(),
-                                  placeholder:
-                                      context.l10n.companyNameClientNameExample,
-                                  isRequired: false,
-                                ),
-                              );
-
-                              if (!context.mounted ||
-                                  result == null ||
-                                  !result.confirmed ||
-                                  result.text == null) {
-                                return;
-                              }
-
-                              sourceController.text = result.text!.trim();
-                            },
-                          ),
-                        ],
 
                         // Save button
                         const SizedBox(height: 24),

@@ -54,7 +54,8 @@ class EditRowSheetState extends State<EditRowSheet> {
   Widget build(BuildContext context) {
     final viewInsets = MediaQuery.of(context).viewInsets.bottom;
     final safePadding = MediaQuery.of(context).viewPadding.bottom;
-    final effectiveBottomPadding = viewInsets > 0 ? viewInsets + 16 : safePadding + 16;
+    final effectiveBottomPadding =
+        viewInsets > 0 ? viewInsets + 16 : safePadding + 16;
 
     return SafeArea(
       top: false,
@@ -192,7 +193,7 @@ class EditRowSheetState extends State<EditRowSheet> {
     final confirmed = await MonekoAlertDialog.show(
       context: context,
       title: context.l10n.delete,
-      description: 'Are you sure you want to delete this transaction?',
+      description: context.l10n.areYouSureYouWantToDeleteThisTransaction,
       confirmLabel: context.l10n.delete,
       cancelLabel: context.l10n.cancel,
       barrierDismissible: true,

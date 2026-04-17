@@ -607,7 +607,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get view => 'ดู';
 
   @override
-  String get retry => 'ลองใหม่';
+  String get retry => 'ลองอีกครั้ง';
 
   @override
   String get failedToCapturePhoto => 'ถ่ายรูปไม่สำเร็จ';
@@ -2914,7 +2914,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get descriptionOptional => 'รายละเอียด (ไม่บังคับ)';
 
   @override
-  String get sourceOptional => 'ที่มา (ไม่บังคับ)';
+  String get sourceOptional => 'แหล่งที่มา (ไม่บังคับ)';
 
   @override
   String get companyNameClientNameExample => 'เช่น ชื่อบริษัท, ลูกค้า';
@@ -6915,4 +6915,84 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get dismiss => 'ปิด';
+
+  @override
+  String get merchant => 'ร้านค้า';
+
+  @override
+  String get addMerchant => 'เพิ่มร้านค้า';
+
+  @override
+  String get merchantOptional => 'ร้านค้า (ไม่บังคับ)';
+
+  @override
+  String get addSource => 'เพิ่มแหล่งที่มา';
+
+  @override
+  String get areYouSureYouWantToDeleteThisTransaction => 'คุณแน่ใจหรือไม่ว่าต้องการลบธุรกรรมนี้?';
+
+  @override
+  String get failedToCreateLinkedWallet => 'ไม่สามารถสร้างกระเป๋าเงินที่เชื่อมโยงได้';
+
+  @override
+  String get thisBankNeedsToBeReconnected => 'ต้องเชื่อมต่อธนาคารนี้ใหม่ก่อนจึงจะซิงค์ธุรกรรมต่อได้';
+
+  @override
+  String get failedToDeleteTransaction => 'ไม่สามารถลบธุรกรรมได้';
+
+  @override
+  String get applyToAllTransactions => 'ใช้กับทุกธุรกรรมหรือไม่?';
+
+  @override
+  String applyCategoryToAllDescription(Object count, Object newCategory, Object originalCategory) {
+    return 'ใช้ \"$newCategory\" กับธุรกรรม $count รายการที่อยู่ในหมวด \"$originalCategory\" หรือไม่?';
+  }
+
+  @override
+  String get applyToAll => 'ใช้กับทั้งหมด';
+
+  @override
+  String get onlyThisOne => 'เฉพาะรายการนี้';
+
+  @override
+  String updatedTransactionsCount(Object count) {
+    return 'อัปเดตธุรกรรม $count รายการแล้ว';
+  }
+
+  @override
+  String failedToUpdateSomeTransactions(Object error) {
+    return 'ไม่สามารถอัปเดตบางธุรกรรมได้: $error';
+  }
+
+  @override
+  String get plaidStillSyncingBackground => 'Plaid ยังซิงค์ธุรกรรมเก่าอยู่ในพื้นหลัง';
+
+  @override
+  String get plaidStillImportingTransactions => 'Plaid ยังคงนำเข้าธุรกรรมแรกของคุณอยู่';
+
+  @override
+  String get keepScreenOpenForImport => 'โปรดเปิดหน้าจอนี้ไว้สักครู่ ขณะที่เรากำลังเชื่อมกระเป๋าและดึงข้อมูลธุรกรรมเริ่มต้น';
+
+  @override
+  String get plaidStillPreparingFirstDownload => 'Plaid กำลังเตรียมดาวน์โหลดธุรกรรมครั้งแรกของคุณ';
+
+  @override
+  String get recentTransactionsReadyHistoricalSyncing => 'ธุรกรรมล่าสุดพร้อมแล้ว ข้อมูลย้อนหลังอาจยังซิงค์อยู่';
+
+  @override
+  String get keepWalletConnectedForBackgroundImport => 'โปรดเชื่อมต่อกระเป๋านี้ไว้ เราจะนำเข้าประวัติธนาคารของคุณต่อในพื้นหลังขณะที่ Plaid ดำเนินการดึงข้อมูลครั้งแรกให้เสร็จสิ้น';
+
+  @override
+  String get newestActivityAvailableOlderBackground => 'ธุรกรรมล่าสุดพร้อมใช้งานแล้ว ข้อมูลเก่าจะยังคงโหลดในพื้นหลังจนกว่า Plaid จะดึงข้อมูลย้อนหลังเสร็จสมบูรณ์';
+
+  @override
+  String get preparingBankSync => 'กำลังเตรียมการซิงค์ธนาคาร...';
+
+  @override
+  String syncingTransactionsIntoWallet(Object walletName) {
+    return 'กำลังซิงค์ธุรกรรมไปยัง $walletName...';
+  }
+
+  @override
+  String get creatingWalletLinksAndImportingTransactions => 'เรากำลังสร้างการเชื่อมต่อกระเป๋าและนำเข้าธุรกรรมล่าสุด';
 }

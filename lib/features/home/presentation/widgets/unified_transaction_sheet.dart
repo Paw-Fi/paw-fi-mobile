@@ -963,7 +963,7 @@ class _UnifiedTransactionSheetState
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
-                              label: 'Merchant',
+                              label: context.l10n.merchant,
                               value: displayMerchant?.trim().isNotEmpty == true
                                   ? displayMerchant!.trim()
                                   : context.l10n.tapToSet,
@@ -2186,13 +2186,13 @@ class _UnifiedTransactionSheetState
   Future<void> _handleEditMerchant(String? currentMerchant) async {
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: 'Merchant (optional)',
+      title: context.l10n.merchantOptional,
       description: null,
       confirmLabel: context.l10n.save,
       cancelLabel: context.l10n.cancel,
       inputConfig: MonekoAlertDialogInputConfig(
         initialValue: currentMerchant?.trim() ?? '',
-        placeholder: 'Add merchant',
+        placeholder: context.l10n.addMerchant,
         isRequired: false,
       ),
     );
