@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
+import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/transaction_type_toggle.dart';
 
 /// A reusable form section for transaction/expense data entry.
@@ -157,20 +157,7 @@ class TransactionFormSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Main form fields container (Category, Currency, Date, Time, Type)
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.card,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: Theme.of(context).brightness == Brightness.light
-                ? [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
+        MonekoInput(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -219,20 +206,7 @@ class TransactionFormSection extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Notes/Description in separate container
-        Container(
-          decoration: BoxDecoration(
-            color: scheme.card,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: Theme.of(context).brightness == Brightness.light
-                ? [
-                    BoxShadow(
-                      color: scheme.shadow.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
-          ),
+        MonekoInput(
           child: _buildDescriptionField(context),
         ),
       ],
