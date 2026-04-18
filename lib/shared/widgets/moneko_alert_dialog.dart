@@ -344,7 +344,8 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (widget.cancelLabel != null)
+                if (widget.cancelLabel != null &&
+                    widget.cancelLabel!.trim().isNotEmpty)
                   TextButton(
                     onPressed: _handleCancel,
                     child: Text(
@@ -468,7 +469,8 @@ class _MonekoAlertDialogWidgetState extends State<_MonekoAlertDialogWidget> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (widget.cancelLabel != null) ...[
+                      if (widget.cancelLabel != null &&
+                          widget.cancelLabel!.trim().isNotEmpty) ...[
                         Expanded(
                           child: InkWell(
                             onTap: _handleCancel,

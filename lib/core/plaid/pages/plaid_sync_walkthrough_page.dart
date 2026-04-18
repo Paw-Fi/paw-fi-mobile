@@ -16,6 +16,9 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
+import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
@@ -65,12 +68,34 @@ class _PlaidSyncWalkthroughPageState
       return;
     }
 
+    final subscription = ref.read(subscriptionNotifierProvider).valueOrNull;
+    final subscriptionStatus = subscription?.status?.toLowerCase().trim();
+    if (subscriptionStatus == 'trialing') {
+      final result = await MonekoAlertDialog.show(
+        context: context,
+        title: 'Upgrade your plan',
+        description: 'Upgrade your plan to use bank connection.',
+        confirmLabel: 'View plan',
+        cancelLabel: 'Cancel',
+      );
+      if (result?.confirmed == true && mounted) {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const PlanSelectionPage(mode: PlanSelectionMode.resubscribe),
+          ),
+        );
+      }
+      return;
+    }
+
     final selectedCountryCode = ref.read(plaidCountryCodeProvider);
     final provider = getProviderForCountry(selectedCountryCode);
 
     // Handle coming soon countries
     if (provider == BankProvider.comingSoon) {
-      AppToast.info(context, 'Bank connections in your country are coming soon!');
+      AppToast.info(
+          context, 'Bank connections in your country are coming soon!');
       return;
     }
 

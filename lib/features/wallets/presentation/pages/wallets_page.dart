@@ -38,6 +38,8 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -217,20 +219,26 @@ class AccountsPage extends HookConsumerWidget {
       bankConnectionsAsync.hasError,
       bankConnectionsAsync.valueOrNull?.length,
     ]);
-    final scopedPlaidConnections =
+    final plaidConnections =
         (bankConnectionsAsync.valueOrNull ?? const <BankConnection>[])
             .where(
               (connection) =>
-                  connection.provider == 'plaid' &&
-                  _isConnectionInWalletsScope(connection, householdScope),
+                  connection.provider?.toLowerCase().trim() == 'plaid',
             )
             .toList(growable: false);
+    final scopedPlaidConnections = plaidConnections
+        .where(
+          (connection) =>
+              _isConnectionInWalletsScope(connection, householdScope),
+        )
+        .toList(growable: false);
+    final hasPlaidConnections = plaidConnections.isNotEmpty;
     final scopedPlaidReauthConnections = scopedPlaidConnections
         .where(
           (connection) => connection.needsReconnect,
         )
         .toList(growable: false);
-    final manualSyncCandidates = scopedPlaidConnections
+    final manualSyncCandidates = plaidConnections
         .where(
           (connection) => connection.isHealthy && !connection.needsReconnect,
         )
@@ -239,12 +247,7 @@ class AccountsPage extends HookConsumerWidget {
     final hasManualSyncEligibleConnection = manualSyncCandidates.any(
       (connection) => _manualSyncRemaining(connection, nowUtc) == null,
     );
-    final latestSuccessfulSyncAt =
-        _latestSuccessfulSyncAt(scopedPlaidConnections);
-    final nearestManualSyncReadyIn = _nearestManualSyncReadyIn(
-      manualSyncCandidates,
-      nowUtc,
-    );
+    final latestSuccessfulSyncAt = _latestSuccessfulSyncAt(plaidConnections);
     final readyForUsefulPaint =
         walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
     final didLogUsefulPaintRef = useRef<bool>(false);
@@ -586,8 +589,22 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          AppToast.info(context, context.l10n.comingSoon);
-                          return;
+                          if (isPreviewMode) {
+                            AppToast.info(context,
+                                context.l10n.previewMockUpdatesApplied);
+                            return;
+                          }
+
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PlaidSyncWalkthroughPage(
+                                targetHouseholdId:
+                                    _resolveWalletsScopeHouseholdId(
+                                  householdScope,
+                                ),
+                              ),
+                            ),
+                          );
                         },
                         icon: Icon(
                           Icons.sync,
@@ -604,44 +621,34 @@ class AccountsPage extends HookConsumerWidget {
                       ),
                     ],
                   ),
-                if (manualSyncCandidates.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: colorScheme.sheetBackground,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: colorScheme.border),
-                    ),
+                if (shouldShowConnectBankButton)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                latestSuccessfulSyncAt == null
-                                    ? 'Synced never'
-                                    : 'Synced ${_formatRelativeTimeAgo(nowUtc, latestSuccessfulSyncAt)} ago',
-                                style: TextStyle(
-                                  color: colorScheme.foreground,
-                                  fontWeight: FontWeight.w700,
+                        Text(
+                          latestSuccessfulSyncAt == null
+                              ? 'Last sync never'
+                              : _formatLastSyncLabel(
+                                  nowUtc,
+                                  latestSuccessfulSyncAt,
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                nearestManualSyncReadyIn == null
-                                    ? 'Sync now'
-                                    : 'Sync available in ${_formatDurationCompact(nearestManualSyncReadyIn)}',
-                                style: TextStyle(
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
+                          style: TextStyle(
+                            color: colorScheme.mutedForeground,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
+                        const SizedBox(width: 4),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 28,
+                            height: 28,
+                          ),
+                          padding: EdgeInsets.zero,
                           onPressed: isManualSyncingState.value
                               ? null
                               : () async {
@@ -653,30 +660,64 @@ class AccountsPage extends HookConsumerWidget {
                                     return;
                                   }
 
+                                  if (!hasPlaidConnections) {
+                                    await MonekoAlertDialog.show(
+                                      context: context,
+                                      title: 'No bank connected',
+                                      description:
+                                          'Connect a bank first before syncing transactions.',
+                                      confirmLabel: 'Got it',
+                                      cancelLabel: '',
+                                    );
+                                    return;
+                                  }
+
+                                  if (manualSyncCandidates.isEmpty) {
+                                    await MonekoAlertDialog.show(
+                                      context: context,
+                                      title: 'Sync unavailable',
+                                      description:
+                                          'This bank needs attention before it can sync. Please reconnect the bank and try again.',
+                                      confirmLabel: 'Got it',
+                                      cancelLabel: '',
+                                    );
+                                    return;
+                                  }
+
                                   final selectedConnection =
                                       await _selectManualSyncBankConnection(
                                     context,
                                     manualSyncCandidates,
-                                    nowUtc,
+                                    DateTime.now().toUtc(),
                                   );
                                   if (selectedConnection == null ||
                                       !context.mounted) {
                                     return;
                                   }
 
+                                  final nowForCooldown = DateTime.now().toUtc();
                                   final remaining = _manualSyncRemaining(
                                     selectedConnection,
-                                    nowUtc,
+                                    nowForCooldown,
                                   );
                                   if (remaining != null) {
-                                    AppToast.info(
-                                      context,
-                                      'You can sync this bank once every 24 hours. Try again in ${_formatDurationCompact(remaining)}.',
+                                    await MonekoAlertDialog.show(
+                                      context: context,
+                                      title: 'Sync unavailable',
+                                      description:
+                                          'You cannot sync more than 1 time every 24 hours. Try again in ${_formatDurationCompact(remaining)}.',
+                                      confirmLabel: 'Got it',
+                                      cancelLabel: '',
                                     );
                                     return;
                                   }
 
                                   isManualSyncingState.value = true;
+                                  showBlockingProcessingDialog(
+                                    context: context,
+                                    message: 'Syncing bank transactions...',
+                                  );
+
                                   try {
                                     final response =
                                         await supabase.functions.invoke(
@@ -685,10 +726,28 @@ class AccountsPage extends HookConsumerWidget {
                                         'connectionId': selectedConnection.id,
                                       },
                                     );
+                                    if (context.mounted) {
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pop();
+                                    }
+
                                     final payload =
                                         response.data as Map<String, dynamic>?;
                                     if (response.status >= 400) {
                                       if (!context.mounted) {
+                                        return;
+                                      }
+                                      if (response.status == 429) {
+                                        await MonekoAlertDialog.show(
+                                          context: context,
+                                          title: 'Sync unavailable',
+                                          description:
+                                              'You cannot sync more than 1 time every 24 hours.',
+                                          confirmLabel: 'Got it',
+                                          cancelLabel: '',
+                                        );
                                         return;
                                       }
                                       AppToast.error(
@@ -726,34 +785,38 @@ class AccountsPage extends HookConsumerWidget {
                                           : 'Sync completed. No new transactions yet.',
                                     );
                                   } catch (error) {
-                                    if (!context.mounted) {
-                                      return;
+                                    if (context.mounted) {
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pop();
+                                      AppToast.error(
+                                        context,
+                                        ErrorHandler.getUserFriendlyMessage(
+                                          error,
+                                        ),
+                                      );
                                     }
-                                    AppToast.error(
-                                      context,
-                                      ErrorHandler.getUserFriendlyMessage(
-                                          error),
-                                    );
                                   } finally {
                                     isManualSyncingState.value = false;
                                   }
                                 },
                           icon: isManualSyncingState.value
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
+                              ? SizedBox(
+                                  width: 14,
+                                  height: 14,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                                    strokeWidth: 1.6,
+                                    color: colorScheme.primary,
                                   ),
                                 )
-                              : const Icon(Icons.sync_rounded, size: 18),
-                          label: Text(
-                            isManualSyncingState.value
-                                ? 'Syncing...'
-                                : hasManualSyncEligibleConnection
-                                    ? 'Sync now'
-                                    : 'Locked',
-                          ),
+                              : Icon(
+                                  Icons.sync_rounded,
+                                  size: 17,
+                                  color: hasManualSyncEligibleConnection
+                                      ? colorScheme.primary
+                                      : colorScheme.mutedForeground,
+                                ),
                         ),
                       ],
                     ),
@@ -1701,23 +1764,6 @@ DateTime? _latestSuccessfulSyncAt(List<BankConnection> connections) {
   return latest;
 }
 
-Duration? _nearestManualSyncReadyIn(
-  List<BankConnection> connections,
-  DateTime nowUtc,
-) {
-  Duration? nearest;
-  for (final connection in connections) {
-    final remaining = _manualSyncRemaining(connection, nowUtc);
-    if (remaining == null) {
-      return null;
-    }
-    if (nearest == null || remaining < nearest) {
-      nearest = remaining;
-    }
-  }
-  return nearest;
-}
-
 String _formatRelativeTimeAgo(DateTime nowUtc, DateTime timestamp) {
   final difference = nowUtc.difference(timestamp.toUtc());
   if (difference.inMinutes < 1) {
@@ -1730,6 +1776,14 @@ String _formatRelativeTimeAgo(DateTime nowUtc, DateTime timestamp) {
     return '${difference.inHours}h';
   }
   return '${difference.inDays}d';
+}
+
+String _formatLastSyncLabel(DateTime nowUtc, DateTime timestamp) {
+  final relative = _formatRelativeTimeAgo(nowUtc, timestamp);
+  if (relative == 'just now') {
+    return 'Last sync just now';
+  }
+  return 'Last sync $relative ago';
 }
 
 String _formatDurationCompact(Duration duration) {
