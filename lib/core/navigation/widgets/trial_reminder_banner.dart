@@ -153,17 +153,18 @@ class TrialReminderBannerGate extends HookConsumerWidget {
 
             Future<void> refreshSubscriptionState() async {
               await ref.read(subscriptionNotifierProvider.notifier).refresh();
-              await ref
-                  .read(subscriptionManagementProvider.notifier)
-                  .refresh();
+              await ref.read(subscriptionManagementProvider.notifier).refresh();
             }
 
             await refreshSubscriptionState();
 
             for (var attempt = 0; attempt < 3; attempt++) {
-              final primary = ref.read(subscriptionNotifierProvider).valueOrNull;
-              final managed =
-                  ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+              final primary =
+                  ref.read(subscriptionNotifierProvider).valueOrNull;
+              final managed = ref
+                  .read(subscriptionManagementProvider)
+                  .valueOrNull
+                  ?.subscription;
               final hasPaidAccessFromPrimary =
                   (primary?.isSubscribed ?? false) &&
                       primary?.status?.toLowerCase() != 'trialing';

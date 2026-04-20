@@ -455,7 +455,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       try {
         setProgressState(
           progressValue: 0.1,
-          label: context.l10n.onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
+          label: context.l10n
+              .onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
         );
         debugPrint(
           '[OnboardingPrep] No subscription detected; activating onboarding free trial',
@@ -1041,8 +1042,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                             fontWeight: FontWeight.w500,
                             color: colorScheme.mutedForeground,
                           ),
-                          shimmering:
-                              setupError.value == null && !isDone.value,
+                          shimmering: setupError.value == null && !isDone.value,
                         ),
                       ),
                     ],
@@ -1078,7 +1078,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
 
 class _AnimatedPulsingIcon extends HookWidget {
   const _AnimatedPulsingIcon({super.key, required this.color});
-  
+
   final Color color;
 
   @override

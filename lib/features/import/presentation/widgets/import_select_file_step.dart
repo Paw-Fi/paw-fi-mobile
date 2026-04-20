@@ -39,7 +39,8 @@ class SelectFileStep extends ConsumerWidget {
           const SizedBox(height: 12),
           InstructionCard(
             icon: Icons.sync_alt_rounded,
-            title: '${context.l10n.source}: ${importSourceLabel(sourceSpec.app)}',
+            title:
+                '${context.l10n.source}: ${importSourceLabel(sourceSpec.app)}',
             description: importSourceFileRequest(sourceSpec.app),
           ),
           if (lockPersonalTarget) ...[

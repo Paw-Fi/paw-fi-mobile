@@ -8,7 +8,7 @@ class ModalSheetHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Center(
       child: Container(
         width: 36,

@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/features/home/presentation/pages/category_details_page.dart';
 
 class WhereTheMoneyWentWidget extends StatelessWidget {
   final List<ExpenseEntry> expenses;
@@ -133,6 +134,16 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
                     totalSpent: totalSpent,
                     colorScheme: colorScheme,
                     currency: currency,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => CategoryDetailsPage(
+                            categoryKey: catKey,
+                            currency: currency,
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -149,6 +160,7 @@ class _CategoryRow extends StatelessWidget {
   final double totalSpent;
   final ColorScheme colorScheme;
   final String? currency;
+  final VoidCallback? onTap;
 
   const _CategoryRow({
     required this.categoryKey,
@@ -156,6 +168,7 @@ class _CategoryRow extends StatelessWidget {
     required this.totalSpent,
     required this.colorScheme,
     this.currency,
+    this.onTap,
   });
 
   @override
@@ -171,90 +184,94 @@ class _CategoryRow extends StatelessWidget {
     final symbol = resolveCurrencySymbol(currency ?? 'USD');
     final displayAmount = '$symbol${formatLocalizedNumber(context, amount)}';
 
-    return Row(
-      children: [
-        // Leading Icon
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          // Leading Icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: color,
+            ),
           ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
 
-        // Name and Bar
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.foreground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        displayAmount,
+          // Name and Bar
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: colorScheme.foreground,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          displayAmount,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.foreground,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: percent,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          color: color,
+                          minHeight: 6,
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percent,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        color: color,
-                        minHeight: 6,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      percentString,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    percentString,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

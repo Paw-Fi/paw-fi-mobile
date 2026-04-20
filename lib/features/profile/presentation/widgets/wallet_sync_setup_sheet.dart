@@ -40,7 +40,8 @@ class WalletSyncSetupSheet extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: colorScheme.sheetBackground,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -64,8 +65,8 @@ class WalletSyncSetupSheet extends StatelessWidget {
                             context: context,
                             step: 1,
                             title: l10n.openTheShortcutsApp,
-                            description:
-                                l10n.openShortcutsAndTapTheAutomationsTabAtTheBottom,
+                            description: l10n
+                                .openShortcutsAndTapTheAutomationsTabAtTheBottom,
                             action: SizedBox(
                               height: 48,
                               child: PrimaryAdaptiveButton(
@@ -94,36 +95,36 @@ class WalletSyncSetupSheet extends StatelessWidget {
                             context: context,
                             step: 3,
                             title: l10n.addMonekoAction,
-                            description:
-                                l10n.tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction,
+                            description: l10n
+                                .tapNewBlankAutomationSearchMonekoAndSelectCaptureWalletTransaction,
                           ),
                           _buildStep(
                             context: context,
                             step: 4,
                             title: l10n.mapAmountFromShortcutInput,
-                            description:
-                                l10n.tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount,
+                            description: l10n
+                                .tapAmountChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectAmount,
                           ),
                           _buildStep(
                             context: context,
                             step: 5,
                             title: l10n.mapMerchantFromShortcutInput,
-                            description:
-                                l10n.tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant,
+                            description: l10n
+                                .tapMerchantChooseSelectVariableAndPickShortcutInputTapTheTokenAgainToSelectMerchant,
                           ),
                           _buildStep(
                             context: context,
                             step: 6,
                             title: l10n.saveAndReopen,
-                            description:
-                                l10n.tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt,
+                            description: l10n
+                                .tapTheCheckIconTopRightToSaveThenTapTheAutomationYouJustCreatedToEditIt,
                           ),
                           _buildStep(
                             context: context,
                             step: 7,
                             title: l10n.enableRunImmediately,
-                            description:
-                                l10n.selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation,
+                            description: l10n
+                                .selectRunImmediatelySoTransactionsLogAutomaticallyWithoutNeedingConfirmation,
                           ),
                           const SizedBox(height: 16),
                           _TutorialVideoButton(onPressed: () {
@@ -284,8 +285,7 @@ class WalletSyncSetupSheet extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            l10n
-                .yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly,
+            l10n.yourCredentialsAreStoredSecurelyInTheIosKeychainAndOnlyUsedToAuthenticateWithYourMonekoAccountMonekoNeverAccessesYourBankCardOrWalletDataDirectly,
             style: TextStyle(
               fontSize: 12,
               color: colorScheme.mutedForeground,
@@ -403,11 +403,11 @@ class _TutorialVideoModalState extends State<_TutorialVideoModal> {
             Expanded(
               child: Center(
                 child: _chewieController != null &&
-                        _chewieController!.videoPlayerController.value.isInitialized
+                        _chewieController!
+                            .videoPlayerController.value.isInitialized
                     ? Chewie(controller: _chewieController!)
                     : const Center(
-                        child:
-                            CircularProgressIndicator(color: Colors.white),
+                        child: CircularProgressIndicator(color: Colors.white),
                       ),
               ),
             ),

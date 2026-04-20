@@ -579,15 +579,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           value: 'type_$type',
         );
       }),
-
-      // Category Option
-      AdaptivePopupMenuItem(
-        label: selectedCategory == 'all'
-            ? '${context.l10n.category}: ${context.l10n.all}'
-            : '${context.l10n.category}: ${getCategoryTranslation(context, selectedCategory)}',
-        icon: PlatformInfo.isIOS26OrHigher() ? 'tag' : Icons.category_outlined,
-        value: 'category_filter',
-      ),
     ];
 
     return StatusBarOverlayRegion(
@@ -1364,6 +1355,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         periodLabel: _selectedPeriodLabel(context),
         categorySummariesOverride: categorySummaries,
         totalSpentOverride: summary.expenseTotal,
+        initialDateFilter: _selectedDateFilter,
+        initialStartDate: _customStart,
+        initialEndDate: _customEnd,
       ),
     );
   }

@@ -289,7 +289,8 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
   final headers = [
     'Date',
     'Account / User',
-    'Description (Payee)',
+    'Description',
+    'Merchant',
     'Category',
     'Amount',
     'Type',
@@ -328,6 +329,7 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
     }
 
     final description = expense.rawText ?? '';
+    final merchant = expense.merchant ?? '';
     final category = expense.category ?? 'Uncategorized';
     final amountVal =
         expense.amount; // Should we strictly use absolute for math?
@@ -354,6 +356,7 @@ Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {
       TextCellValue(date),
       TextCellValue(accountInfo),
       TextCellValue(description),
+      TextCellValue(merchant),
       TextCellValue(category),
       DoubleCellValue(amountVal),
       TextCellValue(type),
@@ -585,6 +588,7 @@ void _appendTransactionsSheet(
     'Account',
     'User',
     'Description',
+    'Merchant',
     'Category',
     'Amount',
     'Currency',
@@ -610,6 +614,7 @@ void _appendTransactionsSheet(
       personalLabel: personalLabel,
     );
     final description = expense.rawText ?? '';
+    final merchant = expense.merchant ?? '';
     final category = expense.category ?? 'Uncategorized';
     final amountVal = expense.amount;
     final currency = (expense.currency ?? 'UNKNOWN').toUpperCase();
@@ -621,6 +626,7 @@ void _appendTransactionsSheet(
       TextCellValue(accountLabel),
       TextCellValue(userLabel),
       TextCellValue(description),
+      TextCellValue(merchant),
       TextCellValue(category),
       DoubleCellValue(amountVal),
       TextCellValue(currency),

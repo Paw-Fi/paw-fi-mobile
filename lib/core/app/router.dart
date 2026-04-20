@@ -288,8 +288,9 @@ GoRouter router(RouterRef ref) {
 
         final requiresPaywall = subscriptionGateStatus.requiresPaywall;
         final isSubscriptionChecking = subscriptionGateStatus.isLoading;
-        final everSubscribed =
-            isAuthenticated ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false) : false;
+        final everSubscribed = isAuthenticated
+            ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false)
+            : false;
 
         // V2: Surface fatal initialization failures ONLY if no cached data available
         if (appInitStateV2.state == AppInitState.failed &&

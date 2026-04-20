@@ -20,6 +20,8 @@ void main() {
       expect(household.currency, 'USD');
       expect(household.coverImageUrl, null);
       expect(household.themeColor, null);
+      expect(household.autoSplitEnabled, isTrue);
+      expect(household.autoSplitConfig, isNull);
       expect(household.createdAt, now);
       expect(household.updatedAt, now);
     });
@@ -52,6 +54,14 @@ void main() {
         'cover_image_url': 'https://example.com/image.jpg',
         'theme_color': '#FF5733',
         'currency': 'usd',
+        'ai_use_default_split': false,
+        'ai_default_split_config': {
+          'splitType': 'shares',
+          'memberSplits': [
+            {'userId': 'user_1', 'shares': 2},
+            {'userId': 'user_2', 'shares': 1},
+          ],
+        },
         'created_at': '2024-01-01T00:00:00.000Z',
         'updated_at': '2024-01-01T00:00:00.000Z',
       };
@@ -64,6 +74,8 @@ void main() {
       expect(household.coverImageUrl, 'https://example.com/image.jpg');
       expect(household.themeColor, '#FF5733');
       expect(household.currency, 'USD'); // Uppercase conversion
+      expect(household.autoSplitEnabled, isFalse);
+      expect(household.autoSplitConfig?['splitType'], 'shares');
       expect(household.createdAt, DateTime.utc(2024, 1, 1));
       expect(household.updatedAt, DateTime.utc(2024, 1, 1));
     });
@@ -82,6 +94,8 @@ void main() {
 
       expect(household.coverImageUrl, null);
       expect(household.themeColor, null);
+      expect(household.autoSplitEnabled, isTrue);
+      expect(household.autoSplitConfig, isNull);
     });
 
     test('fromJson converts currency to uppercase', () {
@@ -107,6 +121,14 @@ void main() {
         coverImageUrl: 'https://example.com/image.jpg',
         themeColor: '#FF5733',
         currency: 'USD',
+        autoSplitEnabled: false,
+        autoSplitConfig: {
+          'splitType': 'percentage',
+          'memberSplits': [
+            {'userId': 'user_1', 'percentage': 70},
+            {'userId': 'user_2', 'percentage': 30},
+          ],
+        },
         createdAt: now,
         updatedAt: now,
       );
@@ -119,6 +141,8 @@ void main() {
       expect(json['cover_image_url'], 'https://example.com/image.jpg');
       expect(json['theme_color'], '#FF5733');
       expect(json['currency'], 'USD');
+      expect(json['ai_use_default_split'], isFalse);
+      expect(json['ai_default_split_config'], isA<Map<String, dynamic>>());
       expect(json['created_at'], '2024-01-01T00:00:00.000');
       expect(json['updated_at'], '2024-01-01T00:00:00.000');
     });
@@ -139,11 +163,20 @@ void main() {
       final updated = original.copyWith(
         name: 'Updated Budget',
         currency: 'EUR',
+        autoSplitEnabled: false,
+        autoSplitConfig: {
+          'splitType': 'amount',
+          'memberSplits': [
+            {'userId': 'user_1', 'amount': 2.0},
+          ],
+        },
       );
 
       expect(updated.id, 'hh_1');
       expect(updated.name, 'Updated Budget');
       expect(updated.currency, 'EUR');
+      expect(updated.autoSplitEnabled, isFalse);
+      expect(updated.autoSplitConfig?['splitType'], 'amount');
       expect(updated.ownerId, 'user_1');
     });
 

@@ -82,11 +82,22 @@ class HouseholdService {
     String? name,
     String? coverImageUrl,
     String? themeColor,
+    bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
+    bool updateAutoSplitConfig = false,
   }) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (coverImageUrl != null) updates['cover_image_url'] = coverImageUrl;
     if (themeColor != null) updates['theme_color'] = themeColor;
+    if (isPortfolio != null) updates['is_portfolio'] = isPortfolio;
+    if (autoSplitEnabled != null) {
+      updates['ai_use_default_split'] = autoSplitEnabled;
+    }
+    if (updateAutoSplitConfig) {
+      updates['ai_default_split_config'] = autoSplitConfig;
+    }
 
     final response = await _supabase
         .from('households')
@@ -99,7 +110,10 @@ class HouseholdService {
   }
 
   Future<void> deleteHousehold(String householdId) async {
-    await _supabase.from('households').delete().eq('id', householdId);
+    await _supabase.rpc(
+      'delete_household',
+      params: {'p_household_id': householdId},
+    );
   }
 
   // ============================================================================

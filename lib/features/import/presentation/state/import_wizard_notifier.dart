@@ -653,6 +653,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateText = item['date']?.toString() ?? '';
       final category = item['category']?.toString() ?? '';
       final description = item['description']?.toString() ?? '';
+      final merchant = item['merchant']?.toString() ?? '';
       final currency = item['currency']?.toString() ?? '';
       final type = item['type']?.toString() ?? '';
 
@@ -661,6 +662,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         amountText,
         category,
         description,
+        merchant,
         currency,
         type,
       ];
@@ -672,6 +674,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'amount',
         'category',
         'description',
+        'merchant',
         'currency',
         'type',
       ],
@@ -1034,7 +1037,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
           DateTime(row.date!.year, row.date!.month, row.date!.day, 12);
-      final merchantLabel = row.description?.trim();
+      final merchantLabel = (row.merchant ?? row.description)?.trim();
       final hasValidMerchantLabel = merchantLabel != null &&
           merchantLabel.isNotEmpty &&
           merchantLabel.length <= 255;

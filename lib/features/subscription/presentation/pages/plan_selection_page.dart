@@ -1301,5 +1301,3 @@ class _LegalLinks extends StatelessWidget {
     );
   }
 }
-
-

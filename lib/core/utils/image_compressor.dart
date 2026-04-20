@@ -100,8 +100,7 @@ class ImageCompressor {
     String path,
     CompressFormat fallback,
   ) {
-    final ext =
-        path.contains('.') ? path.split('.').last.toLowerCase() : '';
+    final ext = path.contains('.') ? path.split('.').last.toLowerCase() : '';
     switch (ext) {
       case 'png':
         return CompressFormat.png;

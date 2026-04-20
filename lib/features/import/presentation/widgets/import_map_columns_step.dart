@@ -36,6 +36,7 @@ ImportFieldLayout resolveImportFieldLayout(ImportMapping mapping) {
         ImportField.amount,
         ImportField.category,
         ImportField.description,
+        ImportField.merchant,
         ImportField.currency,
         ImportField.type,
         ImportField.reference,
@@ -73,6 +74,7 @@ ImportFieldLayout resolveImportFieldLayout(ImportMapping mapping) {
       ...optionalMonetaryFields,
       ImportField.category,
       ImportField.description,
+      ImportField.merchant,
       ImportField.currency,
       ImportField.type,
       ImportField.reference,
@@ -275,6 +277,8 @@ class MapColumnsStep extends ConsumerWidget {
         return context.l10n.category;
       case ImportField.description:
         return context.l10n.description;
+      case ImportField.merchant:
+        return context.l10n.merchant;
       case ImportField.currency:
         return context.l10n.currency;
       case ImportField.type:

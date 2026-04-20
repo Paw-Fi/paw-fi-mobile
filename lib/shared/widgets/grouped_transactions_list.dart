@@ -88,8 +88,8 @@ class GroupedTransactionsList extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final effectiveCardColor = cardColor ?? colorScheme.homeCardSurface;
-    final effectiveApplyShadow = applyCardShadow ??
-        Theme.of(context).brightness == Brightness.light;
+    final effectiveApplyShadow =
+        applyCardShadow ?? Theme.of(context).brightness == Brightness.light;
 
     if (transactions.isEmpty) {
       return emptyStateWidget ??
@@ -279,7 +279,8 @@ class GroupedTransactionsList extends StatelessWidget {
     if (itemBuilder != null) {
       final horizontalPadding = useHorizontalPadding ? 16.0 : 0.0;
       return Container(
-        margin: EdgeInsets.fromLTRB(horizontalPadding, 0, horizontalPadding, isLast ? 16 : 0),
+        margin: EdgeInsets.fromLTRB(
+            horizontalPadding, 0, horizontalPadding, isLast ? 16 : 0),
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           color: cardColor,

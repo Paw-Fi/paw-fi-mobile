@@ -127,7 +127,8 @@ class _MobileStripeCheckoutSheet extends StatefulWidget {
       _MobileStripeCheckoutSheetState();
 }
 
-class _MobileStripeCheckoutSheetState extends State<_MobileStripeCheckoutSheet> {
+class _MobileStripeCheckoutSheetState
+    extends State<_MobileStripeCheckoutSheet> {
   InAppWebViewController? _controller;
   double _progress = 0;
   bool _hasLoadError = false;
@@ -239,8 +240,10 @@ class _MobileStripeCheckoutSheetState extends State<_MobileStripeCheckoutSheet> 
                         },
                         shouldOverrideUrlLoading:
                             (controller, navigationAction) async {
-                          final rawUrl = navigationAction.request.url?.toString();
-                          final uri = rawUrl == null ? null : Uri.tryParse(rawUrl);
+                          final rawUrl =
+                              navigationAction.request.url?.toString();
+                          final uri =
+                              rawUrl == null ? null : Uri.tryParse(rawUrl);
 
                           if (uri == null) {
                             return NavigationActionPolicy.ALLOW;

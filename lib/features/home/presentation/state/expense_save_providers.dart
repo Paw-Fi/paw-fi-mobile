@@ -259,13 +259,19 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     final createdAtRaw = savedMap['created_at']?.toString();
     final createdAt =
         createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
+    final splitSkipped = responseData?['splitSkipped'] == true;
+    final savedSplitGroupId = savedMap['split_group_id']?.toString().trim();
+    final shouldAddOptimisticSplit = !splitSkipped &&
+        savedSplitGroupId != null &&
+        savedSplitGroupId.isNotEmpty;
 
     final members = ref.read(householdMembersProvider(householdId)).valueOrNull;
 
-    final splitGroup = hasServerId
+    final splitGroup = hasServerId && shouldAddOptimisticSplit
         ? _buildOptimisticSplitGroup(
             householdId: householdId,
             expenseId: expenseId,
+            splitGroupId: savedSplitGroupId,
             payerUserId: payerUserId,
             expense: expense,
             customSplitType: customSplitType,
@@ -281,7 +287,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       userId: userId,
       receiptImageUrl: receiptImageUrl,
       createdAt: createdAt ?? expense.date,
-      splitGroupId: splitGroup?.id,
+      splitGroupId: shouldAddOptimisticSplit ? savedSplitGroupId : null,
       accountId: accountId,
     );
 
@@ -328,6 +334,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   split_entities.ExpenseSplitGroup? _buildOptimisticSplitGroup({
     required String householdId,
     required String expenseId,
+    required String splitGroupId,
     required String payerUserId,
     required ParsedExpense expense,
     required SplitType? customSplitType,
@@ -366,7 +373,6 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     };
 
     final now = DateTime.now();
-    final groupId = 'optimistic_$expenseId';
     final lines = <split_entities.ExpenseSplitLine>[];
 
     for (var i = 0; i < included.length; i++) {
@@ -375,7 +381,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       lines.add(
         split_entities.ExpenseSplitLine(
           id: 'optimistic_line_${expenseId}_${member.userId}',
-          splitGroupId: groupId,
+          splitGroupId: splitGroupId,
           userId: member.userId,
           amountCents: cents[i],
           percentage:
@@ -391,7 +397,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     }
 
     return split_entities.ExpenseSplitGroup(
-      id: groupId,
+      id: splitGroupId,
       householdId: householdId,
       expenseId: expenseId,
       payerUserId: payerUserId,

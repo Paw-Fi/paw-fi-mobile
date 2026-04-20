@@ -589,6 +589,10 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
+                          AppToast.info(context, context.l10n.comingSoon);
+                          return;
+
+                          //DO NOT CHANGE HERE, BANK CONNECTION IS STILL UNDER DEVELOPMENT
                           if (isPreviewMode) {
                             AppToast.info(context,
                                 context.l10n.previewMockUpdatesApplied);

@@ -42,6 +42,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -66,6 +67,7 @@ class _TestRecurringSaveNotifier extends RecurringTransactionSaveNotifier {
       'endDate': endDate,
       'interval': interval,
       'description': description,
+      'merchant': merchant,
       'hasReminder': hasReminder,
       'reminderValue': reminderValue,
       'reminderUnit': reminderUnit,
@@ -201,6 +203,10 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     String? name,
     String? coverImageUrl,
     String? themeColor,
+    bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
+    bool updateAutoSplitConfig = false,
   }) =>
       throw UnimplementedError();
 

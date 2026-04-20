@@ -608,12 +608,11 @@ class PreviewStep extends ConsumerWidget {
           Navigator.of(context).pop();
         }
       },
-      onConfirm: isSaving
-          ? null
-          : () async {
-              isSaving = true;
-              await sheetKey.currentState?.save();
-            },
+      onConfirm: () async {
+        if (isSaving) return;
+        isSaving = true;
+        await sheetKey.currentState?.save();
+      },
       builder: (context) {
         return EditRowSheet(
           key: sheetKey,
@@ -817,9 +816,11 @@ class TransactionPreviewTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
             child: TransactionListTile(
               category: row.category ?? 'uncategorized',
-              title: row.description?.isNotEmpty == true
-                  ? row.description!
-                  : localizedCategory,
+              title: row.merchant?.isNotEmpty == true
+                  ? row.merchant!
+                  : row.description?.isNotEmpty == true
+                      ? row.description!
+                      : localizedCategory,
               date: row.date,
               amount: amount,
               currency: row.currency ?? 'USD',

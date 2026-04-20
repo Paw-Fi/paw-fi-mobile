@@ -776,9 +776,28 @@ class _HomePageState extends ConsumerState<HomePage> {
         final customSplits = rawCustomSplits is Map
             ? Map<String, dynamic>.from(rawCustomSplits)
             : null;
-        final splitType = customSplits?['splitType']?.toString().trim();
-        final safeCustomSplits =
-            (splitType == null || splitType == 'equal') ? null : customSplits;
+        final splitType =
+            customSplits?['splitType']?.toString().trim().toLowerCase();
+        String? splitValueKey;
+        switch (splitType) {
+          case 'amount':
+            splitValueKey = 'amount';
+            break;
+          case 'percentage':
+            splitValueKey = 'percentage';
+            break;
+          case 'shares':
+            splitValueKey = 'shares';
+            break;
+        }
+        final memberSplits = customSplits?['memberSplits'];
+        final hasExplicitSplitValues = splitValueKey != null &&
+            memberSplits is List &&
+            memberSplits.any((entry) =>
+                entry is Map &&
+                entry[splitValueKey!] is num &&
+                (entry['userId']?.toString().trim().isNotEmpty ?? false));
+        final safeCustomSplits = hasExplicitSplitValues ? customSplits : null;
 
         final response = await supabase.functions.invoke(
           'save-expense',
@@ -920,7 +939,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       selectedCurrency: selectedCurrency,
     );
 
-    final isInitialAnalyticsLoading = false;
+    const isInitialAnalyticsLoading = false;
 
     _scheduleThaiLanguagePromptCheck(initUserContact);
 

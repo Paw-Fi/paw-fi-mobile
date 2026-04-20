@@ -227,8 +227,9 @@ void showScenarioResultSheet(
                                       }
                                     } else {
                                       // Confirm deletion before removing a saved scenario.
-                                      final preview = ProviderScope
-                                          .containerOf(context, listen: false)
+                                      final preview = ProviderScope.containerOf(
+                                              context,
+                                              listen: false)
                                           .read(previewModeProvider);
                                       if (preview.isActive) {
                                         Navigator.of(context,

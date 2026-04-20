@@ -18,7 +18,7 @@ const Map<String, IconData> customCategoryIconOptions = {
   'cleaning': Icons.cleaning_services,
   'chair': Icons.chair,
   'kitchen': Icons.kitchen,
-  
+
   // Shopping & Food
   'shopping': Icons.shopping_bag,
   'cart': Icons.shopping_cart,
@@ -35,14 +35,14 @@ const Map<String, IconData> customCategoryIconOptions = {
   'plane': Icons.flight,
   'gas': Icons.local_gas_station,
   'parking': Icons.local_parking,
-  
+
   // Health & Personal Care
   'health': Icons.favorite,
   'medical': Icons.medical_services,
   'hospital': Icons.local_hospital,
   'fitness': Icons.fitness_center,
   'spa': Icons.spa,
-  
+
   // Family & Pets
   'people': Icons.groups,
   'child': Icons.child_care,

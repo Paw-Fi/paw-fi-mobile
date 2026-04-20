@@ -19,9 +19,8 @@ class DashboardPieChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayCurrency = currencyCode?.trim().isNotEmpty == true
-        ? currencyCode!.trim()
-        : null;
+    final displayCurrency =
+        currencyCode?.trim().isNotEmpty == true ? currencyCode!.trim() : null;
 
     // Filter expenses (no income) and convert to ExpenseEntry
     final expenses = transactions

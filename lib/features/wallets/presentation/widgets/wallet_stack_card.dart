@@ -297,7 +297,6 @@ class WalletStackCard extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                 
                   if (showGoalProgress) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

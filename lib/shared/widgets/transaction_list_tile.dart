@@ -122,7 +122,7 @@ class TransactionListTile extends StatelessWidget {
               ),
             ),
           );
-        }   
+        }
 
         Widget? subtitleNode;
         if (subtitleWidget != null) {

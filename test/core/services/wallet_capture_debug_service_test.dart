@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moneko/core/services/wallet_capture_debug_service.dart';
 
 void main() {
-  test('WalletCaptureDebugReport.fromMap parses native snapshot and entries', () {
+  test('WalletCaptureDebugReport.fromMap parses native snapshot and entries',
+      () {
     final report = WalletCaptureDebugReport.fromMap({
       'snapshot': {
         'isReady': true,

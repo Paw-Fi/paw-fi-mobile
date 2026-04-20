@@ -104,11 +104,13 @@ class RequestDeduplicator<T> {
   }
 
   void invalidateByPrefix(String prefix) {
-    final keysToRemove = _cache.keys.where((k) => k.startsWith(prefix)).toList();
+    final keysToRemove =
+        _cache.keys.where((k) => k.startsWith(prefix)).toList();
     for (final key in keysToRemove) {
       _cache.remove(key);
     }
-    final pendingToRemove = _pending.keys.where((k) => k.startsWith(prefix)).toList();
+    final pendingToRemove =
+        _pending.keys.where((k) => k.startsWith(prefix)).toList();
     for (final key in pendingToRemove) {
       _pending.remove(key);
     }

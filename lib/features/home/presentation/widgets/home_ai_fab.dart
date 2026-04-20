@@ -37,6 +37,7 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -130,6 +131,28 @@ class _AiParsedItem {
     required this.transaction,
     required this.optimisticId,
     required this.raw,
+  });
+}
+
+class _AutoSplitContext {
+  final Household household;
+  final List<HouseholdMember> members;
+
+  const _AutoSplitContext({
+    required this.household,
+    required this.members,
+  });
+}
+
+class _ExplicitAmountSplitOverride {
+  final double totalAmount;
+  final List<Map<String, dynamic>> memberSplits;
+  final String? descriptionHint;
+
+  const _ExplicitAmountSplitOverride({
+    required this.totalAmount,
+    required this.memberSplits,
+    this.descriptionHint,
   });
 }
 
@@ -260,6 +283,368 @@ List<Map<String, dynamic>> _buildHouseholdMemberContext(
         },
       )
       .toList(growable: false);
+}
+
+Household? _resolveHouseholdForAutoSplit(
+  ProviderContainer container,
+  String householdId,
+) {
+  final selected = container.read(selectedHouseholdProvider).household;
+  if (selected?.id == householdId) return selected;
+  return container.read(householdProvider(householdId)).valueOrNull;
+}
+
+bool _hasExplicitCustomSplits(Object? rawCustomSplits) {
+  return _normalizeExplicitCustomSplits(rawCustomSplits) != null;
+}
+
+Map<String, dynamic>? _normalizeExplicitCustomSplits(Object? rawCustomSplits) {
+  if (rawCustomSplits is! Map) return null;
+  final customSplits = Map<String, dynamic>.from(rawCustomSplits);
+  final splitType = customSplits['splitType']?.toString().trim().toLowerCase();
+  if (splitType == null || splitType.isEmpty || splitType == 'equal') {
+    return null;
+  }
+  final splitValueKey = switch (splitType) {
+    'amount' => 'amount',
+    'percentage' => 'percentage',
+    'shares' => 'shares',
+    _ => null,
+  };
+  if (splitValueKey == null) return null;
+
+  final memberSplits = customSplits['memberSplits'];
+  if (memberSplits is! List || memberSplits.isEmpty) return null;
+  final hasValues = memberSplits.any((entry) =>
+      entry is Map &&
+      entry[splitValueKey] is num &&
+      (entry['userId']?.toString().trim().isNotEmpty ?? false));
+  if (!hasValues) return null;
+
+  return customSplits;
+}
+
+String _normalizeMemberAlias(String value) {
+  final lowered = value.toLowerCase().trim();
+  if (lowered.isEmpty) return '';
+  return lowered
+      .replaceAll(RegExp(r'@[^ ]+$'), '')
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+String? _resolveMentionedMemberId({
+  required String rawMention,
+  required List<Map<String, dynamic>> householdMembers,
+  required String callerUserId,
+}) {
+  final mention = _normalizeMemberAlias(rawMention);
+  if (mention.isEmpty) return null;
+
+  const callerAliases = {'me', 'myself', 'i', 'my', 'mine'};
+  if (callerAliases.contains(mention)) return callerUserId;
+
+  final exact = <String>{};
+  final fuzzy = <String>{};
+
+  for (final member in householdMembers) {
+    final userId = member['userId']?.toString().trim() ?? '';
+    if (userId.isEmpty) continue;
+
+    final rawName = member['userName']?.toString() ?? '';
+    final rawEmail = member['userEmail']?.toString() ?? '';
+    final normalizedName = _normalizeMemberAlias(rawName);
+    final normalizedEmail = _normalizeMemberAlias(rawEmail);
+    final emailLocal = normalizedEmail.split(' ').first;
+    final nameParts =
+        normalizedName.isEmpty ? const <String>[] : normalizedName.split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+    final lastName = nameParts.length > 1 ? nameParts.last : '';
+
+    final aliases = <String>{
+      normalizedName,
+      firstName,
+      lastName,
+      emailLocal,
+      normalizedEmail,
+    }.where((s) => s.isNotEmpty).toSet();
+
+    if (aliases.contains(mention)) {
+      exact.add(userId);
+      continue;
+    }
+    if (aliases
+        .any((alias) => alias.contains(mention) || mention.contains(alias))) {
+      fuzzy.add(userId);
+    }
+  }
+
+  if (exact.length == 1) return exact.first;
+  if (exact.isNotEmpty) return null;
+  if (fuzzy.length == 1) return fuzzy.first;
+  return null;
+}
+
+double? _parseLooseAmount(String raw) {
+  final normalized = raw.replaceAll(',', '').trim();
+  return double.tryParse(normalized);
+}
+
+String? _extractDescriptionHintFromTotalClause(String clause) {
+  final match = RegExp(
+    r'(\d+(?:\.\d{1,2})?)\s*(?:for|on)\s+(.+)',
+    caseSensitive: false,
+  ).firstMatch(clause);
+  if (match == null) return null;
+  final raw = (match.group(2) ?? '').trim();
+  if (raw.isEmpty) return null;
+  final stripped = raw
+      .replaceAll(RegExp(r'[^a-z0-9 ]', caseSensitive: false), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return stripped.isEmpty ? null : stripped;
+}
+
+bool _itemsContainExplicitCustomSplits(List<dynamic> items) {
+  for (final item in items) {
+    if (item is! Map) continue;
+    if (_hasExplicitCustomSplits(item['customSplits'])) return true;
+  }
+  return false;
+}
+
+_ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
+  required String text,
+  required List<Map<String, dynamic>> householdMembers,
+  required String callerUserId,
+}) {
+  if (text.trim().isEmpty || householdMembers.isEmpty) return null;
+
+  final clauses = text
+      .split(RegExp(r'[;,]'))
+      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList(growable: false);
+
+  if (clauses.isEmpty) return null;
+
+  final memberAmounts = <String, double>{};
+  double? totalHint;
+  String? descriptionHint;
+
+  final memberSplitPatterns = <RegExp>[
+    RegExp(r'(\d+(?:\.\d{1,2})?)\s*(?:for|to)\s+(.+)', caseSensitive: false),
+    RegExp(r'(?:split\s+)?(\d+(?:\.\d{1,2})?)\s*(?:with)\s+(.+)',
+        caseSensitive: false),
+  ];
+
+  for (final clause in clauses) {
+    for (final pattern in memberSplitPatterns) {
+      final match = pattern.firstMatch(clause);
+      if (match == null) continue;
+
+      final amount = _parseLooseAmount(match.group(1) ?? '');
+      if (amount == null || amount <= 0) break;
+
+      final rawMention = (match.group(2) ?? '').trim();
+      final mentionTokens = rawMention
+          .replaceAll(RegExp(r'[^a-zA-Z0-9@._ ]'), ' ')
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList(growable: false);
+      if (mentionTokens.isEmpty) break;
+
+      String? resolvedUserId;
+      for (var len = min(3, mentionTokens.length); len >= 1; len--) {
+        final probe = mentionTokens.take(len).join(' ');
+        resolvedUserId = _resolveMentionedMemberId(
+          rawMention: probe,
+          householdMembers: householdMembers,
+          callerUserId: callerUserId,
+        );
+        if (resolvedUserId != null) break;
+      }
+
+      if (resolvedUserId != null) {
+        memberAmounts.update(
+          resolvedUserId,
+          (existing) => existing + amount,
+          ifAbsent: () => amount,
+        );
+      } else {
+        totalHint ??= amount;
+        descriptionHint ??= _extractDescriptionHintFromTotalClause(clause);
+      }
+      break;
+    }
+  }
+
+  if (memberAmounts.isEmpty) return null;
+
+  final allMemberIds = householdMembers
+      .map((m) => m['userId']?.toString().trim() ?? '')
+      .where((id) => id.isNotEmpty)
+      .toList(growable: false);
+  if (allMemberIds.isEmpty) return null;
+
+  final sumSpecified = memberAmounts.values.fold<double>(0, (a, b) => a + b);
+  var totalAmount = totalHint ?? sumSpecified;
+  if (totalAmount < sumSpecified) totalAmount = sumSpecified;
+
+  var totalCents = (totalAmount * 100).round();
+  final specifiedCents = <String, int>{
+    for (final entry in memberAmounts.entries)
+      entry.key: (entry.value * 100).round(),
+  };
+  var specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
+
+  if (specifiedSumCents > totalCents) {
+    totalCents = specifiedSumCents;
+    totalAmount = totalCents / 100.0;
+  }
+
+  final missingIds =
+      allMemberIds.where((id) => !specifiedCents.containsKey(id)).toList();
+  var remainderCents = totalCents - specifiedSumCents;
+  if (missingIds.isNotEmpty && remainderCents > 0) {
+    final per = remainderCents ~/ missingIds.length;
+    var extra = remainderCents % missingIds.length;
+    for (final id in missingIds) {
+      specifiedCents[id] = per + (extra > 0 ? 1 : 0);
+      if (extra > 0) extra -= 1;
+    }
+    specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
+    remainderCents = totalCents - specifiedSumCents;
+  }
+
+  if (remainderCents != 0 && allMemberIds.isNotEmpty) {
+    final tailId = allMemberIds.last;
+    specifiedCents[tailId] = (specifiedCents[tailId] ?? 0) + remainderCents;
+  }
+
+  final memberSplits = allMemberIds
+      .map((id) => <String, dynamic>{
+            'userId': id,
+            'amount': ((specifiedCents[id] ?? 0) / 100.0),
+          })
+      .toList(growable: false);
+
+  return _ExplicitAmountSplitOverride(
+    totalAmount: totalAmount,
+    memberSplits: memberSplits,
+    descriptionHint: descriptionHint,
+  );
+}
+
+List<dynamic> _applyExplicitSplitOverrideToItems({
+  required List<dynamic> items,
+  required String? text,
+  required String callerUserId,
+  required List<Map<String, dynamic>> householdMembers,
+}) {
+  if (items.isEmpty || text == null || text.trim().isEmpty) return items;
+  if (householdMembers.isEmpty) return items;
+
+  final override = _extractExplicitAmountSplitOverride(
+    text: text,
+    householdMembers: householdMembers,
+    callerUserId: callerUserId,
+  );
+  if (override == null) return items;
+
+  final shouldOverride =
+      items.length > 1 || !_itemsContainExplicitCustomSplits(items);
+  if (!shouldOverride) return items;
+
+  final baseItem = items.firstWhere(
+    (item) => item is Map,
+    orElse: () => <String, dynamic>{},
+  );
+  final normalizedBase = baseItem is Map
+      ? Map<String, dynamic>.from(baseItem)
+      : <String, dynamic>{};
+
+  normalizedBase['amount'] = override.totalAmount;
+  normalizedBase['customSplits'] = <String, dynamic>{
+    'splitType': 'amount',
+    'memberSplits': override.memberSplits,
+  };
+  final existingDescription = normalizedBase['description']?.toString().trim();
+  if ((override.descriptionHint ?? '').isNotEmpty &&
+      ((existingDescription == null || existingDescription.isEmpty) ||
+          items.length > 1)) {
+    normalizedBase['description'] = override.descriptionHint;
+  }
+
+  _debugPrint(
+    '[AI] Applied explicit split override from text. '
+    'members=${override.memberSplits.length} total=${override.totalAmount}',
+  );
+  return <dynamic>[normalizedBase];
+}
+
+Future<_AutoSplitContext?> _loadAutoSplitContext(
+  ProviderContainer container, {
+  required String householdId,
+}) {
+  final selectedHousehold =
+      _resolveHouseholdForAutoSplit(container, householdId);
+
+  Future<Household?> resolveHousehold() async {
+    if (selectedHousehold != null) return selectedHousehold;
+    return await container.read(householdProvider(householdId).future);
+  }
+
+  Future<List<HouseholdMember>> resolveMembers() async {
+    final cached =
+        container.read(householdMembersProvider(householdId)).valueOrNull;
+    if (cached != null) return cached;
+    return await container
+        .read(householdRepositoryProvider)
+        .getHouseholdMembers(householdId);
+  }
+
+  return Future.wait<Object?>([
+    resolveHousehold(),
+    resolveMembers(),
+  ]).then((results) {
+    final household = results[0] as Household?;
+    final members = results[1] as List<HouseholdMember>?;
+    if (household == null || members == null || members.isEmpty) return null;
+    return _AutoSplitContext(household: household, members: members);
+  }).catchError((_) => null);
+}
+
+Map<String, dynamic>? _resolveAutoSplitCustomSplitsPayload(
+  _AutoSplitContext? context, {
+  required double totalAmount,
+}) {
+  final household = context?.household;
+  if (household == null || !household.autoSplitEnabled) return null;
+
+  final config = household.autoSplitConfig;
+  if (config == null || config.isEmpty) return null;
+
+  final members = context?.members;
+  if (members == null || members.isEmpty) return null;
+
+  final splitType = resolveStoredSplitType(config);
+  if (splitType.name == 'equal') return null;
+
+  final templateSplits = deserializeStoredSplitConfig(
+    members: members,
+    totalAmount: totalAmount,
+    config: config,
+  );
+  final splits = resolveStoredSplitsForTransaction(
+    splitType: splitType,
+    splits: templateSplits,
+    config: config,
+    totalAmount: totalAmount,
+  );
+  return buildCustomSplitsPayload(splitType: splitType, splits: splits);
 }
 
 Future<void> _maybeRequestReviewAfterExpenseSave({
@@ -504,6 +889,14 @@ Future<void> _persistAiTransactions(
         .uploadReceiptImage(File(localImagePath), userId);
   }
 
+  final autoSplitContext =
+      householdId != null && householdId.isNotEmpty && !isPortfolio
+          ? await _loadAutoSplitContext(
+              container,
+              householdId: householdId,
+            )
+          : null;
+
   // Build batch payload - all transactions in a single request
   final batchTransactions = transactions.map((item) {
     final tx = item.transaction;
@@ -514,21 +907,38 @@ Future<void> _persistAiTransactions(
       formatDateOnlyYmd(tx.date),
     );
 
-    // Extract payer and splits for expenses
+    // Extract payer and splits for household transactions.
     final rawPayerUserId = item.raw['payerUserId'];
     final payerUserId =
         rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
             ? rawPayerUserId.trim()
             : null;
 
-    final rawCustomSplits = item.raw['customSplits'];
-    final customSplits = rawCustomSplits is Map
-        ? Map<String, dynamic>.from(rawCustomSplits)
+    final hasExplicitCustomSplits = _hasExplicitCustomSplits(
+      item.raw['customSplits'],
+    );
+    final autoSplitEnabled =
+        autoSplitContext?.household.autoSplitEnabled != false;
+    final explicitCustomSplits = autoSplitEnabled
+        ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
         : null;
-
-    final splitType = customSplits?['splitType']?.toString().trim();
-    final safeCustomSplits =
-        (splitType == null || splitType == 'equal') ? null : customSplits;
+    final defaultCustomSplits = householdId != null &&
+            householdId.isNotEmpty &&
+            !isPortfolio &&
+            autoSplitEnabled &&
+            !hasExplicitCustomSplits
+        ? _resolveAutoSplitCustomSplitsPayload(
+            autoSplitContext,
+            totalAmount: tx.amount,
+          )
+        : null;
+    final effectiveCustomSplits = explicitCustomSplits ?? defaultCustomSplits;
+    _debugPrint(
+      '[AI Batch Save] Auto-split payload decision: household=$householdId '
+      'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
+      'sendPayer=${autoSplitEnabled && payerUserId != null} '
+      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
+    );
 
     return <String, dynamic>{
       'type': isIncome ? 'income' : 'expense',
@@ -545,11 +955,9 @@ Future<void> _persistAiTransactions(
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-      // Expense-specific fields
-      if (!isIncome && payerUserId != null) 'payerUserId': payerUserId,
-      if (!isIncome && safeCustomSplits != null)
-        'customSplits': safeCustomSplits,
-      // Income-specific fields (ownerType, privacyScope use defaults on backend)
+      if (autoSplitEnabled && payerUserId != null) 'payerUserId': payerUserId,
+      if (effectiveCustomSplits != null) 'customSplits': effectiveCustomSplits,
+      // Income ownerType/privacyScope use backend defaults.
     };
   }).toList(growable: false);
 
@@ -723,28 +1131,44 @@ Future<void> _persistAiTransactions(
               'isPortfolio': isPortfolio,
           };
 
-          // Add expense-specific fields
-          if (!isIncome) {
-            final rawPayerUserId = item.raw['payerUserId'];
-            final payerUserId =
-                rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
-                    ? rawPayerUserId.trim()
-                    : null;
+          final rawPayerUserId = item.raw['payerUserId'];
+          final payerUserId =
+              rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+                  ? rawPayerUserId.trim()
+                  : null;
 
-            final rawCustomSplits = item.raw['customSplits'];
-            final customSplits = rawCustomSplits is Map
-                ? Map<String, dynamic>.from(rawCustomSplits)
-                : null;
+          final hasExplicitCustomSplits = _hasExplicitCustomSplits(
+            item.raw['customSplits'],
+          );
+          final autoSplitEnabled =
+              autoSplitContext?.household.autoSplitEnabled != false;
+          final explicitCustomSplits = autoSplitEnabled
+              ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
+              : null;
+          final defaultCustomSplits = householdId != null &&
+                  householdId.isNotEmpty &&
+                  !isPortfolio &&
+                  autoSplitEnabled &&
+                  !hasExplicitCustomSplits
+              ? _resolveAutoSplitCustomSplitsPayload(
+                  autoSplitContext,
+                  totalAmount: tx.amount,
+                )
+              : null;
+          final effectiveCustomSplits =
+              explicitCustomSplits ?? defaultCustomSplits;
+          _debugPrint(
+            '[AI Fallback Save] Auto-split payload decision: household=$householdId '
+            'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
+            'sendPayer=${autoSplitEnabled && payerUserId != null} '
+            'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
+          );
 
-            final splitType = customSplits?['splitType']?.toString().trim();
-            final safeCustomSplits = (splitType == null || splitType == 'equal')
-                ? null
-                : customSplits;
-
-            if (payerUserId != null) requestBody['payerUserId'] = payerUserId;
-            if (safeCustomSplits != null) {
-              requestBody['customSplits'] = safeCustomSplits;
-            }
+          if (autoSplitEnabled && payerUserId != null) {
+            requestBody['payerUserId'] = payerUserId;
+          }
+          if (effectiveCustomSplits != null) {
+            requestBody['customSplits'] = effectiveCustomSplits;
           }
 
           final response =
@@ -1265,6 +1689,8 @@ Future<void> _processExpense(
 
     final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
     Map<String, dynamic>? responseData;
+    List<Map<String, dynamic>> householdMembersContext =
+        const <Map<String, dynamic>>[];
 
     if (preview.isActive) {
       responseData = {
@@ -1296,6 +1722,7 @@ Future<void> _processExpense(
       body['isPortfolio'] = isPortfolio;
       if (!isPortfolio) {
         final memberContext = _buildHouseholdMemberContext(ref, householdId);
+        householdMembersContext = memberContext;
         if (memberContext.isNotEmpty) {
           body['householdMembers'] = memberContext;
         }
@@ -1435,6 +1862,15 @@ Future<void> _processExpense(
 
           final filtered = items.where((it) => !isTotalLike(it)).toList();
           if (filtered.isNotEmpty) items = filtered;
+        }
+
+        if (householdId != null && householdId.isNotEmpty && !isPortfolio) {
+          items = _applyExplicitSplitOverrideToItems(
+            items: items,
+            text: text,
+            callerUserId: user.uid,
+            householdMembers: householdMembersContext,
+          );
         }
 
         if (items.isNotEmpty) {

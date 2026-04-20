@@ -274,6 +274,8 @@ const Set<String> _knownImportHeaderTokens = {
   'datetime',
   'timestamp',
   'description',
+  'merchant',
+  'merchantname',
   'details',
   'memo',
   'note',
@@ -430,6 +432,7 @@ ImportParsedRow parseRow(
   final dateValue = valueFor(ImportField.date);
   final categoryValue = valueFor(ImportField.category);
   final descriptionValue = valueFor(ImportField.description);
+  final merchantValue = valueFor(ImportField.merchant);
   final currencyValue = valueFor(ImportField.currency);
   final typeValue = valueFor(ImportField.type);
   final referenceValue = valueFor(ImportField.reference);
@@ -468,9 +471,10 @@ ImportParsedRow parseRow(
 
   final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
       _normalizeUserFacingImportNote(referenceValue);
+  final finalMerchant = _normalizeUserFacingImportNote(merchantValue);
   final normalizedCategory = _resolveCategory(
     rawCategory: categoryValue,
-    fallbackDescription: finalDescription,
+    fallbackDescription: finalMerchant ?? finalDescription,
     resolvedType: _resolveType(typeValue, parsedAmount),
   );
   final normalizedCurrency = _normalizeCurrencyCode(currencyValue) ??
@@ -488,6 +492,7 @@ ImportParsedRow parseRow(
     amountCents: parsedAmount?.abs(),
     category: normalizedCategory,
     description: finalDescription,
+    merchant: finalMerchant,
     currency: normalizedCurrency,
     type: normalizedType,
     errors: errors,

@@ -209,7 +209,8 @@ class CategoryPicker extends HookWidget {
                                       button: true,
                                       label: normalizedCreateKey,
                                       child: Material(
-                                        color: colorScheme.sheetElementBackground,
+                                        color:
+                                            colorScheme.sheetElementBackground,
                                         borderRadius: BorderRadius.circular(14),
                                         child: InkWell(
                                           borderRadius:
@@ -234,7 +235,8 @@ class CategoryPicker extends HookWidget {
                                               vertical: 12,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: colorScheme.sheetElementBackground,
+                                              color: colorScheme
+                                                  .sheetElementBackground,
                                               borderRadius:
                                                   BorderRadius.circular(14),
                                               border: Border.all(
@@ -600,8 +602,7 @@ class _CategoryTile extends StatelessWidget {
       isCustomCategory: isCustomCategory,
     );
 
-    final circleColor =
-        isSelected ? color : colorScheme.sheetElementBackground;
+    final circleColor = isSelected ? color : colorScheme.sheetElementBackground;
     final iconColor = isSelected
         ? colorScheme.primaryForeground
         : color.withValues(alpha: 0.4);

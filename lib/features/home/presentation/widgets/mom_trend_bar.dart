@@ -50,7 +50,8 @@ class MoMTrendBar extends ConsumerWidget {
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (group) => colorScheme.card,
-                    tooltipBorder: BorderSide(color: colorScheme.border, width: 1),
+                    tooltipBorder:
+                        BorderSide(color: colorScheme.border, width: 1),
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
                         rod.toY.toStringAsFixed(2),
@@ -73,12 +74,12 @@ class MoMTrendBar extends ConsumerWidget {
                     ])
                 ],
                 titlesData: FlTitlesData(
-                  leftTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -91,11 +92,12 @@ class MoMTrendBar extends ConsumerWidget {
                         final year = int.tryParse(parts[0]) ?? 2000;
                         final month = int.tryParse(parts[1]) ?? 1;
                         final date = DateTime(year, month, 1);
-                        final label =
-                            formatLocalizedMonth(context, date, abbreviated: true);
+                        final label = formatLocalizedMonth(context, date,
+                            abbreviated: true);
                         return Text(label,
                             style: TextStyle(
-                                fontSize: 10, color: colorScheme.mutedForeground));
+                                fontSize: 10,
+                                color: colorScheme.mutedForeground));
                       },
                     ),
                   ),

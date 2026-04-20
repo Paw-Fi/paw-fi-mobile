@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/home/presentation/pages/category_details_page.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -15,6 +17,9 @@ class TransactionsPieChart extends StatefulWidget {
   final String periodLabel;
   final List<CategorySummary>? categorySummariesOverride;
   final double? totalSpentOverride;
+  final DateRangeFilter? initialDateFilter;
+  final DateTime? initialStartDate;
+  final DateTime? initialEndDate;
 
   const TransactionsPieChart({
     super.key,
@@ -24,6 +29,9 @@ class TransactionsPieChart extends StatefulWidget {
     this.selectedCurrency,
     this.categorySummariesOverride,
     this.totalSpentOverride,
+    this.initialDateFilter,
+    this.initialStartDate,
+    this.initialEndDate,
   });
 
   @override
@@ -32,6 +40,20 @@ class TransactionsPieChart extends StatefulWidget {
 
 class _TransactionsPieChartState extends State<TransactionsPieChart> {
   int? _touchedIndex;
+
+  void _openCategoryDetails(BuildContext context, String categoryKey) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CategoryDetailsPage(
+          categoryKey: categoryKey,
+          currency: widget.selectedCurrency,
+          initialDateFilter: widget.initialDateFilter,
+          initialStartDate: widget.initialStartDate,
+          initialEndDate: widget.initialEndDate,
+        ),
+      ),
+    );
+  }
 
   List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
     final Map<String, double> categoryTotals = {};
@@ -340,16 +362,46 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                         ],
                       ),
                       const Spacer(),
-                      Text(
-                        displayAmount(category.amount),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: widget.colorScheme.foreground,
-                          letterSpacing: -0.5,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: category.category == 'other'
+                                  ? null
+                                  : () => _openCategoryDetails(
+                                      context,
+                                      category.category,
+                                    ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayAmount(category.amount),
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: widget.colorScheme.foreground,
+                                        letterSpacing: -0.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (category.category != 'other') ...[
+                                    const SizedBox(width: 2),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 16,
+                                      color: widget.colorScheme.mutedForeground,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

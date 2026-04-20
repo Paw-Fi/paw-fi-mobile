@@ -441,8 +441,7 @@ class DeepLinkService {
       _debugPrint('❌ Error handling Tink callback');
       final errorContext = rootNavigatorKey.currentContext;
       if (errorContext != null && errorContext.mounted) {
-        AppToast.error(
-            errorContext, 'Failed to connect bank: ${e.toString()}');
+        AppToast.error(errorContext, 'Failed to connect bank: ${e.toString()}');
       }
     } finally {
       ref.read(pendingBankLinkStateProvider.notifier).state = null;

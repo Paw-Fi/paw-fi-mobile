@@ -539,13 +539,12 @@ class _MultiTransactionReviewSheetState
         );
         final updatedTx = tx.copyWith(date: dateWithTime);
         final hasSplits = draft.splits != null && draft.splits!.isNotEmpty;
-        final splitType = (!_isIncomeMode && _shareWithHousehold && hasSplits)
+        final splitType = (_shareWithHousehold && hasSplits)
             ? (draft.splitType ?? SplitType.amount)
             : null;
         final splits = splitType != null ? draft.splits : null;
-        final payerUserId = (!_isIncomeMode && _shareWithHousehold)
-            ? (draft.payerUserId ?? user.uid)
-            : null;
+        final payerUserId =
+            _shareWithHousehold ? (draft.payerUserId ?? user.uid) : null;
 
         try {
           if (_isIncomeMode) {
@@ -560,6 +559,9 @@ class _MultiTransactionReviewSheetState
                       date: updatedTx.date,
                       description: updatedTx.description,
                       householdId: householdId,
+                      customSplitType: splitType,
+                      customSplits: splits,
+                      payerUserId: payerUserId,
                     );
             if (saved == null) {
               final state = ref.read(incomeSaveProvider);

@@ -123,9 +123,11 @@ class _MonekoSheetContent extends StatelessWidget {
                   if (onClose != null)
                     IconButton(
                       onPressed: onClose,
-                      icon: Icon(Icons.close, color: colorScheme.mutedForeground),
+                      icon:
+                          Icon(Icons.close, color: colorScheme.mutedForeground),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.muted.withValues(alpha: 0.2),
+                        backgroundColor:
+                            colorScheme.muted.withValues(alpha: 0.2),
                       ),
                     )
                   else
@@ -159,7 +161,8 @@ class _MonekoSheetContent extends StatelessWidget {
                             )
                           : Icon(Icons.check, color: colorScheme.primary),
                       style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                        backgroundColor:
+                            colorScheme.primary.withValues(alpha: 0.1),
                       ),
                     )
                   else

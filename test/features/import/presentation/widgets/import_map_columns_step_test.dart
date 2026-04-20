@@ -17,6 +17,7 @@ void main() {
     expect(layout.requiredFields, [ImportField.date, ImportField.debit]);
     expect(layout.optionalFields, contains(ImportField.amount));
     expect(layout.optionalFields, contains(ImportField.credit));
+    expect(layout.optionalFields, contains(ImportField.merchant));
     expect(layout.canProceed, isTrue);
   });
 

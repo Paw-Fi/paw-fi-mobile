@@ -940,7 +940,8 @@ class _ScenarioPlanningTabContentState
                                     selectedCurrency: widget.selectedCurrency,
                                     question: q,
                                     userId: user.uid,
-                                    mode: isHousehold ? 'household' : 'personal',
+                                    mode:
+                                        isHousehold ? 'household' : 'personal',
                                     householdId: householdId,
                                     scenarioId: id,
                                     onSaved: () {
@@ -957,7 +958,8 @@ class _ScenarioPlanningTabContentState
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 2, horizontal: 0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
@@ -965,8 +967,10 @@ class _ScenarioPlanningTabContentState
                                         children: [
                                           if (createdAtLabel != null)
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10, vertical: 6),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
                                               decoration: BoxDecoration(
                                                 color: colorScheme.primary
                                                     .withValues(alpha: 0.06),

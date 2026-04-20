@@ -823,7 +823,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       );
                                     },
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
@@ -853,17 +854,18 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         ],
                                       ),
                                       child: AnimatedSwitcher(
-                                        duration: const Duration(milliseconds: 300),
+                                        duration:
+                                            const Duration(milliseconds: 300),
                                         child: isCustomColor
                                             ? Icon(Icons.check,
                                                 key: const ValueKey('check'),
-                                                color:
-                                                    colorScheme.primaryForeground,
+                                                color: colorScheme
+                                                    .primaryForeground,
                                                 size: 20)
                                             : Icon(Icons.colorize,
                                                 key: const ValueKey('colorize'),
-                                                color:
-                                                    colorScheme.primaryForeground,
+                                                color: colorScheme
+                                                    .primaryForeground,
                                                 size: 20),
                                       ),
                                     ),
@@ -899,14 +901,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                       ],
                                     ),
                                     child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 300),
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       child: isSelected
                                           ? Icon(Icons.check,
                                               key: const ValueKey('selected'),
                                               color:
                                                   colorScheme.primaryForeground,
                                               size: 20)
-                                          : const SizedBox(key: ValueKey('unselected')),
+                                          : const SizedBox(
+                                              key: ValueKey('unselected')),
                                     ),
                                   ),
                                 );

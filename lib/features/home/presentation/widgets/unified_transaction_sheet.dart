@@ -22,6 +22,7 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
@@ -189,6 +190,7 @@ class _UnifiedTransactionSheetState
   bool _hasCheckedSplitGroup = false;
   String? _selectedFinancialAccountId;
   bool _hasManuallySelectedFinancialAccount = false;
+  bool _hasManuallyChangedAccountSelection = false;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -251,23 +253,25 @@ class _UnifiedTransactionSheetState
 
       final scope = ref.read(householdScopeProvider);
       final existingHouseholdId = widget.existingExpense!.householdId;
+      final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
       final isPortfolio = scope.isPortfolioId(existingHouseholdId);
       final hasHousehold =
           existingHouseholdId != null && existingHouseholdId.isNotEmpty;
       final isSharedSpace = hasHousehold && !isPortfolio;
+      final hasExistingSplitGroup =
+          existingSplitGroupId != null && existingSplitGroupId.isNotEmpty;
 
       final defaultAccountType = () {
         if (isPortfolio && hasHousehold) return ActiveWalletType.portfolio;
-        if (isSharedSpace) return ActiveWalletType.household;
+        if (isSharedSpace && hasExistingSplitGroup) {
+          return ActiveWalletType.household;
+        }
         return ActiveWalletType.personal;
       }();
 
       _setAccountSelectionDefaults(defaultAccountType, existingHouseholdId);
 
-      final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
-      if (isSharedSpace &&
-          existingSplitGroupId != null &&
-          existingSplitGroupId.isNotEmpty) {
+      if (isSharedSpace && hasExistingSplitGroup) {
         _resolvedSplitGroupId = existingSplitGroupId;
         _hasCheckedSplitGroup = true;
       }
@@ -276,7 +280,9 @@ class _UnifiedTransactionSheetState
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
 
       // If expense is shared with a household, initialize the household selection and load members
-      if (isSharedSpace && widget.existingExpense!.householdId != null) {
+      if (isSharedSpace &&
+          hasExistingSplitGroup &&
+          widget.existingExpense!.householdId != null) {
         debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -587,13 +593,19 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  void _applyAccountSelection(_AccountOption option) {
+  void _applyAccountSelection(
+    _AccountOption option, {
+    bool userInitiated = false,
+  }) {
     final isHouseholdSelection = option.type == ActiveWalletType.household;
     if (isHouseholdSelection &&
         (option.householdId == null || option.householdId!.isEmpty)) {
       return;
     }
     setState(() {
+      if (userInitiated) {
+        _hasManuallyChangedAccountSelection = true;
+      }
       _selectedAccountType = option.type;
       _selectedAccountHouseholdId = option.householdId;
       _isSharedWithHousehold = isHouseholdSelection;
@@ -638,7 +650,7 @@ class _UnifiedTransactionSheetState
     );
 
     if (selected == null || selected == current) return;
-    _applyAccountSelection(selected);
+    _applyAccountSelection(selected, userInitiated: true);
   }
 
   void _clearSharingData() {
@@ -963,11 +975,13 @@ class _UnifiedTransactionSheetState
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
-                              label: context.l10n.merchant,
+                              label:
+                                  '${isIncomeMode ? context.l10n.source : context.l10n.merchant}',
                               value: displayMerchant?.trim().isNotEmpty == true
                                   ? displayMerchant!.trim()
                                   : context.l10n.tapToSet,
-                              onTap: () => _handleEditMerchant(displayMerchant),
+                              onTap: () => _handleEditMerchant(
+                                  displayMerchant, isIncomeMode),
                               isValuePlaceholder:
                                   displayMerchant?.trim().isNotEmpty != true,
                             ),
@@ -1444,6 +1458,7 @@ class _UnifiedTransactionSheetState
                           isPortfolio:
                               fallbackType == ActiveWalletType.portfolio,
                         ),
+                        userInitiated: true,
                       );
                       return;
                     }
@@ -1465,6 +1480,7 @@ class _UnifiedTransactionSheetState
                         label: '',
                         isPortfolio: false,
                       ),
+                      userInitiated: true,
                     );
                   },
                 ),
@@ -1662,6 +1678,11 @@ class _UnifiedTransactionSheetState
                   return const SizedBox();
                 }
 
+                final existingSplitGroupId = _effectiveSplitGroupId;
+                if (isExistingExpense && existingSplitGroupId == null) {
+                  return const SizedBox();
+                }
+
                 if (isPortfolioSelection) {
                   return Container(
                     padding: const EdgeInsets.all(12),
@@ -1690,20 +1711,33 @@ class _UnifiedTransactionSheetState
                   );
                 }
 
+                // Respect the household's auto-split preference. When the
+                // household owner has disabled auto-splitting, the transaction
+                // still logs against the household but no split group is
+                // created. Hide the split editor for new transactions so the
+                // UI matches what the backend will persist.
+                final activeHousehold =
+                    _resolveHouseholdById(activeHouseholdId);
+                if (isNewExpense &&
+                    activeHousehold != null &&
+                    !activeHousehold.autoSplitEnabled) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Auto-split is turned off for this space. The transaction will be logged to the household without splitting among members.',
+                      style: TextStyle(color: colorScheme.mutedForeground),
+                    ),
+                  );
+                }
+
                 final pendingExpense =
                     isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
-                // Check if this is an existing expense with household but no split group
-                final isExistingWithoutSplit = isExistingExpense &&
-                    widget.existingExpense!.householdId != null &&
-                    _hasCheckedSplitGroup &&
-                    _effectiveSplitGroupId == null;
-
-                // For income mode, we hide the custom split editor entirely
-                if (isIncomeMode) {
-                  return const SizedBox();
-                }
                 return GroupSplitEditorSection(
                   members: _householdMembers!,
                   selectedPayerUserId: _selectedPayerUserId,
@@ -1719,8 +1753,7 @@ class _UnifiedTransactionSheetState
                   splitEditorKey: ValueKey(
                     'split_${_customSplitType}_${_customSplits?.length}',
                   ),
-                  showNotYetSplitBanner: isExistingWithoutSplit,
-                  notYetSplitMessage: context.l10n.notYetSplitBanner,
+                  showNotYetSplitBanner: false,
                   onSplitChanged: (splitType, splits) {
                     setState(() {
                       _customSplitType = splitType;
@@ -2183,16 +2216,19 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  Future<void> _handleEditMerchant(String? currentMerchant) async {
+  Future<void> _handleEditMerchant(
+      String? currentMerchant, bool isIncomeMode) async {
     final result = await MonekoAlertDialog.show(
       context: context,
-      title: context.l10n.merchantOptional,
+      title:
+          '${isIncomeMode ? context.l10n.source : context.l10n.merchant} (${context.l10n.optional})',
       description: null,
       confirmLabel: context.l10n.save,
       cancelLabel: context.l10n.cancel,
       inputConfig: MonekoAlertDialogInputConfig(
         initialValue: currentMerchant?.trim() ?? '',
-        placeholder: context.l10n.addMerchant,
+        placeholder:
+            isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
         isRequired: false,
       ),
     );
@@ -2296,6 +2332,12 @@ class _UnifiedTransactionSheetState
           _selectedPayerUserId = validPayerId;
         });
 
+        // Seed the split editor with the household's saved default split
+        // template so users immediately see the configured behaviour for new
+        // expenses. Only applies when adding a fresh expense (not income,
+        // not editing), and when no explicit split has been set yet.
+        _maybeSeedAutoSplitDefaults(householdId: householdId, members: members);
+
         debugPrint(
             '✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
         debugPrint('✅ [LOAD MEMBERS] Final payer selection set');
@@ -2319,6 +2361,67 @@ class _UnifiedTransactionSheetState
             '👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
       }
     }
+  }
+
+  /// Resolve the Household entity for the given id by consulting the cached
+  /// providers (user households list first, then the per-id provider).
+  Household? _resolveHouseholdById(String householdId) {
+    final userId = ref.read(authProvider).uid;
+    final cachedList = ref.read(userHouseholdsProvider(userId)).asData?.value ??
+        const <Household>[];
+    for (final household in cachedList) {
+      if (household.id == householdId) return household;
+    }
+    return ref.read(householdProvider(householdId)).valueOrNull;
+  }
+
+  /// For a fresh transaction the user is logging into a household,
+  /// pre-populate the split editor with the household's saved default split
+  /// template. If the user manually edits the splits the change wins; the
+  /// backend also enforces the same rules as a safety net.
+  void _maybeSeedAutoSplitDefaults({
+    required String householdId,
+    required List<HouseholdMember> members,
+  }) {
+    if (!isNewExpense) return;
+    if (members.isEmpty) return;
+    if (_customSplits != null || _customSplitType != null) return;
+    final pending = ref.read(pendingExpenseProvider) ?? widget.newExpense;
+
+    final household = _resolveHouseholdById(householdId);
+    if (household == null || household.isPortfolio) return;
+    if (!household.autoSplitEnabled) return;
+    final config = household.autoSplitConfig;
+    if (config == null || config.isEmpty) return;
+
+    final splitType = resolveStoredSplitType(config, fallback: SplitType.equal);
+    if (splitType == SplitType.equal) return;
+
+    final totalAmount = pending?.amount ?? amount;
+    final seededSplits = deserializeStoredSplitConfig(
+      members: members,
+      totalAmount: totalAmount,
+      config: config,
+    );
+    final resolvedSplits = resolveStoredSplitsForTransaction(
+      splitType: splitType,
+      splits: seededSplits,
+      config: config,
+      totalAmount: totalAmount,
+    );
+    final amountEditorSplits = _toAmountEditorSplits(
+      sourceType: splitType,
+      splits: resolvedSplits,
+      totalAmount: totalAmount,
+    );
+    if (!mounted) return;
+    setState(() {
+      _customSplitType = SplitType.amount;
+      _customSplits = amountEditorSplits;
+    });
+    debugPrint(
+      '🌱 [AUTO SPLIT] Seeded editor from household default (storedType=$splitType, displayType=${_customSplitType?.name}, members=${amountEditorSplits.length})',
+    );
   }
 
   Future<String?> _resolveSplitGroupIdForExistingExpense({
@@ -2424,29 +2527,103 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  /// Map database SplitType to UI SplitType
-  SplitType _mapSplitType(dynamic dbSplitType) {
-    // dbSplitType is ExpenseSplitGroup.SplitType from expense_split.dart
-    // We need to convert it to SplitType from custom_split_sheet.dart
-    final typeString = dbSplitType.toString().split('.').last;
-    switch (typeString) {
-      case 'equal':
-        return SplitType.equal;
-      case 'amount':
-        return SplitType.amount;
-      case 'percentage':
-        return SplitType.percentage;
-      case 'shares':
-        return SplitType.shares;
-      default:
-        return SplitType.amount; // fallback
-    }
-  }
-
   SplitType _normalizeUiSplitTypeForEditor(SplitType type) {
     // The editor UI currently exposes Amount / Percent / Share. Represent Equal
     // splits as Amount so users see a selected chip and can edit amounts.
     return type == SplitType.equal ? SplitType.amount : type;
+  }
+
+  List<int> _allocateCentsByWeights({
+    required int totalCents,
+    required List<double> weights,
+  }) {
+    if (weights.isEmpty || totalCents <= 0) {
+      return List<int>.filled(weights.length, 0, growable: false);
+    }
+
+    final normalized = weights
+        .map((weight) => weight.isFinite && weight > 0 ? weight : 0.0)
+        .toList(growable: false);
+    final totalWeight = normalized.fold<double>(0, (sum, w) => sum + w);
+    if (totalWeight <= 0) {
+      return List<int>.filled(weights.length, 0, growable: false);
+    }
+
+    final raw = normalized
+        .map((weight) => (totalCents * weight) / totalWeight)
+        .toList(growable: false);
+    final floorValues =
+        raw.map((value) => value.floor()).toList(growable: false);
+    var remainder =
+        totalCents - floorValues.fold<int>(0, (sum, value) => sum + value);
+
+    final order = List<int>.generate(raw.length, (index) => index)
+      ..sort((a, b) {
+        final fracA = raw[a] - floorValues[a];
+        final fracB = raw[b] - floorValues[b];
+        return fracB.compareTo(fracA);
+      });
+
+    for (var i = 0; remainder > 0 && order.isNotEmpty; i++, remainder--) {
+      floorValues[order[i % order.length]] += 1;
+    }
+
+    return floorValues;
+  }
+
+  List<MemberSplit> _toAmountEditorSplits({
+    required SplitType sourceType,
+    required List<MemberSplit> splits,
+    required double totalAmount,
+  }) {
+    if (splits.isEmpty) return splits;
+
+    if (sourceType == SplitType.amount) {
+      final previousTotal = splits.fold<double>(
+        0,
+        (sum, split) =>
+            sum + (split.includedInAmount ? (split.amount ?? 0) : 0),
+      );
+      return rescaleAmountSplits(
+        splits: splits,
+        previousTotal: previousTotal,
+        newTotal: totalAmount,
+      );
+    }
+
+    final totalCents = (totalAmount * 100).round();
+    final weights = sourceType == SplitType.percentage
+        ? splits
+            .map((split) => split.includedInPercentage
+                ? ((split.percentage ?? 0).toDouble())
+                : 0.0)
+            .toList(growable: false)
+        : sourceType == SplitType.shares
+            ? splits
+                .map((split) =>
+                    ((split.shares ?? 0) > 0 ? split.shares! : 0).toDouble())
+                .toList(growable: false)
+            : List<double>.filled(splits.length, 1.0, growable: false);
+
+    var effectiveWeights = weights;
+    if (effectiveWeights.every((value) => value <= 0)) {
+      effectiveWeights =
+          List<double>.filled(splits.length, 1.0, growable: false);
+    }
+
+    final centsByMember = _allocateCentsByWeights(
+      totalCents: totalCents,
+      weights: effectiveWeights,
+    );
+
+    return List<MemberSplit>.generate(splits.length, (index) {
+      final split = splits[index];
+      final cents = centsByMember[index];
+      return split.copyWith(
+        amount: cents / 100.0,
+        includedInAmount: cents > 0,
+      );
+    }, growable: false);
   }
 
   String _buildSplitSignature(SplitType type, List<MemberSplit> splits) {
@@ -2526,9 +2703,7 @@ class _UnifiedTransactionSheetState
       }
 
       final dbSplitType = splitGroup.splitType.toString().split('.').last;
-      final uiSplitType = _normalizeUiSplitTypeForEditor(
-        _mapSplitType(splitGroup.splitType),
-      );
+      const uiSplitType = SplitType.amount;
 
       final splitLinesByUserId = <String, household_split.ExpenseSplitLine>{};
       for (final line in splitGroup.splitLines!) {
@@ -2720,6 +2895,18 @@ class _UnifiedTransactionSheetState
         final isSharedHousehold =
             _selectedAccountType == ActiveWalletType.household &&
                 effectiveHouseholdId != null;
+        final activeHousehold = effectiveHouseholdId == null
+            ? null
+            : _resolveHouseholdById(effectiveHouseholdId);
+        final canUseHouseholdSplits = isSharedHousehold &&
+            !isEffectivePortfolio &&
+            activeHousehold?.autoSplitEnabled != false;
+        debugPrint(
+          '🧩 [AUTO SPLIT SAVE] household=$effectiveHouseholdId '
+          'autoSplitEnabled=${activeHousehold?.autoSplitEnabled} '
+          'canSendSplits=$canUseHouseholdSplits '
+          'splitType=$_customSplitType splits=${_customSplits?.length ?? 0}',
+        );
         if (isEffectivePortfolio) {
           _selectedPayerUserId = ref.read(authProvider).uid;
           _customSplitType = null;
@@ -2766,6 +2953,11 @@ class _UnifiedTransactionSheetState
                 merchant: expense.merchant,
                 householdId: effectiveHouseholdId,
                 accountId: selectedFinancialAccountId,
+                customSplitType:
+                    canUseHouseholdSplits ? _customSplitType : null,
+                customSplits: canUseHouseholdSplits ? _customSplits : null,
+                payerUserId:
+                    canUseHouseholdSplits ? _selectedPayerUserId : null,
               );
 
           if (saved == null) {
@@ -2869,11 +3061,11 @@ class _UnifiedTransactionSheetState
                 householdId: effectiveHouseholdId,
                 accountId: selectedFinancialAccountId,
                 receiptImageUrl: receiptUrl,
-                customSplitType: _customSplitType,
-                customSplits: _customSplits,
-                payerUserId: (isSharedHousehold && !isEffectivePortfolio)
-                    ? _selectedPayerUserId
-                    : null,
+                customSplitType:
+                    canUseHouseholdSplits ? _customSplitType : null,
+                customSplits: canUseHouseholdSplits ? _customSplits : null,
+                payerUserId:
+                    canUseHouseholdSplits ? _selectedPayerUserId : null,
               );
 
           debugPrint(' Expense saved successfully');
@@ -2944,12 +3136,24 @@ class _UnifiedTransactionSheetState
         await _resolveSplitGroupIdForExistingExpense();
         final Map<String, dynamic> updates = {};
         final accountTarget = _resolveAccountTarget();
-        final targetHouseholdId = accountTarget.householdId;
-        final targetIsPortfolio = accountTarget.isPortfolio;
-        final isSharedSpace = targetHouseholdId != null && !targetIsPortfolio;
         final originalHouseholdId = widget.existingExpense!.householdId;
         final originalIsPortfolio = originalHouseholdId != null &&
             householdScope.isPortfolioId(originalHouseholdId);
+        final originalSplitGroupId =
+            widget.existingExpense!.splitGroupId?.trim();
+        final shouldPreserveUnsplitHouseholdScope =
+            !_hasManuallyChangedAccountSelection &&
+                originalHouseholdId != null &&
+                originalHouseholdId.isNotEmpty &&
+                !originalIsPortfolio &&
+                (originalSplitGroupId == null || originalSplitGroupId.isEmpty);
+        final targetHouseholdId = shouldPreserveUnsplitHouseholdScope
+            ? originalHouseholdId
+            : accountTarget.householdId;
+        final targetIsPortfolio = shouldPreserveUnsplitHouseholdScope
+            ? false
+            : accountTarget.isPortfolio;
+        final isSharedSpace = targetHouseholdId != null && !targetIsPortfolio;
 
         if (_editedAmount != null) {
           updates['amount_cents'] = (_editedAmount! * 100).round();

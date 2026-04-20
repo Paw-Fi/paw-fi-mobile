@@ -345,8 +345,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         return;
       }
 
-      final latestPreferred =
-          _normalizeCurrencyCode(latestContact?['preferred_currency'] as String?);
+      final latestPreferred = _normalizeCurrencyCode(
+          latestContact?['preferred_currency'] as String?);
       if (latestPreferred != null) {
         await prefs.setBool(cacheKey, true);
         return;
@@ -370,7 +370,8 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         }
 
         final payload = response.data;
-        final ok = payload is Map<String, dynamic> ? payload['ok'] == true : false;
+        final ok =
+            payload is Map<String, dynamic> ? payload['ok'] == true : false;
         if (!ok) {
           throw Exception('Currency sync failed (invalid payload)');
         }

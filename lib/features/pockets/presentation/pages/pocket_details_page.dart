@@ -266,7 +266,6 @@ class PocketDetailsPage extends HookConsumerWidget {
         isBackgroundLight ? AppTheme.lightForeground : AppTheme.darkForeground;
     final secondaryTextColor = textColor.withValues(alpha: 0.7);
 
-
     return Scaffold(
       backgroundColor: gradientColors.first,
       body: Stack(

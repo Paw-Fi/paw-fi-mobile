@@ -157,8 +157,8 @@ class AppleLoginButton extends HookConsumerWidget {
                 ),
           child: Text(
             isLoading.value
-                  ? context.l10n.signInWithAppleLoading
-                  : context.l10n.signInWithAppleCta,
+                ? context.l10n.signInWithAppleLoading
+                : context.l10n.signInWithAppleCta,
           ),
         ),
         if (error.value != null) ...[

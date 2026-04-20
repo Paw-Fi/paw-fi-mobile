@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -11,13 +10,13 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/shared/widgets/moneko_selector_button.dart';
 
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/create_household_form_content.dart';
 import 'package:moneko/features/households/presentation/pages/invite_members_page.dart';
 import 'package:moneko/features/households/presentation/utils/household_creation_utils.dart';
+import 'package:moneko/features/households/presentation/widgets/space_visibility_selector_card.dart';
 import 'package:moneko/features/households/presentation/widgets/spaces_explanation_modal.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -176,7 +175,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                           const SizedBox(height: 36),
 
                           // Shared/Members Card
-                          _buildMembersCard(colorScheme),
+                          _buildMembersCard(),
                         ],
                       ),
                     ),
@@ -191,82 +190,14 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     ));
   }
 
-  Widget _buildMembersCard(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.l10n.whoCanSeeAndAddExpense,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.foreground,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 20),
-          AdaptivePopupMenuButton.widget<bool>(
-            items: [
-              AdaptivePopupMenuItem(
-                label: context.l10n.allGroupMembers,
-                value: true,
-                icon: PlatformInfo.isIOS26OrHigher()
-                    ? 'person.2'
-                    : Icons.group_outlined,
-              ),
-              AdaptivePopupMenuItem(
-                label: context.l10n.justMyself,
-                value: false,
-                icon: PlatformInfo.isIOS26OrHigher()
-                    ? 'person'
-                    : Icons.person_outline,
-              ),
-            ],
-            onSelected: (index, item) {
-              if (item.value != null && mounted) {
-                setState(() {
-                  _isSharedSpace = item.value!;
-                });
-              }
-            },
-            child: IgnorePointer(
-              child: MonekoSelectorButton(
-                label: _isSharedSpace
-                    ? context.l10n.allGroupMembers
-                    : context.l10n.justMyself,
-                onPressed: () {},
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text.rich(
-            TextSpan(
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.mutedForeground,
-                height: 1.5,
-              ),
-              children: [
-                TextSpan(
-                  text: _isSharedSpace
-                      ? context.l10n.everyoneInSpaceCanViewAndAddTransactions
-                      : context.l10n.onlyYouCanSeeAndAddTransactionsInThisSpace,
-                ),
-                TextSpan(
-                  text: context.l10n.howItWorksTitle,
-                  style: TextStyle(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  recognizer: TapGestureRecognizer()..onTap = _showSpacesInfo,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+  Widget _buildMembersCard() {
+    return SpaceVisibilitySelectorCard(
+      isSharedSpace: _isSharedSpace,
+      onChanged: (value) {
+        if (!mounted) return;
+        setState(() => _isSharedSpace = value);
+      },
+      onInfoTap: _showSpacesInfo,
     );
   }
 

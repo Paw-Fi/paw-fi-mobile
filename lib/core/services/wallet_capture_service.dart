@@ -67,8 +67,8 @@ class WalletCaptureService {
     if (!Platform.isIOS) {
       return WalletCaptureConfig.disabled;
     }
-    final result =
-        await _channel.invokeMapMethod<String, dynamic>('getWalletCaptureConfig');
+    final result = await _channel
+        .invokeMapMethod<String, dynamic>('getWalletCaptureConfig');
     if (result == null) {
       return WalletCaptureConfig.disabled;
     }

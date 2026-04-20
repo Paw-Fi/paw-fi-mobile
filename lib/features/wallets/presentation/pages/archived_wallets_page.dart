@@ -26,8 +26,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
       final confirm = await MonekoAlertDialog.show(
         context: context,
         title: context.l10n.restoreWallet,
-        description:
-            context.l10n.restoreWalletDescription,
+        description: context.l10n.restoreWalletDescription,
         confirmLabel: context.l10n.restore,
         cancelLabel: context.l10n.cancel,
       );
@@ -45,7 +44,7 @@ class ArchivedWalletsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title:  Text(context.l10n.archivedWallets),
+        title: Text(context.l10n.archivedWallets),
       ),
       body: archivedAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -167,7 +166,7 @@ class _ArchivedAccountCard extends StatelessWidget {
               ),
               TextButton(
                 onPressed: onRestore,
-                child:  Text(context.l10n.restore),
+                child: Text(context.l10n.restore),
               ),
             ],
           ),

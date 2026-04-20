@@ -36,8 +36,7 @@ class BankConnection {
       itemHealthState: _nullableString(json['item_health_state']),
       relinkState: _nullableString(json['relink_state']),
       institutionName: _nullableString(metadata['institution_name']),
-      lastSuccessfulSyncAt:
-          _nullableDateTime(json['last_successful_sync_at']),
+      lastSuccessfulSyncAt: _nullableDateTime(json['last_successful_sync_at']),
       nextManualRefreshEligibleAt:
           _nullableDateTime(json['next_manual_refresh_eligible_at']),
       scheduledRemovalAt: _nullableDateTime(json['scheduled_removal_at']),

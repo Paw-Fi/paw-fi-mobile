@@ -125,6 +125,45 @@ void main() {
     expect(parsed.category, 'food & drinks');
   });
 
+  test('parseRow preserves merchant separately from description', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.merchant: 2,
+        ImportField.description: 3,
+      },
+    );
+
+    final parsed = parseRow(
+      ['2026-02-01', '-12.50', 'Blue Bottle', 'coffee beans'],
+      mapping,
+    );
+
+    expect(parsed.isValid, isTrue);
+    expect(parsed.merchant, 'Blue Bottle');
+    expect(parsed.description, 'coffee beans');
+  });
+
+  test('parseRow uses merchant to infer category when description is absent',
+      () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.merchant: 2,
+      },
+    );
+
+    final parsed = parseRow(
+      ['2026-02-01', '-99.00', 'Twilio'],
+      mapping,
+    );
+
+    expect(parsed.merchant, 'Twilio');
+    expect(parsed.category, 'software tools');
+  });
+
   test('parseRow canonicalizes localized built-in category labels', () {
     const mapping = ImportMapping(
       fieldToColumnIndex: {

@@ -32,17 +32,19 @@ class UnifiedPlanCard extends StatelessWidget {
         children: plans.asMap().entries.map((entry) {
           final idx = entry.key;
           final plan = entry.value;
-          
+
           final isDisabled = isCurrentPlan?.call(plan) ?? false;
           final isSelected = selectedPlanId == plan.id;
-          
+
           final trialText = switch (plan.billingInterval) {
             'yearly' => context.l10n.paywallYearlyTrial,
             'monthly' => context.l10n.paywallMonthlyTrial,
             _ => null,
           };
           final supportingText = plan.serverPlanId == 'lifetime'
-              ? (isDisabled ? 'Current Plan' : context.l10n.paywallLifetimeSupport)
+              ? (isDisabled
+                  ? 'Current Plan'
+                  : context.l10n.paywallLifetimeSupport)
               : context.l10n.paywallFamilySharing;
           final periodText = switch (plan.billingInterval) {
             'yearly' => context.l10n.perYear,
@@ -67,16 +69,16 @@ class UnifiedPlanCard extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDisabled 
-                      ? scheme.onSurface.withValues(alpha: 0.03) 
+                  color: isDisabled
+                      ? scheme.onSurface.withValues(alpha: 0.03)
                       : (isDark ? const Color(0xFF17181D) : scheme.surface),
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(
-                    color: isDisabled 
+                    color: isDisabled
                         ? Colors.transparent
                         : (isSelected
-                          ? const Color(0xFF7458FF)
-                          : scheme.outlineVariant.withValues(alpha: 0.3)),
+                            ? const Color(0xFF7458FF)
+                            : scheme.outlineVariant.withValues(alpha: 0.3)),
                     width: isSelected && !isDisabled ? 2 : 1,
                   ),
                 ),
@@ -94,7 +96,7 @@ class UnifiedPlanCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: isDisabled 
+                              color: isDisabled
                                   ? scheme.onSurface.withValues(alpha: 0.5)
                                   : scheme.onSurface,
                             ),
@@ -102,7 +104,8 @@ class UnifiedPlanCard extends StatelessWidget {
                         ),
                         if (isDisabled)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
                               color: scheme.onSurface.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
@@ -118,7 +121,8 @@ class UnifiedPlanCard extends StatelessWidget {
                           )
                         else if (plan.badgeText != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFF7458FF), Color(0xFFA855F7)],
@@ -167,7 +171,7 @@ class UnifiedPlanCard extends StatelessWidget {
                       supportingText,
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDisabled 
+                        color: isDisabled
                             ? scheme.onSurface.withValues(alpha: 0.4)
                             : scheme.mutedForeground,
                       ),
@@ -179,7 +183,7 @@ class UnifiedPlanCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: isDisabled 
+                          color: isDisabled
                               ? scheme.onSurface.withValues(alpha: 0.5)
                               : const Color(0xFF8B5CF6),
                           letterSpacing: -0.5,
@@ -191,7 +195,7 @@ class UnifiedPlanCard extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: isDisabled 
+                                color: isDisabled
                                     ? scheme.onSurface.withValues(alpha: 0.4)
                                     : const Color(0xFF8B5CF6),
                               ),
