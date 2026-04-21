@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/household_providers.dart';
@@ -686,6 +687,16 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               config: config,
                               selectedCurrency: selectedCurrency,
                               referenceNow: userNow,
+                            ),
+                          ),
+                      DashboardWidgetType.householdWalletSummary: (context,
+                              config) =>
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: LazyDashboardWalletSummaryCard(
+                              config: config,
+                              colorScheme: colorScheme,
                             ),
                           ),
                     },

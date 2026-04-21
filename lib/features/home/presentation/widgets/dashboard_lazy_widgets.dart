@@ -14,6 +14,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashboard_section_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
@@ -25,6 +26,8 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/home/presentation/widgets/budget_dashboard/dashboard_wallet_summary_card.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
@@ -453,6 +456,42 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
   }
 }
 
+class LazyDashboardWalletSummaryCard extends ConsumerWidget {
+  const LazyDashboardWalletSummaryCard({
+    super.key,
+    required this.config,
+    required this.colorScheme,
+  });
+
+  final DashboardWidgetConfig config;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filterState = ref.watch(homeFilterProvider);
+    final walletsAsync = ref.watch(scopedWalletsProvider);
+    final effectiveWallets = ref.watch(effectiveScopeWalletsProvider);
+
+    if (walletsAsync.isLoading && !walletsAsync.hasValue) {
+      return _buildWalletsSummarySkeleton(colorScheme);
+    }
+    
+    if (walletsAsync.hasError && !walletsAsync.hasValue) {
+      return _buildDashboardErrorCard(
+        context,
+        colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(scopedWalletsProvider),
+      );
+    }
+
+    return DashboardWalletSummaryCard(
+      wallets: effectiveWallets,
+      selectedCurrency: filterState.selectedCurrency,
+    );
+  }
+}
+
 DashboardScopeQuery _buildScopedQuery({
   required WidgetRef ref,
   required HouseholdScope scope,
@@ -625,6 +664,32 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
           ],
         ),
       ),
+    ),
+  );
+}
+
+Widget _buildWalletsSummarySkeleton(ColorScheme colorScheme) {
+  return Skeletonizer(
+    effect: ShimmerEffect(
+      baseColor: colorScheme.skeletonBase,
+      highlightColor: colorScheme.skeletonHighlight,
+    ),
+    child: DashboardSectionCard(
+      children: [
+        const DashboardSectionHeader(title: 'WALLETS'),
+        DashboardListTile(
+          title: 'Wallet 1',
+          icon: Icons.wallet,
+          iconColor: colorScheme.primary,
+          value: '\$0.00',
+        ),
+        DashboardListTile(
+          title: 'Wallet 2',
+          icon: Icons.wallet,
+          iconColor: colorScheme.primary,
+          value: '\$0.00',
+        ),
+      ],
     ),
   );
 }

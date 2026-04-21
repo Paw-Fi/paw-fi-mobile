@@ -9,6 +9,7 @@ enum DashboardWidgetType {
   recentTransactions,
   spendingBreakdownChart,
   whereTheMoneyWent,
+  walletSummary,
 
   // Household Home Widgets
   householdSpentByYou,
@@ -19,7 +20,8 @@ enum DashboardWidgetType {
   householdMemberSpending,
   householdRecentTransactions,
   householdSpendingBreakdownChart,
-  householdWhereTheMoneyWent;
+  householdWhereTheMoneyWent,
+  householdWalletSummary;
 
   List<DashboardWidgetViewMode> get supportedViewModes {
     switch (this) {

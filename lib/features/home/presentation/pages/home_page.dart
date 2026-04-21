@@ -1155,6 +1155,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                                       userNow: userNow,
                                     ),
                                   ),
+                          DashboardWidgetType.walletSummary:
+                              (context, config) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0),
+                                    child: LazyDashboardWalletSummaryCard(
+                                      config: config,
+                                      colorScheme: colorScheme,
+                                    ),
+                                  ),
                         },
                       );
                     },

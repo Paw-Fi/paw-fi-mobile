@@ -97,6 +97,7 @@ class PersonalDashboardController
           DashboardWidgetType.recentTransactions,
           DashboardWidgetType.spendingBreakdownChart,
           DashboardWidgetType.whereTheMoneyWent,
+          DashboardWidgetType.walletSummary,
         ];
 
         final missingTypes =
@@ -155,6 +156,10 @@ class PersonalDashboardController
               id: 'where_the_money_went',
               type: DashboardWidgetType.whereTheMoneyWent,
               order: 5),
+          const DashboardWidgetConfig(
+              id: 'wallet_summary',
+              type: DashboardWidgetType.walletSummary,
+              order: 6),
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.savePersonalLayout(_userId, defaultConfigs);
@@ -268,6 +273,7 @@ class HouseholdDashboardController
           DashboardWidgetType.householdRecentTransactions,
           DashboardWidgetType.householdSpendingBreakdownChart,
           DashboardWidgetType.householdWhereTheMoneyWent,
+          DashboardWidgetType.householdWalletSummary,
         ];
 
         final missingTypes =
@@ -337,6 +343,10 @@ class HouseholdDashboardController
               id: 'where_the_money_went',
               type: DashboardWidgetType.householdWhereTheMoneyWent,
               order: 8),
+          const DashboardWidgetConfig(
+              id: 'wallet_summary',
+              type: DashboardWidgetType.householdWalletSummary,
+              order: 9),
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.saveHouseholdLayout(_householdId, defaultConfigs);
