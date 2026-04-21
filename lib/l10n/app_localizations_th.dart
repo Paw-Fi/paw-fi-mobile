@@ -6995,4 +6995,60 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get creatingWalletLinksAndImportingTransactions => 'เรากำลังสร้างการเชื่อมต่อกระเป๋าและนำเข้าธุรกรรมล่าสุด';
+
+  @override
+  String get emailFileImport => '';
+
+  @override
+  String get emailFileImportDescription => '';
+
+  @override
+  String get emailFileImportEnableSwitchTitle => '';
+
+  @override
+  String get emailFileImportEnableSwitchSubtitle => '';
+
+  @override
+  String get emailFileImportAllowedSenders => '';
+
+  @override
+  String get emailFileImportAddSender => '';
+
+  @override
+  String get emailFileImportAddSenderTitle => '';
+
+  @override
+  String get emailFileImportAddSenderDescription => '';
+
+  @override
+  String get emailFileImportAddSenderPlaceholder => '';
+
+  @override
+  String get emailFileImportInvalidEmail => '';
+
+  @override
+  String get emailFileImportEmailAlreadyAdded => '';
+
+  @override
+  String get emailFileImportEmailAdded => '';
+
+  @override
+  String get emailFileImportEmailRemoved => '';
+
+  @override
+  String get emailFileImportDefaultSender => '';
+
+  @override
+  String get emailFileImportAddedSender => '';
+
+  @override
+  String get emailFileImportNoExtraSenders => '';
+
+  @override
+  String get emailFileImportRemoveSenderTitle => '';
+
+  @override
+  String emailFileImportRemoveSenderDescription(Object email) {
+    return '';
+  }
 }

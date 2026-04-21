@@ -64,6 +64,7 @@ import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
+import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
 import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
@@ -452,6 +453,13 @@ class SettingsPage extends HookConsumerWidget {
     );
     final packageInfo =
         useFuture(useMemoized(() => PackageInfo.fromPlatform()));
+    final integrationStatusReloadKey = useState(0);
+    final walletCaptureEnabledFuture = useMemoized(
+        () => _getWalletCaptureEnabled(ref),
+        [authState.uid, integrationStatusReloadKey.value]);
+    final emailImportEnabledFuture = useMemoized(
+        () => _getEmailImportEnabled(ref),
+        [authState.uid, integrationStatusReloadKey.value]);
     final currentTimezoneOption = timezoneOptions.firstWhere(
       (option) => option.value == timezoneValue,
       orElse: () => timezoneOptions.first,
@@ -669,6 +677,7 @@ class SettingsPage extends HookConsumerWidget {
     }
 
     Future<void> handleHoldQuickActionChange() async {
+      final cancelLabel = context.l10n.cancel;
       final result = await MonekoActionSheet.show<String>(
         context: context,
         title: context.l10n.pressAndHoldQuickAction,
@@ -695,12 +704,12 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ],
         cancelAction: MonekoActionSheetAction<String>(
-          label: context.l10n.cancel,
-          value: context.l10n.cancel,
+          label: cancelLabel,
+          value: cancelLabel,
         ),
       );
 
-      if (result == null || result == context.l10n.cancel) {
+      if (result == null || result == cancelLabel) {
         return;
       }
 
@@ -1061,6 +1070,38 @@ class SettingsPage extends HookConsumerWidget {
                     },
                   ),
                   _SettingsTile(
+                    icon: Icons.forward_to_inbox_rounded,
+                    label: context.l10n.emailFileImportEnableSwitchTitle,
+                    valueWidget: FutureBuilder<bool>(
+                      future: emailImportEnabledFuture,
+                      builder: (context, snapshot) {
+                        final isEnabled = snapshot.data ?? false;
+                        return Text(
+                          isEnabled
+                              ? context.l10n.activeStatus
+                              : context.l10n.tapToSet,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        );
+                      },
+                    ),
+                    onTap: () {
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute<void>(
+                              builder: (context) =>
+                                  const EmailImportSettingsPage(),
+                            ),
+                          )
+                          .then((_) => integrationStatusReloadKey.value++);
+                    },
+                  ),
+                  _SettingsTile(
                     customIcon: SvgPicture.string(
                       _telegramSvg,
                       width: 20,
@@ -1148,7 +1189,7 @@ class SettingsPage extends HookConsumerWidget {
                         : context.l10n.autoTransactionCapture,
                     value: null,
                     valueWidget: FutureBuilder<bool>(
-                      future: _getWalletCaptureEnabled(ref),
+                      future: walletCaptureEnabledFuture,
                       builder: (context, snapshot) {
                         final isEnabled = snapshot.data ?? false;
                         return Text(
@@ -1167,18 +1208,23 @@ class SettingsPage extends HookConsumerWidget {
                     ),
                     onTap: () {
                       if (Platform.isIOS) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) => const IosWalletCapturePage(),
-                          ),
-                        );
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute<void>(
+                                builder: (context) =>
+                                    const IosWalletCapturePage(),
+                              ),
+                            )
+                            .then((_) => integrationStatusReloadKey.value++);
                       } else if (Platform.isAndroid) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (context) =>
-                                const AndroidNotificationCapturePage(),
-                          ),
-                        );
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute<void>(
+                                builder: (context) =>
+                                    const AndroidNotificationCapturePage(),
+                              ),
+                            )
+                            .then((_) => integrationStatusReloadKey.value++);
                       }
                     },
                   ),
@@ -1412,6 +1458,26 @@ class SettingsPage extends HookConsumerWidget {
       return (response?['wallet_capture_enabled'] as bool?) ?? false;
     } catch (e) {
       debugPrint('Error checking wallet capture enabled status: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _getEmailImportEnabled(WidgetRef ref) async {
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.uid.isEmpty) return false;
+
+      final response = await Supabase.instance.client
+          .from('user_contacts')
+          .select('email_import_enabled')
+          .eq('user_id', authState.uid)
+          .order('updated_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      return (response?['email_import_enabled'] as bool?) ?? false;
+    } catch (e) {
+      debugPrint('Error checking email import enabled status: $e');
       return false;
     }
   }
@@ -1664,11 +1730,15 @@ class _SupportSheet extends HookConsumerWidget {
       }
       if (isSubmitting.value) return;
       isSubmitting.value = true;
+      final attachmentSizeErrorMessage =
+          context.l10n.eachScreenshotMustBeSmallerThan5MB;
       try {
         final diagnostics =
             includeDiagnostics.value ? await _collectDeviceDiagnostics() : null;
-        final preparedAttachments =
-            await _createSupportAttachments(attachments.value, context);
+        final preparedAttachments = await _createSupportAttachments(
+          attachments.value,
+          attachmentSizeErrorMessage,
+        );
         final packageInfo = await PackageInfo.fromPlatform();
         final result = await supportTicketService.submitTicket(
           type: mode.ticketType,
@@ -2090,7 +2160,7 @@ Future<Map<String, dynamic>> _collectDeviceDiagnostics() async {
 
 Future<List<SupportTicketAttachment>> _createSupportAttachments(
   List<File> files,
-  BuildContext context,
+  String sizeErrorMessage,
 ) async {
   if (files.isEmpty) return const [];
   final attachments = <SupportTicketAttachment>[];
@@ -2102,7 +2172,7 @@ Future<List<SupportTicketAttachment>> _createSupportAttachments(
     final bytes = optimized ?? await file.readAsBytes();
     if (bytes.length > _maxAttachmentBytes) {
       throw SupportTicketException(
-        context.l10n.eachScreenshotMustBeSmallerThan5MB,
+        sizeErrorMessage,
       );
     }
     final fileName = file.path.split('/').last;
