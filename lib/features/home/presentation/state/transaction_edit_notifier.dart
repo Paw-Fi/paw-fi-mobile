@@ -6,11 +6,13 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void _debugPrint(String? message, {int? wrapWidth}) {
@@ -191,6 +193,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // any transformations or calculations done server-side.
       // ═══════════════════════════════════════════════════════════════
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
       // ⚠️ CRITICAL: Always invalidate household providers after update
       // Even if the expense wasn't in analyticsProvider cache (household expense),
@@ -213,6 +216,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // Keep other tabs in sync (pockets + currency counts).
       ref.invalidate(pocketsProvider);
       ref.invalidate(currencyTransactionCountsProvider);
+      ref.read(walletActionsProvider).refreshAccountData();
 
       state = state.copyWith(
         isLoading: false,
@@ -236,6 +240,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
           // We need to reload from backend to get the original state
           final user = ref.read(authProvider);
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
+          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
           _debugPrint('🔄 Rolled back optimistic update');
         }
@@ -266,6 +271,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       rawText: updates.containsKey('raw_text')
           ? (updates['raw_text'] as String?)
           : expense.rawText,
+      merchant: updates.containsKey('merchant')
+          ? (updates['merchant'] as String?)
+          : expense.merchant,
       date: updates['date'] != null
           ? (() {
               final value = updates['date']?.toString();
@@ -281,6 +289,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             })()
           : expense.date,
       currency: updates['currency'] as String? ?? expense.currency,
+      accountId: updates.containsKey('account_id')
+          ? (updates['account_id'] as String?)
+          : expense.walletId,
     );
   }
 

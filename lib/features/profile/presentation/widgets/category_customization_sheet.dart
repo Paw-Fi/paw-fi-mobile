@@ -48,6 +48,7 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: colorScheme.sheetBackground,
         builder: (sheetContext) {
           return _CategoryUpsertSheet(
@@ -524,7 +525,8 @@ class CategoryCustomizationSheet extends HookConsumerWidget {
                                       horizontal: 16,
                                       vertical: 4,
                                     ),
-                                    tileColor: colorScheme.surface.withValues(alpha: 0.0),
+                                    tileColor: colorScheme.surface
+                                        .withValues(alpha: 0.0),
                                     leading: CircleAvatar(
                                       radius: 18,
                                       backgroundColor: colorScheme.primary
@@ -843,7 +845,8 @@ class _CategoryUpsertSheet extends HookWidget {
                               CupertinoSegmentedControl<String>(
                                 groupValue: transactionType.value,
                                 selectedColor: colorScheme.primary,
-                                unselectedColor: colorScheme.sheetElementBackground,
+                                unselectedColor:
+                                    colorScheme.sheetElementBackground,
                                 borderColor: colorScheme.border,
                                 pressedColor: colorScheme.muted,
                                 children: {

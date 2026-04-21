@@ -30,6 +30,14 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -38,8 +46,75 @@ class MainShell extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(mainShellTabIndexProvider);
+    final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
+    final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
+    final auth = ref.watch(authProvider);
+    final walletAuthHeaders =
+        previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
+    final walletScopeHouseholdId = previewState.isActive
+        ? null
+        : ref.watch(walletScopeHouseholdIdProvider);
+    final warmedWalletsKeyRef = useRef<String?>(null);
+    final showSubscriptionVerificationBanner =
+        subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
+            subscriptionGateStatus == SubscriptionGateStatus.unknown;
+
+    useEffect(() {
+      if (visitedTabs.value.contains(currentIndex)) {
+        return null;
+      }
+
+      visitedTabs.value = <int>{...visitedTabs.value, currentIndex};
+      return null;
+    }, [currentIndex]);
+
+    useEffect(() {
+      if (previewState.isActive ||
+          auth.uid.isEmpty ||
+          walletAuthHeaders == null ||
+          walletScopeHouseholdId == null &&
+              ref.read(walletScopeHouseholdIdProvider) != null) {
+        return null;
+      }
+
+      final warmKey = [
+        auth.uid,
+        walletScopeHouseholdId ?? '<none>',
+      ].join('|');
+      if (warmedWalletsKeyRef.value == warmKey) {
+        return null;
+      }
+
+      final sessionWallets =
+          ref.read(walletsListSessionCacheProvider)[walletsListCacheKey(
+        userId: auth.uid,
+        householdId: walletScopeHouseholdId,
+      )];
+      final persistedWalletsRaw =
+          ref.read(sharedPreferencesProvider).getString(walletsListCacheKey(
+                userId: auth.uid,
+                householdId: walletScopeHouseholdId,
+              ));
+      if (sessionWallets != null || persistedWalletsRaw != null) {
+        warmedWalletsKeyRef.value = warmKey;
+        return null;
+      }
+
+      warmedWalletsKeyRef.value = warmKey;
+      final timer = Timer(const Duration(milliseconds: 800), () async {
+        try {
+          await ref.read(scopedWalletsProvider.future);
+        } catch (_) {}
+      });
+      return timer.cancel;
+    }, [
+      previewState.isActive,
+      auth.uid,
+      walletAuthHeaders != null,
+      walletScopeHouseholdId,
+    ]);
 
     Future<void> clearPreviewDataCaches() async {
       // Always reset shell navigation first.
@@ -69,6 +144,7 @@ class MainShell extends HookConsumerWidget {
       ref.invalidate(currencyTransactionCountsProvider);
       ref.invalidate(recurringTransactionsProvider);
       ref.invalidate(pocketsProvider);
+      ref.invalidate(scopedWalletsProvider);
     }
 
     Future<String?> exitPreviewMode(
@@ -180,101 +256,129 @@ class MainShell extends HookConsumerWidget {
       };
     }, const []);
 
-    final pages = [
-      const HomePage(),
-      const RecurringTransactionsPage(),
-      const PocketsPage(),
-      const AnalyticsPage(),
+    final pageBuilders = [
+      () => const HomePage(),
+      () => const RecurringTransactionsPage(),
+      () => const PocketsPage(),
+      () => const AccountsPage(),
+      () => const AnalyticsPage(),
     ];
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-          useNativeToolbar: false,
-          appBar: AppBar(
-            leadingWidth: 0,
-            leading: const SizedBox.shrink(),
-            titleSpacing: 0,
-            toolbarHeight: 0,
-          )),
-      body: SafeArea(
-        child: Material(
-          color: colorScheme.appBackground,
-          child: Column(
-            children: [
-              if (previewState.isActive)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: _PreviewModeBanner(
-                    currentIndex: currentIndex,
-                    onRegisterTap: () {
-                      unawaited(() async {
-                        await exitPreviewMode(restorePreauthOnExit: false);
-                        if (context.mounted) {
-                          context.go('/register');
-                        }
-                      }());
-                    },
-                    onExitTap: () {
-                      unawaited(() async {
-                        final returnRoute = await exitPreviewMode(
-                          restorePreauthOnExit: true,
-                        );
-                        if (context.mounted) {
-                          context.go(returnRoute ?? '/paywall');
-                        }
-                      }());
-                    },
+    final pages = List<Widget>.generate(pageBuilders.length, (index) {
+      final shouldBuildPage =
+          index == currentIndex || visitedTabs.value.contains(index);
+      if (!shouldBuildPage) {
+        return const SizedBox.shrink();
+      }
+
+      return pageBuilders[index]();
+    }, growable: false);
+
+    return StatusBarOverlayRegion(
+      child: AdaptiveScaffold(
+        body: SafeArea(
+          child: Material(
+            color: colorScheme.appBackground,
+            child: Column(
+              children: [
+                if (previewState.isActive)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: _PreviewModeBanner(
+                      currentIndex: currentIndex,
+                      onRegisterTap: () {
+                        unawaited(() async {
+                          await exitPreviewMode(restorePreauthOnExit: false);
+                          if (context.mounted) {
+                            context.go('/register');
+                          }
+                        }());
+                      },
+                      onExitTap: () {
+                        unawaited(() async {
+                          final returnRoute = await exitPreviewMode(
+                            restorePreauthOnExit: true,
+                          );
+                          if (context.mounted) {
+                            context.go(returnRoute ?? '/paywall');
+                          }
+                        }());
+                      },
+                    ),
+                  ),
+                if (!previewState.isActive &&
+                    showSubscriptionVerificationBanner)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                    child: _SubscriptionVerificationBanner(
+                      status: subscriptionGateStatus,
+                      onRetryTap: () {
+                        unawaited(ref
+                            .read(subscriptionNotifierProvider.notifier)
+                            .refresh());
+                      },
+                      onManageTap: () {
+                        context.push('/paywall?mode=resubscribe');
+                      },
+                    ),
+                  ),
+                const TrialReminderBannerGate(),
+                const HomeHeaderSliver(),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 0.0),
+                        child: IndexedStack(
+                          index: currentIndex,
+                          children: pages,
+                        ),
+                      ),
+                      const WidgetSyncManager(),
+                    ],
                   ),
                 ),
-              const HomeHeaderSliver(),
-              Expanded(
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 0.0),
-                      child: IndexedStack(
-                        index: currentIndex,
-                        children: pages,
-                      ),
-                    ),
-                    const WidgetSyncManager(),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: AdaptiveBottomNavigationBar(
-        useNativeBottomBar: false,
-        items: [
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.square_grid_2x2_fill
-                : Icons.dashboard,
-            label: context.l10n.overview,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
-            label: context.l10n.recurring,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.creditcard
-                : Icons.account_balance_wallet_outlined,
-            label: context.l10n.pockets,
-          ),
-          AdaptiveNavigationDestination(
-            icon: PlatformInfo.isIOS
-                ? CupertinoIcons.chart_bar_alt_fill
-                : Icons.bar_chart,
-            label: context.l10n.insights,
-          ),
-        ],
-        selectedIndex: currentIndex,
-        onTap: (index) {
-          ref.read(mainShellTabIndexProvider.notifier).state = index;
-        },
+        bottomNavigationBar: AdaptiveBottomNavigationBar(
+          useNativeBottomBar: false,
+          items: [
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.square_grid_2x2_fill
+                  : Icons.dashboard,
+              label: context.l10n.overview,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS ? CupertinoIcons.repeat : Icons.repeat,
+              label: context.l10n.recurring,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.chart_pie
+                  : Icons.pie_chart_outline,
+              label: context.l10n.budget,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.creditcard
+                  : Icons.account_balance_wallet_outlined,
+              label: context.l10n.wallet,
+            ),
+            AdaptiveNavigationDestination(
+              icon: PlatformInfo.isIOS
+                  ? CupertinoIcons.chart_bar_alt_fill
+                  : Icons.bar_chart,
+              label: context.l10n.insights,
+            ),
+          ],
+          selectedIndex: currentIndex,
+          onTap: (index) {
+            ref.read(mainShellTabIndexProvider.notifier).state = index;
+          },
+        ),
       ),
     );
   }
@@ -284,6 +388,86 @@ class MainShell extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
+    );
+  }
+}
+
+class _SubscriptionVerificationBanner extends StatelessWidget {
+  const _SubscriptionVerificationBanner({
+    required this.status,
+    required this.onRetryTap,
+    required this.onManageTap,
+  });
+
+  final SubscriptionGateStatus status;
+  final VoidCallback onRetryTap;
+  final VoidCallback onManageTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isGraceAccess = status == SubscriptionGateStatus.graceActive;
+    final title = isGraceAccess
+        ? 'You are in offline grace access'
+        : 'We can’t verify your subscription right now';
+    final subtitle = isGraceAccess
+        ? 'Your previous active subscription is kept for up to 72 hours while we reconnect.'
+        : 'You still have full access while we retry in the background. Your subscription is not removed.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.warningSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.warningBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.warning,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: colorScheme.foreground,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonal(
+                style: FilledButton.styleFrom(
+                  foregroundColor: colorScheme.onPrimary,
+                  backgroundColor: colorScheme.warning,
+                  minimumSize: const Size(0, 34),
+                ),
+                onPressed: onRetryTap,
+                child: const Text('Retry now'),
+              ),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.foreground,
+                  side: BorderSide(color: colorScheme.border),
+                  minimumSize: const Size(0, 34),
+                ),
+                onPressed: onManageTap,
+                child: const Text('Manage plan'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

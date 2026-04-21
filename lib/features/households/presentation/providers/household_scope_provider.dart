@@ -6,7 +6,7 @@ import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
-enum ActiveAccountType {
+enum ActiveWalletType {
   personal,
   portfolio,
   household,
@@ -37,25 +37,25 @@ class HouseholdScope {
 
   bool get isPortfolioSelected => isPortfolioId(selectedHouseholdId);
 
-  ActiveAccountType get activeAccountType {
-    if (viewMode == ViewMode.personal) return ActiveAccountType.personal;
+  ActiveWalletType get activeAccountType {
+    if (viewMode == ViewMode.personal) return ActiveWalletType.personal;
 
     // If the user has no spaces yet (or selection hasn't been initialized),
     // default to personal scope so data doesn't get filtered out.
-    if (!hasSelectedHousehold) return ActiveAccountType.personal;
+    if (!hasSelectedHousehold) return ActiveWalletType.personal;
 
-    if (isPortfolioSelected) return ActiveAccountType.portfolio;
-    return ActiveAccountType.household;
+    if (isPortfolioSelected) return ActiveWalletType.portfolio;
+    return ActiveWalletType.household;
   }
 
-  bool get isPersonalAccount => activeAccountType == ActiveAccountType.personal;
+  bool get isPersonalAccount => activeAccountType == ActiveWalletType.personal;
   bool get isPortfolioAccount =>
-      activeAccountType == ActiveAccountType.portfolio;
+      activeAccountType == ActiveWalletType.portfolio;
   bool get isHouseholdAccount =>
-      activeAccountType == ActiveAccountType.household;
+      activeAccountType == ActiveWalletType.household;
 
   String? get activeAccountHouseholdId {
-    if (activeAccountType == ActiveAccountType.personal) return null;
+    if (activeAccountType == ActiveWalletType.personal) return null;
     return selectedHouseholdId;
   }
 

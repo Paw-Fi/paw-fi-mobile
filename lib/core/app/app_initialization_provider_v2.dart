@@ -240,8 +240,11 @@ class AppInitializationV2 extends _$AppInitializationV2 {
   String? _lastRpcFinishedAt;
 
   static const Duration _initRpcTimeout = Duration(seconds: 10);
+  static const Duration _kCurrencySyncTimeout = Duration(seconds: 8);
   static const int _initRpcMaxAttempts = 2;
   static const Duration _initRpcBaseRetryDelay = Duration(milliseconds: 600);
+  static const String _preferredCurrencyCheckedPrefix =
+      'preferred_currency_checked';
 
   @override
   AppInitializationState build() {
@@ -302,6 +305,89 @@ class AppInitializationV2 extends _$AppInitializationV2 {
     }
   }
 
+  void _syncMissingPreferredCurrencyInBackground(
+    String userId, {
+    required UserContact? user,
+  }) {
+    unawaited(Future<void>(() async {
+      if (ref.read(authProvider).uid != userId) {
+        return;
+      }
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final cacheKey = '$_preferredCurrencyCheckedPrefix:$userId';
+      final currentPreferred = _normalizeCurrencyCode(user?.preferredCurrency);
+      final hasChecked = prefs.getBool(cacheKey) ?? false;
+      if (hasChecked && currentPreferred != null) {
+        return;
+      }
+
+      if (currentPreferred != null) {
+        await prefs.setBool(cacheKey, true);
+        return;
+      }
+
+      Map<String, dynamic>? latestContact;
+      try {
+        final response = await supabase
+            .from('user_contacts')
+            .select('preferred_currency,updated_at,created_at')
+            .eq('user_id', userId)
+            .order('updated_at', ascending: false)
+            .order('created_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        if (response != null) {
+          latestContact = Map<String, dynamic>.from(response);
+        }
+      } catch (error) {
+        debugPrint('⚠️ [InitV2] Failed to verify preferred currency: $error');
+        return;
+      }
+
+      final latestPreferred = _normalizeCurrencyCode(
+          latestContact?['preferred_currency'] as String?);
+      if (latestPreferred != null) {
+        await prefs.setBool(cacheKey, true);
+        return;
+      }
+
+      final fallbackCurrency =
+          _normalizeCurrencyCode(ref.read(selectedHomeCurrencyCodeProvider)) ??
+              'USD';
+
+      try {
+        final response = await supabase.functions.invoke(
+          'update-preferred-currency',
+          body: {
+            'userId': userId,
+            'currency': fallbackCurrency,
+          },
+        ).timeout(_kCurrencySyncTimeout);
+
+        if (response.status >= 400) {
+          throw Exception('Currency sync failed (${response.status})');
+        }
+
+        final payload = response.data;
+        final ok =
+            payload is Map<String, dynamic> ? payload['ok'] == true : false;
+        if (!ok) {
+          throw Exception('Currency sync failed (invalid payload)');
+        }
+
+        await prefs.setBool(cacheKey, true);
+        await ref
+            .read(currencyPreferenceServiceProvider)
+            .setSelectedCurrency(fallbackCurrency);
+      } catch (error) {
+        debugPrint(
+          '⚠️ [InitV2] Failed to backfill preferred currency during init: $error',
+        );
+      }
+    }));
+  }
+
   /// Initialize app with cache-first strategy
   Future<void> _initialize() async {
     final operationId = ++_operationId;
@@ -357,6 +443,20 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             initData.user,
             preferExistingState: true,
           );
+          _syncMissingPreferredCurrencyInBackground(
+            userId,
+            user: initData.user,
+          );
+
+          ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
+              initData.households;
+          if (initData.households.isNotEmpty) {
+            unawaited(
+              ref
+                  .read(selectedHouseholdProvider.notifier)
+                  .initialize(preloadedHouseholds: initData.households),
+            );
+          }
 
           debugPrint(
               '✅ [InitV2] Loaded from cache (${stopwatch.elapsedMilliseconds}ms)');
@@ -415,6 +515,10 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         initData.user,
         preferExistingState: false,
       );
+      _syncMissingPreferredCurrencyInBackground(
+        userId,
+        user: initData.user,
+      );
 
       // Update state with fresh data
       stopwatch.stop();
@@ -440,9 +544,13 @@ class AppInitializationV2 extends _$AppInitializationV2 {
 
       debugPrint(
           '🏠 [InitV2] Loading households and initializing selected household...');
-      await ref.read(userHouseholdsProvider(userId).notifier).load();
+      ref.read(preloadedUserHouseholdsProvider(userId).notifier).state =
+          initData.households;
+      ref
+          .read(userHouseholdsProvider(userId).notifier)
+          .hydrate(initData.households);
       final householdsState = ref.read(userHouseholdsProvider(userId));
-      final households = householdsState.valueOrNull ?? const <Household>[];
+      final households = initData.households;
       if (!householdsState.hasError && households.isEmpty) {
         debugPrint('📭 [InitV2] No households found for user after init');
         // Ensure scope defaults to personal when there are no spaces/accounts.
@@ -451,23 +559,28 @@ class AppInitializationV2 extends _$AppInitializationV2 {
         ref.read(viewModeProvider.notifier).setPersonalMode();
       } else {
         if (households.isNotEmpty) {
-          await ref
-              .read(selectedHouseholdProvider.notifier)
-              .initialize(preloadedHouseholds: households);
-          debugPrint(
-              '✅ [InitV2] Selected household initialized during app init');
+          final selectedState = ref.read(selectedHouseholdProvider);
+          final selectedId =
+              selectedState.householdId ?? selectedState.household?.id;
+          final selectedStillExists = selectedId != null &&
+              households.any((household) => household.id == selectedId);
+          if (!selectedStillExists || selectedState.household == null) {
+            await ref
+                .read(selectedHouseholdProvider.notifier)
+                .initialize(preloadedHouseholds: households);
+            debugPrint(
+                '✅ [InitV2] Selected household initialized during app init');
+          } else {
+            debugPrint(
+                '✅ [InitV2] Selected household already valid, skipping re-init');
+          }
         } else {
           debugPrint(
               '⚠️ [InitV2] Households failed to load; keeping previous scope');
         }
       }
 
-      debugPrint('📊 [InitV2] Loading analytics data...');
-      final analyticsStopwatch = Stopwatch()..start();
-      await ref.read(analyticsProvider.notifier).loadData(userId);
-      analyticsStopwatch.stop();
-      debugPrint(
-          '✅ [InitV2] Analytics loaded in ${analyticsStopwatch.elapsedMilliseconds}ms');
+      _warmAnalyticsDataInBackground(userId);
     } on TimeoutException {
       stopwatch.stop();
 
@@ -518,6 +631,34 @@ class AppInitializationV2 extends _$AppInitializationV2 {
       debugPrint(
           '❌ [InitV2] Critical: Fresh fetch failed with no cache fallback: $e');
     }
+  }
+
+  void _warmAnalyticsDataInBackground(String userId) {
+    unawaited(Future<void>(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+
+      if (ref.read(authProvider).uid != userId) {
+        return;
+      }
+
+      final analyticsState = ref.read(analyticsProvider);
+      if (analyticsState.hasLoadedOnce == true || analyticsState.isLoading) {
+        return;
+      }
+
+      debugPrint('📊 [InitV2] Warming analytics data in background...');
+      final analyticsStopwatch = Stopwatch()..start();
+
+      try {
+        await ref.read(analyticsProvider.notifier).loadData(userId);
+        analyticsStopwatch.stop();
+        debugPrint(
+            '✅ [InitV2] Background analytics warm-up finished in ${analyticsStopwatch.elapsedMilliseconds}ms');
+      } catch (error) {
+        analyticsStopwatch.stop();
+        debugPrint('⚠️ [InitV2] Background analytics warm-up failed: $error');
+      }
+    }));
   }
 
   Future<dynamic> _initializeRpcWithRetry(

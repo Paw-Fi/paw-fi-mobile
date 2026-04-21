@@ -20,11 +20,13 @@ class ImportWizardState {
   final bool isParsing;
   final String? parsingStatusMessage;
   final bool isImporting;
+  final String? importStatusMessage;
   final String? errorMessage;
   final int importedCount;
   final int failedCount;
   final String? targetHouseholdId;
   final bool targetIsPortfolio;
+  final String? targetAccountId;
   final Set<int> deletedRowIndices;
 
   /// True when the map step was auto-skipped due to high confidence.
@@ -47,11 +49,13 @@ class ImportWizardState {
     this.isParsing = false,
     this.parsingStatusMessage,
     this.isImporting = false,
+    this.importStatusMessage,
     this.errorMessage,
     this.importedCount = 0,
     this.failedCount = 0,
     this.targetHouseholdId,
     this.targetIsPortfolio = false,
+    this.targetAccountId,
     this.deletedRowIndices = const {},
     this.didAutoSkipMapping = false,
     this.availableSheets = const [],
@@ -71,14 +75,18 @@ class ImportWizardState {
     String? parsingStatusMessage,
     bool clearParsingStatusMessage = false,
     bool? isImporting,
+    String? importStatusMessage,
+    bool clearImportStatusMessage = false,
     String? errorMessage,
     bool clearErrorMessage = false,
     int? importedCount,
     int? failedCount,
     String? targetHouseholdId,
     bool? targetIsPortfolio,
+    String? targetAccountId,
     Set<int>? deletedRowIndices,
     bool clearTargetHouseholdId = false,
+    bool clearTargetAccountId = false,
     bool clearDeletedRowIndices = false,
     bool? didAutoSkipMapping,
     List<ImportSheetResult>? availableSheets,
@@ -98,6 +106,9 @@ class ImportWizardState {
           ? null
           : (parsingStatusMessage ?? this.parsingStatusMessage),
       isImporting: isImporting ?? this.isImporting,
+      importStatusMessage: clearImportStatusMessage
+          ? null
+          : (importStatusMessage ?? this.importStatusMessage),
       errorMessage:
           clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       importedCount: importedCount ?? this.importedCount,
@@ -106,6 +117,9 @@ class ImportWizardState {
           ? null
           : (targetHouseholdId ?? this.targetHouseholdId),
       targetIsPortfolio: targetIsPortfolio ?? this.targetIsPortfolio,
+      targetAccountId: clearTargetAccountId
+          ? null
+          : (targetAccountId ?? this.targetAccountId),
       deletedRowIndices: clearDeletedRowIndices
           ? const {}
           : (deletedRowIndices ?? this.deletedRowIndices),

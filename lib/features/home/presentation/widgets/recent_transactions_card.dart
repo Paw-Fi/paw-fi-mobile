@@ -7,6 +7,7 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
@@ -213,6 +214,10 @@ Widget buildRecentTransactionsCard(
                                       ref.invalidate(pocketsProvider);
                                       ref.invalidate(
                                           currencyTransactionCountsProvider);
+                                      ref
+                                          .read(dashboardRefreshSignalProvider
+                                              .notifier)
+                                          .state += 1;
                                       AppToast.success(toastContext,
                                           l10n.transactionDeleted);
                                     } else {

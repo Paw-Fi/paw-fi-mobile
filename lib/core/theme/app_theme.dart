@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -406,6 +407,22 @@ extension AppColorScheme on ColorScheme {
 
 /// Moneko app theme configuration matching web's Tailwind design system
 class AppTheme {
+  static const SystemUiOverlayStyle lightSystemUiOverlayStyle =
+      SystemUiOverlayStyle(
+    statusBarColor: Color(0x00000000),
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
+
+  static const SystemUiOverlayStyle darkSystemUiOverlayStyle =
+      SystemUiOverlayStyle(
+    statusBarColor: Color(0x00000000),
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarIconBrightness: Brightness.light,
+  );
+
   // Moneko brand colors from web (app.css)
   static const Color monekoPrimary = Color(0xFF7458FF); // --moneko-primary
   static const Color monekoSecondary = Color(0xFF836DFF); // --moneko-secondary
@@ -456,7 +473,8 @@ class AppTheme {
   static const Color darkForeground = Color(0xFFF2F3F7); // High-contrast text
   static const Color darkCardBg = Color(0xFF17181D); // Card surface
   static const Color darkSheetBg = Color(0xFF1D1D1D); // Sheet background
-  static const Color darkSheetElementBg = Color(0xFF252525); // Sheet element background
+  static const Color darkSheetElementBg =
+      Color(0xFF252525); // Sheet element background
   static const Color darkInputBg = Color(0xFF1E1F25); // Input surface
   static const Color darkBorder = Color(0xFF40424A); // Primary outline
   static const Color darkBorderSubtle = Color(0xFF2B2D34); // Subtle outline
@@ -667,6 +685,9 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: lightBackground,
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: lightSystemUiOverlayStyle,
+      ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: false),
     );
   }
@@ -694,6 +715,9 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: darkBackground,
+      appBarTheme: const AppBarTheme(
+        systemOverlayStyle: darkSystemUiOverlayStyle,
+      ),
       snackBarTheme: AppSnackBarStyles.build(scheme, isDark: true),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: darkSheetBg,

@@ -17,6 +17,19 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
   Future<void> _exploreAppInPreview(BuildContext context, WidgetRef ref) async {
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
 
+    await analytics.trackAction(
+      flowName: 'onboarding_funnel',
+      pageId: 'onboarding_save_budget',
+      stepIndex: 14,
+      actionId: 'preview_app_tapped',
+      result: 'used',
+      properties: const <String, Object?>{
+        'step_group': 'preauth',
+        'step_key': 'create_account',
+        'preview_entry_point': 'save_budget',
+      },
+    );
+
     await analytics.trackEvent(
       eventName: 'onboarding_preview_clicked',
       flowName: 'onboarding_funnel',
@@ -24,6 +37,7 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
       properties: const <String, Object?>{
         'step_group': 'preauth',
         'step_key': 'create_account',
+        'preview_entry_point': 'save_budget',
       },
     );
 
@@ -36,6 +50,7 @@ class OnboardingSaveBudgetPage extends HookConsumerWidget {
       properties: const <String, Object?>{
         'step_group': 'preauth',
         'step_key': 'create_account',
+        'preview_entry_point': 'save_budget',
       },
     );
 

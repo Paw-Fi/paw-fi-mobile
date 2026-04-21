@@ -69,6 +69,7 @@ void showScenarioResultSheet(
       context: context,
       backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) {
         // Consider anything opened from history (no meta.stats but with question)
         // as already saved so the icon appears filled. Fresh analyses (with
@@ -226,8 +227,9 @@ void showScenarioResultSheet(
                                       }
                                     } else {
                                       // Confirm deletion before removing a saved scenario.
-                                      final preview = ProviderScope
-                                          .containerOf(context, listen: false)
+                                      final preview = ProviderScope.containerOf(
+                                              context,
+                                              listen: false)
                                           .read(previewModeProvider);
                                       if (preview.isActive) {
                                         Navigator.of(context,

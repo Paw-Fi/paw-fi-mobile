@@ -103,6 +103,7 @@ Future<void> showMultiTransactionReviewSheet(
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     builder: (context) => _MultiTransactionReviewSheet(
       transactions: transactions,
@@ -410,6 +411,7 @@ class _MultiTransactionReviewSheetState
     final result = await showModalBottomSheet<_EditTransactionResult>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor:
           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {
@@ -453,7 +455,7 @@ class _MultiTransactionReviewSheetState
     }
 
     if (selectedIndexes.isEmpty) {
-      AppToast.info(context, 'Select at least one transaction');
+      AppToast.info(context, context.l10n.selectAtLeastOneTransaction);
       return;
     }
 
@@ -488,7 +490,7 @@ class _MultiTransactionReviewSheetState
           _drafts[entry.key].error = entry.value;
         }
       });
-      AppToast.error(context, 'Please fix the highlighted items');
+      AppToast.error(context, context.l10n.pleaseFixHighlightedItems);
       final firstIndex = validationErrors.keys.reduce((a, b) => a < b ? a : b);
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -537,13 +539,12 @@ class _MultiTransactionReviewSheetState
         );
         final updatedTx = tx.copyWith(date: dateWithTime);
         final hasSplits = draft.splits != null && draft.splits!.isNotEmpty;
-        final splitType = (!_isIncomeMode && _shareWithHousehold && hasSplits)
+        final splitType = (_shareWithHousehold && hasSplits)
             ? (draft.splitType ?? SplitType.amount)
             : null;
         final splits = splitType != null ? draft.splits : null;
-        final payerUserId = (!_isIncomeMode && _shareWithHousehold)
-            ? (draft.payerUserId ?? user.uid)
-            : null;
+        final payerUserId =
+            _shareWithHousehold ? (draft.payerUserId ?? user.uid) : null;
 
         try {
           if (_isIncomeMode) {
@@ -558,6 +559,9 @@ class _MultiTransactionReviewSheetState
                       date: updatedTx.date,
                       description: updatedTx.description,
                       householdId: householdId,
+                      customSplitType: splitType,
+                      customSplits: splits,
+                      payerUserId: payerUserId,
                     );
             if (saved == null) {
               final state = ref.read(incomeSaveProvider);
@@ -1242,6 +1246,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor:
           Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
       builder: (sheetContext) {

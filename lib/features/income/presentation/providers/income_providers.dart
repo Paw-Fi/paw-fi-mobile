@@ -3,6 +3,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/income/domain/models/income_entry.dart';
 import 'package:moneko/features/income/domain/models/income_summary.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 
 /// Income list state provider
@@ -162,15 +163,20 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? source,
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? accountId,
     double? fxRate,
     String? idempotencyKey,
     List<Map<String, dynamic>>? attachments,
     bool isRecurring = false,
     Map<String, dynamic>? recurrenceRule,
+    SplitType? customSplitType,
+    List<MemberSplit>? customSplits,
+    String? payerUserId,
   }) async {
     state = const AsyncValue.loading();
 
@@ -179,28 +185,69 @@ class IncomeSaveNotifier extends StateNotifier<AsyncValue<IncomeEntry?>> {
           ref.read(householdScopeProvider).isPortfolioId(householdId);
       final accountingDate = DateTime(date.year, date.month, date.day);
 
+      final requestBody = <String, dynamic>{
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': formatDateOnlyYmd(accountingDate),
+        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (source != null && source.isNotEmpty) 'source': source,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        if (householdId != null) 'isPortfolio': isPortfolio,
+        if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
+        if (fxRate != null) 'fxRate': fxRate,
+        if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
+        if (attachments != null) 'attachments': attachments,
+        'isRecurring': isRecurring,
+        if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
+      };
+
+      if (!isPortfolio &&
+          householdId != null &&
+          customSplitType != null &&
+          customSplits != null &&
+          customSplits.isNotEmpty) {
+        final splitTypeStr = customSplitType.toString().split('.').last;
+        requestBody['customSplits'] = {
+          'splitType': splitTypeStr,
+          'memberSplits': customSplits.map((split) {
+            final memberData = <String, dynamic>{
+              'userId': split.member.userId,
+            };
+            switch (customSplitType) {
+              case SplitType.amount:
+                memberData['amount'] = split.amount;
+                break;
+              case SplitType.percentage:
+                memberData['percentage'] = split.percentage;
+                break;
+              case SplitType.shares:
+                memberData['shares'] = split.shares;
+                break;
+              case SplitType.equal:
+                break;
+            }
+            return memberData;
+          }).toList(),
+        };
+      }
+
+      if (!isPortfolio &&
+          householdId != null &&
+          payerUserId != null &&
+          payerUserId.isNotEmpty) {
+        requestBody['payerUserId'] = payerUserId;
+      }
+
       final response = await supabase.functions.invoke(
         'save-income',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': formatDateOnlyYmd(accountingDate),
-          'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
-          if (description != null && description.isNotEmpty)
-            'description': description,
-          if (source != null && source.isNotEmpty) 'source': source,
-          'ownerType': ownerType,
-          'privacyScope': privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          if (householdId != null) 'isPortfolio': isPortfolio,
-          if (fxRate != null) 'fxRate': fxRate,
-          if (idempotencyKey != null) 'idempotencyKey': idempotencyKey,
-          if (attachments != null) 'attachments': attachments,
-          'isRecurring': isRecurring,
-          if (recurrenceRule != null) 'recurrence_rule': recurrenceRule,
-        },
+        body: requestBody,
       );
 
       if (response.data['success'] == true) {

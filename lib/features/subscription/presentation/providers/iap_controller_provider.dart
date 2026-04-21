@@ -121,8 +121,10 @@ class IapController extends AsyncNotifier<IapState> {
       clearLastCompletedProductId: clearLastCompletedProductId,
     );
 
-    print(
-        '📊 _setState called: isProcessing=${next.isProcessing}, lastError=${next.lastError}, lastErrorCode=${next.lastErrorCode}');
+    print('📊 _setState called: isProcessing=${next.isProcessing}, '
+        'lastError=${next.lastError}, lastErrorCode=${next.lastErrorCode}, '
+        'initiatedProductId=${next.initiatedProductId}, '
+        'lastCompletedProductId=${next.lastCompletedProductId}');
 
     // Safety: never allow the UI to be stuck forever.
     if (next.isProcessing) {
@@ -609,6 +611,7 @@ class IapController extends AsyncNotifier<IapState> {
             final elapsed = DateTime.now().difference(startedAt).inMilliseconds;
             print('⏱️ Edge Function duration: ${elapsed}ms');
             print('📡 Edge Function response status: ${response.status}');
+            print('📡 Edge Function response data: ${response.data}');
 
             if (response.status >= 400) {
               print('❌ Verification failed with status ${response.status}');
@@ -632,6 +635,19 @@ class IapController extends AsyncNotifier<IapState> {
             // Refresh subscription state - cross-invalidation ensures both providers stay in sync
             await ref.read(subscriptionManagementProvider.notifier).refresh();
             // Note: subscriptionNotifierProvider is cross-invalidated automatically
+            final refreshedSubscription = ref
+                .read(subscriptionManagementProvider)
+                .valueOrNull
+                ?.subscription;
+            print(
+              '🧾 Post-verify subscription snapshot: '
+              'plan=${refreshedSubscription?.plan} '
+              'status=${refreshedSubscription?.status} '
+              'provider=${refreshedSubscription?.provider} '
+              'billingInterval=${refreshedSubscription?.billingInterval} '
+              'currentPeriodEnd=${refreshedSubscription?.currentPeriodEnd} '
+              'isSubscribed=${refreshedSubscription?.isSubscribed}',
+            );
 
             // Clear processing state and set lastCompletedProductId only if:
             // 1. This was user-initiated (product ID matches what user clicked to buy)
@@ -670,6 +686,7 @@ class IapController extends AsyncNotifier<IapState> {
                 isProcessing: false,
                 lastError: null,
                 lastErrorCode: null,
+                clearInitiatedProductId: true,
               );
             }
           } catch (error, stackTrace) {

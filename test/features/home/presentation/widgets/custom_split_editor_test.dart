@@ -77,6 +77,53 @@ void main() {
     expect(latestSplits!.every((s) => (s.percentage ?? 0) >= 0), isTrue);
   });
 
+  testWidgets('Immediate notifications keep settings percentage config current',
+      (tester) async {
+    final members = <HouseholdMember>[
+      _member('u1', 'Alice'),
+      _member('u2', 'Bob'),
+    ];
+
+    SplitType? latestType;
+    List<MemberSplit>? latestSplits;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomSplitEditor(
+            members: members,
+            totalAmount: 2,
+            currencySymbol: '',
+            initialSplitType: SplitType.equal,
+            showEqualOption: true,
+            availableSplitTypes: const <SplitType>[
+              SplitType.equal,
+              SplitType.percentage,
+              SplitType.shares,
+            ],
+            notifyDebounceDuration: Duration.zero,
+            onChanged: (type, splits) {
+              latestType = type;
+              latestSplits = splits;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Percent'));
+    await tester.pump();
+
+    expect(latestType, SplitType.percentage);
+    expect(latestSplits, isNotNull);
+
+    await tester.enterText(find.byType(TextField).first, '40');
+    await tester.pump();
+
+    expect(latestType, SplitType.percentage);
+    expect(latestSplits!.map((split) => split.percentage), [40.0, 60.0]);
+  });
+
   testWidgets('Shares: initializes to 1 and uses null for excluded',
       (tester) async {
     final members = <HouseholdMember>[

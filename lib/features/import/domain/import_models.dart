@@ -6,6 +6,7 @@ enum ImportField {
   credit,
   category,
   description,
+  merchant,
   currency,
   type,
   balance,
@@ -211,6 +212,8 @@ class ImportMapping {
   bool get hasRequiredFields {
     final hasDate = fieldToColumnIndex.containsKey(ImportField.date);
     final hasAmount = fieldToColumnIndex.containsKey(ImportField.amount) ||
+        fieldToColumnIndex.containsKey(ImportField.debit) ||
+        fieldToColumnIndex.containsKey(ImportField.credit) ||
         (fieldToColumnIndex.containsKey(ImportField.debit) &&
             fieldToColumnIndex.containsKey(ImportField.credit));
     return hasDate && hasAmount;
@@ -249,6 +252,7 @@ class ImportParsedRow {
   final int? amountCents;
   final String? category;
   final String? description;
+  final String? merchant;
   final String? currency;
   final String? type;
 
@@ -271,6 +275,7 @@ class ImportParsedRow {
     required this.amountCents,
     required this.category,
     required this.description,
+    this.merchant,
     required this.currency,
     required this.type,
     required this.errors,
@@ -287,6 +292,7 @@ class ImportParsedRow {
     int? amountCents,
     Object? category = _unset,
     Object? description = _unset,
+    Object? merchant = _unset,
     Object? currency = _unset,
     Object? type = _unset,
     List<String>? errors,
@@ -302,6 +308,7 @@ class ImportParsedRow {
       category: category == _unset ? this.category : category as String?,
       description:
           description == _unset ? this.description : description as String?,
+      merchant: merchant == _unset ? this.merchant : merchant as String?,
       currency: currency == _unset ? this.currency : currency as String?,
       type: type == _unset ? this.type : type as String?,
       errors: errors ?? this.errors,

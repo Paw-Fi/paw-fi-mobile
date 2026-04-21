@@ -9,6 +9,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// OAuth callback handler - matches web's /auth/callback route
 /// Handles the redirect from Google OAuth flow
 class AuthCallbackScreen extends HookConsumerWidget {
@@ -107,7 +109,8 @@ class AuthCallbackScreen extends HookConsumerWidget {
       return null;
     }, []);
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -124,7 +127,7 @@ class AuthCallbackScreen extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _syncWeb3Profile(Session session) async {

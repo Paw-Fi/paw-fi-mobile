@@ -11,6 +11,9 @@ private enum SiriShortcutChannel {
   static let syncAuthContext = "syncAuthContext"
   static let getStatus = "getStatus"
   static let clearAuthContext = "clearAuthContext"
+  static let getWalletCaptureDebugReport = "getWalletCaptureDebugReport"
+  static let clearWalletCaptureDebugReport = "clearWalletCaptureDebugReport"
+  static let appendWalletCaptureDebugEntry = "appendWalletCaptureDebugEntry"
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
@@ -23,6 +26,15 @@ private struct SiriAssistantResultPayload {
 private func refreshSiriShortcutSession(
   context: SiriShortcutAuthContext
 ) async throws -> SiriShortcutAuthContext {
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "refresh-session-start",
+    message: "Refreshing Siri shortcut session.",
+    details: [
+      "userId": context.userId,
+      "expiresAt": context.expiresAt,
+    ]
+  )
   guard let url = URL(string: "\(context.supabaseUrl)/auth/v1/token?grant_type=refresh_token") else {
     throw SiriShortcutIntentError.notConfigured
   }
@@ -39,12 +51,34 @@ private func refreshSiriShortcutSession(
   do {
     (data, response) = try await URLSession.shared.data(for: request)
   } catch {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "refresh-session-network-error",
+      message: "Session refresh request failed.",
+      details: [
+        "error": error.localizedDescription,
+      ]
+    )
     throw SiriShortcutIntentError.networkFailure
   }
   guard let httpResponse = response as? HTTPURLResponse else {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "refresh-session-invalid-response",
+      message: "Session refresh response was not HTTP."
+    )
     throw SiriShortcutIntentError.networkFailure
   }
   guard (200...299).contains(httpResponse.statusCode) else {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "refresh-session-failed",
+      message: "Session refresh returned a non-success status.",
+      details: [
+        "statusCode": httpResponse.statusCode,
+        "body": truncateDiagnosticsBody(String(data: data, encoding: .utf8) ?? "<non-utf8>"),
+      ]
+    )
     throw SiriShortcutIntentError.missingSession
   }
 
@@ -66,6 +100,16 @@ private func refreshSiriShortcutSession(
   guard !refreshToken.isEmpty, !userId.isEmpty else {
     throw SiriShortcutIntentError.missingSession
   }
+
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "refresh-session-success",
+    message: "Session refresh succeeded.",
+    details: [
+      "userId": userId,
+      "expiresAt": expiresAt,
+    ]
+  )
 
   return SiriShortcutAuthContext(
     supabaseUrl: context.supabaseUrl,
@@ -1004,10 +1048,20 @@ struct AnalyzeSpendingWithSiriIntent: AppIntent {
 @available(iOS 16.0, watchOS 9.0, *)
 private func loadWalletCaptureScope() -> SiriShortcutScopeResolution? {
   guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "wallet-scope-defaults-missing",
+      message: "Unable to read wallet capture scope because app group defaults are unavailable."
+    )
     return nil
   }
 
   guard defaults.bool(forKey: SiriShortcutKeys.walletCaptureEnabled) else {
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "wallet-scope-disabled",
+      message: "Wallet capture scope requested while wallet capture is disabled."
+    )
     return nil
   }
 
@@ -1081,10 +1135,72 @@ private func clearWalletIdempotencySlot(idempotencyKey: String) {
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
+private func resolveWalletCaptureIntentError(
+  statusCode: Int,
+  data: Data
+) -> SiriShortcutIntentError {
+  let responseBody = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+
+  guard
+    let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+  else {
+    if statusCode == 401 {
+      return .missingSession
+    }
+    return .backendError(
+      message: "Wallet capture failed (\(statusCode)). Please try again.",
+      code: nil
+    )
+  }
+
+  let backendCode = (json["code"] as? String)?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+    .uppercased()
+  let backendMessage = (json["error"] as? String)?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+  switch backendCode {
+  case "WALLET_CAPTURE_DISABLED":
+    return .backendError(
+      message: backendMessage ?? "Wallet capture is disabled in Moneko.",
+      code: backendCode
+    )
+  case "AUTH_REQUIRED", "UNAUTHORIZED":
+    return .missingSession
+  case "DUPLICATE_REQUEST":
+    return .duplicateRequest
+  default:
+    break
+  }
+
+  if statusCode == 401 {
+    return .missingSession
+  }
+
+  if let backendMessage, !backendMessage.isEmpty {
+    return .backendError(message: backendMessage, code: backendCode)
+  }
+
+  return .backendError(
+    message: "Wallet capture failed (\(statusCode)): \(responseBody)",
+    code: backendCode
+  )
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
 private func performWalletPaymentIntegrationCapture(
   merchantName: String?,
   amount: Double?
 ) async throws -> String {
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "wallet-perform-start",
+    message: "Wallet shortcut execution started.",
+    details: [
+      "merchant": merchantName ?? "",
+      "amount": amount ?? -1,
+    ]
+  )
   NSLog(
     "[MonekoCap] performWalletPaymentIntegrationCapture called — merchant=%@, amount=%@",
     merchantName ?? "<nil>",
@@ -1093,6 +1209,14 @@ private func performWalletPaymentIntegrationCapture(
 
   guard let amount, amount > 0 else {
     NSLog("[MonekoCap] invalidInput — amount missing or <= 0")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-invalid-amount",
+      message: "Wallet shortcut rejected an invalid amount.",
+      details: [
+        "amount": amount ?? -1,
+      ]
+    )
     throw SiriShortcutIntentError.invalidInput
   }
 
@@ -1102,17 +1226,32 @@ private func performWalletPaymentIntegrationCapture(
 
   guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
     NSLog("[MonekoCap] invalidInput — no usable merchant value")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-invalid-merchant",
+      message: "Wallet shortcut rejected an empty merchant name."
+    )
     throw SiriShortcutIntentError.invalidInput
   }
 
   guard var context = SiriShortcutAuthContext.load() else {
     NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-auth-missing",
+      message: "Wallet shortcut could not load shared auth context."
+    )
     throw SiriShortcutIntentError.notConfigured
   }
   NSLog("[MonekoCap] Auth context loaded — userId=%@, tokenExpired=%d", context.userId, context.isAccessTokenExpired ? 1 : 0)
 
   guard let scope = loadWalletCaptureScope() else {
     NSLog("[MonekoCap] notConfigured — loadWalletCaptureScope() returned nil")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-scope-missing",
+      message: "Wallet shortcut could not load an enabled capture scope."
+    )
     throw SiriShortcutIntentError.notConfigured
   }
   NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
@@ -1126,6 +1265,14 @@ private func performWalletPaymentIntegrationCapture(
     scope: scope
   )
   if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-duplicate-request",
+      message: "Wallet shortcut request matched an existing idempotency slot.",
+      details: [
+        "idempotencyKey": idempotencyKey,
+      ]
+    )
     return "That wallet transaction was already captured in Moneko."
   }
 
@@ -1138,6 +1285,14 @@ private func performWalletPaymentIntegrationCapture(
 
   if context.isAccessTokenExpired {
     NSLog("[MonekoCap] Access token expired, refreshing…")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-refresh-needed",
+      message: "Wallet shortcut detected an expired access token.",
+      details: [
+        "expiresAt": context.expiresAt,
+      ]
+    )
     context = try await refreshSiriShortcutSession(context: context)
     context.persist()
     NSLog("[MonekoCap] Token refreshed successfully, new expiresAt=%d", context.expiresAt)
@@ -1173,6 +1328,15 @@ private func performWalletPaymentIntegrationCapture(
 
   NSLog("[MonekoCap] Calling save-wallet-transaction, url=%@", url.absoluteString)
   NSLog("[MonekoCap] Request body=%@", String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "<nil>")
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "wallet-request-start",
+    message: "Calling save-wallet-transaction edge function.",
+    details: [
+      "url": url.absoluteString,
+      "body": truncateDiagnosticsBody(String(data: request.httpBody ?? Data(), encoding: .utf8) ?? "<nil>"),
+    ]
+  )
 
   let data: Data
   let response: URLResponse
@@ -1180,28 +1344,61 @@ private func performWalletPaymentIntegrationCapture(
     (data, response) = try await URLSession.shared.data(for: request)
   } catch {
     NSLog("[MonekoCap] Network error: %@", error.localizedDescription)
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-request-network-error",
+      message: "Wallet capture network request failed.",
+      details: [
+        "error": error.localizedDescription,
+      ]
+    )
     throw SiriShortcutIntentError.networkFailure
   }
   guard let httpResponse = response as? HTTPURLResponse else {
     NSLog("[MonekoCap] Response is not HTTPURLResponse")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-request-invalid-response",
+      message: "Wallet capture response was not HTTP."
+    )
     throw SiriShortcutIntentError.networkFailure
   }
 
   let responseBody = String(data: data, encoding: .utf8) ?? "<non-utf8>"
   NSLog("[MonekoCap] HTTP %d — body: %@", httpResponse.statusCode, responseBody)
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "wallet-request-finished",
+    message: "Wallet capture edge function returned a response.",
+    details: [
+      "statusCode": httpResponse.statusCode,
+      "body": truncateDiagnosticsBody(responseBody),
+    ]
+  )
 
   if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-    throw SiriShortcutIntentError.missingSession
+    throw resolveWalletCaptureIntentError(
+      statusCode: httpResponse.statusCode,
+      data: data
+    )
   }
 
   if httpResponse.statusCode == 409 {
     shouldKeepIdempotencySlot = true
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-duplicate-confirmed",
+      message: "Wallet capture server reported a duplicate request."
+    )
     return "That wallet transaction was already captured in Moneko."
   }
 
   guard (200...299).contains(httpResponse.statusCode) else {
     NSLog("[MonekoCap] saveFailed — non-2xx status %d", httpResponse.statusCode)
-    throw SiriShortcutIntentError.saveFailed
+    throw resolveWalletCaptureIntentError(
+      statusCode: httpResponse.statusCode,
+      data: data
+    )
   }
 
   guard
@@ -1209,16 +1406,34 @@ private func performWalletPaymentIntegrationCapture(
     (json["success"] as? Bool) == true
   else {
     NSLog("[MonekoCap] saveFailed — response JSON missing success:true, body: %@", responseBody)
-    throw SiriShortcutIntentError.saveFailed
+    throw resolveWalletCaptureIntentError(
+      statusCode: httpResponse.statusCode,
+      data: data
+    )
   }
 
   shouldKeepIdempotencySlot = true
 
   if (json["duplicate"] as? Bool) == true {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-duplicate-json",
+      message: "Wallet capture JSON payload marked this request as a duplicate."
+    )
     return "That wallet transaction was already captured in Moneko."
   }
 
   let formattedAmount = String(format: "%.2f", amount)
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "wallet-success",
+    message: "Wallet transaction captured successfully.",
+    details: [
+      "merchant": resolvedMerchantName,
+      "amount": amount,
+      "scope": scope.householdId ?? "personal",
+    ]
+  )
   return "Captured \(formattedAmount) at \(resolvedMerchantName) in Moneko."
 }
 
@@ -1243,11 +1458,52 @@ struct CaptureWalletTransactionIntent: AppIntent {
   var amount: Double?
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    let message = try await performWalletPaymentIntegrationCapture(
-      merchantName: merchantName,
-      amount: amount
-    )
-    return .result(dialog: IntentDialog(stringLiteral: message))
+    do {
+      let message = try await performWalletPaymentIntegrationCapture(
+        merchantName: merchantName,
+        amount: amount
+      )
+      return .result(dialog: IntentDialog(stringLiteral: message))
+    } catch let intentError as SiriShortcutIntentError {
+      let dialogMessage = intentError.errorDescription ??
+        "Wallet capture failed. Please open Moneko and try again."
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-intent-error",
+        message: "Wallet shortcut finished with a handled intent error.",
+        details: [
+          "error": String(describing: intentError),
+          "description": dialogMessage,
+        ]
+      )
+      return .result(
+        dialog: IntentDialog(
+          stringLiteral: dialogMessage
+        )
+      )
+    } catch {
+      let rawMessage = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+      let fallbackMessage = String(describing: error).trimmingCharacters(in: .whitespacesAndNewlines)
+      let dialogMessage = !rawMessage.isEmpty
+        ? "Wallet capture failed: \(rawMessage)"
+        : !fallbackMessage.isEmpty
+          ? "Wallet capture failed: \(fallbackMessage)"
+          : "Wallet capture failed unexpectedly. Open Moneko > Apple Pay Integration > Debug report."
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-intent-unexpected-error",
+        message: "Wallet shortcut finished with an unexpected error.",
+        details: [
+          "error": !rawMessage.isEmpty ? rawMessage : fallbackMessage,
+          "type": String(describing: type(of: error)),
+        ]
+      )
+      return .result(
+        dialog: IntentDialog(
+          stringLiteral: dialogMessage
+        )
+      )
+    }
   }
 }
 
@@ -1275,6 +1531,123 @@ private enum SiriShortcutKeys {
   static let walletDefaultIsPortfolio = "wallet_default_is_portfolio"
   static let walletIdempotencyHash = "wallet_last_request_hash"
   static let walletIdempotencyTimestamp = "wallet_last_request_at"
+  static let walletDebugEntries = "wallet_capture_debug_entries"
+}
+
+private func makeDiagnosticsTimestamp() -> String {
+  let formatter = ISO8601DateFormatter()
+  formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+  return formatter.string(from: Date())
+}
+
+private func sanitizeDiagnosticsValue(_ value: Any) -> Any {
+  switch value {
+  case let string as String:
+    return string
+  case let number as NSNumber:
+    return number
+  case let bool as Bool:
+    return bool
+  case let dictionary as [String: Any]:
+    return dictionary.mapValues(sanitizeDiagnosticsValue)
+  case let array as [Any]:
+    return array.map(sanitizeDiagnosticsValue)
+  default:
+    return String(describing: value)
+  }
+}
+
+private func truncateDiagnosticsBody(_ value: String, limit: Int = 500) -> String {
+  guard value.count > limit else {
+    return value
+  }
+  return "\(value.prefix(limit))…"
+}
+
+private func diagnosticsStatusDescription(_ status: OSStatus) -> String {
+  if let message = SecCopyErrorMessageString(status, nil) as String? {
+    return message
+  }
+  return "OSStatus(\(status))"
+}
+
+private enum SiriShortcutDiagnostics {
+  static let maxEntries = 80
+
+  static func record(
+    source: String,
+    action: String,
+    message: String,
+    details: [String: Any] = [:]
+  ) {
+    NSLog("[MonekoDebug][%@/%@] %@ %@", source, action, message, String(describing: details))
+
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      return
+    }
+
+    let sanitizedDetails = details.mapValues(sanitizeDiagnosticsValue)
+    var entry: [String: Any] = [
+      "timestamp": makeDiagnosticsTimestamp(),
+      "source": source,
+      "action": action,
+      "message": message,
+    ]
+    if !sanitizedDetails.isEmpty {
+      entry["details"] = sanitizedDetails
+    }
+
+    var entries = (defaults.array(forKey: SiriShortcutKeys.walletDebugEntries) as? [[String: Any]]) ?? []
+    entries.append(entry)
+    if entries.count > maxEntries {
+      entries = Array(entries.suffix(maxEntries))
+    }
+    defaults.set(entries, forKey: SiriShortcutKeys.walletDebugEntries)
+  }
+
+  static func clear() {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      return
+    }
+    defaults.removeObject(forKey: SiriShortcutKeys.walletDebugEntries)
+  }
+
+  static func entries() -> [[String: Any]] {
+    guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      return []
+    }
+    return (defaults.array(forKey: SiriShortcutKeys.walletDebugEntries) as? [[String: Any]]) ?? []
+  }
+
+  static func snapshot() -> [String: Any] {
+    let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId)
+    let context = SiriShortcutAuthContext.load(logFailure: false)
+
+    let hasSupabaseUrl = ((defaults?.string(forKey: SiriShortcutKeys.supabaseUrl) ?? "").isEmpty == false)
+    let hasSupabaseAnon = ((defaults?.string(forKey: SiriShortcutKeys.supabaseAnonKey) ?? "").isEmpty == false)
+    let hasAccessToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount, logFailure: false) ?? "").isEmpty == false)
+    let hasRefreshToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount, logFailure: false) ?? "").isEmpty == false)
+    let hasUserId = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount, logFailure: false) ?? "").isEmpty == false)
+
+    return [
+      "hasSupabaseConfig": hasSupabaseUrl && hasSupabaseAnon,
+      "hasCredentials": hasAccessToken && hasRefreshToken && hasUserId,
+      "isReady": hasSupabaseUrl && hasSupabaseAnon && hasAccessToken && hasRefreshToken && hasUserId,
+      "walletCaptureEnabled": defaults?.bool(forKey: SiriShortcutKeys.walletCaptureEnabled) ?? false,
+      "walletScopeId": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
+      "walletScopeName": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
+      "walletIsPortfolio": defaults?.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio) ?? false,
+      "expiresAt": context?.expiresAt ?? 0,
+      "isAccessTokenExpired": context?.isAccessTokenExpired ?? false,
+    ]
+  }
+
+  static func report() -> [String: Any] {
+    [
+      "snapshot": snapshot(),
+      "entries": entries(),
+    ]
+  }
 }
 
 private struct SiriShortcutScopeResolution {
@@ -1418,8 +1791,15 @@ private struct SiriShortcutAuthContext {
     return now >= max(0, expiresAt - 30)
   }
 
-  static func load() -> SiriShortcutAuthContext? {
+  static func load(logFailure: Bool = true) -> SiriShortcutAuthContext? {
     guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      if logFailure {
+        SiriShortcutDiagnostics.record(
+          source: "native",
+          action: "auth-load-missing-defaults",
+          message: "Unable to open shared app group defaults."
+        )
+      }
       return nil
     }
 
@@ -1428,13 +1808,13 @@ private struct SiriShortcutAuthContext {
     let supabaseAnonKey = (defaults.string(forKey: SiriShortcutKeys.supabaseAnonKey) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
 
-    let accessToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount) ?? "")
+    let accessToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount, logFailure: logFailure) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
-    let refreshToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount) ?? "")
+    let refreshToken = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount, logFailure: logFailure) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
-    let userId = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount) ?? "")
+    let userId = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount, logFailure: logFailure) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
-    let expiresAtValue = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.expiresAtAccount) ?? "")
+    let expiresAtValue = (SharedKeychainStore.shared.read(account: SiriShortcutKeys.expiresAtAccount, logFailure: false) ?? "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
     let expiresAt = Int(expiresAtValue) ?? 0
 
@@ -1443,6 +1823,21 @@ private struct SiriShortcutAuthContext {
           !accessToken.isEmpty,
           !refreshToken.isEmpty,
           !userId.isEmpty else {
+      if logFailure {
+        SiriShortcutDiagnostics.record(
+          source: "native",
+          action: "auth-load-incomplete",
+          message: "Shared Siri auth context is incomplete.",
+          details: [
+            "hasSupabaseUrl": !supabaseUrl.isEmpty,
+            "hasSupabaseAnonKey": !supabaseAnonKey.isEmpty,
+            "hasAccessToken": !accessToken.isEmpty,
+            "hasRefreshToken": !refreshToken.isEmpty,
+            "hasUserId": !userId.isEmpty,
+            "expiresAt": expiresAt,
+          ]
+        )
+      }
       return nil
     }
 
@@ -1458,6 +1853,11 @@ private struct SiriShortcutAuthContext {
 
   func persist() {
     guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      SiriShortcutDiagnostics.record(
+        source: "native",
+        action: "auth-persist-missing-defaults",
+        message: "Unable to persist shared auth context because app group defaults are unavailable."
+      )
       return
     }
     defaults.set(supabaseUrl, forKey: SiriShortcutKeys.supabaseUrl)
@@ -1467,6 +1867,16 @@ private struct SiriShortcutAuthContext {
     SharedKeychainStore.shared.write(value: refreshToken, account: SiriShortcutKeys.refreshTokenAccount)
     SharedKeychainStore.shared.write(value: userId, account: SiriShortcutKeys.userIdAccount)
     SharedKeychainStore.shared.write(value: String(expiresAt), account: SiriShortcutKeys.expiresAtAccount)
+
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "auth-persisted",
+      message: "Persisted refreshed Siri shortcut credentials.",
+      details: [
+        "userId": userId,
+        "expiresAt": expiresAt,
+      ]
+    )
   }
 }
 
@@ -1482,16 +1892,31 @@ private final class SharedKeychainStore {
     ]
   }
 
-  func read(account: String) -> String? {
+  func read(account: String, logFailure: Bool = true) -> String? {
     var query = baseQuery(account: account)
     query[kSecReturnData as String] = true
     query[kSecMatchLimit as String] = kSecMatchLimitOne
 
     var item: CFTypeRef?
     let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecItemNotFound {
+      return nil
+    }
     guard status == errSecSuccess,
           let data = item as? Data,
           let value = String(data: data, encoding: .utf8) else {
+      if logFailure {
+        SiriShortcutDiagnostics.record(
+          source: "native",
+          action: "keychain-read-failed",
+          message: "Failed to read shared keychain item.",
+          details: [
+            "account": account,
+            "status": Int(status),
+            "statusMessage": diagnosticsStatusDescription(status),
+          ]
+        )
+      }
       return nil
     }
     return value
@@ -1509,18 +1934,65 @@ private final class SharedKeychainStore {
 
     let updateStatus = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
     if updateStatus == errSecSuccess {
+      SiriShortcutDiagnostics.record(
+        source: "native",
+        action: "keychain-write-updated",
+        message: "Updated shared keychain item.",
+        details: [
+          "account": account,
+          "length": data.count,
+        ]
+      )
       return
     }
 
     var addQuery = query
     addQuery[kSecValueData as String] = data
     addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-    SecItemAdd(addQuery as CFDictionary, nil)
+    let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+    if addStatus == errSecSuccess {
+      SiriShortcutDiagnostics.record(
+        source: "native",
+        action: "keychain-write-added",
+        message: "Added shared keychain item.",
+        details: [
+          "account": account,
+          "length": data.count,
+        ]
+      )
+      return
+    }
+
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "keychain-write-failed",
+      message: "Unable to store shared keychain item.",
+      details: [
+        "account": account,
+        "updateStatus": Int(updateStatus),
+        "updateMessage": diagnosticsStatusDescription(updateStatus),
+        "addStatus": Int(addStatus),
+        "addMessage": diagnosticsStatusDescription(addStatus),
+      ]
+    )
   }
 
   func delete(account: String) {
     let query = baseQuery(account: account)
-    SecItemDelete(query as CFDictionary)
+    let status = SecItemDelete(query as CFDictionary)
+    if status == errSecSuccess || status == errSecItemNotFound {
+      return
+    }
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "keychain-delete-failed",
+      message: "Unable to delete shared keychain item.",
+      details: [
+        "account": account,
+        "status": Int(status),
+        "statusMessage": diagnosticsStatusDescription(status),
+      ]
+    )
   }
 
   func clearAll() {
@@ -1540,11 +2012,12 @@ private enum SiriShortcutIntentError: LocalizedError {
   case networkFailure
   case saveFailed
   case requestFailed
+  case backendError(message: String, code: String?)
 
   var errorDescription: String? {
     switch self {
     case .notConfigured:
-      return "Please open Moneko once to finish Siri setup."
+      return "Turn on Apple Pay syncing in your Moneko Settings to continue."
     case .missingSession:
       return "Your session expired. Please open Moneko and sign in again."
     case .invalidInput:
@@ -1559,6 +2032,8 @@ private enum SiriShortcutIntentError: LocalizedError {
       return "I analyzed the expense, but failed to save it. Please try again."
     case .requestFailed:
       return "I could not complete that request in Moneko. Please try again."
+    case let .backendError(message, _):
+      return message
     }
   }
 }
@@ -2225,6 +2700,12 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         self.handleGetStatus(result: result)
       case SiriShortcutChannel.clearAuthContext:
         self.handleClearAuthContext(result: result)
+      case SiriShortcutChannel.getWalletCaptureDebugReport:
+        self.handleGetWalletCaptureDebugReport(result: result)
+      case SiriShortcutChannel.clearWalletCaptureDebugReport:
+        self.handleClearWalletCaptureDebugReport(result: result)
+      case SiriShortcutChannel.appendWalletCaptureDebugEntry:
+        self.handleAppendWalletCaptureDebugEntry(call: call, result: result)
       case "setWalletCaptureConfig":
         self.handleSetWalletCaptureConfig(call: call, result: result)
       case "getWalletCaptureConfig":
@@ -2238,6 +2719,11 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   private func handleSyncAuthContext(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+      SiriShortcutDiagnostics.record(
+        source: "flutter",
+        action: "sync-auth-invalid-args",
+        message: "Flutter tried to sync Siri auth context with invalid arguments."
+      )
       result(FlutterError(code: "invalid_args", message: "Invalid sync args", details: nil))
       return
     }
@@ -2272,22 +2758,22 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       SharedKeychainStore.shared.delete(account: SiriShortcutKeys.expiresAtAccount)
     }
 
+    SiriShortcutDiagnostics.record(
+      source: "flutter",
+      action: "sync-auth-complete",
+      message: "Flutter synced Siri shortcut auth context.",
+      details: [
+        "userId": (args["userId"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines),
+        "expiresAt": args["expiresAt"] as? Int ?? 0,
+        "snapshot": SiriShortcutDiagnostics.snapshot(),
+      ]
+    )
+
     result(nil)
   }
 
   private func handleGetStatus(result: @escaping FlutterResult) {
-    let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId)
-    let hasSupabaseUrl = ((defaults?.string(forKey: SiriShortcutKeys.supabaseUrl) ?? "").isEmpty == false)
-    let hasSupabaseAnon = ((defaults?.string(forKey: SiriShortcutKeys.supabaseAnonKey) ?? "").isEmpty == false)
-    let hasAccessToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.accessTokenAccount) ?? "").isEmpty == false)
-    let hasRefreshToken = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.refreshTokenAccount) ?? "").isEmpty == false)
-    let hasUserId = ((SharedKeychainStore.shared.read(account: SiriShortcutKeys.userIdAccount) ?? "").isEmpty == false)
-
-    result([
-      "hasSupabaseConfig": hasSupabaseUrl && hasSupabaseAnon,
-      "hasCredentials": hasAccessToken && hasRefreshToken && hasUserId,
-      "isReady": hasSupabaseUrl && hasSupabaseAnon && hasAccessToken && hasRefreshToken && hasUserId,
-    ])
+    result(SiriShortcutDiagnostics.snapshot())
   }
 
   private func handleClearAuthContext(result: @escaping FlutterResult) {
@@ -2295,6 +2781,45 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseUrl)
     defaults?.removeObject(forKey: SiriShortcutKeys.supabaseAnonKey)
     SharedKeychainStore.shared.clearAll()
+    SiriShortcutDiagnostics.record(
+      source: "flutter",
+      action: "clear-auth-context",
+      message: "Flutter cleared shared Siri shortcut auth context."
+    )
+    result(nil)
+  }
+
+  private func handleGetWalletCaptureDebugReport(result: @escaping FlutterResult) {
+    result(SiriShortcutDiagnostics.report())
+  }
+
+  private func handleClearWalletCaptureDebugReport(result: @escaping FlutterResult) {
+    SiriShortcutDiagnostics.clear()
+    SiriShortcutDiagnostics.record(
+      source: "flutter",
+      action: "debug-log-cleared",
+      message: "Wallet capture debug log was cleared from Flutter."
+    )
+    result(nil)
+  }
+
+  private func handleAppendWalletCaptureDebugEntry(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any] else {
+      result(FlutterError(code: "invalid_args", message: "Invalid wallet debug entry args", details: nil))
+      return
+    }
+
+    let source = (args["source"] as? String ?? "flutter").trimmingCharacters(in: .whitespacesAndNewlines)
+    let action = (args["action"] as? String ?? "unknown").trimmingCharacters(in: .whitespacesAndNewlines)
+    let message = (args["message"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let details = args["details"] as? [String: Any] ?? [:]
+
+    SiriShortcutDiagnostics.record(
+      source: source.isEmpty ? "flutter" : source,
+      action: action.isEmpty ? "unknown" : action,
+      message: message,
+      details: details
+    )
     result(nil)
   }
 
@@ -2318,6 +2843,18 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       defaults.set(isPortfolio, forKey: SiriShortcutKeys.walletDefaultIsPortfolio)
     }
 
+    SiriShortcutDiagnostics.record(
+      source: "flutter",
+      action: "wallet-config-updated",
+      message: "Flutter updated wallet capture configuration.",
+      details: [
+        "enabled": defaults.bool(forKey: SiriShortcutKeys.walletCaptureEnabled),
+        "scopeId": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
+        "scopeName": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
+        "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
+      ]
+    )
+
     result(nil)
   }
 
@@ -2332,11 +2869,12 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       return
     }
 
-    result([
+    let config: [String: Any] = [
       "enabled": defaults.bool(forKey: SiriShortcutKeys.walletCaptureEnabled),
       "scopeId": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
       "scopeName": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
       "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
-    ])
+    ]
+    result(config)
   }
 }

@@ -81,6 +81,40 @@ class WidgetSyncManager extends HookConsumerWidget {
       householdsAsync.valueOrNull,
     ]);
 
+    // Keep widget sync recoverable if the initial background analytics warm-up
+    // was skipped or interrupted during startup.
+    useEffect(() {
+      if (!isAppReady || user.uid.isEmpty) {
+        return null;
+      }
+      if (analyticsData.hasLoadedOnce == true || analyticsData.isLoading) {
+        return null;
+      }
+
+      var disposed = false;
+      Future<void>(() async {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        if (disposed) return;
+
+        final latestAnalytics = ref.read(analyticsProvider);
+        if (latestAnalytics.hasLoadedOnce == true ||
+            latestAnalytics.isLoading) {
+          return;
+        }
+
+        await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      });
+
+      return () {
+        disposed = true;
+      };
+    }, [
+      isAppReady,
+      user.uid,
+      analyticsData.hasLoadedOnce,
+      analyticsData.isLoading,
+    ]);
+
     // Sync ALL scopes (Personal + Households) for Configurable Widgets
     useEffect(() {
       // GUARD 1: App must be fully initialized (has data, not failed)
@@ -95,8 +129,10 @@ class WidgetSyncManager extends HookConsumerWidget {
         return null;
       }
 
-      // GUARD 3: Data must be loaded
-      if (analyticsData.isLoading || householdsAsync.isLoading) {
+      // GUARD 3: Data must be fully loaded
+      if (analyticsData.hasLoadedOnce != true ||
+          analyticsData.isLoading ||
+          householdsAsync.isLoading) {
         debugPrint('🔄 [WidgetSync] Skipping - data still loading');
         return null;
       }

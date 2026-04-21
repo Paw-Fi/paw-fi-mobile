@@ -1,6 +1,7 @@
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:flutter/services.dart';
 
 import 'package:home_widget/home_widget.dart';
 import 'package:moneko/features/home/presentation/state/widget_launch_provider.dart';
@@ -114,6 +115,7 @@ class _AppState extends ConsumerState<App> {
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
+    //final themeMode=ThemeMode.dark;
     final locale = ref.watch(localeProvider);
     final localizationsDelegates = <LocalizationsDelegate<dynamic>>[
       ...AppLocalizations.localizationsDelegates,
@@ -165,12 +167,22 @@ class _AppState extends ConsumerState<App> {
       locale: locale,
       localeResolutionCallback: localeResolutionCallback,
       builder: (context, child) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final overlayStyle = colorScheme.brightness == Brightness.dark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark;
+
         // Never render an empty child on first frames; fallback to SplashScreen
-        return Localizations.override(
-          context: context,
-          locale: locale,
-          delegates: localizationsDelegates,
-          child: VersionCheckWrapper(child: child ?? const SplashScreen()),
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlayStyle.copyWith(
+            statusBarColor: colorScheme.surface.withValues(alpha: 0.0),
+          ),
+          child: Localizations.override(
+            context: context,
+            locale: locale,
+            delegates: localizationsDelegates,
+            child: VersionCheckWrapper(child: child ?? const SplashScreen()),
+          ),
         );
       },
     );

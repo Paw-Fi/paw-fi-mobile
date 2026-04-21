@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +14,7 @@ import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/import/data/import_batch_results.dart';
 import 'package:moneko/features/import/data/import_dedupe.dart';
 import 'package:moneko/features/import/data/import_excel_parser.dart';
 import 'package:moneko/features/import/data/import_local_parser.dart';
@@ -21,6 +23,9 @@ import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/domain/import_source_app.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 
 final importWizardProvider =
@@ -34,13 +39,13 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
   final Ref _ref;
   static const int _maxPdfImportBytes = 20 * 1024 * 1024;
-  static const int _batchSize = 500;
+  static const int _batchSize = 250;
 
   static ImportWizardState _initialStateFromRef(Ref ref) {
     final scope = ref.read(householdScopeProvider);
     return ImportWizardState(
       targetHouseholdId: scope.activeAccountHouseholdId,
-      targetIsPortfolio: scope.activeAccountType == ActiveAccountType.portfolio,
+      targetIsPortfolio: scope.activeAccountType == ActiveWalletType.portfolio,
     );
   }
 
@@ -51,12 +56,16 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   ImportWizardState _initialStateForTarget({
     String? householdId,
     required bool isPortfolio,
+    String? accountId,
   }) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
+    final normalizedAccountId =
+        (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
     return ImportWizardState(
       targetHouseholdId: normalized,
       targetIsPortfolio: normalized == null ? false : isPortfolio,
+      targetAccountId: normalizedAccountId,
     );
   }
 
@@ -266,6 +275,254 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     return message;
   }
 
+  String _toImportSaveErrorMessage(Object error) {
+    if (error is _ImportBackendException) {
+      final code = error.code?.toUpperCase();
+      if (code == 'UNAUTHORIZED' ||
+          error.status == 401 ||
+          error.status == 403) {
+        return 'Your session expired while importing. Please sign in again and retry.';
+      }
+      if (code == 'SERVER_ERROR') {
+        return 'We could not finish importing right now. Please try again in a moment.';
+      }
+      if (code == 'VALIDATION_ERROR' || error.status == 400) {
+        return 'Some rows could not be imported. Please review your file and try again.';
+      }
+      return 'We imported what we could, but some rows could not be saved. Please review and try again.';
+    }
+
+    final message = error.toString().toLowerCase();
+
+    if (message.contains('unauthorized') || message.contains('401')) {
+      return 'Your session expired while importing. Please sign in again and retry.';
+    }
+
+    if (message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('gateway')) {
+      return 'Import is taking longer than expected. Please retry in a moment.';
+    }
+
+    if (message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('connection')) {
+      return 'Your connection was interrupted during import. Please check your internet and try again.';
+    }
+
+    return 'We could not finish importing all rows. Please try again.';
+  }
+
+  bool _isRetryableBatchFailure({
+    required Object? error,
+    required int? status,
+  }) {
+    if (status != null) {
+      if (status == 408 || status == 429) return true;
+      if (status >= 500) return true;
+    }
+
+    if (error == null) return false;
+
+    final message = error.toString().toLowerCase();
+    return message.contains('timeout') ||
+        message.contains('timed out') ||
+        message.contains('gateway') ||
+        message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('connection') ||
+        message.contains('runmicrotasks');
+  }
+
+  String _buildImportProgressMessage({
+    required String message,
+    required int currentItem,
+    required int totalItems,
+  }) {
+    final normalizedCurrent = currentItem < 0
+        ? 0
+        : (currentItem > totalItems ? totalItems : currentItem);
+    return formatStreamingProgressMessage(
+      message,
+      currentItem: normalizedCurrent,
+      totalItems: totalItems,
+    );
+  }
+
+  String _createImportDebugTraceId(String userId) {
+    final suffix = userId.length >= 8 ? userId.substring(0, 8) : userId;
+    return 'import-${DateTime.now().millisecondsSinceEpoch}-$suffix';
+  }
+
+  Future<dynamic> _invokeSaveTransactionsBatchWithRetry({
+    required Map<String, dynamic> body,
+    int maxAttempts = 3,
+  }) async {
+    Object? lastError;
+    int? lastStatus;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await supabase.functions.invoke(
+          'save-transactions-batch',
+          body: body,
+        );
+
+        lastStatus = response.status;
+        final data = response.data;
+
+        final shouldRetry = _isRetryableBatchFailure(
+          error: null,
+          status: response.status,
+        );
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+
+        return data;
+      } catch (error) {
+        lastError = error;
+        final shouldRetry = _isRetryableBatchFailure(
+          error: error,
+          status: null,
+        );
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw Exception(
+      'save-transactions-batch failed after retries (status: ${lastStatus ?? 'unknown'})',
+    );
+  }
+
+  Future<dynamic> _streamSaveTransactionsBatch({
+    required Map<String, dynamic> body,
+    required void Function(StreamingProgressEvent event) onProgress,
+    int maxAttempts = 2,
+  }) async {
+    final session = supabase.auth.currentSession;
+    if (session == null) {
+      throw Exception('No auth session');
+    }
+
+    final supabaseUrl = Constants.supabaseUrl;
+    if (supabaseUrl.isEmpty) {
+      return _invokeSaveTransactionsBatchWithRetry(body: body);
+    }
+
+    Object? lastError;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      var receivedAnyEvent = false;
+      try {
+        final sseUrl = Uri.parse(
+          '$supabaseUrl/functions/v1/save-transactions-batch?stream=true',
+        );
+        Map<String, dynamic>? responseData;
+
+        await for (final event in SSEService.streamRequest(
+          url: sseUrl,
+          body: body,
+          headers: <String, String>{
+            'Authorization': 'Bearer ${session.accessToken}',
+          },
+          timeout: const Duration(minutes: 10),
+        )) {
+          receivedAnyEvent = true;
+
+          if (event.event == 'progress' && event.data is Map<String, dynamic>) {
+            onProgress(
+              StreamingProgressEvent.fromJson(
+                Map<String, dynamic>.from(event.data as Map),
+              ),
+            );
+            continue;
+          }
+
+          if (event.event == 'complete' && event.data is Map<String, dynamic>) {
+            responseData = Map<String, dynamic>.from(event.data as Map);
+            continue;
+          }
+
+          if (event.event == 'error') {
+            if (event.data is Map<String, dynamic>) {
+              final data = Map<String, dynamic>.from(event.data as Map);
+              throw _ImportBackendException(
+                data['error']?.toString() ??
+                    'Failed to save imported transactions',
+                code: data['code']?.toString(),
+                status: (data['status'] as num?)?.toInt(),
+              );
+            }
+            throw Exception(
+              event.data?.toString() ?? 'Failed to save imported transactions',
+            );
+          }
+        }
+
+        if (responseData != null) {
+          return responseData;
+        }
+
+        if (receivedAnyEvent) {
+          return _invokeSaveTransactionsBatchWithRetry(body: body);
+        }
+
+        throw Exception(
+          'We received an unexpected response while saving your import.',
+        );
+      } catch (error) {
+        lastError = error;
+        final status = error is _ImportBackendException ? error.status : null;
+        final shouldConfirmWithDirectInvoke = receivedAnyEvent &&
+            error is! _ImportBackendException &&
+            _isRetryableBatchFailure(error: error, status: status);
+        if (shouldConfirmWithDirectInvoke) {
+          return _invokeSaveTransactionsBatchWithRetry(body: body);
+        }
+        final shouldRetry = !receivedAnyEvent &&
+            _isRetryableBatchFailure(error: error, status: status);
+        if (shouldRetry && attempt < maxAttempts) {
+          await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw Exception('save-transactions-batch streaming failed unexpectedly');
+  }
+
+  ({int succeeded, int failed, int skipped, String? errorMessage})
+      _countChunkResults({
+    required dynamic data,
+    required int expectedCount,
+  }) {
+    final counted = countImportBatchResults(
+      data: data,
+      expectedCount: expectedCount,
+    );
+    return (
+      succeeded: counted.succeeded,
+      failed: counted.failed,
+      skipped: counted.skipped,
+      errorMessage: counted.errorMessage,
+    );
+  }
+
   Future<ImportTable> _analyzePdfToImportTable({
     required Uint8List bytes,
     required String filename,
@@ -396,6 +653,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateText = item['date']?.toString() ?? '';
       final category = item['category']?.toString() ?? '';
       final description = item['description']?.toString() ?? '';
+      final merchant = item['merchant']?.toString() ?? '';
       final currency = item['currency']?.toString() ?? '';
       final type = item['type']?.toString() ?? '';
 
@@ -404,6 +662,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         amountText,
         category,
         description,
+        merchant,
         currency,
         type,
       ];
@@ -415,6 +674,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'amount',
         'category',
         'description',
+        'merchant',
         'currency',
         'type',
       ],
@@ -533,25 +793,93 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     state = state.copyWith(skipDuplicates: value);
   }
 
-  void setTargetAccount({String? householdId, required bool isPortfolio}) {
+  void setTargetWallet({String? householdId, required bool isPortfolio}) {
     final trimmed = householdId?.trim();
     final normalized = trimmed != null && trimmed.isNotEmpty ? trimmed : null;
     final updatedRows = markDuplicates(
       state.parsedRows,
       _existingExpensesForTarget(normalized),
+      targetAccountId: null,
     );
     state = state.copyWith(
       targetHouseholdId: normalized,
       targetIsPortfolio: normalized == null ? false : isPortfolio,
       clearTargetHouseholdId: normalized == null,
+      clearTargetAccountId: true,
       parsedRows: updatedRows,
     );
+    if (normalized != null) {
+      _prefetchHouseholdExpensesForDedupe(normalized);
+    }
+  }
+
+  void setTargetFinancialWallet(String? accountId) {
+    final normalized =
+        (accountId?.trim().isEmpty ?? true) ? null : accountId!.trim();
+    final updatedRows = markDuplicates(
+      state.parsedRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: normalized,
+    );
+    state = state.copyWith(
+      targetAccountId: normalized,
+      clearTargetAccountId: normalized == null,
+      parsedRows: updatedRows,
+    );
+    final householdId = state.targetHouseholdId;
+    if (householdId != null && householdId.isNotEmpty) {
+      _prefetchHouseholdExpensesForDedupe(householdId);
+    }
+  }
+
+  Future<String?> createWalletForTarget({
+    required String name,
+    required String icon,
+    required String color,
+    required int openingBalanceCents,
+    required int? goalAmountCents,
+    required bool isDefault,
+  }) async {
+    final targetHouseholdId = state.targetHouseholdId;
+    final response = await supabase.functions.invoke(
+      'save-wallet',
+      body: {
+        'name': name,
+        'icon': icon,
+        'color': color,
+        'openingBalanceCents': openingBalanceCents,
+        'goalAmountCents': goalAmountCents,
+        'isDefault': isDefault,
+        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+          'householdId': targetHouseholdId,
+      },
+    );
+
+    final payload = response.data as Map<String, dynamic>?;
+    if (payload == null || payload['success'] != true) {
+      final message =
+          payload?['error']?.toString() ?? 'Failed to create wallet';
+      throw Exception(message);
+    }
+
+    final accountData = payload['data'] as Map<String, dynamic>?;
+    final accountId = (accountData?['id'] as String?)?.trim();
+
+    _ref.invalidate(walletsByHouseholdIdProvider(targetHouseholdId));
+
+    if (accountId != null && accountId.isNotEmpty) {
+      state = state.copyWith(targetAccountId: accountId);
+      return accountId;
+    }
+
+    return null;
   }
 
   void resetAfterImport() {
     state = _initialStateForTarget(
       householdId: state.targetHouseholdId,
       isPortfolio: state.targetIsPortfolio,
+      accountId: state.targetAccountId,
     );
   }
 
@@ -561,7 +889,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (pos < 0) return;
     rows[pos] = _applyImportDefaults(updated);
     final deduped = markDuplicates(
-        rows, _existingExpensesForTarget(state.targetHouseholdId));
+      rows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
     state = state.copyWith(parsedRows: deduped);
   }
 
@@ -570,10 +901,49 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     if (!rows.any((r) => r.index == index)) return;
     final updatedRows = rows.where((r) => r.index != index).toList();
     final deduped = markDuplicates(
-        updatedRows, _existingExpensesForTarget(state.targetHouseholdId));
+      updatedRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
 
     final deleted = {...state.deletedRowIndices, index};
     state = state.copyWith(parsedRows: deduped, deletedRowIndices: deleted);
+  }
+
+  /// Apply a new category to all parsed rows that currently have [fromCategory].
+  /// This is used when the user edits one row's category and wants to apply
+  /// the same change to all matching rows in the import.
+  void applyCategoryToAllRows(String fromCategory, String toCategory) {
+    final normalizedFrom = (fromCategory.trim().isEmpty)
+        ? 'uncategorized'
+        : fromCategory.trim().toLowerCase();
+    final normalizedTo =
+        (toCategory.trim().isEmpty) ? 'uncategorized' : toCategory.trim();
+
+    if (normalizedFrom == normalizedTo) return;
+
+    final rows = [...state.parsedRows];
+    var changedCount = 0;
+
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      final rowCategory = (row.category?.trim().isEmpty ?? true)
+          ? 'uncategorized'
+          : row.category!.trim().toLowerCase();
+      if (rowCategory == normalizedFrom) {
+        rows[i] = row.copyWith(category: normalizedTo);
+        changedCount++;
+      }
+    }
+
+    if (changedCount == 0) return;
+
+    final deduped = markDuplicates(
+      rows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
+    state = state.copyWith(parsedRows: deduped);
   }
 
   Future<void> importRows() async {
@@ -584,7 +954,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
 
     final authUser = _ref.read(authProvider);
     if (authUser.isEmpty || authUser.uid.isEmpty) {
-      state = state.copyWith(errorMessage: 'User not authenticated');
+      state = state.copyWith(
+        errorMessage: 'Please sign in again, then try importing your file.',
+      );
       return;
     }
 
@@ -592,6 +964,7 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       isImporting: true,
       importedCount: 0,
       failedCount: 0,
+      clearImportStatusMessage: true,
       clearErrorMessage: true,
     );
 
@@ -601,6 +974,32 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         filterState.selectedCurrency ?? analytics.preferredCurrency ?? 'USD';
     final targetHouseholdId = state.targetHouseholdId;
     final targetIsPortfolio = state.targetIsPortfolio;
+    final selectedAccountId = state.targetAccountId?.trim();
+    String? effectiveAccountId =
+        selectedAccountId != null && selectedAccountId.isNotEmpty
+            ? selectedAccountId
+            : null;
+    if (effectiveAccountId == null) {
+      final resolved = await supabase.rpc(
+        'resolve_default_account',
+        params: {
+          'p_user_id': authUser.uid,
+          'p_household_id': targetHouseholdId,
+        },
+      );
+      if (resolved is String && resolved.trim().isNotEmpty) {
+        effectiveAccountId = resolved.trim();
+        final updatedRows = markDuplicates(
+          state.parsedRows,
+          _existingExpensesForTarget(targetHouseholdId),
+          targetAccountId: effectiveAccountId,
+        );
+        state = state.copyWith(
+          targetAccountId: effectiveAccountId,
+          parsedRows: updatedRows,
+        );
+      }
+    }
 
     // 1. Filter importable rows, counting invalid ones upfront.
     final importableRows = <ImportParsedRow>[];
@@ -623,6 +1022,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         importedCount: 0,
         failedCount: preFilterFailed,
         step: ImportStep.preview,
+        clearImportStatusMessage: true,
+        errorMessage: preFilterFailed > 0
+            ? 'We could not import any rows from this file. Please review and fix the highlighted rows, then try again.'
+            : 'There is nothing new to import. All selected rows are duplicates.',
       );
       return;
     }
@@ -634,6 +1037,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
           DateTime(row.date!.year, row.date!.month, row.date!.day, 12);
+      final merchantLabel = (row.merchant ?? row.description)?.trim();
+      final hasValidMerchantLabel = merchantLabel != null &&
+          merchantLabel.isNotEmpty &&
+          merchantLabel.length <= 255;
 
       return <String, dynamic>{
         'type': row.type ?? 'expense',
@@ -641,68 +1048,87 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'category': row.category ?? 'uncategorized',
         'currency': currency,
         'date': dateOnly,
+        if (effectiveAccountId != null) 'accountId': effectiveAccountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
         if (row.description != null) 'description': row.description,
+        if (hasValidMerchantLabel) 'merchant': merchantLabel,
       };
     }).toList(growable: false);
 
-    // 3. Chunk into batches of ≤500 and call save-transactions-batch.
+    final totalTransactions = transactions.length;
+    final debugTraceId = _createImportDebugTraceId(authUser.uid);
+
+    state = state.copyWith(
+      importStatusMessage: _buildImportProgressMessage(
+        message: 'Preparing import...',
+        currentItem: 0,
+        totalItems: totalTransactions,
+      ),
+    );
+
+    // 3. Chunk into manageable batches and call save-transactions-batch.
     int totalSucceeded = 0;
     int totalFailed = preFilterFailed;
+    int totalSkipped = 0;
+    String? firstBatchFailureMessage;
 
-    for (var offset = 0; offset < transactions.length; offset += _batchSize) {
-      final end = (offset + _batchSize > transactions.length)
-          ? transactions.length
-          : offset + _batchSize;
-      final chunk = transactions.sublist(offset, end);
+    try {
+      for (var offset = 0; offset < transactions.length; offset += _batchSize) {
+        final end = (offset + _batchSize > transactions.length)
+            ? transactions.length
+            : offset + _batchSize;
+        final chunk = transactions.sublist(offset, end);
 
-      final body = <String, dynamic>{
-        'userId': authUser.uid,
-        'transactions': chunk,
-        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
-          'householdId': targetHouseholdId,
-        if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
-          'isPortfolio': targetIsPortfolio,
-      };
+        final body = <String, dynamic>{
+          'userId': authUser.uid,
+          'debugTraceId': '$debugTraceId:$offset-$end',
+          'manualImportMode': true,
+          'progressOffset': offset,
+          'progressTotal': totalTransactions,
+          'skipSemanticDuplicates': state.skipDuplicates,
+          'transactions': chunk,
+          if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+            'householdId': targetHouseholdId,
+          if (targetHouseholdId != null && targetHouseholdId.isNotEmpty)
+            'isPortfolio': targetIsPortfolio,
+        };
 
-      try {
-        final response = await supabase.functions.invoke(
-          'save-transactions-batch',
-          body: body,
-        );
+        try {
+          final data = await _streamSaveTransactionsBatch(
+            body: body,
+            onProgress: (event) {
+              state = state.copyWith(
+                importStatusMessage: event.displayMessage,
+              );
+            },
+          );
+          final counted = _countChunkResults(
+            data: data,
+            expectedCount: chunk.length,
+          );
 
-        final data = response.data;
-        if (data is Map<String, dynamic>) {
-          // Always read summary regardless of `success` flag — backend sets
-          // success=false when ANY item fails, even if most succeeded.
-          final summary = data['summary'];
-          if (summary is Map<String, dynamic>) {
-            totalSucceeded += (summary['succeeded'] as num?)?.toInt() ?? 0;
-            totalFailed += (summary['failed'] as num?)?.toInt() ?? 0;
-          } else if (data['success'] == true) {
-            // Fallback: no summary but success — assume entire chunk succeeded.
-            totalSucceeded += chunk.length;
-          } else {
-            totalFailed += chunk.length;
-          }
-        } else {
+          totalSucceeded += counted.succeeded;
+          totalFailed += counted.failed;
+          totalSkipped += counted.skipped;
+          firstBatchFailureMessage ??= counted.errorMessage;
+        } catch (error) {
           totalFailed += chunk.length;
+          firstBatchFailureMessage ??= _toImportSaveErrorMessage(error);
         }
-      } catch (_) {
-        totalFailed += chunk.length;
+
+        // Update progress after each batch for real-time UI feedback.
+        state = state.copyWith(
+          importedCount: totalSucceeded,
+          failedCount: totalFailed,
+          importStatusMessage: _buildImportProgressMessage(
+            message: 'Saving transactions...',
+            currentItem: totalSucceeded + totalFailed + totalSkipped,
+            totalItems: totalTransactions,
+          ),
+        );
       }
-
-      // Update progress after each batch for real-time UI feedback.
-      state = state.copyWith(
-        importedCount: totalSucceeded,
-        failedCount: totalFailed,
-      );
-    }
-
-    // 4. Refresh analytics after import.
-    if (authUser.uid.isNotEmpty &&
-        (targetHouseholdId == null || targetHouseholdId.isEmpty)) {
-      await _ref.read(analyticsProvider.notifier).loadData(authUser.uid);
+    } catch (error) {
+      firstBatchFailureMessage ??= _toImportSaveErrorMessage(error);
     }
 
     state = state.copyWith(
@@ -710,6 +1136,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       importedCount: totalSucceeded,
       failedCount: totalFailed,
       step: ImportStep.preview,
+      clearImportStatusMessage: true,
+      errorMessage: firstBatchFailureMessage,
     );
   }
 
@@ -717,9 +1145,23 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       ImportTable table, ImportMapping mapping,
       {Set<int>? deletedRowIndices}) {
     final rows = <ImportParsedRow>[];
+    final dateOrderHint = inferDateOrderHint(
+      table.rows,
+      mapping.fieldToColumnIndex[ImportField.date],
+    );
     for (var i = 0; i < table.rows.length; i++) {
-      rows.add(
-          _applyImportDefaults(parseRow(table.rows[i], mapping, index: i)));
+      final parsed = _applyImportDefaults(
+        parseRow(
+          table.rows[i],
+          mapping,
+          index: i,
+          dateOrderHint: dateOrderHint,
+        ),
+      );
+      if (_isSummaryFooterRow(parsed)) {
+        continue;
+      }
+      rows.add(parsed);
     }
 
     final effectiveDeletedRowIndices =
@@ -732,10 +1174,26 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             .toList(growable: false);
 
     return markDuplicates(
-        filteredRows, _existingExpensesForTarget(state.targetHouseholdId));
+      filteredRows,
+      _existingExpensesForTarget(state.targetHouseholdId),
+      targetAccountId: state.targetAccountId,
+    );
   }
 
   List<ExpenseEntry> _existingExpensesForTarget(String? householdId) {
+    if (householdId != null && householdId.isNotEmpty) {
+      final cached = _ref
+          .read(
+            cachedHouseholdExpensesProvider(
+              HouseholdExpensesParams(householdId: householdId),
+            ),
+          )
+          .valueOrNull;
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
+    }
+
     final allExpenses = _ref.read(analyticsProvider).allExpenses;
     if (householdId == null || householdId.isEmpty) {
       return allExpenses
@@ -749,6 +1207,27 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     return allExpenses
         .where((expense) => expense.householdId == householdId)
         .toList();
+  }
+
+  void _prefetchHouseholdExpensesForDedupe(String householdId) {
+    unawaited(
+      _ref
+          .read(
+        cachedHouseholdExpensesProvider(
+          HouseholdExpensesParams(householdId: householdId),
+        ).future,
+      )
+          .then((expenses) {
+        if (state.targetHouseholdId != householdId) return;
+        state = state.copyWith(
+          parsedRows: markDuplicates(
+            state.parsedRows,
+            expenses,
+            targetAccountId: state.targetAccountId,
+          ),
+        );
+      }).catchError((_) {}),
+    );
   }
 
   ImportParsedRow _validateRow(ImportParsedRow row) {
@@ -778,6 +1257,25 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
             ? normalizedCurrency
             : _fallbackImportCurrency();
     return _validateRow(row.copyWith(currency: effectiveCurrency));
+  }
+
+  bool _isSummaryFooterRow(ImportParsedRow row) {
+    if (row.date != null) return false;
+
+    final totalLikePattern = RegExp(
+      r'^(?:sub\s*total|subtotal|grand\s*total|total)\b',
+      caseSensitive: false,
+    );
+
+    for (final rawValue in row.rawValues ?? const <String>[]) {
+      final normalized = rawValue.trim().replaceAll(':', '');
+      if (normalized.isEmpty) continue;
+      if (totalLikePattern.hasMatch(normalized)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   String _fallbackImportCurrency() {

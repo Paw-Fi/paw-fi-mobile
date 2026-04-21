@@ -1,35 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:skeletonizer/skeletonizer.dart';
 import '../providers/household_providers.dart';
-import '../providers/cached_providers.dart';
-import '../providers/household_derived_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../pages/household_onboarding_page.dart';
-import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
+import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
-import 'household_budget_overview_card.dart';
-import 'household_member_spending_card.dart';
 
-import '../pages/household_expenses_page.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
-import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
-import 'package:moneko/features/households/presentation/widgets/settlement_suggestions_card.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
-import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
-import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
-import 'package:moneko/features/insights/presentation/widgets/category_guide_dialog.dart';
-import 'package:moneko/features/home/presentation/pages/transactions_page.dart';
+import 'package:moneko/features/households/presentation/widgets/household_dashboard_lazy_widgets.dart';
 
 /// Household home content that handles loading, empty, and data states
 /// Returns Sliver widgets for use in CustomScrollView
@@ -42,7 +39,21 @@ class HouseholdHomeContent extends ConsumerStatefulWidget {
 }
 
 class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
-  String? _recurringLoadScheduledForHouseholdId;
+  String? _dashboardWarmupKey;
+  late final HomeDebugTrace _householdTrace;
+  String? _lastHouseholdTraceSignature;
+  bool _didLogFirstUsefulPaint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _householdTrace = HomeDebugTrace(
+      label: 'HouseholdHomeContent',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+    );
+    _householdTrace.mark('widget-mounted');
+  }
 
   /// Calculate user's personal share of household expenses
   ///
@@ -133,11 +144,251 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     return result;
   }
 
+  Future<void> _warmHouseholdDashboard({
+    required String userId,
+    required Household household,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+    required DateTime referenceNow,
+  }) async {
+    final warmupTrace = HomeDebugTrace(
+      label: 'HouseholdDashboardWarmup',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {
+        'household': household.id,
+        'currency': selectedCurrency,
+      },
+    );
+    warmupTrace.mark('warmup-start', {
+      'widgetCount': configs.length,
+    });
+    final visibleConfigs = configs.where((config) => config.isVisible).toList();
+
+    final summaryParams = <HouseholdSummaryParams>{};
+    final calendarQueries = <DashboardScopeQuery>{};
+    var needsRecurring = false;
+    var needsSplits = false;
+
+    for (final config in visibleConfigs) {
+      final range = getDateRangeFromFilter(
+        config.dateRange,
+        config.customStartDate,
+        config.customEndDate,
+        now: referenceNow,
+      );
+
+      switch (config.type) {
+        case DashboardWidgetType.householdSpentByYou:
+          needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          break;
+        case DashboardWidgetType.householdBudgetOverview:
+          needsRecurring = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdFairness:
+          needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdSettlement:
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdMemberSpending:
+          needsRecurring = true;
+          needsSplits = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          summaryParams.add(buildHouseholdSummaryParams(
+            household: household,
+            selectedCurrency: selectedCurrency,
+            config: config,
+            referenceNow: referenceNow,
+          ));
+          break;
+        case DashboardWidgetType.householdSpendingBreakdownChart:
+        case DashboardWidgetType.householdWhereTheMoneyWent:
+          needsRecurring = true;
+          calendarQueries.add(
+            DashboardScopeQuery(
+              userId: userId,
+              householdId: household.id,
+              selectedCurrency: selectedCurrency,
+              startDate: range['from'],
+              endDate: range['to'],
+            ),
+          );
+          break;
+        case DashboardWidgetType.householdFinancialCalendar:
+          needsRecurring = true;
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (needsRecurring) {
+      final recurringProvider = recurringTransactionsProvider(household.id);
+      final recurringState = ref.read(recurringProvider);
+      if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
+        warmupTrace.mark('warmup-recurring-start');
+        await ref
+            .read(recurringProvider.notifier)
+            .loadRecurringTransactions(userId);
+        warmupTrace.mark('warmup-recurring-success');
+      }
+    }
+
+    ref.read(householdMembersProvider(household.id));
+    warmupTrace.mark('warmup-members-read');
+
+    if (needsSplits) {
+      try {
+        warmupTrace.mark('warmup-splits-start');
+        await ref.read(
+          householdSplitsProvider(HouseholdSplitsParams(
+            householdId: household.id,
+          )).future,
+        );
+        warmupTrace.mark('warmup-splits-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-splits-error', {'error': error});
+      }
+    }
+
+    for (final query in calendarQueries) {
+      try {
+        warmupTrace.mark('warmup-calendar-start', {
+          'rangeStart': query.formattedStartDate,
+          'rangeEnd': query.formattedEndDate,
+        });
+        await ref.read(dashboardCalendarTransactionsProvider(query).future);
+        warmupTrace.mark('warmup-calendar-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-calendar-error', {'error': error});
+      }
+    }
+
+    for (final params in summaryParams) {
+      try {
+        warmupTrace.mark('warmup-summary-start', {
+          'rangeStart': params.startDate,
+          'rangeEnd': params.endDate,
+        });
+        await ref.read(householdSummaryProvider(params).future);
+        warmupTrace.mark('warmup-summary-success');
+      } catch (error) {
+        warmupTrace.mark('warmup-summary-error', {'error': error});
+      }
+    }
+
+    warmupTrace.mark('warmup-complete', {
+      'summaryCount': summaryParams.length,
+    });
+  }
+
+  String _buildDashboardWarmupKey({
+    required String householdId,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+  }) {
+    final visibleConfigs = configs
+        .where((config) => config.isVisible)
+        .map((config) => [
+              config.id,
+              config.type.name,
+              config.dateRange.name,
+              config.viewMode.name,
+              config.customStartDate?.toIso8601String() ?? '',
+              config.customEndDate?.toIso8601String() ?? '',
+            ].join(':'))
+        .toList()
+      ..sort();
+
+    return '$householdId|$selectedCurrency|${visibleConfigs.join('|')}';
+  }
+
+  void _scheduleDashboardWarmup({
+    required String warmupKey,
+    required String userId,
+    required Household household,
+    required String selectedCurrency,
+    required List<DashboardWidgetConfig> configs,
+    required DateTime referenceNow,
+  }) {
+    if (_dashboardWarmupKey == warmupKey) return;
+
+    _dashboardWarmupKey = warmupKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_dashboardWarmupKey != warmupKey) return;
+
+      unawaited(_warmHouseholdDashboard(
+        userId: userId,
+        household: household,
+        selectedCurrency: selectedCurrency,
+        configs: configs,
+        referenceNow: referenceNow,
+      ));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final ref = this.ref;
     final colorScheme = Theme.of(context).colorScheme;
     final userId = ref.watch(currentUserIdProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
 
     if (userId == null) {
       return SliverFillRemaining(
@@ -151,6 +402,24 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     }
 
     final householdsAsync = ref.watch(userHouseholdsProvider(userId));
+
+    final householdsSignature = [
+      'user=$userId',
+      'loading=${householdsAsync.isLoading}',
+      'hasError=${householdsAsync.hasError}',
+      'count=${householdsAsync.valueOrNull?.length ?? 0}',
+      'refresh=$dashboardRefreshSignal',
+    ].join('|');
+    if (_lastHouseholdTraceSignature != householdsSignature) {
+      _lastHouseholdTraceSignature = householdsSignature;
+      _householdTrace.mark('households-async-state', {
+        'user': userId,
+        'loading': householdsAsync.isLoading,
+        'hasError': householdsAsync.hasError,
+        'count': householdsAsync.valueOrNull?.length,
+        'refreshSignal': dashboardRefreshSignal,
+      });
+    }
 
     return householdsAsync.when(
       loading: () => SliverFillRemaining(
@@ -167,6 +436,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
       ),
       data: (households) {
         if (households.isEmpty) {
+          _householdTrace
+              .mark('content-blocked', const {'reason': 'no-households'});
           // Show onboarding when user has no households
           // Use SliverToBoxAdapter with LayoutBuilder to provide proper sizing
           return SliverToBoxAdapter(
@@ -195,43 +466,41 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                 )
               : households.first;
 
-          // Ensure recurring templates are loaded once per household so
-          // dashboard widgets can project occurrences (without counting templates).
-          final recurringState = ref.watch(
-            recurringTransactionsProvider(household.id),
-          );
-          final shouldScheduleRecurringLoad =
-              _recurringLoadScheduledForHouseholdId != household.id &&
-                  !recurringState.hasLoadedOnce &&
-                  !recurringState.data.isLoading;
-          if (shouldScheduleRecurringLoad) {
-            _recurringLoadScheduledForHouseholdId = household.id;
-            Future.microtask(() {
-              if (!mounted) return;
-              ref
-                  .read(recurringTransactionsProvider(household.id).notifier)
-                  .loadRecurringTransactions(userId);
-            });
-          }
+          _householdTrace.mark('selected-household', {
+            'household': household.id,
+            'selectedId': selectedId,
+          });
 
           // Filters
           final filterState = ref.watch(homeFilterProvider);
-          final analyticsState = ref.watch(analyticsProvider);
+          final initUserContact = ref.watch(
+              appInitializationV2Provider.select((state) => state.data?.user));
           final rawCurrency =
               (filterState.selectedCurrency?.trim().isNotEmpty == true
                       ? filterState.selectedCurrency!.trim()
-                      : (analyticsState.preferredCurrency?.trim().isNotEmpty ==
+                      : (initUserContact?.preferredCurrency
+                                  ?.trim()
+                                  .isNotEmpty ==
                               true
-                          ? analyticsState.preferredCurrency!.trim()
+                          ? initUserContact!.preferredCurrency!.trim()
                           : household.currency))
                   .toUpperCase();
           final selectedCurrency = rawCurrency;
+          final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
+              initUserContact?.preferredTimezone);
+          final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
 
           // Data providers with date filtering
           // Note: Individual widgets inside DraggableDashboardList will fetch their own data
           // based on their specific date range configuration.
 
           final repoAsync = ref.watch(dashboardRepositoryFutureProvider);
+
+          _householdTrace.mark('repository-async-state', {
+            'loading': repoAsync.isLoading,
+            'hasError': repoAsync.hasError,
+            'hasValue': repoAsync.hasValue,
+          });
 
           return repoAsync.when(
             loading: () =>
@@ -247,6 +516,14 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
               final dashboardAsync =
                   ref.watch(householdDashboardProvider(household.id));
 
+              _householdTrace.mark('dashboard-config-async-state', {
+                'household': household.id,
+                'loading': dashboardAsync.isLoading,
+                'hasError': dashboardAsync.hasError,
+                'hasValue': dashboardAsync.hasValue,
+                'widgetCount': dashboardAsync.valueOrNull?.length,
+              });
+
               return dashboardAsync.when(
                 loading: () =>
                     SliverToBoxAdapter(child: _buildLoadingState(colorScheme)),
@@ -258,6 +535,30 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                   ),
                 ),
                 data: (configs) {
+                  final warmupKey = _buildDashboardWarmupKey(
+                    householdId: household.id,
+                    selectedCurrency:
+                        '$selectedCurrency|refresh:$dashboardRefreshSignal',
+                    configs: configs,
+                  );
+                  _scheduleDashboardWarmup(
+                    warmupKey: warmupKey,
+                    userId: userId,
+                    household: household,
+                    selectedCurrency: selectedCurrency,
+                    configs: configs,
+                    referenceNow: userNow,
+                  );
+
+                  if (!_didLogFirstUsefulPaint) {
+                    _didLogFirstUsefulPaint = true;
+                    _householdTrace.mark('first-useful-paint', {
+                      'household': household.id,
+                      'widgetCount': configs.length,
+                      'selectedCurrency': selectedCurrency,
+                    });
+                  }
+
                   return DraggableDashboardList(
                     configs: configs,
                     onReorder: (oldIndex, newIndex) {
@@ -283,876 +584,110 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
                               end: end);
                     },
                     widgetBuilders: {
-                      DashboardWidgetType.householdSpentByYou:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-                          final splitsAsync =
-                              ref.watch(cachedHouseholdSplitsProvider(
-                            HouseholdSplitsParams(householdId: household.id),
-                          ));
-
-                          final recurringState = ref.watch(
-                            recurringTransactionsProvider(household.id),
-                          );
-
-                          final transactions = expensesAsync.valueOrNull;
-                          final splits = splitsAsync.valueOrNull;
-                          final recurringTransactions =
-                              recurringState.data.valueOrNull ?? const [];
-
-                          // Show loading skeleton only if we have no data and are loading
-                          if ((expensesAsync.isLoading ||
-                                  splitsAsync.isLoading) &&
-                              (transactions == null || splits == null)) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                child: buildSpendingCard(
-                                  context,
-                                  colorScheme,
-                                  [
-                                    ExpenseEntry(
-                                      id: 'skeleton',
-                                      date: to,
-                                      amountCents: 0,
-                                      createdAt: DateTime.now(),
-                                      userId: userId,
-                                      currency: selectedCurrency,
-                                    ),
-                                  ],
-                                  null,
-                                  config.dateRange,
-                                  selectedCurrency: selectedCurrency,
-                                ),
-                              ),
-                            );
-                          }
-
-                          // If we have an error and no data, show nothing (or error widget)
-                          if (transactions == null || splits == null) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final projected =
-                              projectRecurringTransactionsAsExpenseEntries(
-                            recurringTransactions: recurringTransactions,
-                            rangeStart: from,
-                            rangeEnd: to,
-                            selectedCurrency: selectedCurrency,
-                          );
-
-                          final allTransactions = <ExpenseEntry>[
-                            ...transactions,
-                            ...projected,
-                          ];
-
-                          // Logic copied from original _personalShareExpenses / inline logic
-                          int myTotalCents = 0;
-                          final byGroupId = {for (final g in splits) g.id: g};
-
-                          for (final t in allTransactions) {
-                            if (t.isRecurring) continue;
-                            final tdate =
-                                DateTime(t.date.year, t.date.month, t.date.day);
-                            final code =
-                                (t.currency ?? '').trim().toUpperCase();
-                            final currencyOk =
-                                code.isEmpty || code == selectedCurrency;
-                            final isSpend =
-                                (t.type ?? 'expense').toLowerCase() != 'income';
-
-                            if (!isSpend) continue;
-                            if (!currencyOk) continue;
-                            // Date filtering is already done by provider, but double check doesn't hurt
-                            if (tdate.isBefore(from) || tdate.isAfter(to)) {
-                              continue;
-                            }
-
-                            final splitGroupId = t.splitGroupId;
-
-                            if (splitGroupId == null) {
-                              if (t.userId == userId) {
-                                myTotalCents += t.amountCents.abs();
-                              }
-                              continue;
-                            }
-
-                            final group = byGroupId[splitGroupId];
-                            if (group == null || group.splitLines == null) {
-                              if (t.userId == userId) {
-                                myTotalCents += t.amountCents.abs();
-                              }
-                              continue;
-                            }
-
-                            final userLine = group.splitLines!.firstWhere(
-                              (line) => line.userId == userId,
-                              orElse: () => ExpenseSplitLine(
-                                id: '',
-                                splitGroupId: '',
-                                userId: '',
-                                isSettled: false,
-                                createdAt: DateTime.now(),
-                                updatedAt: DateTime.now(),
-                              ),
-                            );
-
-                            if (userLine.userId == userId) {
-                              int share = userLine.amountCents ?? 0;
-                              if (share == 0) {
-                                final total = group.totalAmountCents;
-                                final lines = group.splitLines ??
-                                    const <ExpenseSplitLine>[];
-                                if (total != 0 && lines.isNotEmpty) {
-                                  switch (group.splitType) {
-                                    case SplitType.equal:
-                                      share = (total / lines.length).round();
-                                      break;
-                                    case SplitType.percentage:
-                                      final pct = userLine.percentage ?? 0;
-                                      share = (total * pct / 100).round();
-                                      break;
-                                    case SplitType.amount:
-                                      share = 0;
-                                      break;
-                                    case SplitType.shares:
-                                      final totalShares = lines
-                                          .map((l) => l.shares ?? 0)
-                                          .fold<int>(0, (a, b) => a + b);
-                                      final userShares = userLine.shares ?? 0;
-                                      if (totalShares > 0 && userShares > 0) {
-                                        share =
-                                            (total * userShares / totalShares)
-                                                .round();
-                                      }
-                                      break;
-                                  }
-                                }
-                              }
-                              myTotalCents += share.abs();
-                            }
-                          }
-
-                          final syntheticExpense = ExpenseEntry(
-                            id: 'user-summary-total',
-                            // Use the card's date range end so this entry
-                            // always falls within the selected window
-                            // (today, yesterday, this month, etc.).
-                            date: to,
-                            amountCents: myTotalCents,
-                            createdAt: DateTime.now(),
-                            userId: userId,
-                            currency: selectedCurrency,
-                          );
-
-                          return Padding(
+                      DashboardWidgetType.householdSpentByYou: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => HouseholdExpensesPage(
-                                        household: household),
-                                  ),
-                                );
-                              },
-                              child: buildSpendingCard(
-                                context,
-                                colorScheme,
-                                [syntheticExpense],
-                                null,
-                                config.dateRange,
-                                selectedCurrency: selectedCurrency,
-                              ),
+                            child: LazyHouseholdSpentByYouCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdFinancialCalendar:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          // Calendar typically shows a month.
-                          // We can use config.dateRange to filter transactions passed to it,
-                          // but the widget itself might handle month navigation.
-                          // For now, let's pass the transactions for the selected range.
-
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-                          final recurringAsync = ref.watch(
-                              recurringTransactionsProvider(household.id));
-
-                          return Padding(
+                          ),
+                      DashboardWidgetType.householdFinancialCalendar: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: FinancialCalendarWidget(
-                              transactions: (expensesAsync.asData?.value ?? [])
-                                  .where((e) => !e.isRecurring)
-                                  .toList(growable: false),
-                              recurringTransactions:
-                                  recurringAsync.data.asData?.value ?? [],
-                              currency: selectedCurrency,
-                              isExpanded: config.viewMode ==
-                                  DashboardWidgetViewMode.full,
+                            child: LazyHouseholdFinancialCalendarCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
                             ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdBudgetOverview:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-                          // Normalize to day boundaries so provider keys stay stable across rebuilds
-                          final fromDate =
-                              DateTime(from.year, from.month, from.day);
-                          final toDate = DateTime(to.year, to.month, to.day);
-
-                          final summaryAsync =
-                              ref.watch(householdDerivedSummaryProvider(
-                            HouseholdSummaryParams(
-                              householdId: household.id,
-                              currency: selectedCurrency,
-                              startDate: fromDate.toIso8601String(),
-                              endDate: toDate.toIso8601String(),
-                            ),
-                          ));
-                          final summary = summaryAsync.valueOrNull;
-
-                          return Padding(
+                          ),
+                      DashboardWidgetType.householdBudgetOverview: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: summary == null
-                                ? (summaryAsync.isLoading
-                                    ? Skeletonizer(
-                                        effect: ShimmerEffect(
-                                          baseColor: colorScheme.skeletonBase,
-                                          highlightColor:
-                                              colorScheme.skeletonHighlight,
-                                        ),
-                                        child: SizedBox(
-                                          height: 200,
-                                          child: Card(
-                                            color: colorScheme.cardSurface,
-                                            child: const Padding(
-                                              padding: EdgeInsets.all(16),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text('Budget overview'),
-                                                  SizedBox(height: 8),
-                                                  Text(
-                                                      'Primary value placeholder'),
-                                                  SizedBox(height: 4),
-                                                  Text(
-                                                      'Secondary text placeholder'),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : SizedBox(
-                                        height: 200,
-                                        child: Center(
-                                          child: Text(
-                                            'Error',
-                                            style: TextStyle(
-                                              color: colorScheme.destructive,
-                                            ),
-                                          ),
-                                        ),
-                                      ))
-                                : buildHouseholdBudgetOverviewCard(
-                                    context,
-                                    colorScheme,
-                                    summary,
-                                    config.dateRange,
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => TransactionsPage(
-                                            householdId: household.id,
-                                            enableDateFilter: true,
-                                            initialStartDate: fromDate,
-                                            initialEndDate: toDate,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdFairness: (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-                          final fromDate =
-                              DateTime(from.year, from.month, from.day);
-                          final toDate = DateTime(to.year, to.month, to.day);
-
-                          final summaryAsync =
-                              ref.watch(householdDerivedSummaryProvider(
-                            HouseholdSummaryParams(
-                              householdId: household.id,
-                              currency: selectedCurrency,
-                              startDate: fromDate.toIso8601String(),
-                              endDate: toDate.toIso8601String(),
+                            child: LazyHouseholdBudgetOverviewCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
-                          ));
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-
-                          // Safely derive data from AsyncValue without throwing on errors/timeouts.
-                          final summary = summaryAsync.valueOrNull;
-
-                          if (summary == null) {
-                            // If summary failed to load or is still loading, omit the fairness card.
-                            return const SizedBox.shrink();
-                          }
-
-                          final transactions = expensesAsync.valueOrNull ?? [];
-
-                          return Padding(
+                          ),
+                      DashboardWidgetType.householdFairness: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: GroupFairnessMeter(
-                              summary: summary,
-                              transactions: transactions,
-                              from: from,
-                              to: to,
-                              currency: selectedCurrency,
-                              dateRange: config.dateRange,
+                            child: LazyHouseholdFairnessCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdSettlement:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(householdId: household.id),
-                          ));
-                          final splitsAsync =
-                              ref.watch(cachedHouseholdSplitsProvider(
-                            HouseholdSplitsParams(householdId: household.id),
-                          ));
-                          final membersAsync =
-                              ref.watch(householdMembersProvider(household.id));
-
-                          // Get summary for current date range
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-                          final fromDate =
-                              DateTime(from.year, from.month, from.day);
-                          final toDate = DateTime(to.year, to.month, to.day);
-
-                          final summaryAsync =
-                              ref.watch(householdDerivedSummaryProvider(
-                            HouseholdSummaryParams(
-                              householdId: household.id,
-                              currency: selectedCurrency,
-                              startDate: fromDate.toIso8601String(),
-                              endDate: toDate.toIso8601String(),
-                            ),
-                          ));
-
-                          // Safely read summary and related AsyncValues to avoid crashes on errors/timeouts.
-                          final summary = summaryAsync.valueOrNull;
-                          final splits = splitsAsync.valueOrNull;
-                          final transactions = expensesAsync.valueOrNull;
-                          final members = membersAsync.valueOrNull;
-
-                          final isSummaryLoading =
-                              summaryAsync.isLoading && summary == null;
-                          final isSplitsLoading =
-                              splitsAsync.isLoading && splits == null;
-                          final isExpensesLoading =
-                              expensesAsync.isLoading && transactions == null;
-                          final isMembersLoading =
-                              membersAsync.isLoading && members == null;
-
-                          final showSkeleton = isSummaryLoading ||
-                              isSplitsLoading ||
-                              isExpensesLoading ||
-                              isMembersLoading;
-
-                          if (showSkeleton) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: _buildSettlementSkeleton(colorScheme),
-                            );
-                          }
-
-                          if (summary == null) {
-                            // If summary failed to load or is unavailable, omit the settlement card.
-                            return const SizedBox.shrink();
-                          }
-
-                          // If splits failed to load, hide the card instead of showing "All settled up" falsely
-                          if (splits == null && splitsAsync.hasError) {
-                            return const SizedBox.shrink();
-                          }
-
-                          // Settlement uses the full split universe (including
-                          // recurring-template splits) to match the server-side
-                          // RPC which counts ALL unsettled split lines.
-
-                          return Padding(
+                          ),
+                      DashboardWidgetType.householdSettlement: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: SettlementSuggestionsCard(
-                              summary: summary,
-                              transactions: transactions ?? const [],
-                              splits: splits,
-                              currency: selectedCurrency,
-                              members: members,
-                              currentUserId: userId,
+                            child: LazyHouseholdSettlementCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdMemberSpending:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(householdId: household.id),
-                          ));
-                          final splitsAsync =
-                              ref.watch(cachedHouseholdSplitsProvider(
-                            HouseholdSplitsParams(householdId: household.id),
-                          ));
-                          final membersAsync =
-                              ref.watch(householdMembersProvider(household.id));
-
-                          final recurringState = ref.watch(
-                            recurringTransactionsProvider(household.id),
-                          );
-
-                          // Get summary for current date range
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-                          final fromDate =
-                              DateTime(from.year, from.month, from.day);
-                          final toDate = DateTime(to.year, to.month, to.day);
-
-                          final summaryAsync =
-                              ref.watch(householdDerivedSummaryProvider(
-                            HouseholdSummaryParams(
-                              householdId: household.id,
-                              currency: selectedCurrency,
-                              startDate: fromDate.toIso8601String(),
-                              endDate: toDate.toIso8601String(),
-                            ),
-                          ));
-                          final summary = summaryAsync.valueOrNull;
-
-                          final recurringTransactions =
-                              recurringState.data.valueOrNull ?? const [];
-                          final projected =
-                              projectRecurringTransactionsAsExpenseEntries(
-                            recurringTransactions: recurringTransactions,
-                            rangeStart: from,
-                            rangeEnd: to,
-                            selectedCurrency: selectedCurrency,
-                          );
-                          final baseTransactions = (expensesAsync.valueOrNull ??
-                                  const <ExpenseEntry>[])
-                              .where((e) => !e.isRecurring)
-                              .toList(growable: false);
-                          final transactionsWithRecurring = <ExpenseEntry>[
-                            ...baseTransactions,
-                            ...projected,
-                          ];
-
-                          return Padding(
+                          ),
+                      DashboardWidgetType.householdMemberSpending: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: summary == null
-                                ? (summaryAsync.isLoading
-                                    ? Skeletonizer(
-                                        effect: ShimmerEffect(
-                                          baseColor: colorScheme.skeletonBase,
-                                          highlightColor:
-                                              colorScheme.skeletonHighlight,
-                                        ),
-                                        // Use the real card layout with empty data so
-                                        // the skeleton spans the full widget width
-                                        // and matches the final design.
-                                        child: buildHouseholdMemberSpendingCard(
-                                          context,
-                                          colorScheme,
-                                          null,
-                                          members: const [],
-                                          householdId: household.id,
-                                          transactions: null,
-                                          splits: null,
-                                          from: null,
-                                          to: null,
-                                          selectedCurrency: selectedCurrency,
-                                          dateRangeFilter: config.dateRange,
-                                          currentUserId: userId,
-                                          onTap: null,
-                                        ),
-                                      )
-                                    : const SizedBox.shrink())
-                                : buildHouseholdMemberSpendingCard(
-                                    context,
-                                    colorScheme,
-                                    summary,
-                                    members: membersAsync.valueOrNull,
-                                    householdId: household.id,
-                                    transactions: transactionsWithRecurring,
-                                    splits: splitsAsync.valueOrNull,
-                                    from: from,
-                                    to: to,
-                                    selectedCurrency: selectedCurrency,
-                                    dateRangeFilter: config.dateRange,
-                                    currentUserId: userId,
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => HouseholdExpensesPage(
-                                              household: household),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdRecentTransactions:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          // Non-editable: Get ALL household expenses (no date filtering)
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(householdId: household.id),
-                          ));
-
-                          // Handle loading/error safely so timeouts don't crash the UI
-                          if (expensesAsync.isLoading &&
-                              !expensesAsync.hasValue) {
-                            // Skeleton card for recent transactions list
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                child: buildRecentTransactionsCard(
-                                  context,
-                                  colorScheme,
-                                  [
-                                    ExpenseEntry(
-                                      id: 'skeleton-1',
-                                      date: DateTime.now(),
-                                      amountCents: 0,
-                                      createdAt: DateTime.now(),
-                                      userId: userId,
-                                      currency: selectedCurrency,
-                                    ),
-                                    ExpenseEntry(
-                                      id: 'skeleton-2',
-                                      date: DateTime.now(),
-                                      amountCents: 0,
-                                      createdAt: DateTime.now(),
-                                      userId: userId,
-                                      currency: selectedCurrency,
-                                    ),
-                                  ],
-                                  null,
-                                  selectedCurrency: selectedCurrency,
-                                  householdId: household.id,
-                                  onViewAll: () {},
-                                ),
-                              ),
-                            );
-                          }
-
-                          final allExpenses = expensesAsync.valueOrNull ??
-                              const <ExpenseEntry>[];
-                          final currencyFilteredExpenses =
-                              allExpenses.where((e) {
-                            if (e.isRecurring) return false;
-                            final code =
-                                (e.currency ?? '').trim().toUpperCase();
-                            return code.isEmpty || code == selectedCurrency;
-                          }).toList();
-
-                          return Padding(
+                            child: LazyHouseholdMemberSpendingCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
+                            ),
+                          ),
+                      DashboardWidgetType.householdRecentTransactions: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: GestureDetector(
-                              // Removed onLongPress as date range is now handled by wrapper
-                              child: buildRecentTransactionsCard(
-                                context,
-                                colorScheme,
-                                currencyFilteredExpenses,
-                                null,
-                                selectedCurrency: selectedCurrency,
-                                householdId: household.id,
-                                onViewAll: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => HouseholdExpensesPage(
-                                        household: household,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                            child: LazyHouseholdRecentTransactionsCard(
+                              household: household,
+                              selectedCurrency: selectedCurrency,
                             ),
-                          );
-                        });
-                      },
+                          ),
                       DashboardWidgetType.householdSpendingBreakdownChart:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-
-                          final recurringState = ref.watch(
-                            recurringTransactionsProvider(household.id),
-                          );
-                          final recurringTransactions =
-                              recurringState.data.valueOrNull ?? const [];
-
-                          // Gracefully handle loading/errors from the provider
-                          if (expensesAsync.isLoading &&
-                              !expensesAsync.hasValue) {
-                            // Skeleton chart card while data loads
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                child: Card(
-                                  color: colorScheme.cardSurface,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Spending breakdown'),
-                                        SizedBox(height: 8),
-                                        Text('Chart placeholder'),
-                                        SizedBox(height: 4),
-                                        Text('Legend placeholder'),
-                                      ],
-                                    ),
-                                  ),
+                          (context, config) => Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: LazyHouseholdSpendingBreakdownChartCard(
+                                  household: household,
+                                  config: config,
+                                  selectedCurrency: selectedCurrency,
+                                  referenceNow: userNow,
                                 ),
                               ),
-                            );
-                          }
-
-                          // If there was an error and no cached data, hide the chart
-                          final allExpenses = expensesAsync.valueOrNull ??
-                              const <ExpenseEntry>[];
-                          // Filter by date AND currency
-                          final filteredExpenses = allExpenses.where((e) {
-                            if (e.isRecurring) return false;
-                            final d =
-                                DateTime(e.date.year, e.date.month, e.date.day);
-                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                            final code =
-                                (e.currency ?? '').trim().toUpperCase();
-                            final currencyOk =
-                                code.isEmpty || code == selectedCurrency;
-                            return dateOk && currencyOk;
-                          }).toList();
-
-                          final projected =
-                              projectRecurringTransactionsAsExpenseEntries(
-                            recurringTransactions: recurringTransactions,
-                            rangeStart: from,
-                            rangeEnd: to,
-                            selectedCurrency: selectedCurrency,
-                          );
-
-                          final expensesWithRecurring = [
-                            ...filteredExpenses,
-                            ...projected,
-                          ];
-
-                          return Padding(
+                      DashboardWidgetType.householdWhereTheMoneyWent: (context,
+                              config) =>
+                          Padding(
                             padding:
                                 const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => HouseholdExpensesPage(
-                                        household: household),
-                                  ),
-                                );
-                              },
-                              // Removed onLongPress
-                              child: buildSpendingBreakdownChart(
-                                context,
-                                colorScheme,
-                                expensesWithRecurring,
-                                const <DailyBudgetEntry>[],
-                                null,
-                                config.dateRange,
-                                selectedCurrency: selectedCurrency,
-                              ),
+                            child: LazyHouseholdWhereTheMoneyWentCard(
+                              household: household,
+                              config: config,
+                              selectedCurrency: selectedCurrency,
+                              referenceNow: userNow,
                             ),
-                          );
-                        });
-                      },
-                      DashboardWidgetType.householdWhereTheMoneyWent:
-                          (context, config) {
-                        return Consumer(builder: (context, ref, _) {
-                          final range = getDateRangeFromFilter(config.dateRange,
-                              config.customStartDate, config.customEndDate);
-                          final from = range['from']!;
-                          final to = range['to']!;
-
-                          final expensesAsync =
-                              ref.watch(cachedHouseholdExpensesProvider(
-                            HouseholdExpensesParams(
-                              householdId: household.id,
-                            ),
-                          ));
-
-                          final recurringState = ref.watch(
-                            recurringTransactionsProvider(household.id),
-                          );
-                          final recurringTransactions =
-                              recurringState.data.valueOrNull ?? const [];
-
-                          // Gracefully handle loading/errors from the provider so
-                          // timeouts don't crash the UI.
-                          if (expensesAsync.isLoading &&
-                              !expensesAsync.hasValue) {
-                            return Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Skeletonizer(
-                                effect: ShimmerEffect(
-                                  baseColor: colorScheme.skeletonBase,
-                                  highlightColor: colorScheme.skeletonHighlight,
-                                ),
-                                child: Card(
-                                  color: colorScheme.cardSurface,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Where the money went'),
-                                        SizedBox(height: 8),
-                                        Text('Row placeholder'),
-                                        SizedBox(height: 4),
-                                        Text('Row placeholder'),
-                                        SizedBox(height: 4),
-                                        Text('Row placeholder'),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
-
-                          final allExpenses = expensesAsync.valueOrNull ??
-                              const <ExpenseEntry>[];
-                          // Filter by date AND currency
-                          final filteredExpenses = allExpenses.where((e) {
-                            if (e.isRecurring) return false;
-                            final d =
-                                DateTime(e.date.year, e.date.month, e.date.day);
-                            final dateOk = !d.isBefore(from) && !d.isAfter(to);
-                            final code =
-                                (e.currency ?? '').trim().toUpperCase();
-                            final currencyOk =
-                                code.isEmpty || code == selectedCurrency;
-                            return dateOk && currencyOk;
-                          }).toList();
-
-                          final projected =
-                              projectRecurringTransactionsAsExpenseEntries(
-                            recurringTransactions: recurringTransactions,
-                            rangeStart: from,
-                            rangeEnd: to,
-                            selectedCurrency: selectedCurrency,
-                          );
-
-                          final expensesWithRecurring = [
-                            ...filteredExpenses,
-                            ...projected,
-                          ];
-
-                          return Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: WhereTheMoneyWentWidget(
-                              expenses: expensesWithRecurring,
-                              currency: selectedCurrency,
-                              onHelpTap: () =>
-                                  showCategoryGuide(context, colorScheme),
-                              dateRange: config.dateRange,
-                            ),
-                          );
-                        });
-                      },
+                          ),
                     },
                   );
                 },
@@ -1165,6 +700,7 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
   }
 
   /// Skeleton placeholder for the settlement suggestions card
+  // ignore: unused_element
   Widget _buildSettlementSkeleton(ColorScheme colorScheme) {
     return Skeletonizer(
       effect: ShimmerEffect(

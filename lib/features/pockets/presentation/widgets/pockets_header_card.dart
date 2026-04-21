@@ -9,6 +9,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/swipe_hint_row.dart';
 
 const Map<String, double> _currencyBaselines = {
   'USD': 10000,
@@ -74,6 +75,7 @@ class PocketsHeaderCard extends StatelessWidget {
     this.onDateSelected,
     this.isSkeleton = false,
     this.amountSpotlightKey,
+    this.showSwipeHint = false,
   });
 
   final double totalBudget;
@@ -89,6 +91,7 @@ class PocketsHeaderCard extends StatelessWidget {
   final ValueChanged<DateTime>? onDateSelected;
   final bool isSkeleton;
   final GlobalKey? amountSpotlightKey;
+  final bool showSwipeHint;
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +281,10 @@ class PocketsHeaderCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (showSwipeHint) ...[
+                const SizedBox(height: 12),
+                const SwipeHintRow(text: 'Swipe right for previous months'),
+              ],
             ],
           ],
         ),
@@ -327,6 +334,7 @@ class PocketsHeaderCard extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

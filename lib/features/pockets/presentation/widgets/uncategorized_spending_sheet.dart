@@ -33,6 +33,7 @@ void showUncategorizedSheet(
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
     builder: (sheetContext) {
       final sorted = [...uncategorized]
@@ -355,8 +356,7 @@ class _UncategorizedCategoryTileState extends State<_UncategorizedCategoryTile>
                           ),
                           itemBuilder: (context, index) {
                             final exp = widget.expenses[index];
-                            final desc =
-                                (exp['raw_text'] as String?)?.trim();
+                            final desc = (exp['raw_text'] as String?)?.trim();
                             final amountCents =
                                 (exp['amount_cents'] as num?)?.toDouble() ?? 0;
                             final dateStr = exp['date'] as String?;

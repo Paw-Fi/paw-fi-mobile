@@ -8,8 +8,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
@@ -19,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
@@ -27,7 +28,10 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 class PocketsPage extends HookConsumerWidget {
   const PocketsPage({super.key});
@@ -35,8 +39,6 @@ class PocketsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentTabIndex = ref.watch(mainShellTabIndexProvider);
-    final isActiveTab = currentTabIndex == 2;
     final viewMode = ref.watch(viewModeProvider);
     final isPreviewMode = ref.watch(previewModeProvider).isActive;
     final user = ref.watch(authProvider);
@@ -45,11 +47,31 @@ class PocketsPage extends HookConsumerWidget {
         ref.watch(selectedHomeCurrencyCodeProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final households = householdsAsync.valueOrNull ?? const <Household>[];
     final isBootstrapCurrency = !filterState.hasExplicitCurrency;
+    // CRITICAL: keep the main pockets page subscribed to the recurring toggle.
+    // STRICT REQUIREMENT: every month scope built below must carry this flag
+    // so recurring transactions stay included in pocket totals for the viewed
+    // month instead of silently dropping back out.
     final includeUpcomingRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
     final recurringPreferenceReady = useState(false);
+    final prefs = ref.read(sharedPreferencesProvider);
+    final pageTraceRef = useRef<PocketsDebugTrace?>(null);
+    pageTraceRef.value ??= PocketsDebugTrace(
+      label: 'PocketsPageOpen',
+      enabled: ref.read(pocketsDebugLoggingEnabledProvider),
+      logSink: ref.read(pocketsDebugLogSinkProvider),
+      contextFields: {
+        'user': user.uid.isEmpty ? '<empty>' : user.uid,
+      },
+    );
+    final pageTrace = pageTraceRef.value!;
+    final pocketsSwipeHintPrefKey =
+        _pocketsMonthSwipeHintDismissedKey(user.uid);
+    final hasDismissedSwipeHintState =
+        useState<bool>(prefs.getBool(pocketsSwipeHintPrefKey) ?? false);
 
     // Track save/reset operations
     final isSavingChanges = useState(false);
@@ -59,31 +81,282 @@ class PocketsPage extends HookConsumerWidget {
     final householdScope = ref.watch(householdScopeProvider);
 
     final resolvedHouseholdId =
-        householdScope.activeAccountType == ActiveAccountType.household
+        householdScope.activeAccountType == ActiveWalletType.household
             ? householdScope.selectedHouseholdId
             : null;
 
+    useEffect(() {
+      pageTrace.mark('page-mounted');
+      return null;
+    }, const []);
+
+    useEffect(() {
+      pageTrace.mark('page-state', {
+        'viewMode': viewMode.mode.name,
+        'isPreviewMode': isPreviewMode,
+        'selectedCurrency': resolvedSelectedCurrency,
+        'householdScope': householdScope.activeAccountType.name,
+        'resolvedHousehold': resolvedHouseholdId,
+        'includeRecurring': includeUpcomingRecurring,
+      });
+      return null;
+    }, [
+      viewMode.mode,
+      isPreviewMode,
+      resolvedSelectedCurrency,
+      householdScope.activeAccountType,
+      resolvedHouseholdId,
+      includeUpcomingRecurring,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('households-async-state', {
+        'loading': householdsAsync.isLoading,
+        'hasValue': householdsAsync.hasValue,
+        'hasError': householdsAsync.hasError,
+        'count': householdsAsync.valueOrNull?.length,
+      });
+      return null;
+    }, [
+      householdsAsync.isLoading,
+      householdsAsync.hasValue,
+      householdsAsync.hasError,
+      householdsAsync.valueOrNull?.length,
+    ]);
+
+    // Prefetch policy:
+    // - Keep initial paint fast (only the settled month must render)
+    // - Make 1-2 swipes feel instant by preloading a small window
+    // - Avoid fetching intermediate months during large programmatic jumps
+    const prefetchPastMonths = 2;
+    const prefetchTowardPresentMonths = 1;
+
+    // CRITICAL: month selection must use the user's effective timezone.
+    // STRICT REQUIREMENT: do not replace this with DateTime.now(). Pocket
+    // recurring projections are month-based, and the wrong timezone can shift
+    // the active month and make recurring transactions appear missing.
     // Always start at the current month
-    final now = DateTime.now();
-    final initialMonth = DateTime(now.year, now.month, 1);
+    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
+    final initialMonth = DateTime(userNow.year, userNow.month, 1);
 
     // Use a large initial page index to allow swiping into the past
     const initialPage = 1000;
     final pageController = usePageController(initialPage: initialPage);
+    final settledPageIndexState = useState<int>(initialPage);
+    final currentPageIndexState = useState<int>(initialPage);
+    final pendingJumpTargetIndexState = useState<int?>(null);
     final currentMonthState = useState(initialMonth);
+    final prefetchUnlockedState = useState(false);
 
     // Reset to initial page when the global filter changes
     useEffect(() {
       if (pageController.hasClients) {
         pageController.jumpToPage(initialPage);
       }
+      settledPageIndexState.value = initialPage;
+      currentPageIndexState.value = initialPage;
+      pendingJumpTargetIndexState.value = null;
       currentMonthState.value = initialMonth;
+      prefetchUnlockedState.value = false;
       return null;
     }, [initialMonth]);
 
+    // Track the currently visible page during manual swipes so we can start
+    // loading as the user drags. During programmatic jumps, we suppress this
+    // to avoid fetching intermediate months.
+    useEffect(() {
+      void handlePageControllerChanged() {
+        if (pendingJumpTargetIndexState.value != null) {
+          return;
+        }
+
+        final raw = pageController.page;
+        if (raw == null) return;
+
+        final index = raw.round();
+        if (index == currentPageIndexState.value) return;
+        currentPageIndexState.value = index;
+      }
+
+      pageController.addListener(handlePageControllerChanged);
+      return () => pageController.removeListener(handlePageControllerChanged);
+    }, [pageController]);
+
+    // Only update the "selected" month when scrolling settles.
+    // This prevents fetching every intermediate month when jumping across
+    // many pages (e.g., month picker -> animateToPage).
+    useEffect(() {
+      void syncSettledIndexFromController() {
+        if (!pageController.hasClients) return;
+        final raw = pageController.page;
+        if (raw == null) return;
+
+        final settledIndex = raw.round();
+        if (settledIndex == settledPageIndexState.value) return;
+        settledPageIndexState.value = settledIndex;
+        currentPageIndexState.value = settledIndex;
+        pendingJumpTargetIndexState.value = null;
+
+        final offset = settledIndex - initialPage;
+        currentMonthState.value =
+            DateTime(initialMonth.year, initialMonth.month + offset, 1);
+
+        if (hasDismissedSwipeHintState.value) {
+          return;
+        }
+        if (settledIndex == initialPage) {
+          return;
+        }
+        hasDismissedSwipeHintState.value = true;
+        unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
+      }
+
+      VoidCallback? removeListener;
+      var disposed = false;
+
+      // Attach after first layout so controller has a position.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (disposed) return;
+        if (!pageController.hasClients) return;
+
+        final notifier = pageController.position.isScrollingNotifier;
+
+        void handleScrollingChanged() {
+          // Only react when scrolling stops.
+          if (!notifier.value) {
+            syncSettledIndexFromController();
+          }
+        }
+
+        notifier.addListener(handleScrollingChanged);
+        removeListener = () => notifier.removeListener(handleScrollingChanged);
+
+        // Initial sync.
+        syncSettledIndexFromController();
+      });
+
+      return () {
+        disposed = true;
+        removeListener?.call();
+      };
+    }, [
+      pageController,
+      initialMonth,
+      prefs,
+      pocketsSwipeHintPrefKey,
+    ]);
+
+    // Prefetch a small month window (settled month + neighbors) without
+    // rebuilding the UI when the background data arrives.
+    useEffect(() {
+      if (!recurringPreferenceReady.value) {
+        return null;
+      }
+
+      final settledIndex = settledPageIndexState.value;
+      final currentPageIndex = currentPageIndexState.value;
+      final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+      final effectivePrefetchPastMonths =
+          prefetchUnlockedState.value ? prefetchPastMonths : 0;
+      final effectivePrefetchTowardPresentMonths =
+          prefetchUnlockedState.value ? prefetchTowardPresentMonths : 0;
+
+      Future.microtask(() {
+        Iterable<int> indicesForCenter(int center) sync* {
+          final startIndex = (center - effectivePrefetchPastMonths) < 0
+              ? 0
+              : (center - effectivePrefetchPastMonths);
+          final endIndex =
+              (center + effectivePrefetchTowardPresentMonths) > initialPage
+                  ? initialPage
+                  : (center + effectivePrefetchTowardPresentMonths);
+
+          for (var index = startIndex; index <= endIndex; index++) {
+            yield index;
+          }
+        }
+
+        final indices = <int>{...indicesForCenter(settledIndex)};
+
+        if (pendingJumpTargetIndex != null) {
+          indices.addAll(indicesForCenter(pendingJumpTargetIndex));
+        } else {
+          indices.addAll(indicesForCenter(currentPageIndex));
+        }
+
+        pageTrace.mark('prefetch-window-scheduled', {
+          'prefetchUnlocked': prefetchUnlockedState.value,
+          'settledIndex': settledIndex,
+          'currentIndex': currentPageIndex,
+          'pendingTarget': pendingJumpTargetIndex,
+          'indices': indices.toList(growable: false),
+        });
+
+        for (final index in indices) {
+          final offset = index - initialPage;
+          final month =
+              DateTime(initialMonth.year, initialMonth.month + offset, 1);
+
+          final scopeParams = switch (householdScope.activeAccountType) {
+            ActiveWalletType.personal => PocketsScopeParams(
+                scope: PocketsScopeType.personal,
+                periodMonth: month,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
+              ),
+            ActiveWalletType.portfolio =>
+              householdScope.activeAccountHouseholdId == null
+                  ? PocketsScopeParams(
+                      scope: PocketsScopeType.personal,
+                      periodMonth: month,
+                      currency: resolvedSelectedCurrency,
+                      isBootstrapCurrency: isBootstrapCurrency,
+                      includeUpcomingRecurring: includeUpcomingRecurring,
+                    )
+                  : PocketsScopeParams(
+                      scope: PocketsScopeType.portfolio,
+                      householdId: householdScope.activeAccountHouseholdId,
+                      periodMonth: month,
+                      currency: resolvedSelectedCurrency,
+                      isBootstrapCurrency: isBootstrapCurrency,
+                      includeUpcomingRecurring: includeUpcomingRecurring,
+                    ),
+            ActiveWalletType.household => PocketsScopeParams(
+                scope: PocketsScopeType.household,
+                householdId: resolvedHouseholdId,
+                periodMonth: month,
+                currency: resolvedSelectedCurrency,
+                isBootstrapCurrency: isBootstrapCurrency,
+                includeUpcomingRecurring: includeUpcomingRecurring,
+              ),
+          };
+
+          // Create the provider and trigger its auto-load without subscribing.
+          // (No rebuilds when background months complete.)
+          ref.read(pocketsProvider(scopeParams));
+        }
+      });
+
+      return null;
+    }, [
+      settledPageIndexState.value,
+      currentPageIndexState.value,
+      pendingJumpTargetIndexState.value,
+      recurringPreferenceReady.value,
+      prefetchUnlockedState.value,
+      householdScope.activeAccountType,
+      householdScope.activeAccountHouseholdId,
+      resolvedHouseholdId,
+      resolvedSelectedCurrency,
+      isBootstrapCurrency,
+      includeUpcomingRecurring,
+      initialMonth,
+    ]);
+
     // Keep selectedHouseholdProvider in sync when we fall back to a household
     useEffect(() {
-      if (householdScope.activeAccountType != ActiveAccountType.household) {
+      if (householdScope.activeAccountType != ActiveWalletType.household) {
         return null;
       }
       if (resolvedHouseholdId == null) return null;
@@ -112,6 +385,7 @@ class PocketsPage extends HookConsumerWidget {
 
     useEffect(() {
       final initialValue = ref.read(includeUpcomingRecurringInPocketsProvider);
+      pageTrace.mark('recurring-preference-load-start');
       Future<void>(() async {
         try {
           final prefs = await SharedPreferences.getInstance();
@@ -121,40 +395,49 @@ class PocketsPage extends HookConsumerWidget {
           final storedValue = prefs.getBool(
                 includeUpcomingRecurringInPocketsPreferenceKey,
               ) ??
-              false;
+              // CRITICAL: keep the first-run fallback aligned with the provider
+              // default.
+              // STRICT REQUIREMENT: do not change this fallback to false.
+              // Doing so reintroduces the recurring-in-pockets regression for
+              // users who do not yet have a saved preference.
+              defaultIncludeUpcomingRecurringInPockets;
           final currentValue =
               ref.read(includeUpcomingRecurringInPocketsProvider);
           if (currentValue == initialValue && storedValue != currentValue) {
             ref.read(includeUpcomingRecurringInPocketsProvider.notifier).state =
                 storedValue;
           }
+          pageTrace.mark('recurring-preference-load-success', {
+            'storedValue': storedValue,
+          });
         } finally {
           if (context.mounted) {
             recurringPreferenceReady.value = true;
+            pageTrace.mark('recurring-preference-ready');
           }
         }
       });
       return null;
     }, const []);
 
-    if (!isActiveTab) {
-      return const SizedBox.shrink();
-    }
-
     if (!recurringPreferenceReady.value) {
-      return AdaptiveScaffold(
+      pageTrace.mark('page-blocked', const {'reason': 'recurring-preference'});
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         body: Center(
           child: CircularProgressIndicator(
             strokeWidth: 3,
             valueColor: AlwaysStoppedAnimation(colorScheme.primary),
           ),
         ),
-      );
+      ));
     }
 
-    if (householdScope.activeAccountType == ActiveAccountType.household) {
+    if (householdScope.activeAccountType == ActiveWalletType.household) {
       if (householdsAsync.isLoading) {
-        return AdaptiveScaffold(
+        pageTrace.mark('page-blocked', const {'reason': 'households-loading'});
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: CircularProgressIndicator(
               strokeWidth: 3,
@@ -167,11 +450,13 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (householdsAsync.hasError) {
-        return AdaptiveScaffold(
+        pageTrace.mark('page-blocked', const {'reason': 'households-error'});
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -207,11 +492,13 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (households.isEmpty) {
-        return AdaptiveScaffold(
+        pageTrace.mark('page-blocked', const {'reason': 'no-households'});
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: const HouseholdOnboardingPage(),
           floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync)
               ? const Padding(
@@ -219,11 +506,14 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
 
       if (resolvedHouseholdId == null) {
-        return AdaptiveScaffold(
+        pageTrace
+            .mark('page-blocked', const {'reason': 'no-selected-household'});
+        return StatusBarOverlayRegion(
+            child: AdaptiveScaffold(
           body: Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -244,20 +534,20 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-        );
+        ));
       }
     }
 
     // Determine parameters for the currently viewed month (for the bottom bar).
     final currentScopeParams = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => PocketsScopeParams(
+      ActiveWalletType.personal => PocketsScopeParams(
           scope: PocketsScopeType.personal,
           periodMonth: currentMonthState.value,
           currency: resolvedSelectedCurrency,
           isBootstrapCurrency: isBootstrapCurrency,
           includeUpcomingRecurring: includeUpcomingRecurring,
         ),
-      ActiveAccountType.portfolio =>
+      ActiveWalletType.portfolio =>
         householdScope.activeAccountHouseholdId == null
             ? PocketsScopeParams(
                 scope: PocketsScopeType.personal,
@@ -274,7 +564,7 @@ class PocketsPage extends HookConsumerWidget {
                 isBootstrapCurrency: isBootstrapCurrency,
                 includeUpcomingRecurring: includeUpcomingRecurring,
               ),
-      ActiveAccountType.household => PocketsScopeParams(
+      ActiveWalletType.household => PocketsScopeParams(
           scope: PocketsScopeType.household,
           householdId: resolvedHouseholdId,
           periodMonth: currentMonthState.value,
@@ -289,8 +579,73 @@ class PocketsPage extends HookConsumerWidget {
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
     final isPocketsLoading = currentPocketsState.isLoading;
+    final didLogUsefulPaintRef = useRef<bool>(false);
 
-    return AdaptiveScaffold(
+    useEffect(() {
+      if (!recurringPreferenceReady.value ||
+          currentPocketsState.isLoading ||
+          prefetchUnlockedState.value) {
+        return null;
+      }
+      prefetchUnlockedState.value = true;
+      pageTrace.mark('prefetch-unlocked', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+      });
+      return null;
+    }, [
+      recurringPreferenceReady.value,
+      currentPocketsState.isLoading,
+      prefetchUnlockedState.value,
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+    ]);
+
+    useEffect(() {
+      pageTrace.mark('current-pocket-state', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+        'loading': currentPocketsState.isLoading,
+        'error': currentPocketsState.error,
+        'editingCount': currentPocketsState.editing.length,
+        'totalBudget': currentPocketsState.totalBudget,
+        'uncategorizedCount': currentPocketsState.uncategorized.length,
+        'hasChanges': hasChanges,
+      });
+      return null;
+    }, [
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+      currentPocketsState.isLoading,
+      currentPocketsState.error,
+      currentPocketsState.editing.length,
+      currentPocketsState.totalBudget,
+      currentPocketsState.uncategorized.length,
+      hasChanges,
+    ]);
+
+    useEffect(() {
+      if (didLogUsefulPaintRef.value || currentPocketsState.isLoading) {
+        return null;
+      }
+      didLogUsefulPaintRef.value = true;
+      pageTrace.mark('first-useful-paint', {
+        'month': currentScopeParams.periodMonth,
+        'scope': currentScopeParams.scope.name,
+        'editingCount': currentPocketsState.editing.length,
+        'totalBudget': currentPocketsState.totalBudget,
+      });
+      return null;
+    }, [
+      currentPocketsState.isLoading,
+      currentScopeParams.periodMonth,
+      currentScopeParams.scope,
+      currentPocketsState.editing.length,
+      currentPocketsState.totalBudget,
+    ]);
+
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Stack(
         children: [
           PageView.builder(
@@ -298,24 +653,44 @@ class PocketsPage extends HookConsumerWidget {
             allowImplicitScrolling: true,
             itemCount: initialPage + 1, // Prevent swiping to future months
             onPageChanged: (index) {
-              final offset = index - initialPage;
-              currentMonthState.value =
-                  DateTime(initialMonth.year, initialMonth.month + offset, 1);
+              if (!hasDismissedSwipeHintState.value && index != initialPage) {
+                hasDismissedSwipeHintState.value = true;
+                unawaited(prefs.setBool(pocketsSwipeHintPrefKey, true));
+              }
             },
             itemBuilder: (context, index) {
               final offset = index - initialPage;
               final month =
                   DateTime(initialMonth.year, initialMonth.month + offset, 1);
 
+              final settledIndex = settledPageIndexState.value;
+              final currentPageIndex = currentPageIndexState.value;
+              final pendingJumpTargetIndex = pendingJumpTargetIndexState.value;
+              final effectivePrefetchPastMonths =
+                  prefetchUnlockedState.value ? prefetchPastMonths : 0;
+              final effectivePrefetchTowardPresentMonths =
+                  prefetchUnlockedState.value ? prefetchTowardPresentMonths : 0;
+
+              bool isInWindow(int index, int centerIndex) {
+                return index >= (centerIndex - effectivePrefetchPastMonths) &&
+                    index <=
+                        (centerIndex + effectivePrefetchTowardPresentMonths);
+              }
+
+              final shouldBuildFullView = isInWindow(index, settledIndex) ||
+                  (pendingJumpTargetIndex != null
+                      ? isInWindow(index, pendingJumpTargetIndex)
+                      : isInWindow(index, currentPageIndex));
+
               final scopeParams = switch (householdScope.activeAccountType) {
-                ActiveAccountType.personal => PocketsScopeParams(
+                ActiveWalletType.personal => PocketsScopeParams(
                     scope: PocketsScopeType.personal,
                     periodMonth: month,
                     currency: resolvedSelectedCurrency,
                     isBootstrapCurrency: isBootstrapCurrency,
                     includeUpcomingRecurring: includeUpcomingRecurring,
                   ),
-                ActiveAccountType.portfolio =>
+                ActiveWalletType.portfolio =>
                   householdScope.activeAccountHouseholdId == null
                       ? PocketsScopeParams(
                           scope: PocketsScopeType.personal,
@@ -332,7 +707,7 @@ class PocketsPage extends HookConsumerWidget {
                           isBootstrapCurrency: isBootstrapCurrency,
                           includeUpcomingRecurring: includeUpcomingRecurring,
                         ),
-                ActiveAccountType.household => PocketsScopeParams(
+                ActiveWalletType.household => PocketsScopeParams(
                     scope: PocketsScopeType.household,
                     householdId: resolvedHouseholdId,
                     periodMonth: month,
@@ -342,17 +717,28 @@ class PocketsPage extends HookConsumerWidget {
                   ),
               };
 
+              if (!shouldBuildFullView) {
+                return _PocketsMonthPlaceholder(
+                  colorScheme: colorScheme,
+                );
+              }
+
               return _PocketsMonthView(
                 scopeParams: scopeParams,
                 colorScheme: colorScheme,
                 isPersonalMode: householdScope.activeAccountType !=
-                    ActiveAccountType.household,
+                    ActiveWalletType.household,
                 isActiveMonth: scopeParams == currentScopeParams,
+                showSwipeHint: !hasDismissedSwipeHintState.value,
                 onDateSelected: (date) {
                   final diffYears = date.year - initialMonth.year;
                   final diffMonths = date.month - initialMonth.month;
                   final totalMonthDiff = diffYears * 12 + diffMonths;
                   final int targetPage = initialPage + totalMonthDiff;
+
+                  // Allow prefetching the target month without triggering loads
+                  // for all intermediate months during the animation.
+                  pendingJumpTargetIndexState.value = targetPage;
 
                   pageController.animateToPage(
                     targetPage,
@@ -546,7 +932,7 @@ class PocketsPage extends HookConsumerWidget {
                   child: HomeAiExpandableFab(),
                 )
               : null,
-    );
+    ));
   }
 }
 
@@ -556,6 +942,7 @@ class _PocketsMonthView extends HookConsumerWidget {
     required this.colorScheme,
     required this.isPersonalMode,
     required this.isActiveMonth,
+    required this.showSwipeHint,
     this.onDateSelected,
   });
 
@@ -563,6 +950,7 @@ class _PocketsMonthView extends HookConsumerWidget {
   final ColorScheme colorScheme;
   final bool isPersonalMode;
   final bool isActiveMonth;
+  final bool showSwipeHint;
   final ValueChanged<DateTime>? onDateSelected;
 
   @override
@@ -574,7 +962,9 @@ class _PocketsMonthView extends HookConsumerWidget {
       // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider.
       // Invalidation recreates the notifier; we then explicitly call load() to force an immediate refresh.
       ref.invalidate(pocketsProvider(scopeParams));
-      await ref.read(pocketsProvider(scopeParams).notifier).load();
+      await ref
+          .read(pocketsProvider(scopeParams).notifier)
+          .load(bypassCache: true);
     }
 
     // When a new month starts, users often have zero budget and no pockets yet.
@@ -674,6 +1064,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
+                      useSafeArea: true,
                       isDismissible: false,
                       enableDrag: false,
                       backgroundColor:
@@ -694,6 +1085,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                 colorScheme: colorScheme,
                 isPersonalMode: isPersonalMode,
                 isActiveMonth: isActiveMonth,
+                showSwipeHint: showSwipeHint,
                 uncategorizedExpenses: pocketsState.uncategorizedExpenses,
                 onDateSelected: onDateSelected,
               ),
@@ -703,6 +1095,47 @@ class _PocketsMonthView extends HookConsumerWidget {
       ),
     );
   }
+}
+
+class _PocketsMonthPlaceholder extends StatelessWidget {
+  const _PocketsMonthPlaceholder({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Container(
+              width: double.infinity,
+              height: 180,
+              decoration: BoxDecoration(
+                color: colorScheme.cardSurface,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _pocketsMonthSwipeHintDismissedKey(String userId) {
+  return 'pockets_month_swipe_hint_dismissed:$userId';
 }
 
 class _CopyBudgetBanner extends StatelessWidget {
@@ -802,7 +1235,7 @@ class _CreateFromTemplateBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
+          color: colorScheme.cardSurface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.1),

@@ -38,6 +38,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
   /// Track current load operation to prevent race conditions
   int _loadOperationId = 0;
+  String? _activeLoadUserId;
 
   /// Load all analytics data for a user.
   /// Always fetches ALL transactions (no date filtering) - local filtering is done in UI.
@@ -68,21 +69,20 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       return;
     }
 
-    // Prevent concurrent loads - if already loading, skip this request.
-    // Exception: retries should continue (same operation).
-    // Exception: forceReload bypasses the guard (used by notification deep links).
-    // If we have no data yet, allow the new request to proceed so we don't
-    // get stuck with an empty home screen.
+    // Prevent concurrent cold-start loads for the same user.
+    // Retrying within the same logical load still flows through this method,
+    // but external callers should not supersede an in-flight request.
     if (state.isLoading &&
         retryCount == 0 &&
         !forceReload &&
-        state.allExpenses.isNotEmpty) {
-      debugPrint('[Analytics] Skipping load - already in progress');
+        _activeLoadUserId == userId) {
+      debugPrint('[Analytics] Reusing in-flight load for $userId');
       return;
     }
 
     // Increment operation ID to track this specific load
     final currentOperationId = ++_loadOperationId;
+    _activeLoadUserId = userId;
 
     // Only set loading state, NOT hasLoadedOnce - that's set on success only
     state = state.copyWith(isLoading: true, clearError: true);
@@ -244,13 +244,17 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
         serverExpenses: allExpenses,
         current: currentState,
       );
+      final resolvedContact = fetchedContact ?? currentState.contact;
+      final resolvedPreferredCurrency =
+          (fetchedContact?.preferredCurrency ?? currentState.preferredCurrency)
+              ?.toUpperCase();
       state = state.copyWith(
-        contact: fetchedContact,
+        contact: resolvedContact,
         expenses: mergedExpenses,
         allExpenses: mergedExpenses,
         budgets: allBudgets,
         allBudgets: allBudgets,
-        preferredCurrency: fetchedContact?.preferredCurrency?.toUpperCase(),
+        preferredCurrency: resolvedPreferredCurrency,
         isLoading: false,
         hasLoadedOnce: true,
       );
@@ -289,6 +293,10 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       );
       debugPrint(
           '[Analytics] All retries exhausted, setting error state with hasLoadedOnce=true');
+    } finally {
+      if (_loadOperationId == currentOperationId) {
+        _activeLoadUserId = null;
+      }
     }
   }
 
@@ -450,7 +458,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
 
   /// Refresh analytics data - simply reloads all data
   void refresh(String userId) {
-    loadData(userId);
+    loadData(userId, forceReload: true);
   }
 
   void updatePreferredCurrency(String currency) {
@@ -835,7 +843,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     required Duration timeout,
   }) async {
     var query = supabase.from('expenses').select(
-        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,type,is_recurring');
+        'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,account_id,type,is_recurring');
 
     if (contactIds.isNotEmpty) {
       final orFilter =

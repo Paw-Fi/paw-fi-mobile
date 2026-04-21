@@ -47,12 +47,20 @@ class HouseholdRepositoryImpl implements HouseholdRepository {
     String? name,
     String? coverImageUrl,
     String? themeColor,
+    bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
+    bool updateAutoSplitConfig = false,
   }) async {
     final data = await _service.updateHousehold(
       householdId: householdId,
       name: name,
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
+      isPortfolio: isPortfolio,
+      autoSplitEnabled: autoSplitEnabled,
+      autoSplitConfig: autoSplitConfig,
+      updateAutoSplitConfig: updateAutoSplitConfig,
     );
     return Household.fromJson(data);
   }

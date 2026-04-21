@@ -210,6 +210,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   Widget build(BuildContext context) {
     final scheme = widget.colorScheme;
     final rawBottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final minimumBottomPadding = max(20.0, safeBottomInset + 12);
     final effectiveBottomInset = _isRecording
         ? (_keyboardInsetOnRecordStart ?? rawBottomInset)
         : rawBottomInset;
@@ -234,7 +236,9 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
           left: 20,
           right: 20,
           top: 10,
-          bottom: effectiveBottomInset > 0 ? effectiveBottomInset : 20,
+          bottom: effectiveBottomInset > 0
+              ? effectiveBottomInset
+              : minimumBottomPadding,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -125,7 +125,7 @@ class RecurringTransactionsNotifier
   /// Load recurring transactions for the current scope (Personal or Household)
   Future<void> loadRecurringTransactions(
     String userId, {
-    int limit = 100,
+    int limit = 250,
     bool forceRefresh = false,
   }) async {
     if (_isPreview) {
@@ -150,13 +150,17 @@ class RecurringTransactionsNotifier
       // flow simple and predictable.
       const timeout = Duration(seconds: 10);
 
+      // CRITICAL: keep account_id in this recurring base query.
+      // STRICT REQUIREMENT: wallet pages need account_id to attach projected
+      // recurring occurrences to the correct wallet. Removing it makes wallet
+      // recurring transactions silently disappear again.
       // Build base query for recurring rows only.
       final baseQuery = supabase
           .from('expenses')
           .select(
-            'id, date, category, raw_text, breakdown, source, amount_cents, '
+            'id, date, category, raw_text, merchant, breakdown, source, amount_cents, '
             'currency, owner_type, privacy_scope, household_id, is_recurring, '
-            'user_id, split_group_id, '
+            'user_id, split_group_id, account_id, '
             'recurrence_rule, type, attachments, created_at, updated_at',
           )
           .eq('is_recurring', true);
@@ -568,6 +572,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -577,6 +582,7 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -614,10 +620,12 @@ class RecurringTransactionSaveNotifier
         'clientCreatedAt': clientCreatedAtIso,
         if (description != null && description.isNotEmpty)
           'description': description,
+        if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
         'ownerType': ownerType,
         'privacyScope': privacyScope,
         'isRecurring': true,
         'recurrence_rule': recurrenceRule,
+        if (accountId != null) 'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -706,6 +714,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -713,6 +722,7 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -752,6 +762,7 @@ class RecurringTransactionSaveNotifier
           'clientCreatedAt': clientCreatedAtIso,
           if (description != null && description.isNotEmpty)
             'description': description,
+          if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
           if (source != null && source.isNotEmpty) 'source': source,
           'ownerType': ownerType,
           'privacyScope': privacyScope,
@@ -761,6 +772,7 @@ class RecurringTransactionSaveNotifier
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': true,
           'recurrence_rule': recurrenceRule,
+          if (accountId != null) 'accountId': accountId,
         },
       );
 
@@ -801,10 +813,12 @@ class RecurringTransactionSaveNotifier
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? householdId,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -824,9 +838,12 @@ class RecurringTransactionSaveNotifier
         'clientCreatedAt': _buildClientCreatedAtIso(ref),
         if (description != null && description.trim().isNotEmpty)
           'description': description.trim(),
+        if (merchant != null && merchant.trim().isNotEmpty)
+          'merchant': merchant.trim(),
         'ownerType': recurringSeries.ownerType,
         'privacyScope': recurringSeries.privacyScope,
         'isRecurring': false,
+        if (accountId != null) 'accountId': accountId,
       };
 
       if (householdId != null) {
@@ -922,8 +939,10 @@ class RecurringTransactionSaveNotifier
     required String currency,
     required DateTime date,
     String? description,
+    String? merchant,
     String? source,
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -945,6 +964,8 @@ class RecurringTransactionSaveNotifier
           'clientCreatedAt': _buildClientCreatedAtIso(ref),
           if (description != null && description.trim().isNotEmpty)
             'description': description.trim(),
+          if (merchant != null && merchant.trim().isNotEmpty)
+            'merchant': merchant.trim(),
           if (source != null && source.trim().isNotEmpty)
             'source': source.trim(),
           'ownerType': recurringSeries.ownerType,
@@ -954,6 +975,7 @@ class RecurringTransactionSaveNotifier
             'isPortfolio':
                 ref.read(householdScopeProvider).isPortfolioId(householdId),
           'isRecurring': false,
+          if (accountId != null) 'accountId': accountId,
         },
       );
 
@@ -1007,6 +1029,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     bool? hasReminder,
     int? reminderValue,
     String? reminderUnit,
@@ -1017,6 +1040,7 @@ class RecurringTransactionSaveNotifier
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -1054,10 +1078,14 @@ class RecurringTransactionSaveNotifier
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
         'household_id': householdId,
+        'account_id': accountId,
       };
-      if (description != null && description.trim().isNotEmpty) {
-        updates['raw_text'] = description.trim();
-      }
+      updates['raw_text'] = description != null && description.trim().isNotEmpty
+          ? description.trim()
+          : null;
+      updates['merchant'] = merchant != null && merchant.trim().isNotEmpty
+          ? merchant.trim()
+          : null;
 
       _debugPrint('📝 [UpdateRecurring] Building update-expense request body');
       _debugPrint('   userId: $userId');
@@ -1108,7 +1136,8 @@ class RecurringTransactionSaveNotifier
           // If the previous recurring expense was personal (no household),
           // we are converting personal -> group: mirror unified_transaction_sheet
           // by creating the initial split group via customSplits.
-          if (previousHouseholdId == null) {
+          if (previousHouseholdId == null ||
+              previousHouseholdId != householdId) {
             requestBody['customSplits'] = splitsPayload;
           } else {
             // Existing group recurring expense: mirror unified_transaction_sheet
@@ -1211,6 +1240,7 @@ class RecurringTransactionSaveNotifier
     DateTime? endDate,
     int? interval,
     String? description,
+    String? merchant,
     String? source,
     bool? hasReminder,
     int? reminderValue,
@@ -1218,6 +1248,7 @@ class RecurringTransactionSaveNotifier
     String ownerType = 'me',
     String privacyScope = 'full',
     String? householdId,
+    String? accountId,
   }) async {
     if (_guardPreviewWrites()) {
       return null;
@@ -1253,13 +1284,18 @@ class RecurringTransactionSaveNotifier
         'date': formattedAccountingDate,
         'is_recurring': true,
         'recurrence_rule': recurrenceRule,
+        'household_id': householdId,
+        'account_id': accountId,
       };
-      if (description != null && description.trim().isNotEmpty) {
-        updatesIncome['raw_text'] = description.trim();
-      }
-      if (source != null && source.trim().isNotEmpty) {
-        updatesIncome['source'] = source.trim();
-      }
+      updatesIncome['raw_text'] =
+          description != null && description.trim().isNotEmpty
+              ? description.trim()
+              : null;
+      updatesIncome['merchant'] = merchant != null && merchant.trim().isNotEmpty
+          ? merchant.trim()
+          : null;
+      updatesIncome['source'] =
+          source != null && source.trim().isNotEmpty ? source.trim() : null;
 
       final response = await supabase.functions.invoke(
         'update-expense',
@@ -1267,6 +1303,7 @@ class RecurringTransactionSaveNotifier
           'userId': userId,
           'expenseId': expenseId,
           'updates': updatesIncome,
+          if (householdId != null) 'householdId': householdId,
           // Keep update-expense date validation aligned with the caller's
           // local calendar day.
           'clientTimezoneOffsetMinutes':

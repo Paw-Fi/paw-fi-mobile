@@ -17,10 +17,9 @@ final currencyTransactionCountsProvider =
   final scope = ref.watch(householdScopeProvider);
   final analyticsData = ref.watch(analyticsProvider);
 
-  final activeHouseholdId =
-      scope.activeAccountType == ActiveAccountType.personal
-          ? null
-          : scope.activeAccountHouseholdId;
+  final activeHouseholdId = scope.activeAccountType == ActiveWalletType.personal
+      ? null
+      : scope.activeAccountHouseholdId;
   final optimistic = ref.watch(
     householdOptimisticExpensesProvider.select(
       (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
@@ -37,10 +36,10 @@ final currencyTransactionCountsProvider =
   for (final expense in source) {
     final householdId = expense.householdId;
     final matchesScope = switch (scope.activeAccountType) {
-      ActiveAccountType.personal =>
+      ActiveWalletType.personal =>
         householdId == null || householdId.trim().isEmpty,
-      ActiveAccountType.household ||
-      ActiveAccountType.portfolio =>
+      ActiveWalletType.household ||
+      ActiveWalletType.portfolio =>
         activeHouseholdId != null && householdId == activeHouseholdId,
     };
     if (!matchesScope) continue;

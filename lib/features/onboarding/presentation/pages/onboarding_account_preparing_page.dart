@@ -23,13 +23,22 @@ import 'package:moneko/features/onboarding/domain/onboarding_budget_sync_service
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'dart:io';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 const _kCreatedHouseholdPrefix = 'onboarding_created_household:';
 const _kCreatedInvitePrefix = 'onboarding_created_invite:';
 const _kBudgetSyncFailurePrefix = 'onboarding_budget_sync_failures:';
 const _kCurrencySyncTimeout = Duration(seconds: 8);
+const _kPaywallReturnTrialGrantedPrefix = 'paywall_return_trial:';
+const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
+const _kTrialGrantTimeout = Duration(seconds: 20);
+const _kPostGrantRefreshTimeout = Duration(seconds: 8);
 
 class _ExistingAccountState {
   const _ExistingAccountState({
@@ -85,6 +94,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final didStart = useState(false);
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     final isPrimaryActionEnabled = isDone.value || setupError.value != null;
+    final isGrantingOnboardingTrial = useRef(false);
 
     useEffect(() {
       unawaited(
@@ -357,6 +367,139 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
     }
 
+    String paywallReturnTrialGrantedKey(String userId) =>
+        '$_kPaywallReturnTrialGrantedPrefix$userId:granted';
+
+    Future<bool?> hasSubscriptionRow(String userId) async {
+      try {
+        final row = await supabase
+            .from('subscriptions')
+            .select('id')
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+        return row != null;
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] hasSubscriptionRow failed: $error\n$stackTrace',
+        );
+        return null;
+      }
+    }
+
+    Future<void> ensureOnboardingSubscription({
+      required String userId,
+      required _ExistingAccountState existingState,
+      required void Function({
+        double? progressValue,
+        String? label,
+        bool? done,
+      }) setProgressState,
+    }) async {
+      if (isGrantingOnboardingTrial.value) return;
+
+      final prefs = ref.read(sharedPreferencesProvider);
+      final alreadyGrantedLocally =
+          prefs.getBool(paywallReturnTrialGrantedKey(userId)) ?? false;
+
+      await ref
+          .read(subscriptionManagementProvider.notifier)
+          .refresh()
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+        debugPrint(
+          '[OnboardingPrep] subscriptionManagement refresh timed out after $_kSubscriptionRefreshTimeout',
+        );
+      });
+      await ref
+          .read(subscriptionNotifierProvider.notifier)
+          .refresh()
+          .timeout(_kSubscriptionRefreshTimeout, onTimeout: () {
+        debugPrint(
+          '[OnboardingPrep] subscriptionNotifier refresh timed out after $_kSubscriptionRefreshTimeout',
+        );
+      });
+
+      final subscriptionDetails =
+          ref.read(subscriptionManagementProvider).valueOrNull;
+      final hasActiveSubscription =
+          subscriptionDetails?.hasActiveSubscription ?? false;
+      if (hasActiveSubscription) {
+        debugPrint(
+          '[OnboardingPrep] Active subscription detected; skipping onboarding trial bootstrap',
+        );
+        return;
+      }
+
+      final hasSubscriptionNow = await hasSubscriptionRow(userId);
+      if (hasSubscriptionNow == null) {
+        debugPrint(
+          '[OnboardingPrep] Subscription row check unavailable; skipping onboarding trial bootstrap',
+        );
+        return;
+      }
+      if (hasSubscriptionNow || existingState.hasSubscriptionData) {
+        debugPrint(
+          '[OnboardingPrep] Existing non-active subscription found; leaving account unchanged for resubscribe flow',
+        );
+        return;
+      }
+
+      if (alreadyGrantedLocally) {
+        debugPrint(
+          '[OnboardingPrep] Onboarding trial already granted locally; skipping duplicate activation',
+        );
+        return;
+      }
+
+      isGrantingOnboardingTrial.value = true;
+      try {
+        setProgressState(
+          progressValue: 0.1,
+          label: context.l10n
+              .onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
+        );
+        debugPrint(
+          '[OnboardingPrep] No subscription detected; activating onboarding free trial',
+        );
+        await ref
+            .read(subscriptionManagementProvider.notifier)
+            .grantPaywallReturnTrial()
+            .timeout(_kTrialGrantTimeout);
+
+        await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+
+        try {
+          await ref
+              .read(subscriptionManagementProvider.notifier)
+              .refresh()
+              .timeout(_kPostGrantRefreshTimeout);
+          await ref
+              .read(subscriptionNotifierProvider.notifier)
+              .refresh()
+              .timeout(_kPostGrantRefreshTimeout);
+        } catch (refreshError, refreshStackTrace) {
+          debugPrint(
+            '[OnboardingPrep] Post-grant refresh failed: $refreshError\n$refreshStackTrace',
+          );
+        }
+      } on TimeoutException catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] Free trial activation timed out: $error\n$stackTrace',
+        );
+      } catch (error, stackTrace) {
+        final message = error.toString().toLowerCase();
+        if (message.contains('already granted') ||
+            message.contains('already has active subscription access')) {
+          await prefs.setBool(paywallReturnTrialGrantedKey(userId), true);
+        }
+        debugPrint(
+          '[OnboardingPrep] Free trial activation failed: $error\n$stackTrace',
+        );
+      } finally {
+        isGrantingOnboardingTrial.value = false;
+      }
+    }
+
     Future<void> runSync() async {
       if (didStart.value || isDone.value) return;
       didStart.value = true;
@@ -394,6 +537,11 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           '$_kBudgetSyncFailurePrefix${user.uid}:$budgetSyncScope';
       final wasAlreadySynced = store.isSyncedForUser(user.uid);
       final existingState = await loadExistingAccountState(user.uid);
+      await ensureOnboardingSubscription(
+        userId: user.uid,
+        existingState: existingState,
+        setProgressState: setProgressState,
+      );
       final hasExistingData = existingState.hasMeaningfulData;
       final isExternalSubscriptionNewUser =
           existingState.isExternalSubscriptionNewUser;
@@ -766,7 +914,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -776,72 +925,130 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 24),
-                Icon(
-                  setupError.value != null
-                      ? Icons.auto_awesome_rounded
-                      : isDone.value
-                          ? Icons.check_circle_rounded
-                          : Icons.auto_awesome_rounded,
-                  size: 58,
-                  color: setupError.value != null
-                      ? colorScheme.primary
-                      : isDone.value
-                          ? colorScheme.success
-                          : colorScheme.primary,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  setupError.value != null
-                      ? context.l10n.onboardingPreparingTitleError
-                      : isDone.value
-                          ? context.l10n.onboardingPreparingTitleDone
-                          : context.l10n.onboardingPreparingTitleLoading,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  setupError.value != null
-                      ? (setupError.value == 'budget_validation_failed'
-                          ? context.l10n.onboardingPreparingBodyErrorDashboard
-                          : context.l10n.onboardingPreparingBodyErrorRetry)
-                      : isDone.value
-                          ? context.l10n.onboardingPreparingBodyDone
-                          : context.l10n.onboardingPreparingBodyLoading,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
-                    value: progress.value,
-                    minHeight: 10,
-                    backgroundColor:
-                        colorScheme.mutedForeground.withValues(alpha: 0.2),
-                    color: isDone.value
-                        ? colorScheme.success
-                        : colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  progressLabel.value,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.mutedForeground,
-                  ),
-                ),
                 const Spacer(),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                          CurvedAnimation(
+                              curve: Curves.easeOutBack, parent: animation),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: setupError.value != null
+                      ? Icon(
+                          setupError.value == 'budget_validation_failed'
+                              ? Icons.warning_rounded
+                              : Icons.error_outline_rounded,
+                          key: const ValueKey('error'),
+                          size: 72,
+                          color: colorScheme.destructive,
+                        )
+                      : isDone.value
+                          ? Icon(
+                              Icons.check_circle_rounded,
+                              key: const ValueKey('done'),
+                              size: 72,
+                              color: colorScheme.success,
+                            )
+                          : _AnimatedPulsingIcon(
+                              key: const ValueKey('loading'),
+                              color: colorScheme.primary,
+                            ),
+                ),
+                const SizedBox(height: 32),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    setupError.value != null
+                        ? context.l10n.onboardingPreparingTitleError
+                        : isDone.value
+                            ? context.l10n.onboardingPreparingTitleDone
+                            : context.l10n.onboardingPreparingTitleLoading,
+                    key: ValueKey(setupError.value != null
+                        ? 'error'
+                        : isDone.value
+                            ? 'done'
+                            : 'loading'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.foreground,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    setupError.value != null
+                        ? (setupError.value == 'budget_validation_failed'
+                            ? context.l10n.onboardingPreparingBodyErrorDashboard
+                            : context.l10n.onboardingPreparingBodyErrorRetry)
+                        : isDone.value
+                            ? context.l10n.onboardingPreparingBodyDone
+                            : context.l10n.onboardingPreparingBodyLoading,
+                    key: ValueKey(setupError.value != null
+                        ? 'error_body'
+                        : isDone.value
+                            ? 'done_body'
+                            : 'loading_body'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 48),
+                AnimatedOpacity(
+                  opacity:
+                      (isDone.value || setupError.value != null) ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 400),
+                  child: Column(
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(begin: 0.0, end: progress.value),
+                        duration: const Duration(milliseconds: 800),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) => ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: value,
+                            minHeight: 8,
+                            backgroundColor: colorScheme.mutedForeground
+                                .withValues(alpha: 0.15),
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: ShimmeringText(
+                          text: progressLabel.value,
+                          key: ValueKey(progressLabel.value),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: colorScheme.mutedForeground,
+                          ),
+                          shimmering: setupError.value == null && !isDone.value,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(flex: 2),
                 SizedBox(
                   height: 52,
                   child: IgnorePointer(
@@ -862,6 +1069,50 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    ));
+  }
+}
+
+class _AnimatedPulsingIcon extends HookWidget {
+  const _AnimatedPulsingIcon({super.key, required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useAnimationController(
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    final scale = useAnimation(
+      Tween<double>(begin: 0.95, end: 1.05).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      ),
+    );
+
+    final opacity = useAnimation(
+      Tween<double>(begin: 0.5, end: 1.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      ),
+    );
+
+    return Transform.scale(
+      scale: scale,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.1 * opacity),
+        ),
+        child: Center(
+          child: Icon(
+            Icons.auto_awesome_rounded,
+            size: 36,
+            color: color.withValues(alpha: opacity),
           ),
         ),
       ),

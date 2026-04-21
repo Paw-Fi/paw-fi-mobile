@@ -82,11 +82,22 @@ class HouseholdService {
     String? name,
     String? coverImageUrl,
     String? themeColor,
+    bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
+    bool updateAutoSplitConfig = false,
   }) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (coverImageUrl != null) updates['cover_image_url'] = coverImageUrl;
     if (themeColor != null) updates['theme_color'] = themeColor;
+    if (isPortfolio != null) updates['is_portfolio'] = isPortfolio;
+    if (autoSplitEnabled != null) {
+      updates['ai_use_default_split'] = autoSplitEnabled;
+    }
+    if (updateAutoSplitConfig) {
+      updates['ai_default_split_config'] = autoSplitConfig;
+    }
 
     final response = await _supabase
         .from('households')
@@ -99,7 +110,10 @@ class HouseholdService {
   }
 
   Future<void> deleteHousehold(String householdId) async {
-    await _supabase.from('households').delete().eq('id', householdId);
+    await _supabase.rpc(
+      'delete_household',
+      params: {'p_household_id': householdId},
+    );
   }
 
   // ============================================================================
@@ -126,16 +140,13 @@ class HouseholdService {
 
     final usersMap = <String, Map<String, dynamic>>{};
     for (var user in (usersData as List).cast<Map<String, dynamic>>()) {
-      // Normalize like Profile page: prefer full_name, fallback to email local-part
-      String? displayName = (user['full_name'] as String?)?.trim();
-      final email = user['email'] as String?;
-      if (displayName == null || displayName.isEmpty) {
-        if (email != null && email.isNotEmpty) {
-          displayName = email.split('@').first;
-        }
-      }
+      // Keep only an explicit profile name here.
+      // UI can decide how to fall back when full_name is absent.
+      final displayName = (user['full_name'] as String?)?.trim();
       if (displayName != null && displayName.isNotEmpty) {
         user['full_name'] = displayName;
+      } else {
+        user['full_name'] = null;
       }
       usersMap[user['id'] as String] = user;
     }
@@ -237,9 +248,21 @@ class HouseholdService {
       }
 
       final data = response.data as Map<String, dynamic>;
-      final inviteUrl = data['invite_url'] as String;
-      _log('Invite URL created: $inviteUrl');
-      return inviteUrl;
+      final token = data['token'] as String?;
+
+      if (token != null && token.isNotEmpty) {
+        _log('Invite token created successfully');
+        return token;
+      }
+
+      final inviteUrl = data['invite_url'] as String?;
+      final extractedToken = _extractTokenFromInviteUrl(inviteUrl);
+      if (extractedToken != null) {
+        _log('Invite token extracted from invite_url fallback');
+        return extractedToken;
+      }
+
+      throw Exception('Failed to create invite: invalid response payload');
     } catch (e, stackTrace) {
       _log('Error creating invite', error: e, stackTrace: stackTrace);
       rethrow;
@@ -309,6 +332,18 @@ class HouseholdService {
     if (response.status != 200) {
       throw Exception('Failed to revoke invite: ${response.data}');
     }
+  }
+
+  String? _extractTokenFromInviteUrl(String? inviteUrl) {
+    if (inviteUrl == null || inviteUrl.isEmpty) return null;
+
+    final inviteMatches = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])')
+        .allMatches(inviteUrl);
+    if (inviteMatches.isNotEmpty) {
+      return inviteMatches.last.group(1);
+    }
+
+    return null;
   }
 
   // ============================================================================
@@ -726,6 +761,44 @@ class HouseholdService {
     );
 
     return (result as int?) ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> getPairwiseSettlementBalancesV2({
+    required String householdId,
+    String? currency,
+  }) async {
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    final result = await _supabase.rpc(
+      'households_get_pairwise_settlement_balances_v2',
+      params: {
+        'p_household_id': householdId,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
+      },
+    );
+
+    return (result as List?)?.cast<Map<String, dynamic>>() ??
+        const <Map<String, dynamic>>[];
+  }
+
+  Future<List<Map<String, dynamic>>> getSettlementBreakdownRowsV2({
+    required String householdId,
+    required String memberUserId,
+    String? currency,
+  }) async {
+    final normalizedCurrency = currency?.trim().toUpperCase();
+    final result = await _supabase.rpc(
+      'households_get_settlement_breakdown_v2',
+      params: {
+        'p_household_id': householdId,
+        'p_other_user_id': memberUserId,
+        if (normalizedCurrency != null && normalizedCurrency.isNotEmpty)
+          'p_currency': normalizedCurrency,
+      },
+    );
+
+    return (result as List?)?.cast<Map<String, dynamic>>() ??
+        const <Map<String, dynamic>>[];
   }
 
   // ============================================================================

@@ -17,6 +17,8 @@ import 'package:moneko/shared/widgets/moneko_rich_text.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class OnboardingPreviewPage extends HookConsumerWidget {
   const OnboardingPreviewPage({
     super.key,
@@ -109,7 +111,8 @@ class OnboardingPreviewPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Column(
@@ -212,7 +215,7 @@ class OnboardingPreviewPage extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 

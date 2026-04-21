@@ -63,21 +63,39 @@ const Map<String, String> currencyOptions = {
 
 const String _defaultCurrencySymbol = r'$';
 
-/// Canonicalize various currency notations/symbols to 3-letter ISO codes
-/// Returns uppercased 3-letter code if recognized, otherwise returns the
-/// original uppercased trimmed input (which may or may not be valid).
-String? canonicalizeCurrencyCode(String? code) {
-  if (code == null) return null;
-  final raw = code.trim().toUpperCase();
-  if (raw.isEmpty) return null;
+String _normalizeCurrencyToken(String value) => value.trim().toUpperCase();
 
-  // Direct 3-letter codes
-  if (raw.length == 3) {
-    return raw;
+final Map<String, String> _currencyAliases = _buildCurrencyAliases();
+final List<String> _searchableCurrencyAliases = _currencyAliases.keys
+    .where(
+      (token) =>
+          token.length > 1 ||
+          RegExp(r'[^A-Z0-9]', unicode: true).hasMatch(token),
+    )
+    .toList()
+  ..sort((a, b) => b.length.compareTo(a.length));
+
+Map<String, String> _buildCurrencyAliases() {
+  final aliases = <String, String>{};
+
+  for (final code in currencyOptions.keys) {
+    aliases[_normalizeCurrencyToken(code)] = code;
   }
 
-  // Common symbol/alias mappings we see from OCR or legacy data
-  final aliases = <String, String>{
+  final symbolCounts = <String, int>{};
+  for (final symbol in currencyOptions.values) {
+    final normalized = _normalizeCurrencyToken(symbol);
+    symbolCounts[normalized] = (symbolCounts[normalized] ?? 0) + 1;
+  }
+
+  for (final entry in currencyOptions.entries) {
+    final normalizedSymbol = _normalizeCurrencyToken(entry.value);
+    if (symbolCounts[normalizedSymbol] == 1) {
+      aliases[normalizedSymbol] = entry.key;
+    }
+  }
+
+  aliases.addAll(const {
     'US\$': 'USD',
     'A\$': 'AUD',
     'C\$': 'CAD',
@@ -85,26 +103,79 @@ String? canonicalizeCurrencyCode(String? code) {
     'HK\$': 'HKD',
     'NZ\$': 'NZD',
     'MX\$': 'MXN',
+    'ARS\$': 'ARS',
+    'CLP\$': 'CLP',
+    'BZ\$': 'BZD',
+    'RD\$': 'DOP',
+    'NT\$': 'TWD',
     'R\$': 'BRL',
+    'RM': 'MYR',
+    'RP': 'IDR',
+    'KS': 'MMK',
     '₪': 'ILS',
-    // South African Rand often saved as just 'R'
     'R': 'ZAR',
-    // Kenyan Shilling
+    'RS': 'LKR',
+    'RUR': 'RUB',
+    'РУБ': 'RUB',
+    'РУБ.': 'RUB',
     'KSH': 'KES',
-    // Jamaican Dollar
     'J\$': 'JMD',
-    // Malawi Kwacha
     'MK': 'MWK',
     '£S': 'SYP',
-    // Zambian Kwacha
     'ZK': 'ZMW',
-  };
+  });
 
-  if (aliases.containsKey(raw)) {
-    return aliases[raw];
+  return aliases;
+}
+
+/// Canonicalize various currency notations/symbols to 3-letter ISO codes
+/// Returns uppercased 3-letter code if recognized, otherwise returns the
+/// original uppercased trimmed input (which may or may not be valid).
+String? canonicalizeCurrencyCode(String? code) {
+  if (code == null) return null;
+  final raw = _normalizeCurrencyToken(code);
+  if (raw.isEmpty) return null;
+
+  final aliased = _currencyAliases[raw];
+  if (aliased != null) {
+    return aliased;
+  }
+
+  // Preserve previous behavior for unknown 3-letter inputs.
+  if (raw.length == 3) {
+    return raw;
   }
 
   // Fallback: unknown non-ISO string → null (will resolve to default symbol)
+  return null;
+}
+
+String? extractCanonicalCurrencyCode(String? text) {
+  if (text == null) return null;
+  final raw = _normalizeCurrencyToken(text);
+  if (raw.isEmpty) return null;
+
+  final exact = canonicalizeCurrencyCode(raw);
+  if (exact != null && isSupportedCurrencyCode(exact)) {
+    return exact;
+  }
+
+  final isoMatch = RegExp(r'(?<![A-Z])([A-Z]{3})(?![A-Z])').allMatches(raw);
+  for (final match in isoMatch) {
+    final candidate = canonicalizeCurrencyCode(match.group(1));
+    if (candidate != null && isSupportedCurrencyCode(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (final token in _searchableCurrencyAliases) {
+    if (!raw.contains(token)) continue;
+    final candidate = _currencyAliases[token];
+    if (candidate != null && isSupportedCurrencyCode(candidate)) {
+      return candidate;
+    }
+  }
+
   return null;
 }
 

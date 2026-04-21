@@ -66,8 +66,11 @@ import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/services/support_ticket_service.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
+import 'package:moneko/features/wallets/presentation/pages/archived_wallets_page.dart';
 
 import 'package:crypto/crypto.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 bool _isAvatarCropInProgress = false;
 bool _isAvatarUploadInProgress = false;
@@ -727,7 +730,8 @@ class SettingsPage extends HookConsumerWidget {
       );
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.settings,
       ),
@@ -737,6 +741,7 @@ class SettingsPage extends HookConsumerWidget {
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  useSafeArea: true,
                   builder: (context) {
                     final scheme = Theme.of(context).colorScheme;
                     return Material(
@@ -1192,6 +1197,25 @@ class SettingsPage extends HookConsumerWidget {
                   // ),
                 ]),
 
+                // Wallet
+                _SettingsGroup(
+                  title: context.l10n.wallet,
+                  children: [
+                    _SettingsTile(
+                      icon: Icons.archive_outlined,
+                      label: context.l10n.archivedWallets,
+                      value: context.l10n.tapToManage,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const ArchivedWalletsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
                 // Subscription
                 // Manage Membership
                 _SettingsGroup(
@@ -1368,7 +1392,7 @@ class SettingsPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   /// Checks if wallet capture is enabled by querying Supabase for the wallet_capture_enabled flag
@@ -1381,6 +1405,8 @@ class SettingsPage extends HookConsumerWidget {
           .from('user_contacts')
           .select('wallet_capture_enabled')
           .eq('user_id', authState.uid)
+          .order('updated_at', ascending: false)
+          .limit(1)
           .maybeSingle();
 
       return (response?['wallet_capture_enabled'] as bool?) ?? false;
@@ -1560,7 +1586,7 @@ class _SupportSheet extends HookConsumerWidget {
       if (remainingSlots <= 0) {
         AppToast.info(
           context,
-          'You can attach up to $_maxTicketAttachments images per ticket.',
+          context.l10n.attachmentLimitMessage(_maxTicketAttachments.toString()),
         );
         return;
       }
@@ -1765,7 +1791,8 @@ class _SupportSheet extends HookConsumerWidget {
                           color: colorScheme.primary,
                           disabledColor:
                               colorScheme.primary.withValues(alpha: 0.4),
-                          onPressed: isSubmitDisabled ? null : handleSubmit, minimumSize: const Size(0, 0),
+                          onPressed: isSubmitDisabled ? null : handleSubmit,
+                          minimumSize: const Size(0, 0),
                           child: isSubmitting.value
                               ? const SizedBox(
                                   width: 16,
@@ -2896,6 +2923,19 @@ Future<void> _saveName(
       'full_name': newName,
       'updated_at': DateTime.now().toIso8601String()
     }).eq('id', userId);
+
+    // Keep denormalized household member names in sync in environments where
+    // household_members.user_name exists.
+    try {
+      await Supabase.instance.client
+          .from('household_members')
+          .update({'user_name': newName}).eq('user_id', userId);
+    } on PostgrestException catch (e) {
+      final message = (e.message).toLowerCase();
+      final missingUserNameColumn = e.code == '42703' ||
+          (e.code == 'PGRST204' && message.contains('user_name'));
+      if (!missingUserNameColumn) rethrow;
+    }
 
     onUpdated();
 

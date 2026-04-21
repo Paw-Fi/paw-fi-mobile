@@ -14,6 +14,8 @@ import '../../../../core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Modern page for joining a household via invitation URL
 ///
 /// Features:
@@ -119,7 +121,8 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: (context.l10n.joinHousehold),
       ),
@@ -139,7 +142,7 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildContent(ColorScheme colorScheme) {
@@ -1399,13 +1402,17 @@ class _HouseholdJoinPageState extends ConsumerState<HouseholdJoinPage>
     // - /invites/TOKEN
     // - TOKEN (raw token)
 
-    // Capture full path segment after /invites/ until a delimiter (end, slash, ?, or #)
-    final invitePattern = RegExp(r'invites/([^/?#]+)');
-    final match = invitePattern.firstMatch(url);
-    if (match != null) {
-      final token = match.group(1);
-      if (token != null && HouseholdConstants.tokenPattern.hasMatch(token)) {
-        return token;
+    // Capture all invite-like path segments and prefer the last valid token.
+    // This handles malformed links such as:
+    // https://moneko.io/invites/https://moneko.io/invites/TOKEN
+    final invitePattern = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])');
+    final matches = invitePattern.allMatches(url);
+    if (matches.isNotEmpty) {
+      for (final match in matches.toList().reversed) {
+        final token = match.group(1);
+        if (token != null && HouseholdConstants.tokenPattern.hasMatch(token)) {
+          return token;
+        }
       }
     }
 

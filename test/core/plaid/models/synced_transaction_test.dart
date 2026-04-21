@@ -149,6 +149,30 @@ void main() {
       expect(transactions.isEmpty, true);
     });
 
+    test('parses sync status metadata from payload', () {
+      final payload = {
+        'addedTransactions': <Map<String, dynamic>>[],
+        'syncStatus': {
+          'initialUpdateComplete': true,
+          'historicalUpdateComplete': false,
+          'webhookCode': 'SYNC_UPDATES_AVAILABLE',
+          'updatedAt': '2026-04-10T12:00:00Z',
+        },
+      };
+
+      final result = parseSyncedTransactionPayload(payload);
+
+      expect(result.transactions, isEmpty);
+      expect(result.syncStatus, isNotNull);
+      expect(result.syncStatus!.initialUpdateComplete, true);
+      expect(result.syncStatus!.historicalUpdateComplete, false);
+      expect(result.syncStatus!.webhookCode, 'SYNC_UPDATES_AVAILABLE');
+      expect(
+        result.syncStatus!.updatedAt,
+        DateTime.parse('2026-04-10T12:00:00Z'),
+      );
+    });
+
     test('parses multiple transactions', () {
       final payload = {
         'addedTransactions': [

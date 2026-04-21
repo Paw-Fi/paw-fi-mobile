@@ -588,8 +588,9 @@ class RegistrationFormView extends HookConsumerWidget {
                           ),
                         ),
                         GestureDetector(
-                          onTap:
-                              isLoading.value ? null : () => context.go('/login'),
+                          onTap: isLoading.value
+                              ? null
+                              : () => context.go('/login'),
                           child: Text(
                             context.l10n.signInLower,
                             style: TextStyle(

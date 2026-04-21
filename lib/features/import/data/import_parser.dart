@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 final RegExp _opaqueImportIdPattern = RegExp(
   r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Z0-9_-]{10,})$',
@@ -171,7 +173,10 @@ ImportTable parseImportTable(String content, {bool hasHeader = true}) {
 
   List<String> headers;
   List<List<String>> dataRows;
-  if (hasHeader && usableRows.isNotEmpty) {
+  final headerLikely = hasHeader &&
+      usableRows.isNotEmpty &&
+      _looksLikeHeaderRow(usableRows.first);
+  if (headerLikely) {
     headers = usableRows.first;
     dataRows = usableRows.skip(1).toList();
   } else {
@@ -262,6 +267,90 @@ int _detectHeaderRowIndex(List<List<String>> rows) {
   return bestIndex;
 }
 
+const Set<String> _knownImportHeaderTokens = {
+  'item',
+  'date',
+  'time',
+  'datetime',
+  'timestamp',
+  'description',
+  'merchant',
+  'merchantname',
+  'details',
+  'memo',
+  'note',
+  'notes',
+  'amount',
+  'expenses',
+  'expense',
+  'income',
+  'debit',
+  'credit',
+  'category',
+  'currency',
+  'type',
+  'balance',
+  'reference',
+  'payee',
+  'gross',
+  'fee',
+  'net',
+};
+
+bool _looksLikeHeaderRow(List<String> row) {
+  final nonEmpty =
+      row.map((cell) => cell.trim()).where((cell) => cell.isNotEmpty).toList();
+  if (nonEmpty.isEmpty) return false;
+
+  final normalized = nonEmpty
+      .map((cell) => cell.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''))
+      .toList();
+  final matchedHeaderCells = normalized.where((cell) {
+    return _knownImportHeaderTokens.any(
+      (token) => cell == token || (token.length >= 5 && cell.contains(token)),
+    );
+  }).length;
+  if (matchedHeaderCells > 0) return true;
+
+  final dataLikeCells =
+      nonEmpty.where(_looksLikeDataCellForHeaderDetection).length;
+  if (dataLikeCells >= (nonEmpty.length / 2).ceil()) {
+    return false;
+  }
+
+  final shortTextCells = nonEmpty.where((cell) {
+    return RegExp(r'[A-Za-z]').hasMatch(cell) &&
+        !RegExp(r'\d').hasMatch(cell) &&
+        cell.split(RegExp(r'\s+')).length <= 3;
+  }).length;
+  return shortTextCells >= (nonEmpty.length / 2).ceil();
+}
+
+bool _looksLikeDataCellForHeaderDetection(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return false;
+
+  if (parseDateValue(trimmed) != null) return true;
+  if (parseAmountCents(trimmed) != null) return true;
+  if (_normalizeCurrencyCode(trimmed) != null) return true;
+
+  const typeTokens = {
+    'income',
+    'expense',
+    'debit',
+    'credit',
+    'dr',
+    'cr',
+    'inflow',
+    'outflow',
+    'deposit',
+    'withdrawal',
+    'received',
+    'paid',
+  };
+  return typeTokens.contains(trimmed.toLowerCase());
+}
+
 // ---------------------------------------------------------------------------
 // Bank / app format detection
 // ---------------------------------------------------------------------------
@@ -318,10 +407,17 @@ CsvFormatHint _detectFormatHint(List<String> headers) {
 // Row parsing
 // ---------------------------------------------------------------------------
 
+enum ImportDateOrderHint {
+  auto,
+  monthDayYear,
+  dayMonthYear,
+}
+
 ImportParsedRow parseRow(
   List<String> row,
   ImportMapping mapping, {
   int index = 0,
+  ImportDateOrderHint dateOrderHint = ImportDateOrderHint.auto,
 }) {
   final errors = <String>[];
 
@@ -336,18 +432,19 @@ ImportParsedRow parseRow(
   final dateValue = valueFor(ImportField.date);
   final categoryValue = valueFor(ImportField.category);
   final descriptionValue = valueFor(ImportField.description);
+  final merchantValue = valueFor(ImportField.merchant);
   final currencyValue = valueFor(ImportField.currency);
   final typeValue = valueFor(ImportField.type);
   final referenceValue = valueFor(ImportField.reference);
   final balanceValue = valueFor(ImportField.balance);
-  final amountValue =
-      mapping.hasSplitDebitCredit ? null : valueFor(ImportField.amount);
-  final debitValue =
-      mapping.hasSplitDebitCredit ? valueFor(ImportField.debit) : null;
-  final creditValue =
-      mapping.hasSplitDebitCredit ? valueFor(ImportField.credit) : null;
+  final amountValue = valueFor(ImportField.amount);
+  final debitValue = valueFor(ImportField.debit);
+  final creditValue = valueFor(ImportField.credit);
 
-  final parsedDate = parseDateValue(dateValue);
+  final parsedDate = parseDateValue(
+    dateValue,
+    orderHint: dateOrderHint,
+  );
   if (parsedDate == null) {
     errors.add('invalid_date');
   }
@@ -356,16 +453,30 @@ ImportParsedRow parseRow(
   int? parsedAmount;
   if (mapping.hasSplitDebitCredit) {
     parsedAmount = _resolveDebitCreditAmount(debitValue, creditValue);
-  } else {
+  } else if (amountValue != null && amountValue.isNotEmpty) {
     parsedAmount = parseAmountCents(amountValue);
+  } else if ((debitValue?.isNotEmpty ?? false) ||
+      (creditValue?.isNotEmpty ?? false)) {
+    parsedAmount = _resolveSingleDirectionalAmount(
+      debit: debitValue,
+      credit: creditValue,
+    );
+  } else {
+    parsedAmount = null;
   }
 
   if (parsedAmount == null) {
     errors.add('invalid_amount');
   }
 
-  final normalizedCategory =
-      categoryValue?.isNotEmpty == true ? categoryValue : 'uncategorized';
+  final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
+      _normalizeUserFacingImportNote(referenceValue);
+  final finalMerchant = _normalizeUserFacingImportNote(merchantValue);
+  final normalizedCategory = _resolveCategory(
+    rawCategory: categoryValue,
+    fallbackDescription: finalMerchant ?? finalDescription,
+    resolvedType: _resolveType(typeValue, parsedAmount),
+  );
   final normalizedCurrency = _normalizeCurrencyCode(currencyValue) ??
       _inferCurrencyCodeFromCandidates([
         amountValue,
@@ -375,16 +486,13 @@ ImportParsedRow parseRow(
       ]);
   final normalizedType = _resolveType(typeValue, parsedAmount);
 
-  // Compose description: prefer explicit description, fall back to reference.
-  final finalDescription = _normalizeUserFacingImportNote(descriptionValue) ??
-      _normalizeUserFacingImportNote(referenceValue);
-
   return ImportParsedRow(
     index: index,
     date: parsedDate,
     amountCents: parsedAmount?.abs(),
     category: normalizedCategory,
     description: finalDescription,
+    merchant: finalMerchant,
     currency: normalizedCurrency,
     type: normalizedType,
     errors: errors,
@@ -396,45 +504,7 @@ String? _normalizeCurrencyCode(String? value) {
   if (value == null) return null;
   final trimmed = value.trim().replaceAll(RegExp("[\"']"), '');
   if (trimmed.isEmpty) return null;
-
-  final upper = trimmed.toUpperCase();
-  const directAliases = <String, String>{
-    r'$': 'USD',
-    'US\$': 'USD',
-    'USD': 'USD',
-    '€': 'EUR',
-    'EUR': 'EUR',
-    '£': 'GBP',
-    'GBP': 'GBP',
-    '¥': 'JPY',
-    'JPY': 'JPY',
-    '₹': 'INR',
-    'INR': 'INR',
-    '₨': 'PKR',
-    'PKR': 'PKR',
-    '₽': 'RUB',
-    'RUB': 'RUB',
-    '₩': 'KRW',
-    'KRW': 'KRW',
-    '₺': 'TRY',
-    'TRY': 'TRY',
-    '₴': 'UAH',
-    'UAH': 'UAH',
-    '₫': 'VND',
-    'VND': 'VND',
-    '฿': 'THB',
-    'THB': 'THB',
-  };
-
-  final aliasMatch = directAliases[upper];
-  if (aliasMatch != null) return aliasMatch;
-
-  final codeMatch = RegExp(r'(?<![A-Z])([A-Z]{3})(?![A-Z])').firstMatch(upper);
-  if (codeMatch != null) {
-    return codeMatch.group(1);
-  }
-
-  return null;
+  return extractCanonicalCurrencyCode(trimmed);
 }
 
 String? _inferCurrencyCodeFromCandidates(Iterable<String?> candidates) {
@@ -458,6 +528,92 @@ int? _resolveDebitCreditAmount(String? debit, String? credit) {
 
   final net = (creditCents?.abs() ?? 0) - (debitCents?.abs() ?? 0);
   return net;
+}
+
+int? _resolveSingleDirectionalAmount({
+  String? debit,
+  String? credit,
+}) {
+  final debitCents =
+      debit != null && debit.isNotEmpty ? parseAmountCents(debit) : null;
+  final creditCents =
+      credit != null && credit.isNotEmpty ? parseAmountCents(credit) : null;
+
+  if (debitCents == null && creditCents == null) return null;
+  if (debitCents != null && debitCents != 0) {
+    return -debitCents.abs();
+  }
+  if (creditCents != null && creditCents != 0) {
+    return creditCents.abs();
+  }
+  return 0;
+}
+
+String _resolveCategory({
+  required String? rawCategory,
+  required String? fallbackDescription,
+  required String resolvedType,
+}) {
+  if (rawCategory != null && rawCategory.trim().isNotEmpty) {
+    final trimmed = rawCategory.trim();
+    return resolveBuiltinCategoryKeyAcrossLocales(trimmed) ?? trimmed;
+  }
+
+  final inferred = _inferCategoryFromDescription(
+    fallbackDescription,
+    type: resolvedType,
+  );
+  return inferred ?? 'uncategorized';
+}
+
+String? _inferCategoryFromDescription(
+  String? description, {
+  required String type,
+}) {
+  if (type == 'income') return null;
+
+  final normalized = description?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) return null;
+
+  const vendorCategoryMap = <String, String>{
+    'twilio': 'software tools',
+    'resend': 'software tools',
+    'windsurf': 'software tools',
+    'github': 'software tools',
+    'gitlab': 'software tools',
+    'vercel': 'software tools',
+    'netlify': 'software tools',
+    'cloudflare': 'software tools',
+    'digitalocean': 'software tools',
+    'notion': 'software tools',
+    'slack': 'software tools',
+    'zoom': 'software tools',
+    'figma': 'software tools',
+    'openai': 'software tools',
+    'anthropic': 'software tools',
+    'chatgpt': 'software tools',
+    'claude': 'software tools',
+    'cursor': 'software tools',
+    'apple developer': 'licensing & fees',
+    'developer program': 'licensing & fees',
+  };
+
+  for (final entry in vendorCategoryMap.entries) {
+    if (normalized.contains(entry.key)) {
+      return entry.value;
+    }
+  }
+
+  if (RegExp(
+    r'\b(software|saas|subscription|developer|license|licensing)\b',
+    caseSensitive: false,
+  ).hasMatch(normalized)) {
+    return normalized.contains('license') || normalized.contains('licensing')
+        ? 'licensing & fees'
+        : 'software tools';
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -522,7 +678,10 @@ final List<String> _kDateFormats = [
   'MMMM d, yyyy HH:mm',
 ];
 
-DateTime? parseDateValue(String? value) {
+DateTime? parseDateValue(
+  String? value, {
+  ImportDateOrderHint orderHint = ImportDateOrderHint.auto,
+}) {
   if (value == null || value.trim().isEmpty) return null;
 
   // Strip leading/trailing quotes that some exporters leave in.
@@ -548,8 +707,10 @@ DateTime? parseDateValue(String? value) {
       )
       .trim();
 
-  // Try each date format.
-  for (final format in _kDateFormats) {
+  // Try each date format, preferring an inferred slash-date order when we have
+  // reliable evidence from the file (for example an "Expenses" export using
+  // dd/MM/yyyy throughout).
+  for (final format in _orderedDateFormats(orderHint)) {
     for (final locale in [null, 'en_US']) {
       try {
         final parsed = locale == null
@@ -562,6 +723,104 @@ DateTime? parseDateValue(String? value) {
   return null;
 }
 
+List<String> _orderedDateFormats(ImportDateOrderHint orderHint) {
+  if (orderHint == ImportDateOrderHint.auto) {
+    return _kDateFormats;
+  }
+
+  const monthDayFormats = <String>{
+    'MM/dd/yyyy',
+    'M/d/yyyy',
+    'MM/dd/yy',
+    'M/d/yy',
+    'MM-dd-yyyy',
+    'MM-dd-yy',
+    'MM/dd/yyyy HH:mm:ss',
+    'MM/dd/yyyy h:mm a',
+  };
+  const dayMonthFormats = <String>{
+    'dd/MM/yyyy',
+    'd/M/yyyy',
+    'dd/MM/yy',
+    'd/M/yy',
+    'dd-MM-yyyy',
+    'd-M-yyyy',
+    'dd-MM-yy',
+    'dd.MM.yyyy',
+    'd.M.yyyy',
+    'dd.MM.yy',
+    'dd/MM/yyyy HH:mm:ss',
+    'dd/MM/yyyy h:mm a',
+    'dd.MM.yyyy HH:mm:ss',
+    'dd.MM.yyyy h:mm a',
+  };
+
+  final preferred = orderHint == ImportDateOrderHint.dayMonthYear
+      ? dayMonthFormats
+      : monthDayFormats;
+  final secondary = orderHint == ImportDateOrderHint.dayMonthYear
+      ? monthDayFormats
+      : dayMonthFormats;
+
+  final ordered = <String>[];
+  for (final format in _kDateFormats) {
+    if (preferred.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  for (final format in _kDateFormats) {
+    if (!preferred.contains(format) && !secondary.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  for (final format in _kDateFormats) {
+    if (secondary.contains(format)) {
+      ordered.add(format);
+    }
+  }
+  return ordered;
+}
+
+ImportDateOrderHint inferDateOrderHint(
+  List<List<String>> rows,
+  int? dateColumnIndex,
+) {
+  if (dateColumnIndex == null || dateColumnIndex < 0) {
+    return ImportDateOrderHint.auto;
+  }
+
+  var dayFirstSignals = 0;
+  var monthFirstSignals = 0;
+
+  final slashDatePattern = RegExp(
+    r'^\s*(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})',
+  );
+
+  for (final row in rows) {
+    if (dateColumnIndex >= row.length) continue;
+    final match = slashDatePattern.firstMatch(row[dateColumnIndex].trim());
+    if (match == null) continue;
+
+    final first = int.tryParse(match.group(1) ?? '');
+    final second = int.tryParse(match.group(2) ?? '');
+    if (first == null || second == null) continue;
+
+    if (first > 12 && second <= 12) {
+      dayFirstSignals++;
+    } else if (second > 12 && first <= 12) {
+      monthFirstSignals++;
+    }
+  }
+
+  if (dayFirstSignals > 0 && monthFirstSignals == 0) {
+    return ImportDateOrderHint.dayMonthYear;
+  }
+  if (monthFirstSignals > 0 && dayFirstSignals == 0) {
+    return ImportDateOrderHint.monthDayYear;
+  }
+  return ImportDateOrderHint.auto;
+}
+
 // ---------------------------------------------------------------------------
 // Amount parsing
 // ---------------------------------------------------------------------------
@@ -572,6 +831,7 @@ int? parseAmountCents(String? value) {
 
   // Strip surrounding quotes.
   cleaned = cleaned.replaceAll(RegExp("[\"']"), '');
+  cleaned = cleaned.replaceAll(RegExp(r'[−–—]'), '-');
 
   // Accounting-style negatives: "(1,234.56)" or "(1.234,56)"
   var negative = false;
@@ -585,13 +845,15 @@ int? parseAmountCents(String? value) {
   // (e.g. "USD", "EUR") that appear as leading/trailing text.
   cleaned = cleaned
       .replaceAll(RegExp(r'\p{Sc}', unicode: true), '')
-      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: true), '')
-      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: true), '')
+      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: false), '')
       .trim();
 
   // Detect leading minus after symbol stripping.
   if (cleaned.startsWith('-')) {
     negative = true;
+    cleaned = cleaned.substring(1).trim();
+  } else if (cleaned.startsWith('+')) {
     cleaned = cleaned.substring(1).trim();
   }
 
@@ -611,6 +873,12 @@ int? parseAmountCents(String? value) {
 ///   - Plain: no separators                                      → "1234.56"
 double? _parseNumericString(String value) {
   if (value.isEmpty) return null;
+
+  final normalizedGrouping = value.replaceAll(
+    RegExp(r"(?<=\d)[\s\u00A0\u202F'’](?=\d)"),
+    '',
+  );
+  value = normalizedGrouping;
 
   final hasDot = value.contains('.');
   final hasComma = value.contains(',');

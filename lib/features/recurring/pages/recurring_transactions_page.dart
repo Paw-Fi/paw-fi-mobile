@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/foundation.dart' as foundation;
 
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -29,6 +30,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -114,16 +117,15 @@ class _RecurringTransactionsPageState
     final colorScheme = Theme.of(context).colorScheme;
     final user = supabase.auth.currentUser;
     final currentTabIndex = ref.watch(mainShellTabIndexProvider);
-    final isActiveTab = currentTabIndex == 1;
     final preview = ref.watch(previewModeProvider);
 
     // Use householdScopeProvider to properly handle portfolio households
     // Portfolio households (is_portfolio=true) are treated as personal, not household
     final householdScope = ref.watch(householdScopeProvider);
     final String? householdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     ref.listen<RecurringPageCommand?>(recurringPageCommandProvider,
@@ -134,10 +136,6 @@ class _RecurringTransactionsPageState
 
       Future<void>.microtask(() => _handleRecurringCommand(next, householdId));
     });
-
-    if (!isActiveTab) {
-      return const SizedBox.shrink();
-    }
 
     _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     _debugPrint('🏠 [RecurringPage] BUILD');
@@ -196,8 +194,7 @@ class _RecurringTransactionsPageState
         const <ScheduledListItemDto>[];
     final selectedCurrency =
         ref.watch(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    final preferredTimezone = ref.watch(appPreferredTimezoneProvider);
     final userNow = effectiveNow(preferredTimezone: preferredTimezone);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -205,7 +202,8 @@ class _RecurringTransactionsPageState
       _startRecurringTourIfNeeded(currentTabIndex);
     });
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Column(
         children: [
           Expanded(
@@ -257,7 +255,7 @@ class _RecurringTransactionsPageState
         padding: const EdgeInsets.all(0),
         child: _buildFAB(colorScheme),
       ),
-    );
+    ));
   }
 
   Future<void> _handleRecurringCommand(
@@ -490,9 +488,9 @@ class _RecurringTransactionsPageState
 
     final householdScope = ref.watch(householdScopeProvider);
     final String? householdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     return SliverFillRemaining(

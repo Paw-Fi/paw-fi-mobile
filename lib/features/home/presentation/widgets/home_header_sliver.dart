@@ -12,10 +12,13 @@ import 'package:moneko/core/navigation/zoom_drawer_provider.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_target.dart';
 import 'package:moneko/features/home/presentation/state/home_spotlight_providers.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
+import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
@@ -204,17 +207,17 @@ class HomeHeaderSliver extends ConsumerWidget {
     final spotlightController = ref.read(homeSpotlightControllerProvider);
     final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
     final isEditMode = ref.watch(isEditModeProvider);
+    final headerTrace = HomeDebugTrace(
+      label: 'HomeHeaderSpaceSwitch',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': user.uid.isEmpty ? '<empty>' : user.uid},
+    );
 
     Future<void> handleBankSyncResult(BankSyncResult next) async {
       if (user.uid.isEmpty) return;
 
       ref.invalidate(userHouseholdsProvider(user.uid));
-      if (next.householdId != null && next.householdId!.isNotEmpty) {
-        await ref
-            .read(selectedHouseholdProvider.notifier)
-            .selectHousehold(next.householdId!);
-        ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
-      }
 
       final targetCurrency = next.currencyCode?.toUpperCase();
       if (targetCurrency != null && targetCurrency.isNotEmpty) {
@@ -224,6 +227,7 @@ class HomeHeaderSliver extends ConsumerWidget {
       }
 
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     }
 
     Future<void> refreshHomeDataForSelectedAccount({
@@ -332,7 +336,11 @@ class HomeHeaderSliver extends ConsumerWidget {
         Navigator.of(context, rootNavigator: true).maybePop();
       }
 
-      final analyticsData = ref.read(analyticsProvider);
+      var analyticsData = ref.read(analyticsProvider);
+      if (user.uid.isNotEmpty && analyticsData.hasLoadedOnce != true) {
+        await ref.read(analyticsProvider.notifier).loadData(user.uid);
+        analyticsData = ref.read(analyticsProvider);
+      }
       final optimisticByHousehold =
           ref.read(householdOptimisticExpensesProvider);
       final allOptimisticExpenses = optimisticByHousehold.values
@@ -487,10 +495,14 @@ class HomeHeaderSliver extends ConsumerWidget {
 
         if (item.value == 'personal') {
           if (viewMode.mode != ViewMode.personal) {
+            headerTrace
+                .mark('space-switch-start', const {'target': 'personal-space'});
             ref.read(viewModeProvider.notifier).setPersonalMode();
             await refreshHomeDataForSelectedAccount(
               refreshCurrenciesNow: true,
             );
+            headerTrace.mark(
+                'space-switch-complete', const {'target': 'personal-space'});
           }
           return;
         }
@@ -507,6 +519,10 @@ class HomeHeaderSliver extends ConsumerWidget {
         if (item.value is String &&
             (item.value as String).startsWith('household:')) {
           final householdId = (item.value as String).split(':').last;
+          headerTrace.mark('space-switch-start', {
+            'target': 'shared-or-private-space',
+            'spaceId': householdId,
+          });
           await ref
               .read(selectedHouseholdProvider.notifier)
               .selectHousehold(householdId);
@@ -514,11 +530,14 @@ class HomeHeaderSliver extends ConsumerWidget {
           if (kDebugMode) {
             debugPrint('🔄 Switching to household mode');
           }
-          ref.invalidate(userHouseholdsProvider(user.uid));
           ref.read(viewModeProvider.notifier).setMode(ViewMode.household);
           await refreshHomeDataForSelectedAccount(
             refreshCurrenciesNow: true,
           );
+          headerTrace.mark('space-switch-complete', {
+            'target': 'shared-or-private-space',
+            'spaceId': householdId,
+          });
         }
       },
     );
@@ -776,7 +795,30 @@ class HomeHeaderSliver extends ConsumerWidget {
                       tooltip: 'Reset tours',
                       onPressed: () async {
                         await SpotlightTourController.resetAllTours();
-                        debugPrint('🔁 Spotlight tours reset for debugging');
+                        final prefs = ref.read(sharedPreferencesProvider);
+                        final userId = ref.read(authProvider).uid;
+                        final trialBannerDismissedPrefix = userId.isEmpty
+                            ? 'trial_reminder_banner_dismissed_milestone:'
+                            : 'trial_reminder_banner_dismissed_milestone:$userId:';
+                        await prefs.remove(
+                          'home_connect_social_dismissed_steps_v1',
+                        );
+                        await prefs.remove(
+                            'accounts_month_swipe_hint_dismissed:$userId');
+                        await prefs.remove(
+                            'pockets_month_swipe_hint_dismissed:$userId');
+                        final trialBannerKeys = prefs
+                            .getKeys()
+                            .where((key) =>
+                                key.startsWith(trialBannerDismissedPrefix))
+                            .toList(growable: false);
+                        for (final key in trialBannerKeys) {
+                          await prefs.remove(key);
+                        }
+                        ref.invalidate(dismissedChecklistStepsProvider);
+                        debugPrint(
+                          '🔁 Spotlight tours + accounts/pockets swipe hints + trial reminder banner state reset for debugging',
+                        );
                       },
                     ),
                   ],

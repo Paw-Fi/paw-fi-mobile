@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -6,7 +7,6 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
-import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
 import 'package:intl/intl.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -14,9 +14,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_grouping.dart';
+import 'package:moneko/features/home/presentation/utils/transactions_page_derived_data.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
+import 'package:moneko/shared/widgets/auto_paginated_scroll.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
@@ -30,7 +31,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -38,6 +39,11 @@ import 'package:moneko/features/recurring/presentation/widgets/add_recurring_she
 import 'package:moneko/features/recurring/presentation/widgets/upcoming_recurring_banner.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_display_datetime.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 // ============================================================================
 // TRANSACTIONS PAGE
@@ -63,6 +69,7 @@ class TransactionsPage extends ConsumerStatefulWidget {
 
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String searchQuery = '';
+  String _debouncedSearchQuery = '';
   String selectedCategory = 'all';
   String selectedType = 'all'; // all | expense | income
   int currentChartIndex = 0;
@@ -79,12 +86,99 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _searchDebounce;
+
+  TransactionsFeedQuery? _activeFeedQuery;
+  _TransactionsDerivedCacheKey? _derivedCacheKey;
+  TransactionsPageDerivedData? _cachedDerivedData;
+
+  String _dateFilterPrefKey(String userId) =>
+      'transactions_date_filter:$userId';
+  String _dateFilterCustomStartPrefKey(String userId) =>
+      'transactions_date_filter_custom_start:$userId';
+  String _dateFilterCustomEndPrefKey(String userId) =>
+      'transactions_date_filter_custom_end:$userId';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDateFilterPreference();
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _chartPageController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadDateFilterPreference() async {
+    final userId = ref.read(authProvider).uid;
+    final prefs = ref.read(sharedPreferencesProvider);
+    final savedFilterName = prefs.getString(_dateFilterPrefKey(userId));
+    if (savedFilterName == null || savedFilterName.isEmpty) {
+      return;
+    }
+
+    DateRangeFilter? savedFilter;
+    for (final filter in DateRangeFilter.values) {
+      if (filter.name == savedFilterName) {
+        savedFilter = filter;
+        break;
+      }
+    }
+
+    if (savedFilter == null) {
+      return;
+    }
+
+    DateTime? customStart;
+    DateTime? customEnd;
+    if (savedFilter == DateRangeFilter.custom) {
+      final savedStartMillis =
+          prefs.getInt(_dateFilterCustomStartPrefKey(userId));
+      final savedEndMillis = prefs.getInt(_dateFilterCustomEndPrefKey(userId));
+      if (savedStartMillis != null && savedEndMillis != null) {
+        customStart = DateTime.fromMillisecondsSinceEpoch(savedStartMillis);
+        customEnd = DateTime.fromMillisecondsSinceEpoch(savedEndMillis);
+      } else {
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedDateFilter = savedFilter!;
+      _customStart = customStart;
+      _customEnd = customEnd;
+    });
+  }
+
+  Future<void> _persistDateFilterPreference() async {
+    final userId = ref.read(authProvider).uid;
+    final prefs = ref.read(sharedPreferencesProvider);
+
+    await prefs.setString(_dateFilterPrefKey(userId), _selectedDateFilter.name);
+
+    if (_selectedDateFilter == DateRangeFilter.custom &&
+        _customStart != null &&
+        _customEnd != null) {
+      await prefs.setInt(
+        _dateFilterCustomStartPrefKey(userId),
+        _customStart!.millisecondsSinceEpoch,
+      );
+      await prefs.setInt(
+        _dateFilterCustomEndPrefKey(userId),
+        _customEnd!.millisecondsSinceEpoch,
+      );
+      return;
+    }
+
+    await prefs.remove(_dateFilterCustomStartPrefKey(userId));
+    await prefs.remove(_dateFilterCustomEndPrefKey(userId));
   }
 
   List<ExpenseEntry> _baseExpenses = const [];
@@ -92,139 +186,108 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String? get _recurringScopeHouseholdId {
     final householdScope = ref.read(householdScopeProvider);
     return widget.householdId ??
-        (householdScope.activeAccountType == ActiveAccountType.personal
+        (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
             : householdScope.activeAccountHouseholdId);
   }
 
-  List<ExpenseEntry> get filteredExpenses {
-    final filterState = ref.watch(homeFilterProvider);
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-    final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-    final householdScope = ref.watch(householdScopeProvider);
-    final recurringHouseholdId = _recurringScopeHouseholdId;
-    // Exclude recurring templates from the transactions list.
-    // Also copy to avoid mutating the base list when sorting.
-    var expenses = _baseExpenses.where((e) => !e.isRecurring).toList();
-
-    // Merge projected recurring entries
-    final recurringState = ref.watch(
-      recurringTransactionsProvider(recurringHouseholdId),
-    );
-    recurringState.data.whenData((recurringTxs) {
-      if (recurringTxs.isNotEmpty) {
-        final projected = projectRecurringTransactionsAsExpenseEntries(
-          recurringTransactions: recurringTxs,
-          rangeStart: DateTime(2000),
-          rangeEnd: userNow,
-          selectedCurrency: filterState.selectedCurrency,
-        );
-        expenses = [...expenses, ...projected];
-      }
+  void _onSearchChanged(String value) {
+    setState(() {
+      searchQuery = value;
     });
 
-    // Filter by the currently selected account (personal vs private space vs shared space)
-    // unless this page was explicitly opened for a specific householdId.
-    if (widget.householdId == null) {
-      expenses = expenses.where((e) {
-        final hid = e.householdId;
-        switch (householdScope.activeAccountType) {
-          case ActiveAccountType.personal:
-            return hid == null || hid.isEmpty;
-          case ActiveAccountType.portfolio:
-            final selectedId = householdScope.activeAccountHouseholdId;
-            if (selectedId == null || selectedId.isEmpty) return false;
-            return hid == selectedId;
-          case ActiveAccountType.household:
-            final selectedId = householdScope.selectedHouseholdId;
-            if (selectedId == null || selectedId.isEmpty) return false;
-            return hid == selectedId;
-        }
-      }).toList();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      setState(() {
+        _debouncedSearchQuery = value;
+      });
+    });
+  }
+
+  Future<void> _loadMoreTransactions() async {
+    final query = _activeFeedQuery;
+    if (query == null) {
+      return;
     }
 
-    // Filter by currency if selected
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    if (selectedCurrency != null) {
-      expenses = expenses.where((e) {
-        return (e.currency?.toUpperCase() == selectedCurrency);
-      }).toList();
+    await ref.read(transactionsFeedProvider(query).notifier).loadMore();
+  }
+
+  TransactionsPageDerivedData _resolveDerivedData({
+    required HouseholdScope householdScope,
+    required String? selectedCurrency,
+    required DateTime userNow,
+    required List<ExpenseEntry> projectedRecurringExpenses,
+  }) {
+    final dayAnchor = DateTime(userNow.year, userNow.month, userNow.day);
+    final filterCacheKey = _TransactionsFilterCacheKey(
+      searchQuery: _debouncedSearchQuery,
+      selectedCategory: selectedCategory,
+      selectedType: selectedType,
+      selectedCurrency: selectedCurrency?.toUpperCase(),
+      selectedDateFilter: _selectedDateFilter,
+      customStart: _customStart,
+      customEnd: _customEnd,
+      pinnedHouseholdId: widget.householdId,
+      activeAccountType: householdScope.activeAccountType,
+      activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
+      selectedHouseholdId: householdScope.selectedHouseholdId,
+      dayAnchor: dayAnchor,
+    );
+    final derivedCacheKey = _TransactionsDerivedCacheKey(
+      baseExpensesSignature: _expenseEntriesSignature(_baseExpenses),
+      projectedRecurringExpensesSignature:
+          _expenseEntriesSignature(projectedRecurringExpenses),
+      filterCacheKey: filterCacheKey,
+    );
+
+    if (_cachedDerivedData != null && _derivedCacheKey == derivedCacheKey) {
+      return _cachedDerivedData!;
     }
 
-    // Filter by search query
-    if (searchQuery.isNotEmpty) {
-      expenses = expenses.where((e) {
-        final category = (e.category ?? 'uncategorized').toLowerCase();
-        final amount = (e.amount).toString();
-        final rawText = (e.rawText ?? '').toLowerCase();
-        final query = searchQuery.toLowerCase();
-
-        return category.contains(query) ||
-            amount.contains(query) ||
-            rawText.contains(query);
-      }).toList();
-    }
-
-    // Filter by category
-    if (selectedCategory != 'all') {
-      expenses = expenses.where((e) {
-        final cat = (e.category ?? 'uncategorized').toLowerCase();
-        return cat == selectedCategory.toLowerCase();
-      }).toList();
-    }
-
-    // Filter by type
-    if (selectedType != 'all') {
-      expenses = expenses.where((e) {
-        final t = (e.type ?? 'expense').toLowerCase();
-        return t == selectedType;
-      }).toList();
-    }
-
-    // Filter by date range
-    if (_selectedDateFilter != DateRangeFilter.allTime) {
-      final range = getDateRangeFromFilter(
-        _selectedDateFilter,
-        _customStart,
-        _customEnd,
+    final derivedData = deriveTransactionsPageData(
+      TransactionsPageFilterInput(
+        baseExpenses: _baseExpenses,
+        projectedRecurringExpenses: projectedRecurringExpenses,
+        searchQuery: _debouncedSearchQuery,
+        selectedCategory: selectedCategory,
+        selectedType: selectedType,
+        selectedCurrency: selectedCurrency,
+        selectedDateFilter: _selectedDateFilter,
+        customStart: _customStart,
+        customEnd: _customEnd,
         now: userNow,
-      );
-      final from = range['from']!;
-      final to = range['to']!;
-      final toEndOfDay = DateTime(to.year, to.month, to.day, 23, 59, 59);
-      expenses = expenses.where((e) {
-        final d = DateTime(e.date.year, e.date.month, e.date.day);
-        return !d.isBefore(from) && !d.isAfter(toEndOfDay);
-      }).toList();
-    }
+        pinnedHouseholdId: widget.householdId,
+        activeAccountType: householdScope.activeAccountType,
+        activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
+        selectedHouseholdId: householdScope.selectedHouseholdId,
+      ),
+    );
 
-    // Sort by date, newest first
-    expenses.sort((a, b) => b.date.compareTo(a.date));
+    _derivedCacheKey = derivedCacheKey;
+    _cachedDerivedData = derivedData;
 
-    return expenses;
+    return derivedData;
   }
 
-  List<String> get categories {
-    final cats = _baseExpenses
-        .where((e) => !e.isRecurring)
-        .map((e) => (e.category ?? 'uncategorized').toLowerCase())
-        .toSet()
-        .toList()
-      ..sort();
-    return ['all', ...cats];
-  }
-
-  String _formatLocalizedCurrency(
-    BuildContext context,
-    double amount,
-    String? currency,
-  ) {
-    final code = currency ?? 'USD';
-    final normalized = double.parse(formatAmount(amount));
-    final symbol = resolveCurrencySymbol(code);
-    final localized = formatLocalizedNumber(context, normalized);
-    return '$symbol$localized';
+  int _expenseEntriesSignature(List<ExpenseEntry> expenses) {
+    return Object.hashAll(
+      expenses.map(
+        (expense) => Object.hash(
+          expense.id,
+          expense.date,
+          expense.amountCents,
+          expense.householdId,
+          expense.currency,
+          expense.category,
+          expense.rawText,
+          expense.type,
+          expense.isRecurring,
+          expense.walletId,
+        ),
+      ),
+    );
   }
 
   String _selectedPeriodLabel(BuildContext context) {
@@ -265,31 +328,53 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     AppToast.error(rootContext, message);
   }
 
-  RecurringTransaction? _findRecurringTransactionForExpense(
-    ExpenseEntry expense,
-  ) {
-    final recurringId = extractRecurringTransactionIdFromProjectedExpenseId(
-      expense.id,
+  Future<void> _refreshActiveFeed() async {
+    final query = _activeFeedQuery;
+    if (query == null) {
+      return;
+    }
+    await ref.read(transactionsFeedProvider(query).notifier).refresh();
+  }
+
+  Future<void> _exportTransactions(
+    TransactionsFeedQuery query, {
+    required List<ExpenseEntry> projectedRecurringExpenses,
+  }) async {
+    final householdScope = ref.read(householdScopeProvider);
+    final allExpenses =
+        await ref.read(transactionsFeedServiceProvider).fetchAllPages(
+              query,
+            );
+    final exportData = deriveTransactionsPageData(
+      TransactionsPageFilterInput(
+        baseExpenses: allExpenses,
+        projectedRecurringExpenses: projectedRecurringExpenses,
+        searchQuery: '',
+        selectedCategory: 'all',
+        selectedType: 'all',
+        selectedCurrency: null,
+        selectedDateFilter: DateRangeFilter.allTime,
+        customStart: null,
+        customEnd: null,
+        now: DateTime.now(),
+        pinnedHouseholdId: widget.householdId,
+        activeAccountType: householdScope.activeAccountType,
+        activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
+        selectedHouseholdId: householdScope.selectedHouseholdId,
+      ),
     );
-    if (recurringId == null) {
-      return null;
+
+    if (!mounted) {
+      return;
     }
 
-    final transactions = ref
-        .read(recurringTransactionsProvider(_recurringScopeHouseholdId))
-        .data
-        .valueOrNull;
-    if (transactions == null) {
-      return null;
-    }
-
-    for (final transaction in transactions) {
-      if (transaction.id == recurringId) {
-        return transaction;
-      }
-    }
-
-    return null;
+    await exportTransactionsAsExcelSheet(
+      context,
+      exportData.filteredExpenses,
+      fileNamePrefix: widget.householdId != null
+          ? 'household_transactions'
+          : 'transactions',
+    );
   }
 
   void _openRecurringTransactionEditor(RecurringTransaction transaction) {
@@ -337,95 +422,144 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final analyticsData = ref.watch(analyticsProvider);
+    final analyticsContact =
+        ref.watch(analyticsProvider.select((state) => state.contact));
     final householdScope = ref.watch(householdScopeProvider);
+    final selectedCurrency = ref.watch(
+      homeFilterProvider.select((state) => state.selectedCurrency),
+    );
+    final userCategoryLists = ref.watch(userCategoryListsProvider).valueOrNull;
+    final userNow = effectiveNow(
+      preferredTimezone: analyticsContact?.preferredTimezone,
+    );
+    final recurringTransactions = ref
+            .watch(recurringTransactionsProvider(_recurringScopeHouseholdId))
+            .data
+            .valueOrNull ??
+        const <RecurringTransaction>[];
+    final projectedRecurringExpenses = recurringTransactions.isEmpty
+        ? const <ExpenseEntry>[]
+        : projectRecurringTransactionsAsExpenseEntries(
+            recurringTransactions: recurringTransactions,
+            rangeStart: DateTime(2000),
+            rangeEnd: userNow,
+            selectedCurrency: selectedCurrency,
+          );
+    final recurringTransactionsById = {
+      for (final transaction in recurringTransactions)
+        transaction.id: transaction,
+    };
+    final currentUserId = ref.watch(authProvider.select((state) => state.uid));
+    final scopedAccounts =
+        ref.watch(scopedWalletsProvider).valueOrNull ?? const <WalletEntity>[];
+    final accountLabelsById = {
+      for (final account in scopedAccounts)
+        if (account.id.isNotEmpty) account.id: account.name,
+    };
 
-    final activeHouseholdId =
-        householdScope.activeAccountType == ActiveAccountType.personal
+    final effectiveHouseholdId = widget.householdId ??
+        (householdScope.activeAccountType == ActiveWalletType.personal
             ? null
-            : householdScope.activeAccountHouseholdId;
-    final activeScopeOptimisticExpenses = ref.watch(
-      householdOptimisticExpensesProvider.select(
-        (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
-            ? const <ExpenseEntry>[]
-            : state[activeHouseholdId] ?? const <ExpenseEntry>[],
+            : householdScope.activeAccountHouseholdId);
+    final range = _selectedDateFilter == DateRangeFilter.allTime
+        ? null
+        : getDateRangeFromFilter(
+            _selectedDateFilter,
+            _customStart,
+            _customEnd,
+            now: userNow,
+          );
+    final feedQuery = TransactionsFeedQuery(
+      userId: currentUserId,
+      householdId: effectiveHouseholdId,
+      selectedCurrency: selectedCurrency,
+      selectedCategory: selectedCategory == 'all' ? null : selectedCategory,
+      selectedType: selectedType,
+      searchQuery: _debouncedSearchQuery,
+      startDate: range?['from'],
+      endDate: range?['to'],
+    );
+    _activeFeedQuery = feedQuery;
+
+    final feedState = ref.watch(transactionsFeedProvider(feedQuery));
+    _baseExpenses = feedState.items;
+
+    final projectedOnlyDerivedData = deriveTransactionsPageData(
+      TransactionsPageFilterInput(
+        baseExpenses: const <ExpenseEntry>[],
+        projectedRecurringExpenses: projectedRecurringExpenses,
+        searchQuery: _debouncedSearchQuery,
+        selectedCategory: selectedCategory,
+        selectedType: selectedType,
+        selectedCurrency: selectedCurrency,
+        selectedDateFilter: _selectedDateFilter,
+        customStart: _customStart,
+        customEnd: _customEnd,
+        now: userNow,
+        pinnedHouseholdId: widget.householdId,
+        activeAccountType: householdScope.activeAccountType,
+        activeAccountHouseholdId: householdScope.activeAccountHouseholdId,
+        selectedHouseholdId: householdScope.selectedHouseholdId,
       ),
     );
 
-    // Resolve base expenses source (household-specific or global analytics)
-    if (widget.householdId != null) {
-      final optimisticHouseholdExpenses = ref.watch(
-        householdOptimisticExpensesProvider.select(
-          (state) => state[widget.householdId!] ?? const <ExpenseEntry>[],
-        ),
-      );
-      final expensesAsync = ref.watch(householdExpensesProvider(
-        HouseholdExpensesParams(householdId: widget.householdId!),
-      ));
-      return expensesAsync.when(
-        loading: () => Scaffold(
-          backgroundColor: colorScheme.appBackground,
-          body: const Center(child: CircularProgressIndicator()),
-        ),
-        error: (e, st) => Scaffold(
-          backgroundColor: colorScheme.appBackground,
-          body: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline,
-                      size: 48, color: colorScheme.destructive),
-                  const SizedBox(height: 12),
-                  Text(context.l10n.failedToLoadHouseholdTransactions,
-                      style: TextStyle(color: colorScheme.destructive)),
-                ],
-              ),
-            ),
-          ),
-        ),
-        data: (list) {
-          _baseExpenses = optimisticHouseholdExpenses.isEmpty
-              ? list
-              : mergeHouseholdExpenses(list, optimisticHouseholdExpenses);
-          return _buildMainScaffold(colorScheme, null);
-        },
-      );
-    } else {
-      _baseExpenses = activeScopeOptimisticExpenses.isEmpty
-          ? analyticsData.allExpenses
-          : mergeHouseholdExpenses(
-              analyticsData.allExpenses,
-              activeScopeOptimisticExpenses,
-            );
-    }
+    final derivedData = _resolveDerivedData(
+      householdScope: householdScope,
+      selectedCurrency: selectedCurrency,
+      userNow: userNow,
+      projectedRecurringExpenses: projectedRecurringExpenses,
+    );
 
-    return _buildMainScaffold(colorScheme, analyticsData.contact);
+    final chartSummary = feedState.summary
+        .addingExpenses(projectedOnlyDerivedData.filteredExpenses);
+
+    final availableCategories = _resolveAvailableCategories(userCategoryLists);
+
+    return _buildMainScaffold(
+      colorScheme: colorScheme,
+      contact: analyticsContact,
+      feedQuery: feedQuery,
+      feedState: feedState,
+      derivedData: derivedData,
+      chartSummary: chartSummary,
+      availableCategories: availableCategories,
+      currentUserId: currentUserId,
+      accountLabelsById: accountLabelsById,
+      recurringTransactionsById: recurringTransactionsById,
+    );
   }
 
-  AdaptiveScaffold _buildMainScaffold(
-      ColorScheme colorScheme, UserContact? contact) {
-    final expensesToExport = filteredExpenses;
+  List<String> _resolveAvailableCategories(UserCategoryLists? lists) {
+    final expenseCategories =
+        lists?.expenseCategories ?? getExpenseCategories();
+    final incomeCategories = lists?.incomeCategories ?? getIncomeCategories();
 
-    final monthGroups = groupTransactionsByMonth(expensesToExport);
-    final listItems = <_TransactionListItem>[];
-    for (final month in monthGroups) {
-      listItems.add(_TransactionListItem.monthHeader(month));
-      final dayGroups = groupTransactionsByDay(month.expenses);
-      for (final day in dayGroups) {
-        listItems.add(_TransactionListItem.dayHeader(day));
-        for (var i = 0; i < day.expenses.length; i++) {
-          listItems.add(
-            _TransactionListItem.entry(
-              expense: day.expenses[i],
-              isFirst: i == 0,
-              isLast: i == day.expenses.length - 1,
-            ),
-          );
-        }
-      }
-    }
+    final merged = switch (selectedType) {
+      'expense' => expenseCategories,
+      'income' => incomeCategories,
+      _ => {...expenseCategories, ...incomeCategories}.toList()..sort(),
+    };
+
+    return ['all', ...merged.where((category) => category != 'all')];
+  }
+
+  Widget _buildMainScaffold({
+    required ColorScheme colorScheme,
+    required UserContact? contact,
+    required TransactionsFeedQuery feedQuery,
+    required TransactionsFeedState feedState,
+    required TransactionsPageDerivedData derivedData,
+    required TransactionsFeedSummary chartSummary,
+    required List<String> availableCategories,
+    required String currentUserId,
+    required Map<String, String> accountLabelsById,
+    required Map<String, RecurringTransaction> recurringTransactionsById,
+  }) {
+    final expensesToExport = derivedData.filteredExpenses;
+    final visibleListItems = buildVisibleTransactionRenderItems(
+      monthGroups: derivedData.monthGroups,
+      visibleExpenseCount: derivedData.filteredExpenses.length,
+    );
 
     // Prepare Filter Menu Items
     final filterItems = <AdaptivePopupMenuItem>[
@@ -445,223 +579,242 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           value: 'type_$type',
         );
       }),
-
-      // Category Option
-      AdaptivePopupMenuItem(
-        label: selectedCategory == 'all'
-            ? '${context.l10n.category}: ${context.l10n.all}'
-            : '${context.l10n.category}: ${getCategoryTranslation(context, selectedCategory)}',
-        icon: PlatformInfo.isIOS26OrHigher() ? 'tag' : Icons.category_outlined,
-        value: 'category_filter',
-      ),
     ];
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       // Remove default AppBar to use SliverAppBar for custom actions logic
       // appBar: null,
       body: Material(
         color: colorScheme.appleGroupedBackground,
         child: RefreshIndicator(
           onRefresh: () async {
-            if (widget.householdId != null) {
-              ref.invalidate(householdExpensesProvider);
-            } else {
-              ref
-                  .read(analyticsProvider.notifier)
-                  .refresh(ref.read(authProvider).uid);
-            }
-            await Future.delayed(const Duration(milliseconds: 500));
+            await ref
+                .read(transactionsFeedProvider(feedQuery).notifier)
+                .refresh();
           },
-          child: CustomScrollView(
-            key: const PageStorageKey('transactions_scroll'),
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                floating: true,
-                snap: true,
-                backgroundColor: colorScheme.appleGroupedBackground,
-                surfaceTintColor: Colors.transparent,
-                title: Text(
-                  _isSelectionMode
-                      ? '${_selectedIds.length} Selected'
-                      : context.l10n.transactions,
-                  style: TextStyle(
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.bold),
-                ),
-                iconTheme: IconThemeData(color: colorScheme.foreground),
-                actions: [
-                  if (!_isSelectionMode) ...[
-                    if (expensesToExport.isNotEmpty)
+          child: AutoPaginatedScroll(
+            hasMore: feedState.hasMore,
+            isLoading: feedState.isLoading,
+            isLoadingMore: feedState.isLoadingMore,
+            onLoadMore: _loadMoreTransactions,
+            child: CustomScrollView(
+              controller: _scrollController,
+              key: const PageStorageKey('transactions_scroll'),
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  floating: true,
+                  snap: true,
+                  backgroundColor: colorScheme.appleGroupedBackground,
+                  surfaceTintColor: Colors.transparent,
+                  title: Text(
+                    _isSelectionMode
+                        ? '${_selectedIds.length} Selected'
+                        : context.l10n.transactions,
+                    style: TextStyle(
+                        color: colorScheme.foreground,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  iconTheme: IconThemeData(color: colorScheme.foreground),
+                  actions: [
+                    if (!_isSelectionMode) ...[
+                      if (expensesToExport.isNotEmpty)
+                        IconButton(
+                          icon: Icon(Icons.checklist_rounded,
+                              color: colorScheme.foreground),
+                          onPressed: () {
+                            setState(() {
+                              _isSelectionMode = true;
+                              _selectedIds.clear();
+                            });
+                          },
+                        ),
+                      AdaptivePopupMenuButton.widget(
+                        items: filterItems,
+                        onSelected: (index, item) async {
+                          final value = item.value as String;
+                          if (value.startsWith('type_')) {
+                            setState(() => selectedType = value.substring(5));
+                          } else if (value == 'category_filter') {
+                            _showFilterSheet(
+                              context,
+                              colorScheme,
+                              availableCategories,
+                            );
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 0),
+                          child: Icon(Icons.filter_list_rounded,
+                              color: colorScheme.foreground),
+                        ),
+                      ),
                       IconButton(
-                        icon: Icon(Icons.checklist_rounded,
+                        icon: Icon(Icons.file_download_rounded,
                             color: colorScheme.foreground),
+                        onPressed: () => _exportTransactions(
+                          feedQuery,
+                          projectedRecurringExpenses: derivedData
+                              .filteredExpenses
+                              .where((expense) =>
+                                  extractRecurringTransactionIdFromProjectedExpenseId(
+                                    expense.id,
+                                  ) !=
+                                  null)
+                              .toList(),
+                        ),
+                      ),
+                    ] else ...[
+                      IconButton(
+                        icon: Icon(Icons.close, color: colorScheme.foreground),
                         onPressed: () {
                           setState(() {
-                            _isSelectionMode = true;
+                            _isSelectionMode = false;
                             _selectedIds.clear();
                           });
                         },
                       ),
-                    AdaptivePopupMenuButton.widget(
-                      items: filterItems,
-                      onSelected: (index, item) async {
-                        final value = item.value as String;
-                        if (value.startsWith('type_')) {
-                          setState(() => selectedType = value.substring(5));
-                        } else if (value == 'category_filter') {
-                          _showFilterSheet(context, colorScheme);
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 0),
-                        child: Icon(Icons.filter_list_rounded,
-                            color: colorScheme.foreground),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.file_download_rounded,
-                          color: colorScheme.foreground),
-                      onPressed: () => exportTransactionsAsExcelSheet(
-                        context,
-                        expensesToExport,
-                        fileNamePrefix: widget.householdId != null
-                            ? 'household_transactions'
-                            : 'transactions',
-                      ),
-                    ),
-                  ] else ...[
-                    IconButton(
-                      icon: Icon(Icons.close, color: colorScheme.foreground),
-                      onPressed: () {
-                        setState(() {
-                          _isSelectionMode = false;
-                          _selectedIds.clear();
-                        });
-                      },
-                    ),
-                  ]
-                ],
-              ),
-
-              _buildUpcomingRecurringBannerSliver(colorScheme),
-
-              // Search Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: colorScheme.card,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: Theme.of(context).brightness == Brightness.dark
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              )
-                            ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) => setState(() => searchQuery = value),
-                      style: TextStyle(
-                          color: colorScheme.foreground, fontSize: 17),
-                      decoration: InputDecoration(
-                        hintText: context.l10n.search,
-                        hintStyle: TextStyle(
-                            color: colorScheme.mutedForeground, fontSize: 17),
-                        prefixIcon: Icon(Icons.search,
-                            color: colorScheme.mutedForeground, size: 22),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                      ),
-                    ),
-                  ),
+                    ]
+                  ],
                 ),
-              ),
 
-              // Date Filter Chips
-              SliverToBoxAdapter(
-                child: _buildDateFilterChips(colorScheme),
-              ),
+                _buildUpcomingRecurringBannerSliver(colorScheme),
 
-              // Chart Display
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: _buildChart(
-                    colorScheme,
-                    contact,
-                    expensesToExport,
-                  ),
-                ),
-              ),
-
-              // Transactions List Groups
-              listItems.isEmpty
-                  ? SliverToBoxAdapter(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(48.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.receipt_long_outlined,
-                                size: 64,
-                                color: colorScheme.mutedForeground,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                context.l10n.noTransactionsFound,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.mutedForeground,
-                                ),
-                              ),
-                            ],
-                          ),
+                // Search Bar
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: colorScheme.card,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: Theme.of(context).brightness ==
+                                Brightness.dark
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        style: TextStyle(
+                            color: colorScheme.foreground, fontSize: 17),
+                        decoration: InputDecoration(
+                          hintText: context.l10n.search,
+                          hintStyle: TextStyle(
+                              color: colorScheme.mutedForeground, fontSize: 17),
+                          prefixIcon: Icon(Icons.search,
+                              color: colorScheme.mutedForeground, size: 22),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
                         ),
                       ),
-                    )
-                  : SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final item = listItems[index];
-                          if (item.isMonthHeader) {
-                            return _buildMonthHeader(
-                              context,
-                              item.monthGroup!,
-                              colorScheme,
-                            );
-                          }
-                          if (item.isDayHeader) {
-                            return _buildDayHeader(
-                              context,
-                              item.dayGroup!,
-                              colorScheme,
-                            );
-                          }
-                          return _buildTransactionRow(
-                            context,
-                            item.expense!,
-                            contact,
-                            colorScheme,
-                            isFirst: item.isFirst,
-                            isLast: item.isLast,
-                          );
-                        },
-                        childCount: listItems.length,
-                      ),
                     ),
+                  ),
+                ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 80)),
-            ],
+                // Date Filter Chips
+                SliverToBoxAdapter(
+                  child: _buildDateFilterChips(colorScheme),
+                ),
+
+                // Chart Display
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildChart(
+                      colorScheme,
+                      chartSummary,
+                    ),
+                  ),
+                ),
+
+                // Transactions List Groups
+                expensesToExport.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(48.0),
+                            child: feedState.isLoading
+                                ? const CircularProgressIndicator()
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.receipt_long_outlined,
+                                        size: 64,
+                                        color: colorScheme.mutedForeground,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        feedState.error == null
+                                            ? context.l10n.noTransactionsFound
+                                            : context.l10n
+                                                .failedToLoadHouseholdTransactions,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: feedState.error == null
+                                              ? colorScheme.mutedForeground
+                                              : colorScheme.destructive,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      )
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = visibleListItems[index];
+                            if (item.isMonthHeader) {
+                              return _buildMonthHeader(
+                                context,
+                                item.monthGroup!,
+                                colorScheme,
+                              );
+                            }
+                            if (item.isDayHeader) {
+                              return _buildDayHeader(
+                                context,
+                                item.dayGroup!,
+                                colorScheme,
+                                preferredTimezone: contact?.preferredTimezone,
+                              );
+                            }
+
+                            return _buildTransactionRow(
+                              context,
+                              item.expense!,
+                              contact,
+                              colorScheme,
+                              currentUserId: currentUserId,
+                              accountLabelsById: accountLabelsById,
+                              recurringTransactionsById:
+                                  recurringTransactionsById,
+                              isFirst: item.isFirst,
+                              isLast: item.isLast,
+                            );
+                          },
+                          childCount: visibleListItems.length,
+                        ),
+                      ),
+
+                PaginatedLoadMoreSliverIndicator(
+                  show: feedState.isLoadingMore,
+                ),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 80)),
+              ],
+            ),
           ),
         ),
       ),
@@ -683,7 +836,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   : '${context.l10n.delete} (${_selectedIds.length})'),
             )
           : null,
-    );
+    ));
   }
 
   Widget _buildMonthHeader(
@@ -694,11 +847,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final locale = Localizations.localeOf(context).toString();
     final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
 
-    final filterState = ref.watch(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final selectedCurrency =
+        ref.read(homeFilterProvider).selectedCurrency?.toUpperCase();
     final currencies = group.expenses
-        .map((e) => e.currency?.toUpperCase())
-        .where((c) => c != null && c.isNotEmpty)
+        .map((expense) => expense.currency?.toUpperCase())
+        .where((currency) => currency != null && currency.isNotEmpty)
         .cast<String>()
         .toSet();
 
@@ -748,32 +901,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildDayHeader(
     BuildContext context,
     DayTransactionGroup group,
-    ColorScheme colorScheme,
-  ) {
-    final preferredTimezone = ref
-        .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+    ColorScheme colorScheme, {
+    required String? preferredTimezone,
+  }) {
     final now = effectiveNow(preferredTimezone: preferredTimezone);
-    final date = group.date;
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final date = DateTime(group.date.year, group.date.month, group.date.day);
     String dateLabel;
 
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
+    if (date == today) {
       dateLabel = context.l10n.today;
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
+    } else if (date == yesterday) {
       dateLabel = context.l10n.yesterday;
     } else {
       final locale = Localizations.localeOf(context).toString();
       dateLabel = DateFormat('MMM d', locale).format(date);
     }
 
-    final filterState = ref.watch(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
+    final selectedCurrency =
+        ref.read(homeFilterProvider).selectedCurrency?.toUpperCase();
     final currencies = group.expenses
-        .map((e) => e.currency?.toUpperCase())
-        .where((c) => c != null && c.isNotEmpty)
+        .map((expense) => expense.currency?.toUpperCase())
+        .where((currency) => currency != null && currency.isNotEmpty)
         .cast<String>()
         .toSet();
 
@@ -831,6 +981,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     ExpenseEntry item,
     UserContact? contact,
     ColorScheme colorScheme, {
+    required String currentUserId,
+    required Map<String, String> accountLabelsById,
+    required Map<String, RecurringTransaction> recurringTransactionsById,
     required bool isFirst,
     required bool isLast,
   }) {
@@ -862,6 +1015,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         context,
         item,
         contact,
+        currentUserId: currentUserId,
+        accountLabelsById: accountLabelsById,
+        recurringTransactionsById: recurringTransactionsById,
         isLast: isLast,
       ),
     );
@@ -912,9 +1068,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       failCount = _selectedIds.length;
     }
 
-    if (widget.householdId != null) {
-      ref.invalidate(householdExpensesProvider);
-    } else {
+    await _refreshActiveFeed();
+
+    if (widget.householdId == null) {
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
     }
 
@@ -962,16 +1118,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         'expenseIds': expense.id,
       });
 
-      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+      if (rootNavigator.canPop()) rootNavigator.pop();
 
       if (res.data != null && (res.data['success'] == true)) {
-        // Refresh data
-        if (widget.householdId != null) {
-          ref
-              .read(cacheInvalidatorProvider)
-              .invalidateHouseholdData(widget.householdId!);
-          ref.invalidate(householdExpensesProvider);
-        } else {
+        await _refreshActiveFeed();
+        if (widget.householdId == null) {
           await ref.read(analyticsProvider.notifier).loadData(user.uid);
         }
 
@@ -981,7 +1132,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         _showRootErrorToast(message);
       }
     } catch (e) {
-      if (rootNavigator.canPop()) rootNavigator.pop(); // Close blocking dialog
+      if (rootNavigator.canPop()) rootNavigator.pop();
       _showRootErrorToast(ErrorHandler.getUserFriendlyMessage(e));
     }
   }
@@ -994,117 +1145,108 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       DateRangeFilter.thisWeek,
       DateRangeFilter.lastWeek,
       DateRangeFilter.thisMonth,
+      DateRangeFilter.lastMonth,
+      DateRangeFilter.last3Months,
       DateRangeFilter.last30Days,
       DateRangeFilter.thisYear,
       DateRangeFilter.allTime,
       DateRangeFilter.custom,
     ];
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = _selectedDateFilter == filter;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: SizedBox(
+        height: 35,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: filters.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final filter = filters[index];
+            final isSelected = _selectedDateFilter == filter;
 
-          String label;
-          if (filter == DateRangeFilter.custom &&
-              _customStart != null &&
-              _customEnd != null &&
-              isSelected) {
-            final fmt = DateFormat('MMM d');
-            label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
-          } else {
-            label = filter.getLabel(context);
-          }
+            String label;
+            if (filter == DateRangeFilter.custom &&
+                _customStart != null &&
+                _customEnd != null &&
+                isSelected) {
+              final fmt = DateFormat('MMM d');
+              label =
+                  '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+            } else {
+              label = filter.getLabel(context);
+            }
 
-          return GestureDetector(
-            onTap: () async {
-              if (filter == DateRangeFilter.custom) {
-                final result = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: effectiveNow(
-                    preferredTimezone:
-                        ref.read(analyticsProvider).contact?.preferredTimezone,
-                  ),
-                  initialDateRange: _customStart != null && _customEnd != null
-                      ? DateTimeRange(start: _customStart!, end: _customEnd!)
-                      : null,
-                );
-                if (result != null) {
+            return GestureDetector(
+              onTap: () async {
+                if (filter == DateRangeFilter.custom) {
+                  final result = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2000),
+                    lastDate: effectiveNow(
+                      preferredTimezone: ref
+                          .read(analyticsProvider)
+                          .contact
+                          ?.preferredTimezone,
+                    ),
+                    initialDateRange: _customStart != null && _customEnd != null
+                        ? DateTimeRange(start: _customStart!, end: _customEnd!)
+                        : null,
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _selectedDateFilter = DateRangeFilter.custom;
+                      _customStart = result.start;
+                      _customEnd = result.end;
+                    });
+                    unawaited(_persistDateFilterPreference());
+                  }
+                } else {
                   setState(() {
-                    _selectedDateFilter = DateRangeFilter.custom;
-                    _customStart = result.start;
-                    _customEnd = result.end;
+                    _selectedDateFilter = filter;
+                    _customStart = null;
+                    _customEnd = null;
                   });
+                  unawaited(_persistDateFilterPreference());
                 }
-              } else {
-                setState(() {
-                  _selectedDateFilter = filter;
-                  _customStart = null;
-                  _customEnd = null;
-                });
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? colorScheme.primary : colorScheme.card,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.border.withValues(alpha: 0.4),
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? colorScheme.primary : colorScheme.card,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.border.withValues(alpha: 0.4),
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected
+                        ? colorScheme.primaryForeground
+                        : colorScheme.foreground,
+                  ),
                 ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected
-                      ? colorScheme.primaryForeground
-                      : colorScheme.foreground,
-                ),
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildChart(
     ColorScheme colorScheme,
-    UserContact? contact,
-    List<ExpenseEntry> expenses,
+    TransactionsFeedSummary summary,
   ) {
-    final spendOnly = expenses
-        .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
-        .toList();
-    final totalSpent = spendOnly.fold(0.0, (sum, e) => sum + e.amount.abs());
-    final filterState = ref.watch(homeFilterProvider);
-    final periodLabel = _selectedPeriodLabel(context);
-    final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
-    final currencies = spendOnly
-        .map((e) => e.currency?.toUpperCase())
-        .where((c) => c != null && c.isNotEmpty)
-        .cast<String>()
-        .toSet();
-
-    final displayText = selectedCurrency == null && currencies.length > 1
-        ? context.l10n.multipleCurrencies
-        : _formatLocalizedCurrency(
-            context,
-            totalSpent,
-            filterState.selectedCurrency,
-          );
+    const pageHeights = [420.0, 280.0, 280.0];
 
     return Container(
       decoration: BoxDecoration(
@@ -1125,58 +1267,37 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            context.l10n.spent,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            displayText,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.foreground,
-            ),
-          ),
-          Text(
-            periodLabel,
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: 20),
           _ExpandablePageView(
             controller: _chartPageController,
             currentPage: currentChartIndex,
+            pageHeights: pageHeights,
+            itemCount: 3,
             onPageChanged: (index) {
               setState(() {
                 currentChartIndex = index;
               });
             },
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _buildPieChart(colorScheme, expenses),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: AspectRatio(
-                  aspectRatio: 1.1,
-                  child: _buildLineChart(colorScheme, expenses),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: AspectRatio(
-                  aspectRatio: 1.1,
-                  child: _buildBarChart(colorScheme, expenses),
-                ),
-              ),
-            ],
+            itemBuilder: (context, index) {
+              switch (index) {
+                case 0:
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildPieChart(colorScheme, summary),
+                  );
+                case 1:
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildLineChart(
+                        colorScheme, summary.yearlyPeriodTotals),
+                  );
+                default:
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child:
+                        _buildBarChart(colorScheme, summary.yearlyPeriodTotals),
+                  );
+              }
+            },
           ),
           const SizedBox(height: 16),
           // Carousel indicators
@@ -1212,20 +1333,31 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildPieChart(
     ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
+    TransactionsFeedSummary summary,
   ) {
+    final categorySummaries = summary.categorySummaries
+        .map(
+          (category) => CategorySummary(
+            category: category.category,
+            amount: category.amount,
+            transactionCount: category.transactionCount,
+            color: getCategoryColor(category.category),
+          ),
+        )
+        .toList();
+
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: CategoryPieChart(
+      child: TransactionsPieChart(
         colorScheme: colorScheme,
-        expenses: expenses,
+        expenses: const <ExpenseEntry>[],
         selectedCurrency: ref.watch(homeFilterProvider).selectedCurrency,
-        chartSize: 220,
-        centerSpaceRadius: 48,
-        sectionRadius: 62,
-        touchedSectionRadius: 68,
-        legendAlignment: WrapAlignment.center,
-        legendPadding: const EdgeInsets.only(top: 16),
+        periodLabel: _selectedPeriodLabel(context),
+        categorySummariesOverride: categorySummaries,
+        totalSpentOverride: summary.expenseTotal,
+        initialDateFilter: _selectedDateFilter,
+        initialStartDate: _customStart,
+        initialEndDate: _customEnd,
       ),
     );
   }
@@ -1267,10 +1399,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildLineChart(
     ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
+    Map<DateTime, double> periodTotals,
   ) {
     const chartIntervalType = 'yearly';
-    final periodTotals = groupExpensesByInterval(expenses, chartIntervalType);
     final sortedDates = periodTotals.keys.toList()..sort();
     if (sortedDates.isEmpty) {
       return Center(
@@ -1391,10 +1522,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   Widget _buildBarChart(
     ColorScheme colorScheme,
-    List<ExpenseEntry> expenses,
+    Map<DateTime, double> periodTotals,
   ) {
     const chartIntervalType = 'yearly';
-    final barData = groupExpensesForBarChart(expenses, chartIntervalType);
+    final periodDates = <String, DateTime>{};
+    final periodLabels = <String, double>{};
+    for (final entry in periodTotals.entries) {
+      final label = formatDateForInterval(entry.key, chartIntervalType);
+      periodDates[label] = entry.key;
+      periodLabels[label] = entry.value;
+    }
+    final sortedPeriods = periodLabels.keys.toList()
+      ..sort(
+          (left, right) => periodDates[left]!.compareTo(periodDates[right]!));
+    final barData = BarChartPeriodData(
+      periodTotals: periodLabels,
+      periodDates: periodDates,
+      sortedPeriods: sortedPeriods,
+    );
 
     if (barData.periodTotals.isEmpty) {
       return Center(
@@ -1527,8 +1672,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildTransactionItem(
-      BuildContext context, ExpenseEntry expense, UserContact? contact,
-      {bool isLast = false}) {
+    BuildContext context,
+    ExpenseEntry expense,
+    UserContact? contact, {
+    required String currentUserId,
+    required Map<String, String> accountLabelsById,
+    required Map<String, RecurringTransaction> recurringTransactionsById,
+    bool isLast = false,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final displayDateTime = composeTransactionDisplayDateTime(
       transactionDate: expense.date,
@@ -1537,15 +1688,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
 
     final isIncome = (expense.type ?? 'expense').toLowerCase() == 'income';
-    final currentUserId = ref.watch(authProvider).uid;
     final isYou = widget.householdId != null &&
         expense.userId != null &&
         expense.userId == currentUserId;
 
     final isSelected = _selectedIds.contains(expense.id);
+    final recurringId = extractRecurringTransactionIdFromProjectedExpenseId(
+      expense.id,
+    );
     final projectedRecurringTransaction =
-        _findRecurringTransactionForExpense(expense);
+        recurringId == null ? null : recurringTransactionsById[recurringId];
     final isProjectedRecurring = projectedRecurringTransaction != null;
+    final accountLabel =
+        (expense.walletId != null && expense.walletId!.isNotEmpty)
+            ? accountLabelsById[expense.walletId!] ?? expense.accountName
+            : expense.accountName;
 
     return Slidable(
       key: ValueKey(expense.id),
@@ -1583,8 +1740,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               if (isProjectedRecurring) {
                 _openRecurringTransactionEditor(projectedRecurringTransaction);
               } else {
-                showUnifiedTransactionSheet(context,
-                    existingExpense: expense, contact: contact);
+                unawaited(
+                  showUnifiedTransactionSheet(
+                    context,
+                    existingExpense: expense,
+                    contact: contact,
+                  ).then((_) => _refreshActiveFeed()),
+                );
               }
             }
           },
@@ -1663,6 +1825,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           isIncome: isIncome,
                           showYouLabel: isYou,
                           showRecurringChip: isProjectedRecurring,
+                          accountLabel: accountLabel,
                         ),
                       ),
                     ],
@@ -1684,9 +1847,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  void _showFilterSheet(BuildContext context, ColorScheme colorScheme) {
+  void _showFilterSheet(
+    BuildContext context,
+    ColorScheme colorScheme,
+    List<String> availableCategories,
+  ) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       backgroundColor: colorScheme.appBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1730,7 +1898,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: categories.map((category) {
+                    children: availableCategories.map((category) {
                       final isSelected = selectedCategory == category;
                       return GestureDetector(
                         onTap: () {
@@ -1779,11 +1947,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             setState(() {
                               selectedCategory = 'all';
                               searchQuery = '';
+                              _debouncedSearchQuery = '';
+                              _searchDebounce?.cancel();
                               _searchController.clear();
                               _selectedDateFilter = DateRangeFilter.last7Days;
                               _customStart = null;
                               _customEnd = null;
                             });
+                            unawaited(_persistDateFilterPreference());
                             Navigator.pop(context);
                           },
                           child: Text(context.l10n.reset),
@@ -1808,71 +1979,120 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 }
 
-class _TransactionListItem {
-  final MonthTransactionGroup? monthGroup;
-  final DayTransactionGroup? dayGroup;
-  final ExpenseEntry? expense;
-  final bool isMonthHeader;
-  final bool isDayHeader;
-  final bool isFirst;
-  final bool isLast;
+class _TransactionsFilterCacheKey {
+  final String searchQuery;
+  final String selectedCategory;
+  final String selectedType;
+  final String? selectedCurrency;
+  final DateRangeFilter selectedDateFilter;
+  final DateTime? customStart;
+  final DateTime? customEnd;
+  final String? pinnedHouseholdId;
+  final ActiveWalletType activeAccountType;
+  final String? activeAccountHouseholdId;
+  final String? selectedHouseholdId;
+  final DateTime dayAnchor;
 
-  const _TransactionListItem._({
-    this.monthGroup,
-    this.dayGroup,
-    this.expense,
-    required this.isMonthHeader,
-    required this.isDayHeader,
-    required this.isFirst,
-    required this.isLast,
+  const _TransactionsFilterCacheKey({
+    required this.searchQuery,
+    required this.selectedCategory,
+    required this.selectedType,
+    required this.selectedCurrency,
+    required this.selectedDateFilter,
+    required this.customStart,
+    required this.customEnd,
+    required this.pinnedHouseholdId,
+    required this.activeAccountType,
+    required this.activeAccountHouseholdId,
+    required this.selectedHouseholdId,
+    required this.dayAnchor,
   });
 
-  factory _TransactionListItem.monthHeader(MonthTransactionGroup group) {
-    return _TransactionListItem._(
-      monthGroup: group,
-      isMonthHeader: true,
-      isDayHeader: false,
-      isFirst: false,
-      isLast: false,
-    );
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    return other is _TransactionsFilterCacheKey &&
+        searchQuery == other.searchQuery &&
+        selectedCategory == other.selectedCategory &&
+        selectedType == other.selectedType &&
+        selectedCurrency == other.selectedCurrency &&
+        selectedDateFilter == other.selectedDateFilter &&
+        customStart == other.customStart &&
+        customEnd == other.customEnd &&
+        pinnedHouseholdId == other.pinnedHouseholdId &&
+        activeAccountType == other.activeAccountType &&
+        activeAccountHouseholdId == other.activeAccountHouseholdId &&
+        selectedHouseholdId == other.selectedHouseholdId &&
+        dayAnchor == other.dayAnchor;
   }
 
-  factory _TransactionListItem.dayHeader(DayTransactionGroup group) {
-    return _TransactionListItem._(
-      dayGroup: group,
-      isMonthHeader: false,
-      isDayHeader: true,
-      isFirst: false,
-      isLast: false,
-    );
+  @override
+  int get hashCode => Object.hash(
+        searchQuery,
+        selectedCategory,
+        selectedType,
+        selectedCurrency,
+        selectedDateFilter,
+        customStart,
+        customEnd,
+        pinnedHouseholdId,
+        activeAccountType,
+        activeAccountHouseholdId,
+        selectedHouseholdId,
+        dayAnchor,
+      );
+}
+
+class _TransactionsDerivedCacheKey {
+  final int baseExpensesSignature;
+  final int projectedRecurringExpensesSignature;
+  final _TransactionsFilterCacheKey filterCacheKey;
+
+  const _TransactionsDerivedCacheKey({
+    required this.baseExpensesSignature,
+    required this.projectedRecurringExpensesSignature,
+    required this.filterCacheKey,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+
+    return other is _TransactionsDerivedCacheKey &&
+        baseExpensesSignature == other.baseExpensesSignature &&
+        projectedRecurringExpensesSignature ==
+            other.projectedRecurringExpensesSignature &&
+        filterCacheKey == other.filterCacheKey;
   }
 
-  factory _TransactionListItem.entry({
-    required ExpenseEntry expense,
-    required bool isFirst,
-    required bool isLast,
-  }) {
-    return _TransactionListItem._(
-      expense: expense,
-      isMonthHeader: false,
-      isDayHeader: false,
-      isFirst: isFirst,
-      isLast: isLast,
-    );
-  }
+  @override
+  int get hashCode => Object.hash(
+        baseExpensesSignature,
+        projectedRecurringExpensesSignature,
+        filterCacheKey,
+      );
 }
 
 class _ExpandablePageView extends StatefulWidget {
   final PageController controller;
   final int currentPage;
   final ValueChanged<int> onPageChanged;
-  final List<Widget> children;
+  final int itemCount;
+  final List<double> pageHeights;
+  final IndexedWidgetBuilder itemBuilder;
 
   const _ExpandablePageView({
     required this.controller,
     required this.currentPage,
     required this.onPageChanged,
-    required this.children,
+    required this.itemCount,
+    required this.pageHeights,
+    required this.itemBuilder,
   });
 
   @override
@@ -1880,72 +2100,20 @@ class _ExpandablePageView extends StatefulWidget {
 }
 
 class _ExpandablePageViewState extends State<_ExpandablePageView> {
-  late final List<double> _heights = List.filled(widget.children.length, 1);
-
   @override
   Widget build(BuildContext context) {
-    final targetHeight = _heights[widget.currentPage];
-
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeInOut,
       child: SizedBox(
-        height: targetHeight,
-        child: PageView(
+        height: widget.pageHeights[widget.currentPage],
+        child: PageView.builder(
           controller: widget.controller,
           onPageChanged: widget.onPageChanged,
-          children: widget.children.asMap().entries.map((entry) {
-            final index = entry.key;
-            final child = entry.value;
-            return OverflowBox(
-              minHeight: 0,
-              maxHeight: double.infinity,
-              alignment: Alignment.topCenter,
-              child: _SizeReportingWidget(
-                onSizeChange: (size) {
-                  final height = size.height;
-                  if (_heights[index] != height) {
-                    setState(() {
-                      _heights[index] = height;
-                    });
-                  }
-                },
-                child: child,
-              ),
-            );
-          }).toList(),
+          itemCount: widget.itemCount,
+          itemBuilder: widget.itemBuilder,
         ),
       ),
     );
-  }
-}
-
-class _SizeReportingWidget extends StatefulWidget {
-  final Widget child;
-  final ValueChanged<Size> onSizeChange;
-
-  const _SizeReportingWidget({
-    required this.child,
-    required this.onSizeChange,
-  });
-
-  @override
-  State<_SizeReportingWidget> createState() => _SizeReportingWidgetState();
-}
-
-class _SizeReportingWidgetState extends State<_SizeReportingWidget> {
-  Size? _oldSize;
-
-  @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final contextSize = context.size;
-      if (contextSize == null || contextSize == _oldSize) return;
-      _oldSize = contextSize;
-      widget.onSizeChange(contextSize);
-    });
-
-    return widget.child;
   }
 }

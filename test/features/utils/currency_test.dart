@@ -44,6 +44,22 @@ void main() {
     });
   });
 
+  group('Currency Canonicalization', () {
+    test('canonicalizes shared aliases', () {
+      expect(canonicalizeCurrencyCode('us\$'), 'USD');
+      expect(canonicalizeCurrencyCode('rur'), 'RUB');
+      expect(canonicalizeCurrencyCode('₽'), 'RUB');
+      expect(canonicalizeCurrencyCode('د.إ'), 'AED');
+    });
+
+    test('extracts canonical currency codes from free-form text', () {
+      expect(extractCanonicalCurrencyCode('1 110,00 RUR'), 'RUB');
+      expect(extractCanonicalCurrencyCode('Amount: 20.00 USD'), 'USD');
+      expect(extractCanonicalCurrencyCode('Total paid €12.50'), 'EUR');
+      expect(extractCanonicalCurrencyCode('Settlement in HK\$ 99.00'), 'HKD');
+    });
+  });
+
   group('Currency Code Validation', () {
     test('validates supported currencies', () {
       expect(isSupportedCurrencyCode('USD'), true);

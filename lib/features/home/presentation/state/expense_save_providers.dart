@@ -8,6 +8,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as split_entities;
@@ -18,6 +19,7 @@ import 'package:moneko/features/households/presentation/providers/household_opti
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
 
@@ -61,6 +63,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> saveExpense({
     required ParsedExpense expense,
     String? householdId,
+    String? accountId,
     String? receiptImageUrl,
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
@@ -105,6 +108,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['description'] = description;
       }
 
+      final merchant = expense.merchant;
+      if (merchant != null && merchant.trim().isNotEmpty) {
+        requestBody['merchant'] = merchant;
+      }
+
       final breakdown = expense.breakdown;
       if (breakdown != null && breakdown.isNotEmpty) {
         requestBody['breakdown'] = breakdown;
@@ -116,6 +124,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       if (householdId != null && householdId.trim().isNotEmpty) {
         requestBody['householdId'] = householdId;
+      }
+
+      if (accountId != null && accountId.trim().isNotEmpty) {
+        requestBody['accountId'] = accountId;
       }
 
       final isPortfolio = householdId != null &&
@@ -198,6 +210,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       _addOptimisticHouseholdData(
         expense: expense,
         householdId: householdId,
+        accountId: accountId,
         payerUserId: payerUserId ?? user.uid,
         receiptImageUrl: receiptImageUrl,
         customSplitType: customSplitType,
@@ -222,6 +235,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   void _addOptimisticHouseholdData({
     required ParsedExpense expense,
     required String? householdId,
+    required String? accountId,
     required String payerUserId,
     required String? receiptImageUrl,
     required SplitType? customSplitType,
@@ -245,13 +259,19 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     final createdAtRaw = savedMap['created_at']?.toString();
     final createdAt =
         createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
+    final splitSkipped = responseData?['splitSkipped'] == true;
+    final savedSplitGroupId = savedMap['split_group_id']?.toString().trim();
+    final shouldAddOptimisticSplit = !splitSkipped &&
+        savedSplitGroupId != null &&
+        savedSplitGroupId.isNotEmpty;
 
     final members = ref.read(householdMembersProvider(householdId)).valueOrNull;
 
-    final splitGroup = hasServerId
+    final splitGroup = hasServerId && shouldAddOptimisticSplit
         ? _buildOptimisticSplitGroup(
             householdId: householdId,
             expenseId: expenseId,
+            splitGroupId: savedSplitGroupId,
             payerUserId: payerUserId,
             expense: expense,
             customSplitType: customSplitType,
@@ -267,7 +287,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       userId: userId,
       receiptImageUrl: receiptImageUrl,
       createdAt: createdAt ?? expense.date,
-      splitGroupId: splitGroup?.id,
+      splitGroupId: shouldAddOptimisticSplit ? savedSplitGroupId : null,
+      accountId: accountId,
     );
 
     ref
@@ -289,6 +310,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     required String? receiptImageUrl,
     required DateTime createdAt,
     String? splitGroupId,
+    String? accountId,
   }) {
     return ExpenseEntry(
       id: expenseId,
@@ -300,9 +322,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       category: expense.category,
       createdAt: createdAt,
       rawText: expense.description,
+      merchant: expense.merchant,
       breakdown: expense.breakdown,
       receiptImageUrl: receiptImageUrl,
       splitGroupId: splitGroupId,
+      walletId: accountId,
       type: 'expense',
     );
   }
@@ -310,6 +334,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   split_entities.ExpenseSplitGroup? _buildOptimisticSplitGroup({
     required String householdId,
     required String expenseId,
+    required String splitGroupId,
     required String payerUserId,
     required ParsedExpense expense,
     required SplitType? customSplitType,
@@ -348,7 +373,6 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     };
 
     final now = DateTime.now();
-    final groupId = 'optimistic_$expenseId';
     final lines = <split_entities.ExpenseSplitLine>[];
 
     for (var i = 0; i < included.length; i++) {
@@ -357,7 +381,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       lines.add(
         split_entities.ExpenseSplitLine(
           id: 'optimistic_line_${expenseId}_${member.userId}',
-          splitGroupId: groupId,
+          splitGroupId: splitGroupId,
           userId: member.userId,
           amountCents: cents[i],
           percentage:
@@ -373,7 +397,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     }
 
     return split_entities.ExpenseSplitGroup(
-      id: groupId,
+      id: splitGroupId,
       householdId: householdId,
       expenseId: expenseId,
       payerUserId: payerUserId,
@@ -481,6 +505,9 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     if (householdId == null || householdId.isEmpty || isPortfolioSave) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
+
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Refresh pockets so budget calculations reflect the new expense.
     // Note: currencyTransactionCountsProvider auto-recomputes reactively

@@ -221,7 +221,7 @@ void main() {
         overrides: [
           userHouseholdsProvider.overrideWith(
             (ref, userId) => MockUserHouseholdsNotifier(
-              _MockHouseholdRepository(),
+              householdRepository,
               userId,
               ref,
             ),

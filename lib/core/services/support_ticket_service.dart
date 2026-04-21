@@ -34,7 +34,8 @@ class SupportTicketService {
             .map(
               (attachment) => <String, dynamic>{
                 'base64': attachment.base64,
-                if (attachment.fileName != null) 'fileName': attachment.fileName,
+                if (attachment.fileName != null)
+                  'fileName': attachment.fileName,
                 if (attachment.contentType != null)
                   'contentType': attachment.contentType,
               },

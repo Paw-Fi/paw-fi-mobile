@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -169,10 +170,16 @@ class Auth extends _$Auth {
 
   bool _isFlowStateNotFound(Object error) {
     if (error is AuthApiException) {
-      return error.code?.toLowerCase() == 'flow_state_not_found';
+      final code = error.code?.toLowerCase();
+      final statusCode = error.statusCode?.toLowerCase();
+      if (code == 'flow_state_not_found' ||
+          statusCode == 'flow_state_not_found') {
+        return true;
+      }
     }
     final message = error.toString().toLowerCase();
-    return message.contains('flow_state_not_found');
+    return message.contains('flow_state_not_found') ||
+        message.contains('flow state not found');
   }
 
   bool _isNetworkError(Object error) {
@@ -430,6 +437,11 @@ class Auth extends _$Auth {
     _authStateSubscription.cancel();
   }
 }
+
+final authAccessTokenProvider = Provider<String?>((ref) {
+  ref.watch(authProvider);
+  return supabase.auth.currentSession?.accessToken;
+});
 
 final currentUserIdProvider = Provider<String?>((ref) {
   final user = ref.watch(authProvider);

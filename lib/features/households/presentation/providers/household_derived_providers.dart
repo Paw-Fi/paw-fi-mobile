@@ -127,17 +127,14 @@ final householdDerivedSummaryProvider =
 
     final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
     final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
-    final projectedRecurring = projectRecurringTransactionsAsExpenseEntries(
+    final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: expenses,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: params.currency,
+      includeFutureOccurrences: false,
     );
-
-    final expensesWithRecurring = <ExpenseEntry>[
-      ...expenses,
-      ...projectedRecurring
-    ];
 
     final summary = _buildHouseholdSummary(
       params: params,
@@ -177,8 +174,6 @@ HouseholdSummary _buildHouseholdSummary({
   int transactionCount = 0;
 
   for (final e in expenses) {
-    // Never count recurring template rows as real transactions.
-    if (e.isRecurring) continue;
     if (!_expenseMatchesCurrency(e, currency)) continue;
     if (!_expenseInRange(e, rangeStart, rangeEnd)) continue;
 

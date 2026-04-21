@@ -229,6 +229,11 @@ class ErrorHandler {
           message.contains('amount must be less than')) {
         return 'Amount is too large. Please enter a smaller value.';
       }
+      if (context == BackendErrorContext.generic &&
+          message.isNotEmpty &&
+          _isSafeUserMessage(message)) {
+        return _capitalizeFirst(message);
+      }
       if (context == BackendErrorContext.saveRecurring) {
         return 'Please check the recurring details and try again.';
       }
@@ -251,6 +256,9 @@ class ErrorHandler {
 
     if (error.status != null && error.status! >= 500 ||
         code == 'SERVER_ERROR') {
+      if (message.isNotEmpty && _isSafeUserMessage(message)) {
+        return _capitalizeFirst(message);
+      }
       return 'Something went wrong on our side. Please try again.';
     }
 

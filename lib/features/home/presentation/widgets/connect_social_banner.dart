@@ -9,13 +9,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
-import 'package:moneko/features/home/presentation/state/analytics_data.dart';
-import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
-import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_sheet.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
+import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
@@ -25,7 +23,6 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
-import 'package:moneko/features/utils/currency.dart';
 
 final walletCaptureEnabledProvider =
     FutureProvider.autoDispose<bool>((ref) async {
@@ -37,6 +34,8 @@ final walletCaptureEnabledProvider =
         .from('user_contacts')
         .select('wallet_capture_enabled')
         .eq('user_id', user.uid)
+        .order('updated_at', ascending: false)
+        .limit(1)
         .maybeSingle();
 
     return (response?['wallet_capture_enabled'] as bool?) ?? false;
@@ -48,6 +47,15 @@ final walletCaptureEnabledProvider =
 
 const double _bannerCardWidth = 195;
 const double _bannerCardHeight = 185;
+const String dismissedChecklistStepsStorageKey =
+    'home_connect_social_dismissed_steps_v1';
+
+final dismissedChecklistStepsProvider = Provider<Set<String>>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  final stored =
+      prefs.getStringList(dismissedChecklistStepsStorageKey) ?? const [];
+  return stored.toSet();
+});
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -69,17 +77,18 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
     final authState = ref.watch(authProvider);
-    final analyticsData = ref.watch(analyticsProvider);
+    final hasTransactionsAsync =
+        ref.watch(dashboardHasLoggedTransactionsProvider);
     final whatsappAsync = ref.watch(whatsAppBindingProvider);
     final telegramAsync = ref.watch(telegramBindingProvider);
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
-    final selectedCurrency = ref.watch(selectedHomeCurrencyCodeProvider);
     final householdScope = ref.watch(householdScopeProvider);
+    final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
     final recurringHouseholdId = switch (householdScope.activeAccountType) {
-      ActiveAccountType.personal => null,
-      ActiveAccountType.portfolio => householdScope.activeAccountHouseholdId,
-      ActiveAccountType.household => householdScope.selectedHouseholdId,
+      ActiveWalletType.personal => null,
+      ActiveWalletType.portfolio => householdScope.activeAccountHouseholdId,
+      ActiveWalletType.household => householdScope.selectedHouseholdId,
     };
 
     final recurringState =
@@ -105,8 +114,7 @@ class ConnectSocialBanner extends ConsumerWidget {
       });
     }
 
-    final isBannerReady = analyticsData.hasLoadedOnce == true &&
-        !analyticsData.isLoading &&
+    final isBannerReady = !hasTransactionsAsync.isLoading &&
         !whatsappAsync.isLoading &&
         !telegramAsync.isLoading &&
         !walletCaptureAsync.isLoading &&
@@ -115,8 +123,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     if (!isBannerReady) {
       _debugPrint(
-        '[ConnectSocialBanner] waiting analyticsLoaded=${analyticsData.hasLoadedOnce} '
-        'analyticsLoading=${analyticsData.isLoading} '
+        '[ConnectSocialBanner] waiting hasTransactionsLoading=${hasTransactionsAsync.isLoading} '
         'whatsappLoading=${whatsappAsync.isLoading} '
         'telegramLoading=${telegramAsync.isLoading} '
         'walletLoading=${walletCaptureAsync.isLoading} '
@@ -134,15 +141,12 @@ class ConnectSocialBanner extends ConsumerWidget {
     final steps = _buildSteps(
       context: context,
       authState: authState,
-      analyticsData: analyticsData,
+      hasTransactionLogged: hasTransactionsAsync.valueOrNull ?? false,
       recurringExpensesAsync: recurringExpensesAsync,
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
       onCreateAccount: () => _openRegister(context),
-      onLogExpense: () => showUnifiedTransactionSheet(
-        context,
-        newExpense: _buildDraftExpense(selectedCurrency),
-      ),
+      onLogExpense: () => handleAiFreeFormText(context, ref),
       onRecurringExpense: () => showAddRecurringSheet(
         context,
         type: 'expense',
@@ -150,10 +154,11 @@ class ConnectSocialBanner extends ConsumerWidget {
       onConnectMessaging: () => showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
         builder: (context) => const ConnectSocialBottomSheet(),
       ),
-      onEnableCapture: () => _openCaptureFlow(context),
+      onEnableCapture: () => _openCaptureFlow(context, ref),
     );
 
     _debugPrint(
@@ -165,12 +170,21 @@ class ConnectSocialBanner extends ConsumerWidget {
       'error=${recurringState.data.hasError}',
     );
 
-    final incompleteCount = steps.where((step) => !step.completed).length;
+    final visibleSteps = steps
+        .where((step) => !dismissedStepIds.contains(step.id))
+        .toList(growable: false);
+
+    final incompleteCount =
+        visibleSteps.where((step) => !step.completed).length;
+    if (visibleSteps.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     if (incompleteCount == 0) {
       return const SizedBox.shrink();
     }
 
-    final orderedSteps = [...steps]..sort((a, b) {
+    final orderedSteps = [...visibleSteps]..sort((a, b) {
         final completionOrder = a.completed == b.completed
             ? 0
             : a.completed
@@ -216,18 +230,18 @@ class ConnectSocialBanner extends ConsumerWidget {
               physics: const BouncingScrollPhysics(),
               child: Row(
                 children: [
-                  for (var index = 0; index < orderedSteps.length; index++) ...[
+                  for (final entry in orderedSteps.asMap().entries) ...[
                     SizedBox(
                       width: _bannerCardWidth,
                       height: _bannerCardHeight,
                       child: _ChecklistStepCard(
-                        key: ValueKey(
-                            'connect-social-card-${orderedSteps[index].title}'),
-                        step: orderedSteps[index],
+                        key: ValueKey('connect-social-card-${entry.value.id}'),
+                        step: entry.value,
                         colorScheme: colorScheme,
+                        onDismiss: () => _dismissStep(ref, entry.value.id),
                       ),
                     ),
-                    if (index < orderedSteps.length - 1)
+                    if (entry.key < orderedSteps.length - 1)
                       const SizedBox(width: 12),
                   ],
                 ],
@@ -245,36 +259,44 @@ class ConnectSocialBanner extends ConsumerWidget {
     );
   }
 
-  void _openCaptureFlow(BuildContext context) {
+  void _openCaptureFlow(BuildContext context, WidgetRef ref) {
     final target = defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS
         ? const IosWalletCapturePage()
         : const AndroidNotificationCapturePage();
 
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute<void>(builder: (_) => target),
-    );
+    )
+        .then((_) {
+      ref.invalidate(walletCaptureEnabledProvider);
+    });
   }
 
-  ParsedExpense _buildDraftExpense(String selectedCurrency) {
-    final normalizedCurrency = selectedCurrency.trim().isEmpty
-        ? 'USD'
-        : selectedCurrency.trim().toUpperCase();
+  Future<void> _dismissStep(WidgetRef ref, String stepId) async {
+    final prefs = ref.read(sharedPreferencesProvider);
 
-    return ParsedExpense(
-      amount: 0,
-      category: 'other',
-      currency: normalizedCurrency,
-      currencySymbol: resolveCurrencySymbol(normalizedCurrency),
-      date: DateTime.now(),
-      description: null,
-    );
+    try {
+      final dismissed =
+          prefs.getStringList(dismissedChecklistStepsStorageKey)?.toSet() ??
+              <String>{};
+      if (!dismissed.add(stepId)) {
+        return;
+      }
+
+      final persisted = dismissed.toList()..sort();
+      await prefs.setStringList(dismissedChecklistStepsStorageKey, persisted);
+      ref.invalidate(dismissedChecklistStepsProvider);
+    } catch (error) {
+      debugPrint('Failed to dismiss checklist card: $error');
+    }
   }
 
   List<_ChecklistStep> _buildSteps({
     required BuildContext context,
     required AppUser authState,
-    required AnalyticsData analyticsData,
+    required bool hasTransactionLogged,
     required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
@@ -284,9 +306,6 @@ class ConnectSocialBanner extends ConsumerWidget {
     required VoidCallback onConnectMessaging,
     required VoidCallback onEnableCapture,
   }) {
-    final hasTransactionLogged = analyticsData.allExpenses.any(
-      (transaction) => !transaction.isRecurring,
-    );
     final hasRecurringExpense = recurringExpensesAsync.maybeWhen(
       data: (transactions) => transactions.isNotEmpty,
       orElse: () => false,
@@ -299,6 +318,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
     return [
       _ChecklistStep(
+        id: 'create_account',
         sortOrder: 0,
         title: context.l10n.createAccount,
         description: context.l10n.createAccountDescription,
@@ -308,6 +328,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: createAccountCompleted ? null : onCreateAccount,
       ),
       _ChecklistStep(
+        id: 'log_expense',
         sortOrder: 1,
         title: context.l10n.logExpense,
         description: context.l10n.logExpenseDescription,
@@ -317,6 +338,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: hasTransactionLogged ? null : onLogExpense,
       ),
       _ChecklistStep(
+        id: 'set_recurring',
         sortOrder: 2,
         title: context.l10n.setRecurring,
         description: context.l10n.setRecurringDescription,
@@ -326,6 +348,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: hasRecurringExpense ? null : onRecurringExpense,
       ),
       _ChecklistStep(
+        id: 'connect_chat',
         sortOrder: 3,
         title: context.l10n.connectChat,
         description: context.l10n.connectChatDescription,
@@ -335,6 +358,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         onTap: messagingConnected ? null : onConnectMessaging,
       ),
       _ChecklistStep(
+        id: 'enable_capture',
         sortOrder: 4,
         title: captureTitle,
         description: Platform.isIOS
@@ -354,6 +378,7 @@ class ConnectSocialBanner extends ConsumerWidget {
 
 class _ChecklistStep {
   const _ChecklistStep({
+    required this.id,
     required this.sortOrder,
     required this.title,
     required this.description,
@@ -363,6 +388,7 @@ class _ChecklistStep {
     required this.onTap,
   });
 
+  final String id;
   final int sortOrder;
   final String title;
   final String description;
@@ -377,10 +403,12 @@ class _ChecklistStepCard extends StatelessWidget {
     super.key,
     required this.step,
     required this.colorScheme,
+    required this.onDismiss,
   });
 
   final _ChecklistStep step;
   final ColorScheme colorScheme;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -400,113 +428,140 @@ class _ChecklistStepCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
         children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: step.completed
-                  ? colorScheme.surface.withValues(alpha: 0.5)
-                  : colorScheme.card,
-              shape: BoxShape.circle,
-              border: Border.all(
-                  color: step.completed
-                      ? colorScheme.border.withValues(alpha: 0.5)
-                      : colorScheme.border,
-                  width: 1),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              step.completed ? Icons.check_rounded : step.icon,
-              size: 22,
-              color: step.completed
-                  ? colorScheme.mutedForeground
-                  : colorScheme.foreground,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            step.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: step.completed
-                  ? colorScheme.mutedForeground
-                  : colorScheme.foreground,
-              height: 1.08,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            step.description,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              color: colorScheme.mutedForeground,
-              height: 1.25,
-            ),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 32,
-            child: step.completed
-                ? OutlinedButton(
-                    onPressed: null,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                          color: colorScheme.border.withValues(alpha: 0.5),
-                          width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      backgroundColor:
-                          colorScheme.surface.withValues(alpha: 0.5),
-                    ),
-                    child: Text(
-                      context.l10n.done,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.onSurface.withValues(alpha: 0.4),
-                      ),
-                    ),
-                  )
-                : ElevatedButton(
-                    onPressed: () {
-                      step.onTap?.call();
-                      HapticFeedback.lightImpact();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      foregroundColor: colorScheme.primaryForeground,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                    ),
-                    child: Text(
-                      step.buttonLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                      ),
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 55,
+                  height: 55,
+                  decoration: BoxDecoration(
+                    color: step.completed
+                        ? colorScheme.surface.withValues(alpha: 0.5)
+                        : colorScheme.card,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: step.completed
+                            ? colorScheme.border.withValues(alpha: 0.5)
+                            : colorScheme.border,
+                        width: 1),
                   ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    step.completed ? Icons.check_rounded : step.icon,
+                    size: 22,
+                    color: step.completed
+                        ? colorScheme.mutedForeground
+                        : colorScheme.foreground,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  step.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: step.completed
+                        ? colorScheme.mutedForeground
+                        : colorScheme.foreground,
+                    height: 1.08,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  step.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: colorScheme.mutedForeground,
+                    height: 1.25,
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 32,
+                  child: step.completed
+                      ? OutlinedButton(
+                          onPressed: null,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                                color:
+                                    colorScheme.border.withValues(alpha: 0.5),
+                                width: 1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            backgroundColor:
+                                colorScheme.surface.withValues(alpha: 0.5),
+                          ),
+                          child: Text(
+                            context.l10n.done,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color:
+                                  colorScheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: () {
+                            step.onTap?.call();
+                            HapticFeedback.lightImpact();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.primaryForeground,
+                            elevation: 0,
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          child: Text(
+                            step.buttonLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              onPressed: () {
+                onDismiss();
+                HapticFeedback.selectionClick();
+              },
+              icon: Icon(
+                Icons.close_rounded,
+                size: 16,
+                color: colorScheme.mutedForeground,
+              ),
+              splashRadius: 16,
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            ),
           ),
         ],
       ),

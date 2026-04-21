@@ -1,8 +1,64 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 
 void main() {
+  group('applySplitPayerToRecurringRows', () {
+    test('injects payer_user_id from split group mapping when missing', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-1',
+          'user_id': 'creator-1',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'payer-1'},
+      );
+
+      expect(result.single['payer_user_id'], 'payer-1');
+      expect(result.single['user_id'], 'creator-1');
+    });
+
+    test('does not overwrite existing payer_user_id', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-1',
+          'payer_user_id': 'existing-payer',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'mapped-payer'},
+      );
+
+      expect(result.single['payer_user_id'], 'existing-payer');
+    });
+
+    test('keeps row unchanged when no split group mapping exists', () {
+      final rows = [
+        {
+          'id': 'exp-1',
+          'split_group_id': 'sg-unknown',
+          'user_id': 'creator-1',
+        }
+      ];
+
+      final result = applySplitPayerToRecurringRows(
+        rows: rows,
+        splitPayerByGroupId: const {'sg-1': 'payer-1'},
+      );
+
+      expect(result.single.containsKey('payer_user_id'), isFalse);
+    });
+  });
+
   group('rebalancePocketBudgetAmounts', () {
     test('preserves pocket shares when total budget increases', () {
       final result = rebalancePocketBudgetAmounts(
@@ -32,6 +88,42 @@ void main() {
 
       expect(result, const [50000, 50000]);
       expect(result.fold<int>(0, (sum, amount) => sum + amount), 100000);
+    });
+
+    test('redistributes a deleted pocket amount across remaining pockets', () {
+      final result = rebalancePocketBudgetAmounts(
+        currentAmountsCents: const [50000, 30000],
+        newTotalBudgetCents: 100000,
+      );
+
+      expect(result, const [62500, 37500]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 100000);
+    });
+  });
+
+  group('rebalanceSiblingPocketBudgetAmounts', () {
+    test(
+        'reduces sibling pockets proportionally when a new pocket exceeds budget',
+        () {
+      final result = rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: const [50000, 30000, 20000],
+        targetPocketAmountCents: 50000,
+        totalBudgetCents: 100000,
+      );
+
+      expect(result, const [25000, 15000, 10000]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 50000);
+    });
+
+    test('rebalances sibling pockets to fill the remaining budget exactly', () {
+      final result = rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: const [30000, 20000],
+        targetPocketAmountCents: 10000,
+        totalBudgetCents: 100000,
+      );
+
+      expect(result, const [54000, 36000]);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 90000);
     });
   });
 
@@ -113,12 +205,102 @@ void main() {
     });
   });
 
+  group('filterPocketActualExpenses', () {
+    test('includes recurring expenses and excludes only income', () {
+      final now = DateTime(2026, 4, 3);
+      final recurringExpense = ExpenseEntry(
+        id: 'rec-exp-1',
+        date: now,
+        amountCents: 40000,
+        category: 'rent',
+        createdAt: now,
+        type: 'expense',
+        isRecurring: true,
+      );
+      final oneOffExpense = ExpenseEntry(
+        id: 'exp-1',
+        date: now,
+        amountCents: 1200,
+        category: 'coffee & tea',
+        createdAt: now,
+        type: 'expense',
+        isRecurring: false,
+      );
+      final income = ExpenseEntry(
+        id: 'inc-1',
+        date: now,
+        amountCents: 500000,
+        category: 'salary',
+        createdAt: now,
+        type: 'income',
+        isRecurring: false,
+      );
+
+      final filtered = filterPocketActualExpenses([
+        recurringExpense,
+        oneOffExpense,
+        income,
+      ]);
+
+      expect(filtered.map((e) => e.id).toList(), const ['rec-exp-1', 'exp-1']);
+    });
+  });
+
+  group('resolveEnvelopeRowsForViewedMonth', () {
+    test('returns empty when the viewed month has no budget row', () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: null,
+        budgetBoundEnvelopeRows: const [
+          {'id': 'march-living-costs', 'name': 'Living Costs'},
+          {'id': 'march-health', 'name': 'Health'},
+        ],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, isEmpty);
+    });
+
+    test('prefers budget-bound rows over legacy budgetless rows', () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: 'budget-april',
+        budgetBoundEnvelopeRows: const [
+          {'id': 'april-living-costs', 'name': 'Living Costs'},
+        ],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, const [
+        {'id': 'april-living-costs', 'name': 'Living Costs'},
+      ]);
+    });
+
+    test('falls back to legacy budgetless rows only for an existing budget',
+        () {
+      final resolved = resolveEnvelopeRowsForViewedMonth(
+        budgetId: 'budget-april',
+        budgetBoundEnvelopeRows: const [],
+        legacyBudgetlessEnvelopeRows: const [
+          {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+        ],
+      );
+
+      expect(resolved, const [
+        {'id': 'legacy-pocket', 'name': 'Legacy Pocket'},
+      ]);
+    });
+  });
+
   group('PocketsScopeParams', () {
     test('toggle participates in equality so providers refresh on change', () {
       final baseParams = PocketsScopeParams(
         scope: PocketsScopeType.personal,
         periodMonth: DateTime(2026, 3, 1),
         currency: 'GBP',
+        includeUpcomingRecurring: false,
       );
       final forecastParams = PocketsScopeParams(
         scope: PocketsScopeType.personal,
@@ -129,6 +311,24 @@ void main() {
 
       expect(baseParams, isNot(forecastParams));
       expect(baseParams.hashCode, isNot(forecastParams.hashCode));
+    });
+  });
+
+  group('includeUpcomingRecurringInPocketsProvider', () {
+    test('defaults to counting upcoming recurring payments as spent', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(includeUpcomingRecurringInPocketsProvider),
+        isTrue,
+      );
+    });
+  });
+
+  group('normalizePocketTemplateName', () {
+    test('returns empty string for whitespace-only names', () {
+      expect(normalizePocketTemplateName('   '), '');
     });
   });
 }

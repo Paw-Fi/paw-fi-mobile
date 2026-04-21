@@ -66,9 +66,14 @@ bool _isUnhidableCategory(String normalized) {
 void _refreshCategoryDependentState({
   required WidgetRef ref,
   required String userId,
+  bool refreshTransactions = true,
 }) {
   ref.invalidate(userCategoryConfigProvider);
   ref.invalidate(userCategoryListsProvider);
+
+  if (!refreshTransactions) {
+    return;
+  }
 
   ref.read(analyticsProvider.notifier).refresh(userId);
   ref.invalidate(pocketsProvider);
@@ -423,7 +428,21 @@ Future<bool> setUserCustomCategoryStyle({
     return false;
   }
 
-  _refreshCategoryDependentState(ref: ref, userId: user.uid);
+  final currentOverrides = getCustomCategoryStyleOverrides();
+  final nextOverrides = <String, CustomCategoryStyle>{
+    ...currentOverrides,
+    normalized: CustomCategoryStyle(
+      colorArgb: colorArgb,
+      iconKey: iconKey.trim(),
+    ),
+  };
+  setCustomCategoryStyleOverrides(nextOverrides);
+
+  _refreshCategoryDependentState(
+    ref: ref,
+    userId: user.uid,
+    refreshTransactions: false,
+  );
   return true;
 }
 

@@ -20,18 +20,18 @@ InsightsScopedData buildInsightsScopedData(
     if (expense.isRecurring) return false;
     final householdId = expense.householdId;
     switch (scope.activeAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         return householdId == null || householdId.isEmpty;
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.portfolio:
         final activeId = scope.activeAccountHouseholdId;
         return activeId != null && householdId == activeId;
-      case ActiveAccountType.household:
+      case ActiveWalletType.household:
         final selectedId = scope.selectedHouseholdId;
         return selectedId != null && householdId == selectedId;
     }
   }).toList(growable: false);
 
-  final filteredBudgets = scope.activeAccountType == ActiveAccountType.personal
+  final filteredBudgets = scope.activeAccountType == ActiveWalletType.personal
       ? analyticsData.allBudgets.toList(growable: false)
       : const <DailyBudgetEntry>[];
 

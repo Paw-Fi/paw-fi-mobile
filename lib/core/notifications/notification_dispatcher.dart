@@ -16,6 +16,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -292,6 +293,10 @@ class NotificationDispatcher {
     required String expenseId,
     required String userId,
   }) async {
+    if (userId.isEmpty) {
+      return null;
+    }
+
     final fromCache = _findExpenseInAnalyticsCache(expenseId);
     if (fromCache != null) {
       return fromCache;
@@ -309,6 +314,49 @@ class NotificationDispatcher {
       return rpcFetch;
     }
 
+    await _ensureValidSession();
+
+    final retryDirectFetch = await _fetchExpenseDirectly(expenseId);
+    if (retryDirectFetch != null) {
+      _injectIntoCache(retryDirectFetch);
+      return retryDirectFetch;
+    }
+
+    return null;
+  }
+
+  Future<ExpenseEntry?> _fetchExpenseViaRpc(
+      String expenseId, String userId) async {
+    if (_rpcFetchOverride != null) {
+      return _rpcFetchOverride!(expenseId, userId);
+    }
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final rpcResponse = await supabase.rpc(
+          'get_user_expense_by_id_v1',
+          params: {
+            'p_user_id': userId,
+            'p_expense_id': expenseId,
+          },
+        );
+
+        if (rpcResponse is Map<String, dynamic>) {
+          return ExpenseEntry.fromJson(rpcResponse);
+        }
+
+        if (attempt < 1) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await _ensureValidSession();
+        }
+      } catch (e) {
+        if (attempt < 1) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await _ensureValidSession();
+        }
+      }
+    }
+
     return null;
   }
 
@@ -316,9 +364,12 @@ class NotificationDispatcher {
     if (_cacheInjectionOverride != null) {
       _cacheInjectionOverride!(expense);
     } else {
-      _ref
-          ?.read(analyticsProvider.notifier)
-          .addOptimisticTransaction(expense);
+      _ref?.read(analyticsProvider.notifier).addOptimisticTransaction(expense);
+      final notifier =
+          _ref?.read(transactionsFeedRefreshSignalProvider.notifier);
+      if (notifier != null) {
+        notifier.state += 1;
+      }
     }
   }
 
@@ -351,7 +402,7 @@ class NotificationDispatcher {
         final response = await supabase
             .from('expenses')
             .select(
-                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,breakdown,receipt_image_url,household_id,split_group_id,type,is_recurring')
+                'id,contact_id,user_id,date,amount_cents,currency,category,created_at,raw_text,merchant,breakdown,receipt_image_url,household_id,split_group_id,account_id,type,is_recurring')
             .eq('id', expenseId)
             .maybeSingle();
 
@@ -365,48 +416,6 @@ class NotificationDispatcher {
       } catch (e) {
         if (attempt < 1) {
           await Future<void>.delayed(const Duration(milliseconds: 500));
-        }
-      }
-    }
-
-    return null;
-  }
-
-  Future<ExpenseEntry?> _fetchExpenseViaRpc(
-      String expenseId, String userId) async {
-    if (_rpcFetchOverride != null) {
-      return _rpcFetchOverride!(expenseId, userId);
-    }
-
-    for (var attempt = 0; attempt < 2; attempt++) {
-      try {
-        final rpcResponse = await supabase.rpc(
-          'get_user_analytics',
-          params: {'p_user_id': userId},
-        );
-
-        if (rpcResponse == null) {
-          continue;
-        }
-
-        final data = rpcResponse as Map<String, dynamic>;
-        final expensesData = data['expenses'] as List<dynamic>?;
-        if (expensesData == null || expensesData.isEmpty) {
-          continue;
-        }
-
-        for (final e in expensesData) {
-          final map = e as Map<String, dynamic>;
-          if (map['id'] == expenseId) {
-            return ExpenseEntry.fromJson(map);
-          }
-        }
-
-        return null;
-      } catch (e) {
-        if (attempt < 1) {
-          await Future<void>.delayed(const Duration(seconds: 1));
-          await _ensureValidSession();
         }
       }
     }
@@ -550,7 +559,7 @@ class NotificationDispatcher {
   Future<void> _openInsightsPage(NotificationIntent intent) async {
     await _ensureDashboard();
     await _selectHouseholdIfNeeded(intent.householdId);
-    _ref?.read(mainShellTabIndexProvider.notifier).state = 3;
+    _ref?.read(mainShellTabIndexProvider.notifier).state = 4;
   }
 
   Future<void> _openHouseholdInvitation(NotificationIntent intent) async {

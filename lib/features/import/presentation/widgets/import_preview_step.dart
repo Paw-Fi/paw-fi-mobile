@@ -4,6 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
@@ -163,7 +170,8 @@ class PreviewStep extends ConsumerWidget {
       children: [
         lockPersonalTarget
             ? _buildPersonalTargetRow(context, scheme)
-            : _buildAccountSelectorRow(context, ref, scheme),
+            : _buildSpaceSelectorRow(context, ref, scheme),
+        _buildFinancialAccountRow(context, ref, scheme),
         MetricRow(
           leftLabel: context.l10n.rows,
           leftValue: '${state.totalRows}',
@@ -219,7 +227,7 @@ class PreviewStep extends ConsumerWidget {
     );
   }
 
-  Widget _buildAccountSelectorRow(
+  Widget _buildSpaceSelectorRow(
     BuildContext context,
     WidgetRef ref,
     ColorScheme scheme,
@@ -277,7 +285,7 @@ class PreviewStep extends ConsumerWidget {
         SystemSound.play(SystemSoundType.click);
 
         if (item.value == 'personal') {
-          notifier.setTargetAccount(householdId: null, isPortfolio: false);
+          notifier.setTargetWallet(householdId: null, isPortfolio: false);
           return;
         }
 
@@ -291,7 +299,7 @@ class PreviewStep extends ConsumerWidget {
               break;
             }
           }
-          notifier.setTargetAccount(
+          notifier.setTargetWallet(
             householdId: householdId,
             isPortfolio: picked?.isPortfolio ?? false,
           );
@@ -355,6 +363,195 @@ class PreviewStep extends ConsumerWidget {
     );
   }
 
+  Widget _buildFinancialAccountRow(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme scheme,
+  ) {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final targetHouseholdId = state.targetHouseholdId;
+    final accountsAsync =
+        ref.watch(walletsByHouseholdIdProvider(targetHouseholdId));
+    final allAccounts = accountsAsync.valueOrNull ?? const <WalletEntity>[];
+    final accounts = allAccounts
+        .where((account) => !account.isArchived)
+        .toList(growable: false);
+
+    final selectedAccountId = state.targetAccountId?.trim();
+    WalletEntity? selectedAccount;
+    if (selectedAccountId != null) {
+      for (final account in accounts) {
+        if (account.id == selectedAccountId) {
+          selectedAccount = account;
+          break;
+        }
+      }
+    }
+
+    final hasExplicitSelection =
+        selectedAccountId != null && selectedAccountId.isNotEmpty;
+
+    if (accounts.isNotEmpty &&
+        selectedAccount == null &&
+        !hasExplicitSelection) {
+      final preferredAccountId = _resolvePreferredDefaultAccountId(accounts);
+      if (preferredAccountId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.setTargetFinancialWallet(preferredAccountId);
+        });
+      }
+    }
+
+    final selectedLabel = selectedAccount?.name ?? 'Spending';
+    final pillLabel = truncateMenuLabel(selectedLabel, maxLength: 18);
+
+    final items = <AdaptivePopupMenuItem>[
+      ...accounts.map(
+        (account) => AdaptivePopupMenuItem(
+          label: truncateMenuLabel(account.name, maxLength: 26),
+          icon: Icons.account_balance_wallet_outlined,
+          value: 'account:${account.id}',
+        ),
+      ),
+      AdaptivePopupMenuItem(
+        label: context.l10n.createAccount,
+        icon: Icons.add_circle_outline_rounded,
+        value: 'create_account',
+      ),
+    ];
+
+    final selector = accountsAsync.when(
+      loading: () => Container(
+        height: 36,
+        width: 96,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: scheme.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (_, __) => Container(
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        decoration: BoxDecoration(
+          color: scheme.cardSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'Spending',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: scheme.foreground,
+          ),
+        ),
+      ),
+      data: (_) => AdaptivePopupMenuButton.widget(
+        items: items,
+        onSelected: (index, item) {
+          HapticFeedback.selectionClick();
+          SystemSound.play(SystemSoundType.click);
+          if (item.value == 'create_account') {
+            _handleCreateAccount(context, ref);
+            return;
+          }
+
+          final raw = item.value;
+          if (raw is String && raw.startsWith('account:')) {
+            final accountId = raw.replaceFirst('account:', '').trim();
+            notifier.setTargetFinancialWallet(accountId);
+          }
+        },
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.fromLTRB(8, 4, 12, 4),
+          decoration: BoxDecoration(
+            color: scheme.cardSurface,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  pillLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: scheme.mutedForeground,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.l10n.wallet,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: scheme.foreground,
+              ),
+            ),
+          ),
+          selector,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleCreateAccount(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final result = await showCreateEditWalletSheet(context);
+    if (result == null) return;
+
+    try {
+      final createdId = await notifier.createWalletForTarget(
+        name: result.name,
+        icon: result.icon,
+        color: result.color,
+        openingBalanceCents: result.openingBalanceCents,
+        goalAmountCents: result.goalAmountCents,
+        isDefault: result.isDefault,
+      );
+      if (createdId != null && createdId.isNotEmpty) {
+        notifier.setTargetFinancialWallet(createdId);
+      }
+      if (context.mounted) {
+        AppToast.success(context, context.l10n.save);
+      }
+    } catch (error) {
+      if (context.mounted) {
+        AppToast.error(context, ErrorHandler.getUserFriendlyMessage(error));
+      }
+    }
+  }
+
   Widget _buildOptionsCard(
       BuildContext context, WidgetRef ref, ColorScheme scheme) {
     final notifier = ref.read(importWizardProvider.notifier);
@@ -397,31 +594,36 @@ class PreviewStep extends ConsumerWidget {
     WidgetRef ref,
     ImportParsedRow row,
   ) async {
-    final scheme = Theme.of(context).colorScheme;
     final notifier = ref.read(importWizardProvider.notifier);
+    bool isSaving = false;
+    final sheetKey = GlobalKey<EditRowSheetState>();
+    final originalCategory = row.category ?? 'uncategorized';
+
     final result = await MonekoBottomSheet.show<dynamic>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: scheme.sheetBackground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
-      ),
+      title: context.l10n.importEditRowTitle,
+      onClose: () {
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      onConfirm: () async {
+        if (isSaving) return;
+        isSaving = true;
+        await sheetKey.currentState?.save();
+      },
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: scheme.sheetBackground,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(10)),
-              border: Border.all(
-                color: scheme.sheetBorder.withValues(alpha: 0.4),
-              ),
-            ),
-            child: EditRowSheet(row: row),
-          ),
+        return EditRowSheet(
+          key: sheetKey,
+          row: row,
+          onSave: (updatedRow) async {
+            isSaving = true;
+            notifier.updateParsedRow(updatedRow);
+            if (context.mounted) {
+              Navigator.of(context).pop(updatedRow);
+            }
+          },
         );
       },
     );
@@ -429,9 +631,75 @@ class PreviewStep extends ConsumerWidget {
     if (result == 'delete') {
       notifier.deleteParsedRow(row.index);
     } else if (result is ImportParsedRow) {
-      notifier.updateParsedRow(result);
+      // Check if category changed and offer to apply to all matching rows
+      final newCategory = result.category ?? 'uncategorized';
+      final originalNormalized = originalCategory.trim().toLowerCase();
+      final newNormalized = newCategory.trim().toLowerCase();
+
+      if (newNormalized != originalNormalized && context.mounted) {
+        await _maybeApplyCategoryToAllImportRows(
+          context: context,
+          ref: ref,
+          originalCategory: originalCategory,
+          newCategory: newCategory,
+        );
+      }
     }
   }
+
+  Future<void> _maybeApplyCategoryToAllImportRows({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String originalCategory,
+    required String newCategory,
+  }) async {
+    final notifier = ref.read(importWizardProvider.notifier);
+    final state = ref.read(importWizardProvider);
+    final normalizedOriginal = originalCategory.trim().toLowerCase();
+
+    // Count how many rows have the original category (excluding the one just edited)
+    final matchingRows = state.parsedRows.where((r) {
+      final rowCategory = (r.category?.trim().isEmpty ?? true)
+          ? 'uncategorized'
+          : r.category!.trim().toLowerCase();
+      return rowCategory == normalizedOriginal;
+    }).toList();
+
+    if (matchingRows.isEmpty) return;
+
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: context.l10n.applyToAllTransactions,
+      description: context.l10n.applyCategoryToAllDescription(
+        matchingRows.length,
+        getCategoryTranslation(context, newCategory),
+        getCategoryTranslation(context, originalCategory),
+      ),
+      confirmLabel: context.l10n.applyToAll,
+      cancelLabel: context.l10n.onlyThisOne,
+    );
+
+    if (result?.confirmed == true) {
+      for (final matchingRow in matchingRows) {
+        final updatedRow = matchingRow.copyWith(category: newCategory);
+        notifier.updateParsedRow(updatedRow);
+      }
+    }
+  }
+}
+
+String? _resolvePreferredDefaultAccountId(List<WalletEntity> accounts) {
+  for (final account in accounts) {
+    if (account.name.trim().toLowerCase() == 'spending') {
+      return account.id;
+    }
+  }
+  for (final account in accounts) {
+    if (account.isDefault) {
+      return account.id;
+    }
+  }
+  return accounts.isNotEmpty ? accounts.first.id : null;
 }
 
 /// Banner shown when the map-columns step was auto-skipped due to high
@@ -513,6 +781,8 @@ class TransactionPreviewTile extends StatelessWidget {
     final isLight = Theme.of(context).brightness == Brightness.light;
     final isError = row.errors.isNotEmpty;
     final isDuplicate = row.isDuplicate;
+    final localizedCategory =
+        getCategoryTranslation(context, row.category ?? 'uncategorized');
 
     final amount = (row.amountCents ?? 0) / 100.0;
     final isIncome = (row.type ?? '').toLowerCase() == 'income';
@@ -546,9 +816,11 @@ class TransactionPreviewTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
             child: TransactionListTile(
               category: row.category ?? 'uncategorized',
-              title: row.description?.isNotEmpty == true
-                  ? row.description!
-                  : (row.category ?? 'Uncategorized'),
+              title: row.merchant?.isNotEmpty == true
+                  ? row.merchant!
+                  : row.description?.isNotEmpty == true
+                      ? row.description!
+                      : localizedCategory,
               date: row.date,
               amount: amount,
               currency: row.currency ?? 'USD',

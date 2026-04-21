@@ -33,6 +33,7 @@ class HouseholdImagePicker {
       context: context,
       backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => Consumer(
         builder: (context, ref, child) {
           final coverImagesAsync = ref.watch(coverImagesProvider);

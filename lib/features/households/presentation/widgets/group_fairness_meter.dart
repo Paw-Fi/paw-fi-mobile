@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/theme/widget_text_styles.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
+import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
+import 'package:moneko/features/households/presentation/utils/member_spending_attribution.dart';
 
 class GroupFairnessMeter extends StatelessWidget {
   final HouseholdSummary summary;
@@ -12,7 +15,8 @@ class GroupFairnessMeter extends StatelessWidget {
       transactions; // Kept for backward compatibility but unused
   final DateTime? from; // Kept for backward compatibility but unused
   final DateTime? to; // Kept for backward compatibility but unused
-  final String? currency; // Kept for backward compatibility but unused
+  final String? currency;
+  final List<ExpenseSplitGroup>? splits;
   final DateRangeFilter dateRange;
 
   const GroupFairnessMeter({
@@ -22,6 +26,7 @@ class GroupFairnessMeter extends StatelessWidget {
     this.from,
     this.to,
     this.currency,
+    this.splits,
     required this.dateRange,
   });
 
@@ -65,7 +70,7 @@ class GroupFairnessMeter extends StatelessWidget {
     //   - User A logs €100 expense, splits 50/50 with User B
     //   - Totals: A €50, B €50 (correct)
     // ═══════════════════════════════════════════════════════════════
-    final members = summary.memberContributions;
+    final members = _resolveMemberContributions();
 
     if (members.isEmpty) {
       return Container(
@@ -119,7 +124,7 @@ class GroupFairnessMeter extends StatelessWidget {
       final diff = (m.totalSpentCents - evenShare).toDouble();
       squaredError += (diff * diff);
     }
-    final rmse = (squaredError / members.length).sqrt();
+    final rmse = math.sqrt(squaredError / members.length);
     final fairness = (1.0 - (rmse / (total == 0 ? 1 : total))).clamp(0.0, 1.0);
 
     return Container(
@@ -205,17 +210,47 @@ class GroupFairnessMeter extends StatelessWidget {
   }
 }
 
-extension _Sqrt on double {
-  double sqrt() => Math.sqrt(this);
-}
-
-class Math {
-  static double sqrt(double x) => x <= 0 ? 0 : _sqrtNewton(x);
-  static double _sqrtNewton(double x) {
-    double r = x;
-    for (int i = 0; i < 12; i++) {
-      r = 0.5 * (r + x / r);
+extension on GroupFairnessMeter {
+  List<MemberContribution> _resolveMemberContributions() {
+    final txs = transactions;
+    if (txs == null || from == null || to == null) {
+      return summary.memberContributions;
     }
-    return r;
+
+    final totals = computeSplitAwareMemberSpendingTotals(
+      transactions: txs,
+      from: from!,
+      to: to!,
+      splits: splits ?? const <ExpenseSplitGroup>[],
+      selectedCurrency: currency,
+    );
+
+    if (summary.memberContributions.isEmpty) {
+      return totals.totalSpentByUserCents.entries
+          .map(
+            (entry) => MemberContribution(
+              userId: entry.key,
+              totalSpentCents: entry.value,
+              transactionCount: totals.transactionCountByUser[entry.key] ?? 0,
+              splitCount: 0,
+              balanceCents: 0,
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    return summary.memberContributions
+        .map(
+          (member) => MemberContribution(
+            userId: member.userId,
+            userEmail: member.userEmail,
+            userName: member.userName,
+            totalSpentCents: totals.totalSpentByUserCents[member.userId] ?? 0,
+            transactionCount: totals.transactionCountByUser[member.userId] ?? 0,
+            splitCount: member.splitCount,
+            balanceCents: member.balanceCents,
+          ),
+        )
+        .toList(growable: false);
   }
 }

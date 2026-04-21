@@ -1,4 +1,5 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -63,8 +64,7 @@ final selectedHomeCurrencyCodeProvider = Provider<String>((ref) {
     return normalized;
   }
 
-  final preferredCurrency = ref.watch(analyticsProvider).preferredCurrency;
-  final preferredNormalized = preferredCurrency?.trim().toUpperCase();
+  final preferredNormalized = ref.watch(appPreferredCurrencyProvider);
   if (preferredNormalized != null && preferredNormalized.isNotEmpty) {
     return preferredNormalized;
   }
@@ -87,19 +87,18 @@ final homeFilteredExpensesProvider = Provider<List<ExpenseEntry>>((ref) {
   // Filter expenses locally by currency AND view mode
   final filtered = allExpenses
       .where((expense) {
-        if (expense.isRecurring) return false;
         final expCurrency = (expense.currency ?? '').toUpperCase();
         final currencyOk = selectedCurrency == null ||
             expCurrency.isEmpty ||
             expCurrency == selectedCurrency;
 
         final activeOk = switch (scope.activeAccountType) {
-          ActiveAccountType.personal => expense.householdId == null ||
+          ActiveWalletType.personal => expense.householdId == null ||
               (expense.householdId?.isEmpty ?? false),
-          ActiveAccountType.portfolio =>
+          ActiveWalletType.portfolio =>
             scope.activeAccountHouseholdId != null &&
                 expense.householdId == scope.activeAccountHouseholdId,
-          ActiveAccountType.household => selectedHouseholdId != null &&
+          ActiveWalletType.household => selectedHouseholdId != null &&
               expense.householdId == selectedHouseholdId,
         };
 
@@ -122,17 +121,16 @@ final homeFilteredTransactionsProvider = Provider<List<ExpenseEntry>>((ref) {
   final selectedCurrency = filterState.selectedCurrency?.toUpperCase();
 
   return all.where((tx) {
-    if (tx.isRecurring) return false;
     final txCurrency = (tx.currency ?? '').toUpperCase();
     final currencyOk = selectedCurrency == null ||
         txCurrency.isEmpty ||
         txCurrency == selectedCurrency;
     final activeOk = switch (scope.activeAccountType) {
-      ActiveAccountType.personal =>
+      ActiveWalletType.personal =>
         tx.householdId == null || (tx.householdId?.isEmpty ?? false),
-      ActiveAccountType.portfolio => scope.activeAccountHouseholdId != null &&
+      ActiveWalletType.portfolio => scope.activeAccountHouseholdId != null &&
           tx.householdId == scope.activeAccountHouseholdId,
-      ActiveAccountType.household =>
+      ActiveWalletType.household =>
         selectedHouseholdId != null && tx.householdId == selectedHouseholdId,
     };
     return currencyOk && activeOk;
@@ -196,11 +194,11 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   bool matchesScope(String? householdId) {
     final normalizedId = normalizeHouseholdId(householdId);
     switch (scope.activeAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         // Personal view should only include personal (non-household) entries.
         return normalizedId == null;
-      case ActiveAccountType.household:
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.household:
+      case ActiveWalletType.portfolio:
         final targetId = scope.activeAccountHouseholdId;
         if (targetId == null || targetId.isEmpty) return false;
         return normalizedId == targetId;
@@ -229,7 +227,7 @@ final currencySummariesProvider = Provider<List<CurrencySummary>>((ref) {
   }
 
   final shouldIncludeBudgets =
-      scope.activeAccountType == ActiveAccountType.personal;
+      scope.activeAccountType == ActiveWalletType.personal;
   if (shouldIncludeBudgets) {
     for (final b in data.allBudgets) {
       final currencyCode = (b.currency ?? '').toUpperCase();
@@ -264,7 +262,7 @@ List<ExpenseEntry> _resolveScopeAwareExpenses(
   AnalyticsData analyticsData,
   HouseholdScope scope,
 ) {
-  if (scope.activeAccountType == ActiveAccountType.personal) {
+  if (scope.activeAccountType == ActiveWalletType.personal) {
     return analyticsData.allExpenses;
   }
 

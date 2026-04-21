@@ -363,13 +363,33 @@ class NotificationIntentParser {
 
   String? _extractInviteToken(Uri uri) {
     if (uri.scheme == DeepLinks.appScheme) {
-      return uri.queryParameters['token'];
+      return _sanitizeInviteToken(uri.queryParameters['token']);
     }
-    if ((uri.scheme == 'https' || uri.scheme == 'http') &&
-        uri.pathSegments.length >= 2 &&
-        uri.pathSegments.first == 'invites') {
-      return uri.pathSegments[1];
+    if (uri.queryParameters.containsKey('token')) {
+      final tokenFromQuery = _sanitizeInviteToken(uri.queryParameters['token']);
+      if (tokenFromQuery != null) return tokenFromQuery;
+    }
+
+    if ((uri.scheme == 'https' || uri.scheme == 'http')) {
+      final pathMatches = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])')
+          .allMatches(uri.path);
+      if (pathMatches.isNotEmpty) {
+        return _sanitizeInviteToken(pathMatches.last.group(1));
+      }
+
+      final fullMatches = RegExp(r'(?:^|/)invites/([A-Za-z0-9_-]+)(?=$|[/?#])')
+          .allMatches(uri.toString());
+      if (fullMatches.isNotEmpty) {
+        return _sanitizeInviteToken(fullMatches.last.group(1));
+      }
     }
     return null;
+  }
+
+  String? _sanitizeInviteToken(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return trimmed;
   }
 }

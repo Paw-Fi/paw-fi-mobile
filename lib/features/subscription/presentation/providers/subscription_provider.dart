@@ -8,6 +8,25 @@ import '../../data/models/subscription.dart';
 
 part 'subscription_provider.g.dart';
 
+const Duration _subscriptionVerificationGraceWindow = Duration(hours: 72);
+
+enum SubscriptionGateStatus {
+  loading,
+  active,
+  inactive,
+  graceActive,
+  unknown,
+}
+
+extension SubscriptionGateStatusX on SubscriptionGateStatus {
+  bool get isLoading => this == SubscriptionGateStatus.loading;
+  bool get requiresPaywall => this == SubscriptionGateStatus.inactive;
+  bool get allowsAppAccess =>
+      this == SubscriptionGateStatus.active ||
+      this == SubscriptionGateStatus.graceActive ||
+      this == SubscriptionGateStatus.unknown;
+}
+
 @riverpod
 class SubscriptionNotifier extends _$SubscriptionNotifier {
   @override
@@ -19,55 +38,71 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
   }
 
   Future<Subscription?> _fetchSubscription(String userId) async {
-    try {
-      appLog('Fetching subscription for userId: $userId',
+    appLog('Fetching subscription for userId: $userId',
+        name: 'SubscriptionProvider');
+
+    final List<dynamic> response = await supabase
+        .from('subscriptions')
+        .select(
+            'id, user_id, stripe_subscription_id, stripe_customer_id, provider, store_product_id, billing_interval, plan, status, current_period_end, cancel_at_period_end, bound_to_user_id, bound_to_household_id, created_at, updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', ascending: false)
+        .limit(1);
+
+    if (response.isEmpty) {
+      appLog('No subscription found - returning null',
           name: 'SubscriptionProvider');
-
-      final List<dynamic> response = await supabase
-          .from('subscriptions')
-          .select(
-              'id, user_id, stripe_subscription_id, stripe_customer_id, provider, store_product_id, billing_interval, plan, status, current_period_end, cancel_at_period_end, bound_to_user_id, bound_to_household_id, created_at, updated_at')
-          .eq('user_id', userId)
-          .order('updated_at', ascending: false)
-          .limit(1);
-
-      if (response.isEmpty) {
-        appLog('No subscription found - returning null',
-            name: 'SubscriptionProvider');
-        return null;
-      }
-
-      final subData =
-          Map<String, dynamic>.from(response.first as Map<String, dynamic>);
-      appLog(
-        'Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}',
-        name: 'SubscriptionProvider',
-      );
-
-      final subscription = Subscription.fromJson(subData);
-      appLog(
-        'Created Subscription object, isSubscribed=${subscription.isSubscribed}',
-        name: 'SubscriptionProvider',
-      );
-
-      // Track if user ever had a subscription for paywall mode determination
-      if (_hasEverSubscribed(subscription)) {
-        try {
-          final prefs = ref.read(sharedPreferencesProvider);
-          await prefs.setBool('ever_subscribed:$userId', true);
-          appLog('Set ever_subscribed flag for user: $userId',
-              name: 'SubscriptionProvider');
-        } catch (e) {
-          appLog('Failed to set ever_subscribed flag',
-              name: 'SubscriptionProvider', error: e);
-        }
-      }
-
-      return subscription;
-    } catch (e, stack) {
-      appLog('Error fetching subscription',
-          name: 'SubscriptionProvider', error: e, stackTrace: stack);
+      await _persistVerificationSnapshot(userId, isActive: false);
       return null;
+    }
+
+    final subData =
+        Map<String, dynamic>.from(response.first as Map<String, dynamic>);
+    appLog(
+      'Subscription data: plan=${subData['plan']}, status=${subData['status']}, bound_to=${subData['bound_to_user_id']}',
+      name: 'SubscriptionProvider',
+    );
+
+    final subscription = Subscription.fromJson(subData);
+    final isActive = subscription.isSubscribed;
+    appLog(
+      'Created Subscription object, isSubscribed=$isActive',
+      name: 'SubscriptionProvider',
+    );
+
+    await _persistVerificationSnapshot(userId, isActive: isActive);
+
+    // Track if user ever had a subscription for paywall mode determination
+    if (_hasEverSubscribed(subscription)) {
+      try {
+        final prefs = ref.read(sharedPreferencesProvider);
+        await prefs.setBool('ever_subscribed:$userId', true);
+        appLog('Set ever_subscribed flag for user: $userId',
+            name: 'SubscriptionProvider');
+      } catch (e) {
+        appLog('Failed to set ever_subscribed flag',
+            name: 'SubscriptionProvider', error: e);
+      }
+    }
+
+    return subscription;
+  }
+
+  Future<void> _persistVerificationSnapshot(String userId,
+      {required bool isActive}) async {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt('subscription_last_verified_at_ms:$userId', nowMs);
+      await prefs.setBool(
+          'subscription_last_verified_active:$userId', isActive);
+      appLog(
+        'Saved verification snapshot active=$isActive at=$nowMs',
+        name: 'SubscriptionProvider',
+      );
+    } catch (e) {
+      appLog('Failed to persist verification snapshot',
+          name: 'SubscriptionProvider', error: e);
     }
   }
 
@@ -105,6 +140,47 @@ class SubscriptionNotifier extends _$SubscriptionNotifier {
         name: 'SubscriptionProvider');
   }
 }
+
+final subscriptionGateStatusProvider = Provider<SubscriptionGateStatus>((ref) {
+  final user = ref.watch(authProvider);
+  if (user.isEmpty) {
+    return SubscriptionGateStatus.inactive;
+  }
+
+  final subscriptionAsync = ref.watch(subscriptionNotifierProvider);
+  return subscriptionAsync.when(
+    loading: () => SubscriptionGateStatus.loading,
+    data: (subscription) => (subscription?.isSubscribed ?? false)
+        ? SubscriptionGateStatus.active
+        : SubscriptionGateStatus.inactive,
+    error: (_, __) {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final verifiedAtMs =
+          prefs.getInt('subscription_last_verified_at_ms:${user.uid}');
+      final wasLastVerifiedActive =
+          prefs.getBool('subscription_last_verified_active:${user.uid}') ??
+              false;
+
+      if (verifiedAtMs != null && wasLastVerifiedActive) {
+        final verifiedAt = DateTime.fromMillisecondsSinceEpoch(verifiedAtMs);
+        final age = DateTime.now().difference(verifiedAt);
+        if (age <= _subscriptionVerificationGraceWindow) {
+          appLog(
+            'Using grace access: last active verification age=${age.inHours}h',
+            name: 'SubscriptionProvider',
+          );
+          return SubscriptionGateStatus.graceActive;
+        }
+      }
+
+      appLog(
+        'Subscription verification unknown (network/error), allowing app access without paywall',
+        name: 'SubscriptionProvider',
+      );
+      return SubscriptionGateStatus.unknown;
+    },
+  );
+});
 
 // Helper provider to check if user has active subscription
 @riverpod

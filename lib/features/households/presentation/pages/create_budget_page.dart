@@ -13,6 +13,8 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 /// Page for creating a new household budget
 class CreateBudgetPage extends HookConsumerWidget {
   final String householdId;
@@ -116,7 +118,8 @@ class CreateBudgetPage extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: context.l10n.createBudget,
       ),
@@ -541,7 +544,7 @@ class CreateBudgetPage extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 
   String _formatPeriod(BuildContext context, BudgetPeriod period) {

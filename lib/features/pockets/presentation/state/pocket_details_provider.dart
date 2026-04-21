@@ -41,6 +41,7 @@ class DailySpend {
 
 class PocketDetailsData {
   final List<Map<String, dynamic>> transactions;
+  final List<String> linkedCategories;
   final List<CategorySpend> categorySpending;
   final List<DailySpend> dailySpending;
   final double totalSpentLastMonth;
@@ -49,6 +50,7 @@ class PocketDetailsData {
 
   PocketDetailsData({
     required this.transactions,
+    required this.linkedCategories,
     required this.categorySpending,
     required this.dailySpending,
     required this.totalSpentLastMonth,
@@ -87,6 +89,7 @@ final pocketDetailsProvider =
   if (categories.isEmpty) {
     return PocketDetailsData(
       transactions: [],
+      linkedCategories: const <String>[],
       categorySpending: [],
       dailySpending: [],
       totalSpentLastMonth: 0,
@@ -109,6 +112,7 @@ final pocketDetailsProvider =
   if (scopeType != PocketsScopeType.personal && householdId == null) {
     return PocketDetailsData(
       transactions: [],
+      linkedCategories: const <String>[],
       categorySpending: [],
       dailySpending: [],
       totalSpentLastMonth: 0,
@@ -127,23 +131,28 @@ final pocketDetailsProvider =
 
   final res = await query.order('date', ascending: false);
   final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
+  // CRITICAL: keep pocket details aligned with the main pockets page totals.
+  // STRICT REQUIREMENT: exclude only income rows here so recurring expenses
+  // remain visible and totals stay consistent with the primary pockets flow.
   final actualTransactions = transactionRows
       .map(ExpenseEntry.fromJson)
-      .where((expense) =>
-          !expense.isRecurring &&
-          (expense.type ?? 'expense').toLowerCase() != 'income')
+      .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 
   final preferredTimezone =
       ref.read(analyticsProvider).contact?.preferredTimezone;
   final userNow = effectiveNow(preferredTimezone: preferredTimezone);
-  final projectedTransactions = await loadProjectedUpcomingPocketExpenses(
+  // CRITICAL: mirror the main pockets calculation here.
+  // STRICT REQUIREMENT: pocket details must include the same month-by-month
+  // recurring projection as the pocket totals, or the detail list/insights
+  // will disagree with the pocket card and users will think recurring
+  // transactions are missing.
+  final projectedTransactions = await loadProjectedPocketMonthExpenses(
     userId: authUser.uid,
     scope: scopeType,
     householdId: householdId,
     monthStart: monthStart,
     selectedCurrency: selectedCurrency,
-    now: userNow,
     includeUpcomingRecurring: params.scopeParams.includeUpcomingRecurring,
     actualExpenses: actualTransactions,
   );
@@ -154,6 +163,11 @@ final pocketDetailsProvider =
             (expense.category ?? 'uncategorized').toLowerCase(),
           ))
       .toList(growable: false);
+  // CRITICAL: keep the merged list aligned with the pocket's spent amount
+  // calculation.
+  // STRICT REQUIREMENT: do not remove projected recurring rows here. Removing
+  // them reintroduces the classic bug where the pocket total includes recurring
+  // spend but the details screen does not.
   final transactions = <ExpenseEntry>[
     ...actualTransactions,
     ...filteredProjectedTransactions,
@@ -182,8 +196,14 @@ final pocketDetailsProvider =
   final totalSpentLastMonth = prevTransactions.fold<double>(
     0,
     (sum, transaction) {
-      if (transaction['is_recurring'] == true ||
-          (transaction['type'] as String?)?.toLowerCase() == 'income') {
+      // CRITICAL: previous-month comparison must ignore recurring template rows
+      // for the same reason as the current-month calculation.
+      // STRICT REQUIREMENT: only posted expenses plus projected month rows
+      // should affect pocket comparisons.
+      if (transaction['is_recurring'] == true) {
+        return sum;
+      }
+      if ((transaction['type'] as String?)?.toLowerCase() == 'income') {
         return sum;
       }
       return sum + ((transaction['amount_cents'] as num).toDouble() / 100.0);
@@ -240,6 +260,8 @@ final pocketDetailsProvider =
 
   return PocketDetailsData(
     transactions: transactions.map((expense) => expense.toJson()).toList(),
+    linkedCategories:
+        categories.map((category) => category.toLowerCase()).toList(),
     categorySpending: categorySpending,
     dailySpending: dailySpending,
     totalSpentLastMonth: totalSpentLastMonth,

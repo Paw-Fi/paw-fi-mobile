@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, debugPrint, kDebugMode;
+    show TargetPlatform, defaultTargetPlatform, debugPrint;
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:in_app_review/in_app_review.dart';
 import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -20,14 +18,17 @@ import 'package:moneko/features/subscription/presentation/providers/iap_controll
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
-import 'package:moneko/features/subscription/data/models/app_store_reviews.dart';
-import 'package:moneko/shared/widgets/app_store_review_card.dart';
+import 'package:moneko/features/subscription/data/models/plan_option.dart';
+import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
+import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/features/subscription/presentation/pages/purchase_processing_dialog_lifecycle.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 void _debugLog(Object? message) {
   debugPrint(message?.toString() ?? 'null');
@@ -41,17 +42,6 @@ void print(Object? message) => _debugLog(message);
 const bool forceUseStripeCheckout = false;
 const String purchaseOwnedByAnotherAccountCode =
     'PURCHASE_OWNED_BY_ANOTHER_ACCOUNT';
-const Duration paywallReturnTrialThreshold =
-    kDebugMode ? Duration(minutes: 1) : Duration(minutes: 3);
-
-String _paywallReturnTrialExitAtKey(String userId) =>
-    'paywall_return_trial:$userId:exit_at';
-String _paywallReturnTrialExitModeKey(String userId) =>
-    'paywall_return_trial:$userId:exit_mode';
-String _paywallReturnTrialGrantedKey(String userId) =>
-    'paywall_return_trial:$userId:granted';
-String _paywallReturnTrialReviewPromptShownKey(String userId) =>
-    'paywall_return_trial:$userId:review_prompt_shown';
 
 enum PaywallMode {
   trial,
@@ -81,54 +71,6 @@ extension PaywallModeX on PaywallMode {
   }
 }
 
-// --- DATA ---
-class PlanOption {
-  final String id; // Unique ID for UI selection
-  final String serverPlanId; // 'plus' or 'lifetime'
-  final String? billingInterval; // 'monthly', 'yearly', or null for lifetime
-  // iOS-only (IAP). Android uses Stripe web checkout.
-  final String? storeProductId;
-  final SubscriptionProduct? catalogProduct;
-  final String name;
-  final String? storePrice;
-  final double? displayPriceUsd;
-  final double? originalPriceUsd;
-  final String tagline;
-  final bool isPopular;
-  final String? badgeText;
-
-  const PlanOption({
-    required this.id,
-    required this.serverPlanId,
-    this.billingInterval,
-    this.storeProductId,
-    this.catalogProduct,
-    required this.name,
-    required this.storePrice,
-    this.displayPriceUsd,
-    this.originalPriceUsd,
-    required this.tagline,
-    this.isPopular = false,
-    this.badgeText,
-  });
-
-  String get periodDisplay {
-    if (billingInterval == 'monthly') return '/month';
-    if (billingInterval == 'yearly') return '/year';
-    return 'once';
-  }
-
-  String get priceDisplay {
-    if (storePrice != null && storePrice!.isNotEmpty) {
-      return storePrice!;
-    }
-    if (displayPriceUsd != null) {
-      return '\$${displayPriceUsd!.toStringAsFixed(2)}';
-    }
-    return '...';
-  }
-}
-
 // --- PAGE ---
 class PaywallScreen extends HookConsumerWidget {
   const PaywallScreen({super.key, this.mode = PaywallMode.resubscribe});
@@ -137,7 +79,6 @@ class PaywallScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authProvider);
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
     final productsAsync = ref.watch(subscriptionProductsProvider);
     final iapStateAsync = ref.watch(iapControllerProvider);
@@ -154,6 +95,7 @@ class PaywallScreen extends HookConsumerWidget {
     final currentSub = subscriptionAsync.value;
     final currentPlanId = currentSub?.subscription?.plan ?? 'free';
     final currentInterval = currentSub?.subscription?.billingInterval;
+    final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
@@ -175,9 +117,7 @@ class PaywallScreen extends HookConsumerWidget {
     final didInitiateCheckout = useRef(false);
     final didInitiateRestore = useRef(false);
     final didCompletePaywallFlow = useRef(false);
-    final isCheckingReturnTrial = useRef(false);
-    final didMarkBackgroundExit = useRef(false);
-    final isReturnTrialDialogOpen = useRef(false);
+    final lastPresentedPlanKey = useRef<String?>(null);
 
     useEffect(() {
       unawaited(
@@ -193,42 +133,7 @@ class PaywallScreen extends HookConsumerWidget {
     }, [mode]);
 
     void runAfterBuild(VoidCallback callback) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        callback();
-      });
-    }
-
-    Future<void> markPaywallExitForTrialOffer() async {
-      if (auth.uid.isEmpty) return;
-      if (hasActiveSubscription) return;
-      if (isProcessing ||
-          processingDialogOpen.value ||
-          didInitiateCheckout.value ||
-          didInitiateRestore.value) {
-        return;
-      }
-
-      final prefs = ref.read(sharedPreferencesProvider);
-      final exitedAtIso = DateTime.now().toUtc().toIso8601String();
-      await prefs.setString(
-        _paywallReturnTrialExitAtKey(auth.uid),
-        exitedAtIso,
-      );
-      await prefs.setString(
-        _paywallReturnTrialExitModeKey(auth.uid),
-        mode.queryValue,
-      );
-
-      debugPrint(
-          '[PaywallReturnTrial] marked exit locally uid=${auth.uid} at=$exitedAtIso mode=${mode.queryValue}');
-
-      await ref
-          .read(subscriptionManagementProvider.notifier)
-          .markPaywallReturnExit();
-
-      debugPrint(
-          '[PaywallReturnTrial] marked exit on server uid=${auth.uid} at=$exitedAtIso');
+      runAfterBuildIfMounted(context, callback);
     }
 
     Future<void> completePaywallFlowToDashboard({
@@ -273,55 +178,28 @@ class PaywallScreen extends HookConsumerWidget {
       didInitiateRestore.value = false;
 
       if (context.mounted) {
+        _debugLog(
+          '🚪 completePaywallFlowToDashboard -> context.go(/dashboard) '
+          '| source=$source provider=$provider option=${option.id} '
+          'mounted=${context.mounted}',
+        );
         context.go('/dashboard');
+      } else {
+        _debugLog(
+          '⚠️ completePaywallFlowToDashboard aborted because context is unmounted '
+          '| source=$source provider=$provider option=${option.id}',
+        );
       }
-    }
-
-    void showReturnTrialGrantingDialog() {
-      if (!context.mounted || isReturnTrialDialogOpen.value) return;
-      isReturnTrialDialogOpen.value = true;
-      unawaited(
-        showDialog<void>(
-          context: context,
-          useRootNavigator: true,
-          barrierDismissible: false,
-          builder: (_) => PopScope(
-            canPop: false,
-            child: BlockingProcessingDialog(
-              message: context.l10n.activatingFreeTrial,
-            ),
-          ),
-        ).whenComplete(() {
-          isReturnTrialDialogOpen.value = false;
-        }),
-      );
-    }
-
-    void dismissReturnTrialGrantingDialog() {
-      if (!isReturnTrialDialogOpen.value || !context.mounted) return;
-      final nav = Navigator.of(context, rootNavigator: true);
-      if (nav.canPop()) {
-        nav.pop();
-      }
-      isReturnTrialDialogOpen.value = false;
     }
 
     void dismissProcessingDialog([String? reason]) {
-      _debugLog(
-        '🧹 Dismissing processing dialog${reason != null ? " - $reason" : ""} | open=${processingDialogOpen.value} mounted=${context.mounted}',
+      dismissProcessingDialogSafely<_ProcessingDialogKind>(
+        context: context,
+        dialogOpen: processingDialogOpen,
+        dialogKind: processingDialogKind,
+        reason: reason,
+        logger: _debugLog,
       );
-      if (!processingDialogOpen.value) return;
-      processingDialogOpen.value = false;
-      processingDialogKind.value = null;
-      if (!context.mounted) return;
-      final nav = Navigator.of(context, rootNavigator: true);
-      final canPop = nav.canPop();
-      _debugLog('🧭 root nav canPop=$canPop');
-      if (canPop) {
-        nav.pop();
-      } else {
-        _debugLog('⚠️ No route to pop for processing dialog');
-      }
     }
 
     String humanizePurchaseError(String raw, [String? code]) {
@@ -507,6 +385,10 @@ class PaywallScreen extends HookConsumerWidget {
       }
       if (!processingDialogOpen.value) return null;
 
+      if (iapProcessing && !didSeeIapProcessing.value) {
+        didSeeIapProcessing.value = true;
+      }
+
       if (iapLastError.isNotEmpty) {
         runAfterBuild(() => showIapError(iapLastError, 'effect'));
         return null;
@@ -678,158 +560,41 @@ class PaywallScreen extends HookConsumerWidget {
       orElse: () => plans.first,
     );
 
-    Future<void> maybeGrantReturnTrial() async {
-      if (auth.uid.isEmpty || hasActiveSubscription) return;
-      if (isCheckingReturnTrial.value) return;
+    useEffect(() {
+      if (plans.isEmpty || hasActiveSubscription) {
+        return null;
+      }
 
-      isCheckingReturnTrial.value = true;
-      try {
-        final prefs = ref.read(sharedPreferencesProvider);
-        final alreadyGranted =
-            prefs.getBool(_paywallReturnTrialGrantedKey(auth.uid)) ?? false;
-        if (alreadyGranted) return;
+      final planKey =
+          '${mode.queryValue}:${activePlanOption.id}:${activePlanOption.billingInterval ?? 'none'}';
+      if (lastPresentedPlanKey.value == planKey) {
+        return null;
+      }
 
-        final exitedAtRaw =
-            prefs.getString(_paywallReturnTrialExitAtKey(auth.uid));
-        if (exitedAtRaw == null || exitedAtRaw.isEmpty) return;
-
-        final exitMode =
-            prefs.getString(_paywallReturnTrialExitModeKey(auth.uid)) ??
-                mode.queryValue;
-
-        final exitedAt = DateTime.tryParse(exitedAtRaw)?.toUtc();
-        if (exitedAt == null) {
-          debugPrint(
-              '[PaywallReturnTrial] invalid exit timestamp uid=${auth.uid} raw=$exitedAtRaw; clearing markers');
-          await prefs.remove(_paywallReturnTrialExitAtKey(auth.uid));
-          await prefs.remove(_paywallReturnTrialExitModeKey(auth.uid));
-          return;
-        }
-
-        final elapsed = DateTime.now().toUtc().difference(exitedAt);
-        if (elapsed < paywallReturnTrialThreshold) {
-          debugPrint(
-              '[PaywallReturnTrial] not eligible yet uid=${auth.uid} elapsed=${elapsed.inSeconds}s threshold=${paywallReturnTrialThreshold.inSeconds}s');
-          return;
-        }
-
-        debugPrint(
-            '[PaywallReturnTrial] attempting grant uid=${auth.uid} elapsed=${elapsed.inSeconds}s');
-
-        // Re-sync the server marker with the original local exit timestamp.
-        // This handles cases where background mark did not reach backend
-        // (offline/background termination) but local marker still exists.
-        await ref
-            .read(subscriptionManagementProvider.notifier)
-            .markPaywallReturnExit(exitedAtUtc: exitedAt);
-
-        showReturnTrialGrantingDialog();
-
-        await ref
-            .read(subscriptionManagementProvider.notifier)
-            .grantPaywallReturnTrial(trialDays: 14);
-
-        debugPrint('[PaywallReturnTrial] grant succeeded uid=${auth.uid}');
-
-        // Persist flow flags immediately after grant, before any navigation.
-        await prefs.setBool('onboarding_completed:${auth.uid}', true);
-        await prefs.setBool(_paywallReturnTrialGrantedKey(auth.uid), true);
-        await prefs.remove(_paywallReturnTrialExitAtKey(auth.uid));
-        await prefs.remove(_paywallReturnTrialExitModeKey(auth.uid));
-
-        if (!context.mounted) return;
-
-        // Ensure both subscription sources used by UI/router observe the update
-        // before we navigate, otherwise router may immediately bounce back.
-        await ref.read(subscriptionManagementProvider.notifier).refresh();
-        if (!context.mounted) return;
-        await ref.read(subscriptionNotifierProvider.notifier).refresh();
-
-        await analytics.trackEvent(
-          eventName: 'paywall_return_trial_granted',
+      lastPresentedPlanKey.value = planKey;
+      unawaited(
+        analytics.trackEvent(
+          eventName: 'paywall_plan_presented',
           flowName: 'onboarding_funnel',
           pageId: 'paywall',
-          dedupeKey: 'return-trial-${auth.uid}-$exitedAtRaw',
+          dedupeKey: planKey,
           properties: <String, Object?>{
             'paywall_mode': mode.queryValue,
-            'exit_paywall_mode': exitMode,
-            'minutes_away': elapsed.inMinutes,
-            'grant_days': 14,
             'selected_plan': activePlanOption.serverPlanId,
+            'selected_option_id': activePlanOption.id,
             'billing_interval': activePlanOption.billingInterval,
-            'provider': 'app_trial',
-            'source': 'paywall_return',
           },
-        );
-
-        if (!context.mounted) return;
-
-        await completePaywallFlowToDashboard(
-          option: activePlanOption,
-          source: 'paywall_return_trial',
-          provider: 'app_trial',
-          includePurchaseEvent: false,
-        );
-      } catch (e, stack) {
-        final message = e.toString().toLowerCase();
-        debugPrint(
-            '[PaywallReturnTrial] grant failed uid=${auth.uid} error=$e');
-        final isTerminalEligibilityFailure =
-            message.contains('already granted') ||
-                message.contains('already has active subscription access') ||
-                message.contains('eligibility window expired') ||
-                message.contains('no eligible paywall exit recorded');
-        if (isTerminalEligibilityFailure) {
-          final prefs = ref.read(sharedPreferencesProvider);
-          await prefs.remove(_paywallReturnTrialExitAtKey(auth.uid));
-          await prefs.remove(_paywallReturnTrialExitModeKey(auth.uid));
-        }
-        appLog(
-          'Failed to grant return trial',
-          name: 'PaywallScreen',
-          error: e,
-          stackTrace: stack,
-        );
-      } finally {
-        dismissReturnTrialGrantingDialog();
-        isCheckingReturnTrial.value = false;
-      }
-    }
-
-    Future<void> maybeShowReviewPromptAfterReturnTrial() async {
-      if (auth.uid.isEmpty) return;
-      if (hasActiveSubscription) return;
-      if (mode != PaywallMode.resubscribe) return;
-
-      final prefs = ref.read(sharedPreferencesProvider);
-      final didGetReturnTrial =
-          prefs.getBool(_paywallReturnTrialGrantedKey(auth.uid)) ?? false;
-      if (!didGetReturnTrial) return;
-
-      final hasShownPaywallReviewPrompt =
-          prefs.getBool(_paywallReturnTrialReviewPromptShownKey(auth.uid)) ??
-              false;
-      if (hasShownPaywallReviewPrompt) return;
-
-      try {
-        final inAppReview = InAppReview.instance;
-        final isAvailable = await inAppReview.isAvailable();
-        if (!isAvailable) return;
-
-        debugPrint(
-            '[PaywallReturnTrial] showing review prompt after trial uid=${auth.uid}');
-        await inAppReview.requestReview();
-        await prefs.setBool(
-            _paywallReturnTrialReviewPromptShownKey(auth.uid), true);
-      } catch (e, stack) {
-        appLog(
-          'Failed to show review prompt after return trial',
-          name: 'PaywallScreen',
-          error: e,
-          stackTrace: stack,
-        );
-      }
-    }
+        ),
+      );
+      return null;
+    }, [
+      plans.length,
+      hasActiveSubscription,
+      mode.queryValue,
+      activePlanOption.id,
+      activePlanOption.serverPlanId,
+      activePlanOption.billingInterval,
+    ]);
 
     final requiresAutoRenewAcknowledgement =
         activePlanOption.serverPlanId != 'lifetime';
@@ -840,47 +605,38 @@ class PaywallScreen extends HookConsumerWidget {
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
     useEffect(() {
-      final lifecycle = AppLifecycleListener(
-        onStateChange: (state) {
-          if (state == AppLifecycleState.paused) {
-            if (didMarkBackgroundExit.value) {
-              debugPrint(
-                  '[PaywallReturnTrial] lifecycle paused ignored (already marked) uid=${auth.uid}');
-              return;
-            }
-
-            didMarkBackgroundExit.value = true;
-            unawaited(markPaywallExitForTrialOffer());
-            return;
-          }
-
-          if (state == AppLifecycleState.resumed) {
-            didMarkBackgroundExit.value = false;
-            unawaited(maybeGrantReturnTrial());
-          }
-        },
+      _debugLog(
+        '🧭 Paywall subscription snapshot '
+        '| hasActiveSubscription=$hasActiveSubscription '
+        'plan=${currentSub?.subscription?.plan} '
+        'status=${currentSub?.subscription?.status} '
+        'provider=${currentSub?.subscription?.provider} '
+        'didInitiateCheckout=${didInitiateCheckout.value} '
+        'didInitiateRestore=${didInitiateRestore.value} '
+        'didCompletePaywallFlow=${didCompletePaywallFlow.value}',
       );
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(maybeGrantReturnTrial());
-        unawaited(maybeShowReviewPromptAfterReturnTrial());
-      });
-
-      return lifecycle.dispose;
+      return null;
     }, [
-      auth.uid,
       hasActiveSubscription,
-      isProcessing,
-      processingDialogOpen.value,
-      mode.queryValue,
-      activePlanOption.id,
+      currentSub?.subscription?.plan,
+      currentSub?.subscription?.status,
+      currentSub?.subscription?.provider,
     ]);
 
     useEffect(() {
       if (didCompletePaywallFlow.value) return null;
       if (hasActiveSubscription) {
+        _debugLog(
+          '✅ Active subscription detected on paywall; scheduling dashboard completion '
+          '| checkout=${didInitiateCheckout.value} restore=${didInitiateRestore.value} '
+          'mode=${mode.queryValue} option=${activePlanOption.id}',
+        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           unawaited(() async {
+            _debugLog(
+              '🧭 Post-frame paywall completion callback running '
+              '| mounted=${context.mounted} option=${activePlanOption.id}',
+            );
             await completePaywallFlowToDashboard(
               option: activePlanOption,
               source: didInitiateRestore.value
@@ -909,6 +665,12 @@ class PaywallScreen extends HookConsumerWidget {
     }, [activePlanOption.id]);
 
     bool isCurrentPlan(PlanOption option) {
+      final shouldBlockSamePlan =
+          hasActiveSubscription && currentStatus == 'active';
+      if (!shouldBlockSamePlan) {
+        return false;
+      }
+
       if (option.serverPlanId == 'lifetime' && currentPlanId == 'lifetime') {
         return true;
       }
@@ -919,29 +681,20 @@ class PaywallScreen extends HookConsumerWidget {
       return false;
     }
 
-    if (hasActiveSubscription) {
-      return AdaptiveScaffold(
-        body: Material(
-          color: colorScheme.appBackground,
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
-      );
-    }
-
     if (useIap && productsAsync.isLoading) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
           child: const Center(child: CircularProgressIndicator()),
         ),
-      );
+      ));
     }
 
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
-      return AdaptiveScaffold(
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
         appBar: const AdaptiveAppBar(title: ''),
         body: Material(
           color: colorScheme.appBackground,
@@ -984,7 +737,7 @@ class PaywallScreen extends HookConsumerWidget {
             ),
           ),
         ),
-      );
+      ));
     }
 
     Future<void> onManageStoreSubscription() async {
@@ -1150,11 +903,13 @@ class PaywallScreen extends HookConsumerWidget {
           if (context.mounted) {
             print('🎬 Showing processing dialog...');
             lastIapErrorShown.value = null;
-            didSeeIapProcessing.value = false;
+            didSeeIapProcessing.value =
+                iapStateAsync.valueOrNull?.isProcessing ?? false;
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
-                '🧾 Dialog open set to true (iap). plan=${activePlanOption.id}');
+                '🧾 Dialog open set to true (iap). plan=${activePlanOption.id} '
+                'initialDidSeeIapProcessing=${didSeeIapProcessing.value}');
             showBlockingProcessingDialog(
               context: context,
               message: processingPurchaseMessage,
@@ -1297,6 +1052,8 @@ class PaywallScreen extends HookConsumerWidget {
       didInitiateRestore.value = true;
       lastIapErrorShown.value = null;
       didSeeIapProcessing.value = false;
+      final storeUnavailableMessage =
+          context.l10n.paywallErrorStoreUnavailableShort;
       await analytics.trackAction(
         flowName: 'onboarding_funnel',
         pageId: 'paywall',
@@ -1319,7 +1076,7 @@ class PaywallScreen extends HookConsumerWidget {
         if (useIap) {
           final iapState = iapStateAsync.valueOrNull;
           if (iapState == null || !iapState.storeAvailable) {
-            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
+            throw Exception(storeUnavailableMessage);
           }
 
           await ref.read(iapControllerProvider.notifier).restorePurchases();
@@ -1361,6 +1118,7 @@ class PaywallScreen extends HookConsumerWidget {
             provider: useIap ? 'iap' : 'stripe',
             includePurchaseEvent: true,
           );
+          if (!context.mounted) return;
           AppToast.success(context, context.l10n.paywallRestoreSuccess);
           return;
         }
@@ -1391,12 +1149,13 @@ class PaywallScreen extends HookConsumerWidget {
       }
     }
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       body: Material(
         color: colorScheme.appBackground,
         child: Stack(
           children: [
-            const _PaywallBackground(),
+            const PaywallBackgroundDecoration(),
             SafeArea(
               child: Column(
                 children: [
@@ -1434,12 +1193,12 @@ class PaywallScreen extends HookConsumerWidget {
                               ),
                             ],
                             const SizedBox(height: 24),
-                            const _HeroAppIcon(),
+                            const PaywallHeroIcon(),
                             const SizedBox(height: 24),
-                            const _AppRatingBadge(),
+                            const PaywallAppRatingBadge(),
                             const SizedBox(height: 32),
                             // --- SUBSCRIPTION PLANS ---
-                            _UnifiedPlanCard(
+                            UnifiedPlanCard(
                               plans: plans,
                               selectedPlanId: selectedPlanId.value,
                               onPlanSelected: (id) {
@@ -1465,15 +1224,17 @@ class PaywallScreen extends HookConsumerWidget {
                                   ),
                                 );
                               },
+                              isNewUser: currentPlanId == 'free',
+                              isCurrentPlan: null, // Always allow on paywall
                             ),
                             const SizedBox(height: 32),
 
                             // --- BENEFITS CHECKLIST ---
-                            const _BenefitsChecklist(),
+                            const PaywallBenefitsChecklist(),
                             const SizedBox(height: 48),
 
                             // --- REVIEWS ---
-                            const _ReviewsSection(),
+                            const PaywallReviewsSection(),
                             const SizedBox(height: 32),
 
                             // Preview App Link
@@ -1490,6 +1251,7 @@ class PaywallScreen extends HookConsumerWidget {
                                           activePlanOption.serverPlanId,
                                       'billing_interval':
                                           activePlanOption.billingInterval,
+                                      'preview_entry_point': 'paywall',
                                     },
                                   );
                                   await analytics.trackAction(
@@ -1503,6 +1265,7 @@ class PaywallScreen extends HookConsumerWidget {
                                           activePlanOption.serverPlanId,
                                       'billing_interval':
                                           activePlanOption.billingInterval,
+                                      'preview_entry_point': 'paywall',
                                     },
                                   );
                                   await analytics.endPage(
@@ -1823,398 +1586,8 @@ class PaywallScreen extends HookConsumerWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
 // --- COMPONENTS ---
-
-class _UnifiedPlanCard extends StatelessWidget {
-  final List<PlanOption> plans;
-  final String selectedPlanId;
-  final ValueChanged<String> onPlanSelected;
-
-  const _UnifiedPlanCard({
-    required this.plans,
-    required this.selectedPlanId,
-    required this.onPlanSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = scheme.brightness == Brightness.dark;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: plans.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final plan = entry.value;
-          final isSelected = selectedPlanId == plan.id;
-          final trialText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.paywallYearlyTrial,
-            'monthly' => context.l10n.paywallMonthlyTrial,
-            _ => null,
-          };
-          final supportingText = plan.serverPlanId == 'lifetime'
-              ? context.l10n.paywallLifetimeSupport
-              : context.l10n.paywallFamilySharing;
-          final periodText = switch (plan.billingInterval) {
-            'yearly' => context.l10n.perYear,
-            'monthly' => context.l10n.perMonth,
-            _ => '',
-          };
-
-          return Padding(
-            padding: EdgeInsets.only(
-              left: idx == 0 ? 0 : 6,
-              right: idx == plans.length - 1
-                  ? 24
-                  : 6, // extra right padding on the last item for overscroll buffer
-            ),
-            child: GestureDetector(
-              onTap: () => onPlanSelected(plan.id),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                constraints: const BoxConstraints.tightFor(
-                  width: 188,
-                  height: 150,
-                ),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF17181D) : scheme.surface,
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF7458FF)
-                        : scheme.outlineVariant.withValues(alpha: 0.3),
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            plan.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                        if (plan.badgeText != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF7458FF),
-                                  Color(0xFFA855F7),
-                                ],
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              plan.badgeText!,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (trialText != null) ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Color(0xFF8B5CF6),
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              trialText,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF8B5CF6),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
-                    Text(
-                      supportingText,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: scheme.mutedForeground,
-                      ),
-                    ),
-                    const Spacer(),
-                    RichText(
-                      text: TextSpan(
-                        text: plan.priceDisplay,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF8B5CF6),
-                          letterSpacing: -0.5,
-                        ),
-                        children: [
-                          if (periodText.isNotEmpty)
-                            TextSpan(
-                              text: periodText,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF8B5CF6),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _PaywallBackground extends StatelessWidget {
-  const _PaywallBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: SvgPicture.asset(
-        'lib/assets/images/paywall/background-gradient.svg',
-        width: MediaQuery.of(context).size.width,
-        fit: BoxFit.cover,
-      ),
-    );
-  }
-}
-
-class _HeroAppIcon extends StatelessWidget {
-  const _HeroAppIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      'lib/assets/mascots/moneko-gradient.svg',
-      width: 87,
-      height: 87,
-      fit: BoxFit.contain,
-    );
-  }
-}
-
-class _AppRatingBadge extends StatelessWidget {
-  const _AppRatingBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final contentColor = scheme.onSurface;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // Background image using laurel wreath
-            Image.asset(
-              'lib/assets/images/paywall/laurel-wreath.png',
-              width: 170,
-            ),
-
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '4.8',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: contentColor,
-                    letterSpacing: -1,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${PlatformInfo.isIOS ? context.l10n.paywallStoreLabelApple : context.l10n.paywallStoreLabelPlay} ${context.l10n.paywallRatingSuffix}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: contentColor.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (int i = 0; i < 4; i++)
-                      const Icon(Icons.star_rounded,
-                          color: Color(0xFFFCB860), size: 16),
-                    Stack(
-                      children: [
-                        Icon(Icons.star_rounded,
-                            color: scheme.outlineVariant.withValues(alpha: 0.5),
-                            size: 16),
-                        ClipRect(
-                          clipper: _FractionalClipper(0.8),
-                          child: const Icon(Icons.star_rounded,
-                              color: Color(0xFFFCB860), size: 16),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _FractionalClipper extends CustomClipper<Rect> {
-  final double fraction;
-  _FractionalClipper(this.fraction);
-
-  @override
-  Rect getClip(Size size) {
-    return Rect.fromLTRB(0, 0, size.width * fraction, size.height);
-  }
-
-  @override
-  bool shouldReclip(covariant _FractionalClipper oldClipper) =>
-      oldClipper.fraction != fraction;
-}
-
-class _BenefitsChecklist extends StatelessWidget {
-  const _BenefitsChecklist();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    final items = [
-      context.l10n.paywallBenefit1,
-      context.l10n.paywallBenefit2,
-      context.l10n.paywallBenefit3,
-      context.l10n.paywallBenefit4,
-    ];
-
-    return Column(
-      children: items.map((item) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFFFF8ED4),
-                ),
-                padding: const EdgeInsets.all(2),
-                child: Icon(
-                  Icons.check,
-                  size: 14,
-                  color: scheme.onPrimary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  item,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: scheme.onSurface.withValues(alpha: 0.9),
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _ReviewsSection extends StatelessWidget {
-  const _ReviewsSection();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    // Pick 3 high-quality reviews that mention key value propositions
-    final selectedReviews = [
-      appStoreReviews.firstWhere((r) =>
-          r.id == 'review-004'), // Really good budgeting app! Clean, simple.
-      appStoreReviews
-          .firstWhere((r) => r.id == 'review-019'), // Envelope budgeting
-      appStoreReviews.firstWhere((r) =>
-          r.id ==
-          'review-010'), // WhatsApp integration, AI automatically does everything
-    ];
-
-    return Column(
-      children: [
-        Text(
-          context.l10n.paywallLovedBy,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: scheme.onSurface,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 24),
-        ...selectedReviews
-            .map(
-              (review) => AppStoreReviewCard(
-                review: review,
-                margin: const EdgeInsets.only(bottom: 16),
-              ),
-            )
-            .toList(),
-      ],
-    );
-  }
-}

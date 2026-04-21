@@ -20,6 +20,10 @@ abstract class HouseholdRepository {
     String? name,
     String? coverImageUrl,
     String? themeColor,
+    bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
+    bool updateAutoSplitConfig = false,
   });
   Future<void> deleteHousehold(String householdId);
 

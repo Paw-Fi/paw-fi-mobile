@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/households/presentation/pages/daily_financial_details_page.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -17,7 +21,9 @@ String _safeCompactFormat(num value, BuildContext context) {
   }
 }
 
-class FinancialCalendarWidget extends StatefulWidget {
+class FinancialCalendarWidget extends ConsumerStatefulWidget {
+  final String userId;
+  final String? householdId;
   final List<ExpenseEntry> transactions;
   final List<RecurringTransaction> recurringTransactions;
   final String currency;
@@ -26,7 +32,9 @@ class FinancialCalendarWidget extends StatefulWidget {
 
   const FinancialCalendarWidget({
     super.key,
-    required this.transactions,
+    required this.userId,
+    this.householdId,
+    this.transactions = const [],
     required this.recurringTransactions,
     required this.currency,
     this.initialMonth,
@@ -34,25 +42,34 @@ class FinancialCalendarWidget extends StatefulWidget {
   });
 
   @override
-  State<FinancialCalendarWidget> createState() =>
+  ConsumerState<FinancialCalendarWidget> createState() =>
       _FinancialCalendarWidgetState();
 }
 
-class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
+class _FinancialCalendarWidgetState
+    extends ConsumerState<FinancialCalendarWidget> {
   late DateTime _focusedMonth;
   late DateTime _focusedWeekStart;
   final DateTime _today = DateTime.now();
 
   Map<DateTime, Map<String, double>> _buildRecurringDailyTotals({
+    required List<ExpenseEntry> actualTransactions,
     required DateTime rangeStart,
     required DateTime rangeEnd,
   }) {
-    final projected = projectRecurringTransactionsAsExpenseEntries(
+    final merged = mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: actualTransactions,
       recurringTransactions: widget.recurringTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
       selectedCurrency: widget.currency,
+      includeFutureOccurrences: true,
     );
+    final projected = merged
+        .where((expense) =>
+            extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
+            null)
+        .toList(growable: false);
 
     final totals = <DateTime, Map<String, double>>{};
 
@@ -140,16 +157,14 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
 
   Map<String, double> _calculateDailyTotals(
     DateTime date, {
+    required List<ExpenseEntry> transactions,
     required Map<DateTime, Map<String, double>> recurringDailyTotals,
   }) {
     double totalExpense = 0;
     double totalIncome = 0;
 
     // 1. Actual Transactions
-    for (final t in widget.transactions) {
-      // Recurring rows are template rows; projected recurring below handles them.
-      // Counting them as actuals would double-count on their anchor day.
-      if (t.isRecurring) continue;
+    for (final t in transactions) {
       if (t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day) {
@@ -192,7 +207,25 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
       rangeEnd = _focusedWeekStart.add(const Duration(days: 6));
     }
 
+    final query = DashboardScopeQuery(
+      userId: widget.userId,
+      householdId: widget.householdId,
+      selectedCurrency: widget.currency,
+      startDate: rangeStart,
+      endDate: rangeEnd,
+    );
+    final transactionsAsync = widget.userId.isEmpty
+        ? const AsyncValue<List<ExpenseEntry>>.data(<ExpenseEntry>[])
+        : ref.watch(dashboardCalendarTransactionsProvider(query));
+    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      return _buildCalendarErrorState(context, colorScheme, () {
+        ref.invalidate(dashboardCalendarTransactionsProvider(query));
+      });
+    }
+    final resolvedTransactions =
+        transactionsAsync.valueOrNull ?? widget.transactions;
     final recurringDailyTotals = _buildRecurringDailyTotals(
+      actualTransactions: resolvedTransactions,
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,
     );
@@ -255,9 +288,11 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
             if (widget.isExpanded) const SizedBox(height: 8),
 
             if (widget.isExpanded)
-              _buildExpandedView(colorScheme, recurringDailyTotals)
+              _buildExpandedView(
+                  colorScheme, resolvedTransactions, recurringDailyTotals)
             else
-              _buildCollapsedView(colorScheme, recurringDailyTotals),
+              _buildCollapsedView(
+                  colorScheme, resolvedTransactions, recurringDailyTotals),
           ],
         ),
       ),
@@ -266,6 +301,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
 
   Widget _buildExpandedView(
     ColorScheme colorScheme,
+    List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
   ) {
     final daysInMonth =
@@ -315,7 +351,8 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
             final day = index - weekdayOffset + 1;
             final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
 
-            return _buildDayCell(date, colorScheme, recurringDailyTotals);
+            return _buildDayCell(
+                date, colorScheme, transactions, recurringDailyTotals);
           },
         ),
       ],
@@ -324,6 +361,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
 
   Widget _buildCollapsedView(
     ColorScheme colorScheme,
+    List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
   ) {
     final last7Days = List.generate(7, (index) {
@@ -346,7 +384,8 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
               const SizedBox(height: 4),
               AspectRatio(
                 aspectRatio: 0.85,
-                child: _buildDayCell(date, colorScheme, recurringDailyTotals),
+                child: _buildDayCell(
+                    date, colorScheme, transactions, recurringDailyTotals),
               ),
             ],
           ),
@@ -358,10 +397,12 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
   Widget _buildDayCell(
     DateTime date,
     ColorScheme colorScheme,
+    List<ExpenseEntry> transactions,
     Map<DateTime, Map<String, double>> recurringDailyTotals,
   ) {
     final totals = _calculateDailyTotals(
       date,
+      transactions: transactions,
       recurringDailyTotals: recurringDailyTotals,
     );
     final hasExpense = totals['expense']! > 0;
@@ -377,7 +418,7 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
           MaterialPageRoute(
             builder: (context) => DailyFinancialDetailsPage(
               date: date,
-              transactions: widget.transactions,
+              transactions: transactions,
               recurringTransactions: widget.recurringTransactions,
               currency: widget.currency,
             ),
@@ -440,4 +481,31 @@ class _FinancialCalendarWidgetState extends State<FinancialCalendarWidget> {
       ),
     );
   }
+}
+
+Widget _buildCalendarErrorState(
+  BuildContext context,
+  ColorScheme colorScheme,
+  VoidCallback onRetry,
+) {
+  return Container(
+    decoration: BoxDecoration(
+      color: colorScheme.homeCardSurface,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: colorScheme.homeCardBorder),
+    ),
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          context.l10n.errorLoadingDashboard,
+          style: TextStyle(color: colorScheme.foreground),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        TextButton(onPressed: onRetry, child: Text(context.l10n.retry)),
+      ],
+    ),
+  );
 }

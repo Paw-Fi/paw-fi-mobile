@@ -11,10 +11,12 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/home/presentation/widgets/transactions_pie_chart.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 class DailyFinancialDetailsPage extends StatelessWidget {
   final DateTime date;
@@ -40,17 +42,21 @@ class DailyFinancialDetailsPage extends StatelessWidget {
       return t.date.year == date.year &&
           t.date.month == date.month &&
           t.date.day == date.day &&
-          !t.isRecurring &&
           (t.currency ?? '').trim().toUpperCase() == currency;
     }).toList();
 
     final projectedRecurringEntriesForDay =
-        projectRecurringTransactionsAsExpenseEntries(
+        mergeActualExpensesWithProjectedRecurring(
+      actualExpenses: dailyTransactions,
       recurringTransactions: recurringTransactions,
       rangeStart: date,
       rangeEnd: date,
       selectedCurrency: currency,
-    );
+      includeFutureOccurrences: true,
+    ).where((expense) {
+      return extractRecurringTransactionIdFromProjectedExpenseId(expense.id) !=
+          null;
+    }).toList();
 
     String? tryExtractRecurringId(String syntheticId) {
       final d = DateTime(date.year, date.month, date.day);
@@ -73,6 +79,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
         .map((e) => tryExtractRecurringId(e.id))
         .whereType<String>()
         .toSet();
+    final chartTransactions = [
+      ...dailyTransactions,
+      ...projectedRecurringEntriesForDay,
+    ];
 
     // Filter recurring transactions for this specific day
     final dailyRecurring = recurringTransactions
@@ -103,7 +113,8 @@ class DailyFinancialDetailsPage extends StatelessWidget {
 
     final net = totalIncome - totalExpense;
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
         title: DateFormat.yMMMMd().format(date),
       ),
@@ -130,13 +141,10 @@ class DailyFinancialDetailsPage extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Spending Breakdown Chart
-                  if (dailyTransactions.any((t) =>
+                  if (chartTransactions.any((t) =>
                       (t.type ?? 'expense').toLowerCase() != 'income')) ...[
                     _DailySpendingChart(
-                      transactions: [
-                        ...dailyTransactions,
-                        ...projectedRecurringEntriesForDay,
-                      ],
+                      transactions: chartTransactions,
                       currency: currency,
                     ),
                     const SizedBox(height: 24),
@@ -233,7 +241,7 @@ class DailyFinancialDetailsPage extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -494,9 +502,6 @@ class _DailySpendingChart extends StatelessWidget {
 
     if (expenses.isEmpty) return const SizedBox.shrink();
 
-    final categorySummaries = _getCategorySummaries(expenses);
-    final totalSpent = expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
-
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -528,101 +533,14 @@ class _DailySpendingChart extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            height: 200,
-            child: Stack(
-              children: [
-                PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 60,
-                    sections: categorySummaries.map((category) {
-                      return PieChartSectionData(
-                        color: category.color,
-                        value: category.amount,
-                        title: '',
-                        radius: 50,
-                      );
-                    }).toList(),
-                  ),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _formatLocalizedCurrency(context, totalSpent, currency),
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.foreground,
-                        ),
-                      ),
-                      Text(
-                        context.l10n.spent,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 16,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: categorySummaries.take(6).map((category) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: category.color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    getCategoryTranslation(context, category.category),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.foreground,
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
+          TransactionsPieChart(
+            colorScheme: colorScheme,
+            expenses: expenses,
+            selectedCurrency: currency,
+            periodLabel: context.l10n.today,
           ),
         ],
       ),
     );
-  }
-
-  List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
-    final Map<String, double> categoryTotals = {};
-    final Map<String, int> categoryCounts = {};
-
-    for (final expense in expenses) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
-
-    return categoryTotals.entries.map((e) {
-      return CategorySummary(
-        category: e.key,
-        amount: e.value,
-        transactionCount: categoryCounts[e.key] ?? 0,
-        color: getCategoryColor(e.key),
-      );
-    }).toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
   }
 }

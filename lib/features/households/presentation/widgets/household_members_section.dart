@@ -13,6 +13,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/utils/invite_link_utils.dart';
 import 'package:moneko/features/households/presentation/utils/household_ui_utils.dart';
 
 class HouseholdMembersSection extends ConsumerStatefulWidget {
@@ -503,7 +504,7 @@ class _HouseholdMembersSectionState
     } catch (e) {
       if (mounted) {
         // ignore: use_build_context_synchronously
-        AppToast.error(context, 'Failed to update role: $e');
+        AppToast.error(context, '${context.l10n.failedToUpdateRole}: $e');
       }
     }
   }
@@ -526,12 +527,12 @@ class _HouseholdMembersSectionState
             .removeMember(member.id);
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.success(context, 'Member removed');
+          AppToast.success(context, context.l10n.memberRemoved);
         }
       } catch (e) {
         if (mounted) {
           // ignore: use_build_context_synchronously
-          AppToast.error(context, 'Failed to remove member: $e');
+          AppToast.error(context, '${context.l10n.failedToRemoveMember}: $e');
         }
       }
     }
@@ -610,7 +611,7 @@ class _HouseholdMembersSectionState
             // ignore: use_build_context_synchronously
             AppToast.success(
                 context, context.l10n.invitationCreatedSuccessfully);
-            final inviteUrl = 'https://moneko.io/invites/$token';
+            final inviteUrl = buildInviteLink(token);
             Clipboard.setData(ClipboardData(text: inviteUrl));
             // ignore: use_build_context_synchronously
             AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
@@ -637,7 +638,7 @@ class _HouseholdMembersSectionState
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              final inviteUrl = 'https://moneko.io/invites/${invite.token}';
+              final inviteUrl = buildInviteLink(invite.token);
               Clipboard.setData(ClipboardData(text: inviteUrl));
               AppToast.success(
                   context, context.l10n.inviteLinkCopiedToClipboard);

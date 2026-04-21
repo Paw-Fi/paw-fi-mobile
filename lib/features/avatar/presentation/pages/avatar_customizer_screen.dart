@@ -442,7 +442,6 @@ class _AvatarCustomizerScreenState
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;

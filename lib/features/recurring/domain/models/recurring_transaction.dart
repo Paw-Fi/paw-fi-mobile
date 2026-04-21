@@ -35,6 +35,7 @@ class RecurringTransaction {
   final DateTime date;
   final String category;
   final String? description;
+  final String? merchant;
   final String? source; // For income
   final double amount; // In major units
   final String currency;
@@ -43,6 +44,7 @@ class RecurringTransaction {
   final String? householdId;
   final String? payerUserId; // Who paid (household sharing)
   final String? splitGroupId;
+  final String? accountId;
   final RecurrenceRule? recurrenceRule; // Nullable - for parsing safety
   final String type; // 'income' or 'expense'
   final List<Attachment> attachments;
@@ -55,6 +57,7 @@ class RecurringTransaction {
     required this.date,
     required this.category,
     this.description,
+    this.merchant,
     this.source,
     required this.amount,
     required this.currency,
@@ -63,6 +66,7 @@ class RecurringTransaction {
     this.householdId,
     this.payerUserId,
     this.splitGroupId,
+    this.accountId,
     this.recurrenceRule, // Not required anymore
     required this.type,
     required this.attachments,
@@ -130,6 +134,7 @@ class RecurringTransaction {
       date: parseDateOnly(json['date']),
       category: _sanitizeRequired(rawCategory, fallback: 'Uncategorized'),
       description: sanitizedDescription,
+      merchant: _sanitizeOptional(json['merchant'] as String?),
       source: _sanitizeOptional(json['source'] as String?),
       amount: amountMajor ?? amountFromCents ?? amountLegacy ?? 0.0,
       currency: json['currency'] as String? ?? 'USD',
@@ -144,6 +149,7 @@ class RecurringTransaction {
           json['payerUserId'] as String? ?? json['payer_user_id'] as String?,
       splitGroupId:
           json['splitGroupId'] as String? ?? json['split_group_id'] as String?,
+      accountId: json['accountId'] as String? ?? json['account_id'] as String?,
       recurrenceRule: parsedRecurrenceRule,
       type: inferredType,
       attachments: _parseAttachments(json['attachments']),
@@ -203,6 +209,7 @@ class RecurringTransaction {
       'date': formatDateOnlyYmd(date),
       'category': category,
       'description': description,
+      'merchant': merchant,
       'source': source,
       'amountMajor': amount,
       'currency': currency,
@@ -211,6 +218,7 @@ class RecurringTransaction {
       'householdId': householdId,
       'payerUserId': payerUserId,
       'splitGroupId': splitGroupId,
+      'accountId': accountId,
       if (recurrenceRule != null)
         'recurrenceRule': recurrenceRule?.toJson(), // Safe null access
       'type': type,
@@ -226,6 +234,7 @@ class RecurringTransaction {
     DateTime? date,
     String? category,
     String? description,
+    String? merchant,
     String? source,
     double? amount,
     String? currency,
@@ -234,6 +243,7 @@ class RecurringTransaction {
     String? householdId,
     String? payerUserId,
     String? splitGroupId,
+    String? accountId,
     RecurrenceRule? recurrenceRule,
     String? type,
     List<Attachment>? attachments,
@@ -246,6 +256,7 @@ class RecurringTransaction {
       date: date ?? this.date,
       category: category ?? this.category,
       description: description ?? this.description,
+      merchant: merchant ?? this.merchant,
       source: source ?? this.source,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
@@ -254,6 +265,7 @@ class RecurringTransaction {
       householdId: householdId ?? this.householdId,
       payerUserId: payerUserId ?? this.payerUserId,
       splitGroupId: splitGroupId ?? this.splitGroupId,
+      accountId: accountId ?? this.accountId,
       recurrenceRule: recurrenceRule ?? this.recurrenceRule,
       type: type ?? this.type,
       attachments: attachments ?? this.attachments,

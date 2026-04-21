@@ -10,6 +10,7 @@ import 'package:moneko/features/auth/auth.dart';
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
+import '../utils/invite_link_utils.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 
@@ -277,7 +278,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
         AppToast.success(context, context.l10n.invitationCreatedSuccessfully);
 
         // Automatically copy the invite link
-        final inviteUrl = 'https://moneko.io/invites/$token';
+        final inviteUrl = buildInviteLink(token);
         Clipboard.setData(ClipboardData(text: inviteUrl));
 
         AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);
@@ -290,7 +291,7 @@ class _HouseholdInvitesPageState extends ConsumerState<HouseholdInvitesPage> {
   }
 
   void _copyInviteLink(HouseholdInvite invite) {
-    final inviteUrl = 'https://moneko.io/invites/${invite.token}';
+    final inviteUrl = buildInviteLink(invite.token);
     Clipboard.setData(ClipboardData(text: inviteUrl));
 
     AppToast.success(context, context.l10n.inviteLinkCopiedToClipboard);

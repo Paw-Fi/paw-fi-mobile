@@ -22,6 +22,8 @@ import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 const _kOnboardingCompletedPrefix = 'onboarding_completed:';
 const _kOnboardingReviewPromptShownKey = 'onboarding_review_prompt_shown';
 const _kTotalSteps = 3;
@@ -30,17 +32,24 @@ Future<void> _maybeShowOnboardingReviewPrompt(
   WidgetRef ref, {
   required bool fromSettings,
 }) async {
-  if (fromSettings) return;
+  if (fromSettings) {
+    return;
+  }
 
   final prefs = ref.read(sharedPreferencesProvider);
   final hasPrompted = prefs.getBool(_kOnboardingReviewPromptShownKey) ?? false;
-  if (hasPrompted) return;
+  if (hasPrompted) {
+    return;
+  }
 
   final inAppReview = InAppReview.instance;
   final isAvailable = await inAppReview.isAvailable();
-  if (!isAvailable) return;
+  if (!isAvailable) {
+    return;
+  }
 
   await prefs.setBool(_kOnboardingReviewPromptShownKey, true);
+
   try {
     await inAppReview.requestReview();
   } catch (_) {}
@@ -401,7 +410,8 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       _ => context.l10n.continueAction,
     };
 
-    return AdaptiveScaffold(
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
       appBar: null,
       body: SafeArea(
         child: Material(
@@ -509,7 +519,7 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Future<void> _markOnboardingCompleted(WidgetRef ref) async {

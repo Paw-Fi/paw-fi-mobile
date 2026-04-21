@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/enums/date_range_filter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'dashboard_config.dart';
 import 'dashboard_repository.dart';
 
@@ -27,10 +29,36 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
 // Better approach: Async provider for repository
 final dashboardRepositoryFutureProvider =
     FutureProvider<DashboardRepository>((ref) async {
+  final trace = HomeDebugTrace(
+    label: 'DashboardRepositoryInit',
+    enabled: ref.read(homeDebugLoggingEnabledProvider),
+    logSink: ref.read(homeDebugLogSinkProvider),
+  );
+  trace.mark('init-start');
   final prefs = await SharedPreferences.getInstance();
   final supabase = Supabase.instance.client;
+  trace.mark('init-success');
   return DashboardRepository(prefs, supabase);
 });
+
+void _dashboardConfigTrace(
+  String label,
+  String event, {
+  Map<String, Object?> fields = const <String, Object?>{},
+}) {
+  if (!foundation.kDebugMode) {
+    return;
+  }
+
+  final entries = fields.entries
+      .where((entry) => entry.value != null)
+      .map((entry) =>
+          '${entry.key}=${entry.value.toString().replaceAll(RegExp(r'\s+'), '_')}')
+      .join(' ');
+  foundation.debugPrint(
+    '[HomeTrace][$label] $event${entries.isEmpty ? '' : ' $entries'}',
+  );
+}
 
 // ============================================================================
 // EDIT MODE STATE
@@ -53,6 +81,8 @@ class PersonalDashboardController
   }
 
   Future<void> _load() async {
+    _dashboardConfigTrace('PersonalDashboardConfig', 'load-start',
+        fields: {'user': _userId});
     try {
       final configs = await _repository.loadPersonalLayout(_userId);
       if (!mounted) return;
@@ -92,6 +122,11 @@ class PersonalDashboardController
         } else {
           state = AsyncValue.data(configs);
         }
+        _dashboardConfigTrace('PersonalDashboardConfig', 'load-success',
+            fields: {
+              'user': _userId,
+              'widgetCount': state.valueOrNull?.length
+            });
       } else {
         // Default Layout
         if (!mounted) return;
@@ -123,10 +158,15 @@ class PersonalDashboardController
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.savePersonalLayout(_userId, defaultConfigs);
+        _dashboardConfigTrace(
+            'PersonalDashboardConfig', 'default-config-created',
+            fields: {'user': _userId, 'widgetCount': defaultConfigs.length});
       }
     } catch (e, st) {
       if (!mounted) return;
       state = AsyncValue.error(e, st);
+      _dashboardConfigTrace('PersonalDashboardConfig', 'load-error',
+          fields: {'user': _userId, 'error': e});
     }
   }
 
@@ -209,6 +249,8 @@ class HouseholdDashboardController
   }
 
   Future<void> _load() async {
+    _dashboardConfigTrace('HouseholdDashboardConfig', 'load-start',
+        fields: {'household': _householdId});
     try {
       final configs = await _repository.loadHouseholdLayout(_householdId);
       if (!mounted) return;
@@ -250,6 +292,11 @@ class HouseholdDashboardController
         } else {
           state = AsyncValue.data(configs);
         }
+        _dashboardConfigTrace('HouseholdDashboardConfig', 'load-success',
+            fields: {
+              'household': _householdId,
+              'widgetCount': state.valueOrNull?.length,
+            });
       } else {
         // Default Layout
         if (!mounted) return;
@@ -293,10 +340,18 @@ class HouseholdDashboardController
         ];
         state = AsyncValue.data(defaultConfigs);
         await _repository.saveHouseholdLayout(_householdId, defaultConfigs);
+        _dashboardConfigTrace(
+            'HouseholdDashboardConfig', 'default-config-created',
+            fields: {
+              'household': _householdId,
+              'widgetCount': defaultConfigs.length,
+            });
       }
     } catch (e, st) {
       if (!mounted) return;
       state = AsyncValue.error(e, st);
+      _dashboardConfigTrace('HouseholdDashboardConfig', 'load-error',
+          fields: {'household': _householdId, 'error': e});
     }
   }
 

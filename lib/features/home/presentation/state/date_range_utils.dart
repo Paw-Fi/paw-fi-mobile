@@ -43,6 +43,17 @@ Map<String, DateTime> getDateRangeFromFilter(
           DateTime(lastOfLastMonth.year, lastOfLastMonth.month, 1);
       return {'from': firstOfLastMonth, 'to': lastOfLastMonth};
 
+    case DateRangeFilter.last3Months:
+      final firstOfThisMonth = DateTime(current.year, current.month, 1);
+      final lastOfPreviousMonth =
+          firstOfThisMonth.subtract(const Duration(days: 1));
+      final firstOfThreeMonths = DateTime(
+        lastOfPreviousMonth.year,
+        lastOfPreviousMonth.month - 2,
+        1,
+      );
+      return {'from': firstOfThreeMonths, 'to': lastOfPreviousMonth};
+
     case DateRangeFilter.thisYear:
       final firstOfYear = DateTime(current.year, 1, 1);
       return {'from': firstOfYear, 'to': today};

@@ -134,12 +134,14 @@ void showCustomSplitSheet({
   required Function(SplitType splitType, List<MemberSplit> splits) onSave,
   SplitType? initialSplitType,
   List<MemberSplit>? initialSplits,
+  bool showEqualOption = false,
 }) {
   showModalBottomSheet(
     context: context,
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     builder: (context) => _CustomSplitSheet(
       members: members,
@@ -148,6 +150,7 @@ void showCustomSplitSheet({
       onSave: onSave,
       initialSplitType: initialSplitType,
       initialSplits: initialSplits,
+      showEqualOption: showEqualOption,
     ),
   );
 }
@@ -160,6 +163,9 @@ class CustomSplitEditor extends StatefulWidget {
   final void Function(SplitType splitType, List<MemberSplit> splits)? onChanged;
   final SplitType? initialSplitType;
   final List<MemberSplit>? initialSplits;
+  final bool showEqualOption;
+  final List<SplitType>? availableSplitTypes;
+  final Duration notifyDebounceDuration;
 
   const CustomSplitEditor({
     super.key,
@@ -169,6 +175,9 @@ class CustomSplitEditor extends StatefulWidget {
     this.onChanged,
     this.initialSplitType,
     this.initialSplits,
+    this.showEqualOption = false,
+    this.availableSplitTypes,
+    this.notifyDebounceDuration = const Duration(milliseconds: 300),
   });
 
   @override
@@ -183,6 +192,7 @@ class GroupSplitEditorSection extends StatelessWidget {
   final String currencySymbol;
   final SplitType? initialSplitType;
   final List<MemberSplit>? initialSplits;
+  final bool showEqualOption;
   final void Function(SplitType splitType, List<MemberSplit> splits)
       onSplitChanged;
   final bool showNotYetSplitBanner;
@@ -198,6 +208,7 @@ class GroupSplitEditorSection extends StatelessWidget {
     required this.currencySymbol,
     required this.initialSplitType,
     required this.initialSplits,
+    this.showEqualOption = false,
     required this.onSplitChanged,
     this.showNotYetSplitBanner = false,
     this.notYetSplitMessage,
@@ -307,6 +318,7 @@ class GroupSplitEditorSection extends StatelessWidget {
             currencySymbol: currencySymbol,
             initialSplitType: initialSplitType,
             initialSplits: initialSplits,
+            showEqualOption: showEqualOption,
             onChanged: onSplitChanged,
           ),
         ],
@@ -322,6 +334,7 @@ class _CustomSplitSheet extends StatefulWidget {
   final Function(SplitType splitType, List<MemberSplit> splits) onSave;
   final SplitType? initialSplitType;
   final List<MemberSplit>? initialSplits;
+  final bool showEqualOption;
 
   const _CustomSplitSheet({
     required this.members,
@@ -330,6 +343,7 @@ class _CustomSplitSheet extends StatefulWidget {
     required this.onSave,
     this.initialSplitType,
     this.initialSplits,
+    this.showEqualOption = false,
   });
 
   @override
@@ -344,11 +358,29 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
   Timer? _debounce;
   bool _isUpdatingProgrammatically = false;
 
+  List<SplitType> get _availableSplitTypes {
+    final configured = widget.availableSplitTypes;
+    if (configured != null && configured.isNotEmpty) {
+      return configured;
+    }
+
+    return <SplitType>[
+      if (widget.showEqualOption) SplitType.equal,
+      SplitType.amount,
+      SplitType.percentage,
+      SplitType.shares,
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
     // Initialize with provided values or defaults
-    _selectedType = widget.initialSplitType ?? SplitType.amount;
+    final preferredInitialType = widget.initialSplitType ??
+        (widget.showEqualOption ? SplitType.equal : SplitType.amount);
+    _selectedType = _availableSplitTypes.contains(preferredInitialType)
+        ? preferredInitialType
+        : _availableSplitTypes.first;
 
     if (widget.initialSplits != null && widget.initialSplits!.isNotEmpty) {
       // Use provided initial splits
@@ -375,6 +407,8 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     final splitTypeChanged = widget.initialSplitType != null &&
         widget.initialSplitType != _selectedType &&
         widget.initialSplitType != oldWidget.initialSplitType;
+    final availableTypesChanged =
+        widget.availableSplitTypes != oldWidget.availableSplitTypes;
     // When initialSplits become available AFTER the widget was first
     // built (e.g. loaded asynchronously from the backend for recurring
     // expenses), we must re-initialize from those splits instead of
@@ -395,11 +429,15 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
       return;
     }
 
-    if (membersChanged || totalChanged || splitTypeChanged) {
+    if (membersChanged ||
+        totalChanged ||
+        splitTypeChanged ||
+        availableTypesChanged) {
       _reconcileSplits(
         splitTypeChanged: splitTypeChanged,
         previousTotalAmount: oldWidget.totalAmount,
         totalChanged: totalChanged,
+        availableTypesChanged: availableTypesChanged,
       );
     }
   }
@@ -441,6 +479,7 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     required bool splitTypeChanged,
     required double previousTotalAmount,
     required bool totalChanged,
+    required bool availableTypesChanged,
   }) {
     final existingByUserId = {
       for (final split in _memberSplits) split.member.userId: split,
@@ -490,7 +529,12 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
     }
 
     setState(() {
-      if (splitTypeChanged && widget.initialSplitType != null) {
+      if (availableTypesChanged &&
+          !_availableSplitTypes.contains(_selectedType)) {
+        _selectedType = _availableSplitTypes.first;
+      } else if (splitTypeChanged &&
+          widget.initialSplitType != null &&
+          _availableSplitTypes.contains(widget.initialSplitType!)) {
         _selectedType = widget.initialSplitType!;
       }
       _memberSplits = updatedSplits;
@@ -950,10 +994,18 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
 
   void _queueNotify() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+
+    void notify() {
       widget.onChanged
           ?.call(_selectedType, List<MemberSplit>.from(_memberSplits));
-    });
+    }
+
+    if (widget.notifyDebounceDuration == Duration.zero) {
+      notify();
+      return;
+    }
+
+    _debounce = Timer(widget.notifyDebounceDuration, notify);
   }
 
   @override
@@ -977,17 +1029,17 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                        child: _buildTypeChip(colorScheme, context.l10n.amount,
-                            SplitType.amount)),
-                    Expanded(
-                        child: _buildTypeChip(colorScheme, context.l10n.percent,
-                            SplitType.percentage)),
-                    Expanded(
-                        child: _buildTypeChip(colorScheme,
-                            context.l10n.splitShare, SplitType.shares)),
-                  ],
+                  children: _availableSplitTypes
+                      .map(
+                        (type) => Expanded(
+                          child: _buildTypeChip(
+                            colorScheme,
+                            _splitTypeLabel(context, type),
+                            type,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
                 ),
               ),
 
@@ -1090,6 +1142,15 @@ class _CustomSplitEditorState extends State<CustomSplitEditor> {
         ),
       ),
     );
+  }
+
+  String _splitTypeLabel(BuildContext context, SplitType type) {
+    return switch (type) {
+      SplitType.equal => 'Equal',
+      SplitType.amount => context.l10n.amount,
+      SplitType.percentage => context.l10n.percent,
+      SplitType.shares => context.l10n.splitShare,
+    };
   }
 
   void _ensureValuesInitializedForType({
@@ -1450,6 +1511,7 @@ class _CustomSplitSheetState extends State<_CustomSplitSheet> {
                 currencySymbol: widget.currencySymbol,
                 initialSplitType: widget.initialSplitType,
                 initialSplits: widget.initialSplits,
+                showEqualOption: widget.showEqualOption,
                 onChanged: (type, splits) {
                   _latestType = type;
                   _latestSplits = splits;

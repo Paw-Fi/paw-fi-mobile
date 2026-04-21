@@ -398,4 +398,33 @@ void main() {
       expect(await resolveForLocale(tester, 'shopping'), isNull);
     });
   });
+
+  group('resolveBuiltinCategoryKeyAcrossLocales', () {
+    test('resolves localized built-in categories across all supported locales',
+        () {
+      for (final locale in AppLocalizations.supportedLocales) {
+        final l10n = lookupAppLocalizations(locale);
+
+        expect(
+          resolveBuiltinCategoryKeyAcrossLocales(l10n.categorySoftwareTools),
+          'software tools',
+          reason: 'software tools should resolve for $locale',
+        );
+        expect(
+          resolveBuiltinCategoryKeyAcrossLocales(l10n.categoryLicensingFees),
+          'licensing & fees',
+          reason: 'licensing & fees should resolve for $locale',
+        );
+        expect(
+          resolveBuiltinCategoryKeyAcrossLocales(l10n.categoryUncategorized),
+          'uncategorized',
+          reason: 'uncategorized should resolve for $locale',
+        );
+      }
+    });
+
+    test('keeps custom categories unresolved', () {
+      expect(resolveBuiltinCategoryKeyAcrossLocales('My custom label'), isNull);
+    });
+  });
 }

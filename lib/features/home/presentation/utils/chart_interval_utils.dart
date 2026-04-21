@@ -14,6 +14,7 @@ String getChartIntervalTypeFromFilter(DateRangeFilter filter) {
     case DateRangeFilter.last30Days:
     case DateRangeFilter.thisMonth:
     case DateRangeFilter.lastMonth:
+    case DateRangeFilter.last3Months:
       return 'daily'; // Show daily intervals for week/month views
     case DateRangeFilter.thisYear:
       return 'monthly'; // Show monthly intervals for year view

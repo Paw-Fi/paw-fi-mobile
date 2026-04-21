@@ -1,3 +1,4 @@
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +22,7 @@ void showIncomeEntrySheet(BuildContext context) {
     backgroundColor:
         Theme.of(context).colorScheme.surface.withValues(alpha: 0.0),
     isScrollControlled: true,
+    useSafeArea: true,
     isDismissible: true,
     builder: (context) => const _IncomeEntrySheet(),
   );
@@ -105,7 +107,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
     final amount = double.tryParse(amountText);
 
     if (amount == null || amount <= 0) {
-      AppToast.error(context, context.l10n.enterValidAmountGreaterThan0);
+      AppToast.error(context, context.l10n.failedToSaveIncome);
       return;
     }
 
@@ -151,7 +153,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
         Navigator.of(context).pop();
         AppToast.success(context, context.l10n.incomeAdded);
       } else if (mounted) {
-        AppToast.error(context, 'Failed to save income');
+        AppToast.error(context, context.l10n.failedToSaveIncome);
       }
     } catch (e) {
       if (mounted) {
@@ -494,7 +496,7 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                             context.l10n.shareWithHousehold,
                             style: TextStyle(color: colorScheme.foreground),
                           ),
-                          MonekoSwitch(
+                          AdaptiveSwitch(
                             value: _shareWithHousehold,
                             onChanged: (value) {
                               setState(() {

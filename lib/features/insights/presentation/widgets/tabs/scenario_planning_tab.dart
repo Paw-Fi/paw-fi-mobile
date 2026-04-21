@@ -354,7 +354,7 @@ class _ScenarioPlanningTabContentState
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId = householdScope.activeAccountHouseholdId;
     final bool isHousehold =
-        householdScope.activeAccountType != ActiveAccountType.personal &&
+        householdScope.activeAccountType != ActiveWalletType.personal &&
             activeHouseholdId != null;
     final String? householdId = isHousehold ? activeHouseholdId : null;
     final preview = ref.watch(previewModeProvider);
@@ -372,12 +372,18 @@ class _ScenarioPlanningTabContentState
               children: [
                 Row(
                   children: [
-                    Text(
-                      context.l10n.aiScenarioPlanning,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.foreground,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          context.l10n.aiScenarioPlanning,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.foreground,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -934,7 +940,8 @@ class _ScenarioPlanningTabContentState
                                     selectedCurrency: widget.selectedCurrency,
                                     question: q,
                                     userId: user.uid,
-                                    mode: isHousehold ? 'household' : 'personal',
+                                    mode:
+                                        isHousehold ? 'household' : 'personal',
                                     householdId: householdId,
                                     scenarioId: id,
                                     onSaved: () {
@@ -951,7 +958,8 @@ class _ScenarioPlanningTabContentState
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 2, horizontal: 0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
@@ -959,8 +967,10 @@ class _ScenarioPlanningTabContentState
                                         children: [
                                           if (createdAtLabel != null)
                                             Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10, vertical: 6),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 6),
                                               decoration: BoxDecoration(
                                                 color: colorScheme.primary
                                                     .withValues(alpha: 0.06),

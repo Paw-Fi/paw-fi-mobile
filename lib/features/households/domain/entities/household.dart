@@ -8,6 +8,8 @@ class Household {
   final String? themeColor;
   final String currency; // ISO 4217 (e.g., USD)
   final bool isPortfolio;
+  final bool autoSplitEnabled;
+  final Map<String, dynamic>? autoSplitConfig;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -19,6 +21,8 @@ class Household {
     this.themeColor,
     required this.currency,
     this.isPortfolio = false,
+    this.autoSplitEnabled = true,
+    this.autoSplitConfig,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +36,12 @@ class Household {
       themeColor: json['theme_color'] as String?,
       currency: (json['currency'] as String).toUpperCase(),
       isPortfolio: json['is_portfolio'] as bool? ?? false,
+      autoSplitEnabled: json['ai_use_default_split'] as bool? ?? true,
+      autoSplitConfig: json['ai_default_split_config'] is Map
+          ? Map<String, dynamic>.from(
+              json['ai_default_split_config'] as Map,
+            )
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -46,6 +56,8 @@ class Household {
       'theme_color': themeColor,
       'currency': currency,
       'is_portfolio': isPortfolio,
+      'ai_use_default_split': autoSplitEnabled,
+      'ai_default_split_config': autoSplitConfig,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -59,6 +71,8 @@ class Household {
     String? themeColor,
     String? currency,
     bool? isPortfolio,
+    bool? autoSplitEnabled,
+    Map<String, dynamic>? autoSplitConfig,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -70,6 +84,8 @@ class Household {
       themeColor: themeColor ?? this.themeColor,
       currency: currency ?? this.currency,
       isPortfolio: isPortfolio ?? this.isPortfolio,
+      autoSplitEnabled: autoSplitEnabled ?? this.autoSplitEnabled,
+      autoSplitConfig: autoSplitConfig ?? this.autoSplitConfig,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -87,6 +103,8 @@ class Household {
           themeColor == other.themeColor &&
           currency == other.currency &&
           isPortfolio == other.isPortfolio &&
+          autoSplitEnabled == other.autoSplitEnabled &&
+          _jsonMapsEqual(autoSplitConfig, other.autoSplitConfig) &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
 
@@ -99,8 +117,76 @@ class Household {
       themeColor.hashCode ^
       currency.hashCode ^
       isPortfolio.hashCode ^
+      autoSplitEnabled.hashCode ^
+      _jsonMapHash(autoSplitConfig) ^
       createdAt.hashCode ^
       updatedAt.hashCode;
+}
+
+bool _jsonMapsEqual(
+  Map<String, dynamic>? left,
+  Map<String, dynamic>? right,
+) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null) return left == right;
+  if (left.length != right.length) return false;
+
+  for (final entry in left.entries) {
+    if (!right.containsKey(entry.key)) return false;
+    if (!_jsonValuesEqual(entry.value, right[entry.key])) return false;
+  }
+
+  return true;
+}
+
+bool _jsonListsEqual(List<dynamic>? left, List<dynamic>? right) {
+  if (identical(left, right)) return true;
+  if (left == null || right == null) return left == right;
+  if (left.length != right.length) return false;
+
+  for (var i = 0; i < left.length; i++) {
+    if (!_jsonValuesEqual(left[i], right[i])) return false;
+  }
+
+  return true;
+}
+
+bool _jsonValuesEqual(Object? left, Object? right) {
+  if (left is Map && right is Map) {
+    return _jsonMapsEqual(
+      Map<String, dynamic>.from(left),
+      Map<String, dynamic>.from(right),
+    );
+  }
+  if (left is List && right is List) {
+    return _jsonListsEqual(List<dynamic>.from(left), List<dynamic>.from(right));
+  }
+  return left == right;
+}
+
+int _jsonMapHash(Map<String, dynamic>? value) {
+  if (value == null) return 0;
+  return Object.hashAll(
+        value.keys.toList()..sort(),
+      ) ^
+      Object.hashAll(
+        (value.keys.toList()..sort()).map((key) => _jsonValueHash(value[key])),
+      );
+}
+
+int _jsonListHash(List<dynamic>? value) {
+  if (value == null) return 0;
+  return Object.hashAll(value.map(_jsonValueHash));
+}
+
+int _jsonValueHash(Object? value) {
+  if (value is Map) {
+    return _jsonMapHash(Map<String, dynamic>.from(value));
+  }
+  if (value is List) {
+    return _jsonListHash(List<dynamic>.from(value));
+  }
+  return value.hashCode;
 }
 
 /// Household member role enum

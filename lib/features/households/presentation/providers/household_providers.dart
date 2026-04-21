@@ -12,6 +12,7 @@ import 'package:moneko/core/preview/preview_data.dart';
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
 import '../../domain/entities/expense_split.dart';
+import '../../domain/entities/settlement_v2.dart';
 import '../../domain/entities/shared_budget.dart';
 import '../../domain/utils/settlement_net_calculator.dart';
 import '../../domain/repositories/household_repository.dart';
@@ -19,6 +20,9 @@ import '../../data/repositories/household_repository_impl.dart';
 import '../../data/services/household_service.dart';
 import '../../data/services/device_registration_service.dart';
 import '../../../home/presentation/models/expense_entry.dart';
+import '../../../home/presentation/state/home_debug_tracing.dart';
+import '../../../home/presentation/state/dashboard_lazy_providers.dart';
+import 'cached_providers.dart';
 import 'household_optimistic_providers.dart';
 
 // ============================================================================
@@ -60,33 +64,102 @@ final deviceRegistrationServiceProvider =
 // STATE NOTIFIERS
 // ============================================================================
 
+final preloadedUserHouseholdsProvider =
+    StateProvider.family<List<Household>?, String>((ref, userId) => null);
+
 /// User households state notifier
 class UserHouseholdsNotifier
     extends StateNotifier<AsyncValue<List<Household>>> {
   final HouseholdRepository _repository;
   final String _userId;
   final Ref _ref;
+  Future<void>? _inFlightLoad;
 
-  UserHouseholdsNotifier(this._repository, this._userId, this._ref)
-      : super(const AsyncValue.loading()) {
-    load();
+  UserHouseholdsNotifier(
+    this._repository,
+    this._userId,
+    this._ref, {
+    bool deferInitialLoad = false,
+    List<Household>? initialHouseholds,
+  }) : super(_initialHouseholdsState(_userId, initialHouseholds)) {
+    if (!state.hasValue) {
+      if (deferInitialLoad) {
+        _scheduleDeferredInitialLoad();
+      } else {
+        load();
+      }
+    }
+  }
+
+  static AsyncValue<List<Household>> _initialHouseholdsState(
+    String userId,
+    List<Household>? initialHouseholds,
+  ) {
+    if (userId.isEmpty) {
+      return const AsyncValue.data(<Household>[]);
+    }
+
+    if (initialHouseholds != null) {
+      return AsyncValue.data(initialHouseholds);
+    }
+
+    return const AsyncValue.loading();
+  }
+
+  Future<void> _scheduleDeferredInitialLoad() async {
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted || state.hasValue || _inFlightLoad != null) {
+      return;
+    }
+    await load();
   }
 
   Future<void> load() async {
+    if (_inFlightLoad != null) {
+      return _inFlightLoad!;
+    }
+
+    final completer = Completer<void>();
+    _inFlightLoad = completer.future;
+    final trace = HomeDebugTrace(
+      label: 'UserHouseholdsProvider',
+      enabled: _ref.read(homeDebugLoggingEnabledProvider),
+      logSink: _ref.read(homeDebugLogSinkProvider),
+      contextFields: {'user': _userId.isEmpty ? '<empty>' : _userId},
+    );
+    trace.mark('load-start');
     if (!mounted) return;
 
     // Preview mode: return mock households instantly
     final preview = _ref.read(previewModeProvider);
     if (preview.isActive) {
       state = AsyncValue.data(PreviewMockData.households);
+      trace.mark('preview-hit', {'count': PreviewMockData.households.length});
       return;
     }
 
-    state = const AsyncValue.loading();
-    final result =
-        await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+    try {
+      state = const AsyncValue.loading();
+      final result =
+          await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+      if (!mounted) return;
+      state = result;
+      trace.mark('load-finished', {
+        'hasError': result.hasError,
+        'count': result.valueOrNull?.length,
+        'error': result.hasError ? result.error : null,
+      });
+    } finally {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+      _inFlightLoad = null;
+    }
+  }
+
+  void hydrate(List<Household> households) {
     if (!mounted) return;
-    state = result;
+    state = AsyncValue.data(households);
   }
 
   Future<void> createHousehold({
@@ -110,7 +183,17 @@ final userHouseholdsProvider = StateNotifierProvider.family<
     UserHouseholdsNotifier, AsyncValue<List<Household>>, String>(
   (ref, userId) {
     final repository = ref.watch(householdRepositoryProvider);
-    return UserHouseholdsNotifier(repository, userId, ref);
+    final seededHouseholds = ref.watch(preloadedUserHouseholdsProvider(userId));
+    final deferInitialLoad = seededHouseholds == null;
+    final notifier = UserHouseholdsNotifier(
+      repository,
+      userId,
+      ref,
+      deferInitialLoad: deferInitialLoad,
+      initialHouseholds: seededHouseholds,
+    );
+
+    return notifier;
   },
 );
 
@@ -401,6 +484,19 @@ class HouseholdSummaryParams {
 final householdSummaryProvider =
     FutureProvider.family<HouseholdSummary?, HouseholdSummaryParams>(
   (ref, params) async {
+    final trace = HomeDebugTrace(
+      label: 'HouseholdSummaryProvider',
+      enabled: ref.read(homeDebugLoggingEnabledProvider),
+      logSink: ref.read(homeDebugLogSinkProvider),
+      contextFields: {
+        'household': params.householdId,
+        'currency': params.currency,
+        'start': params.startDate,
+        'end': params.endDate,
+      },
+    );
+    trace.mark('load-start');
+    ref.watch(dashboardRefreshSignalProvider);
     final repository = ref.watch(householdRepositoryProvider);
 
     // Use a tighter timeout so dashboard widgets fail fast instead of
@@ -424,19 +520,24 @@ final householdSummaryProvider =
               endDate: params.endDate,
             )
             .timeout(timeout);
+        trace.mark('load-success', {'hasSummary': true});
         return summary;
       } on TimeoutException catch (e) {
         lastError = e;
+        trace.mark('load-timeout', {'attempt': attempt});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider timeout (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
       } on FunctionException catch (e) {
         lastError = e;
+        trace.mark(
+            'load-function-error', {'attempt': attempt, 'status': e.status});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider function error ${e.status} (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}');
         // For auth/permission issues, do not keep retrying
         if (e.status == 401 || e.status == 403) break;
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
+        trace.mark('load-error', {'attempt': attempt, 'error': e});
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
       }
@@ -551,7 +652,7 @@ final householdExpensesProvider = FutureProvider.autoDispose
       // Include ALL expenses with this household_id, regardless of split_group_id.
       // Expenses logged via WhatsApp AI bot may not have a split group yet.
       const expenseSelectFields =
-          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring';
+          'id, contact_id, user_id, household_id, date, amount_cents, currency, category, raw_text, merchant, breakdown, receipt_image_url, created_at, updated_at, split_group_id, type, is_recurring, account_id';
 
       dynamic buildExpensesQuery() {
         var query = supabase
@@ -810,6 +911,86 @@ class SettlementHistoryParams {
   @override
   int get hashCode => householdId.hashCode ^ limit.hashCode;
 }
+
+class PairwiseSettlementBalancesParams {
+  final String householdId;
+  final String? currency;
+
+  PairwiseSettlementBalancesParams({
+    required this.householdId,
+    String? currency,
+  }) : currency = currency?.trim().toUpperCase();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PairwiseSettlementBalancesParams &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          currency == other.currency;
+
+  @override
+  int get hashCode => householdId.hashCode ^ (currency?.hashCode ?? 0);
+}
+
+class SettlementBreakdownV2Params {
+  final String householdId;
+  final String memberUserId;
+  final String? currency;
+
+  SettlementBreakdownV2Params({
+    required this.householdId,
+    required this.memberUserId,
+    String? currency,
+  }) : currency = currency?.trim().toUpperCase();
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettlementBreakdownV2Params &&
+          runtimeType == other.runtimeType &&
+          householdId == other.householdId &&
+          memberUserId == other.memberUserId &&
+          currency == other.currency;
+
+  @override
+  int get hashCode =>
+      householdId.hashCode ^ memberUserId.hashCode ^ (currency?.hashCode ?? 0);
+}
+
+final householdPairwiseSettlementBalancesV2Provider = FutureProvider.autoDispose
+    .family<List<SettlementPairwiseBalance>, PairwiseSettlementBalancesParams>(
+  (ref, params) async {
+    ref.watch(
+      cachedHouseholdSplitsProvider(
+        HouseholdSplitsParams(householdId: params.householdId),
+      ),
+    );
+    ref.watch(householdSettlementPaymentsProvider(params.householdId));
+
+    final service = ref.watch(householdServiceProvider);
+    final rows = await service.getPairwiseSettlementBalancesV2(
+      householdId: params.householdId,
+      currency: params.currency,
+    );
+
+    return rows.map(SettlementPairwiseBalance.fromJson).toList();
+  },
+);
+
+final householdSettlementBreakdownV2Provider = FutureProvider.autoDispose
+    .family<List<SettlementBreakdownRowV2>, SettlementBreakdownV2Params>(
+  (ref, params) async {
+    final service = ref.watch(householdServiceProvider);
+    final rows = await service.getSettlementBreakdownRowsV2(
+      householdId: params.householdId,
+      memberUserId: params.memberUserId,
+      currency: params.currency,
+    );
+
+    return rows.map(SettlementBreakdownRowV2.fromJson).toList();
+  },
+);
 
 class SettlementLine {
   final String splitGroupId;

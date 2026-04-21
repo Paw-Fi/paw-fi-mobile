@@ -62,12 +62,16 @@ class MonekoActionSheet {
 
     return showModalBottomSheet<T>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (sheetContext) {
+        final bottomInset = MediaQuery.of(sheetContext).viewPadding.bottom;
         return SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,50 +103,58 @@ class MonekoActionSheet {
                 ),
               ),
               const Divider(height: 1),
-              ...actions.map(
-                (action) => ListTile(
-                  leading: action.icon != null
-                      ? Icon(
-                          action.icon,
-                          color: action.isDestructive
-                              ? colorScheme.error
-                              : colorScheme.onSurface,
-                        )
-                      : null,
-                  title: Text(
-                    action.label,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: action.isDestructive
-                          ? colorScheme.error
-                          : colorScheme.onSurface,
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ...actions.map(
+                      (action) => ListTile(
+                        leading: action.icon != null
+                            ? Icon(
+                                action.icon,
+                                color: action.isDestructive
+                                    ? colorScheme.error
+                                    : colorScheme.onSurface,
+                              )
+                            : null,
+                        title: Text(
+                          action.label,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: action.isDestructive
+                                ? colorScheme.error
+                                : colorScheme.onSurface,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop(action.value);
+                        },
+                      ),
                     ),
-                  ),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop(action.value);
-                  },
+                    if (cancelAction != null) ...[
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: cancelAction.icon != null
+                            ? Icon(
+                                cancelAction.icon,
+                                color: colorScheme.onSurface,
+                              )
+                            : null,
+                        title: Text(
+                          cancelAction.label,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop(cancelAction.value);
+                        },
+                      ),
+                    ],
+                    SizedBox(height: bottomInset + 8),
+                  ],
                 ),
               ),
-              if (cancelAction != null) ...[
-                const Divider(height: 1),
-                ListTile(
-                  leading: cancelAction.icon != null
-                      ? Icon(
-                          cancelAction.icon,
-                          color: colorScheme.onSurface,
-                        )
-                      : null,
-                  title: Text(
-                    cancelAction.label,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop(cancelAction.value);
-                  },
-                ),
-              ],
             ],
           ),
         );

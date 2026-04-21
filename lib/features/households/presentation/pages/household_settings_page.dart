@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -15,12 +17,17 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import '../../../../core/config/storage_config.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
 import '../widgets/create_household_form_content.dart';
 import '../widgets/household_members_panel.dart';
+import '../widgets/space_visibility_selector_card.dart';
+
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 /// Household Settings Page
 /// Single page layout for managing household settings, members, and invitations.
@@ -38,14 +45,24 @@ class HouseholdSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
+  static const bool _debugAutoSplitLogs =
+      bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
   // General Settings State
   final _nameController = TextEditingController();
   String? _initialName;
   String? _initialImageUrl;
   String? _selectedImageUrl;
   File? _selectedImageFile;
+  bool? _initialAutoSplitEnabled;
+  bool? _autoSplitEnabled;
+  Map<String, dynamic>? _initialAutoSplitConfig;
+  Map<String, dynamic>? _autoSplitConfig;
+  bool? _initialIsSharedSpace;
+  bool? _isSharedSpace;
   bool _isSavingSettings = false;
   bool _isDeletingHousehold = false;
+  bool _isNameInitialized = false;
 
   @override
   void initState() {
@@ -67,125 +84,205 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     super.dispose();
   }
 
+  void _debugAutoSplit(String message) {
+    if (!_debugAutoSplitLogs) return;
+    debugPrint('[HouseholdSettings][AutoSplit] $message');
+  }
+
   @override
   Widget build(BuildContext context) {
     final householdAsync = ref.watch(householdProvider(widget.householdId));
     final membersAsync =
         ref.watch(householdMembersProvider(widget.householdId));
+    final loadedHousehold = householdAsync.valueOrNull;
+    final hasUnsavedChanges =
+        loadedHousehold != null ? _hasUnsavedChanges(loadedHousehold) : false;
 
     final colorScheme = Theme.of(context).colorScheme;
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        title: context.l10n.householdSettings,
-      ),
-      body: householdAsync.when(
-        data: (household) {
-          if (household == null) {
-            return Center(
-              child: Text(
-                context.l10n.householdNotFound,
-                style: TextStyle(color: colorScheme.destructive),
-              ),
-            );
-          }
-
-          // Permissions
-          final currentUserMember = membersAsync.asData?.value.firstWhere(
-            (m) => m.userId == currentUserId,
-            orElse: () => HouseholdMember(
-              id: '',
-              householdId: '',
-              userId: currentUserId ?? '',
-              role: HouseholdRole.member,
-              joinedAt: DateTime.now(),
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
+    return PopScope(
+      canPop: !hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !hasUnsavedChanges) return;
+        unawaited(_handleUnsavedBackNavigation());
+      },
+      child: StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
+          appBar: AdaptiveAppBar(
+            title: context.l10n.householdSettings,
+            leading: IconButton(
+              onPressed: () {
+                if (hasUnsavedChanges) {
+                  unawaited(_handleUnsavedBackNavigation());
+                  return;
+                }
+                Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
             ),
-          );
-
-          final currentUserRole =
-              currentUserMember?.role ?? HouseholdRole.member;
-          final isOwner = household.ownerId == currentUserId;
-          final canEditSettings = currentUserRole == HouseholdRole.owner ||
-              currentUserRole == HouseholdRole.admin;
-
-          // Initialize controller if this is the first load
-          if (_nameController.text.isEmpty && !_isSavingSettings) {
-            _nameController.text = household.name;
-          }
-          if (_initialName == null && !_isSavingSettings) {
-            _initialName = household.name;
-          }
-          if (_selectedImageUrl == null &&
-              _selectedImageFile == null &&
-              !_isSavingSettings) {
-            _selectedImageUrl = household.coverImageUrl;
-          }
-          if (_initialImageUrl == null && !_isSavingSettings) {
-            _initialImageUrl = household.coverImageUrl;
-          }
-
-          final normalizedInitialName = (_initialName ?? household.name).trim();
-          final normalizedCurrentName = _nameController.text.trim();
-          final hasNameChanged = normalizedCurrentName != normalizedInitialName;
-          final normalizedInitialImage = _initialImageUrl ?? '';
-          final normalizedCurrentImage = _selectedImageUrl ?? '';
-          final hasImageChanged = _selectedImageFile != null ||
-              normalizedCurrentImage != normalizedInitialImage;
-          final hasUnsavedChanges = hasNameChanged || hasImageChanged;
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(householdProvider(widget.householdId));
-              ref.invalidate(householdMembersProvider(widget.householdId));
-              ref.invalidate(householdInvitesProvider(widget.householdId));
-              // Small delay to ensure refresh indicator shows up smoothly
-              await Future.delayed(const Duration(milliseconds: 500));
-            },
-            child: Padding(
-              padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
-              child: CustomScrollView(
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.only(
-                      top: getSubPageTopPadding(context),
-                      bottom: 40,
-                    ),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        // 1. General Settings Section
-                        _buildGeneralSettingsSection(
-                          context,
-                          canEditSettings,
-                          hasUnsavedChanges,
-                          household,
-                        ),
-
-                        // 2. Members & Invites Section
-                        HouseholdMembersPanel(
-                          householdId: widget.householdId,
-                          householdName: household.name,
-                        ),
-
-                        // 3. Danger Zone (Delete)
-                        if (isOwner) _buildDangerZone(context, household),
-                      ]),
-                    ),
+          ),
+          body: householdAsync.when(
+            data: (household) {
+              if (household == null) {
+                return Center(
+                  child: Text(
+                    context.l10n.householdNotFound,
+                    style: TextStyle(color: colorScheme.destructive),
                   ),
-                ],
-              ),
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
+                );
+              }
+
+              // Permissions
+              final currentUserMember = membersAsync.asData?.value.firstWhere(
+                (m) => m.userId == currentUserId,
+                orElse: () => HouseholdMember(
+                  id: '',
+                  householdId: '',
+                  userId: currentUserId ?? '',
+                  role: HouseholdRole.member,
+                  joinedAt: DateTime.now(),
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                ),
+              );
+
+              final currentUserRole =
+                  currentUserMember?.role ?? HouseholdRole.member;
+              final isOwner = household.ownerId == currentUserId;
+              final canEditSettings = currentUserRole == HouseholdRole.owner ||
+                  currentUserRole == HouseholdRole.admin;
+
+              // Initialize controller if this is the first load
+              if (!_isNameInitialized && !_isSavingSettings) {
+                _nameController.text = household.name;
+                _isNameInitialized = true;
+              }
+              if (_initialName == null && !_isSavingSettings) {
+                _initialName = household.name;
+              }
+              if (_selectedImageUrl == null &&
+                  _selectedImageFile == null &&
+                  !_isSavingSettings) {
+                _selectedImageUrl = household.coverImageUrl;
+              }
+              if (_initialImageUrl == null && !_isSavingSettings) {
+                _initialImageUrl = household.coverImageUrl;
+              }
+              if (_autoSplitEnabled == null && !_isSavingSettings) {
+                _autoSplitEnabled = household.autoSplitEnabled;
+              }
+              if (_initialAutoSplitEnabled == null && !_isSavingSettings) {
+                _initialAutoSplitEnabled = household.autoSplitEnabled;
+              }
+              if (_autoSplitConfig == null && !_isSavingSettings) {
+                _autoSplitConfig = household.autoSplitConfig == null
+                    ? null
+                    : Map<String, dynamic>.from(household.autoSplitConfig!);
+              }
+              if (_initialAutoSplitConfig == null && !_isSavingSettings) {
+                _initialAutoSplitConfig = household.autoSplitConfig == null
+                    ? null
+                    : Map<String, dynamic>.from(household.autoSplitConfig!);
+              }
+              if (_isSharedSpace == null && !_isSavingSettings) {
+                _isSharedSpace = !household.isPortfolio;
+              }
+              if (_initialIsSharedSpace == null && !_isSavingSettings) {
+                _initialIsSharedSpace = !household.isPortfolio;
+              }
+
+              final hasUnsavedChanges = _hasUnsavedChanges(household);
+
+              return RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(householdProvider(widget.householdId));
+                  ref.invalidate(householdMembersProvider(widget.householdId));
+                  ref.invalidate(householdInvitesProvider(widget.householdId));
+                  // Small delay to ensure refresh indicator shows up smoothly
+                  await Future.delayed(const Duration(milliseconds: 500));
+                },
+                child: Padding(
+                  padding: EdgeInsets.only(top: getSubPageTopPadding(context)),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.only(
+                          top: getSubPageTopPadding(context),
+                          bottom: 40,
+                        ),
+                        sliver: SliverList(
+                          delegate: SliverChildListDelegate([
+                            // 1. General Settings Section
+                            _buildGeneralSettingsSection(
+                              context,
+                              canEditSettings,
+                              hasUnsavedChanges,
+                              household,
+                            ),
+
+                            if (household.isPortfolio)
+                              _buildSpaceVisibilitySection(
+                                context,
+                                canEditSettings,
+                              ),
+
+                            if (!household.isPortfolio)
+                              _buildAutoSplitSection(
+                                context,
+                                canEditSettings,
+                                membersAsync.valueOrNull ??
+                                    const <HouseholdMember>[],
+                              ),
+
+                            // 2. Members & Invites Section
+                            if (!household.isPortfolio)
+                              HouseholdMembersPanel(
+                                householdId: widget.householdId,
+                                householdName: household.name,
+                              ),
+
+                            // 3. Danger Zone (Delete)
+                            if (isOwner) _buildDangerZone(context, household),
+                          ]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, s) => Center(child: Text('${context.l10n.error}: $e')),
+          ),
+        ),
       ),
     );
   }
 
   // --- Sections ---
+
+  Widget _buildSpaceVisibilitySection(
+    BuildContext context,
+    bool canEdit,
+  ) {
+    return _buildSettingsSection(
+      context,
+      title: context.l10n.privateSpace,
+      children: [
+        SpaceVisibilitySelectorCard(
+          isSharedSpace: _isSharedSpace ?? false,
+          enabled: canEdit,
+          onChanged: canEdit
+              ? (value) {
+                  if (!mounted) return;
+                  setState(() => _isSharedSpace = value);
+                }
+              : null,
+        ),
+      ],
+    );
+  }
 
   Widget _buildGeneralSettingsSection(
     BuildContext context,
@@ -280,6 +377,103 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
               ? null
               : () => _confirmDeleteHousehold(household),
         ),
+      ],
+    );
+  }
+
+  Widget _buildAutoSplitSection(
+    BuildContext context,
+    bool canEdit,
+    List<HouseholdMember> members,
+  ) {
+    final isEnabled = _autoSplitEnabled ?? true;
+    final initialConfig = _autoSplitConfig;
+    final templateTotal = members.isEmpty ? 1.0 : members.length.toDouble();
+
+    return _buildSettingsSection(
+      context,
+      title: 'Auto Split',
+      children: [
+        _buildSettingsTile(
+          context: context,
+          title: const Text('Auto split'),
+          subtitle: const Text(
+            'Set how shared expenses are split by default',
+          ),
+          trailing: AdaptiveSwitch(
+            value: isEnabled,
+            onChanged: canEdit ? _handleAutoSplitToggle : null,
+          ),
+          onTap: canEdit ? () => _handleAutoSplitToggle(!isEnabled) : null,
+        ),
+        if (isEnabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: AbsorbPointer(
+              absorbing: !canEdit || members.isEmpty,
+              child: Opacity(
+                opacity: canEdit && members.isNotEmpty ? 1.0 : 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomSplitEditor(
+                      members: members,
+                      totalAmount: templateTotal,
+                      currencySymbol: '',
+                      initialSplitType: resolveStoredSplitType(
+                        initialConfig,
+                        fallback: SplitType.equal,
+                      ),
+                      initialSplits: deserializeStoredSplitConfig(
+                        members: members,
+                        totalAmount: templateTotal,
+                        config: initialConfig,
+                      ),
+                      showEqualOption: true,
+                      availableSplitTypes: const <SplitType>[
+                        SplitType.equal,
+                        SplitType.percentage,
+                        SplitType.shares,
+                      ],
+                      notifyDebounceDuration: Duration.zero,
+                      onChanged: (splitType, splits) {
+                        if (!mounted) return;
+                        if (members.isEmpty || splits.isEmpty) {
+                          _debugAutoSplit(
+                            'Ignoring split change (members=${members.length}, splits=${splits.length}, type=${splitType.name})',
+                          );
+                          return;
+                        }
+                        final nextConfig = splitType == SplitType.equal
+                            ? null
+                            : serializeStoredSplitConfig(
+                                splitType: splitType,
+                                splits: splits,
+                              );
+                        final currentEncoded =
+                            _encodeSplitConfigForComparison(_autoSplitConfig);
+                        final nextEncoded =
+                            _encodeSplitConfigForComparison(nextConfig);
+                        if (currentEncoded == nextEncoded) {
+                          _debugAutoSplit(
+                            'Ignoring no-op split change (type=${splitType.name})',
+                          );
+                          return;
+                        }
+                        _debugAutoSplit(
+                          'Applying split change type=${splitType.name} current=$currentEncoded next=$nextEncoded',
+                        );
+                        setState(() {
+                          _autoSplitEnabled = true;
+                          _autoSplitConfig = nextConfig;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -415,6 +609,49 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
 
   // --- Logic & Actions ---
 
+  bool _hasUnsavedChanges(Household household) {
+    // Don't report unsaved changes until initial values are loaded
+    if (_initialName == null) {
+      return false;
+    }
+
+    final normalizedInitialName = _initialName!.trim();
+    final normalizedCurrentName = _nameController.text.trim();
+    final hasNameChanged = normalizedCurrentName != normalizedInitialName;
+    final normalizedInitialImage = _initialImageUrl ?? '';
+    final normalizedCurrentImage = _selectedImageUrl ?? '';
+    final hasImageChanged = _selectedImageFile != null ||
+        normalizedCurrentImage != normalizedInitialImage;
+    final encodedCurrentSplitConfig =
+        _encodeSplitConfigForComparison(_autoSplitConfig);
+    final encodedInitialSplitConfig =
+        _encodeSplitConfigForComparison(_initialAutoSplitConfig);
+    final hasAutoSplitChanged =
+        (_autoSplitEnabled ?? household.autoSplitEnabled) !=
+                (_initialAutoSplitEnabled ?? household.autoSplitEnabled) ||
+            encodedCurrentSplitConfig != encodedInitialSplitConfig;
+    final hasSpaceVisibilityChanged =
+        (_isSharedSpace ?? !household.isPortfolio) !=
+            (_initialIsSharedSpace ?? !household.isPortfolio);
+
+    if (_debugAutoSplitLogs &&
+        (hasNameChanged ||
+            hasImageChanged ||
+            hasAutoSplitChanged ||
+            hasSpaceVisibilityChanged)) {
+      _debugAutoSplit(
+        'Dirty state name=$hasNameChanged image=$hasImageChanged autoSplit=$hasAutoSplitChanged visibility=$hasSpaceVisibilityChanged '
+        'enabledCurrent=${_autoSplitEnabled ?? household.autoSplitEnabled} enabledInitial=${_initialAutoSplitEnabled ?? household.autoSplitEnabled} '
+        'splitCurrent=$encodedCurrentSplitConfig splitInitial=$encodedInitialSplitConfig',
+      );
+    }
+
+    return hasNameChanged ||
+        hasImageChanged ||
+        hasAutoSplitChanged ||
+        hasSpaceVisibilityChanged;
+  }
+
   Future<void> _saveSettings(Household household) async {
     if (_nameController.text.trim().isEmpty) {
       AppToast.error(context, context.l10n.pleaseEnterHouseholdName);
@@ -429,10 +666,17 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         imageUrl = await _uploadImage(_selectedImageFile!);
       }
 
+      final convertPortfolioToShared =
+          household.isPortfolio && (_isSharedSpace ?? false);
+
       await ref.read(householdRepositoryProvider).updateHousehold(
             householdId: widget.householdId,
             name: _nameController.text.trim(),
             coverImageUrl: imageUrl,
+            isPortfolio: convertPortfolioToShared ? false : null,
+            autoSplitEnabled: household.isPortfolio ? null : _autoSplitEnabled,
+            autoSplitConfig: household.isPortfolio ? null : _autoSplitConfig,
+            updateAutoSplitConfig: !household.isPortfolio,
           );
 
       ref.invalidate(householdProvider(widget.householdId));
@@ -447,6 +691,11 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
           _initialImageUrl = imageUrl;
           _selectedImageUrl = imageUrl;
           _selectedImageFile = null;
+          _initialAutoSplitEnabled = _autoSplitEnabled;
+          _initialAutoSplitConfig = _autoSplitConfig == null
+              ? null
+              : Map<String, dynamic>.from(_autoSplitConfig!);
+          _initialIsSharedSpace = _isSharedSpace;
         });
         // ignore: use_build_context_synchronously
         AppToast.success(context, context.l10n.householdUpdatedSuccessfully);
@@ -459,6 +708,115 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     } finally {
       if (mounted) setState(() => _isSavingSettings = false);
     }
+  }
+
+  void _handleAutoSplitToggle(bool value) {
+    if (!mounted) return;
+
+    setState(() {
+      _autoSplitEnabled = value;
+    });
+  }
+
+  Future<void> _handleUnsavedBackNavigation() async {
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title: 'Unsaved changes',
+      description: 'Leave without saving your changes?',
+      confirmLabel: 'Leave',
+      cancelLabel: context.l10n.cancel,
+      isDestructive: true,
+    );
+
+    if (result?.confirmed == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  String? _encodeSplitConfigForComparison(Map<String, dynamic>? config) {
+    if (config == null) return null;
+
+    final splitTypeRaw = config['splitType']?.toString().trim().toLowerCase();
+    if (splitTypeRaw == null ||
+        splitTypeRaw.isEmpty ||
+        splitTypeRaw == SplitType.equal.name) {
+      return null;
+    }
+
+    final rawMemberSplits = config['memberSplits'];
+    final normalizedSplits = <Map<String, dynamic>>[];
+    if (rawMemberSplits is List) {
+      for (final item in rawMemberSplits) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final userId = map['userId']?.toString().trim();
+        if (userId == null || userId.isEmpty) continue;
+
+        num? normalizeNum(dynamic value) {
+          if (value is! num) return null;
+          final asDouble = value.toDouble();
+          if (asDouble.isNaN || asDouble.isInfinite) return null;
+          return asDouble == asDouble.truncateToDouble()
+              ? asDouble.toInt()
+              : asDouble;
+        }
+
+        bool normalizeBool(dynamic value, {required bool fallback}) {
+          if (value is bool) return value;
+          return fallback;
+        }
+
+        final amount = normalizeNum(map['amount']);
+        final percentage = normalizeNum(map['percentage']);
+        final sharesRaw = normalizeNum(map['shares']);
+        final shares = sharesRaw is int
+            ? (sharesRaw > 0 ? sharesRaw : null)
+            : (sharesRaw is num && sharesRaw > 0
+                ? sharesRaw.round()
+                : null);
+
+        normalizedSplits.add({
+          'userId': userId,
+          'amount': amount,
+          'percentage': percentage,
+          'shares': shares,
+          'includedInAmount': normalizeBool(
+            map['includedInAmount'],
+            fallback: (amount ?? 0) != 0,
+          ),
+          'includedInPercentage': normalizeBool(
+            map['includedInPercentage'],
+            fallback: (percentage ?? 0) != 0,
+          ),
+        });
+      }
+    }
+
+    if (normalizedSplits.isEmpty) {
+      return null;
+    }
+
+    normalizedSplits.sort(
+      (a, b) =>
+          (a['userId'] as String).compareTo(b['userId'] as String),
+    );
+
+    num? normalizeRootNum(dynamic value) {
+      if (value is! num) return null;
+      final asDouble = value.toDouble();
+      if (asDouble.isNaN || asDouble.isInfinite) return null;
+      return asDouble == asDouble.truncateToDouble()
+          ? asDouble.toInt()
+          : asDouble;
+    }
+
+    final normalized = <String, dynamic>{
+      'splitType': splitTypeRaw,
+      'templateTotalAmount': normalizeRootNum(config['templateTotalAmount']),
+      'memberSplits': normalizedSplits,
+    };
+
+    return jsonEncode(normalized);
   }
 
   Future<String?> _uploadImage(File imageFile) async {
@@ -476,10 +834,9 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
       config: ImageCompressConfig.householdCover,
     );
 
-    await supabase.storage
-        .from(StorageConfig.publicBucket)
-        .uploadBinary(fileName, compressedBytes,
-            fileOptions: const FileOptions(cacheControl: '31536000'));
+    await supabase.storage.from(StorageConfig.publicBucket).uploadBinary(
+        fileName, compressedBytes,
+        fileOptions: const FileOptions(cacheControl: '31536000'));
 
     return supabase.storage
         .from(StorageConfig.publicBucket)

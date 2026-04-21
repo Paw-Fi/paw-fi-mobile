@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,7 +35,7 @@ void main() {
       final response = _MockFunctionResponse();
       when(() => response.status).thenReturn(200);
       when(() => response.data)
-          .thenReturn({'invite_url': 'https://example.com/invite/TOKEN'});
+          .thenReturn({'invite_url': 'https://example.com/invites/TOKEN'});
 
       Map<String, dynamic>? capturedBody;
       when(() => functions.invoke('households-create-invite',
@@ -48,7 +51,7 @@ void main() {
         expiresInDays: 5,
       );
 
-      expect(url, 'https://example.com/invite/TOKEN');
+      expect(url, 'TOKEN');
       expect(capturedBody, isNotNull);
       expect(
           capturedBody!.keys, containsAll(['household_id', 'expires_in_days']));
@@ -89,6 +92,116 @@ void main() {
       );
       sw.stop();
       // We cannot deterministically assert exact time in unit test env, but ensure it doesn't hang indefinitely
+    });
+  });
+
+  group('HouseholdService.updateHousehold', () {
+    test('sends null auto split config when explicitly clearing defaults',
+        () async {
+      final responseJson = {
+        'id': 'hh_123',
+        'name': 'Home',
+        'owner_id': 'user_1',
+        'currency': 'USD',
+        'is_portfolio': false,
+        'ai_use_default_split': true,
+        'ai_default_split_config': null,
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'updated_at': '2026-01-01T00:00:00.000Z',
+      };
+
+      Map<String, dynamic>? capturedUpdates;
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          capturedUpdates = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode(responseJson),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+      final serviceWithRealClient = HouseholdService(client);
+
+      await serviceWithRealClient.updateHousehold(
+        householdId: 'hh_123',
+        autoSplitEnabled: true,
+        autoSplitConfig: null,
+        updateAutoSplitConfig: true,
+      );
+
+      expect(capturedUpdates, isNotNull);
+      expect(capturedUpdates!['ai_use_default_split'], isTrue);
+      expect(capturedUpdates!.containsKey('ai_default_split_config'), isTrue);
+      expect(capturedUpdates!['ai_default_split_config'], isNull);
+    });
+
+    test('sends portfolio conversion when explicitly set to shared', () async {
+      final responseJson = {
+        'id': 'hh_123',
+        'name': 'Home',
+        'owner_id': 'user_1',
+        'currency': 'USD',
+        'is_portfolio': false,
+        'ai_use_default_split': true,
+        'ai_default_split_config': null,
+        'created_at': '2026-01-01T00:00:00.000Z',
+        'updated_at': '2026-01-01T00:00:00.000Z',
+      };
+
+      Map<String, dynamic>? capturedUpdates;
+      final client = SupabaseClient(
+        'https://example.test',
+        'anon-key',
+        httpClient: MockClient((request) async {
+          capturedUpdates = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode(responseJson),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+      final serviceWithRealClient = HouseholdService(client);
+
+      await serviceWithRealClient.updateHousehold(
+        householdId: 'hh_123',
+        isPortfolio: false,
+      );
+
+      expect(capturedUpdates, isNotNull);
+      expect(capturedUpdates!['is_portfolio'], isFalse);
+    });
+  });
+
+  group('HouseholdService.deleteHousehold', () {
+    test('delegates deletion to the household cleanup RPC', () async {
+      Map<String, dynamic>? capturedParams;
+      when(() => supabase.rpc('delete_household', params: any(named: 'params')))
+          .thenAnswer((invocation) {
+        capturedParams =
+            invocation.namedArguments[#params] as Map<String, dynamic>;
+        return PostgrestFilterBuilder<dynamic>(
+          PostgrestBuilder<dynamic, dynamic, dynamic>(
+            url: Uri.parse('https://example.test/rest/v1/rpc/delete_household'),
+            headers: Map<String, String>.of(const {}),
+            method: 'POST',
+            httpClient: MockClient(
+              (request) async => http.Response('', 204, request: request),
+            ),
+          ),
+        );
+      });
+
+      await service.deleteHousehold('hh_123');
+
+      expect(capturedParams, {'p_household_id': 'hh_123'});
+      verify(() => supabase.rpc('delete_household',
+          params: {'p_household_id': 'hh_123'})).called(1);
     });
   });
 }

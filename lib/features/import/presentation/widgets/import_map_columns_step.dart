@@ -12,6 +12,78 @@ import 'package:moneko/shared/widgets/outlined_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 /// The second wizard step: column-to-field mapping.
+class ImportFieldLayout {
+  const ImportFieldLayout({
+    required this.requiredFields,
+    required this.optionalFields,
+    required this.canProceed,
+  });
+
+  final List<ImportField> requiredFields;
+  final List<ImportField> optionalFields;
+  final bool canProceed;
+}
+
+ImportFieldLayout resolveImportFieldLayout(ImportMapping mapping) {
+  if (mapping.hasSplitDebitCredit) {
+    return ImportFieldLayout(
+      requiredFields: const [
+        ImportField.date,
+        ImportField.debit,
+        ImportField.credit,
+      ],
+      optionalFields: const [
+        ImportField.amount,
+        ImportField.category,
+        ImportField.description,
+        ImportField.merchant,
+        ImportField.currency,
+        ImportField.type,
+        ImportField.reference,
+        ImportField.balance,
+      ],
+      canProceed: const [
+        ImportField.date,
+        ImportField.debit,
+        ImportField.credit,
+      ].every(mapping.fieldToColumnIndex.containsKey),
+    );
+  }
+
+  final preferredAmountField =
+      mapping.fieldToColumnIndex.containsKey(ImportField.amount)
+          ? ImportField.amount
+          : mapping.fieldToColumnIndex.containsKey(ImportField.debit)
+              ? ImportField.debit
+              : mapping.fieldToColumnIndex.containsKey(ImportField.credit)
+                  ? ImportField.credit
+                  : ImportField.amount;
+
+  final optionalMonetaryFields = [
+    ImportField.amount,
+    ImportField.debit,
+    ImportField.credit,
+  ].where((field) => field != preferredAmountField);
+
+  return ImportFieldLayout(
+    requiredFields: [
+      ImportField.date,
+      preferredAmountField,
+    ],
+    optionalFields: [
+      ...optionalMonetaryFields,
+      ImportField.category,
+      ImportField.description,
+      ImportField.merchant,
+      ImportField.currency,
+      ImportField.type,
+      ImportField.reference,
+      ImportField.balance,
+    ],
+    canProceed: mapping.hasRequiredFields,
+  );
+}
+
 class MapColumnsStep extends ConsumerWidget {
   const MapColumnsStep({super.key, required this.state});
 
@@ -30,27 +102,15 @@ class MapColumnsStep extends ConsumerWidget {
 
     final headers = table.headers;
     final isSplit = mapping.hasSplitDebitCredit;
-
-    // Required fields change based on split debit/credit mode.
-    final requiredFields = isSplit
-        ? [ImportField.date, ImportField.debit, ImportField.credit]
-        : [ImportField.date, ImportField.amount];
-
-    final optionalFields = [
-      if (!isSplit) ...[],
-      ImportField.category,
-      ImportField.description,
-      ImportField.currency,
-      ImportField.type,
-      ImportField.reference,
-      ImportField.balance,
-    ];
+    final fieldLayout = resolveImportFieldLayout(mapping);
+    final requiredFields = fieldLayout.requiredFields;
+    final optionalFields = fieldLayout.optionalFields;
 
     Future<void> pickColumn(ImportField field) async {
       final selectedIndex = mapping.fieldToColumnIndex[field];
       final actions = <MonekoActionSheetAction<int>>[
         MonekoActionSheetAction<int>(
-          label: 'None',
+          label: context.l10n.none,
           value: -1,
           icon: Icons.clear_rounded,
         ),
@@ -123,8 +183,7 @@ class MapColumnsStep extends ConsumerWidget {
       );
     }
 
-    final isReady = requiredFields
-        .every((field) => mapping.fieldToColumnIndex.containsKey(field));
+    final isReady = fieldLayout.canProceed;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -218,6 +277,8 @@ class MapColumnsStep extends ConsumerWidget {
         return context.l10n.category;
       case ImportField.description:
         return context.l10n.description;
+      case ImportField.merchant:
+        return context.l10n.merchant;
       case ImportField.currency:
         return context.l10n.currency;
       case ImportField.type:

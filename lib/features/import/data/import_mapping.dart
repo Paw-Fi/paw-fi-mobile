@@ -208,6 +208,8 @@ const _synonyms = <ImportField, List<String>>{
   ],
   ImportField.debit: [
     'debit',
+    'expense',
+    'expenses',
     'debitamount',
     'withdrawal',
     'withdrawals',
@@ -221,6 +223,8 @@ const _synonyms = <ImportField, List<String>>{
   ],
   ImportField.credit: [
     'credit',
+    'income',
+    'incomes',
     'creditamount',
     'deposit',
     'deposits',
@@ -252,14 +256,6 @@ const _synonyms = <ImportField, List<String>>{
     'note',
     'notes',
     'narrative',
-    'merchant',
-    'merchantname',
-    'payee',
-    'payeename',
-    'name',
-    'counterparty',
-    'beneficiary',
-    'vendor',
     'details',
     'particulars',
     'narration',
@@ -268,6 +264,22 @@ const _synonyms = <ImportField, List<String>>{
     'label',
     'title',
     'productname',
+  ],
+  ImportField.merchant: [
+    'merchant',
+    'merchantname',
+    'payee',
+    'payeename',
+    'name',
+    'counterparty',
+    'beneficiary',
+    'vendor',
+    'store',
+    'storename',
+    'shop',
+    'shopname',
+    'business',
+    'businessname',
   ],
   ImportField.currency: [
     'currency', 'curr', 'ccy', 'currencycode',
@@ -424,6 +436,8 @@ double _scoreColumnValues(
         if (field == ImportField.description && value.length > 5) {
           matches++;
         }
+        break;
+      case ImportField.merchant:
         break;
     }
   }

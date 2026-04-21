@@ -23,6 +23,7 @@ class TransactionListTile extends StatelessWidget {
   final bool dense;
   final bool showYouLabel;
   final bool showRecurringChip;
+  final String? accountLabel;
 
   const TransactionListTile({
     super.key,
@@ -40,6 +41,7 @@ class TransactionListTile extends StatelessWidget {
     this.dense = true,
     this.showYouLabel = false,
     this.showRecurringChip = false,
+    this.accountLabel,
   });
 
   String? _formatDate(BuildContext context, DateTime date) {

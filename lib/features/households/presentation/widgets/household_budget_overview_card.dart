@@ -13,15 +13,19 @@ Widget buildHouseholdBudgetOverviewCard(
   ColorScheme colorScheme,
   HouseholdSummary? summary,
   DateRangeFilter dateFilter, {
+  int? totalExpensesCentsOverride,
+  int? transactionCountOverride,
   VoidCallback? onTap,
 }) {
-  final totalExpensesCents = summary?.totals.totalExpensesCents ?? 0;
+  final totalExpensesCents =
+      totalExpensesCentsOverride ?? summary?.totals.totalExpensesCents ?? 0;
   final currency = (summary?.currency ?? 'USD').toUpperCase();
   final symbol = resolveCurrencySymbol(currency);
   final totalSpentAmount = totalExpensesCents / 100.0;
   final formattedTotalSpent =
       '$symbol${formatLocalizedNumber(context, totalSpentAmount)}';
-  final transactionCount = summary?.totals.transactionCount ?? 0;
+  final transactionCount =
+      transactionCountOverride ?? summary?.totals.transactionCount ?? 0;
 
   // Budget data
   final budgetStatuses = summary?.budgets ?? [];

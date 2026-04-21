@@ -13,6 +13,7 @@ class ParsedExpense {
   final String currencySymbol;
   final DateTime date;
   final String? description;
+  final String? merchant;
   final List<String>? breakdown;
   final String? localImagePath; // Local image path for display before upload
   // Household sharing (expense only)
@@ -27,6 +28,7 @@ class ParsedExpense {
     required this.currencySymbol,
     required this.date,
     this.description,
+    this.merchant,
     this.breakdown,
     this.localImagePath,
     this.payerUserId,
@@ -57,6 +59,9 @@ class ParsedExpense {
       description: json['description'] is String
           ? sanitizeUtf16(json['description'] as String)
           : null,
+      merchant: json['merchant'] is String
+          ? sanitizeUtf16(json['merchant'] as String)
+          : null,
       breakdown: json['breakdown'] != null
           ? (json['breakdown'] as List)
               .map((e) => sanitizeUtf16(e.toString()))
@@ -81,6 +86,7 @@ class ParsedExpense {
       'currencySymbol': currencySymbol,
       'date': formatDateOnlyYmd(date),
       'description': description,
+      'merchant': merchant,
       'breakdown': breakdown,
       'localImagePath': localImagePath,
       'payerUserId': payerUserId,
@@ -97,6 +103,7 @@ class ParsedExpense {
     String? currencySymbol,
     DateTime? date,
     String? description,
+    String? merchant,
     List<String>? breakdown,
     String? localImagePath,
     String? payerUserId,
@@ -110,6 +117,7 @@ class ParsedExpense {
       currencySymbol: currencySymbol ?? this.currencySymbol,
       date: date ?? this.date,
       description: description ?? this.description,
+      merchant: merchant ?? this.merchant,
       breakdown: breakdown ?? this.breakdown,
       localImagePath: localImagePath ?? this.localImagePath,
       payerUserId: payerUserId ?? this.payerUserId,

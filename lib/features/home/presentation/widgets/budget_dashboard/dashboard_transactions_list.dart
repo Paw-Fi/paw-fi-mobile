@@ -63,7 +63,7 @@ class DashboardTransactionsList extends StatelessWidget {
         final baseAmount = tx.entry.amountCents / 100.0;
         final resolvedAmount = amountResolver?.call(tx) ?? baseAmount;
         final displayAmount = isIncome ? resolvedAmount : resolvedAmount.abs();
-        final accountLabel = accountLabelResolver?.call(tx) ?? tx.accountLabel;
+        final accountLabel = accountLabelResolver?.call(tx) ?? tx.spaceLabel;
         final displayCurrency =
             currency?.trim().isNotEmpty == true ? currency!.trim() : null;
         final currencyCode = amountResolver == null

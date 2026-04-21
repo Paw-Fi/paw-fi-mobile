@@ -9,12 +9,15 @@ export 'period_selection.dart';
 export 'date_range_utils.dart';
 export 'home_filter_provider.dart';
 export 'bank_sync_result_provider.dart';
+export 'bank_connections_provider.dart';
 export 'home_card_filter_provider.dart';
 export 'derived_selectors.dart';
 export 'currency_transaction_counts_provider.dart';
+export 'dashboard_user_context_provider.dart';
 export 'transaction_edit_state.dart';
 export 'transaction_edit_notifier.dart';
 export 'view_mode_provider.dart';
+export 'transactions_feed_provider.dart';
 
 // Data services
 import 'package:hooks_riverpod/hooks_riverpod.dart';

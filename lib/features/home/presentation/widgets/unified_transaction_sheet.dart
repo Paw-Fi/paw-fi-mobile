@@ -22,11 +22,14 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
+import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
+import 'package:moneko/shared/widgets/destructive_text_button.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -40,6 +43,8 @@ import 'package:moneko/features/home/presentation/state/view_mode_provider.dart'
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart'
     as household_split;
 import 'package:moneko/core/l10n/l10n.dart';
@@ -83,7 +88,7 @@ String _formatRelativeDate(
 }
 
 class _AccountOption {
-  final ActiveAccountType type;
+  final ActiveWalletType type;
   final String? householdId;
   final String label;
   final bool isPortfolio;
@@ -116,7 +121,7 @@ class _AccountTarget {
 /// Shows unified transaction sheet
 /// For existing expenses: shows details with option to change sharing
 /// For new expenses: shows confirmation with option to choose sharing
-Future<void> showUnifiedTransactionSheet(
+Future<bool?> showUnifiedTransactionSheet(
   BuildContext context, {
   ExpenseEntry? existingExpense,
   ParsedExpense? newExpense,
@@ -126,7 +131,7 @@ Future<void> showUnifiedTransactionSheet(
   assert(existingExpense != null || newExpense != null,
       'Must provide either existingExpense or newExpense');
 
-  return showModalBottomSheet<void>(
+  return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
     enableDrag: false,
@@ -168,9 +173,9 @@ class _UnifiedTransactionSheetState
   String? _localImagePath; // Track locally captured image for existing expenses
   final timeFormat = DateFormat('HH:mm');
   bool _isSharedWithHousehold = false;
-  ActiveAccountType _selectedAccountType = ActiveAccountType.personal;
+  ActiveWalletType _selectedAccountType = ActiveWalletType.personal;
   String? _selectedAccountHouseholdId;
-  ActiveAccountType _lastNonHouseholdAccountType = ActiveAccountType.personal;
+  ActiveWalletType _lastNonHouseholdAccountType = ActiveWalletType.personal;
   String? _lastNonHouseholdHouseholdId;
   TimeOfDay _selectedTime = TimeOfDay.now();
   SplitType? _customSplitType;
@@ -183,6 +188,9 @@ class _UnifiedTransactionSheetState
   String? _selectedPayerUserId;
   String? _resolvedSplitGroupId;
   bool _hasCheckedSplitGroup = false;
+  String? _selectedFinancialAccountId;
+  bool _hasManuallySelectedFinancialAccount = false;
+  bool _hasManuallyChangedAccountSelection = false;
 
   // Local edits (accumulated until save)
   double? _editedAmount;
@@ -190,6 +198,7 @@ class _UnifiedTransactionSheetState
   String? _editedCurrency;
   DateTime? _editedDate;
   String? _editedDescription;
+  String? _editedMerchant;
 
   void debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -220,6 +229,7 @@ class _UnifiedTransactionSheetState
   @override
   void initState() {
     super.initState();
+    _selectedFinancialAccountId = widget.existingExpense?.walletId;
     // Default payer to the expense owner (fallback to current user) so we don't
     // incorrectly show the viewer as the payer before loading split data.
     final currentUserId = ref.read(authProvider).uid;
@@ -243,23 +253,25 @@ class _UnifiedTransactionSheetState
 
       final scope = ref.read(householdScopeProvider);
       final existingHouseholdId = widget.existingExpense!.householdId;
+      final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
       final isPortfolio = scope.isPortfolioId(existingHouseholdId);
       final hasHousehold =
           existingHouseholdId != null && existingHouseholdId.isNotEmpty;
       final isSharedSpace = hasHousehold && !isPortfolio;
+      final hasExistingSplitGroup =
+          existingSplitGroupId != null && existingSplitGroupId.isNotEmpty;
 
       final defaultAccountType = () {
-        if (isPortfolio && hasHousehold) return ActiveAccountType.portfolio;
-        if (isSharedSpace) return ActiveAccountType.household;
-        return ActiveAccountType.personal;
+        if (isPortfolio && hasHousehold) return ActiveWalletType.portfolio;
+        if (isSharedSpace && hasExistingSplitGroup) {
+          return ActiveWalletType.household;
+        }
+        return ActiveWalletType.personal;
       }();
 
       _setAccountSelectionDefaults(defaultAccountType, existingHouseholdId);
 
-      final existingSplitGroupId = widget.existingExpense!.splitGroupId?.trim();
-      if (isSharedSpace &&
-          existingSplitGroupId != null &&
-          existingSplitGroupId.isNotEmpty) {
+      if (isSharedSpace && hasExistingSplitGroup) {
         _resolvedSplitGroupId = existingSplitGroupId;
         _hasCheckedSplitGroup = true;
       }
@@ -268,7 +280,9 @@ class _UnifiedTransactionSheetState
           '🏠 [HOUSEHOLD SHARE] _isSharedWithHousehold set to: $_isSharedWithHousehold');
 
       // If expense is shared with a household, initialize the household selection and load members
-      if (isSharedSpace && widget.existingExpense!.householdId != null) {
+      if (isSharedSpace &&
+          hasExistingSplitGroup &&
+          widget.existingExpense!.householdId != null) {
         debugPrint('🏠 [HOUSEHOLD SHARE] Initializing household selection');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -302,16 +316,16 @@ class _UnifiedTransactionSheetState
 
       final defaultAccountType = () {
         switch (scope.activeAccountType) {
-          case ActiveAccountType.personal:
-            return ActiveAccountType.personal;
-          case ActiveAccountType.portfolio:
+          case ActiveWalletType.personal:
+            return ActiveWalletType.personal;
+          case ActiveWalletType.portfolio:
             return scope.activeAccountHouseholdId != null
-                ? ActiveAccountType.portfolio
-                : ActiveAccountType.personal;
-          case ActiveAccountType.household:
+                ? ActiveWalletType.portfolio
+                : ActiveWalletType.personal;
+          case ActiveWalletType.household:
             return scope.activeAccountHouseholdId != null
-                ? ActiveAccountType.household
-                : ActiveAccountType.personal;
+                ? ActiveWalletType.household
+                : ActiveWalletType.personal;
         }
       }();
 
@@ -334,7 +348,7 @@ class _UnifiedTransactionSheetState
 
         if (selected != null &&
             _selectedAccountHouseholdId == null &&
-            _selectedAccountType == ActiveAccountType.household) {
+            _selectedAccountType == ActiveWalletType.household) {
           ref.read(selectedHouseholdForSharingProvider.notifier).state =
               selected;
           if (_isSharedWithHousehold) {
@@ -351,6 +365,19 @@ class _UnifiedTransactionSheetState
   bool get isNewExpense => widget.newExpense != null;
   bool get isExistingExpense => widget.existingExpense != null;
   String? get _effectiveSplitGroupId {
+    final existingHouseholdId = widget.existingExpense?.householdId;
+    if (existingHouseholdId == null) return null;
+
+    final householdScope = ref.read(householdScopeProvider);
+    if (householdScope.isPortfolioId(existingHouseholdId)) {
+      return null;
+    }
+
+    final targetHouseholdId = _resolveAccountTarget().householdId;
+    if (targetHouseholdId != existingHouseholdId) {
+      return null;
+    }
+
     final resolved = _resolvedSplitGroupId;
     if (resolved != null && resolved.isNotEmpty) return resolved;
     final existing = widget.existingExpense?.splitGroupId;
@@ -404,6 +431,12 @@ class _UnifiedTransactionSheetState
     return widget.existingExpense!.rawText;
   }
 
+  String? get merchant {
+    if (_editedMerchant != null) return _editedMerchant;
+    if (isNewExpense) return widget.newExpense!.merchant;
+    return widget.existingExpense!.merchant;
+  }
+
   String? get receiptImageUrl {
     final url = widget.existingExpense?.receiptImageUrl;
     debugPrint('🖼️ Receipt image detected on expense');
@@ -439,16 +472,16 @@ class _UnifiedTransactionSheetState
   }
 
   void _setAccountSelectionDefaults(
-    ActiveAccountType type,
+    ActiveWalletType type,
     String? householdId,
   ) {
     _selectedAccountType = type;
     _selectedAccountHouseholdId = householdId;
-    if (type != ActiveAccountType.household) {
+    if (type != ActiveWalletType.household) {
       _lastNonHouseholdAccountType = type;
       _lastNonHouseholdHouseholdId = householdId;
     }
-    _isSharedWithHousehold = type == ActiveAccountType.household;
+    _isSharedWithHousehold = type == ActiveWalletType.household;
   }
 
   List<_AccountOption> _accountOptions(
@@ -457,7 +490,7 @@ class _UnifiedTransactionSheetState
   ) {
     final options = <_AccountOption>[
       _AccountOption(
-        type: ActiveAccountType.personal,
+        type: ActiveWalletType.personal,
         householdId: null,
         label: context.l10n.personalScope,
       ),
@@ -470,8 +503,8 @@ class _UnifiedTransactionSheetState
       options.add(
         _AccountOption(
           type: household.isPortfolio
-              ? ActiveAccountType.portfolio
-              : ActiveAccountType.household,
+              ? ActiveWalletType.portfolio
+              : ActiveWalletType.household,
           householdId: household.id,
           label: '${household.name} · $suffix',
           isPortfolio: household.isPortfolio,
@@ -487,7 +520,7 @@ class _UnifiedTransactionSheetState
       type: _selectedAccountType,
       householdId: _selectedAccountHouseholdId,
       label: '',
-      isPortfolio: _selectedAccountType == ActiveAccountType.portfolio,
+      isPortfolio: _selectedAccountType == ActiveWalletType.portfolio,
     );
   }
 
@@ -496,13 +529,13 @@ class _UnifiedTransactionSheetState
     List<Household> households,
   ) {
     switch (_selectedAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         return context.l10n.personalScope;
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.portfolio:
         final household =
             _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.privateSpace;
-      case ActiveAccountType.household:
+      case ActiveWalletType.household:
         final household =
             _findHousehold(households, _selectedAccountHouseholdId);
         return household?.name ?? context.l10n.tapToSet;
@@ -533,9 +566,9 @@ class _UnifiedTransactionSheetState
     final householdScope = ref.read(householdScopeProvider);
 
     switch (_selectedAccountType) {
-      case ActiveAccountType.personal:
+      case ActiveWalletType.personal:
         return const _AccountTarget(householdId: null, isPortfolio: false);
-      case ActiveAccountType.portfolio:
+      case ActiveWalletType.portfolio:
         final fallbackPortfolioId = _selectedAccountHouseholdId ??
             existingHouseholdId ??
             householdScope.activeAccountHouseholdId;
@@ -545,7 +578,7 @@ class _UnifiedTransactionSheetState
         }
         return _AccountTarget(
             householdId: fallbackPortfolioId, isPortfolio: true);
-      case ActiveAccountType.household:
+      case ActiveWalletType.household:
         final fallbackHouseholdId = _selectedAccountHouseholdId ??
             selectedSharingId ??
             existingHouseholdId;
@@ -560,16 +593,24 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  void _applyAccountSelection(_AccountOption option) {
-    final isHouseholdSelection = option.type == ActiveAccountType.household;
+  void _applyAccountSelection(
+    _AccountOption option, {
+    bool userInitiated = false,
+  }) {
+    final isHouseholdSelection = option.type == ActiveWalletType.household;
     if (isHouseholdSelection &&
         (option.householdId == null || option.householdId!.isEmpty)) {
       return;
     }
     setState(() {
+      if (userInitiated) {
+        _hasManuallyChangedAccountSelection = true;
+      }
       _selectedAccountType = option.type;
       _selectedAccountHouseholdId = option.householdId;
       _isSharedWithHousehold = isHouseholdSelection;
+      _selectedFinancialAccountId = null;
+      _hasManuallySelectedFinancialAccount = false;
       if (!isHouseholdSelection) {
         _lastNonHouseholdAccountType = option.type;
         _lastNonHouseholdHouseholdId = option.householdId;
@@ -609,7 +650,7 @@ class _UnifiedTransactionSheetState
     );
 
     if (selected == null || selected == current) return;
-    _applyAccountSelection(selected);
+    _applyAccountSelection(selected, userInitiated: true);
   }
 
   void _clearSharingData() {
@@ -717,6 +758,12 @@ class _UnifiedTransactionSheetState
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
     final selectedHousehold = ref.watch(selectedHouseholdForSharingProvider);
     final selectedHouseholdState = ref.watch(selectedHouseholdProvider);
+    final accountTarget = _resolveAccountTarget();
+    final scopedAccountsAsync =
+        ref.watch(walletsByHouseholdIdProvider(accountTarget.householdId));
+    final scopedAccounts =
+        scopedAccountsAsync.valueOrNull ?? const <WalletEntity>[];
+    _syncSelectedFinancialAccountWithScope(scopedAccounts);
 
     // For new expenses, use pending expense provider
     final pendingExpense =
@@ -738,6 +785,9 @@ class _UnifiedTransactionSheetState
     final displayDescription = isNewExpense && pendingExpense != null
         ? pendingExpense.description
         : description;
+    final displayMerchant = isNewExpense && pendingExpense != null
+        ? pendingExpense.merchant
+        : merchant;
     final displayBreakdown = isNewExpense
         ? (pendingExpense?.breakdown ?? widget.newExpense?.breakdown)
         : widget.existingExpense?.breakdown;
@@ -755,9 +805,14 @@ class _UnifiedTransactionSheetState
         final households = householdsData.cast<Household>();
         return Column(
           children: [
-            _buildSpaceSection(colorScheme, households),
+            _buildSpaceSection(
+              colorScheme,
+              households,
+              scopedAccountsAsync,
+              scopedAccounts,
+            ),
             const SizedBox(height: 24),
-            if (_selectedAccountType == ActiveAccountType.household &&
+            if (_selectedAccountType == ActiveWalletType.household &&
                 households.isNotEmpty)
               _buildSharingSection(
                 colorScheme,
@@ -920,6 +975,18 @@ class _UnifiedTransactionSheetState
                             ),
                             _buildDivider(colorScheme),
                             MonekoDisclosureRow(
+                              label:
+                                  '${isIncomeMode ? context.l10n.source : context.l10n.merchant}',
+                              value: displayMerchant?.trim().isNotEmpty == true
+                                  ? displayMerchant!.trim()
+                                  : context.l10n.tapToSet,
+                              onTap: () => _handleEditMerchant(
+                                  displayMerchant, isIncomeMode),
+                              isValuePlaceholder:
+                                  displayMerchant?.trim().isNotEmpty != true,
+                            ),
+                            _buildDivider(colorScheme),
+                            MonekoDisclosureRow(
                               label: context.l10n.currency,
                               value: currency.toUpperCase(),
                               onTap: () => _handleEditCurrency(currency),
@@ -1024,34 +1091,12 @@ class _UnifiedTransactionSheetState
 
                       // Actions
                       if (isExistingExpense)
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton(
-                            onPressed: _isDeleting ? null : _handleDelete,
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              foregroundColor: colorScheme.error,
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              backgroundColor:
-                                  colorScheme.error.withValues(alpha: 0.1),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                            ),
-                            child: _isDeleting
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          colorScheme.error),
-                                    ),
-                                  )
-                                : Text(isIncomeMode ? context.l10n.deleteIncome : context.l10n.deleteExpense),
-                          ),
+                        DestructiveAdaptiveButton(
+                          onPressed: _isDeleting ? null : _handleDelete,
+                          isLoading: _isDeleting,
+                          child: Text(isIncomeMode
+                              ? context.l10n.deleteIncome
+                              : context.l10n.deleteExpense),
                         ),
 
                       // Bottom spacer for scroll
@@ -1186,6 +1231,8 @@ class _UnifiedTransactionSheetState
   Widget _buildSpaceSection(
     ColorScheme colorScheme,
     List<Household> households,
+    AsyncValue<List<WalletEntity>> scopedAccountsAsync,
+    List<WalletEntity> scopedAccounts,
   ) {
     final value = _accountDisplayValue(context, households);
 
@@ -1197,11 +1244,120 @@ class _UnifiedTransactionSheetState
             value: value,
             onTap: () => _handleEditSpace(households: households),
             isFirst: true,
+          ),
+          _buildDivider(colorScheme),
+          MonekoDisclosureRow(
+            label: context.l10n.wallet,
+            value: scopedAccountsAsync.when(
+              data: (_) => _selectedFinancialAccountLabel(
+                context,
+                scopedAccounts,
+              ),
+              loading: () => context.l10n.loading,
+              error: (_, __) => context.l10n.tapToSet,
+            ),
+            onTap: () => _handleEditFinancialAccount(
+              scopedAccounts,
+            ),
+            isValuePlaceholder: scopedAccounts.isEmpty,
             isLast: true,
           ),
         ],
       ),
     );
+  }
+
+  String? _resolveDefaultFinancialAccountId(List<WalletEntity> accounts) {
+    for (final account in accounts) {
+      if (account.isDefault) return account.id;
+    }
+    return accounts.isNotEmpty ? accounts.first.id : null;
+  }
+
+  String _selectedFinancialAccountLabel(
+    BuildContext context,
+    List<WalletEntity> accounts,
+  ) {
+    if (accounts.isEmpty) return context.l10n.tapToSet;
+
+    final selectedId = _selectedFinancialAccountId;
+    if (selectedId != null) {
+      for (final account in accounts) {
+        if (account.id == selectedId) return account.name;
+      }
+    }
+
+    final fallbackId = _resolveDefaultFinancialAccountId(accounts);
+    if (fallbackId != null) {
+      for (final account in accounts) {
+        if (account.id == fallbackId) return account.name;
+      }
+    }
+
+    return accounts.first.name;
+  }
+
+  Future<void> _handleEditFinancialAccount(List<WalletEntity> accounts) async {
+    if (accounts.isEmpty) return;
+
+    final initialId = _selectedFinancialAccountId ??
+        _resolveDefaultFinancialAccountId(accounts);
+    final initial = accounts.firstWhere(
+      (account) => account.id == initialId,
+      orElse: () => accounts.first,
+    );
+
+    final selected = await showTransactionSelectionSheet<WalletEntity>(
+      context: context,
+      items: accounts,
+      getLabel: (account) => account.name,
+      initial: initial,
+    );
+
+    if (selected == null || selected.id == _selectedFinancialAccountId) return;
+
+    setState(() {
+      _selectedFinancialAccountId = selected.id;
+      _hasManuallySelectedFinancialAccount = true;
+    });
+  }
+
+  void _syncSelectedFinancialAccountWithScope(List<WalletEntity> accounts) {
+    final desiredId = () {
+      if (accounts.isEmpty) return null;
+
+      final currentId = _selectedFinancialAccountId;
+      final currentExists = currentId != null &&
+          accounts.any((account) => account.id == currentId);
+
+      if (isExistingExpense) {
+        if (currentExists) return currentId;
+
+        final boundWalletId = widget.existingExpense?.walletId;
+        if (boundWalletId != null &&
+            accounts.any((account) => account.id == boundWalletId)) {
+          return boundWalletId;
+        }
+
+        return _resolveDefaultFinancialAccountId(accounts);
+      }
+
+      if (_hasManuallySelectedFinancialAccount && currentExists) {
+        return currentId;
+      }
+
+      return _resolveDefaultFinancialAccountId(accounts);
+    }();
+
+    if (desiredId == _selectedFinancialAccountId) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_selectedFinancialAccountId == desiredId) return;
+      setState(() {
+        _selectedFinancialAccountId = desiredId;
+      });
+    });
   }
 
   Widget _buildSharingSection(
@@ -1215,7 +1371,7 @@ class _UnifiedTransactionSheetState
         households.where((h) => !h.isPortfolio).toList(growable: false);
 
     if (householdList.isEmpty) {
-      if (_selectedAccountType == ActiveAccountType.household) {
+      if (_selectedAccountType == ActiveWalletType.household) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _applyAccountSelection(
@@ -1224,7 +1380,7 @@ class _UnifiedTransactionSheetState
               householdId: _lastNonHouseholdHouseholdId,
               label: '',
               isPortfolio:
-                  _lastNonHouseholdAccountType == ActiveAccountType.portfolio,
+                  _lastNonHouseholdAccountType == ActiveWalletType.portfolio,
             ),
           );
         });
@@ -1280,18 +1436,18 @@ class _UnifiedTransactionSheetState
                     ),
                   ),
                 ),
-                MonekoSwitch(
-                  value: _selectedAccountType == ActiveAccountType.household,
+                AdaptiveSwitch(
+                  value: _selectedAccountType == ActiveWalletType.household,
                   onChanged: (value) {
                     debugPrint(
                         '🔀 [SHARE TOGGLE] User toggled sharing to: $value');
                     if (!value) {
                       final fallbackType = _lastNonHouseholdAccountType ==
-                              ActiveAccountType.household
-                          ? ActiveAccountType.personal
+                              ActiveWalletType.household
+                          ? ActiveWalletType.personal
                           : _lastNonHouseholdAccountType;
                       final fallbackId =
-                          fallbackType == ActiveAccountType.personal
+                          fallbackType == ActiveWalletType.personal
                               ? null
                               : _lastNonHouseholdHouseholdId;
                       _applyAccountSelection(
@@ -1300,8 +1456,9 @@ class _UnifiedTransactionSheetState
                           householdId: fallbackId,
                           label: '',
                           isPortfolio:
-                              fallbackType == ActiveAccountType.portfolio,
+                              fallbackType == ActiveWalletType.portfolio,
                         ),
+                        userInitiated: true,
                       );
                       return;
                     }
@@ -1318,11 +1475,12 @@ class _UnifiedTransactionSheetState
                         '🔀 [SHARE TOGGLE] Selecting household: $preferredId');
                     _applyAccountSelection(
                       _AccountOption(
-                        type: ActiveAccountType.household,
+                        type: ActiveWalletType.household,
                         householdId: preferredId,
                         label: '',
                         isPortfolio: false,
                       ),
+                      userInitiated: true,
                     );
                   },
                 ),
@@ -1331,7 +1489,7 @@ class _UnifiedTransactionSheetState
           ),
 
           // Show household dropdown only when toggle is ON
-          if (_selectedAccountType == ActiveAccountType.household &&
+          if (_selectedAccountType == ActiveWalletType.household &&
               householdList.isNotEmpty) ...[
             const SizedBox(height: 16),
             Container(
@@ -1413,6 +1571,11 @@ class _UnifiedTransactionSheetState
                     debugPrint(
                         '🔄 [HOUSEHOLD DROPDOWN] User changed household to: $value');
                     if (value != null) {
+                      setState(() {
+                        _selectedAccountHouseholdId = value;
+                        _selectedFinancialAccountId = null;
+                        _hasManuallySelectedFinancialAccount = false;
+                      });
                       ref
                           .read(selectedHouseholdForSharingProvider.notifier)
                           .state = value;
@@ -1507,11 +1670,16 @@ class _UnifiedTransactionSheetState
                 final isPortfolioSelection =
                     _isPortfolioHousehold(households, activeHouseholdId);
                 final isSharedSpace =
-                    _selectedAccountType == ActiveAccountType.household &&
+                    _selectedAccountType == ActiveWalletType.household &&
                         activeHouseholdId != null &&
                         !isPortfolioSelection;
 
                 if (!isSharedSpace) {
+                  return const SizedBox();
+                }
+
+                final existingSplitGroupId = _effectiveSplitGroupId;
+                if (isExistingExpense && existingSplitGroupId == null) {
                   return const SizedBox();
                 }
 
@@ -1543,20 +1711,33 @@ class _UnifiedTransactionSheetState
                   );
                 }
 
+                // Respect the household's auto-split preference. When the
+                // household owner has disabled auto-splitting, the transaction
+                // still logs against the household but no split group is
+                // created. Hide the split editor for new transactions so the
+                // UI matches what the backend will persist.
+                final activeHousehold =
+                    _resolveHouseholdById(activeHouseholdId);
+                if (isNewExpense &&
+                    activeHousehold != null &&
+                    !activeHousehold.autoSplitEnabled) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.muted.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Auto-split is turned off for this space. The transaction will be logged to the household without splitting among members.',
+                      style: TextStyle(color: colorScheme.mutedForeground),
+                    ),
+                  );
+                }
+
                 final pendingExpense =
                     isNewExpense ? ref.read(pendingExpenseProvider) : null;
                 final currentAmount = pendingExpense?.amount ?? amount;
 
-                // Check if this is an existing expense with household but no split group
-                final isExistingWithoutSplit = isExistingExpense &&
-                    widget.existingExpense!.householdId != null &&
-                    _hasCheckedSplitGroup &&
-                    _effectiveSplitGroupId == null;
-
-                // For income mode, we hide the custom split editor entirely
-                if (isIncomeMode) {
-                  return const SizedBox();
-                }
                 return GroupSplitEditorSection(
                   members: _householdMembers!,
                   selectedPayerUserId: _selectedPayerUserId,
@@ -1572,8 +1753,7 @@ class _UnifiedTransactionSheetState
                   splitEditorKey: ValueKey(
                     'split_${_customSplitType}_${_customSplits?.length}',
                   ),
-                  showNotYetSplitBanner: isExistingWithoutSplit,
-                  notYetSplitMessage: context.l10n.notYetSplitBanner,
+                  showNotYetSplitBanner: false,
                   onSplitChanged: (splitType, splits) {
                     setState(() {
                       _customSplitType = splitType;
@@ -1933,8 +2113,8 @@ class _UnifiedTransactionSheetState
       result = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
-        backgroundColor:
-            Theme.of(context).colorScheme.sheetBackground,
+        useSafeArea: true,
+        backgroundColor: Theme.of(context).colorScheme.sheetBackground,
         builder: (context) => Container(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -2036,6 +2216,47 @@ class _UnifiedTransactionSheetState
     }
   }
 
+  Future<void> _handleEditMerchant(
+      String? currentMerchant, bool isIncomeMode) async {
+    final result = await MonekoAlertDialog.show(
+      context: context,
+      title:
+          '${isIncomeMode ? context.l10n.source : context.l10n.merchant} (${context.l10n.optional})',
+      description: null,
+      confirmLabel: context.l10n.save,
+      cancelLabel: context.l10n.cancel,
+      inputConfig: MonekoAlertDialogInputConfig(
+        initialValue: currentMerchant?.trim() ?? '',
+        placeholder:
+            isIncomeMode ? context.l10n.incomeSalary : context.l10n.addMerchant,
+        isRequired: false,
+      ),
+    );
+
+    if (!mounted ||
+        result == null ||
+        !result.confirmed ||
+        result.text == null) {
+      return;
+    }
+
+    final value = result.text!.trim();
+    final normalized = value.isEmpty ? null : value;
+
+    if (isNewExpense) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state =
+            current.copyWith(merchant: normalized);
+      }
+      return;
+    }
+
+    setState(() {
+      _editedMerchant = normalized;
+    });
+  }
+
   Future<void> _loadMembers(String householdId) async {
     debugPrint('👥 [LOAD MEMBERS] Starting member load');
     debugPrint(
@@ -2111,6 +2332,12 @@ class _UnifiedTransactionSheetState
           _selectedPayerUserId = validPayerId;
         });
 
+        // Seed the split editor with the household's saved default split
+        // template so users immediately see the configured behaviour for new
+        // expenses. Only applies when adding a fresh expense (not income,
+        // not editing), and when no explicit split has been set yet.
+        _maybeSeedAutoSplitDefaults(householdId: householdId, members: members);
+
         debugPrint(
             '✅ [LOAD MEMBERS] Successfully loaded and set ${members.length} members');
         debugPrint('✅ [LOAD MEMBERS] Final payer selection set');
@@ -2134,6 +2361,67 @@ class _UnifiedTransactionSheetState
             '👥 [LOAD MEMBERS] Finished loading (isLoadingMembers = false)');
       }
     }
+  }
+
+  /// Resolve the Household entity for the given id by consulting the cached
+  /// providers (user households list first, then the per-id provider).
+  Household? _resolveHouseholdById(String householdId) {
+    final userId = ref.read(authProvider).uid;
+    final cachedList = ref.read(userHouseholdsProvider(userId)).asData?.value ??
+        const <Household>[];
+    for (final household in cachedList) {
+      if (household.id == householdId) return household;
+    }
+    return ref.read(householdProvider(householdId)).valueOrNull;
+  }
+
+  /// For a fresh transaction the user is logging into a household,
+  /// pre-populate the split editor with the household's saved default split
+  /// template. If the user manually edits the splits the change wins; the
+  /// backend also enforces the same rules as a safety net.
+  void _maybeSeedAutoSplitDefaults({
+    required String householdId,
+    required List<HouseholdMember> members,
+  }) {
+    if (!isNewExpense) return;
+    if (members.isEmpty) return;
+    if (_customSplits != null || _customSplitType != null) return;
+    final pending = ref.read(pendingExpenseProvider) ?? widget.newExpense;
+
+    final household = _resolveHouseholdById(householdId);
+    if (household == null || household.isPortfolio) return;
+    if (!household.autoSplitEnabled) return;
+    final config = household.autoSplitConfig;
+    if (config == null || config.isEmpty) return;
+
+    final splitType = resolveStoredSplitType(config, fallback: SplitType.equal);
+    if (splitType == SplitType.equal) return;
+
+    final totalAmount = pending?.amount ?? amount;
+    final seededSplits = deserializeStoredSplitConfig(
+      members: members,
+      totalAmount: totalAmount,
+      config: config,
+    );
+    final resolvedSplits = resolveStoredSplitsForTransaction(
+      splitType: splitType,
+      splits: seededSplits,
+      config: config,
+      totalAmount: totalAmount,
+    );
+    final amountEditorSplits = _toAmountEditorSplits(
+      sourceType: splitType,
+      splits: resolvedSplits,
+      totalAmount: totalAmount,
+    );
+    if (!mounted) return;
+    setState(() {
+      _customSplitType = SplitType.amount;
+      _customSplits = amountEditorSplits;
+    });
+    debugPrint(
+      '🌱 [AUTO SPLIT] Seeded editor from household default (storedType=$splitType, displayType=${_customSplitType?.name}, members=${amountEditorSplits.length})',
+    );
   }
 
   Future<String?> _resolveSplitGroupIdForExistingExpense({
@@ -2239,29 +2527,103 @@ class _UnifiedTransactionSheetState
     }
   }
 
-  /// Map database SplitType to UI SplitType
-  SplitType _mapSplitType(dynamic dbSplitType) {
-    // dbSplitType is ExpenseSplitGroup.SplitType from expense_split.dart
-    // We need to convert it to SplitType from custom_split_sheet.dart
-    final typeString = dbSplitType.toString().split('.').last;
-    switch (typeString) {
-      case 'equal':
-        return SplitType.equal;
-      case 'amount':
-        return SplitType.amount;
-      case 'percentage':
-        return SplitType.percentage;
-      case 'shares':
-        return SplitType.shares;
-      default:
-        return SplitType.amount; // fallback
-    }
-  }
-
   SplitType _normalizeUiSplitTypeForEditor(SplitType type) {
     // The editor UI currently exposes Amount / Percent / Share. Represent Equal
     // splits as Amount so users see a selected chip and can edit amounts.
     return type == SplitType.equal ? SplitType.amount : type;
+  }
+
+  List<int> _allocateCentsByWeights({
+    required int totalCents,
+    required List<double> weights,
+  }) {
+    if (weights.isEmpty || totalCents <= 0) {
+      return List<int>.filled(weights.length, 0, growable: false);
+    }
+
+    final normalized = weights
+        .map((weight) => weight.isFinite && weight > 0 ? weight : 0.0)
+        .toList(growable: false);
+    final totalWeight = normalized.fold<double>(0, (sum, w) => sum + w);
+    if (totalWeight <= 0) {
+      return List<int>.filled(weights.length, 0, growable: false);
+    }
+
+    final raw = normalized
+        .map((weight) => (totalCents * weight) / totalWeight)
+        .toList(growable: false);
+    final floorValues =
+        raw.map((value) => value.floor()).toList(growable: false);
+    var remainder =
+        totalCents - floorValues.fold<int>(0, (sum, value) => sum + value);
+
+    final order = List<int>.generate(raw.length, (index) => index)
+      ..sort((a, b) {
+        final fracA = raw[a] - floorValues[a];
+        final fracB = raw[b] - floorValues[b];
+        return fracB.compareTo(fracA);
+      });
+
+    for (var i = 0; remainder > 0 && order.isNotEmpty; i++, remainder--) {
+      floorValues[order[i % order.length]] += 1;
+    }
+
+    return floorValues;
+  }
+
+  List<MemberSplit> _toAmountEditorSplits({
+    required SplitType sourceType,
+    required List<MemberSplit> splits,
+    required double totalAmount,
+  }) {
+    if (splits.isEmpty) return splits;
+
+    if (sourceType == SplitType.amount) {
+      final previousTotal = splits.fold<double>(
+        0,
+        (sum, split) =>
+            sum + (split.includedInAmount ? (split.amount ?? 0) : 0),
+      );
+      return rescaleAmountSplits(
+        splits: splits,
+        previousTotal: previousTotal,
+        newTotal: totalAmount,
+      );
+    }
+
+    final totalCents = (totalAmount * 100).round();
+    final weights = sourceType == SplitType.percentage
+        ? splits
+            .map((split) => split.includedInPercentage
+                ? ((split.percentage ?? 0).toDouble())
+                : 0.0)
+            .toList(growable: false)
+        : sourceType == SplitType.shares
+            ? splits
+                .map((split) =>
+                    ((split.shares ?? 0) > 0 ? split.shares! : 0).toDouble())
+                .toList(growable: false)
+            : List<double>.filled(splits.length, 1.0, growable: false);
+
+    var effectiveWeights = weights;
+    if (effectiveWeights.every((value) => value <= 0)) {
+      effectiveWeights =
+          List<double>.filled(splits.length, 1.0, growable: false);
+    }
+
+    final centsByMember = _allocateCentsByWeights(
+      totalCents: totalCents,
+      weights: effectiveWeights,
+    );
+
+    return List<MemberSplit>.generate(splits.length, (index) {
+      final split = splits[index];
+      final cents = centsByMember[index];
+      return split.copyWith(
+        amount: cents / 100.0,
+        includedInAmount: cents > 0,
+      );
+    }, growable: false);
   }
 
   String _buildSplitSignature(SplitType type, List<MemberSplit> splits) {
@@ -2341,9 +2703,7 @@ class _UnifiedTransactionSheetState
       }
 
       final dbSplitType = splitGroup.splitType.toString().split('.').last;
-      final uiSplitType = _normalizeUiSplitTypeForEditor(
-        _mapSplitType(splitGroup.splitType),
-      );
+      const uiSplitType = SplitType.amount;
 
       final splitLinesByUserId = <String, household_split.ExpenseSplitLine>{};
       for (final line in splitGroup.splitLines!) {
@@ -2447,6 +2807,8 @@ class _UnifiedTransactionSheetState
 
     debugPrint('🗑️ [REFRESH] Invalidating pockets provider...');
     ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -2463,6 +2825,8 @@ class _UnifiedTransactionSheetState
     // This ensures all months and all scopes refresh with new data
     debugPrint('🗑️ [REFRESH] Invalidating ALL pockets provider families...');
     ref.invalidate(pocketsProvider);
+    ref.invalidate(pocketDetailsProvider);
+    ref.read(walletActionsProvider).refreshAccountData();
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
@@ -2504,19 +2868,45 @@ class _UnifiedTransactionSheetState
       final user = ref.read(authProvider);
       final viewMode = ref.read(viewModeProvider);
       final householdScope = ref.read(householdScopeProvider);
+      final accountTarget = _resolveAccountTarget();
       final preferredTimezone =
           ref.read(analyticsProvider).contact?.preferredTimezone;
+      final availableAccounts = ref
+              .read(walletsByHouseholdIdProvider(accountTarget.householdId))
+              .valueOrNull ??
+          const <WalletEntity>[];
+      var selectedFinancialAccountId =
+          _selectedFinancialAccountId ?? widget.existingExpense?.walletId;
+      final hasSelectedFinancialAccount = selectedFinancialAccountId != null &&
+          availableAccounts.any(
+            (account) => account.id == selectedFinancialAccountId,
+          );
+      if (!hasSelectedFinancialAccount) {
+        selectedFinancialAccountId =
+            _resolveDefaultFinancialAccountId(availableAccounts);
+      }
 
       if (isNewExpense) {
         // NEW TRANSACTION (expense or income)
         final expense = ref.read(pendingExpenseProvider);
 
-        final accountTarget = _resolveAccountTarget();
         final effectiveHouseholdId = accountTarget.householdId;
         final isEffectivePortfolio = accountTarget.isPortfolio;
         final isSharedHousehold =
-            _selectedAccountType == ActiveAccountType.household &&
+            _selectedAccountType == ActiveWalletType.household &&
                 effectiveHouseholdId != null;
+        final activeHousehold = effectiveHouseholdId == null
+            ? null
+            : _resolveHouseholdById(effectiveHouseholdId);
+        final canUseHouseholdSplits = isSharedHousehold &&
+            !isEffectivePortfolio &&
+            activeHousehold?.autoSplitEnabled != false;
+        debugPrint(
+          '🧩 [AUTO SPLIT SAVE] household=$effectiveHouseholdId '
+          'autoSplitEnabled=${activeHousehold?.autoSplitEnabled} '
+          'canSendSplits=$canUseHouseholdSplits '
+          'splitType=$_customSplitType splits=${_customSplits?.length ?? 0}',
+        );
         if (isEffectivePortfolio) {
           _selectedPayerUserId = ref.read(authProvider).uid;
           _customSplitType = null;
@@ -2560,7 +2950,14 @@ class _UnifiedTransactionSheetState
                 currency: expense.currency,
                 date: expenseDateTime,
                 description: expense.description,
+                merchant: expense.merchant,
                 householdId: effectiveHouseholdId,
+                accountId: selectedFinancialAccountId,
+                customSplitType:
+                    canUseHouseholdSplits ? _customSplitType : null,
+                customSplits: canUseHouseholdSplits ? _customSplits : null,
+                payerUserId:
+                    canUseHouseholdSplits ? _selectedPayerUserId : null,
               );
 
           if (saved == null) {
@@ -2628,7 +3025,7 @@ class _UnifiedTransactionSheetState
           }
 
           closeDialog();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
           AppToast.success(
             toastContext,
             isSharedHousehold
@@ -2662,12 +3059,13 @@ class _UnifiedTransactionSheetState
           await ref.read(expenseSaveNotifierProvider.notifier).saveExpense(
                 expense: expenseWithTime,
                 householdId: effectiveHouseholdId,
+                accountId: selectedFinancialAccountId,
                 receiptImageUrl: receiptUrl,
-                customSplitType: _customSplitType,
-                customSplits: _customSplits,
-                payerUserId: (isSharedHousehold && !isEffectivePortfolio)
-                    ? _selectedPayerUserId
-                    : null,
+                customSplitType:
+                    canUseHouseholdSplits ? _customSplitType : null,
+                customSplits: canUseHouseholdSplits ? _customSplits : null,
+                payerUserId:
+                    canUseHouseholdSplits ? _selectedPayerUserId : null,
               );
 
           debugPrint(' Expense saved successfully');
@@ -2731,19 +3129,31 @@ class _UnifiedTransactionSheetState
             return;
           }
           closeDialog();
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
         }
       } else {
         // EXISTING EXPENSE: Build updates map from local edits
         await _resolveSplitGroupIdForExistingExpense();
         final Map<String, dynamic> updates = {};
         final accountTarget = _resolveAccountTarget();
-        final targetHouseholdId = accountTarget.householdId;
-        final targetIsPortfolio = accountTarget.isPortfolio;
-        final isSharedSpace = targetHouseholdId != null && !targetIsPortfolio;
         final originalHouseholdId = widget.existingExpense!.householdId;
         final originalIsPortfolio = originalHouseholdId != null &&
             householdScope.isPortfolioId(originalHouseholdId);
+        final originalSplitGroupId =
+            widget.existingExpense!.splitGroupId?.trim();
+        final shouldPreserveUnsplitHouseholdScope =
+            !_hasManuallyChangedAccountSelection &&
+                originalHouseholdId != null &&
+                originalHouseholdId.isNotEmpty &&
+                !originalIsPortfolio &&
+                (originalSplitGroupId == null || originalSplitGroupId.isEmpty);
+        final targetHouseholdId = shouldPreserveUnsplitHouseholdScope
+            ? originalHouseholdId
+            : accountTarget.householdId;
+        final targetIsPortfolio = shouldPreserveUnsplitHouseholdScope
+            ? false
+            : accountTarget.isPortfolio;
+        final isSharedSpace = targetHouseholdId != null && !targetIsPortfolio;
 
         if (_editedAmount != null) {
           updates['amount_cents'] = (_editedAmount! * 100).round();
@@ -2758,8 +3168,18 @@ class _UnifiedTransactionSheetState
         }
 
         if (_editedDescription != null) {
-          updates['raw_text'] = _editedDescription;
+          final trimmedDescription = _editedDescription!.trim();
+          updates['raw_text'] =
+              trimmedDescription.isEmpty ? null : trimmedDescription;
         }
+
+        if (_editedMerchant != null) {
+          final trimmedMerchant = _editedMerchant!.trim();
+          updates['merchant'] =
+              trimmedMerchant.isEmpty ? null : trimmedMerchant;
+        }
+
+        updates['account_id'] = selectedFinancialAccountId;
 
         // Handle date and time updates separately
         final finalDate = _editedDate ?? widget.existingExpense!.date;
@@ -2797,6 +3217,10 @@ class _UnifiedTransactionSheetState
         // For expenses that already have a split group, we may instead send an
         // update payload to adjust the existing split configuration.
         final existingSplitGroupId = _effectiveSplitGroupId;
+        final sameSharedHousehold = isSharedSpace &&
+            originalHouseholdId != null &&
+            targetHouseholdId == originalHouseholdId &&
+            !originalIsPortfolio;
         // Persist payer changes for shared expenses even without split edits
         if (isSharedSpace) {
           final payer = _selectedPayerUserId ?? ref.read(authProvider).uid;
@@ -2804,15 +3228,16 @@ class _UnifiedTransactionSheetState
           updates['payerUserId'] = payer; // compatibility with edge fn
         }
 
+        final canCreateSplitGroupForTarget = !sameSharedHousehold ||
+            (existingSplitGroupId == null && _hasCheckedSplitGroup);
         final shouldCreateSplitGroupForExisting = isSharedSpace &&
-            existingSplitGroupId == null &&
-            _hasCheckedSplitGroup &&
+            canCreateSplitGroupForTarget &&
             _customSplitType != null &&
             _customSplits != null &&
             _customSplits!.isNotEmpty;
 
         final hasExistingSplitGroup =
-            isSharedSpace && existingSplitGroupId != null;
+            sameSharedHousehold && existingSplitGroupId != null;
 
         final householdChanged = originalHouseholdId != targetHouseholdId;
         final portfolioChanged = targetHouseholdId != null &&
@@ -3016,13 +3441,15 @@ class _UnifiedTransactionSheetState
           //
           debugPrint(' Triggering comprehensive UI refresh...');
 
-          // Get the household from the edited expense
-          final editedHouseholdId = targetHouseholdId ?? originalHouseholdId;
+          final editedHouseholdId = targetHouseholdId;
 
-          // Refresh the household where expense exists (if it's shared)
+          // Refresh the scope where the expense now exists.
           if (editedHouseholdId != null) {
             debugPrint(' Refreshing expense household UI');
             _refreshHouseholdUiAfterExpenseChange(editedHouseholdId);
+          } else {
+            debugPrint(' Refreshing expense personal UI');
+            _refreshPersonalUiAfterExpenseChange(user.uid);
           }
 
           // ALSO refresh the current view
@@ -3037,6 +3464,20 @@ class _UnifiedTransactionSheetState
           } else {
             debugPrint(' Also refreshing CURRENT personal view');
             _refreshPersonalUiAfterExpenseChange(user.uid);
+          }
+
+          if (originalHouseholdId != editedHouseholdId) {
+            if (originalHouseholdId != null &&
+                originalHouseholdId != currentHouseholdId &&
+                originalHouseholdId != editedHouseholdId) {
+              debugPrint(' Refreshing PREVIOUS household view');
+              _refreshHouseholdUiAfterExpenseChange(originalHouseholdId);
+            } else if (originalHouseholdId == null &&
+                currentScope.isHouseholdView &&
+                editedHouseholdId != null) {
+              debugPrint(' Refreshing PREVIOUS personal view');
+              _refreshPersonalUiAfterExpenseChange(user.uid);
+            }
           }
 
           // Close the sheet so when user reopens it, they see fresh data
@@ -3055,11 +3496,11 @@ class _UnifiedTransactionSheetState
               toCategory: remapToCategory,
             );
             if (!mounted) return;
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(true);
             return;
           }
 
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
 
           AppToast.success(
             toastContext,
@@ -3224,6 +3665,8 @@ class _UnifiedTransactionSheetState
       // This ensures pockets page refreshes regardless of personal/household mode
       debugPrint(' Invalidating ALL pockets provider families...');
       ref.invalidate(pocketsProvider);
+      ref.invalidate(pocketDetailsProvider);
+      ref.read(walletActionsProvider).refreshAccountData();
       ref.invalidate(currencyTransactionCountsProvider);
 
       // If this was a household expense, invalidate household providers
@@ -3249,7 +3692,7 @@ class _UnifiedTransactionSheetState
       }
 
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       }
 
       AppToast.success(

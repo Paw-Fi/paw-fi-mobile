@@ -163,6 +163,40 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final previewShare =
         maxBudgetCents > 0 ? (previewAmountCents / maxBudgetCents) * 100 : 0.0;
     final sliderPercent = previewShare.clamp(0.0, 100.0);
+    final siblingPockets = allPockets
+        .where((pocket) => pocket.id != existingEnvelope?.id)
+        .toList(growable: false);
+
+    bool shouldRebalanceSiblingBudgets(int currentAmountCents) {
+      if (siblingPockets.isEmpty) {
+        return false;
+      }
+
+      if (!isEditing) {
+        return true;
+      }
+
+      return existingEnvelope!.budgetAmountCents != currentAmountCents;
+    }
+
+    List<int> buildRebalancedSiblingAmounts(int currentAmountCents) {
+      final siblingAmounts = siblingPockets
+          .map((pocket) => pocket.budgetAmountCents)
+          .toList(growable: false);
+
+      if (!shouldRebalanceSiblingBudgets(currentAmountCents)) {
+        return siblingAmounts;
+      }
+
+      return rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: siblingAmounts,
+        targetPocketAmountCents: currentAmountCents,
+        totalBudgetCents: totalBudgetCents,
+      );
+    }
+
+    final previewSiblingAmounts =
+        buildRebalancedSiblingAmounts(previewAmountCents);
 
     useEffect(() {
       if (!isEditing) {
@@ -206,6 +240,49 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     String formatLocalizedAmount(num value) {
       final normalized = double.parse(value.toStringAsFixed(0));
       return formatLocalizedNumber(context, normalized);
+    }
+
+    Future<void> persistPocketAmount({
+      required String envelopeId,
+      required int amountCents,
+      required String resolvedBudgetId,
+      required String nowIso,
+      bool includeDisplayFields = false,
+      String? resolvedName,
+      String? resolvedColor,
+      String? resolvedIcon,
+    }) async {
+      final payload = <String, dynamic>{
+        'budget_id': resolvedBudgetId,
+        'budget_amount_cents': amountCents,
+        'updated_at': nowIso,
+        'household_id': scopeParams.scope == PocketsScopeType.personal
+            ? null
+            : scopeParams.householdId,
+        'currency': selectedCurrency,
+      };
+
+      if (includeDisplayFields) {
+        payload['name'] = resolvedName;
+        payload['color'] = resolvedColor;
+        payload['icon'] = resolvedIcon;
+      }
+
+      await supabase
+          .from('budget_envelopes')
+          .update(payload)
+          .eq('id', envelopeId);
+
+      await supabase.from('envelope_allocations').upsert(
+        <String, dynamic>{
+          'envelope_id': envelopeId,
+          'period_month': periodMonth,
+          'amount_cents': amountCents,
+          'carryover_policy': 'carryover',
+          'updated_at': nowIso,
+        },
+        onConflict: 'envelope_id,period_month',
+      );
     }
 
     Future<void> handleSave() async {
@@ -289,22 +366,49 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
       try {
         final nowIso = DateTime.now().toIso8601String();
+        final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
+        final rebalancedSiblingAmounts =
+            buildRebalancedSiblingAmounts(clampedAmountCents);
+
+        Future<void> persistSiblingAllocations() async {
+          for (var index = 0; index < siblingPockets.length; index++) {
+            final pocket = siblingPockets[index];
+            final rebalancedAmount = rebalancedSiblingAmounts[index];
+            if (pocket.budgetAmountCents == rebalancedAmount) {
+              continue;
+            }
+
+            await persistPocketAmount(
+              envelopeId: pocket.id,
+              amountCents: rebalancedAmount,
+              resolvedBudgetId: budgetId!,
+              nowIso: nowIso,
+            );
+          }
+        }
+
         String envelopeId;
         if (isEditing) {
           envelopeId = existingEnvelope!.id;
 
-          await supabase.from('budget_envelopes').update(<String, dynamic>{
-            'name': name,
-            'budget_id': budgetId,
-            'budget_amount_cents': clampedAmountCents,
-            'updated_at': nowIso,
-            'color': selectedColor.value,
-            'icon': selectedIcon.value,
-            'household_id': scopeParams.scope == PocketsScopeType.personal
-                ? null
-                : householdId,
-            'currency': selectedCurrency,
-          }).eq('id', envelopeId);
+          if (clampedAmountCents > originalAmountCents) {
+            await persistSiblingAllocations();
+          }
+
+          await persistPocketAmount(
+            envelopeId: envelopeId,
+            amountCents: clampedAmountCents,
+            resolvedBudgetId: budgetId!,
+            nowIso: nowIso,
+            includeDisplayFields: true,
+            resolvedName: name,
+            resolvedColor: selectedColor.value,
+            resolvedIcon: selectedIcon.value,
+          );
+
+          if (clampedAmountCents < originalAmountCents) {
+            await persistSiblingAllocations();
+          }
 
           await supabase
               .from('envelope_category_links')
@@ -317,7 +421,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 'user_id': user.uid,
                 'budget_id': budgetId,
                 'name': name,
-                'budget_amount_cents': clampedAmountCents,
+                'budget_amount_cents': 0,
                 'household_id': scopeParams.scope == PocketsScopeType.personal
                     ? null
                     : householdId,
@@ -333,18 +437,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             throw Exception('Failed to create envelope');
           }
           envelopeId = id;
-        }
 
-        await supabase.from('envelope_allocations').upsert(
-          <String, dynamic>{
-            'envelope_id': envelopeId,
-            'period_month': periodMonth,
-            'amount_cents': clampedAmountCents,
-            'carryover_policy': 'carryover',
-            'updated_at': nowIso,
-          },
-          onConflict: 'envelope_id,period_month',
-        );
+          await persistSiblingAllocations();
+          await persistPocketAmount(
+            envelopeId: envelopeId,
+            amountCents: clampedAmountCents,
+            resolvedBudgetId: budgetId!,
+            nowIso: nowIso,
+          );
+        }
 
         final linksPayload = selectedCategories.value
             .map((category) => <String, dynamic>{
@@ -412,10 +513,38 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
       try {
+        final remainingPockets = allPockets
+            .where((pocket) => pocket.id != existingEnvelope!.id)
+            .toList(growable: false);
+        final rebalancedRemainingAmounts = remainingPockets.isEmpty
+            ? const <int>[]
+            : rebalancePocketBudgetAmounts(
+                currentAmountsCents: remainingPockets
+                    .map((pocket) => pocket.budgetAmountCents)
+                    .toList(growable: false),
+                newTotalBudgetCents: totalBudgetCents,
+              );
+        final nowIso = DateTime.now().toIso8601String();
+
         await supabase
             .from('budget_envelopes')
             .delete()
             .eq('id', existingEnvelope!.id);
+
+        for (var index = 0; index < remainingPockets.length; index++) {
+          final pocket = remainingPockets[index];
+          final rebalancedAmount = rebalancedRemainingAmounts[index];
+          if (pocket.budgetAmountCents == rebalancedAmount) {
+            continue;
+          }
+
+          await persistPocketAmount(
+            envelopeId: pocket.id,
+            amountCents: rebalancedAmount,
+            resolvedBudgetId: budgetId!,
+            nowIso: nowIso,
+          );
+        }
 
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
         final isScopedToHousehold =
@@ -549,6 +678,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             showModalBottomSheet<void>(
                               context: context,
                               isScrollControlled: true,
+                              useSafeArea: true,
                               backgroundColor:
                                   colorScheme.surface.withValues(alpha: 0.0),
                               builder: (sheetContext) {
@@ -692,7 +822,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         label: context.l10n.selectColor,
                                       );
                                     },
-                                    child: Container(
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
@@ -721,15 +853,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           // Shadow removed as requested
                                         ],
                                       ),
-                                      child: isCustomColor
-                                          ? Icon(Icons.check,
-                                              color:
-                                                  colorScheme.primaryForeground,
-                                              size: 20)
-                                          : Icon(Icons.colorize,
-                                              color:
-                                                  colorScheme.primaryForeground,
-                                              size: 20),
+                                      child: AnimatedSwitcher(
+                                        duration:
+                                            const Duration(milliseconds: 300),
+                                        child: isCustomColor
+                                            ? Icon(Icons.check,
+                                                key: const ValueKey('check'),
+                                                color: colorScheme
+                                                    .primaryForeground,
+                                                size: 20)
+                                            : Icon(Icons.colorize,
+                                                key: const ValueKey('colorize'),
+                                                color: colorScheme
+                                                    .primaryForeground,
+                                                size: 20),
+                                      ),
                                     ),
                                   );
                                 }
@@ -746,7 +884,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                                 return GestureDetector(
                                   onTap: () => selectedColor.value = hex,
-                                  child: Container(
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
                                     width: 44,
                                     height: 44,
                                     decoration: BoxDecoration(
@@ -761,12 +900,18 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                         // Shadow removed as requested
                                       ],
                                     ),
-                                    child: isSelected
-                                        ? Icon(Icons.check,
-                                            color:
-                                                colorScheme.primaryForeground,
-                                            size: 20)
-                                        : null,
+                                    child: AnimatedSwitcher(
+                                      duration:
+                                          const Duration(milliseconds: 300),
+                                      child: isSelected
+                                          ? Icon(Icons.check,
+                                              key: const ValueKey('selected'),
+                                              color:
+                                                  colorScheme.primaryForeground,
+                                              size: 20)
+                                          : const SizedBox(
+                                              key: ValueKey('unselected')),
+                                    ),
                                   ),
                                 );
                               },
@@ -805,7 +950,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                               return GestureDetector(
                                 onTap: () => selectedIcon.value = iconName,
-                                child: Container(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
@@ -820,12 +966,16 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           : colorScheme.border,
                                     ),
                                   ),
-                                  child: Icon(
-                                    iconData,
-                                    color: isSelected
-                                        ? selectedColorValue
-                                        : colorScheme.mutedForeground,
-                                    size: 20,
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      iconData,
+                                      key: ValueKey(isSelected),
+                                      color: isSelected
+                                          ? selectedColorValue
+                                          : colorScheme.mutedForeground,
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
                               );
@@ -1040,8 +1190,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                         const SizedBox(height: 20),
                         _BudgetDistributionPreview(
                           totalBudget: totalBudget,
-                          allPockets: allPockets,
-                          currentPocketId: existingEnvelope?.id,
+                          otherPockets: siblingPockets,
+                          otherPocketAmountsCents: previewSiblingAmounts,
                           currentAmountCents: previewAmountCents,
                           currentPocketColor: selectedColor.value,
                           currentPocketName: nameController.text.trim().isEmpty
@@ -1104,8 +1254,8 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 class _BudgetDistributionPreview extends StatelessWidget {
   const _BudgetDistributionPreview({
     required this.totalBudget,
-    required this.allPockets,
-    required this.currentPocketId,
+    required this.otherPockets,
+    required this.otherPocketAmountsCents,
     required this.currentAmountCents,
     required this.currentPocketColor,
     required this.currentPocketName,
@@ -1113,8 +1263,8 @@ class _BudgetDistributionPreview extends StatelessWidget {
   });
 
   final double totalBudget;
-  final List<PocketEnvelope> allPockets;
-  final String? currentPocketId;
+  final List<PocketEnvelope> otherPockets;
+  final List<int> otherPocketAmountsCents;
   final int currentAmountCents;
   final String? currentPocketColor;
   final String currentPocketName;
@@ -1125,8 +1275,6 @@ class _BudgetDistributionPreview extends StatelessWidget {
     if (totalBudget <= 0) return const SizedBox.shrink();
 
     final totalBudgetCents = (totalBudget * 100).round();
-    final otherPockets =
-        allPockets.where((p) => p.id != currentPocketId).toList();
     final currentShare = totalBudgetCents > 0
         ? (currentAmountCents.clamp(0, totalBudgetCents) / totalBudgetCents) *
             100
@@ -1134,13 +1282,15 @@ class _BudgetDistributionPreview extends StatelessWidget {
 
     // Build segments with calculated shares
     final segments = <_Segment>[
-      for (final p in otherPockets)
+      for (var index = 0; index < otherPockets.length; index++)
         _Segment(
-          label: p.name.isEmpty ? context.l10n.pocketSegmentLabel : p.name,
+          label: otherPockets[index].name.isEmpty
+              ? context.l10n.pocketSegmentLabel
+              : otherPockets[index].name,
           share: totalBudgetCents > 0
-              ? (p.budgetAmountCents / totalBudgetCents) * 100
+              ? (otherPocketAmountsCents[index] / totalBudgetCents) * 100
               : 0.0,
-          color: _hexOrPrimary(p.color, colorScheme),
+          color: _hexOrPrimary(otherPockets[index].color, colorScheme),
         ),
       _Segment(
         label: currentPocketName.isEmpty

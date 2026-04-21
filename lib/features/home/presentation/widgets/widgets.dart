@@ -8,6 +8,7 @@ export 'budget_card.dart';
 export 'net_cashflow_card.dart';
 export 'recent_transactions_card.dart';
 export 'spending_breakdown_chart.dart';
+export 'transactions_pie_chart.dart';
 export 'text_input_drawer.dart';
 export 'date_range_filter_modal.dart';
 export 'currency_selector_modal.dart';

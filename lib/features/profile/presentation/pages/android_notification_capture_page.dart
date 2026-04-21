@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -16,12 +17,15 @@ import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 
+import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
 class AndroidNotificationCapturePage extends HookConsumerWidget {
   const AndroidNotificationCapturePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final authState = ref.watch(authProvider);
 
     // Local state
@@ -31,6 +35,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final isSyncing = useState(false);
     final isUpdatingDestination = useState(false);
     final hasAccess = useState(false);
+    final hasNotificationPermission = useState(true);
     final recentApps = useState<List<RecentNotificationApp>>([]);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
@@ -97,7 +102,13 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
 
     // Load config + access status on mount — merges native config with Supabase flag.
     useEffect(() {
+      Future<void> checkNotificationPermission() async {
+        final status = await Permission.notification.status;
+        hasNotificationPermission.value = status.isGranted;
+      }
+
       Future<void> loadAll() async {
+        await checkNotificationPermission();
         try {
           final svc = NotificationCaptureService.instance;
 
@@ -113,6 +124,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                 .from('user_contacts')
                 .select('id, wallet_capture_enabled')
                 .eq('user_id', authState.uid)
+                .order('updated_at', ascending: false)
+                .limit(1)
                 .maybeSingle();
             if (response != null) {
               contactId.value = response['id'] as String?;
@@ -153,6 +166,9 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       if (current == AppLifecycleState.resumed) {
         Future<void> recheck() async {
           try {
+            final status = await Permission.notification.status;
+            hasNotificationPermission.value = status.isGranted;
+
             final svc = NotificationCaptureService.instance;
             final access = await svc.checkNotificationAccess();
             hasAccess.value = access;
@@ -349,16 +365,20 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     }
 
     if (isLoading.value) {
-      return AdaptiveScaffold(
-          appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
-          body: Container(
-            color: colorScheme.appBackground,
-            child: const Center(child: CircularProgressIndicator.adaptive()),
-          ));
+      return StatusBarOverlayRegion(
+          child: AdaptiveScaffold(
+              appBar:
+                  AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
+              body: Container(
+                color: colorScheme.appBackground,
+                child:
+                    const Center(child: CircularProgressIndicator.adaptive()),
+              )));
     }
 
-    return AdaptiveScaffold(
-      appBar: const AdaptiveAppBar(title: 'Auto Transaction Capture'),
+    return StatusBarOverlayRegion(
+        child: AdaptiveScaffold(
+      appBar: AdaptiveAppBar(title: context.l10n.autoTransactionCapture),
       body: Material(
         child: Container(
           color: colorScheme.appBackground,
@@ -417,6 +437,57 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 },
                         ),
                       ),
+                      if (config.value.enabled &&
+                          !hasNotificationPermission.value)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? colorScheme.warning.withValues(alpha: 0.1)
+                                : colorScheme.warning.withValues(alpha: 0.05),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline_rounded,
+                                  color: colorScheme.warning, size: 18),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.l10n.enableNotificationsSummary,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDark
+                                            ? colorScheme.foreground
+                                            : colorScheme.foreground
+                                                .withValues(alpha: 0.8),
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    GestureDetector(
+                                      onTap: () => openAppSettings(),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Text(
+                                        context.l10n.openSettingsToEnable,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       _SettingsTile(
                         icon: Icons.folder_rounded,
                         iconColor: Colors.white,
@@ -519,7 +590,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildHero(BuildContext context, ColorScheme colorScheme) {
@@ -644,6 +715,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: colorScheme.sheetBackground,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
