@@ -69,6 +69,7 @@ Future<void> exportAllTransactionsAsExcelSheet(
   List<ExpenseEntry> expenses, {
   required String personalLabel,
   Map<String, String> householdNames = const {},
+  DateTimeRange? selectedDateRange,
   String fileNamePrefix = 'moneko_full_export',
   VoidCallback? onBeforeShare,
 }) async {
@@ -90,6 +91,7 @@ Future<void> exportAllTransactionsAsExcelSheet(
       personalLabel: personalLabel,
       householdNames: householdNames,
       receiptFileNamesById: const {},
+      selectedDateRange: selectedDateRange,
     );
 
     if (!context.mounted) return;
@@ -490,6 +492,7 @@ Future<List<int>?> _buildFullExportExcel(
   required String personalLabel,
   required Map<String, String> householdNames,
   Map<String, String> receiptFileNamesById = const {},
+  DateTimeRange? selectedDateRange,
 }) async {
   final excel = Excel.createExcel();
   final existingNames = <String>{};
@@ -505,6 +508,7 @@ Future<List<int>?> _buildFullExportExcel(
     expenses,
     personalLabel: personalLabel,
     householdNames: householdNames,
+    selectedDateRange: selectedDateRange,
   );
 
   final allSheetName = _uniqueSheetName(existingNames, 'All Transactions');
@@ -544,6 +548,7 @@ void _buildOverviewSheet(
   List<ExpenseEntry> expenses, {
   required String personalLabel,
   required Map<String, String> householdNames,
+  DateTimeRange? selectedDateRange,
 }) {
   final dateFormat = DateFormat('yyyy-MM-dd');
   DateTime? minDate;
@@ -558,9 +563,11 @@ void _buildOverviewSheet(
     }
   }
 
-  final range = (minDate != null && maxDate != null)
-      ? '${dateFormat.format(minDate)} to ${dateFormat.format(maxDate)}'
-      : '-';
+  final range = selectedDateRange != null
+      ? '${dateFormat.format(selectedDateRange.start)} to ${dateFormat.format(selectedDateRange.end)}'
+      : (minDate != null && maxDate != null)
+          ? '${dateFormat.format(minDate)} to ${dateFormat.format(maxDate)}'
+          : '-';
 
   sheet.appendRow([
     TextCellValue('Exported At'),

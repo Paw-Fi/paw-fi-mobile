@@ -19,10 +19,10 @@ import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_state.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
+import 'package:moneko/features/home/presentation/widgets/transaction_export_options_sheet.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_step.dart';
 
 import 'package:moneko/features/households/domain/entities/household.dart';
-import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -30,16 +30,12 @@ import 'package:moneko/features/households/presentation/pages/create_space_page.
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/settings_page.dart';
 import 'package:moneko/shared/widgets/moneko_avatar.dart';
+import 'package:moneko/features/home/presentation/utils/transaction_export_data_source.dart';
+import 'package:moneko/features/home/presentation/utils/export_date_range.dart';
 import 'package:moneko/features/home/presentation/utils/transaction_exporter.dart';
 import 'package:moneko/features/home/presentation/pages/overview_dashboard_page.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
-
-enum _ExportAction {
-  exportExcel,
-  exportReceipts,
-  cancel,
-}
 
 Household? _resolveSelectedHousehold(
   SelectedHouseholdState selectedState,
@@ -76,6 +72,35 @@ String _userLabel(AppUser user, {required bool shortenEmail}) {
   if (displayName != null && displayName.isNotEmpty) return displayName;
 
   return shortenEmail ? _emailLocalPart(user.email) : user.email.trim();
+}
+
+String _exportFileNamePrefix(
+  String exportType,
+  TransactionExportRequest request,
+) {
+  final start = formatExportDate(request.dateRange.start);
+  final end = formatExportDate(request.dateRange.end);
+  return 'moneko_${exportType}_${_exportSpaceFileSlug(request.space)}_${start}_to_$end';
+}
+
+String _exportSpaceFileSlug(TransactionExportSpaceOption space) {
+  switch (space.type) {
+    case TransactionExportSpaceType.all:
+      return 'all_spaces';
+    case TransactionExportSpaceType.personal:
+      return 'personal';
+    case TransactionExportSpaceType.household:
+      return _slugFileSegment(space.label, fallback: 'space');
+  }
+}
+
+String _slugFileSegment(String value, {required String fallback}) {
+  final slug = value
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return slug.isEmpty ? fallback : slug;
 }
 
 /// Leading widget for app bar that includes:
@@ -293,37 +318,26 @@ class HomeHeaderSliver extends ConsumerWidget {
     );
 
     Future<void> exportAllTransactions() async {
-      _ExportAction? selection;
-      await AdaptiveAlertDialog.show(
+      final households = householdsAsync.valueOrNull ?? const <Household>[];
+      final exportPersonalLabel = preview.isActive
+          ? previewLabel
+          : user.displayName?.trim().isNotEmpty == true
+              ? user.displayName!.trim()
+              : user.email;
+      final exportRequest = await showTransactionExportOptionsSheet(
         context: context,
-        title: context.l10n.exportTransactions,
-        message: context.l10n.chooseSourceForAnalysis,
-        actions: [
-          AlertAction(
-            title: context.l10n.exportReceiptsZip,
-            style: AlertActionStyle.primary,
-            onPressed: () {
-              selection = _ExportAction.exportReceipts;
-            },
-          ),
-          AlertAction(
-            title: context.l10n.exportExcel,
-            style: AlertActionStyle.primary,
-            onPressed: () {
-              selection = _ExportAction.exportExcel;
-            },
-          ),
-          AlertAction(
-            title: context.l10n.cancel,
-            style: AlertActionStyle.cancel,
-            onPressed: () {
-              selection = _ExportAction.cancel;
-            },
-          ),
-        ],
+        spaces: households,
+        personalLabel: exportPersonalLabel,
       );
-      if (!context.mounted || selection == null) return;
-      if (selection == _ExportAction.cancel) return;
+      if (!context.mounted || exportRequest == null) {
+        debugPrint('[HomeHeaderSliver.export] export options canceled');
+        return;
+      }
+      debugPrint(
+        '[HomeHeaderSliver.export] selected format=${exportRequest.format.name} '
+        'space=${exportRequest.space.type.name}:${exportRequest.space.householdId ?? "<all>"} '
+        'range=${formatExportDateRange(exportRequest.dateRange)}',
+      );
 
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       var dialogClosed = false;
@@ -346,55 +360,52 @@ class HomeHeaderSliver extends ConsumerWidget {
         return;
       }
 
-      var analyticsData = ref.read(analyticsProvider);
-      if (user.uid.isNotEmpty && analyticsData.hasLoadedOnce != true) {
-        debugPrint('[HomeHeaderSliver.export] loading analytics before export');
-        await ref.read(analyticsProvider.notifier).loadData(user.uid);
-        if (!context.mounted) {
-          closeBlockingDialog();
-          return;
-        }
-        analyticsData = ref.read(analyticsProvider);
+      final exportableExpenses = await TransactionExportDataSource(
+        ref.read(supabaseClientProvider),
+      ).fetchExportExpenses(
+        userId: user.uid,
+        dateRange: exportRequest.dateRange,
+        space: exportRequest.space,
+      );
+      if (!context.mounted) {
+        closeBlockingDialog();
+        return;
       }
-      final optimisticByHousehold =
-          ref.read(householdOptimisticExpensesProvider);
-      final allOptimisticExpenses = optimisticByHousehold.values
-          .expand((entries) => entries)
-          .toList(growable: false);
-      final mergedExpenses = allOptimisticExpenses.isEmpty
-          ? analyticsData.allExpenses
-          : mergeHouseholdExpenses(
-              analyticsData.allExpenses,
-              allOptimisticExpenses,
-            );
-      final exportableExpenses =
-          mergedExpenses.where((e) => !e.isRecurring).toList(growable: false);
-      final households = householdsAsync.valueOrNull ?? const <Household>[];
+      debugPrint(
+        '[HomeHeaderSliver.export] fetched ${exportableExpenses.length} rows '
+        'from expenses table',
+      );
       final householdNames = {
         for (final household in households) household.id: household.name,
       };
-      final personalLabel = user.displayName?.trim().isNotEmpty == true
-          ? user.displayName!.trim()
-          : user.email;
       try {
-        if (selection == _ExportAction.exportExcel) {
+        if (exportRequest.format == TransactionExportFormat.excel) {
           debugPrint(
-            '[HomeHeaderSliver.export] exporting Excel transactions=${exportableExpenses.length}',
+            '[HomeHeaderSliver.export] exporting Excel '
+            'transactions=${exportableExpenses.length} '
+            'space=${exportRequest.space.label}',
           );
           await exportAllTransactionsAsExcelSheet(
             context,
             exportableExpenses,
-            personalLabel: personalLabel,
+            personalLabel: exportPersonalLabel,
             householdNames: householdNames,
+            selectedDateRange: exportRequest.dateRange,
+            fileNamePrefix:
+                _exportFileNamePrefix('transactions', exportRequest),
             onBeforeShare: closeBlockingDialog,
           );
-        } else if (selection == _ExportAction.exportReceipts) {
+        } else if (exportRequest.format ==
+            TransactionExportFormat.receiptsZip) {
           debugPrint(
-            '[HomeHeaderSliver.export] exporting receipts transactions=${exportableExpenses.length}',
+            '[HomeHeaderSliver.export] exporting receipts '
+            'transactions=${exportableExpenses.length} '
+            'space=${exportRequest.space.label}',
           );
           await exportAllReceiptsAsZip(
             context,
             exportableExpenses,
+            fileNamePrefix: _exportFileNamePrefix('receipts', exportRequest),
             onBeforeShare: closeBlockingDialog,
           );
         }

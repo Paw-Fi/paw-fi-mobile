@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
@@ -501,6 +503,60 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final debugEntries =
         debugReport.value?.entries ?? const <WalletCaptureDebugEntry>[];
 
+    // Only show debug section in debug mode or for specific admin emails
+    const allowedDebugEmails = [
+      'immanuel.hoehne@gmail.com',
+      'yflim7020@gmail.com',
+    ];
+    final shouldShowDebugSection = kDebugMode ||
+        allowedDebugEmails.contains(authState.email.toLowerCase());
+
+    Future<void> copyDebugReport() async {
+      final buffer = StringBuffer();
+      buffer.writeln('iOS Wallet Capture Debug Report');
+      buffer.writeln('Generated: ${DateTime.now().toIso8601String()}');
+      buffer.writeln('User: ${authState.email}');
+      buffer.writeln('');
+
+      if (debugSnapshot != null) {
+        buffer.writeln('=== Configuration ===');
+        buffer.writeln('Ready: ${debugSnapshot.isReady ? "Yes" : "No"}');
+        buffer.writeln('Supabase config: ${debugSnapshot.hasSupabaseConfig ? "Present" : "Missing"}');
+        buffer.writeln('Credentials: ${debugSnapshot.hasCredentials ? "Present" : "Missing"}');
+        buffer.writeln('Wallet capture: ${debugSnapshot.walletCaptureEnabled ? "Enabled" : "Disabled"}');
+        buffer.writeln('Destination: ${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})');
+        buffer.writeln('Token state: ${debugSnapshot.isAccessTokenExpired ? "Expired" : "Usable"}');
+        if (debugSnapshot.expiresAt > 0) {
+          buffer.writeln('Expires at: ${DateTime.fromMillisecondsSinceEpoch(debugSnapshot.expiresAt * 1000, isUtc: true).toIso8601String()}');
+        }
+        buffer.writeln('');
+      }
+
+      buffer.writeln('=== Recent Native Events ===');
+      if (debugEntries.isEmpty) {
+        buffer.writeln('No events recorded yet.');
+      } else {
+        for (final entry in debugEntries.reversed) {
+          buffer.writeln('');
+          buffer.writeln('--- ${entry.timestamp} ---');
+          buffer.writeln('Source: ${entry.source}');
+          buffer.writeln('Action: ${entry.action}');
+          buffer.writeln('Message: ${entry.message}');
+          if (entry.details.isNotEmpty) {
+            buffer.writeln('Details:');
+            for (final detail in entry.details.entries) {
+              buffer.writeln('  ${detail.key}: ${detail.value}');
+            }
+          }
+        }
+      }
+
+      await Clipboard.setData(ClipboardData(text: buffer.toString()));
+      if (context.mounted) {
+        AppToast.success(context, 'Debug report copied to clipboard');
+      }
+    }
+
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
       appBar: AdaptiveAppBar(
@@ -832,93 +888,103 @@ class IosWalletCapturePage extends HookConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  decoration: cardDecoration,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Debug report',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.foreground,
+                if (shouldShowDebugSection) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    decoration: cardDecoration,
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Debug report',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.foreground,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Reproduce the failure, then refresh this report to inspect the last native shortcut steps.',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.mutedForeground,
-                                    height: 1.3,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Reproduce the failure, then refresh this report to inspect the last native shortcut steps.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: colorScheme.mutedForeground,
+                                      height: 1.3,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          if (isLoadingDebugReport.value)
+                            if (isLoadingDebugReport.value)
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator.adaptive(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
                             SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator.adaptive(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  colorScheme.primary,
+                              width: 160,
+                              child: PrimaryAdaptiveButton(
+                                onPressed: isLoadingDebugReport.value
+                                    ? null
+                                    : () => loadDebugReport(),
+                                child: const Text('Refresh report'),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 160,
+                              child: PrimaryAdaptiveButton(
+                                onPressed: isSyncing.value
+                                    ? null
+                                    : () =>
+                                        syncCredentials(showSuccessToast: false),
+                                child: Text(
+                                  isSyncing.value
+                                      ? 'Syncing…'
+                                      : 'Sync credentials',
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          SizedBox(
-                            width: 160,
-                            child: PrimaryAdaptiveButton(
-                              onPressed: isLoadingDebugReport.value
-                                  ? null
-                                  : () => loadDebugReport(),
-                              child: const Text('Refresh report'),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 160,
-                            child: PrimaryAdaptiveButton(
-                              onPressed: isSyncing.value
-                                  ? null
-                                  : () =>
-                                      syncCredentials(showSuccessToast: false),
-                              child: Text(
-                                isSyncing.value
-                                    ? 'Syncing…'
-                                    : 'Sync credentials',
+                            SizedBox(
+                              width: 160,
+                              child: PrimaryAdaptiveButton(
+                                onPressed: (isLoadingDebugReport.value || debugReport.value == null)
+                                    ? null
+                                    : () => copyDebugReport(),
+                                child: const Text('Copy report'),
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: 160,
-                            child: AdaptiveButton(
-                              onPressed: isLoadingDebugReport.value
-                                  ? null
-                                  : () => clearDebugReport(),
-                              label: 'Clear log',
-                              style: AdaptiveButtonStyle.gray,
+                            SizedBox(
+                              width: 160,
+                              child: AdaptiveButton(
+                                onPressed: isLoadingDebugReport.value
+                                    ? null
+                                    : () => clearDebugReport(),
+                                label: 'Clear log',
+                                style: AdaptiveButtonStyle.gray,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 20),
                       if (debugSnapshot != null) ...[
                         _DebugStatusRow(
@@ -1039,11 +1105,13 @@ class IosWalletCapturePage extends HookConsumerWidget {
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ),
-    ));
+    ),
+  ),
+);
   }
 }
 
