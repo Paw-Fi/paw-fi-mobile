@@ -17,6 +17,8 @@ import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/profile/presentation/widgets/wallet_sync_setup_sheet.dart';
@@ -47,6 +49,40 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final householdsAsync = authState.uid.isNotEmpty
         ? ref.watch(userHouseholdsProvider(authState.uid))
         : const AsyncValue<List<Household>>.data([]);
+    final captureScopeHouseholdId =
+        config.value.scopeId == 'personal' ? null : config.value.scopeId;
+    final walletsAsync =
+        ref.watch(walletsByHouseholdIdProvider(captureScopeHouseholdId));
+
+    String? resolveDefaultWalletId(List<WalletEntity> wallets) {
+      for (final wallet in wallets) {
+        if (wallet.isDefault) return wallet.id;
+      }
+      return wallets.isNotEmpty ? wallets.first.id : null;
+    }
+
+    String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
+      return state.when(
+        data: (wallets) {
+          if (wallets.isEmpty) return context.l10n.tapToSet;
+          final selectedId = config.value.accountId;
+          if (selectedId != null) {
+            for (final wallet in wallets) {
+              if (wallet.id == selectedId) return wallet.name;
+            }
+          }
+          final fallbackId = resolveDefaultWalletId(wallets);
+          if (fallbackId != null) {
+            for (final wallet in wallets) {
+              if (wallet.id == fallbackId) return wallet.name;
+            }
+          }
+          return wallets.first.name;
+        },
+        loading: () => context.l10n.loading,
+        error: (_, __) => context.l10n.tapToSet,
+      );
+    }
 
     // Load config on mount — merges iOS native config with Supabase flag.
     Future<void> loadDebugReport() async {
@@ -362,6 +398,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
         scopeId: result['scopeId'] as String,
         scopeName: result['scopeName'] as String,
         isPortfolio: result['isPortfolio'] as bool,
+        clearAccountSelection: true,
       );
       config.value = updated;
       try {
@@ -370,6 +407,49 @@ class IosWalletCapturePage extends HookConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           AppToast.error(context, context.l10n.failedToUpdateDestination);
+        }
+      }
+    }
+
+    Future<void> pickDestinationWallet() async {
+      final wallets = walletsAsync.valueOrNull ?? const <WalletEntity>[];
+      if (wallets.isEmpty) return;
+
+      final actions = wallets
+          .map(
+            (wallet) => MonekoActionSheetAction<WalletEntity?>(
+              label: wallet.name,
+              value: wallet,
+              icon: Icons.account_balance_wallet_rounded,
+            ),
+          )
+          .toList(growable: true);
+
+      final selected = await MonekoActionSheet.show<WalletEntity?>(
+        context: context,
+        title: context.l10n.wallet,
+        actions: actions,
+        cancelAction: MonekoActionSheetAction(
+          label: context.l10n.cancel,
+          value: null,
+        ),
+      );
+
+      if (selected == null || selected.id == config.value.accountId) return;
+
+      final previous = config.value;
+      final updated = config.value.copyWith(
+        accountId: selected.id,
+        accountName: selected.name,
+      );
+      config.value = updated;
+      try {
+        await WalletCaptureService.instance.setConfig(updated);
+        await loadDebugReport();
+      } catch (e) {
+        config.value = previous;
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.failedToUpdateSetting);
         }
       }
     }
@@ -521,6 +601,59 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                   Expanded(
                                     child: Text(
                                       config.value.scopeName,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.foreground,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 20,
+                                    color: colorScheme.foreground,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            context.l10n.wallet,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: pickDestinationWallet,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? colorScheme.surfaceContainer
+                                    : colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colorScheme.surfaceBorder,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    size: 20,
+                                    color: colorScheme.foreground,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      selectedWalletLabel(walletsAsync),
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,

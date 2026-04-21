@@ -8,12 +8,22 @@ class WalletCaptureConfig {
     required this.scopeId,
     required this.scopeName,
     required this.isPortfolio,
+    this.accountId,
+    this.accountName,
   });
 
   final bool enabled;
   final String scopeId;
   final String scopeName;
   final bool isPortfolio;
+  final String? accountId;
+  final String? accountName;
+
+  static String? _optionalString(Object? value) {
+    final raw = value as String?;
+    final trimmed = raw?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
 
   factory WalletCaptureConfig.fromMap(Map<String, dynamic> map) {
     return WalletCaptureConfig(
@@ -21,6 +31,8 @@ class WalletCaptureConfig {
       scopeId: (map['scopeId'] as String?) ?? 'personal',
       scopeName: (map['scopeName'] as String?) ?? 'Personal',
       isPortfolio: map['isPortfolio'] as bool? ?? false,
+      accountId: _optionalString(map['accountId']),
+      accountName: _optionalString(map['accountName']),
     );
   }
 
@@ -29,12 +41,18 @@ class WalletCaptureConfig {
     String? scopeId,
     String? scopeName,
     bool? isPortfolio,
+    String? accountId,
+    String? accountName,
+    bool clearAccountSelection = false,
   }) {
     return WalletCaptureConfig(
       enabled: enabled ?? this.enabled,
       scopeId: scopeId ?? this.scopeId,
       scopeName: scopeName ?? this.scopeName,
       isPortfolio: isPortfolio ?? this.isPortfolio,
+      accountId: clearAccountSelection ? null : accountId ?? this.accountId,
+      accountName:
+          clearAccountSelection ? null : accountName ?? this.accountName,
     );
   }
 
@@ -44,6 +62,8 @@ class WalletCaptureConfig {
       'scopeId': scopeId,
       'scopeName': scopeName,
       'isPortfolio': isPortfolio,
+      'accountId': accountId ?? '',
+      'accountName': accountName ?? '',
     };
   }
 
@@ -52,6 +72,8 @@ class WalletCaptureConfig {
     scopeId: 'personal',
     scopeName: 'Personal',
     isPortfolio: false,
+    accountId: null,
+    accountName: null,
   );
 }
 
@@ -95,6 +117,8 @@ class WalletCaptureService {
     required String scopeId,
     required String scopeName,
     required bool isPortfolio,
+    String? accountId,
+    String? accountName,
   }) async {
     if (!Platform.isIOS) return;
     await _channel.invokeMethod<void>(
@@ -103,6 +127,8 @@ class WalletCaptureService {
         'scopeId': scopeId,
         'scopeName': scopeName,
         'isPortfolio': isPortfolio,
+        'accountId': accountId ?? '',
+        'accountName': accountName ?? '',
       },
     );
   }

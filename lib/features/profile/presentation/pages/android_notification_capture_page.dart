@@ -13,6 +13,8 @@ import 'package:moneko/core/services/notification_capture_service.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/beta_pill.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -34,6 +36,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final isLoading = useState(true);
     final isSyncing = useState(false);
     final isUpdatingDestination = useState(false);
+    final isUpdatingWallet = useState(false);
     final hasAccess = useState(false);
     final hasNotificationPermission = useState(true);
     final recentApps = useState<List<RecentNotificationApp>>([]);
@@ -44,6 +47,40 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
     final householdsAsync = authState.uid.isNotEmpty
         ? ref.watch(userHouseholdsProvider(authState.uid))
         : const AsyncValue<List<Household>>.data([]);
+    final captureScopeHouseholdId =
+        config.value.scopeId == 'personal' ? null : config.value.scopeId;
+    final walletsAsync =
+        ref.watch(walletsByHouseholdIdProvider(captureScopeHouseholdId));
+
+    String? resolveDefaultWalletId(List<WalletEntity> wallets) {
+      for (final wallet in wallets) {
+        if (wallet.isDefault) return wallet.id;
+      }
+      return wallets.isNotEmpty ? wallets.first.id : null;
+    }
+
+    String selectedWalletLabel(AsyncValue<List<WalletEntity>> state) {
+      return state.when(
+        data: (wallets) {
+          if (wallets.isEmpty) return context.l10n.tapToSet;
+          final selectedId = config.value.accountId;
+          if (selectedId != null) {
+            for (final wallet in wallets) {
+              if (wallet.id == selectedId) return wallet.name;
+            }
+          }
+          final fallbackId = resolveDefaultWalletId(wallets);
+          if (fallbackId != null) {
+            for (final wallet in wallets) {
+              if (wallet.id == fallbackId) return wallet.name;
+            }
+          }
+          return wallets.first.name;
+        },
+        loading: () => context.l10n.loading,
+        error: (_, __) => context.l10n.tapToSet,
+      );
+    }
 
     Future<bool> syncCredentials({bool showError = false}) async {
       final session = Supabase.instance.client.auth.currentSession;
@@ -300,6 +337,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         scopeId: result['scopeId'] as String,
         scopeName: result['scopeName'] as String,
         isPortfolio: result['isPortfolio'] as bool,
+        clearAccountSelection: true,
       );
       config.value = updated;
       isUpdatingDestination.value = true;
@@ -308,6 +346,8 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
           scopeId: result['scopeId'] as String,
           scopeName: result['scopeName'] as String,
           isPortfolio: result['isPortfolio'] as bool,
+          accountId: null,
+          accountName: null,
         );
       } catch (e) {
         config.value = previous;
@@ -316,6 +356,54 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
         }
       } finally {
         isUpdatingDestination.value = false;
+      }
+    }
+
+    Future<void> pickDestinationWallet() async {
+      final wallets = walletsAsync.valueOrNull ?? const <WalletEntity>[];
+      if (wallets.isEmpty) return;
+
+      final actions = wallets
+          .map(
+            (wallet) => MonekoActionSheetAction<WalletEntity?>(
+              label: wallet.name,
+              value: wallet,
+              icon: Icons.account_balance_wallet_rounded,
+            ),
+          )
+          .toList(growable: true);
+
+      final selected = await MonekoActionSheet.show<WalletEntity?>(
+        context: context,
+        title: context.l10n.wallet,
+        actions: actions,
+        cancelAction: MonekoActionSheetAction(
+          label: context.l10n.cancel,
+          value: null,
+        ),
+      );
+
+      if (selected == null || selected.id == config.value.accountId) return;
+
+      final previous = config.value;
+      final updated = config.value.copyWith(
+        accountId: selected.id,
+        accountName: selected.name,
+      );
+      config.value = updated;
+      isUpdatingWallet.value = true;
+      try {
+        await NotificationCaptureService.instance.setConfig(
+          accountId: selected.id,
+          accountName: selected.name,
+        );
+      } catch (e) {
+        config.value = previous;
+        if (context.mounted) {
+          AppToast.error(context, context.l10n.failedToUpdateSetting);
+        }
+      } finally {
+        isUpdatingWallet.value = false;
       }
     }
 
@@ -511,6 +599,33 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                                 isUpdatingDestination.value)
                             ? null
                             : pickDestinationSpace,
+                      ),
+                      _SettingsTile(
+                        icon: Icons.account_balance_wallet_rounded,
+                        iconColor: Colors.white,
+                        iconBackgroundColor: colorScheme.primary,
+                        title: context.l10n.wallet,
+                        subtitle: selectedWalletLabel(walletsAsync),
+                        enabled: config.value.enabled,
+                        trailing:
+                            isUpdatingWallet.value || walletsAsync.isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator.adaptive(
+                                        strokeWidth: 2),
+                                  )
+                                : Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: colorScheme.mutedForeground,
+                                    size: 20,
+                                  ),
+                        onTap: (!config.value.enabled ||
+                                isUpdatingWallet.value ||
+                                walletsAsync.valueOrNull == null ||
+                                walletsAsync.valueOrNull!.isEmpty)
+                            ? null
+                            : pickDestinationWallet,
                         showDivider: false,
                       ),
                     ],
@@ -811,7 +926,7 @@ class AndroidNotificationCapturePage extends HookConsumerWidget {
                   ),
                   child: Text(
                     context.l10n.grantAccess,
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
         ),

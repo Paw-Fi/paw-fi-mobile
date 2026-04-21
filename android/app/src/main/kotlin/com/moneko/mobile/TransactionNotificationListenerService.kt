@@ -139,6 +139,7 @@ class TransactionNotificationListenerService : NotificationListenerService() {
 
         val scopeId = config.scopeId
         val isPortfolio = config.isPortfolio
+        val accountId = config.accountId
 
         // Build request body
         val body = JSONObject().apply {
@@ -169,6 +170,9 @@ class TransactionNotificationListenerService : NotificationListenerService() {
             if (scopeId != "personal") {
                 put("householdId", scopeId)
                 put("isPortfolio", isPortfolio)
+            }
+            if (accountId.isNotBlank()) {
+                put("accountId", accountId)
             }
         }
 

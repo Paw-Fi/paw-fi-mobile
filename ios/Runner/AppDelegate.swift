@@ -1077,6 +1077,17 @@ private func loadWalletCaptureScope() -> SiriShortcutScopeResolution? {
 }
 
 @available(iOS 16.0, watchOS 9.0, *)
+private func loadWalletCaptureAccountId() -> String? {
+  guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
+    return nil
+  }
+
+  let accountId = (defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  return accountId.isEmpty ? nil : accountId
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
 private func makeWalletIdempotencyKey(
   userId: String,
   merchantName: String?,
@@ -1255,6 +1266,7 @@ private func performWalletPaymentIntegrationCapture(
     throw SiriShortcutIntentError.notConfigured
   }
   NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
+  let accountId = loadWalletCaptureAccountId()
 
   let idempotencyKey = makeWalletIdempotencyKey(
     userId: context.userId,
@@ -1322,6 +1334,9 @@ private func performWalletPaymentIntegrationCapture(
   if let householdId = scope.householdId {
     body["householdId"] = householdId
     body["isPortfolio"] = scope.isPortfolio
+  }
+  if let accountId {
+    body["accountId"] = accountId
   }
 
   request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -1529,6 +1544,8 @@ private enum SiriShortcutKeys {
   static let walletDefaultScopeId = "wallet_default_scope_id"
   static let walletDefaultScopeName = "wallet_default_scope_name"
   static let walletDefaultIsPortfolio = "wallet_default_is_portfolio"
+  static let walletDefaultAccountId = "wallet_default_account_id"
+  static let walletDefaultAccountName = "wallet_default_account_name"
   static let walletIdempotencyHash = "wallet_last_request_hash"
   static let walletIdempotencyTimestamp = "wallet_last_request_at"
   static let walletDebugEntries = "wallet_capture_debug_entries"
@@ -1637,6 +1654,8 @@ private enum SiriShortcutDiagnostics {
       "walletScopeId": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
       "walletScopeName": defaults?.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
       "walletIsPortfolio": defaults?.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio) ?? false,
+      "walletAccountId": defaults?.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "",
+      "walletAccountName": defaults?.string(forKey: SiriShortcutKeys.walletDefaultAccountName) ?? "",
       "expiresAt": context?.expiresAt ?? 0,
       "isAccessTokenExpired": context?.isAccessTokenExpired ?? false,
     ]
@@ -2842,6 +2861,20 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     if let isPortfolio = args["isPortfolio"] as? Bool {
       defaults.set(isPortfolio, forKey: SiriShortcutKeys.walletDefaultIsPortfolio)
     }
+    if let accountId = args["accountId"] as? String {
+      if accountId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        defaults.removeObject(forKey: SiriShortcutKeys.walletDefaultAccountId)
+      } else {
+        defaults.set(accountId, forKey: SiriShortcutKeys.walletDefaultAccountId)
+      }
+    }
+    if let accountName = args["accountName"] as? String {
+      if accountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        defaults.removeObject(forKey: SiriShortcutKeys.walletDefaultAccountName)
+      } else {
+        defaults.set(accountName, forKey: SiriShortcutKeys.walletDefaultAccountName)
+      }
+    }
 
     SiriShortcutDiagnostics.record(
       source: "flutter",
@@ -2852,6 +2885,8 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         "scopeId": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
         "scopeName": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
         "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
+        "accountId": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "",
+        "accountName": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountName) ?? "",
       ]
     )
 
@@ -2865,6 +2900,8 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         "scopeId": "personal",
         "scopeName": "Personal",
         "isPortfolio": false,
+        "accountId": "",
+        "accountName": "",
       ])
       return
     }
@@ -2874,6 +2911,8 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
       "scopeId": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeId) ?? "personal",
       "scopeName": defaults.string(forKey: SiriShortcutKeys.walletDefaultScopeName) ?? "Personal",
       "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
+      "accountId": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "",
+      "accountName": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountName) ?? "",
     ]
     result(config)
   }

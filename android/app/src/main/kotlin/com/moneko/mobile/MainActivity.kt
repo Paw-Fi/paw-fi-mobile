@@ -84,6 +84,8 @@ class MainActivity : FlutterActivity() {
                     (args["scopeId"] as? String)?.let { config.scopeId = it }
                     (args["scopeName"] as? String)?.let { config.scopeName = it }
                     (args["isPortfolio"] as? Boolean)?.let { config.isPortfolio = it }
+                    (args["accountId"] as? String)?.let { config.accountId = it }
+                    (args["accountName"] as? String)?.let { config.accountName = it }
                     result.success(true)
                 }
 

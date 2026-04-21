@@ -33,6 +33,8 @@ class NotificationCaptureConfig {
     required this.scopeId,
     required this.scopeName,
     required this.isPortfolio,
+    this.accountId,
+    this.accountName,
     required this.hasAuthStorage,
     required this.hasCredentials,
     required this.isReady,
@@ -45,6 +47,8 @@ class NotificationCaptureConfig {
   final String scopeId;
   final String scopeName;
   final bool isPortfolio;
+  final String? accountId;
+  final String? accountName;
   final bool hasAuthStorage;
   final bool hasCredentials;
   final bool isReady;
@@ -55,12 +59,19 @@ class NotificationCaptureConfig {
   factory NotificationCaptureConfig.fromMap(Map<String, dynamic> map) {
     final rawApps = map['recentApps'] as List<dynamic>? ?? [];
     final rawPackages = map['enabledPackages'] as List<dynamic>? ?? [];
+    String? optionalString(Object? value) {
+      final raw = value as String?;
+      final trimmed = raw?.trim();
+      return trimmed == null || trimmed.isEmpty ? null : trimmed;
+    }
 
     return NotificationCaptureConfig(
       enabled: map['enabled'] as bool? ?? false,
       scopeId: map['scopeId'] as String? ?? 'personal',
       scopeName: map['scopeName'] as String? ?? 'Personal',
       isPortfolio: map['isPortfolio'] as bool? ?? false,
+      accountId: optionalString(map['accountId']),
+      accountName: optionalString(map['accountName']),
       hasAuthStorage: map['hasAuthStorage'] as bool? ?? true,
       hasCredentials: map['hasCredentials'] as bool? ?? false,
       isReady: map['isReady'] as bool? ?? false,
@@ -80,6 +91,9 @@ class NotificationCaptureConfig {
     String? scopeId,
     String? scopeName,
     bool? isPortfolio,
+    String? accountId,
+    String? accountName,
+    bool clearAccountSelection = false,
     bool? hasAuthStorage,
     bool? hasCredentials,
     bool? isReady,
@@ -92,6 +106,9 @@ class NotificationCaptureConfig {
       scopeId: scopeId ?? this.scopeId,
       scopeName: scopeName ?? this.scopeName,
       isPortfolio: isPortfolio ?? this.isPortfolio,
+      accountId: clearAccountSelection ? null : accountId ?? this.accountId,
+      accountName:
+          clearAccountSelection ? null : accountName ?? this.accountName,
       hasAuthStorage: hasAuthStorage ?? this.hasAuthStorage,
       hasCredentials: hasCredentials ?? this.hasCredentials,
       isReady: isReady ?? this.isReady,
@@ -107,6 +124,8 @@ class NotificationCaptureConfig {
     scopeId: 'personal',
     scopeName: 'Personal',
     isPortfolio: false,
+    accountId: null,
+    accountName: null,
     hasAuthStorage: true,
     hasCredentials: false,
     isReady: false,
@@ -169,6 +188,8 @@ class NotificationCaptureService {
     String? scopeId,
     String? scopeName,
     bool? isPortfolio,
+    String? accountId,
+    String? accountName,
   }) async {
     if (!Platform.isAndroid) return;
     final args = <String, dynamic>{};
@@ -176,6 +197,8 @@ class NotificationCaptureService {
     if (scopeId != null) args['scopeId'] = scopeId;
     if (scopeName != null) args['scopeName'] = scopeName;
     if (isPortfolio != null) args['isPortfolio'] = isPortfolio;
+    if (accountId != null) args['accountId'] = accountId;
+    if (accountName != null) args['accountName'] = accountName;
     await _channel.invokeMethod<void>('setConfig', args);
   }
 
@@ -222,12 +245,16 @@ class NotificationCaptureService {
     required String scopeId,
     required String scopeName,
     required bool isPortfolio,
+    String? accountId,
+    String? accountName,
   }) async {
     if (!Platform.isAndroid) return;
     await _channel.invokeMethod<void>('setConfig', {
       'scopeId': scopeId,
       'scopeName': scopeName,
       'isPortfolio': isPortfolio,
+      'accountId': accountId ?? '',
+      'accountName': accountName ?? '',
     });
   }
 }
