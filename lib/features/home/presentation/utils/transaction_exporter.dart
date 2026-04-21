@@ -37,13 +37,20 @@ Future<void> exportTransactionsAsExcelSheet(
     if (excelBytes == null) {
       throw Exception('Failed to generate Excel file');
     }
-    await _shareExcelBytes(
+    final shareResult = await _shareExcelBytes(
       context,
       excelBytes,
       shareOrigin: shareOrigin,
       fileNamePrefix: fileNamePrefix,
       logPrefix: '[exportTransactionsAsExcelSheet]',
     );
+    if (context.mounted) {
+      _showShareResultToast(
+        context,
+        shareResult,
+        logPrefix: '[exportTransactionsAsExcelSheet]',
+      );
+    }
   } catch (e, stack) {
     debugPrint(
       '[exportTransactionsAsExcelSheet] failed: $e\n$stack',
@@ -107,13 +114,20 @@ Future<void> exportAllTransactionsAsExcelSheet(
     //   );
     // } else {
     onBeforeShare?.call();
-    await _shareExcelBytes(
+    final shareResult = await _shareExcelBytes(
       context,
       excelBytes,
       shareOrigin: shareOrigin,
       fileNamePrefix: fileNamePrefix,
       logPrefix: '[exportAllTransactionsAsExcelSheet]',
     );
+    if (context.mounted) {
+      _showShareResultToast(
+        context,
+        shareResult,
+        logPrefix: '[exportAllTransactionsAsExcelSheet]',
+      );
+    }
     // }
   } catch (e, stack) {
     debugPrint(
@@ -158,13 +172,20 @@ Future<void> exportAllReceiptsAsZip(
       throw Exception('Failed to create receipts zip');
     }
     onBeforeShare?.call();
-    await _shareZipBytes(
+    final shareResult = await _shareZipBytes(
       context,
       zipBytes,
       shareOrigin: shareOrigin,
       fileNamePrefix: fileNamePrefix,
       logPrefix: '[exportAllReceiptsAsZip]',
     );
+    if (context.mounted) {
+      _showShareResultToast(
+        context,
+        shareResult,
+        logPrefix: '[exportAllReceiptsAsZip]',
+      );
+    }
   } catch (e, stack) {
     debugPrint('[exportAllReceiptsAsZip] failed: $e\n$stack');
     if (context.mounted) {
@@ -187,7 +208,7 @@ Rect? _resolveShareOrigin(BuildContext context) {
   return null;
 }
 
-Future<void> _shareExcelBytes(
+Future<ShareResult> _shareExcelBytes(
   BuildContext context,
   List<int> excelBytes, {
   required Rect? shareOrigin,
@@ -200,7 +221,7 @@ Future<void> _shareExcelBytes(
 
   if (kIsWeb) {
     debugPrint('$logPrefix sharing in web: $fileName');
-    await Share.shareXFiles(
+    final result = await Share.shareXFiles(
       [
         XFile.fromData(
           bytes,
@@ -212,7 +233,8 @@ Future<void> _shareExcelBytes(
       subject: fileName,
       sharePositionOrigin: shareOrigin,
     );
-    return;
+    debugPrint('$logPrefix share result: $result');
+    return result;
   }
 
   final directory = await getTemporaryDirectory();
@@ -221,7 +243,7 @@ Future<void> _shareExcelBytes(
   await file.writeAsBytes(bytes, flush: true);
   debugPrint('$logPrefix share file');
 
-  await Share.shareXFiles(
+  final result = await Share.shareXFiles(
     [
       XFile(file.path,
           mimeType:
@@ -230,9 +252,11 @@ Future<void> _shareExcelBytes(
     subject: fileName,
     sharePositionOrigin: shareOrigin,
   );
+  debugPrint('$logPrefix share result: $result');
+  return result;
 }
 
-Future<void> _shareZipBytes(
+Future<ShareResult> _shareZipBytes(
   BuildContext context,
   List<int> zipBytes, {
   required Rect? shareOrigin,
@@ -245,7 +269,7 @@ Future<void> _shareZipBytes(
 
   if (kIsWeb) {
     debugPrint('$logPrefix sharing in web: $fileName');
-    await Share.shareXFiles(
+    final result = await Share.shareXFiles(
       [
         XFile.fromData(
           bytes,
@@ -256,7 +280,8 @@ Future<void> _shareZipBytes(
       subject: fileName,
       sharePositionOrigin: shareOrigin,
     );
-    return;
+    debugPrint('$logPrefix share result: $result');
+    return result;
   }
 
   final directory = await getTemporaryDirectory();
@@ -265,13 +290,32 @@ Future<void> _shareZipBytes(
   await file.writeAsBytes(bytes, flush: true);
   debugPrint('$logPrefix share file');
 
-  await Share.shareXFiles(
+  final result = await Share.shareXFiles(
     [
       XFile(file.path, mimeType: 'application/zip'),
     ],
     subject: fileName,
     sharePositionOrigin: shareOrigin,
   );
+  debugPrint('$logPrefix share result: $result');
+  return result;
+}
+
+void _showShareResultToast(
+  BuildContext context,
+  ShareResult result, {
+  required String logPrefix,
+}) {
+  debugPrint('$logPrefix handling share result status=${result.status}');
+  switch (result.status) {
+    case ShareResultStatus.success:
+    case ShareResultStatus.unavailable:
+      AppToast.success(context, context.l10n.completed);
+      return;
+    case ShareResultStatus.dismissed:
+      AppToast.info(context, context.l10n.canceledStatus);
+      return;
+  }
 }
 
 Future<List<int>?> _buildExcel(List<ExpenseEntry> expenses) async {

@@ -325,20 +325,35 @@ class HomeHeaderSliver extends ConsumerWidget {
       if (!context.mounted || selection == null) return;
       if (selection == _ExportAction.cancel) return;
 
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      var dialogClosed = false;
+      void closeBlockingDialog() {
+        if (dialogClosed || !rootNavigator.mounted) return;
+        debugPrint('[HomeHeaderSliver.export] closing blocking dialog');
+        rootNavigator.pop();
+        dialogClosed = true;
+      }
+
+      debugPrint('[HomeHeaderSliver.export] showing blocking dialog');
       showBlockingProcessingDialog(
         context: context,
         message: context.l10n.exportTransactions,
       );
-      var dialogClosed = false;
-      void closeBlockingDialog() {
-        if (!context.mounted || dialogClosed) return;
-        dialogClosed = true;
-        Navigator.of(context, rootNavigator: true).maybePop();
+      await WidgetsBinding.instance.endOfFrame;
+      if (!context.mounted) {
+        debugPrint('[HomeHeaderSliver.export] context unmounted after dialog');
+        closeBlockingDialog();
+        return;
       }
 
       var analyticsData = ref.read(analyticsProvider);
       if (user.uid.isNotEmpty && analyticsData.hasLoadedOnce != true) {
+        debugPrint('[HomeHeaderSliver.export] loading analytics before export');
         await ref.read(analyticsProvider.notifier).loadData(user.uid);
+        if (!context.mounted) {
+          closeBlockingDialog();
+          return;
+        }
         analyticsData = ref.read(analyticsProvider);
       }
       final optimisticByHousehold =
@@ -363,6 +378,9 @@ class HomeHeaderSliver extends ConsumerWidget {
           : user.email;
       try {
         if (selection == _ExportAction.exportExcel) {
+          debugPrint(
+            '[HomeHeaderSliver.export] exporting Excel transactions=${exportableExpenses.length}',
+          );
           await exportAllTransactionsAsExcelSheet(
             context,
             exportableExpenses,
@@ -371,6 +389,9 @@ class HomeHeaderSliver extends ConsumerWidget {
             onBeforeShare: closeBlockingDialog,
           );
         } else if (selection == _ExportAction.exportReceipts) {
+          debugPrint(
+            '[HomeHeaderSliver.export] exporting receipts transactions=${exportableExpenses.length}',
+          );
           await exportAllReceiptsAsZip(
             context,
             exportableExpenses,

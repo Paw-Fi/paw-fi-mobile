@@ -222,6 +222,7 @@ GoRouter router(RouterRef ref) {
       try {
         final auth = ref.read(authProvider);
         final subscriptionGateStatus = ref.read(subscriptionGateStatusProvider);
+        final subscriptionAsync = ref.read(subscriptionNotifierProvider);
         final prefs = ref.read(sharedPreferencesProvider);
         final previewMode = ref.read(previewModeProvider);
         final hasCompletedPreauth =
@@ -288,6 +289,17 @@ GoRouter router(RouterRef ref) {
 
         final requiresPaywall = subscriptionGateStatus.requiresPaywall;
         final isSubscriptionChecking = subscriptionGateStatus.isLoading;
+        final hasExpiredEntitlement = subscriptionAsync.maybeWhen(
+          data: (subscription) {
+            if (subscription == null) return false;
+            final status = (subscription.status ?? '').toLowerCase();
+            if (status != 'trialing' && status != 'active') return false;
+            final endAt = subscription.currentPeriodEnd;
+            if (endAt == null) return false;
+            return !endAt.isAfter(DateTime.now());
+          },
+          orElse: () => false,
+        );
         final everSubscribed = isAuthenticated
             ? (prefs.getBool('ever_subscribed:${auth.uid}') ?? false)
             : false;
@@ -320,7 +332,9 @@ GoRouter router(RouterRef ref) {
             if (!hasOnboarded) {
               return '/onboarding?stage=post';
             }
-            if (!isSubscriptionChecking && requiresPaywall && everSubscribed) {
+            if (!isSubscriptionChecking &&
+                ((requiresPaywall && everSubscribed) ||
+                    hasExpiredEntitlement)) {
               return '/paywall?mode=resubscribe';
             }
             return '/dashboard';
@@ -428,7 +442,8 @@ GoRouter router(RouterRef ref) {
           if (!hasOnboarded) {
             return '/onboarding?stage=post';
           }
-          if (!isSubscriptionChecking && requiresPaywall && everSubscribed) {
+          if (!isSubscriptionChecking &&
+              ((requiresPaywall && everSubscribed) || hasExpiredEntitlement)) {
             return '/paywall?mode=resubscribe';
           }
           return '/dashboard';
@@ -440,8 +455,7 @@ GoRouter router(RouterRef ref) {
             isPreauthSynced &&
             hasOnboarded &&
             !isSubscriptionChecking &&
-            requiresPaywall &&
-            everSubscribed &&
+            ((requiresPaywall && everSubscribed) || hasExpiredEntitlement) &&
             !isOnPaywallPage &&
             !isOnPlanSelectionPage &&
             !isOnboardingPage &&
