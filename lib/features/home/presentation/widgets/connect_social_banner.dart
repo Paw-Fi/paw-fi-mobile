@@ -14,9 +14,11 @@ import 'package:moneko/features/home/presentation/widgets/connect_social_bottom_
 import 'package:moneko/features/home/presentation/widgets/home_ai_fab.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/profile/data/email_import_settings_service.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
 import 'package:moneko/features/profile/presentation/pages/android_notification_capture_page.dart';
+import 'package:moneko/features/profile/presentation/pages/email_import_settings_page.dart';
 import 'package:moneko/features/profile/presentation/pages/ios_wallet_capture_page.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -41,6 +43,20 @@ final walletCaptureEnabledProvider =
     return (response?['wallet_capture_enabled'] as bool?) ?? false;
   } catch (error) {
     debugPrint('Error checking wallet capture state: $error');
+    return false;
+  }
+});
+
+final emailImportEnabledProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final user = ref.watch(authProvider);
+  if (user.isEmpty) return false;
+
+  try {
+    final settings = await EmailImportSettingsService().getSettings();
+    return settings.enabled;
+  } catch (error) {
+    debugPrint('Error checking email import state: $error');
     return false;
   }
 });
@@ -82,6 +98,7 @@ class ConnectSocialBanner extends ConsumerWidget {
     final whatsappAsync = ref.watch(whatsAppBindingProvider);
     final telegramAsync = ref.watch(telegramBindingProvider);
     final walletCaptureAsync = ref.watch(walletCaptureEnabledProvider);
+    final emailImportAsync = ref.watch(emailImportEnabledProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final dismissedStepIds = ref.watch(dismissedChecklistStepsProvider);
 
@@ -118,6 +135,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         !whatsappAsync.isLoading &&
         !telegramAsync.isLoading &&
         !walletCaptureAsync.isLoading &&
+        !emailImportAsync.isLoading &&
         recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading;
 
@@ -127,6 +145,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         'whatsappLoading=${whatsappAsync.isLoading} '
         'telegramLoading=${telegramAsync.isLoading} '
         'walletLoading=${walletCaptureAsync.isLoading} '
+        'emailImportLoading=${emailImportAsync.isLoading} '
         'recurringLoaded=${recurringState.hasLoadedOnce} '
         'recurringLoading=${recurringState.data.isLoading}',
       );
@@ -137,6 +156,7 @@ class ConnectSocialBanner extends ConsumerWidget {
     final telegramConnected = telegramAsync.valueOrNull ?? false;
     final messagingConnected = whatsappConnected || telegramConnected;
     final walletCaptureEnabled = walletCaptureAsync.valueOrNull ?? false;
+    final emailImportEnabled = emailImportAsync.valueOrNull ?? false;
 
     final steps = _buildSteps(
       context: context,
@@ -145,6 +165,7 @@ class ConnectSocialBanner extends ConsumerWidget {
       recurringExpensesAsync: recurringExpensesAsync,
       messagingConnected: messagingConnected,
       walletCaptureEnabled: walletCaptureEnabled,
+      emailImportEnabled: emailImportEnabled,
       onCreateAccount: () => _openRegister(context),
       onLogExpense: () => handleAiFreeFormText(context, ref),
       onRecurringExpense: () => showAddRecurringSheet(
@@ -159,6 +180,7 @@ class ConnectSocialBanner extends ConsumerWidget {
         builder: (context) => const ConnectSocialBottomSheet(),
       ),
       onEnableCapture: () => _openCaptureFlow(context, ref),
+      onEnableEmailImport: () => _openEmailImportSettings(context, ref),
     );
 
     _debugPrint(
@@ -274,6 +296,18 @@ class ConnectSocialBanner extends ConsumerWidget {
     });
   }
 
+  void _openEmailImportSettings(BuildContext context, WidgetRef ref) {
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute<void>(
+        builder: (_) => const EmailImportSettingsPage(),
+      ),
+    )
+        .then((_) {
+      ref.invalidate(emailImportEnabledProvider);
+    });
+  }
+
   Future<void> _dismissStep(WidgetRef ref, String stepId) async {
     final prefs = ref.read(sharedPreferencesProvider);
 
@@ -300,11 +334,13 @@ class ConnectSocialBanner extends ConsumerWidget {
     required AsyncValue<List<RecurringTransaction>> recurringExpensesAsync,
     required bool messagingConnected,
     required bool walletCaptureEnabled,
+    required bool emailImportEnabled,
     required VoidCallback onCreateAccount,
     required VoidCallback onLogExpense,
     required VoidCallback onRecurringExpense,
     required VoidCallback onConnectMessaging,
     required VoidCallback onEnableCapture,
+    required VoidCallback onEnableEmailImport,
   }) {
     final hasRecurringExpense = recurringExpensesAsync.maybeWhen(
       data: (transactions) => transactions.isNotEmpty,
@@ -372,6 +408,17 @@ class ConnectSocialBanner extends ConsumerWidget {
             : Icons.notifications_active_outlined,
         onTap: walletCaptureEnabled ? null : onEnableCapture,
       ),
+      if (!emailImportEnabled)
+        _ChecklistStep(
+          id: 'enable_email_import',
+          sortOrder: 5,
+          title: context.l10n.emailFileImportEnableSwitchTitle,
+          description: context.l10n.forwardReceiptDescription,
+          buttonLabel: context.l10n.setUp,
+          completed: false,
+          icon: Icons.mark_email_read_rounded,
+          onTap: onEnableEmailImport,
+        ),
     ];
   }
 }

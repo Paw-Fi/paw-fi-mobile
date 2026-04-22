@@ -16,7 +16,6 @@ import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
-import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
 class EmailImportSettingsPage extends HookConsumerWidget {
@@ -293,17 +292,20 @@ class EmailImportSettingsPage extends HookConsumerWidget {
         const ClipboardData(text: emailImportInboundAddress),
       );
       if (context.mounted) {
-        AppToast.success(context, 'Email address copied');
+        AppToast.success(context, context.l10n.emailAddressCopied);
       }
     }
 
     void showHowItWorks() {
-      MonekoBottomSheet.show<void>(
+      showModalBottomSheet<void>(
         context: context,
-        title: context.l10n.howItWorksTitle,
         isScrollControlled: true,
-        onClose: () => Navigator.of(context).pop(),
-        builder: (_) => _HowItWorksSheet(
+        useSafeArea: true,
+        backgroundColor: colorScheme.sheetBackground,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        builder: (modalContext) => _HowItWorksSheet(
           inboundEmail: emailImportInboundAddress,
           onCopyEmail: copyInboundAddress,
         ),
@@ -327,6 +329,11 @@ class EmailImportSettingsPage extends HookConsumerWidget {
       current.defaultEmail,
       ...current.whitelistEmails.map((entry) => entry.email),
     ];
+    final destinationIcon = current.isPortfolio
+        ? Icons.business_center_rounded
+        : current.scopeId == 'personal'
+            ? Icons.person_rounded
+            : Icons.group_rounded;
 
     return StatusBarOverlayRegion(
       child: AdaptiveScaffold(
@@ -336,144 +343,129 @@ class EmailImportSettingsPage extends HookConsumerWidget {
             color: colorScheme.appBackground,
             child: SafeArea(
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  top: getSubPageTopPadding(context) + 16,
-                  left: 24,
-                  right: 24,
+                physics: const BouncingScrollPhysics(),
+                padding:  EdgeInsets.only(
+                         top: getSubPageTopPadding(context)-20,
+                  left: 20,
+                  right: 20,
                   bottom: 40,
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _HeroIntro(
-                      title: context.l10n.emailFileImport,
                       description: context.l10n.emailFileImportDescription,
                       onHowItWorks: showHowItWorks,
                     ),
-                    const SizedBox(height: 28),
-                    _SettingsSurface(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  context.l10n.emailFileImportEnableSwitchTitle,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  context
-                                      .l10n.emailFileImportEnableSwitchSubtitle,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.mutedForeground,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          AdaptiveSwitch(
+                    _SettingsGroup(
+                      title: context.l10n.setup,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.power_settings_new_rounded,
+                          iconColor: current.enabled
+                              ? colorScheme.success
+                              : colorScheme.mutedForeground,
+                          iconBackgroundColor: colorScheme.muted,
+                          title: context.l10n.emailFileImportEnableSwitchTitle,
+                         trailing: AdaptiveSwitch(
                             value: current.enabled,
                             onChanged: isSaving.value ? null : toggleEnabled,
                           ),
-                        ],
-                      ),
+                        ),
+                        _SettingsTile(
+                          icon: destinationIcon,
+                          iconColor: colorScheme.foreground,
+                          iconBackgroundColor: colorScheme.muted,
+                          title: context.l10n.defaultSpace,
+                          subtitle: current.scopeName,
+                          enabled: current.enabled,
+                          trailing: Icon(
+                            Icons.chevron_right_rounded,
+                            color: colorScheme.mutedForeground,
+                            size: 20,
+                          ),
+                          onTap: current.enabled && !isSaving.value
+                              ? pickDestinationSpace
+                              : null,
+                        ),
+                        _SettingsTile(
+                          icon: Icons.account_balance_wallet_rounded,
+                          iconColor: colorScheme.foreground,
+                          iconBackgroundColor: colorScheme.muted,
+                          title: context.l10n.defaultWallet,
+                          subtitle: selectedWalletLabel(),
+                          enabled: current.enabled,
+                          trailing: walletsAsync.isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: colorScheme.mutedForeground,
+                                  size: 20,
+                                ),
+                          onTap: current.enabled && !isSaving.value
+                              ? pickDestinationWallet
+                              : null,
+                          showDivider: false,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+                    _SettingsGroup(
+                      title: context.l10n.forwarding,
+                      children: [
+                        _SettingsTile(
+                          icon: Icons.alternate_email_rounded,
+                          iconColor: colorScheme.foreground,
+                          iconBackgroundColor: colorScheme.muted,
+                          title: context.l10n.forwardingEmail,
+                          subtitle: emailImportInboundAddress,
+                          trailing: IconButton(
+                            onPressed: copyInboundAddress,
+                            icon: Icon(
+                              Icons.copy_rounded,
+                              color: colorScheme.mutedForeground,
+                              size: 20,
+                            ),
+                            tooltip: context.l10n.copyLink,
+                          ),
+                        ),
+                        _SettingsTile(
+                          icon: Icons.attach_file_rounded,
+                          iconColor: colorScheme.foreground,
+                          iconBackgroundColor: colorScheme.muted,
+                          title: context.l10n.supportedFiles,
+                          subtitle: context.l10n.supportedFileTypes,
+                          showDivider: false,
+                        ),
+                      ],
                     ),
                     if (current.enabled) ...[
-                      const SizedBox(height: 22),
-                      _SettingsSurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _SectionHeader(
-                              title: 'Send files here',
-                              subtitle: 'Forward bank exports or receipts.',
-                            ),
-                            const SizedBox(height: 16),
-                            _ImportAddressCard(
-                              email: emailImportInboundAddress,
-                              onCopy: copyInboundAddress,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _SettingsSurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _SectionHeader(
-                              title: 'Save imported transactions to',
-                              subtitle: 'Choose the space and wallet once.',
-                            ),
-                            const SizedBox(height: 18),
-                            _MinimalPickerRow(
-                              icon: current.isPortfolio
-                                  ? Icons.business_center_rounded
-                                  : current.scopeId == 'personal'
-                                      ? Icons.person_rounded
-                                      : Icons.group_rounded,
-                              label: context.l10n.destinationSpace,
-                              value: current.scopeName,
-                              onTap:
-                                  isSaving.value ? null : pickDestinationSpace,
-                            ),
-                            const SizedBox(height: 14),
-                            _MinimalPickerRow(
-                              icon: Icons.account_balance_wallet_rounded,
-                              label: context.l10n.wallet,
-                              value: selectedWalletLabel(),
-                              onTap:
-                                  isSaving.value ? null : pickDestinationWallet,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      _SettingsSurface(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _SectionHeader(
-                              title: context.l10n.emailFileImportAllowedSenders,
-                              subtitle:
-                                  'Only these inboxes can trigger imports.',
-                            ),
-                            const SizedBox(height: 18),
-                            _SenderEmailColumn(
-                              emails: senderEmails,
-                              removableEmails: current.whitelistEmails,
-                              pendingDeleteEmail: pendingDeleteEmail.value,
-                              onRemoveEmail: removeWhitelistEmail,
-                            ),
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton.icon(
-                                onPressed:
-                                    isSaving.value ? null : addWhitelistEmail,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: colorScheme.foreground,
-                                ),
-                                icon: const Icon(Icons.add_rounded, size: 18),
-                                label: Text(
-                                  context.l10n.emailFileImportAddSender,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 36),
+                      _SettingsGroup(
+                        title: context.l10n.emailFileImportAllowedSenders,
+                        children: [                       
+                          _SenderEmailColumn(
+                            emails: senderEmails,
+                            removableEmails: current.whitelistEmails,
+                            pendingDeleteEmail: pendingDeleteEmail.value,
+                            onRemoveEmail: removeWhitelistEmail,
+                          ),
+                          _AddSenderRow(
+                            onPressed:
+                                isSaving.value ? null : addWhitelistEmail,
+                            label: context.l10n.add,
+                          ),
+                        ],
                       ),
                     ],
+                    const SizedBox(height: 36),
+                    const _PrivacyFooter(),
                   ],
                 ),
               ),
@@ -487,12 +479,10 @@ class EmailImportSettingsPage extends HookConsumerWidget {
 
 class _HeroIntro extends StatelessWidget {
   const _HeroIntro({
-    required this.title,
     required this.description,
     required this.onHowItWorks,
   });
 
-  final String title;
   final String description;
   final VoidCallback onHowItWorks;
 
@@ -500,102 +490,88 @@ class _HeroIntro extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: colorScheme.foreground,
-            height: 1.05,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: colorScheme.card,
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.homeCardShadow,
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.mark_email_read_rounded,
+              color: colorScheme.foreground,
+              size: 38,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          description,
-          style: TextStyle(
-            fontSize: 15,
-            color: colorScheme.mutedForeground,
-            height: 1.45,
+                    const SizedBox(height: 12),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
-        TextButton.icon(
-          onPressed: onHowItWorks,
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.foreground,
-          ),
-          icon: const Icon(Icons.info_outline_rounded, size: 18),
-          label: Text(context.l10n.howItWorksTitle),
-        ),
-      ],
-    );
-  }
-}
-
-class _SettingsSurface extends StatelessWidget {
-  const _SettingsSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: colorScheme.card,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.homeCardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.center,
+            child: GestureDetector(
+              onTap: onHowItWorks,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.card,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colorScheme.surfaceBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.homeCardShadow,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                   
+                    Text(
+                      context.l10n.howItWorksTitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                     Icon(
+                      Icons.help_outline,
+                      size: 14,
+                      color: colorScheme.foreground,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: child,
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    required this.subtitle,
-  });
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: colorScheme.foreground,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          subtitle,
-          style: TextStyle(
-            fontSize: 13,
-            color: colorScheme.mutedForeground,
-            height: 1.35,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -647,72 +623,182 @@ class _ImportAddressCard extends StatelessWidget {
   }
 }
 
-class _MinimalPickerRow extends StatelessWidget {
-  const _MinimalPickerRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.onTap,
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({
+    required this.title,
+    required this.children,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
+  final String title;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          child: Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.homeCardShadow,
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBackgroundColor,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+    this.showDivider = true,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBackgroundColor;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool showDivider;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final effectiveForeground =
+        enabled ? colorScheme.foreground : colorScheme.mutedForeground;
+    final effectiveSubtitle =
+        enabled ? colorScheme.mutedForeground : colorScheme.mutedForeground;
+    final effectiveIconColor =
+        enabled ? iconColor : colorScheme.mutedForeground;
+    final effectiveIconBackground =
+        enabled ? iconBackgroundColor : colorScheme.muted;
+
+    Widget content = Opacity(
+      opacity: enabled ? 1 : 0.6,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: colorScheme.muted.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(14),
+                color: effectiveIconBackground,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 19, color: colorScheme.foreground),
+              child: Icon(icon, size: 18, color: effectiveIconColor),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    label,
+                    title,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.mutedForeground,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: effectiveForeground,
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.foreground,
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: effectiveSubtitle,
+                        height: 1.25,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 22,
-              color: colorScheme.mutedForeground,
-            ),
+            if (trailing != null) trailing!,
           ],
+        ),
+      ),
+    );
+
+    if (onTap != null) {
+      content = InkWell(onTap: onTap, child: content);
+    }
+
+    return Column(
+      children: [
+        content,
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.only(left: 64),
+            child: Divider(
+              height: 1,
+              thickness: 0.5,
+              color: colorScheme.border,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _SenderNote extends StatelessWidget {
+  const _SenderNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 14,
+          color: colorScheme.mutedForeground,
+          height: 1.4,
         ),
       ),
     );
@@ -739,7 +825,7 @@ class _SenderEmailColumn extends StatelessWidget {
     };
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final email in emails) ...[
           _SenderEmailLine(
@@ -748,7 +834,15 @@ class _SenderEmailColumn extends StatelessWidget {
             canRemove: removableLookup.containsKey(email),
             onRemove: () => onRemoveEmail(email),
           ),
-          if (email != emails.last) const SizedBox(height: 12),
+          if (email != emails.last)
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Theme.of(context).colorScheme.border,
+              ),
+            ),
         ],
       ],
     );
@@ -772,40 +866,201 @@ class _SenderEmailLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            email,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.foreground,
-              height: 1.25,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              email,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.foreground,
+                height: 1.25,
+              ),
             ),
           ),
-        ),
-        if (canRemove)
-          IconButton(
-            onPressed: isBusy ? null : onRemove,
-            icon: isBusy
-                ? SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator.adaptive(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        colorScheme.mutedForeground,
+          if (canRemove)
+            IconButton(
+              onPressed: isBusy ? null : onRemove,
+              icon: isBusy
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.mutedForeground,
+                        ),
                       ),
+                    )
+                  : Icon(
+                      Icons.close_rounded,
+                      color: colorScheme.mutedForeground,
                     ),
-                  )
-                : Icon(
-                    Icons.close_rounded,
-                    color: colorScheme.mutedForeground,
-                  ),
-            tooltip: context.l10n.emailFileImportRemoveSenderTitle,
+              tooltip: context.l10n.emailFileImportRemoveSenderTitle,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddSenderRow extends StatelessWidget {
+  const _AddSenderRow({
+    required this.onPressed,
+    required this.label,
+  });
+
+  final VoidCallback? onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(
+              Icons.add_rounded,
+              size: 20,
+              color: onPressed == null
+                  ? colorScheme.mutedForeground
+                  : colorScheme.foreground,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: onPressed == null
+                    ? colorScheme.mutedForeground
+                    : colorScheme.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HowItWorksCard extends StatelessWidget {
+  const _HowItWorksCard({
+    required this.step,
+    required this.title,
+    required this.description,
+  });
+
+  final int step;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.surfaceBorder),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
-      ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.muted,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$step',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 15,
+              color: colorScheme.mutedForeground,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyFooter extends StatelessWidget {
+  const _PrivacyFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.lock_rounded,
+            size: 20,
+            color: colorScheme.mutedForeground,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.l10n.privacyFooterMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -824,116 +1079,62 @@ class _HowItWorksSheet extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        18,
-        24,
-        MediaQuery.of(context).padding.bottom + 28,
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 24,
+        bottom: MediaQuery.of(context).padding.bottom + 24,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            context.l10n.howItWorksTitle,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.foreground,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.howItWorksSubtitle,
+            style: TextStyle(
+              fontSize: 14,
+              color: colorScheme.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 18),
           _ImportAddressCard(
             email: inboundEmail,
             onCopy: onCopyEmail,
           ),
-          const SizedBox(height: 26),
-          const _HowItWorksStep(
-            number: '1',
-            title: 'Forward a file',
-            description:
-                'Send a PDF, CSV, or Excel export to the Moneko email address.',
+           const SizedBox(height: 18),
+          _HowItWorksCard(
+            step: 1,
+            title: context.l10n.addApprovedSender,
+            description: context.l10n.addApprovedSenderDescription,
           ),
-          const SizedBox(height: 20),
-          const _HowItWorksStep(
-            number: '2',
-            title: 'Moneko reads it',
-            description:
-                'We extract transactions only when the sender is allowed.',
+          const SizedBox(height: 18),
+          _HowItWorksCard(
+            step: 2,
+            title: context.l10n.forwardReceiptEmail,
+            description: context.l10n.forwardReceiptEmailDescription,
           ),
-          const SizedBox(height: 20),
-          const _HowItWorksStep(
-            number: '3',
-            title: 'Review your imports',
-            description:
-                'Captured transactions land in your selected space and wallet.',
+          const SizedBox(height: 12),
+          _HowItWorksCard(
+            step: 3,
+            title: context.l10n.processAutomatically,
+            description: context.l10n.processAutomaticallyDescription,
           ),
-          const SizedBox(height: 22),
-          Text(
-            'Tip: add every sender inbox you use for bank statements.',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.mutedForeground,
-              height: 1.35,
-            ),
-          ),
+          const SizedBox(height: 12),
+          _HowItWorksCard(
+            step: 4,
+            title: context.l10n.getNotifiedWhenReady,
+            description: context.l10n.getNotifiedWhenReadyDescription,
+          ),         
         ],
       ),
-    );
-  }
-}
-
-class _HowItWorksStep extends StatelessWidget {
-  const _HowItWorksStep({
-    required this.number,
-    required this.title,
-    required this.description,
-  });
-
-  final String number;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: colorScheme.muted,
-            shape: BoxShape.circle,
-          ),
-          child: Text(
-            number,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-            ),
-          ),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                description,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colorScheme.mutedForeground,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

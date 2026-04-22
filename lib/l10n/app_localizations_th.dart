@@ -7000,40 +7000,40 @@ class AppLocalizationsTh extends AppLocalizations {
   String get emailFileImport => '';
 
   @override
-  String get emailFileImportDescription => '';
+  String get emailFileImportDescription => 'ส่งต่อใบเสร็จการสั่งซื้อออนไลน์ของคุณ แล้วให้ Moneko บันทึกให้อัตโนมัติ';
 
   @override
-  String get emailFileImportEnableSwitchTitle => '';
+  String get emailFileImportEnableSwitchTitle => 'รับใบเสร็จทางอีเมล';
 
   @override
   String get emailFileImportEnableSwitchSubtitle => '';
 
   @override
-  String get emailFileImportAllowedSenders => '';
+  String get emailFileImportAllowedSenders => 'ผู้ส่งที่อนุมัติแล้ว';
 
   @override
   String get emailFileImportAddSender => '';
 
   @override
-  String get emailFileImportAddSenderTitle => '';
+  String get emailFileImportAddSenderTitle => 'เพิ่มผู้ส่งที่อนุมัติแล้ว';
 
   @override
-  String get emailFileImportAddSenderDescription => '';
+  String get emailFileImportAddSenderDescription => 'Moneko สามารถประมวลผลใบเสร็จที่ส่งต่อมาจากอีเมลนี้ได้';
 
   @override
   String get emailFileImportAddSenderPlaceholder => '';
 
   @override
-  String get emailFileImportInvalidEmail => '';
+  String get emailFileImportInvalidEmail => 'กรุณากรอกอีเมลที่ถูกต้อง';
 
   @override
-  String get emailFileImportEmailAlreadyAdded => '';
+  String get emailFileImportEmailAlreadyAdded => 'อีเมลนี้ถูกเพิ่มแล้ว';
 
   @override
-  String get emailFileImportEmailAdded => '';
+  String get emailFileImportEmailAdded => 'เพิ่มผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
 
   @override
-  String get emailFileImportEmailRemoved => '';
+  String get emailFileImportEmailRemoved => 'ลบผู้ส่งที่อนุมัติแล้วเรียบร้อยแล้ว';
 
   @override
   String get emailFileImportDefaultSender => '';
@@ -7045,10 +7045,70 @@ class AppLocalizationsTh extends AppLocalizations {
   String get emailFileImportNoExtraSenders => '';
 
   @override
-  String get emailFileImportRemoveSenderTitle => '';
+  String get emailFileImportRemoveSenderTitle => 'ลบผู้ส่งที่อนุมัติแล้ว';
 
   @override
   String emailFileImportRemoveSenderDescription(Object email) {
-    return '';
+    return 'ลบ $email ออกจากรายชื่อผู้ส่งที่อนุมัติแล้วหรือไม่';
   }
+
+  @override
+  String get emailAddressCopied => 'คัดลอกอีเมลแล้ว';
+
+  @override
+  String get setup => 'ตั้งค่า';
+
+  @override
+  String get defaultSpace => 'สเปซเริ่มต้น';
+
+  @override
+  String get defaultWallet => 'กระเป๋าเงินเริ่มต้น';
+
+  @override
+  String get forwarding => 'การส่งต่อ';
+
+  @override
+  String get forwardingEmail => 'อีเมลสำหรับส่งต่อ';
+
+  @override
+  String get supportedFiles => 'ไฟล์ที่รองรับ';
+
+  @override
+  String get supportedFileTypes => 'PDF, CSV, XLS และ XLSX';
+
+  @override
+  String get privacyFooterMessage => 'เพื่อความปลอดภัยของคุณ Moneko จะประมวลผลเฉพาะไฟล์แนบจากผู้ส่งที่อนุมัติแล้วเท่านั้น';
+
+  @override
+  String get howItWorksSubtitle => 'ไม่ต้องกรอกเอง เพียงส่งต่อใบเสร็จ แล้ว Moneko จะจัดการที่เหลือให้';
+
+  @override
+  String get addApprovedSender => 'เพิ่มผู้ส่งที่อนุมัติแล้ว';
+
+  @override
+  String get addApprovedSenderDescription => 'เพิ่มอีเมลที่คุณใช้รับใบเสร็จจากการช้อปปิ้งเป็นผู้ส่งที่อนุมัติแล้ว เพื่อให้ Moneko ประมวลผลใบเสร็จที่ส่งต่อมาได้อย่างปลอดภัย';
+
+  @override
+  String get forwardReceiptEmail => 'ส่งต่ออีเมลใบเสร็จของคุณ';
+
+  @override
+  String get forwardReceiptEmailDescription => 'ซื้อของออนไลน์หรือมีรายรับเข้ามาใช่ไหม เพียงส่งต่อใบเสร็จมาให้เรา';
+
+  @override
+  String get processAutomatically => 'เราจะประมวลผลให้อัตโนมัติ';
+
+  @override
+  String get processAutomaticallyDescription => 'Moneko จะดึงข้อมูลสำคัญและบันทึกให้โดยอัตโนมัติ รองรับไฟล์แนบประเภท PDF, XLSX และ CSV';
+
+  @override
+  String get getNotifiedWhenReady => 'รับการแจ้งเตือนเมื่อพร้อมแล้ว';
+
+  @override
+  String get getNotifiedWhenReadyDescription => 'เมื่อประมวลผลเสร็จทั้งหมดและเพิ่มเข้าบัญชี Moneko ของคุณแล้ว เราจะส่งอีเมลยืนยันและการแจ้งเตือนไปยังโทรศัพท์ของคุณ';
+
+  @override
+  String get add => 'เพิ่ม';
+
+  @override
+  String get forwardReceiptDescription => 'ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ';
 }
