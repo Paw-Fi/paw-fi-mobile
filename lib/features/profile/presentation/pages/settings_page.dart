@@ -600,7 +600,9 @@ class SettingsPage extends HookConsumerWidget {
         };
         if (!wasDeleted) {
           final errorMessage = deleteResult is Map
-              ? (deleteResult['message']?.toString() ?? l10n.failedToDelete)
+              ? (deleteResult['message']?.toString() ??
+                  deleteResult['error']?.toString() ??
+                  l10n.failedToDelete)
               : l10n.failedToDelete;
           if (context.mounted) {
             AppToast.error(context, errorMessage);

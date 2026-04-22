@@ -7,15 +7,47 @@ class PlaidLinkResult {
     required this.publicToken,
     this.institutionId,
     this.institutionName,
+    this.linkRequestId,
+    this.linkSessionId,
+    this.selectedAccounts = const <PlaidLinkSelectedAccount>[],
   });
 
   final String publicToken;
   final String? institutionId;
   final String? institutionName;
+  final String? linkRequestId;
+  final String? linkSessionId;
+  final List<PlaidLinkSelectedAccount> selectedAccounts;
+}
+
+class PlaidLinkSelectedAccount {
+  const PlaidLinkSelectedAccount({
+    required this.id,
+    this.mask,
+    this.name,
+    this.subtype,
+    this.type,
+  });
+
+  final String id;
+  final String? mask;
+  final String? name;
+  final String? subtype;
+  final String? type;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'mask': mask,
+        'name': name,
+        'subtype': subtype,
+        'type': type,
+      };
 }
 
 Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
   final completer = Completer<PlaidLinkResult?>();
+  String? latestLinkRequestId;
+  String? latestLinkSessionId;
 
   late final StreamSubscription<LinkSuccess> successSub;
   late final StreamSubscription<LinkExit> exitSub;
@@ -37,6 +69,21 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
         publicToken: publicToken,
         institutionId: institution?.id,
         institutionName: institution?.name,
+        linkRequestId: latestLinkRequestId,
+        linkSessionId: success.metadata.linkSessionId.isNotEmpty
+            ? success.metadata.linkSessionId
+            : latestLinkSessionId,
+        selectedAccounts: success.metadata.accounts
+            .map(
+              (account) => PlaidLinkSelectedAccount(
+                id: account.id,
+                mask: account.mask,
+                name: account.name,
+                subtype: account.subtype,
+                type: account.type,
+              ),
+            )
+            .toList(growable: false),
       ),
     );
     closeLink();
@@ -49,6 +96,10 @@ Future<PlaidLinkResult?> openPlaidLink(String linkToken) async {
   });
 
   eventSub = PlaidLink.onEvent.listen((event) {
+    latestLinkRequestId = event.metadata.requestId ?? latestLinkRequestId;
+    latestLinkSessionId = event.metadata.linkSessionId.isNotEmpty
+        ? event.metadata.linkSessionId
+        : latestLinkSessionId;
     final name = event.name.toLowerCase();
     if (name.contains('exit')) {
       completeOnce(null);

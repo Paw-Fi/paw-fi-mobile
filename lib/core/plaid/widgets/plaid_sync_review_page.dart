@@ -13,6 +13,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
@@ -152,6 +153,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
   Future<void> _ensureLinkedWallets() async {
     final client = Supabase.instance.client;
+    final l10n = context.l10n;
     final updatedAccounts = <BankSyncReviewAccount>[];
 
     for (final account in _accounts) {
@@ -179,8 +181,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       if (response.status >= 400 ||
           payload == null ||
           payload['success'] != true) {
-        final message = payload?['error']?.toString() ??
-            context.l10n.failedToCreateLinkedWallet;
+        final message =
+            payload?['error']?.toString() ?? l10n.failedToCreateLinkedWallet;
         throw Exception(message);
       }
 
@@ -206,6 +208,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   Future<ParsedSyncedTransactions>
       _awaitBackendSyncAndLoadTransactions() async {
     final deadline = DateTime.now().add(_syncWaitTimeout);
+    final reconnectMessage = context.l10n.thisBankNeedsToBeReconnected;
     PlaidSyncStatus? latestSyncStatus;
     var attemptedDirectPlaidFetch = false;
 
@@ -214,9 +217,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
       latestSyncStatus = snapshot.syncStatus ?? latestSyncStatus;
 
       if (snapshot.requiresReconnect) {
-        throw Exception(
-          context.l10n.thisBankNeedsToBeReconnected,
-        );
+        throw Exception(reconnectMessage);
       }
 
       final transactions = await _loadSyncedTransactionsFromDatabase();
@@ -235,9 +236,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         latestSyncStatus = directResult.syncStatus ?? latestSyncStatus;
 
         if (directResult.requiresReconnect) {
-          throw Exception(
-            context.l10n.thisBankNeedsToBeReconnected,
-          );
+          throw Exception(reconnectMessage);
         }
 
         if (directResult.transactions.isNotEmpty) {
@@ -278,6 +277,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final user = ref.read(authProvider);
     if (user.uid.isEmpty) return;
 
+    ref.invalidate(bankConnectionsProvider);
     ref.read(walletActionsProvider).refreshAccountData();
     ref.invalidate(currencyTransactionCountsProvider);
     ref.invalidate(pocketsProvider);
@@ -365,6 +365,7 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
 
   Future<void> _deleteTransaction(SyncedTransaction transaction) async {
     final user = ref.read(authProvider);
+    final l10n = context.l10n;
     final response = await Supabase.instance.client.functions.invoke(
       'delete-expense',
       body: {
@@ -377,8 +378,8 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     final success = response.status < 400 &&
         (payload?['success'] == true || payload == null);
     if (!success) {
-      final message = payload?['error']?.toString() ??
-          context.l10n.failedToDeleteTransaction;
+      final message =
+          payload?['error']?.toString() ?? l10n.failedToDeleteTransaction;
       if (!mounted) return;
       AppToast.error(context, message);
       return;

@@ -413,6 +413,7 @@ class DeepLinkService {
 
       final session = BankSyncReviewSession.fromResponse(
         data: data,
+        flowReason: null,
         provider: 'tink',
         targetHouseholdId: pendingState?.targetHouseholdId,
       );

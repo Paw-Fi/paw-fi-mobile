@@ -232,22 +232,23 @@ class AccountsPage extends HookConsumerWidget {
               _isConnectionInWalletsScope(connection, householdScope),
         )
         .toList(growable: false);
-    final hasPlaidConnections = plaidConnections.isNotEmpty;
-    final scopedPlaidReauthConnections = scopedPlaidConnections
+    final hasPlaidConnections = scopedPlaidConnections.isNotEmpty;
+    final scopedPlaidActionConnections = scopedPlaidConnections
         .where(
-          (connection) => connection.needsReconnect,
+          (connection) => connection.requiresUserAction,
         )
         .toList(growable: false);
-    final manualSyncCandidates = plaidConnections
+    final manualSyncCandidates = scopedPlaidConnections
         .where(
-          (connection) => connection.isHealthy && !connection.needsReconnect,
+          (connection) => connection.canRequestManualRefresh,
         )
         .toList(growable: false);
     final nowUtc = DateTime.now().toUtc();
     final hasManualSyncEligibleConnection = manualSyncCandidates.any(
       (connection) => _manualSyncRemaining(connection, nowUtc) == null,
     );
-    final latestSuccessfulSyncAt = _latestSuccessfulSyncAt(plaidConnections);
+    final latestSuccessfulSyncAt =
+        _latestSuccessfulSyncAt(scopedPlaidConnections);
     final readyForUsefulPaint =
         walletsAsync.hasValue || isPreviewMode || walletsPageState != null;
     final didLogUsefulPaintRef = useRef<bool>(false);
@@ -538,7 +539,7 @@ class AccountsPage extends HookConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                if (scopedPlaidReauthConnections.isNotEmpty)
+                if (scopedPlaidActionConnections.isNotEmpty)
                   TextButton.icon(
                     onPressed: () async {
                       if (isPreviewMode) {
@@ -550,9 +551,9 @@ class AccountsPage extends HookConsumerWidget {
                       }
 
                       final selectedConnection =
-                          await _selectReconnectBankConnection(
+                          await _selectPlaidActionConnection(
                         context,
-                        scopedPlaidReauthConnections,
+                        scopedPlaidActionConnections,
                       );
                       if (selectedConnection == null || !context.mounted) {
                         return;
@@ -565,6 +566,7 @@ class AccountsPage extends HookConsumerWidget {
                               householdScope,
                             ),
                             connectionId: selectedConnection.id,
+                            flowReason: selectedConnection.relinkState,
                           ),
                         ),
                       );
@@ -575,7 +577,10 @@ class AccountsPage extends HookConsumerWidget {
                       size: 20,
                     ),
                     label: Text(
-                      'Reconnect Bank',
+                      scopedPlaidActionConnections.every((connection) =>
+                              connection.hasNewAccountsAvailable)
+                          ? 'Review Bank Updates'
+                          : 'Reconnect Bank',
                       style: TextStyle(
                         color: colorScheme.destructive,
                         fontWeight: FontWeight.w700,
@@ -589,10 +594,6 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          AppToast.info(context, context.l10n.comingSoon);
-                          return;
-
-                          //DO NOT CHANGE HERE, BANK CONNECTION IS STILL UNDER DEVELOPMENT
                           if (isPreviewMode) {
                             AppToast.info(context,
                                 context.l10n.previewMockUpdatesApplied);
@@ -624,6 +625,109 @@ class AccountsPage extends HookConsumerWidget {
                         ),
                       ),
                     ],
+                  ),
+                if (scopedPlaidConnections.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () async {
+                      if (isPreviewMode) {
+                        AppToast.info(
+                          context,
+                          context.l10n.previewMockUpdatesApplied,
+                        );
+                        return;
+                      }
+
+                      final selectedConnection =
+                          await _selectDisconnectBankConnection(
+                        context,
+                        scopedPlaidConnections,
+                      );
+                      if (selectedConnection == null || !context.mounted) {
+                        return;
+                      }
+
+                      final confirmation = await MonekoAlertDialog.show(
+                        context: context,
+                        title: 'Disconnect bank?',
+                        description:
+                            'This removes Plaid access, stops future syncs, and clears stored raw bank payloads for this bank connection.',
+                        confirmLabel: 'Disconnect',
+                        cancelLabel: 'Cancel',
+                        isDestructive: true,
+                      );
+                      if (confirmation?.confirmed != true || !context.mounted) {
+                        return;
+                      }
+
+                      showBlockingProcessingDialog(
+                        context: context,
+                        message: 'Disconnecting bank...',
+                      );
+
+                      try {
+                        final response = await supabase.functions.invoke(
+                          'plaid-item-control',
+                          body: {
+                            'action': 'remove_item',
+                            'connectionId': selectedConnection.id,
+                            'reason': 'user_disconnect',
+                          },
+                        );
+
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pop();
+                        }
+
+                        final payload = response.data as Map<String, dynamic>?;
+                        if (response.status >= 400) {
+                          if (!context.mounted) {
+                            return;
+                          }
+                          AppToast.error(
+                            context,
+                            payload?['error']?.toString() ??
+                                'Could not disconnect this bank right now.',
+                          );
+                          return;
+                        }
+
+                        ref.invalidate(bankConnectionsProvider);
+                        await ref
+                            .read(scopedWalletsProvider.notifier)
+                            .refreshFromNetwork();
+                        await ref
+                            .read(walletsPageStateProvider(scopeQuery).notifier)
+                            .refresh();
+
+                        if (!context.mounted) {
+                          return;
+                        }
+                        AppToast.success(
+                          context,
+                          'Bank disconnected. Future syncs are now disabled for this connection.',
+                        );
+                      } catch (error) {
+                        if (context.mounted) {
+                          Navigator.of(context, rootNavigator: true).pop();
+                          AppToast.error(
+                            context,
+                            ErrorHandler.getUserFriendlyMessage(error),
+                          );
+                        }
+                      }
+                    },
+                    icon: Icon(
+                      Icons.link_off_rounded,
+                      color: colorScheme.destructive,
+                      size: 20,
+                    ),
+                    label: Text(
+                      'Disconnect Bank',
+                      style: TextStyle(
+                        color: colorScheme.destructive,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 if (shouldShowConnectBankButton)
                   Padding(
@@ -719,14 +823,15 @@ class AccountsPage extends HookConsumerWidget {
                                   isManualSyncingState.value = true;
                                   showBlockingProcessingDialog(
                                     context: context,
-                                    message: 'Syncing bank transactions...',
+                                    message: 'Requesting a bank refresh...',
                                   );
 
                                   try {
                                     final response =
                                         await supabase.functions.invoke(
-                                      'plaid-sync-transactions',
+                                      'plaid-item-control',
                                       body: {
+                                        'action': 'request_refresh',
                                         'connectionId': selectedConnection.id,
                                       },
                                     );
@@ -743,12 +848,25 @@ class AccountsPage extends HookConsumerWidget {
                                       if (!context.mounted) {
                                         return;
                                       }
-                                      if (response.status == 429) {
+                                      final reason =
+                                          payload?['reason']?.toString();
+                                      if (reason == 'cooldown_active') {
                                         await MonekoAlertDialog.show(
                                           context: context,
                                           title: 'Sync unavailable',
                                           description:
-                                              'You cannot sync more than 1 time every 24 hours.',
+                                              'You cannot request another Plaid refresh yet. Try again later.',
+                                          confirmLabel: 'Got it',
+                                          cancelLabel: '',
+                                        );
+                                        return;
+                                      }
+                                      if (reason == 'trial_blocked') {
+                                        await MonekoAlertDialog.show(
+                                          context: context,
+                                          title: 'Refresh unavailable',
+                                          description:
+                                              'Manual Plaid refresh is only available for eligible paid users.',
                                           confirmLabel: 'Got it',
                                           cancelLabel: '',
                                         );
@@ -761,13 +879,6 @@ class AccountsPage extends HookConsumerWidget {
                                       );
                                       return;
                                     }
-
-                                    final summary = payload?['summary']
-                                        as Map<String, dynamic>?;
-                                    final inserted =
-                                        _intFromDynamic(summary?['inserted']);
-                                    final updated =
-                                        _intFromDynamic(summary?['updated']);
 
                                     ref.invalidate(bankConnectionsProvider);
                                     await ref
@@ -784,9 +895,7 @@ class AccountsPage extends HookConsumerWidget {
                                     }
                                     AppToast.success(
                                       context,
-                                      inserted + updated > 0
-                                          ? 'Sync completed. Added/updated ${inserted + updated} transactions.'
-                                          : 'Sync completed. No new transactions yet.',
+                                      'Refresh requested. Plaid will notify Moneko when new transactions are ready.',
                                     );
                                   } catch (error) {
                                     if (context.mounted) {
@@ -1609,7 +1718,7 @@ bool _isConnectionInWalletsScope(
   return connection.householdId == scopeHouseholdId;
 }
 
-Future<BankConnection?> _selectReconnectBankConnection(
+Future<BankConnection?> _selectPlaidActionConnection(
   BuildContext context,
   List<BankConnection> connections,
 ) async {
@@ -1635,7 +1744,7 @@ Future<BankConnection?> _selectReconnectBankConnection(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Choose a bank to reconnect',
+                'Choose a bank to review',
                 style: TextStyle(
                   color: colorScheme.foreground,
                   fontSize: 18,
@@ -1644,7 +1753,7 @@ Future<BankConnection?> _selectReconnectBankConnection(
               ),
               const SizedBox(height: 8),
               Text(
-                'Reconnect the bank that needs attention so transaction syncing can resume.',
+                'Open the bank connection that needs attention so you can repair access or review newly available accounts.',
                 style: TextStyle(
                   color: colorScheme.mutedForeground,
                 ),
@@ -1658,7 +1767,68 @@ Future<BankConnection?> _selectReconnectBankConnection(
                     color: colorScheme.primary,
                   ),
                   title: Text(connection.displayName),
-                  subtitle: const Text('Needs reconnection'),
+                  subtitle: Text(connection.actionDescription),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).pop(connection),
+                ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<BankConnection?> _selectDisconnectBankConnection(
+  BuildContext context,
+  List<BankConnection> connections,
+) async {
+  if (connections.isEmpty) {
+    return null;
+  }
+
+  if (connections.length == 1) {
+    return connections.first;
+  }
+
+  return showModalBottomSheet<BankConnection>(
+    context: context,
+    showDragHandle: true,
+    useSafeArea: true,
+    builder: (context) {
+      final colorScheme = Theme.of(context).colorScheme;
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose a bank to disconnect',
+                style: TextStyle(
+                  color: colorScheme.foreground,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Disconnecting removes Plaid access for one bank connection and prevents future syncs.',
+                style: TextStyle(
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final connection in connections)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.link_off_rounded,
+                    color: colorScheme.destructive,
+                  ),
+                  title: Text(connection.displayName),
+                  subtitle: const Text('Disconnect Plaid access'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).pop(connection),
                 ),
@@ -1741,12 +1911,12 @@ Future<BankConnection?> _selectManualSyncBankConnection(
 }
 
 Duration? _manualSyncRemaining(BankConnection connection, DateTime nowUtc) {
-  final lastSyncAt = connection.lastSuccessfulSyncAt?.toUtc();
-  if (lastSyncAt == null) {
+  final nextEligibleAt = connection.nextManualRefreshEligibleAt?.toUtc() ??
+      connection.lastSuccessfulSyncAt?.toUtc().add(const Duration(hours: 24));
+  if (nextEligibleAt == null) {
     return null;
   }
 
-  final nextEligibleAt = lastSyncAt.add(const Duration(hours: 24));
   if (!nextEligibleAt.isAfter(nowUtc)) {
     return null;
   }
@@ -1805,16 +1975,6 @@ String _formatDurationCompact(Duration duration) {
     return '${hours}h';
   }
   return '${hours}h ${minutes}m';
-}
-
-int _intFromDynamic(dynamic value) {
-  if (value is int) {
-    return value;
-  }
-  if (value is num) {
-    return value.toInt();
-  }
-  return int.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 class _PreviewWalletsPageData {

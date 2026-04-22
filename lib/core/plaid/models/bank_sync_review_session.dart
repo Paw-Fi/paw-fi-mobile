@@ -1,24 +1,29 @@
 class BankSyncReviewSession {
   const BankSyncReviewSession({
     required this.connectionId,
+    required this.flowReason,
     required this.provider,
     required this.targetHouseholdId,
     required this.accounts,
   });
 
   final String connectionId;
+  final String? flowReason;
   final String provider;
   final String? targetHouseholdId;
   final List<BankSyncReviewAccount> accounts;
 
   factory BankSyncReviewSession.fromResponse({
     required Map<String, dynamic> data,
+    required String? flowReason,
     required String provider,
     required String? targetHouseholdId,
   }) {
     final rawAccounts = data['accounts'] as List<dynamic>? ?? const [];
     return BankSyncReviewSession(
       connectionId: (data['connectionId'] as String?)?.trim() ?? '',
+      flowReason:
+          _normalizeString(data['flowReason']) ?? _normalizeString(flowReason),
       provider: provider,
       targetHouseholdId: _normalizeString(data['targetHouseholdId']) ??
           _normalizeString(targetHouseholdId),

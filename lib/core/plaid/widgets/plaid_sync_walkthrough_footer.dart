@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class PlaidSyncWalkthroughFooter extends StatelessWidget {
   const PlaidSyncWalkthroughFooter({
     super.key,
+    required this.connectLabel,
     required this.isLastPage,
     required this.isConnecting,
     required this.providerName,
@@ -10,6 +11,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
     required this.onConnect,
   });
 
+  final String connectLabel;
   final bool isLastPage;
   final bool isConnecting;
   final String providerName;
@@ -50,7 +52,7 @@ class PlaidSyncWalkthroughFooter extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      isLastPage ? 'Connect Bank' : 'Continue',
+                      isLastPage ? connectLabel : 'Continue',
                       style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,

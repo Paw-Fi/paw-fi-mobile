@@ -332,8 +332,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 4));
 
-    expect(find.byType(PlaidSyncWalkthroughPage), findsNothing);
-    expect(find.text('Connect Bank'), findsOneWidget);
+    expect(find.byType(PlaidSyncWalkthroughPage), findsOneWidget);
   });
 
   testWidgets('wallets page renders preview wallet data in preview mode',

@@ -15,6 +15,7 @@ import 'package:moneko/core/plaid/widgets/plaid_sync_walkthrough_step.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/auth/auth.dart';
+import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/subscription/presentation/pages/plan_selection_page.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
@@ -26,10 +27,12 @@ class PlaidSyncWalkthroughPage extends ConsumerStatefulWidget {
     super.key,
     this.targetHouseholdId,
     this.connectionId,
+    this.flowReason,
   });
 
   final String? targetHouseholdId;
   final String? connectionId;
+  final String? flowReason;
 
   @override
   ConsumerState<PlaidSyncWalkthroughPage> createState() =>
@@ -45,6 +48,10 @@ class _PlaidSyncWalkthroughPageState
   int _currentPage = 0;
   bool _isConnecting = false;
   final int _numPages = 4;
+
+  bool get _isReconnectFlow => widget.connectionId?.trim().isNotEmpty == true;
+
+  bool get _isNewAccountsFlow => widget.flowReason == 'new_accounts_available';
 
   @override
   void dispose() {
@@ -133,7 +140,7 @@ class _PlaidSyncWalkthroughPageState
       'plaid-create-link-token',
       body: {
         'mode': (connectionId != null && connectionId.isNotEmpty)
-            ? 'reconnect'
+            ? (_isNewAccountsFlow ? 'update' : 'reconnect')
             : 'new',
         'platform': Platform.isAndroid ? 'android' : 'ios',
         if ((connectionId == null || connectionId.isEmpty) &&
@@ -141,6 +148,7 @@ class _PlaidSyncWalkthroughPageState
           'countryCode': countryCode,
         if (connectionId != null && connectionId.isNotEmpty)
           'connectionId': connectionId,
+        if (widget.flowReason != null) 'updateReason': widget.flowReason,
         if (connectionId == null || connectionId.isEmpty)
           'transactionsDaysRequested': _plaidInitialTransactionsDaysRequested,
       },
@@ -171,11 +179,21 @@ class _PlaidSyncWalkthroughPageState
       'plaid-exchange-public-token',
       body: {
         'publicToken': linkResult.publicToken,
+        if (connectionId != null && connectionId.isNotEmpty)
+          'connectionId': connectionId,
         if (connectionId == null || connectionId.isEmpty)
           'countryCode': countryCode,
         // Generate one idempotency key per user action attempt.
         'idempotencyKey': _plaidExchangeIdempotencyKey ??=
             generateIdempotencyKey(userId),
+        if (linkResult.linkRequestId != null)
+          'linkRequestId': linkResult.linkRequestId,
+        if (linkResult.linkSessionId != null)
+          'linkSessionId': linkResult.linkSessionId,
+        if (linkResult.selectedAccounts.isNotEmpty)
+          'selectedAccounts': linkResult.selectedAccounts
+              .map((account) => account.toJson())
+              .toList(growable: false),
         if (widget.targetHouseholdId != null)
           'targetHouseholdId': widget.targetHouseholdId,
         if (linkResult.institutionId != null)
@@ -186,6 +204,25 @@ class _PlaidSyncWalkthroughPageState
     );
 
     if (exchangeResponse.status >= 400) {
+      if (exchangeResponse.status == 409 && mounted) {
+        final duplicateCode = _extractFunctionErrorCode(exchangeResponse.data);
+        if (duplicateCode == 'duplicate_item_accounts') {
+          await MonekoAlertDialog.show(
+            context: context,
+            title: 'Bank already connected',
+            description:
+                'Those bank accounts are already linked in Moneko. We will take you back so you can manage the existing bank connection instead of creating a duplicate.',
+            confirmLabel: 'Back to wallets',
+            cancelLabel: '',
+          );
+          ref.invalidate(bankConnectionsProvider);
+          if (mounted) {
+            setState(() => _isConnecting = false);
+            Navigator.of(context).pop();
+          }
+          return;
+        }
+      }
       throw Exception(_extractFunctionError(
         exchangeResponse.data,
         fallback: 'Failed to exchange token',
@@ -199,6 +236,7 @@ class _PlaidSyncWalkthroughPageState
 
     final session = BankSyncReviewSession.fromResponse(
       data: exchangeData,
+      flowReason: widget.flowReason,
       provider: 'plaid',
       targetHouseholdId: widget.targetHouseholdId,
     );
@@ -260,6 +298,7 @@ class _PlaidSyncWalkthroughPageState
     final selectedCode = ref.watch(plaidCountryCodeProvider);
     final provider = getProviderForCountry(selectedCode);
     final providerName = getProviderDisplayName(provider);
+    final walkthroughSteps = _buildWalkthroughSteps();
 
     return PopScope(
       canPop: !_isConnecting,
@@ -281,32 +320,11 @@ class _PlaidSyncWalkthroughPageState
                       ? const NeverScrollableScrollPhysics()
                       : const BouncingScrollPhysics(),
                   onPageChanged: (page) => setState(() => _currentPage = page),
-                  children: [
-                    const PlaidSyncWalkthroughStep(
-                      icon: Icons.account_balance_wallet_rounded,
-                      title: 'Effortless\nTracking',
-                      description:
-                          'Connect your bank to automatically import transactions into wallets instead of entering everything by hand.',
-                    ),
-                    const PlaidSyncWalkthroughStep(
-                      icon: Icons.account_balance_rounded,
-                      title: 'Wallets For\nEach Account',
-                      description:
-                          'Each linked bank account gets its own wallet, so balances and transaction history stay organized in the right place.',
-                    ),
-                    const PlaidSyncWalkthroughStep(
-                      icon: Icons.shield_rounded,
-                      title: 'Private &\nSecure',
-                      description:
-                          'Your data is encrypted with bank-grade security. We never see your credentials, and access is read-only.',
-                    ),
-                    PlaidSyncCountrySelectionStep(
-                      isDisabled: _isConnecting,
-                    ),
-                  ],
+                  children: walkthroughSteps,
                 ),
               ),
               PlaidSyncWalkthroughFooter(
+                connectLabel: _connectButtonLabel(),
                 isLastPage: _currentPage == _numPages - 1,
                 isConnecting: _isConnecting,
                 providerName: providerName,
@@ -318,6 +336,94 @@ class _PlaidSyncWalkthroughPageState
         ),
       ),
     );
+  }
+
+  List<Widget> _buildWalkthroughSteps() {
+    if (_isNewAccountsFlow) {
+      return [
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.account_balance_wallet_rounded,
+          title: 'Review New\nBank Accounts',
+          description:
+              'Your bank has new accounts available. Open Plaid to choose which of those accounts you want Moneko to access.',
+        ),
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.playlist_add_check_circle_rounded,
+          title: 'Only The\nAccounts You Pick',
+          description:
+              'You will choose the newly available accounts inside Plaid first. Moneko will only import accounts you explicitly share.',
+        ),
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.shield_rounded,
+          title: 'Secure &\nRead-only',
+          description:
+              'Your bank connection stays encrypted and read-only. We use the same existing Plaid item instead of creating a second bank connection.',
+        ),
+        PlaidSyncCountrySelectionStep(
+          isDisabled: _isConnecting,
+        ),
+      ];
+    }
+
+    if (_isReconnectFlow) {
+      return [
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.sync_problem_rounded,
+          title: 'Repair Your\nBank Connection',
+          description:
+              'This bank needs your attention before transaction syncing can continue. Plaid will walk you through the specific repair your bank requires.',
+        ),
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.account_balance_rounded,
+          title: 'Keep Your\nExisting Wallets',
+          description:
+              'We will repair the current bank connection in place so your linked wallets and transaction history keep the same connection record.',
+        ),
+        const PlaidSyncWalkthroughStep(
+          icon: Icons.shield_rounded,
+          title: 'Consent &\nSecurity',
+          description:
+              'Depending on your bank, you may need to re-enter credentials or renew consent. Your bank login is handled by Plaid, not by Moneko.',
+        ),
+        PlaidSyncCountrySelectionStep(
+          isDisabled: _isConnecting,
+        ),
+      ];
+    }
+
+    return [
+      const PlaidSyncWalkthroughStep(
+        icon: Icons.account_balance_wallet_rounded,
+        title: 'Effortless\nTracking',
+        description:
+            'Connect your bank to automatically import transactions into wallets instead of entering everything by hand.',
+      ),
+      const PlaidSyncWalkthroughStep(
+        icon: Icons.account_balance_rounded,
+        title: 'Wallets For\nEach Account',
+        description:
+            'Each linked bank account gets its own wallet, so balances and transaction history stay organized in the right place.',
+      ),
+      const PlaidSyncWalkthroughStep(
+        icon: Icons.shield_rounded,
+        title: 'Private &\nSecure',
+        description:
+            'Your data is encrypted with bank-grade security. We never see your credentials, and access is read-only.',
+      ),
+      PlaidSyncCountrySelectionStep(
+        isDisabled: _isConnecting,
+      ),
+    ];
+  }
+
+  String _connectButtonLabel() {
+    if (_isNewAccountsFlow) {
+      return 'Review Accounts';
+    }
+    if (_isReconnectFlow) {
+      return 'Reconnect Bank';
+    }
+    return 'Connect Bank';
   }
 }
 
@@ -333,4 +439,15 @@ String _extractFunctionError(
   }
 
   return fallback;
+}
+
+String? _extractFunctionErrorCode(dynamic payload) {
+  if (payload is Map<String, dynamic>) {
+    final errorCode = payload['errorCode']?.toString().trim();
+    if (errorCode != null && errorCode.isNotEmpty) {
+      return errorCode;
+    }
+  }
+
+  return null;
 }

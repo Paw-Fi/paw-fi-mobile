@@ -53,9 +53,25 @@ class BankConnection {
   }
 
   bool get needsReconnect =>
-      status == 'needs_reauth' || relinkState == 'required';
+      status == 'needs_reauth' ||
+      itemStatus == 'pending_relink' ||
+      relinkState == 'required';
+
+  bool get hasNewAccountsAvailable => relinkState == 'new_accounts_available';
+
+  bool get requiresUserAction => needsReconnect || hasNewAccountsAvailable;
+
+  String get actionDescription {
+    if (hasNewAccountsAvailable) {
+      return 'New bank accounts are available to review.';
+    }
+    return 'This bank needs to be repaired before syncing can continue.';
+  }
 
   bool get isHealthy => itemHealthState == null || itemHealthState == 'healthy';
+
+  bool get canRequestManualRefresh =>
+      isHealthy && !needsReconnect && !hasNewAccountsAvailable;
 }
 
 String _stringOrEmpty(dynamic value) {
