@@ -238,17 +238,7 @@ class _TransactionExportOptionsSheetState
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 28),
-                          Text(
-                            'Select the space and date range for your export. Only transactions matching these criteria will be included.',
-                            textAlign: TextAlign.center,
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: scheme.mutedForeground,
-                              height: 1.5,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
+                          ),                        
                         ],
                       ),
                     ),
@@ -256,7 +246,7 @@ class _TransactionExportOptionsSheetState
                   const SizedBox(height: 12),
                   PrimaryAdaptiveButton(
                     onPressed: _submit,
-                    child: const Text('Generate'),
+                    child:  Text(context.l10n.exportTransactions),
                   ),
                 ],
               ),
