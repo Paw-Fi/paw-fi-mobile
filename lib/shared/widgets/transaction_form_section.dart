@@ -25,18 +25,22 @@ class TransactionFormSection extends StatelessWidget {
     required this.category,
     required this.date,
     this.description,
+    this.merchant,
     required this.currency,
     required this.isIncome,
     required this.onEditAmount,
     required this.onEditCategory,
     required this.onEditDate,
     required this.onEditDescription,
+    this.onEditMerchant,
     required this.onEditCurrency,
     required this.onToggleType,
     this.currencySymbol,
     this.time,
     this.onEditTime,
     this.categoryTranslator,
+    this.merchantLabel,
+    this.merchantPlaceholder,
     this.dividerIndent = 16,
     this.showAmountHero = true,
   });
@@ -46,6 +50,7 @@ class TransactionFormSection extends StatelessWidget {
   final String category;
   final DateTime date;
   final String? description;
+  final String? merchant;
   final String currency;
   final bool isIncome;
   final String? currencySymbol;
@@ -56,12 +61,15 @@ class TransactionFormSection extends StatelessWidget {
   final VoidCallback onEditCategory;
   final VoidCallback onEditDate;
   final VoidCallback onEditDescription;
+  final VoidCallback? onEditMerchant;
   final VoidCallback onEditCurrency;
   final VoidCallback onToggleType;
   final VoidCallback? onEditTime;
 
   // Optional translator for category display
   final String Function(String)? categoryTranslator;
+  final String? merchantLabel;
+  final String? merchantPlaceholder;
 
   // Visual customization
   final double dividerIndent;
@@ -96,6 +104,13 @@ class TransactionFormSection extends StatelessWidget {
       return '';
     }
     return description!;
+  }
+
+  String get _displayMerchant {
+    if (merchant == null || merchant!.trim().isEmpty) {
+      return '';
+    }
+    return merchant!.trim();
   }
 
   @override
@@ -173,6 +188,19 @@ class TransactionFormSection extends StatelessWidget {
                 isFirst: true,
               ),
               _buildDivider(scheme),
+
+              // Merchant/Source (optional)
+              if (onEditMerchant != null) ...[
+                MonekoDisclosureRow(
+                  label: merchantLabel ?? context.l10n.merchant,
+                  value: _displayMerchant.isNotEmpty
+                      ? _displayMerchant
+                      : (merchantPlaceholder ?? context.l10n.addMerchant),
+                  onTap: onEditMerchant!,
+                  isValuePlaceholder: _displayMerchant.isEmpty,
+                ),
+                _buildDivider(scheme),
+              ],
 
               // Currency
               MonekoDisclosureRow(

@@ -30,6 +30,7 @@ class EditRowSheetState extends State<EditRowSheet> {
   late double _amount;
   late String _category;
   late String _description;
+  late String _merchant;
   late String _currency;
   late bool _isIncome;
 
@@ -46,6 +47,7 @@ class EditRowSheetState extends State<EditRowSheet> {
         : 0.0;
     _category = widget.row.category ?? '';
     _description = widget.row.description ?? '';
+    _merchant = widget.row.merchant ?? '';
     _currency = widget.row.currency ?? 'USD';
     _isIncome = widget.row.type?.toLowerCase() == 'income';
   }
@@ -75,12 +77,18 @@ class EditRowSheetState extends State<EditRowSheet> {
               category: _category,
               date: _date ?? DateTime.now(),
               description: _description,
+              merchant: _merchant,
               currency: _currency,
               isIncome: _isIncome,
               onEditAmount: _handleEditAmount,
               onEditCategory: _handleEditCategory,
               onEditDate: _handleEditDate,
               onEditDescription: _handleEditDescription,
+              onEditMerchant: _handleEditMerchant,
+              merchantLabel:
+                  _isIncome ? context.l10n.source : context.l10n.merchant,
+              merchantPlaceholder:
+                  _isIncome ? context.l10n.addSource : context.l10n.addMerchant,
               onEditCurrency: _handleEditCurrency,
               onToggleType: _handleToggleType,
             ),
@@ -139,6 +147,18 @@ class EditRowSheetState extends State<EditRowSheet> {
     }
   }
 
+  Future<void> _handleEditMerchant() async {
+    final result = await TransactionEditHandlers.editText(
+      context,
+      title: context.l10n.merchantOptional,
+      currentValue: _merchant,
+      placeholder: context.l10n.addMerchant,
+    );
+    if (result != null) {
+      setState(() => _merchant = result);
+    }
+  }
+
   Future<void> _handleEditCurrency() async {
     final result = await showCurrencyPicker(
       context: context,
@@ -178,6 +198,7 @@ class EditRowSheetState extends State<EditRowSheet> {
       amountCents: (_amount * 100).round(),
       category: _category.isEmpty ? 'uncategorized' : _category,
       description: _description.isEmpty ? null : _description,
+      merchant: _merchant.trim().isEmpty ? null : _merchant.trim(),
       currency: _currency.isEmpty ? null : _currency,
       type: _isIncome ? 'income' : 'expense',
     );
@@ -199,8 +220,7 @@ class EditRowSheetState extends State<EditRowSheet> {
       barrierDismissible: true,
     );
 
-    if (confirmed?.confirmed == true && context.mounted) {
-      Navigator.of(context).pop('delete');
-    }
+    if (confirmed?.confirmed != true || !mounted) return;
+    Navigator.of(context).pop('delete');
   }
 }
