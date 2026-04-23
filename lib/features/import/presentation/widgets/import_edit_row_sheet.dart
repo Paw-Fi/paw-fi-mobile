@@ -13,12 +13,14 @@ class EditRowSheet extends StatefulWidget {
   final ImportParsedRow row;
   final Future<void> Function(ImportParsedRow)? onSave;
   final GlobalKey<EditRowSheetState>? sheetKey;
+  final bool showTypeToggle;
 
   const EditRowSheet({
     super.key,
     required this.row,
     this.onSave,
     this.sheetKey,
+    this.showTypeToggle = true,
   });
 
   @override
@@ -91,6 +93,7 @@ class EditRowSheetState extends State<EditRowSheet> {
                   _isIncome ? context.l10n.addSource : context.l10n.addMerchant,
               onEditCurrency: _handleEditCurrency,
               onToggleType: _handleToggleType,
+              showTypeToggle: widget.showTypeToggle,
             ),
             const SizedBox(height: 24),
             DestructiveAdaptiveButton(

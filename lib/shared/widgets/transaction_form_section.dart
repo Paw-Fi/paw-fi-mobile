@@ -43,6 +43,7 @@ class TransactionFormSection extends StatelessWidget {
     this.merchantPlaceholder,
     this.dividerIndent = 16,
     this.showAmountHero = true,
+    this.showTypeToggle = true,
   });
 
   // Field values
@@ -76,6 +77,9 @@ class TransactionFormSection extends StatelessWidget {
 
   /// Whether to show the amount hero at the top (outside container)
   final bool showAmountHero;
+
+  /// Whether to show the income/expense toggle row.
+  final bool showTypeToggle;
 
   String get _formattedAmount {
     final symbol = currencySymbol ?? currency;
@@ -227,10 +231,12 @@ class TransactionFormSection extends StatelessWidget {
                 ),
               ],
 
-              _buildDivider(scheme),
+              if (showTypeToggle) ...[
+                _buildDivider(scheme),
 
-              // Type Toggle
-              _buildTypeToggle(context),
+                // Type Toggle
+                _buildTypeToggle(context),
+              ],
             ],
           ),
         ),

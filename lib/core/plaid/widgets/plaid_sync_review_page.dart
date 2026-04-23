@@ -16,15 +16,17 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/bank_connections_provider.dart';
 import 'package:moneko/features/home/presentation/state/bank_sync_result_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
-import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/import/presentation/widgets/import_category_apply_helper.dart';
+import 'package:moneko/features/import/presentation/widgets/import_edit_row_sheet.dart';
+import 'package:moneko/features/import/presentation/widgets/persisted_transaction_editing_helper.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/wallets/presentation/widgets/wallet_stack_card.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -60,7 +62,12 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     _accounts = widget.session.accounts;
     _selectedBankAccountId =
         _accounts.isEmpty ? '' : _accounts.first.bankAccountId;
-    unawaited(_prepareReview());
+    // _prepareReview reads localized strings via context.l10n, so it must
+    // start after the first frame instead of during initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_prepareReview());
+    });
   }
 
   BankSyncReviewAccount? get _selectedAccount {
@@ -394,49 +401,84 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<void> _editTransaction(SyncedTransaction transaction) async {
-    final originalCategory = transaction.expense.category;
-    await showUnifiedTransactionSheet(
-      context,
-      existingExpense: transaction.expense,
+    bool isSaving = false;
+    final sheetKey = GlobalKey<EditRowSheetState>();
+    final originalCategory =
+        normalizeEditableCategory(transaction.expense.category);
+
+    final result = await MonekoBottomSheet.show<dynamic>(
+      context: context,
+      isScrollControlled: true,
+      title: context.l10n.importEditRowTitle,
+      onClose: () {
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      onConfirm: () async {
+        if (isSaving) return;
+        isSaving = true;
+        try {
+          await sheetKey.currentState?.save();
+        } catch (error) {
+          isSaving = false;
+          if (!mounted) return;
+          AppToast.error(context, error.toString());
+        }
+      },
+      builder: (sheetContext) {
+        return EditRowSheet(
+          key: sheetKey,
+          row: buildImportParsedRowFromExpense(
+            expense: transaction.expense,
+            index: _transactions.indexWhere(
+              (item) => item.expense.id == transaction.expense.id,
+            ),
+          ),
+          showTypeToggle: false,
+          onSave: (updatedRow) async {
+            isSaving = true;
+            final updatedExpense = await updatePersistedExpenseFromImportRow(
+              expense: transaction.expense,
+              row: updatedRow,
+            );
+            if (sheetContext.mounted) {
+              Navigator.of(sheetContext).pop(updatedExpense);
+            }
+          },
+        );
+      },
     );
 
-    final refreshedExpense = await _fetchExpense(transaction.expense.id);
-    if (!mounted) return;
+    if (result == 'delete') {
+      await _deleteTransaction(transaction);
+      return;
+    }
+
+    if (result is! ExpenseEntry || !mounted) {
+      return;
+    }
 
     setState(() {
-      if (refreshedExpense == null) {
-        _transactions = _transactions
-            .where((item) => item.expense.id != transaction.expense.id)
-            .toList(growable: false);
-        return;
-      }
-
       _transactions = _transactions.map((item) {
         if (item.expense.id != transaction.expense.id) {
           return item;
         }
 
         return SyncedTransaction(
-          expense: refreshedExpense,
-          isRecurring: refreshedExpense.isRecurring,
+          expense: result,
+          isRecurring: result.isRecurring,
           recurrenceRule: item.recurrenceRule,
         );
       }).toList(growable: false);
     });
 
-    // Check if category changed and offer to apply to all matching transactions
-    final newCategory = refreshedExpense?.category;
-    final originalNormalized = (originalCategory?.trim().isEmpty ?? true)
-        ? 'uncategorized'
-        : originalCategory!.trim().toLowerCase();
-    final newNormalized = (newCategory?.trim().isEmpty ?? true)
-        ? 'uncategorized'
-        : newCategory!.trim().toLowerCase();
-
-    if (newNormalized != originalNormalized && mounted) {
+    final newCategory = normalizeEditableCategory(result.category);
+    if (newCategory.toLowerCase() != originalCategory.toLowerCase() &&
+        mounted) {
       await _maybeApplyCategoryToAll(
-        originalCategory: originalCategory ?? 'uncategorized',
-        newCategory: newCategory ?? 'uncategorized',
+        originalCategory: originalCategory,
+        newCategory: newCategory,
       );
     }
   }
@@ -447,29 +489,20 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }) async {
     final normalizedOriginal = originalCategory.trim().toLowerCase();
 
-    // Count how many transactions have the original category (excluding the one just edited)
     final matchingTransactions = _transactions.where((t) {
-      final txCategory = (t.expense.category?.trim().isEmpty ?? true)
-          ? 'uncategorized'
-          : t.expense.category!.trim().toLowerCase();
+      final txCategory =
+          normalizeEditableCategory(t.expense.category).toLowerCase();
       return txCategory == normalizedOriginal;
     }).toList();
 
-    if (matchingTransactions.isEmpty) return;
-
-    final result = await MonekoAlertDialog.show(
+    final shouldApply = await confirmApplyCategoryToAll(
       context: context,
-      title: context.l10n.applyToAllTransactions,
-      description: context.l10n.applyCategoryToAllDescription(
-        newCategory,
-        matchingTransactions.length.toString(),
-        originalCategory,
-      ),
-      confirmLabel: context.l10n.applyToAll,
-      cancelLabel: context.l10n.onlyThisOne,
+      matchingCount: matchingTransactions.length,
+      originalCategory: originalCategory,
+      newCategory: newCategory,
     );
 
-    if (result?.confirmed == true && mounted) {
+    if (shouldApply && mounted) {
       await _applyCategoryToAllTransactions(matchingTransactions, newCategory);
     }
   }
@@ -478,41 +511,56 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
     List<SyncedTransaction> transactions,
     String newCategory,
   ) async {
-    final user = ref.read(authProvider);
-    final updatedIds = <String>[];
-
     try {
-      // Update each transaction via the update-expense edge function
-      for (final tx in transactions) {
-        try {
-          final response = await Supabase.instance.client.functions.invoke(
-            'update-expense',
-            body: {
-              'expenseId': tx.expense.id,
-              'userId': user.uid,
-              'category': newCategory,
-            },
-          );
+      final batchResult = await updatePersistedExpensesInChunks(
+        expenses:
+            transactions.map((transaction) => transaction.expense).toList(),
+        buildRow: (expense, index) => buildImportParsedRowFromExpense(
+          expense: expense,
+          index: index,
+        ),
+        transformRow: (row) => row.copyWith(category: newCategory),
+        updateExpense: (expense, row) => updatePersistedExpenseFromImportRow(
+          expense: expense,
+          row: row,
+        ),
+      );
 
-          final payload = response.data as Map<String, dynamic>?;
-          final success = response.status < 400 &&
-              (payload?['success'] == true || payload == null);
-          if (success) {
-            updatedIds.add(tx.expense.id);
-          }
-        } catch (_) {
-          // Continue with other transactions even if one fails
-        }
+      await _refreshTransactionsAfterBatchUpdate(batchResult.updatedExpenses);
+
+      if (!mounted) {
+        return;
       }
 
-      // Refresh the transactions from database to get updated data
-      await _refreshTransactionsAfterBatchUpdate(updatedIds, newCategory);
-
-      if (mounted && updatedIds.isNotEmpty) {
+      if (batchResult.updatedExpenses.isNotEmpty &&
+          batchResult.failures.isEmpty) {
         AppToast.success(
-            context,
-            context.l10n
-                .updatedTransactionsCount(updatedIds.length.toString()));
+          context,
+          context.l10n.updatedTransactionsCount(
+            batchResult.updatedExpenses.length.toString(),
+          ),
+        );
+        return;
+      }
+
+      if (batchResult.updatedExpenses.isNotEmpty) {
+        AppToast.error(
+          context,
+          context.l10n.failedToUpdateSomeTransactions(
+            'Updated ${batchResult.updatedExpenses.length}, failed ${batchResult.failures.length}.',
+          ),
+        );
+        return;
+      }
+
+      if (batchResult.failures.isNotEmpty) {
+        AppToast.error(
+          context,
+          context.l10n.failedToUpdateSomeTransactions(
+            batchResult.failures.first.error.toString(),
+          ),
+        );
+        return;
       }
     } catch (error) {
       if (mounted) {
@@ -523,33 +571,17 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
   }
 
   Future<void> _refreshTransactionsAfterBatchUpdate(
-    List<String> updatedIds,
-    String newCategory,
+    List<ExpenseEntry> updatedExpenses,
   ) async {
-    if (updatedIds.isEmpty) return;
+    if (updatedExpenses.isEmpty || !mounted) return;
 
-    // Fetch updated expenses from database
-    final rows = await Supabase.instance.client
-        .from('expenses')
-        .select(
-          'id, contact_id, user_id, household_id, date, amount_cents, currency, '
-          'category, created_at, updated_at, raw_text, merchant, bank_account_id, '
-          'account_id, type, is_recurring, recurrence_rule',
-        )
-        .inFilter('id', updatedIds)
-        .isFilter('deleted_at', null);
-
-    final updatedExpenses = (rows as List<dynamic>)
-        .whereType<Map<String, dynamic>>()
-        .map((row) => ExpenseEntry.fromJson(row))
-        .toList();
-
-    if (!mounted) return;
+    final updatedExpensesById = {
+      for (final expense in updatedExpenses) expense.id: expense,
+    };
 
     setState(() {
       _transactions = _transactions.map((item) {
-        final updatedExpense =
-            updatedExpenses.where((e) => e.id == item.expense.id).firstOrNull;
+        final updatedExpense = updatedExpensesById[item.expense.id];
         if (updatedExpense == null) {
           return item;
         }
@@ -560,24 +592,6 @@ class _PlaidSyncReviewPageState extends ConsumerState<PlaidSyncReviewPage> {
         );
       }).toList(growable: false);
     });
-  }
-
-  Future<ExpenseEntry?> _fetchExpense(String expenseId) async {
-    final row = await Supabase.instance.client
-        .from('expenses')
-        .select(
-          'id, contact_id, user_id, household_id, date, amount_cents, currency, '
-          'category, created_at, updated_at, raw_text, merchant, split_group_id, '
-          'bank_account_id, account_id, type, is_recurring',
-        )
-        .eq('id', expenseId)
-        .maybeSingle();
-
-    if (row == null) {
-      return null;
-    }
-
-    return ExpenseEntry.fromJson(row);
   }
 
   Future<_ConnectionSyncSnapshot> _fetchConnectionSyncSnapshot() async {

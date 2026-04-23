@@ -6,16 +6,17 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
-import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
-import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/features/wallets/domain/entities/wallet.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/wallets/presentation/widgets/create_edit_wallet_sheet.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_notifier.dart';
 import 'package:moneko/features/import/presentation/state/import_wizard_state.dart';
+import 'package:moneko/features/import/presentation/widgets/import_category_apply_helper.dart';
 import 'package:moneko/features/import/presentation/widgets/import_edit_row_sheet.dart';
+import 'package:moneko/features/import/presentation/widgets/persisted_transaction_editing_helper.dart';
 import 'package:moneko/features/import/presentation/widgets/import_shared_widgets.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -597,7 +598,7 @@ class PreviewStep extends ConsumerWidget {
     final notifier = ref.read(importWizardProvider.notifier);
     bool isSaving = false;
     final sheetKey = GlobalKey<EditRowSheetState>();
-    final originalCategory = row.category ?? 'uncategorized';
+    final originalCategory = normalizeEditableCategory(row.category);
 
     final result = await MonekoBottomSheet.show<dynamic>(
       context: context,
@@ -632,7 +633,7 @@ class PreviewStep extends ConsumerWidget {
       notifier.deleteParsedRow(row.index);
     } else if (result is ImportParsedRow) {
       // Check if category changed and offer to apply to all matching rows
-      final newCategory = result.category ?? 'uncategorized';
+      final newCategory = normalizeEditableCategory(result.category);
       final originalNormalized = originalCategory.trim().toLowerCase();
       final newNormalized = newCategory.trim().toLowerCase();
 
@@ -659,31 +660,19 @@ class PreviewStep extends ConsumerWidget {
 
     // Count how many rows have the original category (excluding the one just edited)
     final matchingRows = state.parsedRows.where((r) {
-      final rowCategory = (r.category?.trim().isEmpty ?? true)
-          ? 'uncategorized'
-          : r.category!.trim().toLowerCase();
+      final rowCategory = normalizeEditableCategory(r.category).toLowerCase();
       return rowCategory == normalizedOriginal;
     }).toList();
 
-    if (matchingRows.isEmpty) return;
-
-    final result = await MonekoAlertDialog.show(
+    final shouldApply = await confirmApplyCategoryToAll(
       context: context,
-      title: context.l10n.applyToAllTransactions,
-      description: context.l10n.applyCategoryToAllDescription(
-        matchingRows.length,
-        getCategoryTranslation(context, newCategory),
-        getCategoryTranslation(context, originalCategory),
-      ),
-      confirmLabel: context.l10n.applyToAll,
-      cancelLabel: context.l10n.onlyThisOne,
+      matchingCount: matchingRows.length,
+      originalCategory: originalCategory,
+      newCategory: newCategory,
     );
 
-    if (result?.confirmed == true) {
-      for (final matchingRow in matchingRows) {
-        final updatedRow = matchingRow.copyWith(category: newCategory);
-        notifier.updateParsedRow(updatedRow);
-      }
+    if (shouldApply) {
+      notifier.applyCategoryToAllRows(originalCategory, newCategory);
     }
   }
 }
