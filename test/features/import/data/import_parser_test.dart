@@ -125,6 +125,37 @@ void main() {
     expect(parsed.category, 'food & drinks');
   });
 
+  test('parseRow rejects zero-amount transactions before save', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.category: 2,
+      },
+    );
+
+    final parsed = parseRow(['2026-02-01', '0.00', 'Food'], mapping);
+
+    expect(parsed.isValid, isFalse);
+    expect(parsed.errors, contains('invalid_amount'));
+  });
+
+  test('parseRow rejects categories the batch endpoint cannot sanitize', () {
+    const mapping = ImportMapping(
+      fieldToColumnIndex: {
+        ImportField.date: 0,
+        ImportField.amount: 1,
+        ImportField.category: 2,
+      },
+    );
+    final overlongCategory = 'a' * 97;
+
+    final parsed = parseRow(['2026-02-01', '12.50', overlongCategory], mapping);
+
+    expect(parsed.isValid, isFalse);
+    expect(parsed.errors, contains('invalid_category'));
+  });
+
   test('parseRow preserves merchant separately from description', () {
     const mapping = ImportMapping(
       fieldToColumnIndex: {

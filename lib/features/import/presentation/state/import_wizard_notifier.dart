@@ -1237,14 +1237,21 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       errors.add('invalid_date');
       issues.add(RowIssue.invalidDate);
     }
-    if (row.amountCents == null) {
+    final amountCents = row.amountCents;
+    if (amountCents == null || amountCents <= 0) {
       errors.add('invalid_amount');
       issues.add(RowIssue.invalidAmount);
+    }
+    if (!isBatchSaveCategorySafe(row.category ?? 'uncategorized')) {
+      errors.add('invalid_category');
+      issues.add(RowIssue.invalidCategory);
     }
     if (row.currency == null || row.currency!.trim().isEmpty) {
       issues.add(RowIssue.missingCurrency);
     }
-    if (row.type == null || row.type!.trim().isEmpty) {
+    final normalizedType = row.type?.trim().toLowerCase();
+    if (normalizedType != 'expense' && normalizedType != 'income') {
+      errors.add('unknown_type');
       issues.add(RowIssue.unknownType);
     }
     return row.copyWith(errors: errors, issues: issues);

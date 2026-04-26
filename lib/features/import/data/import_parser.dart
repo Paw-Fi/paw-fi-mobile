@@ -465,7 +465,7 @@ ImportParsedRow parseRow(
     parsedAmount = null;
   }
 
-  if (parsedAmount == null) {
+  if (parsedAmount == null || parsedAmount == 0) {
     errors.add('invalid_amount');
   }
 
@@ -485,6 +485,9 @@ ImportParsedRow parseRow(
         balanceValue,
       ]);
   final normalizedType = _resolveType(typeValue, parsedAmount);
+  if (!isBatchSaveCategorySafe(normalizedCategory)) {
+    errors.add('invalid_category');
+  }
 
   return ImportParsedRow(
     index: index,
@@ -498,6 +501,23 @@ ImportParsedRow parseRow(
     errors: errors,
     rawValues: row,
   );
+}
+
+bool isBatchSaveCategorySafe(String? value) {
+  if (value == null) return false;
+  final normalized = value
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replaceAll(RegExp(r'[\r\n\t]+'), ' ')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+
+  if (normalized.isEmpty) return false;
+  if (normalized.length > 96) return false;
+  if (normalized.contains('`')) return false;
+  if (RegExp(r'[\x00-\x1F\x7F]').hasMatch(normalized)) return false;
+  return true;
 }
 
 String? _normalizeCurrencyCode(String? value) {

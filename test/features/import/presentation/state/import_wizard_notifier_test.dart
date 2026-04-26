@@ -126,6 +126,39 @@ void main() {
     expect(updated.errors, contains('invalid_date'));
   });
 
+  test('updateParsedRow rejects transaction types unsupported by batch save',
+      () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        analyticsProvider.overrideWith((ref) => FakeAnalyticsNotifier(ref)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(importWizardProvider.notifier);
+    final row = ImportParsedRow(
+      index: 0,
+      date: DateTime(2024, 1, 1),
+      amountCents: 1200,
+      category: 'food',
+      description: 'Lunch',
+      currency: 'USD',
+      type: 'expense',
+      errors: const [],
+    );
+
+    notifier.state = notifier.state.copyWith(parsedRows: [row]);
+    notifier.updateParsedRow(row.copyWith(type: 'transfer'));
+
+    final updated = container.read(importWizardProvider).parsedRows.first;
+    expect(updated.errors, contains('unknown_type'));
+    expect(updated.isValid, isFalse);
+  });
+
   test('deleteParsedRow is safe when row is missing', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

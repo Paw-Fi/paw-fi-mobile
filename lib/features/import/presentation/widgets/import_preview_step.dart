@@ -859,6 +859,8 @@ class TransactionPreviewTile extends StatelessWidget {
         return 'No currency';
       case RowIssue.unknownType:
         return 'No type';
+      case RowIssue.invalidCategory:
+        return 'Bad category';
       case RowIssue.lowConfidenceMapping:
         return 'Low confidence';
       case RowIssue.duplicateInFile:

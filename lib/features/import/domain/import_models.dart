@@ -32,6 +32,9 @@ enum RowIssue {
   /// Transaction type (expense/income) could not be determined.
   unknownType,
 
+  /// Category cannot be accepted by the batch save endpoint.
+  invalidCategory,
+
   /// The row matched a duplicate key in the same file.
   duplicateInFile,
 
@@ -285,7 +288,8 @@ class ImportParsedRow {
     this.rawValues,
   });
 
-  bool get isValid => errors.isEmpty && date != null && amountCents != null;
+  bool get isValid =>
+      errors.isEmpty && date != null && amountCents != null && amountCents! > 0;
 
   ImportParsedRow copyWith({
     DateTime? date,
