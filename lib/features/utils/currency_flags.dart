@@ -52,6 +52,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'EGP': 'egypt',
     'VND': 'vietnam',
     'DOP': 'dominican',
+    'DZD': 'algeria',
     'PYG': 'paraguay',
     'UAH': 'ukraine',
     'LKR': 'sri_lanka',

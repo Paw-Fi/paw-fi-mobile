@@ -15,6 +15,7 @@ const Map<String, String> currencyOptions = {
   'CZK': 'Kč',
   'DKK': 'kr',
   'DOP': 'RD\$',
+  'DZD': 'د.ج',
   'EGP': 'E£',
   'EUR': '€',
   'GBP': '£',
