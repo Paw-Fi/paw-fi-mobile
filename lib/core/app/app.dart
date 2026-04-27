@@ -12,13 +12,16 @@ import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/fallback_localizations.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
+import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/core/ui/pages/splash_screen.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class App extends ConsumerStatefulWidget {
   const App({super.key});
@@ -43,6 +46,7 @@ class _AppState extends ConsumerState<App> {
           unawaited(
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
+          unawaited(_syncPendingIosWalletCapturesOnResume());
         }
         unawaited(
           ref.read(onboardingFlowAnalyticsServiceProvider).handleLifecycleState(
@@ -78,6 +82,38 @@ class _AppState extends ConsumerState<App> {
   void _checkForWidgetLaunch() {
     HomeWidget.setAppGroupId('group.moneko.mobile');
     HomeWidget.initiallyLaunchedFromHomeWidget().then(_launchedFromWidget);
+  }
+
+  Future<void> _syncPendingIosWalletCapturesOnResume() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null ||
+        Constants.supabaseUrl.isEmpty ||
+        Constants.supabaseAnon.isEmpty) {
+      return;
+    }
+
+    try {
+      await SiriShortcutAuthService.instance
+          .syncAuthContextAndPendingWalletCaptures(
+        supabaseUrl: Constants.supabaseUrl,
+        supabaseAnonKey: Constants.supabaseAnon,
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        userId: session.user.id,
+        expiresAt: session.expiresAt,
+      );
+    } on MissingPluginException {
+      return;
+    } catch (error, stackTrace) {
+      try {
+        await FirebaseCrashlytics.instance.recordError(
+          error,
+          stackTrace,
+          fatal: false,
+          reason: 'ios_wallet_pending_resume_sync_error',
+        );
+      } catch (_) {}
+    }
   }
 
   void _launchedFromWidget(Uri? uri) {

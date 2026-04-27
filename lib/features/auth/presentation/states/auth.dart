@@ -126,8 +126,9 @@ class Auth extends _$Auth {
         return;
       }
 
-      // iOS: Siri Shortcuts auth context
-      await SiriShortcutAuthService.instance.syncAuthContext(
+      // iOS: Siri Shortcuts auth context and any queued wallet captures.
+      await SiriShortcutAuthService.instance
+          .syncAuthContextAndPendingWalletCaptures(
         supabaseUrl: Constants.supabaseUrl,
         supabaseAnonKey: Constants.supabaseAnon,
         accessToken: session.accessToken,
@@ -135,7 +136,6 @@ class Auth extends _$Auth {
         userId: session.user.id,
         expiresAt: session.expiresAt,
       );
-      await SiriShortcutAuthService.instance.syncPendingWalletCaptures();
 
       // Android: Notification capture auth context
       if (Platform.isAndroid) {

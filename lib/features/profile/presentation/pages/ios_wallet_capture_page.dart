@@ -42,7 +42,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
     final isLoading = useState(true);
     final isSyncing = useState(false);
     final isLoadingDebugReport = useState(false);
-    final hasNotificationPermission = useState(true);
+    final isNotificationPermissionDisabled = useState<bool?>(null);
     // The PK of the user's user_contacts row — used for targeted updates.
     final contactId = useState<String?>(null);
     final debugReport = useState<WalletCaptureDebugReport?>(null);
@@ -119,7 +119,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
     useEffect(() {
       Future<void> checkNotificationPermission() async {
         final status = await Permission.notification.status;
-        hasNotificationPermission.value = status.isGranted;
+        isNotificationPermissionDisabled.value = status.isPermanentlyDenied;
       }
 
       Future<void> loadConfig() async {
@@ -178,7 +178,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
       if (current == AppLifecycleState.resumed) {
         Future<void> recheck() async {
           final status = await Permission.notification.status;
-          hasNotificationPermission.value = status.isGranted;
+          isNotificationPermissionDisabled.value = status.isPermanentlyDenied;
         }
 
         recheck();
@@ -203,7 +203,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
           return;
         }
 
-        await SiriShortcutAuthService.instance.syncAuthContext(
+        await SiriShortcutAuthService.instance
+            .syncAuthContextAndPendingWalletCaptures(
           supabaseUrl: Constants.supabaseUrl,
           supabaseAnonKey: Constants.supabaseAnon,
           accessToken: accessToken,
@@ -211,7 +212,6 @@ class IosWalletCapturePage extends HookConsumerWidget {
           userId: userId,
           expiresAt: session?.expiresAt,
         );
-        await SiriShortcutAuthService.instance.syncPendingWalletCaptures();
         await loadDebugReport();
         if (context.mounted && showSuccessToast) {
           AppToast.success(context, context.l10n.credentialsSyncedSuccessfully);
@@ -860,7 +860,8 @@ class IosWalletCapturePage extends HookConsumerWidget {
                           ],
                         ),
                         if (isEnabled) ...[
-                          if (!hasNotificationPermission.value) ...[
+                          if (isNotificationPermissionDisabled.value ==
+                              true) ...[
                             const SizedBox(height: 16),
                             Container(
                               padding: const EdgeInsets.all(12),
