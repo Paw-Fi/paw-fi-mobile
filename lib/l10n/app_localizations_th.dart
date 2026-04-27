@@ -7111,4 +7111,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get forwardReceiptDescription => 'ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ';
+
+  @override
+  String get walletCaptureOfflineTitle => 'ไม่มีอินเทอร์เน็ตขณะชำระเงินด้วย Apple Pay';
+
+  @override
+  String get walletCaptureOfflineDescription => 'ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต';
 }

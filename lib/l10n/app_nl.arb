@@ -2628,5 +2628,7 @@
   "getNotifiedWhenReady": "Ontvang een melding zodra het klaar is",
   "getNotifiedWhenReadyDescription": "Zodra alles is verwerkt en aan je Moneko-account is toegevoegd, sturen we je een bevestigingsmail en een melding op je telefoon.",
   "add": "Toevoegen",
-  "forwardReceiptDescription": "Stuur je online bonnetjes door voor automatische registratie"
+  "forwardReceiptDescription": "Stuur je online bonnetjes door voor automatische registratie",
+  "walletCaptureOfflineTitle": "Geen internet tijdens het betalen met Apple Pay?",
+  "walletCaptureOfflineDescription": "Geen zorgen. Moneko slaat de transactie op je iPhone op en synchroniseert deze automatisch zodra je de app weer met internet opent."
 }

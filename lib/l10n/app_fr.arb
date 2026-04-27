@@ -2681,5 +2681,7 @@
   "getNotifiedWhenReady": "Recevez une notification quand tout est prêt",
   "getNotifiedWhenReadyDescription": "Une fois le traitement terminé et les données ajoutées à votre compte Moneko, nous vous enverrons un e-mail de confirmation ainsi qu'une notification sur votre téléphone.",
   "add": "Ajouter",
-  "forwardReceiptDescription": "Transférez vos reçus en ligne pour un enregistrement automatique"
+  "forwardReceiptDescription": "Transférez vos reçus en ligne pour un enregistrement automatique",
+  "walletCaptureOfflineTitle": "Pas de connexion internet lors du paiement avec Apple Pay ?",
+  "walletCaptureOfflineDescription": "Pas d’inquiétude. Moneko enregistre la transaction sur votre iPhone et la synchronise automatiquement dès que vous ouvrez l’application avec une connexion internet."
 }

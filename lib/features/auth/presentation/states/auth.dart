@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -136,6 +135,7 @@ class Auth extends _$Auth {
         userId: session.user.id,
         expiresAt: session.expiresAt,
       );
+      await SiriShortcutAuthService.instance.syncPendingWalletCaptures();
 
       // Android: Notification capture auth context
       if (Platform.isAndroid) {

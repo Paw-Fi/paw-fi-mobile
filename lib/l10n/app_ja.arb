@@ -2681,5 +2681,7 @@
   "getNotifiedWhenReady": "準備ができたら通知",
   "getNotifiedWhenReadyDescription": "すべての処理が完了して Moneko アカウントに追加されると、確認メールとスマートフォン通知をお送りします。",
   "add": "追加",
-  "forwardReceiptDescription": "オンラインのレシートを転送して\n自動で記録"
+  "forwardReceiptDescription": "オンラインのレシートを転送して\n自動で記録",
+  "walletCaptureOfflineTitle": "Apple Payで支払うとき、インターネットに接続されていませんか？",
+  "walletCaptureOfflineDescription": "ご安心ください。Monekoは取引をiPhoneに保存し、次回インターネット接続時にアプリを開くと自動的に同期されます。"
 }

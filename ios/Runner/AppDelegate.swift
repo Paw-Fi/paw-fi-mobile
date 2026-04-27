@@ -14,7 +14,10 @@ private enum SiriShortcutChannel {
   static let getWalletCaptureDebugReport = "getWalletCaptureDebugReport"
   static let clearWalletCaptureDebugReport = "clearWalletCaptureDebugReport"
   static let appendWalletCaptureDebugEntry = "appendWalletCaptureDebugEntry"
+  static let syncPendingWalletCaptures = "syncPendingWalletCaptures"
 }
+
+private let walletPendingCaptureQueue = DispatchQueue(label: "com.moneko.wallet.pending-captures")
 
 @available(iOS 16.0, watchOS 9.0, *)
 private struct SiriAssistantResultPayload {
@@ -1045,14 +1048,42 @@ struct AnalyzeSpendingWithSiriIntent: AppIntent {
   }
 }
 
+private func walletCaptureConfigOwnerMatches(
+  defaults: UserDefaults,
+  expectedUserId: String
+) -> Bool {
+  let ownerUserId = (defaults.string(forKey: SiriShortcutKeys.walletConfigUserId) ?? "")
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  guard !ownerUserId.isEmpty, ownerUserId == expectedUserId else {
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "wallet-config-owner-mismatch",
+      message: "Wallet capture config does not belong to the active user.",
+      details: [
+        "hasOwner": !ownerUserId.isEmpty,
+        "expectedUserId": expectedUserId,
+      ]
+    )
+    return false
+  }
+  return true
+}
+
 @available(iOS 16.0, watchOS 9.0, *)
-private func loadWalletCaptureScope() -> SiriShortcutScopeResolution? {
+private func loadWalletCaptureScope(expectedUserId: String) -> SiriShortcutScopeResolution? {
   guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
     SiriShortcutDiagnostics.record(
       source: "native",
       action: "wallet-scope-defaults-missing",
       message: "Unable to read wallet capture scope because app group defaults are unavailable."
     )
+    return nil
+  }
+
+  guard walletCaptureConfigOwnerMatches(
+    defaults: defaults,
+    expectedUserId: expectedUserId
+  ) else {
     return nil
   }
 
@@ -1198,118 +1229,206 @@ private func resolveWalletCaptureIntentError(
   )
 }
 
-@available(iOS 16.0, watchOS 9.0, *)
-private func performWalletPaymentIntegrationCapture(
-  merchantName: String?,
-  amount: Double?
-) async throws -> String {
-  SiriShortcutDiagnostics.record(
-    source: "shortcut",
-    action: "wallet-perform-start",
-    message: "Wallet shortcut execution started.",
-    details: [
-      "merchant": merchantName ?? "",
-      "amount": amount ?? -1,
-    ]
-  )
-  NSLog(
-    "[MonekoCap] performWalletPaymentIntegrationCapture called — merchant=%@, amount=%@",
-    merchantName ?? "<nil>",
-    amount.map(String.init(describing:)) ?? "<nil>"
-  )
+private func loadPendingWalletCaptureRecordsUnlocked() -> [[String: Any]] {
+  guard
+    let json = SharedKeychainStore.shared.read(
+      account: SiriShortcutKeys.walletPendingCaptures,
+      logFailure: false
+    ),
+    let data = json.data(using: .utf8),
+    let records = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+  else {
+    return []
+  }
+  return records
+}
 
-  guard let amount, amount > 0 else {
-    NSLog("[MonekoCap] invalidInput — amount missing or <= 0")
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-invalid-amount",
-      message: "Wallet shortcut rejected an invalid amount.",
-      details: [
-        "amount": amount ?? -1,
-      ]
-    )
-    throw SiriShortcutIntentError.invalidInput
+private func loadPendingWalletCaptureRecords() -> [[String: Any]] {
+  walletPendingCaptureQueue.sync {
+    loadPendingWalletCaptureRecordsUnlocked()
+  }
+}
+
+private func savePendingWalletCaptureRecordsUnlocked(_ records: [[String: Any]]) -> Bool {
+  guard !records.isEmpty else {
+    SharedKeychainStore.shared.delete(account: SiriShortcutKeys.walletPendingCaptures)
+    return SharedKeychainStore.shared.read(
+      account: SiriShortcutKeys.walletPendingCaptures,
+      logFailure: false
+    ) == nil
   }
 
-  let normalizedMerchantName = merchantName?
-    .trimmingCharacters(in: .whitespacesAndNewlines)
-  let resolvedMerchantName = normalizedMerchantName
-
-  guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
-    NSLog("[MonekoCap] invalidInput — no usable merchant value")
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-invalid-merchant",
-      message: "Wallet shortcut rejected an empty merchant name."
-    )
-    throw SiriShortcutIntentError.invalidInput
-  }
-
-  guard var context = SiriShortcutAuthContext.load() else {
-    NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-auth-missing",
-      message: "Wallet shortcut could not load shared auth context."
-    )
-    throw SiriShortcutIntentError.notConfigured
-  }
-  NSLog("[MonekoCap] Auth context loaded — userId=%@, tokenExpired=%d", context.userId, context.isAccessTokenExpired ? 1 : 0)
-
-  guard let scope = loadWalletCaptureScope() else {
-    NSLog("[MonekoCap] notConfigured — loadWalletCaptureScope() returned nil")
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-scope-missing",
-      message: "Wallet shortcut could not load an enabled capture scope."
-    )
-    throw SiriShortcutIntentError.notConfigured
-  }
-  NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
-  let accountId = loadWalletCaptureAccountId()
-
-  let idempotencyKey = makeWalletIdempotencyKey(
-    userId: context.userId,
-    merchantName: resolvedMerchantName,
-    amount: amount,
-    currencyCode: nil,
-    transactionDate: nil,
-    scope: scope
-  )
-  if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
-    SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-duplicate-request",
-      message: "Wallet shortcut request matched an existing idempotency slot.",
-      details: [
-        "idempotencyKey": idempotencyKey,
-      ]
-    )
-    return "That wallet transaction was already captured in Moneko."
-  }
-
-  var shouldKeepIdempotencySlot = false
-  defer {
-    if !shouldKeepIdempotencySlot {
-      clearWalletIdempotencySlot(idempotencyKey: idempotencyKey)
+  do {
+    let data = try JSONSerialization.data(withJSONObject: records)
+    guard let json = String(data: data, encoding: .utf8) else {
+      throw SiriShortcutIntentError.saveFailed
     }
-  }
-
-  if context.isAccessTokenExpired {
-    NSLog("[MonekoCap] Access token expired, refreshing…")
+    SharedKeychainStore.shared.write(
+      value: json,
+      account: SiriShortcutKeys.walletPendingCaptures
+    )
+    return SharedKeychainStore.shared.read(
+      account: SiriShortcutKeys.walletPendingCaptures,
+      logFailure: false
+    ) == json
+  } catch {
     SiriShortcutDiagnostics.record(
-      source: "shortcut",
-      action: "wallet-refresh-needed",
-      message: "Wallet shortcut detected an expired access token.",
+      source: "native",
+      action: "wallet-pending-save-failed",
+      message: "Unable to persist pending wallet captures.",
       details: [
-        "expiresAt": context.expiresAt,
+        "error": error.localizedDescription,
       ]
     )
-    context = try await refreshSiriShortcutSession(context: context)
-    context.persist()
-    NSLog("[MonekoCap] Token refreshed successfully, new expiresAt=%d", context.expiresAt)
+    return false
   }
+}
 
+@discardableResult
+private func savePendingWalletCaptureRecords(_ records: [[String: Any]]) -> Bool {
+  walletPendingCaptureQueue.sync {
+    savePendingWalletCaptureRecordsUnlocked(records)
+  }
+}
+
+private func mergePendingWalletCaptureSyncResults(
+  completedIdempotencyKeys: Set<String>,
+  updatedRecordsByIdempotencyKey: [String: [String: Any]]
+) -> Int {
+  walletPendingCaptureQueue.sync {
+    let latestRecords = loadPendingWalletCaptureRecordsUnlocked()
+    let mergedRecords = latestRecords.compactMap { record -> [String: Any]? in
+      guard let idempotencyKey = record["idempotencyKey"] as? String else {
+        return nil
+      }
+      if completedIdempotencyKeys.contains(idempotencyKey) {
+        return nil
+      }
+      return updatedRecordsByIdempotencyKey[idempotencyKey] ?? record
+    }
+    _ = savePendingWalletCaptureRecordsUnlocked(mergedRecords)
+    return mergedRecords.count
+  }
+}
+
+private func updatedPendingWalletCaptureRecord(
+  _ record: [String: Any],
+  error: String
+) -> [String: Any] {
+  var updated = record
+  let attemptCount = (record["attemptCount"] as? Int ?? 0) + 1
+  updated["attemptCount"] = attemptCount
+  updated["lastAttemptAt"] = makeDiagnosticsTimestamp()
+  updated["lastError"] = error
+  return updated
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func enqueuePendingWalletCapture(
+  body: [String: Any],
+  idempotencyKey: String,
+  userId: String,
+  merchantName: String,
+  amount: Double
+) -> Bool {
+  walletPendingCaptureQueue.sync {
+    var records = loadPendingWalletCaptureRecordsUnlocked()
+    if records.contains(where: { ($0["idempotencyKey"] as? String) == idempotencyKey }) {
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-offline-queue-duplicate",
+        message: "Wallet capture was already queued for offline sync.",
+        details: [
+          "idempotencyKey": idempotencyKey,
+        ]
+      )
+      return false
+    }
+
+    guard records.count < 100 else {
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-offline-queue-full",
+        message: "Wallet capture could not be queued because the offline queue is full.",
+        details: [
+          "pendingCount": records.count,
+        ]
+      )
+      return false
+    }
+
+    records.append([
+      "id": UUID().uuidString,
+      "idempotencyKey": idempotencyKey,
+      "userId": userId,
+      "merchantName": merchantName,
+      "amount": amount,
+      "queuedAt": makeDiagnosticsTimestamp(),
+      "attemptCount": 0,
+      "body": body,
+    ])
+
+    guard savePendingWalletCaptureRecordsUnlocked(records) else {
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-offline-queue-save-failed",
+        message: "Wallet capture could not be saved locally for offline sync.",
+        details: [
+          "merchant": merchantName,
+          "amount": amount,
+        ]
+      )
+      return false
+    }
+
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-offline-queued",
+      message: "Wallet capture was saved locally for later sync.",
+      details: [
+        "merchant": merchantName,
+        "amount": amount,
+        "pendingCount": records.count,
+      ]
+    )
+    return true
+  }
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func makeWalletCaptureRequestBody(
+  userId: String,
+  idempotencyKey: String,
+  merchantName: String,
+  amount: Double,
+  scope: SiriShortcutScopeResolution,
+  accountId: String?
+) -> [String: Any] {
+  let transaction: [String: Any] = [
+    "amount": amount,
+    "merchantName": merchantName,
+  ]
+  var body: [String: Any] = [
+    "captureSource": "ios_wallet_shortcut",
+    "idempotencyKey": idempotencyKey,
+    "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
+    "transaction": transaction,
+  ]
+  if let householdId = scope.householdId {
+    body["householdId"] = householdId
+    body["isPortfolio"] = scope.isPortfolio
+  }
+  if let accountId {
+    body["accountId"] = accountId
+  }
+  return body
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func submitWalletCaptureRequestBody(
+  _ body: [String: Any],
+  context: SiriShortcutAuthContext
+) async throws -> Bool {
   guard let url = URL(string: "\(context.supabaseUrl)/functions/v1/save-wallet-transaction") else {
     throw SiriShortcutIntentError.notConfigured
   }
@@ -1320,25 +1439,6 @@ private func performWalletPaymentIntegrationCapture(
   request.setValue("application/json", forHTTPHeaderField: "Content-Type")
   request.setValue("Bearer \(context.accessToken)", forHTTPHeaderField: "Authorization")
   request.setValue(context.supabaseAnonKey, forHTTPHeaderField: "apikey")
-
-  var transaction: [String: Any] = [
-    "amount": amount,
-    "merchantName": resolvedMerchantName
-  ]
-  var body: [String: Any] = [
-    "captureSource": "ios_wallet_shortcut",
-    "idempotencyKey": idempotencyKey,
-    "clientCreatedAt": ISO8601DateFormatter().string(from: Date()),
-    "transaction": transaction
-  ]
-  if let householdId = scope.householdId {
-    body["householdId"] = householdId
-    body["isPortfolio"] = scope.isPortfolio
-  }
-  if let accountId {
-    body["accountId"] = accountId
-  }
-
   request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
   NSLog("[MonekoCap] Calling save-wallet-transaction, url=%@", url.absoluteString)
@@ -1399,13 +1499,12 @@ private func performWalletPaymentIntegrationCapture(
   }
 
   if httpResponse.statusCode == 409 {
-    shouldKeepIdempotencySlot = true
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-duplicate-confirmed",
       message: "Wallet capture server reported a duplicate request."
     )
-    return "That wallet transaction was already captured in Moneko."
+    return true
   }
 
   guard (200...299).contains(httpResponse.statusCode) else {
@@ -1427,15 +1526,290 @@ private func performWalletPaymentIntegrationCapture(
     )
   }
 
-  shouldKeepIdempotencySlot = true
-
   if (json["duplicate"] as? Bool) == true {
     SiriShortcutDiagnostics.record(
       source: "shortcut",
       action: "wallet-duplicate-json",
       message: "Wallet capture JSON payload marked this request as a duplicate."
     )
+    return true
+  }
+
+  return false
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func syncPendingWalletCaptures() async -> [String: Any] {
+  let records = loadPendingWalletCaptureRecords()
+  guard !records.isEmpty else {
+    return [
+      "attempted": 0,
+      "synced": 0,
+      "remaining": 0,
+    ]
+  }
+
+  SiriShortcutDiagnostics.record(
+    source: "native",
+    action: "wallet-pending-sync-start",
+    message: "Starting pending wallet capture sync.",
+    details: [
+      "pendingCount": records.count,
+    ]
+  )
+
+  guard var context = SiriShortcutAuthContext.load(logFailure: false) else {
+    SiriShortcutDiagnostics.record(
+      source: "native",
+      action: "wallet-pending-sync-missing-auth",
+      message: "Pending wallet captures could not sync because auth context is missing.",
+      details: [
+        "pendingCount": records.count,
+      ]
+    )
+    return [
+      "attempted": 0,
+      "synced": 0,
+      "remaining": records.count,
+    ]
+  }
+
+  if context.isAccessTokenExpired {
+    do {
+      context = try await refreshSiriShortcutSession(context: context)
+      context.persist()
+    } catch {
+      SiriShortcutDiagnostics.record(
+        source: "native",
+        action: "wallet-pending-sync-refresh-failed",
+        message: "Pending wallet captures could not sync because session refresh failed.",
+        details: [
+          "error": error.localizedDescription,
+          "pendingCount": records.count,
+        ]
+      )
+      return [
+        "attempted": 0,
+        "synced": 0,
+        "remaining": records.count,
+      ]
+    }
+  }
+
+  var attempted = 0
+  var synced = 0
+  var completedIdempotencyKeys = Set<String>()
+  var updatedRecordsByIdempotencyKey: [String: [String: Any]] = [:]
+
+  for record in records {
+    guard let idempotencyKey = record["idempotencyKey"] as? String,
+          let body = record["body"] as? [String: Any] else {
+      SiriShortcutDiagnostics.record(
+        source: "native",
+        action: "wallet-pending-sync-invalid-record",
+        message: "Dropping malformed pending wallet capture record."
+      )
+      continue
+    }
+
+    guard (record["userId"] as? String) == context.userId else {
+      continue
+    }
+
+    attempted += 1
+    do {
+      _ = try await submitWalletCaptureRequestBody(body, context: context)
+      synced += 1
+      completedIdempotencyKeys.insert(idempotencyKey)
+    } catch SiriShortcutIntentError.networkFailure {
+      let updated = updatedPendingWalletCaptureRecord(record, error: "networkFailure")
+      updatedRecordsByIdempotencyKey[idempotencyKey] = updated
+      break
+    } catch SiriShortcutIntentError.missingSession {
+      let updated = updatedPendingWalletCaptureRecord(record, error: "missingSession")
+      updatedRecordsByIdempotencyKey[idempotencyKey] = updated
+      break
+    } catch {
+      let updated = updatedPendingWalletCaptureRecord(record, error: error.localizedDescription)
+      if (updated["attemptCount"] as? Int ?? 0) < 5 {
+        updatedRecordsByIdempotencyKey[idempotencyKey] = updated
+      } else {
+        completedIdempotencyKeys.insert(idempotencyKey)
+        SiriShortcutDiagnostics.record(
+          source: "native",
+          action: "wallet-pending-sync-dropped",
+          message: "Dropping pending wallet capture after repeated sync failures.",
+          details: [
+            "error": error.localizedDescription,
+            "attemptCount": updated["attemptCount"] as? Int ?? 0,
+          ]
+        )
+      }
+    }
+  }
+
+  let remainingCount = mergePendingWalletCaptureSyncResults(
+    completedIdempotencyKeys: completedIdempotencyKeys,
+    updatedRecordsByIdempotencyKey: updatedRecordsByIdempotencyKey
+  )
+  SiriShortcutDiagnostics.record(
+    source: "native",
+    action: "wallet-pending-sync-finished",
+    message: "Pending wallet capture sync finished.",
+    details: [
+      "attempted": attempted,
+      "synced": synced,
+      "remaining": remainingCount,
+    ]
+  )
+
+  return [
+    "attempted": attempted,
+    "synced": synced,
+    "remaining": remainingCount,
+  ]
+}
+
+@available(iOS 16.0, watchOS 9.0, *)
+private func performWalletPaymentIntegrationCapture(
+  merchantName: String?,
+  amount: Double?
+) async throws -> String {
+  SiriShortcutDiagnostics.record(
+    source: "shortcut",
+    action: "wallet-perform-start",
+    message: "Wallet shortcut execution started.",
+    details: [
+      "merchant": merchantName ?? "",
+      "amount": amount ?? -1,
+    ]
+  )
+  NSLog(
+    "[MonekoCap] performWalletPaymentIntegrationCapture called — merchant=%@, amount=%@",
+    merchantName ?? "<nil>",
+    amount.map(String.init(describing:)) ?? "<nil>"
+  )
+
+  guard let amount, amount > 0 else {
+    NSLog("[MonekoCap] invalidInput — amount missing or <= 0")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-invalid-amount",
+      message: "Wallet shortcut rejected an invalid amount.",
+      details: [
+        "amount": amount ?? -1,
+      ]
+    )
+    throw SiriShortcutIntentError.invalidInput
+  }
+
+  let normalizedMerchantName = merchantName?
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  let resolvedMerchantName = normalizedMerchantName
+
+  guard let resolvedMerchantName, !resolvedMerchantName.isEmpty else {
+    NSLog("[MonekoCap] invalidInput — no usable merchant value")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-invalid-merchant",
+      message: "Wallet shortcut rejected an empty merchant name."
+    )
+    throw SiriShortcutIntentError.invalidInput
+  }
+
+  guard var context = SiriShortcutAuthContext.load() else {
+    NSLog("[MonekoCap] notConfigured — SiriShortcutAuthContext.load() returned nil")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-auth-missing",
+      message: "Wallet shortcut could not load shared auth context."
+    )
+    throw SiriShortcutIntentError.notConfigured
+  }
+  NSLog("[MonekoCap] Auth context loaded — userId=%@, tokenExpired=%d", context.userId, context.isAccessTokenExpired ? 1 : 0)
+
+  guard let scope = loadWalletCaptureScope(expectedUserId: context.userId) else {
+    NSLog("[MonekoCap] notConfigured — loadWalletCaptureScope() returned nil")
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-scope-missing",
+      message: "Wallet shortcut could not load an enabled capture scope."
+    )
+    throw SiriShortcutIntentError.notConfigured
+  }
+  NSLog("[MonekoCap] Wallet scope loaded — householdId=%@", scope.householdId ?? "<personal>")
+  let accountId = loadWalletCaptureAccountId()
+
+  let idempotencyKey = makeWalletIdempotencyKey(
+    userId: context.userId,
+    merchantName: resolvedMerchantName,
+    amount: amount,
+    currencyCode: nil,
+    transactionDate: nil,
+    scope: scope
+  )
+  if !reserveWalletIdempotencySlot(idempotencyKey: idempotencyKey) {
+    SiriShortcutDiagnostics.record(
+      source: "shortcut",
+      action: "wallet-duplicate-request",
+      message: "Wallet shortcut request matched an existing idempotency slot.",
+      details: [
+        "idempotencyKey": idempotencyKey,
+      ]
+    )
     return "That wallet transaction was already captured in Moneko."
+  }
+
+  var shouldKeepIdempotencySlot = false
+  defer {
+    if !shouldKeepIdempotencySlot {
+      clearWalletIdempotencySlot(idempotencyKey: idempotencyKey)
+    }
+  }
+
+  let body = makeWalletCaptureRequestBody(
+    userId: context.userId,
+    idempotencyKey: idempotencyKey,
+    merchantName: resolvedMerchantName,
+    amount: amount,
+    scope: scope,
+    accountId: accountId
+  )
+
+  do {
+    if context.isAccessTokenExpired {
+      NSLog("[MonekoCap] Access token expired, refreshing…")
+      SiriShortcutDiagnostics.record(
+        source: "shortcut",
+        action: "wallet-refresh-needed",
+        message: "Wallet shortcut detected an expired access token.",
+        details: [
+          "expiresAt": context.expiresAt,
+        ]
+      )
+      context = try await refreshSiriShortcutSession(context: context)
+      context.persist()
+      NSLog("[MonekoCap] Token refreshed successfully, new expiresAt=%d", context.expiresAt)
+    }
+
+    let isDuplicate = try await submitWalletCaptureRequestBody(body, context: context)
+    shouldKeepIdempotencySlot = true
+    if isDuplicate {
+      return "That wallet transaction was already captured in Moneko."
+    }
+  } catch SiriShortcutIntentError.networkFailure {
+    let wasQueued = enqueuePendingWalletCapture(
+      body: body,
+      idempotencyKey: idempotencyKey,
+      userId: context.userId,
+      merchantName: resolvedMerchantName,
+      amount: amount
+    )
+    guard wasQueued else {
+      throw SiriShortcutIntentError.offlineSaveFailed
+    }
+    shouldKeepIdempotencySlot = true
+    return "Saved this Apple Pay transaction in Moneko. It will sync automatically the next time you open the app with internet."
   }
 
   let formattedAmount = String(format: "%.2f", amount)
@@ -1546,9 +1920,11 @@ private enum SiriShortcutKeys {
   static let walletDefaultIsPortfolio = "wallet_default_is_portfolio"
   static let walletDefaultAccountId = "wallet_default_account_id"
   static let walletDefaultAccountName = "wallet_default_account_name"
+  static let walletConfigUserId = "wallet_config_user_id"
   static let walletIdempotencyHash = "wallet_last_request_hash"
   static let walletIdempotencyTimestamp = "wallet_last_request_at"
   static let walletDebugEntries = "wallet_capture_debug_entries"
+  static let walletPendingCaptures = "wallet_pending_captures"
 }
 
 private func makeDiagnosticsTimestamp() -> String {
@@ -1656,6 +2032,7 @@ private enum SiriShortcutDiagnostics {
       "walletIsPortfolio": defaults?.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio) ?? false,
       "walletAccountId": defaults?.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "",
       "walletAccountName": defaults?.string(forKey: SiriShortcutKeys.walletDefaultAccountName) ?? "",
+      "pendingWalletCaptures": loadPendingWalletCaptureRecords().count,
       "expiresAt": context?.expiresAt ?? 0,
       "isAccessTokenExpired": context?.isAccessTokenExpired ?? false,
     ]
@@ -2029,6 +2406,7 @@ private enum SiriShortcutIntentError: LocalizedError {
   case duplicateRequest
   case noExpenseDetected
   case networkFailure
+  case offlineSaveFailed
   case saveFailed
   case requestFailed
   case backendError(message: String, code: String?)
@@ -2047,6 +2425,8 @@ private enum SiriShortcutIntentError: LocalizedError {
       return "I could not detect an expense from that."
     case .networkFailure:
       return "I could not reach Moneko. Please try again."
+    case .offlineSaveFailed:
+      return "Moneko could not save this transaction offline. Please open the app and try again."
     case .saveFailed:
       return "I analyzed the expense, but failed to save it. Please try again."
     case .requestFailed:
@@ -2725,6 +3105,8 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         self.handleClearWalletCaptureDebugReport(result: result)
       case SiriShortcutChannel.appendWalletCaptureDebugEntry:
         self.handleAppendWalletCaptureDebugEntry(call: call, result: result)
+      case SiriShortcutChannel.syncPendingWalletCaptures:
+        self.handleSyncPendingWalletCaptures(result: result)
       case "setWalletCaptureConfig":
         self.handleSetWalletCaptureConfig(call: call, result: result)
       case "getWalletCaptureConfig":
@@ -2842,6 +3224,24 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
     result(nil)
   }
 
+  private func handleSyncPendingWalletCaptures(result: @escaping FlutterResult) {
+    guard #available(iOS 16.0, *) else {
+      result([
+        "attempted": 0,
+        "synced": 0,
+        "remaining": 0,
+      ])
+      return
+    }
+
+    Task {
+      let syncResult = await syncPendingWalletCaptures()
+      DispatchQueue.main.async {
+        result(syncResult)
+      }
+    }
+  }
+
   private func handleSetWalletCaptureConfig(call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
@@ -2875,6 +3275,14 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         defaults.set(accountName, forKey: SiriShortcutKeys.walletDefaultAccountName)
       }
     }
+    if let userId = args["userId"] as? String {
+      let normalizedUserId = userId.trimmingCharacters(in: .whitespacesAndNewlines)
+      if normalizedUserId.isEmpty {
+        defaults.removeObject(forKey: SiriShortcutKeys.walletConfigUserId)
+      } else {
+        defaults.set(normalizedUserId, forKey: SiriShortcutKeys.walletConfigUserId)
+      }
+    }
 
     SiriShortcutDiagnostics.record(
       source: "flutter",
@@ -2887,6 +3295,7 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
         "isPortfolio": defaults.bool(forKey: SiriShortcutKeys.walletDefaultIsPortfolio),
         "accountId": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountId) ?? "",
         "accountName": defaults.string(forKey: SiriShortcutKeys.walletDefaultAccountName) ?? "",
+        "ownerUserId": defaults.string(forKey: SiriShortcutKeys.walletConfigUserId) ?? "",
       ]
     )
 
@@ -2894,15 +3303,23 @@ struct MonekoAppShortcutsProvider: AppShortcutsProvider {
   }
 
   private func handleGetWalletCaptureConfig(result: @escaping FlutterResult) {
+    let disabledConfig: [String: Any] = [
+      "enabled": false,
+      "scopeId": "personal",
+      "scopeName": "Personal",
+      "isPortfolio": false,
+      "accountId": "",
+      "accountName": "",
+    ]
+
     guard let defaults = UserDefaults(suiteName: SiriShortcutKeys.appGroupId) else {
-      result([
-        "enabled": false,
-        "scopeId": "personal",
-        "scopeName": "Personal",
-        "isPortfolio": false,
-        "accountId": "",
-        "accountName": "",
-      ])
+      result(disabledConfig)
+      return
+    }
+
+    guard let userId = SiriShortcutAuthContext.load(logFailure: false)?.userId,
+          walletCaptureConfigOwnerMatches(defaults: defaults, expectedUserId: userId) else {
+      result(disabledConfig)
       return
     }
 

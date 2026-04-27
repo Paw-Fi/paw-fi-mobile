@@ -153,7 +153,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
           config.value = loaded.copyWith(enabled: remoteEnabled);
 
           // Keep iOS native in sync with Supabase value.
-          await WalletCaptureService.instance.setConfig(config.value);
+          await WalletCaptureService.instance.setConfig(
+            config.value,
+            userId: authState.uid,
+          );
         } catch (e) {
           debugPrint('Failed to load wallet capture config: $e');
         } finally {
@@ -208,6 +211,7 @@ class IosWalletCapturePage extends HookConsumerWidget {
           userId: userId,
           expiresAt: session?.expiresAt,
         );
+        await SiriShortcutAuthService.instance.syncPendingWalletCaptures();
         await loadDebugReport();
         if (context.mounted && showSuccessToast) {
           AppToast.success(context, context.l10n.credentialsSyncedSuccessfully);
@@ -283,7 +287,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
       try {
         // Write to iOS native layer.
         debugPrint('[WalletCapture] Writing to iOS native...');
-        await WalletCaptureService.instance.setConfig(updated);
+        await WalletCaptureService.instance.setConfig(
+          updated,
+          userId: authState.uid,
+        );
         debugPrint('[WalletCapture] iOS native write succeeded');
         await recordDebugEntry(
           action: 'toggle-native-write-success',
@@ -335,7 +342,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
         // Roll back optimistic update on failure.
         config.value = previous;
         try {
-          await WalletCaptureService.instance.setConfig(previous);
+          await WalletCaptureService.instance.setConfig(
+            previous,
+            userId: authState.uid,
+          );
         } catch (rollbackError) {
           debugPrint(
               'Failed to roll back native wallet capture config: $rollbackError');
@@ -404,7 +414,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
       );
       config.value = updated;
       try {
-        await WalletCaptureService.instance.setConfig(updated);
+        await WalletCaptureService.instance.setConfig(
+          updated,
+          userId: authState.uid,
+        );
         await loadDebugReport();
       } catch (e) {
         if (context.mounted) {
@@ -446,7 +459,10 @@ class IosWalletCapturePage extends HookConsumerWidget {
       );
       config.value = updated;
       try {
-        await WalletCaptureService.instance.setConfig(updated);
+        await WalletCaptureService.instance.setConfig(
+          updated,
+          userId: authState.uid,
+        );
         await loadDebugReport();
       } catch (e) {
         config.value = previous;
@@ -521,13 +537,19 @@ class IosWalletCapturePage extends HookConsumerWidget {
       if (debugSnapshot != null) {
         buffer.writeln('=== Configuration ===');
         buffer.writeln('Ready: ${debugSnapshot.isReady ? "Yes" : "No"}');
-        buffer.writeln('Supabase config: ${debugSnapshot.hasSupabaseConfig ? "Present" : "Missing"}');
-        buffer.writeln('Credentials: ${debugSnapshot.hasCredentials ? "Present" : "Missing"}');
-        buffer.writeln('Wallet capture: ${debugSnapshot.walletCaptureEnabled ? "Enabled" : "Disabled"}');
-        buffer.writeln('Destination: ${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})');
-        buffer.writeln('Token state: ${debugSnapshot.isAccessTokenExpired ? "Expired" : "Usable"}');
+        buffer.writeln(
+            'Supabase config: ${debugSnapshot.hasSupabaseConfig ? "Present" : "Missing"}');
+        buffer.writeln(
+            'Credentials: ${debugSnapshot.hasCredentials ? "Present" : "Missing"}');
+        buffer.writeln(
+            'Wallet capture: ${debugSnapshot.walletCaptureEnabled ? "Enabled" : "Disabled"}');
+        buffer.writeln(
+            'Destination: ${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})');
+        buffer.writeln(
+            'Token state: ${debugSnapshot.isAccessTokenExpired ? "Expired" : "Usable"}');
         if (debugSnapshot.expiresAt > 0) {
-          buffer.writeln('Expires at: ${DateTime.fromMillisecondsSinceEpoch(debugSnapshot.expiresAt * 1000, isUtc: true).toIso8601String()}');
+          buffer.writeln(
+              'Expires at: ${DateTime.fromMillisecondsSinceEpoch(debugSnapshot.expiresAt * 1000, isUtc: true).toIso8601String()}');
         }
         buffer.writeln('');
       }
@@ -558,338 +580,227 @@ class IosWalletCapturePage extends HookConsumerWidget {
     }
 
     return StatusBarOverlayRegion(
-        child: AdaptiveScaffold(
-      appBar: AdaptiveAppBar(
-        title: context.l10n.applePayIntegration,
-      ),
-      body: Container(
-        color: colorScheme.appBackground,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.only(
-              top: getSubPageTopPadding(context) + 16,
-              left: 24,
-              right: 24,
-              bottom: 40,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  context.l10n.autoCaptureDescription,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.mutedForeground,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Top Card: Icon + Selection — disabled until Apple Pay Integration is on.
-                AnimatedOpacity(
-                  opacity: isEnabled ? 1.0 : 0.4,
-                  duration: const Duration(milliseconds: 200),
-                  child: IgnorePointer(
-                    ignoring: !isEnabled,
-                    child: Container(
-                      decoration: cardDecoration,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Center(
-                            child: Container(
-                              width: 120,
-                              height: 120,
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? colorScheme.surfaceContainer
-                                    : const Color(0xFFF2F0F9),
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: SvgPicture.asset(
-                                'lib/assets/images/wallet_sync/apple_wallet.svg',
-                                fit: BoxFit.contain,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                          Text(
-                            context.l10n.logTransactionsTo,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          /* Dropdown Button Replica */
-                          GestureDetector(
-                            onTap: pickDestinationSpace,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? colorScheme.surfaceContainer
-                                    : colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: colorScheme.surfaceBorder,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    config.value.isPortfolio
-                                        ? Icons.business_center_rounded
-                                        : Icons.person_rounded,
-                                    size: 20,
-                                    color: colorScheme.foreground,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      config.value.scopeName,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.foreground,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 20,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            context.l10n.wallet,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          GestureDetector(
-                            onTap: pickDestinationWallet,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? colorScheme.surfaceContainer
-                                    : colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: colorScheme.surfaceBorder,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.account_balance_wallet_rounded,
-                                    size: 20,
-                                    color: colorScheme.foreground,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      selectedWalletLabel(walletsAsync),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.foreground,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    size: 20,
-                                    color: colorScheme.foreground,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+      child: AdaptiveScaffold(
+        appBar: AdaptiveAppBar(
+          title: context.l10n.applePayIntegration,
+        ),
+        body: Container(
+          color: colorScheme.appBackground,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.only(
+                top: getSubPageTopPadding(context) + 16,
+                left: 24,
+                right: 24,
+                bottom: 40,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    context.l10n.autoCaptureDescription,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.infoSurface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colorScheme.infoBorder),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.cloud_done_rounded,
+                          size: 20,
+                          color: colorScheme.info,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No internet while paying with Apple Pay?',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.foreground,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Don\'t worry. Moneko saves the transaction on your iPhone and automatically syncs it the next time you open the app with internet.',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.mutedForeground,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-                const SizedBox(height: 24),
-
-                // Bottom Card: Toggle + Connect Button
-                Container(
-                  decoration: cardDecoration,
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                  // Top Card: Icon + Selection — disabled until Apple Pay Integration is on.
+                  AnimatedOpacity(
+                    opacity: isEnabled ? 1.0 : 0.4,
+                    duration: const Duration(milliseconds: 200),
+                    child: IgnorePointer(
+                      ignoring: !isEnabled,
+                      child: Container(
+                        decoration: cardDecoration,
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 120,
+                                height: 120,
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? colorScheme.surfaceContainer
+                                      : const Color(0xFFF2F0F9),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: SvgPicture.asset(
+                                  'lib/assets/images/wallet_sync/apple_wallet.svg',
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                            Text(
+                              context.l10n.logTransactionsTo,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            /* Dropdown Button Replica */
+                            GestureDetector(
+                              onTap: pickDestinationSpace,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? colorScheme.surfaceContainer
+                                      : colorScheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colorScheme.surfaceBorder,
+                                  ),
+                                ),
+                                child: Row(
                                   children: [
-                                    Flexible(
+                                    Icon(
+                                      config.value.isPortfolio
+                                          ? Icons.business_center_rounded
+                                          : Icons.person_rounded,
+                                      size: 20,
+                                      color: colorScheme.foreground,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
                                       child: Text(
-                                        context.l10n.applePaySync,
+                                        config.value.scopeName,
                                         style: TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.w600,
                                           color: colorScheme.foreground,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: showSetupSheet,
-                                      behavior: HitTestBehavior.opaque,
-                                      child: Icon(
-                                        Icons.info_outline_rounded,
-                                        size: 16,
-                                        color: colorScheme.mutedForeground,
-                                      ),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: colorScheme.foreground,
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  context.l10n
-                                      .yourTransactionsAreAddedAutomatically,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: colorScheme.mutedForeground,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          AdaptiveSwitch(
-                            value: isEnabled,
-                            onChanged: toggleEnabled,
-                          ),
-                        ],
-                      ),
-                      if (isEnabled) ...[
-                        if (!hasNotificationPermission.value) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? colorScheme.warning.withValues(alpha: 0.1)
-                                  : colorScheme.warning.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(Icons.info_outline_rounded,
-                                    color: colorScheme.warning, size: 18),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        context.l10n.enableNotificationsSummary,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: isDark
-                                              ? colorScheme.foreground
-                                              : colorScheme.foreground
-                                                  .withValues(alpha: 0.8),
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      GestureDetector(
-                                        onTap: () => openAppSettings(),
-                                        behavior: HitTestBehavior.opaque,
-                                        child: Text(
-                                          context.l10n.openSettingsToEnable,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: PrimaryAdaptiveButton(
-                            onPressed: showSetupSheet,
-                            child: Text(
-                              context.l10n.startSetup,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.lock_rounded,
-                      size: 14,
-                      color: colorScheme.mutedForeground,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        context.l10n.transactionDataStoredSecurely,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.mutedForeground,
-                          height: 1.4,
+                            const SizedBox(height: 20),
+                            Text(
+                              context.l10n.wallet,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: colorScheme.foreground,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: pickDestinationWallet,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? colorScheme.surfaceContainer
+                                      : colorScheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colorScheme.surfaceBorder,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.account_balance_wallet_rounded,
+                                      size: 20,
+                                      color: colorScheme.foreground,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        selectedWalletLabel(walletsAsync),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: colorScheme.foreground,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                      color: colorScheme.foreground,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-                if (shouldShowDebugSection) ...[
+                  ),
+
                   const SizedBox(height: 24),
+
+                  // Bottom Card: Toggle + Connect Button
                   Container(
                     decoration: cardDecoration,
                     padding: const EdgeInsets.all(24),
@@ -897,23 +808,41 @@ class IosWalletCapturePage extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Debug report',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: colorScheme.foreground,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          context.l10n.applePaySync,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: showSetupSheet,
+                                        behavior: HitTestBehavior.opaque,
+                                        child: Icon(
+                                          Icons.info_outline_rounded,
+                                          size: 16,
+                                          color: colorScheme.mutedForeground,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Reproduce the failure, then refresh this report to inspect the last native shortcut steps.',
+                                    context.l10n
+                                        .yourTransactionsAreAddedAutomatically,
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: colorScheme.mutedForeground,
@@ -923,195 +852,338 @@ class IosWalletCapturePage extends HookConsumerWidget {
                                 ],
                               ),
                             ),
-                            if (isLoadingDebugReport.value)
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator.adaptive(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    colorScheme.primary,
+                            const SizedBox(width: 16),
+                            AdaptiveSwitch(
+                              value: isEnabled,
+                              onChanged: toggleEnabled,
+                            ),
+                          ],
+                        ),
+                        if (isEnabled) ...[
+                          if (!hasNotificationPermission.value) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? colorScheme.warning.withValues(alpha: 0.1)
+                                    : colorScheme.warning
+                                        .withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline_rounded,
+                                      color: colorScheme.warning, size: 18),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          context
+                                              .l10n.enableNotificationsSummary,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? colorScheme.foreground
+                                                : colorScheme.foreground
+                                                    .withValues(alpha: 0.8),
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        GestureDetector(
+                                          onTap: () => openAppSettings(),
+                                          behavior: HitTestBehavior.opaque,
+                                          child: Text(
+                                            context.l10n.openSettingsToEnable,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            SizedBox(
-                              width: 160,
-                              child: PrimaryAdaptiveButton(
-                                onPressed: isLoadingDebugReport.value
-                                    ? null
-                                    : () => loadDebugReport(),
-                                child: const Text('Refresh report'),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 160,
-                              child: PrimaryAdaptiveButton(
-                                onPressed: isSyncing.value
-                                    ? null
-                                    : () =>
-                                        syncCredentials(showSuccessToast: false),
-                                child: Text(
-                                  isSyncing.value
-                                      ? 'Syncing…'
-                                      : 'Sync credentials',
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 160,
-                              child: PrimaryAdaptiveButton(
-                                onPressed: (isLoadingDebugReport.value || debugReport.value == null)
-                                    ? null
-                                    : () => copyDebugReport(),
-                                child: const Text('Copy report'),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 160,
-                              child: AdaptiveButton(
-                                onPressed: isLoadingDebugReport.value
-                                    ? null
-                                    : () => clearDebugReport(),
-                                label: 'Clear log',
-                                style: AdaptiveButtonStyle.gray,
+                                ],
                               ),
                             ),
                           ],
-                        ),
-                      const SizedBox(height: 20),
-                      if (debugSnapshot != null) ...[
-                        _DebugStatusRow(
-                          label: 'Ready',
-                          value: debugSnapshot.isReady ? 'Yes' : 'No',
-                        ),
-                        _DebugStatusRow(
-                          label: 'Supabase config',
-                          value: debugSnapshot.hasSupabaseConfig
-                              ? 'Present'
-                              : 'Missing',
-                        ),
-                        _DebugStatusRow(
-                          label: 'Credentials',
-                          value: debugSnapshot.hasCredentials
-                              ? 'Present'
-                              : 'Missing',
-                        ),
-                        _DebugStatusRow(
-                          label: 'Wallet capture',
-                          value: debugSnapshot.walletCaptureEnabled
-                              ? 'Enabled'
-                              : 'Disabled',
-                        ),
-                        _DebugStatusRow(
-                          label: 'Destination',
-                          value:
-                              '${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})',
-                        ),
-                        _DebugStatusRow(
-                          label: 'Token state',
-                          value: debugSnapshot.isAccessTokenExpired
-                              ? 'Expired'
-                              : 'Usable',
-                        ),
-                        if (debugSnapshot.expiresAt > 0)
-                          _DebugStatusRow(
-                            label: 'Expires at',
-                            value: DateTime.fromMillisecondsSinceEpoch(
-                              debugSnapshot.expiresAt * 1000,
-                              isUtc: true,
-                            ).toIso8601String(),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: PrimaryAdaptiveButton(
+                              onPressed: showSetupSheet,
+                              child: Text(
+                                context.l10n.startSetup,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
                           ),
+                        ],
                       ],
-                      const SizedBox(height: 20),
-                      Text(
-                        'Recent native events',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.foreground,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.lock_rounded,
+                        size: 14,
+                        color: colorScheme.mutedForeground,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          context.l10n.transactionDataStoredSecurely,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.mutedForeground,
+                            height: 1.4,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (debugEntries.isEmpty)
-                        Text(
-                          'No events recorded yet.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: colorScheme.mutedForeground,
-                          ),
-                        )
-                      else
-                        Column(
-                          children: [
-                            for (final entry in debugEntries.reversed)
-                              Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: isDark ? 0.35 : 0.5),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: colorScheme.surfaceBorder,
-                                  ),
-                                ),
+                    ],
+                  ),
+                  if (shouldShowDebugSection) ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      decoration: cardDecoration,
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${entry.timestamp} • ${entry.source} / ${entry.action}',
+                                      'Debug report',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w600,
                                         color: colorScheme.foreground,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      entry.message,
+                                      'Reproduce the failure, then refresh this report to inspect the last native shortcut steps.',
                                       style: TextStyle(
-                                        fontSize: 13,
-                                        color: colorScheme.foreground,
+                                        fontSize: 14,
+                                        color: colorScheme.mutedForeground,
+                                        height: 1.3,
                                       ),
                                     ),
-                                    if (entry.details.isNotEmpty) ...[
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        entry.details.entries
-                                            .map((detail) =>
-                                                '${detail.key}: ${detail.value}')
-                                            .join('\n'),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: colorScheme.mutedForeground,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ],
                                   ],
                                 ),
                               ),
+                              if (isLoadingDebugReport.value)
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator.adaptive(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                width: 160,
+                                child: PrimaryAdaptiveButton(
+                                  onPressed: isLoadingDebugReport.value
+                                      ? null
+                                      : () => loadDebugReport(),
+                                  child: const Text('Refresh report'),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 160,
+                                child: PrimaryAdaptiveButton(
+                                  onPressed: isSyncing.value
+                                      ? null
+                                      : () => syncCredentials(
+                                          showSuccessToast: false),
+                                  child: Text(
+                                    isSyncing.value
+                                        ? 'Syncing…'
+                                        : 'Sync credentials',
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 160,
+                                child: PrimaryAdaptiveButton(
+                                  onPressed: (isLoadingDebugReport.value ||
+                                          debugReport.value == null)
+                                      ? null
+                                      : () => copyDebugReport(),
+                                  child: const Text('Copy report'),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 160,
+                                child: AdaptiveButton(
+                                  onPressed: isLoadingDebugReport.value
+                                      ? null
+                                      : () => clearDebugReport(),
+                                  label: 'Clear log',
+                                  style: AdaptiveButtonStyle.gray,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          if (debugSnapshot != null) ...[
+                            _DebugStatusRow(
+                              label: 'Ready',
+                              value: debugSnapshot.isReady ? 'Yes' : 'No',
+                            ),
+                            _DebugStatusRow(
+                              label: 'Supabase config',
+                              value: debugSnapshot.hasSupabaseConfig
+                                  ? 'Present'
+                                  : 'Missing',
+                            ),
+                            _DebugStatusRow(
+                              label: 'Credentials',
+                              value: debugSnapshot.hasCredentials
+                                  ? 'Present'
+                                  : 'Missing',
+                            ),
+                            _DebugStatusRow(
+                              label: 'Wallet capture',
+                              value: debugSnapshot.walletCaptureEnabled
+                                  ? 'Enabled'
+                                  : 'Disabled',
+                            ),
+                            _DebugStatusRow(
+                              label: 'Destination',
+                              value:
+                                  '${debugSnapshot.walletScopeName} (${debugSnapshot.walletScopeId})',
+                            ),
+                            _DebugStatusRow(
+                              label: 'Token state',
+                              value: debugSnapshot.isAccessTokenExpired
+                                  ? 'Expired'
+                                  : 'Usable',
+                            ),
+                            if (debugSnapshot.expiresAt > 0)
+                              _DebugStatusRow(
+                                label: 'Expires at',
+                                value: DateTime.fromMillisecondsSinceEpoch(
+                                  debugSnapshot.expiresAt * 1000,
+                                  isUtc: true,
+                                ).toIso8601String(),
+                              ),
                           ],
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
+                          const SizedBox(height: 20),
+                          Text(
+                            'Recent native events',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (debugEntries.isEmpty)
+                            Text(
+                              'No events recorded yet.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.mutedForeground,
+                              ),
+                            )
+                          else
+                            Column(
+                              children: [
+                                for (final entry in debugEntries.reversed)
+                                  Container(
+                                    width: double.infinity,
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.surfaceContainerHighest
+                                          .withValues(
+                                              alpha: isDark ? 0.35 : 0.5),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: colorScheme.surfaceBorder,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${entry.timestamp} • ${entry.source} / ${entry.action}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          entry.message,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: colorScheme.foreground,
+                                          ),
+                                        ),
+                                        if (entry.details.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            entry.details.entries
+                                                .map((detail) =>
+                                                    '${detail.key}: ${detail.value}')
+                                                .join('\n'),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color:
+                                                  colorScheme.mutedForeground,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }
 

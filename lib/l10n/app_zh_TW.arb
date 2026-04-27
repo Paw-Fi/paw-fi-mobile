@@ -2625,5 +2625,7 @@
   "getNotifiedWhenReady": "完成後通知你",
   "getNotifiedWhenReadyDescription": "當所有內容處理完成並加入你的 Moneko 帳戶後，我們會寄送確認電子郵件，並發送手機通知給你。",
   "add": "新增",
-  "forwardReceiptDescription": "轉寄你的線上收據，\n系統會自動記錄"
+  "forwardReceiptDescription": "轉寄你的線上收據，\n系統會自動記錄",
+  "walletCaptureOfflineTitle": "使用 Apple Pay 付款時沒有網路？",
+  "walletCaptureOfflineDescription": "別擔心，Moneko 會將交易儲存在你的 iPhone 上，並在你下次連上網路開啟 App 時自動同步。"
 }

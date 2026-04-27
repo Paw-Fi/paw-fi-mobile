@@ -45,4 +45,12 @@ class SiriShortcutAuthService {
     if (!Platform.isIOS) return;
     await _channel.invokeMethod<void>('clearAuthContext');
   }
+
+  Future<Map<String, dynamic>> syncPendingWalletCaptures() async {
+    if (!Platform.isIOS) return const <String, dynamic>{};
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'syncPendingWalletCaptures',
+    );
+    return result ?? const <String, dynamic>{};
+  }
 }

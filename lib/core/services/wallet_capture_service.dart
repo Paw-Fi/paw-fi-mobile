@@ -56,7 +56,7 @@ class WalletCaptureConfig {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap({String? userId}) {
     return {
       'enabled': enabled,
       'scopeId': scopeId,
@@ -64,6 +64,7 @@ class WalletCaptureConfig {
       'isPortfolio': isPortfolio,
       'accountId': accountId ?? '',
       'accountName': accountName ?? '',
+      if (userId != null) 'userId': userId,
     };
   }
 
@@ -97,11 +98,11 @@ class WalletCaptureService {
     return WalletCaptureConfig.fromMap(result);
   }
 
-  Future<void> setConfig(WalletCaptureConfig config) async {
+  Future<void> setConfig(WalletCaptureConfig config, {String? userId}) async {
     if (!Platform.isIOS) return;
     await _channel.invokeMethod<void>(
       'setWalletCaptureConfig',
-      config.toMap(),
+      config.toMap(userId: userId),
     );
   }
 

@@ -2698,5 +2698,7 @@
   "getNotifiedWhenReady": "รับการแจ้งเตือนเมื่อพร้อมแล้ว",
   "getNotifiedWhenReadyDescription": "เมื่อประมวลผลเสร็จทั้งหมดและเพิ่มเข้าบัญชี Moneko ของคุณแล้ว เราจะส่งอีเมลยืนยันและการแจ้งเตือนไปยังโทรศัพท์ของคุณ",
   "add": "เพิ่ม",
-  "forwardReceiptDescription": "ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ"
+  "forwardReceiptDescription": "ส่งต่อใบเสร็จออนไลน์ของคุณ\nเพื่อบันทึกอัตโนมัติ",
+  "walletCaptureOfflineTitle": "ไม่มีอินเทอร์เน็ตขณะชำระเงินด้วย Apple Pay",
+  "walletCaptureOfflineDescription": "ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต"
 }

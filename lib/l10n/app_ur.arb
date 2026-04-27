@@ -2627,5 +2627,7 @@
   "getNotifiedWhenReady": "تیار ہونے پر اطلاع حاصل کریں",
   "getNotifiedWhenReadyDescription": "جب سب کچھ پروسیس ہو کر آپ کے Moneko اکاؤنٹ میں شامل ہو جائے گا، تو ہم آپ کو تصدیقی ای میل اور فون نوٹیفکیشن بھیجیں گے۔",
   "add": "شامل کریں",
-  "forwardReceiptDescription": "اپنی آن لائن رسیدیں فارورڈ کریں\nتاکہ وہ خودکار طور پر ریکارڈ ہو جائیں"
+  "forwardReceiptDescription": "اپنی آن لائن رسیدیں فارورڈ کریں\nتاکہ وہ خودکار طور پر ریکارڈ ہو جائیں",
+  "walletCaptureOfflineTitle": "Apple Pay سے ادائیگی کرتے وقت انٹرنیٹ نہیں ہے کیا؟",
+  "walletCaptureOfflineDescription": "فکر نہ کریں۔ Moneko آپ کے iPhone پر لین دین محفوظ کر لیتا ہے اور جب آپ اگلی بار انٹرنیٹ کے ساتھ ایپ کھولیں گے تو خود بخود سنک ہو جائے گا۔"
 }

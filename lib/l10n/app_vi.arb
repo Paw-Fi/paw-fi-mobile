@@ -2680,5 +2680,7 @@
   "getNotifiedWhenReady": "Nhận thông báo khi hoàn tất",
   "getNotifiedWhenReadyDescription": "Khi mọi thứ được xử lý xong và thêm vào tài khoản Moneko của bạn, chúng tôi sẽ gửi email xác nhận và thông báo đến điện thoại của bạn.",
   "add": "Thêm",
-  "forwardReceiptDescription": "Chuyển tiếp hóa đơn online để được ghi lại tự động"
+  "forwardReceiptDescription": "Chuyển tiếp hóa đơn online để được ghi lại tự động",
+  "walletCaptureOfflineTitle": "Không có kết nối internet khi thanh toán bằng Apple Pay?",
+  "walletCaptureOfflineDescription": "Đừng lo. Moneko sẽ lưu giao dịch trên iPhone của bạn và tự động đồng bộ khi bạn mở lại ứng dụng có kết nối internet."
 }
