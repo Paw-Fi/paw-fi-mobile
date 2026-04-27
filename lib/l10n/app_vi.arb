@@ -2682,5 +2682,7 @@
   "add": "Thêm",
   "forwardReceiptDescription": "Chuyển tiếp hóa đơn online để được ghi lại tự động",
   "walletCaptureOfflineTitle": "Không có kết nối internet khi thanh toán bằng Apple Pay?",
-  "walletCaptureOfflineDescription": "Đừng lo. Moneko sẽ lưu giao dịch trên iPhone của bạn và tự động đồng bộ khi bạn mở lại ứng dụng có kết nối internet."
+  "walletCaptureOfflineDescription": "Đừng lo. Moneko sẽ lưu giao dịch trên iPhone của bạn và tự động đồng bộ khi bạn mở lại ứng dụng có kết nối internet.",
+  "currencyNotFound": "Không tìm thấy loại tiền tệ",
+  "currencyNotFoundDescription": "Hãy liên hệ với chúng tôi và tạm thời sử dụng loại tiền khác trong khi chúng tôi bổ sung hỗ trợ."
 }

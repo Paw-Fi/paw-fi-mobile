@@ -2629,5 +2629,7 @@
   "add": "شامل کریں",
   "forwardReceiptDescription": "اپنی آن لائن رسیدیں فارورڈ کریں\nتاکہ وہ خودکار طور پر ریکارڈ ہو جائیں",
   "walletCaptureOfflineTitle": "Apple Pay سے ادائیگی کرتے وقت انٹرنیٹ نہیں ہے کیا؟",
-  "walletCaptureOfflineDescription": "فکر نہ کریں۔ Moneko آپ کے iPhone پر لین دین محفوظ کر لیتا ہے اور جب آپ اگلی بار انٹرنیٹ کے ساتھ ایپ کھولیں گے تو خود بخود سنک ہو جائے گا۔"
+  "walletCaptureOfflineDescription": "فکر نہ کریں۔ Moneko آپ کے iPhone پر لین دین محفوظ کر لیتا ہے اور جب آپ اگلی بار انٹرنیٹ کے ساتھ ایپ کھولیں گے تو خود بخود سنک ہو جائے گا۔",
+  "currencyNotFound": "کرنسی نہیں ملی",
+  "currencyNotFoundDescription": "ہم سے رابطہ کریں اور فی الحال کوئی دوسری کرنسی استعمال کریں جب تک ہم اس کی سپورٹ شامل کر رہے ہیں۔"
 }

@@ -2683,5 +2683,7 @@
   "add": "Hinzufügen",
   "forwardReceiptDescription": "Leite deine Online-Belege zur automatischen Erfassung weiter",
   "walletCaptureOfflineTitle": "Kein Internet beim Bezahlen mit Apple Pay?",
-  "walletCaptureOfflineDescription": "Keine Sorge. Moneko speichert die Transaktion auf deinem iPhone und synchronisiert sie automatisch, sobald du die App das nächste Mal mit Internet öffnest."
+  "walletCaptureOfflineDescription": "Keine Sorge. Moneko speichert die Transaktion auf deinem iPhone und synchronisiert sie automatisch, sobald du die App das nächste Mal mit Internet öffnest.",
+  "currencyNotFound": "Währung nicht gefunden",
+  "currencyNotFoundDescription": "Kontaktiere uns und nutze vorerst eine andere Währung, während wir die Unterstützung dafür hinzufügen."
 }

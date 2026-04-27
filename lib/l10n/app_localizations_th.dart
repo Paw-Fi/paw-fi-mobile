@@ -7117,4 +7117,10 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get walletCaptureOfflineDescription => 'ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต';
+
+  @override
+  String get currencyNotFound => 'ไม่พบสกุลเงิน';
+
+  @override
+  String get currencyNotFoundDescription => 'ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ';
 }

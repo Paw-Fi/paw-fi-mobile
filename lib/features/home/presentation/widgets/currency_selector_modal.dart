@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:moneko/core/constants/links.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -287,47 +289,49 @@ class _CurrencySelectorScreenState
               ),
             ),
             Expanded(
-              child: ReorderableListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                onReorderStart: (index) {
-                  // Provide haptic feedback when drag starts
-                  HapticFeedback.mediumImpact();
-                },
-                onReorder: (oldIndex, newIndex) {
-                  // Provide haptic feedback on successful reorder
-                  HapticFeedback.lightImpact();
+              child: visibleCurrencies.isEmpty && query.isNotEmpty
+                  ? _buildEmptySearchState(context, colorScheme, query)
+                  : ReorderableListView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      onReorderStart: (index) {
+                        // Provide haptic feedback when drag starts
+                        HapticFeedback.mediumImpact();
+                      },
+                      onReorder: (oldIndex, newIndex) {
+                        // Provide haptic feedback on successful reorder
+                        HapticFeedback.lightImpact();
 
-                  // Adjust index if moving down
-                  if (newIndex > oldIndex) {
-                    newIndex -= 1;
-                  }
+                        // Adjust index if moving down
+                        if (newIndex > oldIndex) {
+                          newIndex -= 1;
+                        }
 
-                  // Reorder the list
-                  final reorderedList =
-                      List<CurrencySummary>.from(visibleCurrencies);
-                  final item = reorderedList.removeAt(oldIndex);
-                  reorderedList.insert(newIndex, item);
+                        // Reorder the list
+                        final reorderedList =
+                            List<CurrencySummary>.from(visibleCurrencies);
+                        final item = reorderedList.removeAt(oldIndex);
+                        reorderedList.insert(newIndex, item);
 
-                  // Save new order
-                  final newOrder =
-                      reorderedList.map((s) => s.currencyCode).toList();
-                  _saveCustomOrder(newOrder);
-                },
-                children: [
-                  // Individual currency cards
-                  for (final summary in visibleCurrencies)
-                    Padding(
-                      key: Key(summary.currencyCode),
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _CurrencyCard(
-                        summary: summary,
-                        transactionCount:
-                            (currencyCounts[summary.currencyCode] ??
-                                summary.transactionCount),
-                        isSelected:
-                            filterState.selectedCurrency?.toUpperCase() ==
-                                summary.currencyCode,
-                        onTap: () async {
+                        // Save new order
+                        final newOrder =
+                            reorderedList.map((s) => s.currencyCode).toList();
+                        _saveCustomOrder(newOrder);
+                      },
+                      children: [
+                        // Individual currency cards
+                        for (final summary in visibleCurrencies)
+                          Padding(
+                            key: Key(summary.currencyCode),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _CurrencyCard(
+                              summary: summary,
+                              transactionCount:
+                                  (currencyCounts[summary.currencyCode] ??
+                                      summary.transactionCount),
+                              isSelected:
+                                  filterState.selectedCurrency?.toUpperCase() ==
+                                      summary.currencyCode,
+                              onTap: () async {
                           final previousCurrency = filterState.selectedCurrency;
                           final service =
                               ref.read(currencyPreferenceServiceProvider);
@@ -533,6 +537,77 @@ class _CurrencySelectorScreenState
       ),
     );
   }
+
+  Widget _buildEmptySearchState(BuildContext context, ColorScheme colorScheme, String searchQuery) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_outlined,
+            size: 48,
+            color: colorScheme.mutedForeground.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.currencyNotFound,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.foreground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            context.l10n.currencyNotFoundDescription,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: colorScheme.mutedForeground,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _ContactButton(
+                label: 'Email',
+                icon: Icons.email_outlined,
+                onTap: () {
+                  // Launch email with predefined subject and body
+                  final uri = Uri(
+                    scheme: 'mailto',
+                    path: 'hello@moneko.io',
+                    queryParameters: {
+                      'subject': 'Request: Add my local currency',
+                      'body': "Hi Moneko team,\n\nI'd love to use Moneko with my local currency. Could you please add support for $searchQuery?\n\nThanks!",
+                    },
+                  );
+                  launchUrl(uri);
+                },
+                colorScheme: colorScheme,
+              ),
+              const SizedBox(width: 12),
+              _ContactButton(
+                label: 'Discord',
+                icon: Icons.chat_bubble_outline,
+                onTap: () {
+                  // Launch Discord invite link
+                  final uri = Uri.parse(Links.discordSupport);
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Currency icon widget with flag image and fallback
@@ -669,6 +744,60 @@ class _CurrencyCard extends StatelessWidget {
                       color: colorScheme.mutedForeground,
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Contact button widget for empty state
+class _ContactButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final ColorScheme colorScheme;
+
+  const _ContactButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.0),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: colorScheme.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.foreground,
                 ),
               ),
             ],

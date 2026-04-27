@@ -2627,5 +2627,7 @@
   "add": "新增",
   "forwardReceiptDescription": "轉寄你的線上收據，\n系統會自動記錄",
   "walletCaptureOfflineTitle": "使用 Apple Pay 付款時沒有網路？",
-  "walletCaptureOfflineDescription": "別擔心，Moneko 會將交易儲存在你的 iPhone 上，並在你下次連上網路開啟 App 時自動同步。"
+  "walletCaptureOfflineDescription": "別擔心，Moneko 會將交易儲存在你的 iPhone 上，並在你下次連上網路開啟 App 時自動同步。",
+  "currencyNotFound": "找不到此貨幣",
+  "currencyNotFoundDescription": "請聯絡我們，在我們新增支援期間先使用其他貨幣。"
 }
