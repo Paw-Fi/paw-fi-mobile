@@ -562,6 +562,16 @@ final transactionsFeedServiceProvider =
 
 final transactionsFeedRefreshSignalProvider = StateProvider<int>((ref) => 0);
 
+final transactionsFeedAllItemsProvider = FutureProvider.autoDispose
+    .family<List<ExpenseEntry>, TransactionsFeedQuery>((ref, query) async {
+  ref.watch(transactionsFeedRefreshSignalProvider);
+  if (query.userId.isEmpty) {
+    return const <ExpenseEntry>[];
+  }
+
+  return ref.watch(transactionsFeedServiceProvider).fetchAllPages(query);
+});
+
 final transactionsFeedProvider = StateNotifierProvider.autoDispose.family<
     TransactionsFeedNotifier, TransactionsFeedState, TransactionsFeedQuery>(
   (ref, query) {

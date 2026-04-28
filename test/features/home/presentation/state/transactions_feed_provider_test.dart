@@ -16,6 +16,7 @@ ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
 class _FakeTransactionsFeedService implements TransactionsFeedService {
   int summaryCallCount = 0;
   int pageCallCount = 0;
+  int allPagesCallCount = 0;
 
   TransactionsFeedSummary summary = const TransactionsFeedSummary(
     transactionCount: 3,
@@ -48,6 +49,7 @@ class _FakeTransactionsFeedService implements TransactionsFeedService {
 
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
+    allPagesCallCount += 1;
     final items = <ExpenseEntry>[];
     for (final page in pages) {
       items.addAll(page.items);
@@ -200,5 +202,55 @@ void main() {
     expect(service.summaryCallCount, 2);
     expect(service.pageCallCount, 2);
     expect(state.items.map((expense) => expense.id).toList(), ['b']);
+  });
+
+  test('all items provider fetches every page and reacts to refresh signal',
+      () async {
+    final service = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [_entry('a', DateTime(2026, 4, 2))],
+        hasMore: true,
+        nextCursor: TransactionsFeedCursor(
+          date: DateTime(2026, 4, 2),
+          createdAt: DateTime(2026, 4, 2, 10),
+          id: 'a',
+        ),
+      ),
+      TransactionsFeedPageResult(
+        items: [_entry('b', DateTime(2026, 4, 1))],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        transactionsFeedServiceProvider.overrideWithValue(service),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final query = buildQuery();
+    final initialItems =
+        await container.read(transactionsFeedAllItemsProvider(query).future);
+
+    expect(initialItems.map((expense) => expense.id).toList(), ['a', 'b']);
+    expect(service.allPagesCallCount, 1);
+
+    service.pages
+      ..clear()
+      ..add(
+        TransactionsFeedPageResult(
+          items: [_entry('c', DateTime(2026, 4, 3))],
+          hasMore: false,
+          nextCursor: null,
+        ),
+      );
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state++;
+
+    final refreshedItems =
+        await container.read(transactionsFeedAllItemsProvider(query).future);
+
+    expect(refreshedItems.map((expense) => expense.id).toList(), ['c']);
+    expect(service.allPagesCallCount, 2);
   });
 }

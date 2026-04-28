@@ -156,6 +156,90 @@ void main() {
   });
 
   group('buildVisibleTransactionRenderItems', () {
+    test('builds complete header totals from fully deduped derived data', () {
+      final result = deriveTransactionsPageData(
+        TransactionsPageFilterInput(
+          baseExpenses: [
+            _entry(
+              id: 'actual-rent',
+              date: DateTime(2026, 4, 12),
+              amountCents: 1200000,
+              currency: 'INR',
+              category: 'rent',
+              rawText: 'rent',
+              type: 'expense',
+            ),
+            _entry(
+              id: 'food',
+              date: DateTime(2026, 4, 10),
+              amountCents: 10000,
+              currency: 'INR',
+              category: 'food',
+              type: 'expense',
+            ),
+          ],
+          projectedRecurringExpenses: [
+            _entry(
+              id: 'projected-rent',
+              date: DateTime(2026, 4, 12),
+              amountCents: 1200000,
+              currency: 'INR',
+              category: 'rent',
+              rawText: 'rent',
+              type: 'expense',
+            ),
+          ],
+          searchQuery: '',
+          selectedCategory: 'all',
+          selectedType: 'all',
+          selectedCurrency: 'INR',
+          selectedDateFilter: DateRangeFilter.thisMonth,
+          customStart: null,
+          customEnd: null,
+          now: DateTime(2026, 4, 28),
+          pinnedHouseholdId: null,
+          activeAccountType: ActiveWalletType.personal,
+          activeAccountHouseholdId: null,
+          selectedHouseholdId: null,
+        ),
+      );
+
+      final totals = buildCompleteTransactionGroupTotals(result.monthGroups);
+      final monthGroup = totals.monthGroupFor(DateTime(2026, 4, 1));
+      final dayGroup = totals.dayGroupFor(DateTime(2026, 4, 12));
+
+      expect(monthGroup?.total, -12100);
+      expect(dayGroup?.total, -12000);
+    });
+
+    test(
+        'marks the oldest loaded month and day incomplete when more pages exist',
+        () {
+      final completeness = resolveTransactionGroupCompleteness(
+        loadedExpenses: [
+          _entry(id: 'newer', date: DateTime(2026, 4, 10), amountCents: 100),
+          _entry(id: 'oldest', date: DateTime(2026, 4, 1), amountCents: 200),
+        ],
+        hasMore: true,
+      );
+
+      expect(completeness.isMonthComplete(DateTime(2026, 4, 1)), isFalse);
+      expect(completeness.isDayComplete(DateTime(2026, 4, 1)), isFalse);
+      expect(completeness.isDayComplete(DateTime(2026, 4, 10)), isTrue);
+    });
+
+    test('keeps all group totals complete when the feed is fully loaded', () {
+      final completeness = resolveTransactionGroupCompleteness(
+        loadedExpenses: [
+          _entry(id: 'only', date: DateTime(2026, 4, 1), amountCents: 100),
+        ],
+        hasMore: false,
+      );
+
+      expect(completeness.isMonthComplete(DateTime(2026, 4, 1)), isTrue);
+      expect(completeness.isDayComplete(DateTime(2026, 4, 1)), isTrue);
+    });
+
     test(
         'keeps entire day together when the requested visible count lands mid-day',
         () {
@@ -203,6 +287,34 @@ void main() {
             .toList(),
         ['a', 'b'],
       );
+    });
+
+    test('builds stable render item index by key after appending older rows',
+        () {
+      final initialItems = buildVisibleTransactionRenderItems(
+        monthGroups: groupTransactionsByMonth([
+          _entry(id: 'newer', date: DateTime(2026, 4, 10), amountCents: 100),
+          _entry(id: 'anchor', date: DateTime(2026, 4, 8), amountCents: 200),
+        ]),
+        visibleExpenseCount: 2,
+      );
+      final updatedItems = buildVisibleTransactionRenderItems(
+        monthGroups: groupTransactionsByMonth([
+          _entry(id: 'newer', date: DateTime(2026, 4, 10), amountCents: 100),
+          _entry(id: 'anchor', date: DateTime(2026, 4, 8), amountCents: 200),
+          _entry(id: 'older', date: DateTime(2026, 4, 1), amountCents: 300),
+        ]),
+        visibleExpenseCount: 3,
+      );
+
+      final anchorKey =
+          initialItems.singleWhere((item) => item.expense?.id == 'anchor').key;
+      final updatedIndexByKey = buildTransactionRenderItemIndexByKey(
+        updatedItems,
+      );
+
+      expect(updatedIndexByKey[anchorKey], isNotNull);
+      expect(updatedItems[updatedIndexByKey[anchorKey]!].expense?.id, 'anchor');
     });
   });
 }

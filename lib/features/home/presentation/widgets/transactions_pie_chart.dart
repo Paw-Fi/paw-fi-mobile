@@ -38,6 +38,39 @@ class TransactionsPieChart extends StatefulWidget {
   State<TransactionsPieChart> createState() => _TransactionsPieChartState();
 }
 
+List<CategorySummary> buildTransactionsPieCategorySummaries(
+  List<ExpenseEntry> expenses,
+) {
+  final categoryTotals = <String, double>{};
+  final categoryCounts = <String, int>{};
+
+  for (final expense in expenses) {
+    final category = _normalizePieCategory(expense.category);
+    categoryTotals[category] =
+        (categoryTotals[category] ?? 0) + expense.amount.abs();
+    categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+  }
+
+  return categoryTotals.entries.map((entry) {
+    return CategorySummary(
+      category: entry.key,
+      amount: entry.value,
+      transactionCount: categoryCounts[entry.key] ?? 0,
+      color: getCategoryColor(entry.key),
+    );
+  }).toList()
+    ..sort((left, right) => right.amount.compareTo(left.amount));
+}
+
+bool isTransactionsPieCategoryNavigable(String? category) {
+  return _normalizePieCategory(category).isNotEmpty;
+}
+
+String _normalizePieCategory(String? category) {
+  final normalized = (category ?? 'uncategorized').trim().toLowerCase();
+  return normalized.isEmpty ? 'uncategorized' : normalized;
+}
+
 class _TransactionsPieChartState extends State<TransactionsPieChart> {
   int? _touchedIndex;
 
@@ -55,27 +88,6 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
     );
   }
 
-  List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
-    final Map<String, double> categoryTotals = {};
-    final Map<String, int> categoryCounts = {};
-
-    for (final expense in expenses) {
-      final cat = (expense.category ?? 'uncategorized').toLowerCase();
-      categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
-      categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
-    }
-
-    return categoryTotals.entries.map((e) {
-      return CategorySummary(
-        category: e.key,
-        amount: e.value,
-        transactionCount: categoryCounts[e.key] ?? 0,
-        color: getCategoryColor(e.key),
-      );
-    }).toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
-  }
-
   double _getTotalSpent(List<ExpenseEntry> expenses) {
     return expenses.fold(0.0, (sum, e) => sum + e.amount.abs());
   }
@@ -86,27 +98,9 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
         .where((e) => (e.type ?? 'expense').toLowerCase() != 'income')
         .toList();
 
-    // Take top 5 and group rest into "other" if there are many
     var categorySummaries = widget.categorySummariesOverride != null
         ? List<CategorySummary>.from(widget.categorySummariesOverride!)
-        : _getCategorySummaries(spendOnly);
-    if (categorySummaries.length > 6) {
-      final visible = categorySummaries.take(5).toList(growable: true);
-      final otherItems = categorySummaries.skip(5);
-      final otherAmount =
-          otherItems.fold<double>(0, (sum, item) => sum + item.amount);
-      final otherCount =
-          otherItems.fold<int>(0, (sum, item) => sum + item.transactionCount);
-      visible.add(
-        CategorySummary(
-          category: 'other',
-          amount: otherAmount,
-          transactionCount: otherCount,
-          color: widget.colorScheme.muted,
-        ),
-      );
-      categorySummaries = visible;
-    }
+        : buildTransactionsPieCategorySummaries(spendOnly);
 
     final totalSpent = widget.totalSpentOverride ?? _getTotalSpent(spendOnly);
     final hasData = totalSpent > 0 && categorySummaries.isNotEmpty;
@@ -275,14 +269,21 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
               final category = categorySummaries[index];
               final percent = (category.amount / totalSpent) * 100;
               final isSelected = _touchedIndex == index;
+              final canOpenCategory = isTransactionsPieCategoryNavigable(
+                category.category,
+              );
 
               return GestureDetector(
                 onTap: () {
                   setState(() {
                     _touchedIndex = isSelected ? null : index;
                   });
+                  if (canOpenCategory) {
+                    _openCategoryDetails(context, category.category);
+                  }
                 },
                 child: AnimatedContainer(
+                  key: ValueKey('transactions-pie-legend-${category.category}'),
                   duration: const Duration(milliseconds: 200),
                   width: 180, // Increased width to show it's scrollable
                   decoration: BoxDecoration(
@@ -365,40 +366,31 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                       Row(
                         children: [
                           Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: category.category == 'other'
-                                  ? null
-                                  : () => _openCategoryDetails(
-                                      context,
-                                      category.category,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayAmount(category.amount),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: widget.colorScheme.foreground,
+                                      letterSpacing: -0.5,
                                     ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      displayAmount(category.amount),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: widget.colorScheme.foreground,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (category.category != 'other') ...[
-                                    const SizedBox(width: 2),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 16,
-                                      color: widget.colorScheme.mutedForeground,
-                                    ),
-                                  ],
+                                ),
+                                if (canOpenCategory) ...[
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 16,
+                                    color: widget.colorScheme.mutedForeground,
+                                  ),
                                 ],
-                              ),
+                              ],
                             ),
                           ),
                         ],

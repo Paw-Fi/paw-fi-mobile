@@ -59,6 +59,7 @@ enum TransactionRenderItemType {
 
 class TransactionRenderItem {
   final TransactionRenderItemType type;
+  final String key;
   final MonthTransactionGroup? monthGroup;
   final DayTransactionGroup? dayGroup;
   final ExpenseEntry? expense;
@@ -67,6 +68,7 @@ class TransactionRenderItem {
 
   const TransactionRenderItem._({
     required this.type,
+    required this.key,
     this.monthGroup,
     this.dayGroup,
     this.expense,
@@ -74,24 +76,29 @@ class TransactionRenderItem {
     this.isLast = false,
   });
 
-  const TransactionRenderItem.monthHeader(MonthTransactionGroup monthGroup)
+  TransactionRenderItem.monthHeader(MonthTransactionGroup monthGroup)
       : this._(
           type: TransactionRenderItemType.monthHeader,
+          key:
+              'month:${monthGroup.monthStart.year}-${monthGroup.monthStart.month}',
           monthGroup: monthGroup,
         );
 
-  const TransactionRenderItem.dayHeader(DayTransactionGroup dayGroup)
+  TransactionRenderItem.dayHeader(DayTransactionGroup dayGroup)
       : this._(
           type: TransactionRenderItemType.dayHeader,
+          key:
+              'day:${dayGroup.date.year}-${dayGroup.date.month}-${dayGroup.date.day}',
           dayGroup: dayGroup,
         );
 
-  const TransactionRenderItem.entry({
+  TransactionRenderItem.entry({
     required ExpenseEntry expense,
     required bool isFirst,
     required bool isLast,
   }) : this._(
           type: TransactionRenderItemType.entry,
+          key: 'entry:${expense.id}',
           expense: expense,
           isFirst: isFirst,
           isLast: isLast,
@@ -99,6 +106,110 @@ class TransactionRenderItem {
 
   bool get isMonthHeader => type == TransactionRenderItemType.monthHeader;
   bool get isDayHeader => type == TransactionRenderItemType.dayHeader;
+}
+
+Map<String, int> buildTransactionRenderItemIndexByKey(
+  List<TransactionRenderItem> items,
+) {
+  return {
+    for (var index = 0; index < items.length; index++) items[index].key: index,
+  };
+}
+
+class TransactionGroupCompleteness {
+  final Set<DateTime> incompleteMonthStarts;
+  final Set<DateTime> incompleteDays;
+
+  const TransactionGroupCompleteness({
+    this.incompleteMonthStarts = const <DateTime>{},
+    this.incompleteDays = const <DateTime>{},
+  });
+
+  bool isMonthComplete(DateTime monthStart) {
+    final key = DateTime(monthStart.year, monthStart.month, 1);
+    return !incompleteMonthStarts.contains(key);
+  }
+
+  bool isDayComplete(DateTime date) {
+    final key = DateTime(date.year, date.month, date.day);
+    return !incompleteDays.contains(key);
+  }
+}
+
+class CompleteTransactionGroupTotals {
+  final Map<DateTime, MonthTransactionGroup> monthGroupsByStart;
+  final Map<DateTime, DayTransactionGroup> dayGroupsByDate;
+
+  const CompleteTransactionGroupTotals({
+    this.monthGroupsByStart = const <DateTime, MonthTransactionGroup>{},
+    this.dayGroupsByDate = const <DateTime, DayTransactionGroup>{},
+  });
+
+  MonthTransactionGroup? monthGroupFor(DateTime monthStart) {
+    final key = DateTime(monthStart.year, monthStart.month, 1);
+    return monthGroupsByStart[key];
+  }
+
+  DayTransactionGroup? dayGroupFor(DateTime date) {
+    final key = DateTime(date.year, date.month, date.day);
+    return dayGroupsByDate[key];
+  }
+}
+
+TransactionGroupCompleteness resolveTransactionGroupCompleteness({
+  required List<ExpenseEntry> loadedExpenses,
+  required bool hasMore,
+}) {
+  if (!hasMore || loadedExpenses.isEmpty) {
+    return const TransactionGroupCompleteness();
+  }
+
+  final oldestLoaded = loadedExpenses.reduce(
+    (oldest, expense) => expense.date.isBefore(oldest.date) ? expense : oldest,
+  );
+  final oldestDay = DateTime(
+    oldestLoaded.date.year,
+    oldestLoaded.date.month,
+    oldestLoaded.date.day,
+  );
+
+  return TransactionGroupCompleteness(
+    incompleteMonthStarts: {DateTime(oldestDay.year, oldestDay.month, 1)},
+    incompleteDays: {oldestDay},
+  );
+}
+
+CompleteTransactionGroupTotals buildCompleteTransactionGroupTotals(
+  List<MonthTransactionGroup> monthGroups,
+) {
+  if (monthGroups.isEmpty) {
+    return const CompleteTransactionGroupTotals();
+  }
+
+  final monthGroupsByStart = <DateTime, MonthTransactionGroup>{};
+  final dayGroupsByDate = <DateTime, DayTransactionGroup>{};
+
+  for (final monthGroup in monthGroups) {
+    final monthKey = DateTime(
+      monthGroup.monthStart.year,
+      monthGroup.monthStart.month,
+      1,
+    );
+    monthGroupsByStart[monthKey] = monthGroup;
+
+    for (final dayGroup in groupTransactionsByDay(monthGroup.expenses)) {
+      dayGroupsByDate[DateTime(
+        dayGroup.date.year,
+        dayGroup.date.month,
+        dayGroup.date.day,
+      )] = dayGroup;
+    }
+  }
+
+  return CompleteTransactionGroupTotals(
+    monthGroupsByStart: monthGroupsByStart,
+    dayGroupsByDate: dayGroupsByDate,
+  );
 }
 
 TransactionsPageDerivedData deriveTransactionsPageData(

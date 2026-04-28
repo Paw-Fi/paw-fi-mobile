@@ -334,6 +334,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       return;
     }
     await ref.read(transactionsFeedProvider(query).notifier).refresh();
+    ref.invalidate(transactionsFeedAllItemsProvider(query));
   }
 
   Future<void> _exportTransactions(
@@ -483,6 +484,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     final feedState = ref.watch(transactionsFeedProvider(feedQuery));
     _baseExpenses = feedState.items;
+    final shouldLoadCompleteGroupTotals = range != null &&
+        range['from']!.year == range['to']!.year &&
+        range['from']!.month == range['to']!.month;
+    final completeActualExpensesState = shouldLoadCompleteGroupTotals
+        ? ref.watch(transactionsFeedAllItemsProvider(feedQuery))
+        : null;
+    final completeActualExpenses = completeActualExpensesState?.valueOrNull;
+    final shouldSuppressHeaderTotals = shouldLoadCompleteGroupTotals &&
+        feedState.hasMore &&
+        completeActualExpenses == null;
 
     final projectedOnlyDerivedData = deriveTransactionsPageData(
       TransactionsPageFilterInput(
@@ -509,6 +520,33 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       userNow: userNow,
       projectedRecurringExpenses: projectedRecurringExpenses,
     );
+    final completeGroupTotals = completeActualExpenses == null
+        ? const CompleteTransactionGroupTotals()
+        : buildCompleteTransactionGroupTotals(
+            deriveTransactionsPageData(
+              TransactionsPageFilterInput(
+                baseExpenses: completeActualExpenses,
+                projectedRecurringExpenses: projectedRecurringExpenses,
+                searchQuery: _debouncedSearchQuery,
+                selectedCategory: selectedCategory,
+                selectedType: selectedType,
+                selectedCurrency: selectedCurrency,
+                selectedDateFilter: _selectedDateFilter,
+                customStart: _customStart,
+                customEnd: _customEnd,
+                now: userNow,
+                pinnedHouseholdId: widget.householdId,
+                activeAccountType: householdScope.activeAccountType,
+                activeAccountHouseholdId:
+                    householdScope.activeAccountHouseholdId,
+                selectedHouseholdId: householdScope.selectedHouseholdId,
+              ),
+            ).monthGroups,
+          );
+    final groupCompleteness = resolveTransactionGroupCompleteness(
+      loadedExpenses: feedState.items,
+      hasMore: feedState.hasMore,
+    );
 
     final chartSummary = feedState.summary
         .addingExpenses(projectedOnlyDerivedData.filteredExpenses);
@@ -521,6 +559,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       feedQuery: feedQuery,
       feedState: feedState,
       derivedData: derivedData,
+      groupCompleteness: groupCompleteness,
+      completeGroupTotals: completeGroupTotals,
+      shouldSuppressHeaderTotals: shouldSuppressHeaderTotals,
       chartSummary: chartSummary,
       availableCategories: availableCategories,
       currentUserId: currentUserId,
@@ -549,6 +590,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     required TransactionsFeedQuery feedQuery,
     required TransactionsFeedState feedState,
     required TransactionsPageDerivedData derivedData,
+    required TransactionGroupCompleteness groupCompleteness,
+    required CompleteTransactionGroupTotals completeGroupTotals,
+    required bool shouldSuppressHeaderTotals,
     required TransactionsFeedSummary chartSummary,
     required List<String> availableCategories,
     required String currentUserId,
@@ -559,6 +603,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final visibleListItems = buildVisibleTransactionRenderItems(
       monthGroups: derivedData.monthGroups,
       visibleExpenseCount: derivedData.filteredExpenses.length,
+    );
+    final visibleListItemIndexByKey = buildTransactionRenderItemIndexByKey(
+      visibleListItems,
     );
 
     // Prepare Filter Menu Items
@@ -592,6 +639,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             await ref
                 .read(transactionsFeedProvider(feedQuery).notifier)
                 .refresh();
+            ref.invalidate(transactionsFeedAllItemsProvider(feedQuery));
           },
           child: AutoPaginatedScroll(
             hasMore: feedState.hasMore,
@@ -776,18 +824,34 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           (context, index) {
                             final item = visibleListItems[index];
                             if (item.isMonthHeader) {
+                              final completeMonthGroup = completeGroupTotals
+                                  .monthGroupFor(item.monthGroup!.monthStart);
                               return _buildMonthHeader(
                                 context,
                                 item.monthGroup!,
                                 colorScheme,
+                                key: ValueKey(item.key),
+                                isTotalComplete: !shouldSuppressHeaderTotals &&
+                                    groupCompleteness.isMonthComplete(
+                                      item.monthGroup!.monthStart,
+                                    ),
+                                totalOverrideGroup: completeMonthGroup,
                               );
                             }
                             if (item.isDayHeader) {
+                              final completeDayGroup = completeGroupTotals
+                                  .dayGroupFor(item.dayGroup!.date);
                               return _buildDayHeader(
                                 context,
                                 item.dayGroup!,
                                 colorScheme,
+                                key: ValueKey(item.key),
                                 preferredTimezone: contact?.preferredTimezone,
+                                isTotalComplete: !shouldSuppressHeaderTotals &&
+                                    groupCompleteness.isDayComplete(
+                                      item.dayGroup!.date,
+                                    ),
+                                totalOverrideGroup: completeDayGroup,
                               );
                             }
 
@@ -796,6 +860,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               item.expense!,
                               contact,
                               colorScheme,
+                              key: ValueKey(item.key),
                               currentUserId: currentUserId,
                               accountLabelsById: accountLabelsById,
                               recurringTransactionsById:
@@ -805,6 +870,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             );
                           },
                           childCount: visibleListItems.length,
+                          findChildIndexCallback: (key) {
+                            final valueKey = key;
+                            if (valueKey is! ValueKey<String>) {
+                              return null;
+                            }
+                            return visibleListItemIndexByKey[valueKey.value];
+                          },
                         ),
                       ),
 
@@ -842,34 +914,42 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Widget _buildMonthHeader(
     BuildContext context,
     MonthTransactionGroup group,
-    ColorScheme colorScheme,
-  ) {
+    ColorScheme colorScheme, {
+    Key? key,
+    bool isTotalComplete = true,
+    MonthTransactionGroup? totalOverrideGroup,
+  }) {
     final locale = Localizations.localeOf(context).toString();
     final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
 
+    final totalGroup = totalOverrideGroup ?? group;
     final selectedCurrency =
         ref.read(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final currencies = group.expenses
+    final currencies = totalGroup.expenses
         .map((expense) => expense.currency?.toUpperCase())
         .where((currency) => currency != null && currency.isNotEmpty)
         .cast<String>()
         .toSet();
 
     String? totalString;
-    if (selectedCurrency != null) {
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+    final total = totalGroup.total;
+    if (!isTotalComplete && totalOverrideGroup == null) {
+      totalString = null;
+    } else if (selectedCurrency != null) {
+      final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length == 1) {
       final currency = currencies.first;
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+      final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(currency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length > 1) {
       totalString = context.l10n.multipleCurrencies;
     }
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
       child: Row(
         children: [
@@ -902,7 +982,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     BuildContext context,
     DayTransactionGroup group,
     ColorScheme colorScheme, {
+    Key? key,
     required String? preferredTimezone,
+    bool isTotalComplete = true,
+    DayTransactionGroup? totalOverrideGroup,
   }) {
     final now = effectiveNow(preferredTimezone: preferredTimezone);
     final today = DateTime(now.year, now.month, now.day);
@@ -919,29 +1002,35 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       dateLabel = DateFormat('MMM d', locale).format(date);
     }
 
+    final totalGroup = totalOverrideGroup ?? group;
     final selectedCurrency =
         ref.read(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final currencies = group.expenses
+    final currencies = totalGroup.expenses
         .map((expense) => expense.currency?.toUpperCase())
         .where((currency) => currency != null && currency.isNotEmpty)
         .cast<String>()
         .toSet();
 
     String? totalString;
-    if (selectedCurrency != null) {
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+    if (!isTotalComplete && totalOverrideGroup == null) {
+      totalString = null;
+    } else if (selectedCurrency != null) {
+      final totalFormatted =
+          formatLocalizedNumber(context, totalGroup.total.abs());
       final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${totalGroup.total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length == 1) {
       final currency = currencies.first;
-      final totalFormatted = formatLocalizedNumber(context, group.total.abs());
+      final totalFormatted =
+          formatLocalizedNumber(context, totalGroup.total.abs());
       final symbol = resolveCurrencySymbol(currency);
-      totalString = '${group.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${totalGroup.total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length > 1) {
       totalString = context.l10n.multipleCurrencies;
     }
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
       child: Row(
         children: [
@@ -981,6 +1070,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     ExpenseEntry item,
     UserContact? contact,
     ColorScheme colorScheme, {
+    Key? key,
     required String currentUserId,
     required Map<String, String> accountLabelsById,
     required Map<String, RecurringTransaction> recurringTransactionsById,
@@ -994,6 +1084,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final shouldShadow = isFirst || isLast;
 
     return Container(
+      key: key,
       margin: EdgeInsets.fromLTRB(16, 0, 16, isLast ? 16 : 0),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(

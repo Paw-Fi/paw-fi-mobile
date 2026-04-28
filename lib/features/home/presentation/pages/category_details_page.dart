@@ -71,7 +71,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
         _customStart = null;
         _customEnd = null;
       }
-    } else if (widget.initialStartDate != null && widget.initialEndDate != null) {
+    } else if (widget.initialStartDate != null &&
+        widget.initialEndDate != null) {
       _selectedDateFilter = DateRangeFilter.custom;
       _customStart = widget.initialStartDate;
       _customEnd = widget.initialEndDate;
@@ -109,8 +110,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             : householdScope.activeAccountHouseholdId;
     final selectedCurrency = ref.watch(homeFilterProvider).selectedCurrency;
     final userNow = effectiveNow(
-      preferredTimezone:
-          ref.watch(analyticsProvider.select((state) => state.contact?.preferredTimezone)),
+      preferredTimezone: ref.watch(analyticsProvider
+          .select((state) => state.contact?.preferredTimezone)),
     );
 
     DateTime? queryStartDate = _customStart;
@@ -180,22 +181,26 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             rangeEnd: userNow,
             selectedCurrency: query.selectedCurrency,
           );
-    final normalizedCategory = widget.categoryKey.toLowerCase();
+    final normalizedCategory = widget.categoryKey.trim().toLowerCase();
     final projectedRecurringInCategory = projectedRecurring.where((expense) {
       if ((expense.type ?? 'expense').toLowerCase() == 'income') {
         return false;
       }
-      if ((expense.category ?? 'uncategorized').toLowerCase() !=
-          normalizedCategory) {
+      final expenseCategory =
+          (expense.category ?? 'uncategorized').trim().toLowerCase();
+      if (expenseCategory != normalizedCategory) {
         return false;
       }
-      final dateOnly = DateTime(expense.date.year, expense.date.month, expense.date.day);
+      final dateOnly =
+          DateTime(expense.date.year, expense.date.month, expense.date.day);
       if (query.startDate != null &&
-          dateOnly.isBefore(DateTime(query.startDate!.year, query.startDate!.month, query.startDate!.day))) {
+          dateOnly.isBefore(DateTime(query.startDate!.year,
+              query.startDate!.month, query.startDate!.day))) {
         return false;
       }
       if (query.endDate != null &&
-          dateOnly.isAfter(DateTime(query.endDate!.year, query.endDate!.month, query.endDate!.day))) {
+          dateOnly.isAfter(DateTime(
+              query.endDate!.year, query.endDate!.month, query.endDate!.day))) {
         return false;
       }
       return true;
@@ -222,28 +227,31 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       (sum, expense) => sum + expense.amount.abs(),
     );
     final totalSpent = feedState.summary.expenseTotal.abs() + projectedTotal;
-    final count = feedState.summary.transactionCount + projectedRecurringInCategory.length;
+    final count = feedState.summary.transactionCount +
+        projectedRecurringInCategory.length;
     final avg = count > 0 ? totalSpent / count : 0.0;
-    
+
     // Top merchant
     final Map<String, double> merchantTally = {};
     for (final e in expenses) {
       final merchant = (e.merchant ?? e.rawText ?? '').trim();
       if (merchant.isNotEmpty) {
-        merchantTally[merchant] = (merchantTally[merchant] ?? 0) + e.amount.abs();
+        merchantTally[merchant] =
+            (merchantTally[merchant] ?? 0) + e.amount.abs();
       }
     }
-    
+
     final sortedMerchants = merchantTally.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-      
-    final topMerchant = sortedMerchants.isNotEmpty ? sortedMerchants.first : null;
+
+    final topMerchant =
+        sortedMerchants.isNotEmpty ? sortedMerchants.first : null;
 
     final symbol = resolveCurrencySymbol(query.selectedCurrency ?? 'USD');
 
     return AdaptiveScaffold(
       body: Material(
-                color: colorScheme.appleGroupedBackground,
+        color: colorScheme.appleGroupedBackground,
         child: RefreshIndicator(
           onRefresh: _refreshData,
           child: CustomScrollView(
@@ -261,7 +269,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   ),
                 ),
               ),
-              
+
               // Filters sticky bar
               SliverPersistentHeader(
                 pinned: true,
@@ -272,11 +280,12 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   ),
                 ),
               ),
-        
+
               if (feedState.isLoading && expenses.isEmpty)
                 SliverFillRemaining(
                   child: Center(
-                    child: CircularProgressIndicator(color: colorScheme.primary),
+                    child:
+                        CircularProgressIndicator(color: colorScheme.primary),
                   ),
                 )
               else ...[
@@ -285,14 +294,14 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                   child: _buildSummaryBlock(
                     colorScheme: colorScheme,
                     categoryName: categoryName,
-                  symbol: symbol,
-                  totalSpent: totalSpent, 
-                  count: count,
-                  avg: avg,
-                  topMerchant: topMerchant,
+                    symbol: symbol,
+                    totalSpent: totalSpent,
+                    count: count,
+                    avg: avg,
+                    topMerchant: topMerchant,
                   ),
                 ),
-        
+
                 // Mini Insight Cards
                 if (expenses.isNotEmpty)
                   SliverToBoxAdapter(
@@ -300,16 +309,20 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       child: Row(
                         children: [
-                          Expanded(child: _buildTrendMiniChart(colorScheme, monthGroups)),
+                          Expanded(
+                              child: _buildTrendMiniChart(
+                                  colorScheme, monthGroups)),
                           const SizedBox(width: 12),
-                          Expanded(child: _buildMerchantSplitCard(colorScheme, sortedMerchants, symbol)),
+                          Expanded(
+                              child: _buildMerchantSplitCard(
+                                  colorScheme, sortedMerchants, symbol)),
                         ],
                       ),
                     ),
                   ),
-        
-              // Ledger
-              if (expenses.isEmpty)
+
+                // Ledger
+                if (expenses.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 40),
@@ -326,14 +339,16 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = renderItems[index];
-        
+
                         if (item.isMonthHeader) {
-                          return _buildMonthHeader(context, item.monthGroup!, colorScheme);
+                          return _buildMonthHeader(
+                              context, item.monthGroup!, colorScheme);
                         }
                         if (item.isDayHeader) {
-                          return _buildDayHeader(context, item.dayGroup!, colorScheme);
+                          return _buildDayHeader(
+                              context, item.dayGroup!, colorScheme);
                         }
-                        
+
                         return _buildTransactionRow(
                           context,
                           item.expense!,
@@ -347,7 +362,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                       childCount: renderItems.length,
                     ),
                   ),
-        
+
                 PaginatedLoadMoreSliverIndicator(show: feedState.isLoadingMore),
                 const SliverToBoxAdapter(child: SizedBox(height: 80)),
               ],
@@ -441,12 +456,13 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildTrendMiniChart(ColorScheme colorScheme, List<MonthTransactionGroup> monthGroups) {
+  Widget _buildTrendMiniChart(
+      ColorScheme colorScheme, List<MonthTransactionGroup> monthGroups) {
     if (monthGroups.isEmpty) return const SizedBox.shrink();
-    
+
     // Reverse to chronological order
     final chronologicalGroups = monthGroups.reversed.toList();
-    
+
     return Container(
       height: 100,
       padding: const EdgeInsets.all(12),
@@ -498,9 +514,10 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildMerchantSplitCard(ColorScheme colorScheme, List<MapEntry<String, double>> topMerchants, String symbol) {
+  Widget _buildMerchantSplitCard(ColorScheme colorScheme,
+      List<MapEntry<String, double>> topMerchants, String symbol) {
     final top3 = topMerchants.take(3).toList();
-    
+
     return Container(
       height: 100,
       padding: const EdgeInsets.all(12),
@@ -522,7 +539,10 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
           ),
           const SizedBox(height: 8),
           if (top3.isEmpty)
-            Expanded(child: Center(child: Text('-', style: TextStyle(color: colorScheme.mutedForeground))))
+            Expanded(
+                child: Center(
+                    child: Text('-',
+                        style: TextStyle(color: colorScheme.mutedForeground))))
           else
             Expanded(
               child: Column(
@@ -535,12 +555,16 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                           e.key,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: colorScheme.foreground, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.foreground,
+                              fontWeight: FontWeight.w500),
                         ),
                       ),
                       Text(
                         '$symbol${formatLocalizedNumber(context, e.value)}',
-                        style: TextStyle(fontSize: 11, color: colorScheme.mutedForeground),
+                        style: TextStyle(
+                            fontSize: 11, color: colorScheme.mutedForeground),
                       ),
                     ],
                   );
@@ -646,8 +670,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
   }
 
   // Same helpers as transactions_page.dart
-  Widget _buildMonthHeader(
-      BuildContext context, MonthTransactionGroup group, ColorScheme colorScheme) {
+  Widget _buildMonthHeader(BuildContext context, MonthTransactionGroup group,
+      ColorScheme colorScheme) {
     final locale = Localizations.localeOf(context).toString();
     final dateLabel = DateFormat('MMMM yyyy', locale).format(group.monthStart);
 
@@ -665,8 +689,8 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
     );
   }
 
-  Widget _buildDayHeader(
-      BuildContext context, DayTransactionGroup group, ColorScheme colorScheme) {
+  Widget _buildDayHeader(BuildContext context, DayTransactionGroup group,
+      ColorScheme colorScheme) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
@@ -727,16 +751,17 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
       decoration: BoxDecoration(
         color: colorScheme.homeCardSurface,
         borderRadius: radius,
-        boxShadow: Theme.of(context).brightness == Brightness.dark || !shouldShadow
-            ? null
-            : [
-                BoxShadow(
-                  color: colorScheme.homeCardShadow,
-                  blurRadius: 32,
-                  offset: const Offset(0, 8),
-                  spreadRadius: -4,
-                )
-              ],
+        boxShadow:
+            Theme.of(context).brightness == Brightness.dark || !shouldShadow
+                ? null
+                : [
+                    BoxShadow(
+                      color: colorScheme.homeCardShadow,
+                      blurRadius: 32,
+                      offset: const Offset(0, 8),
+                      spreadRadius: -4,
+                    )
+                  ],
       ),
       child: buildExpenseTransactionTile(
         context: context,
