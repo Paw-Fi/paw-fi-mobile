@@ -14,6 +14,9 @@ class MonthTransactionGroup {
   });
 }
 
+double resolveDayTransactionHeaderTotal(DayTransactionGroup group) =>
+    group.total;
+
 List<MonthTransactionGroup> groupTransactionsByMonth(
   List<ExpenseEntry> expenses,
 ) {

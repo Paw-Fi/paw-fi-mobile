@@ -117,18 +117,11 @@ Map<String, int> buildTransactionRenderItemIndexByKey(
 }
 
 class TransactionGroupCompleteness {
-  final Set<DateTime> incompleteMonthStarts;
   final Set<DateTime> incompleteDays;
 
   const TransactionGroupCompleteness({
-    this.incompleteMonthStarts = const <DateTime>{},
     this.incompleteDays = const <DateTime>{},
   });
-
-  bool isMonthComplete(DateTime monthStart) {
-    final key = DateTime(monthStart.year, monthStart.month, 1);
-    return !incompleteMonthStarts.contains(key);
-  }
 
   bool isDayComplete(DateTime date) {
     final key = DateTime(date.year, date.month, date.day);
@@ -137,18 +130,11 @@ class TransactionGroupCompleteness {
 }
 
 class CompleteTransactionGroupTotals {
-  final Map<DateTime, MonthTransactionGroup> monthGroupsByStart;
   final Map<DateTime, DayTransactionGroup> dayGroupsByDate;
 
   const CompleteTransactionGroupTotals({
-    this.monthGroupsByStart = const <DateTime, MonthTransactionGroup>{},
     this.dayGroupsByDate = const <DateTime, DayTransactionGroup>{},
   });
-
-  MonthTransactionGroup? monthGroupFor(DateTime monthStart) {
-    final key = DateTime(monthStart.year, monthStart.month, 1);
-    return monthGroupsByStart[key];
-  }
 
   DayTransactionGroup? dayGroupFor(DateTime date) {
     final key = DateTime(date.year, date.month, date.day);
@@ -174,7 +160,6 @@ TransactionGroupCompleteness resolveTransactionGroupCompleteness({
   );
 
   return TransactionGroupCompleteness(
-    incompleteMonthStarts: {DateTime(oldestDay.year, oldestDay.month, 1)},
     incompleteDays: {oldestDay},
   );
 }
@@ -186,17 +171,9 @@ CompleteTransactionGroupTotals buildCompleteTransactionGroupTotals(
     return const CompleteTransactionGroupTotals();
   }
 
-  final monthGroupsByStart = <DateTime, MonthTransactionGroup>{};
   final dayGroupsByDate = <DateTime, DayTransactionGroup>{};
 
   for (final monthGroup in monthGroups) {
-    final monthKey = DateTime(
-      monthGroup.monthStart.year,
-      monthGroup.monthStart.month,
-      1,
-    );
-    monthGroupsByStart[monthKey] = monthGroup;
-
     for (final dayGroup in groupTransactionsByDay(monthGroup.expenses)) {
       dayGroupsByDate[DateTime(
         dayGroup.date.year,
@@ -207,7 +184,6 @@ CompleteTransactionGroupTotals buildCompleteTransactionGroupTotals(
   }
 
   return CompleteTransactionGroupTotals(
-    monthGroupsByStart: monthGroupsByStart,
     dayGroupsByDate: dayGroupsByDate,
   );
 }
@@ -216,6 +192,7 @@ TransactionsPageDerivedData deriveTransactionsPageData(
   TransactionsPageFilterInput input,
 ) {
   final categories = input.baseExpenses
+      .where((expense) => !expense.isRecurring)
       .map((expense) => (expense.category ?? 'uncategorized').toLowerCase())
       .toSet()
       .toList()

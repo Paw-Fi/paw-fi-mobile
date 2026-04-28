@@ -824,18 +824,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           (context, index) {
                             final item = visibleListItems[index];
                             if (item.isMonthHeader) {
-                              final completeMonthGroup = completeGroupTotals
-                                  .monthGroupFor(item.monthGroup!.monthStart);
                               return _buildMonthHeader(
                                 context,
                                 item.monthGroup!,
                                 colorScheme,
                                 key: ValueKey(item.key),
-                                isTotalComplete: !shouldSuppressHeaderTotals &&
-                                    groupCompleteness.isMonthComplete(
-                                      item.monthGroup!.monthStart,
-                                    ),
-                                totalOverrideGroup: completeMonthGroup,
                               );
                             }
                             if (item.isDayHeader) {
@@ -916,64 +909,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     MonthTransactionGroup group,
     ColorScheme colorScheme, {
     Key? key,
-    bool isTotalComplete = true,
-    MonthTransactionGroup? totalOverrideGroup,
   }) {
     final locale = Localizations.localeOf(context).toString();
     final dateLabel = formatMonthHeader(group.monthStart, locale: locale);
 
-    final totalGroup = totalOverrideGroup ?? group;
-    final selectedCurrency =
-        ref.read(homeFilterProvider).selectedCurrency?.toUpperCase();
-    final currencies = totalGroup.expenses
-        .map((expense) => expense.currency?.toUpperCase())
-        .where((currency) => currency != null && currency.isNotEmpty)
-        .cast<String>()
-        .toSet();
-
-    String? totalString;
-    final total = totalGroup.total;
-    if (!isTotalComplete && totalOverrideGroup == null) {
-      totalString = null;
-    } else if (selectedCurrency != null) {
-      final totalFormatted = formatLocalizedNumber(context, total.abs());
-      final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length == 1) {
-      final currency = currencies.first;
-      final totalFormatted = formatLocalizedNumber(context, total.abs());
-      final symbol = resolveCurrencySymbol(currency);
-      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
-    } else if (currencies.length > 1) {
-      totalString = context.l10n.multipleCurrencies;
-    }
-
     return Padding(
       key: key,
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Row(
-        children: [
-          Text(
-            dateLabel,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.mutedForeground,
-              letterSpacing: -0.2,
-            ),
-          ),
-          const Spacer(),
-          if (totalString != null)
-            Text(
-              totalString,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.mutedForeground,
-                letterSpacing: -0.2,
-              ),
-            ),
-        ],
+      child: Text(
+        dateLabel,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: colorScheme.mutedForeground,
+          letterSpacing: -0.2,
+        ),
       ),
     );
   }
@@ -1012,19 +962,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         .toSet();
 
     String? totalString;
+    final total = resolveDayTransactionHeaderTotal(totalGroup);
     if (!isTotalComplete && totalOverrideGroup == null) {
       totalString = null;
     } else if (selectedCurrency != null) {
-      final totalFormatted =
-          formatLocalizedNumber(context, totalGroup.total.abs());
+      final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(selectedCurrency);
-      totalString = '${totalGroup.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length == 1) {
       final currency = currencies.first;
-      final totalFormatted =
-          formatLocalizedNumber(context, totalGroup.total.abs());
+      final totalFormatted = formatLocalizedNumber(context, total.abs());
       final symbol = resolveCurrencySymbol(currency);
-      totalString = '${totalGroup.total < 0 ? '-' : ''}$symbol$totalFormatted';
+      totalString = '${total < 0 ? '-' : ''}$symbol$totalFormatted';
     } else if (currencies.length > 1) {
       totalString = context.l10n.multipleCurrencies;
     }

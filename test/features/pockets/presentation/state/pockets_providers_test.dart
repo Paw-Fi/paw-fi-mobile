@@ -3,6 +3,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
+import 'package:moneko/features/utils/currency.dart';
 
 void main() {
   group('applySplitPayerToRecurringRows', () {
@@ -99,6 +101,92 @@ void main() {
       expect(result, const [62500, 37500]);
       expect(result.fold<int>(0, (sum, amount) => sum + amount), 100000);
     });
+
+    test('rounds allocations to currency step without exceeding total', () {
+      final result = rebalancePocketBudgetAmounts(
+        currentAmountsCents: const [33300, 33300, 33400],
+        newTotalBudgetCents: 99500,
+        allocationStepCents: pocketBudgetAdjustmentStepCents('EUR'),
+      );
+
+      expect(result, const [33000, 33000, 33000]);
+      expect(result.every((amount) => amount % 1000 == 0), isTrue);
+      expect(result.fold<int>(0, (sum, amount) => sum + amount), 99000);
+      expect(
+          result.fold<int>(0, (sum, amount) => sum + amount) <= 99500, isTrue);
+    });
+
+    test('normalizes currency codes when deriving adjustment steps', () {
+      expect(
+        pocketBudgetAdjustmentStepCents(' vnd '),
+        pocketBudgetAdjustmentStepCents('VND'),
+      );
+      expect(
+        pocketBudgetAdjustmentStepCents(' eur '),
+        pocketBudgetAdjustmentStepCents('EUR'),
+      );
+    });
+
+    test('defines a pockets budget baseline for every supported currency', () {
+      final supportedCurrencies = getAvailableCurrencyOptions().keys.toSet();
+      final pocketBaselineCurrencies =
+          pocketCurrencyBudgetBaselines.keys.toSet();
+
+      expect(
+        pocketBaselineCurrencies.difference(supportedCurrencies),
+        isEmpty,
+        reason:
+            'Pocket budget baselines should only contain currencies from currency.dart.',
+      );
+      expect(
+        supportedCurrencies.difference(pocketBaselineCurrencies),
+        isEmpty,
+        reason:
+            'When adding a currency to currency.dart, add its pocket baseline to pocket_budget_amount_steps.dart.',
+      );
+    });
+
+    test('normalizes restored amounts to the currency adjustment step', () {
+      expect(normalizePocketBudgetAmountCentsForCurrency(1234, 'EUR'), 1000);
+
+      final vndStep = pocketBudgetAdjustmentStepCents('VND');
+      final normalizedVnd =
+          normalizePocketBudgetAmountCentsForCurrency(123456789, 'VND');
+      expect(normalizedVnd % vndStep, 0);
+      expect(normalizedVnd <= 123456789, isTrue);
+    });
+
+    test('normalizes cached pocket amounts when restoring state', () {
+      final now = DateTime(2026, 1, 1);
+      final rawPocket = PocketEnvelope(
+        id: 'eur-food',
+        name: 'Food',
+        budgetAmountCents: 1234,
+        spent: 0,
+        currency: 'EUR',
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [rawPocket],
+        editing: [rawPocket.copyWith()],
+        budgetId: 'budget-eur',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'EUR',
+        totalBudget: 1000,
+        savedTotalBudget: 1000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final restored = PocketsState.fromCacheJson(state.toCacheJson());
+
+      expect(restored.saved.single.budgetAmountCents, 1000);
+      expect(restored.editing.single.budgetAmountCents, 1000);
+    });
   });
 
   group('rebalanceSiblingPocketBudgetAmounts', () {
@@ -124,6 +212,20 @@ void main() {
 
       expect(result, const [54000, 36000]);
       expect(result.fold<int>(0, (sum, amount) => sum + amount), 90000);
+    });
+
+    test('rounds sibling pockets to currency step under remaining budget', () {
+      final result = rebalanceSiblingPocketBudgetAmounts(
+        siblingAmountsCents: const [33300, 33300, 33400],
+        targetPocketAmountCents: 25500,
+        totalBudgetCents: 100000,
+        allocationStepCents: pocketBudgetAdjustmentStepCents('EUR'),
+      );
+
+      expect(result, const [25000, 25000, 25000]);
+      expect(result.every((amount) => amount % 1000 == 0), isTrue);
+      expect(
+          result.fold<int>(0, (sum, amount) => sum + amount) <= 75000, isTrue);
     });
   });
 
@@ -184,6 +286,262 @@ void main() {
         const [60000, 40000],
       );
       expect(updated.hasChanges, isTrue);
+    });
+
+    test('preserves unallocated budget share when total budget changes', () {
+      final now = DateTime(2026, 1, 1);
+      final pocket = PocketEnvelope(
+        id: 'a',
+        name: 'Pocket A',
+        budgetAmountCents: 20000,
+        spent: 0,
+        currency: 'USD',
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 1000,
+        savedTotalBudget: 1000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final updated = applyRebalancedBudgetToPocketsState(
+        state: state,
+        newTotalBudget: 2000,
+      );
+
+      expect(updated.totalBudget, 2000);
+      expect(
+        updated.editing.map((pocket) => pocket.budgetAmountCents).toList(),
+        const [40000],
+      );
+    });
+
+    test('keeps saved ratios as the baseline across sequential slider updates',
+        () {
+      final now = DateTime(2026, 1, 1);
+      final pocket = PocketEnvelope(
+        id: 'a',
+        name: 'Pocket A',
+        budgetAmountCents: 20000,
+        spent: 0,
+        currency: 'USD',
+        lastUpdated: now,
+      );
+      final state = PocketsState(
+        isLoading: false,
+        saved: [pocket],
+        editing: [pocket.copyWith()],
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 1000,
+        savedTotalBudget: 1000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final firstTick = applyRebalancedBudgetToPocketsState(
+        state: state,
+        newTotalBudget: 1010,
+      );
+      final laterTick = applyRebalancedBudgetToPocketsState(
+        state: firstTick,
+        newTotalBudget: 2000,
+      );
+
+      expect(
+        laterTick.editing.map((pocket) => pocket.budgetAmountCents).toList(),
+        const [40000],
+      );
+    });
+
+    test('preserves overallocated budget share when total budget changes', () {
+      final now = DateTime(2026, 1, 1);
+      final saved = [
+        PocketEnvelope(
+          id: 'a',
+          name: 'Pocket A',
+          budgetAmountCents: 80000,
+          spent: 0,
+          currency: 'USD',
+          lastUpdated: now,
+        ),
+        PocketEnvelope(
+          id: 'b',
+          name: 'Pocket B',
+          budgetAmountCents: 40000,
+          spent: 0,
+          currency: 'USD',
+          lastUpdated: now,
+        ),
+      ];
+      final state = PocketsState(
+        isLoading: false,
+        saved: saved,
+        editing: saved.map((pocket) => pocket.copyWith()).toList(),
+        budgetId: 'budget-1',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 1000,
+        savedTotalBudget: 1000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final updated = applyRebalancedBudgetToPocketsState(
+        state: state,
+        newTotalBudget: 500,
+      );
+
+      expect(updated.totalBudget, 500);
+      final amounts =
+          updated.editing.map((pocket) => pocket.budgetAmountCents).toList();
+      expect(amounts, const [33000, 17000]);
+      expect(amounts.every((amount) => amount % 1000 == 0), isTrue);
+      expect(amounts.fold<int>(0, (sum, amount) => sum + amount), 50000);
+    });
+
+    test('preserves allocation shares for every supported currency', () {
+      final now = DateTime(2026, 1, 1);
+
+      for (final currency in getAvailableCurrencyOptions().keys) {
+        final stepCents = pocketBudgetAdjustmentStepCents(currency);
+        final previousTotalBudgetCents = stepCents * 100;
+        final newTotalBudgetCents = stepCents * 200;
+        final saved = [
+          PocketEnvelope(
+            id: '$currency-a',
+            name: 'Pocket A',
+            budgetAmountCents: stepCents * 25,
+            spent: 0,
+            currency: currency,
+            lastUpdated: now,
+          ),
+          PocketEnvelope(
+            id: '$currency-b',
+            name: 'Pocket B',
+            budgetAmountCents: stepCents * 15,
+            spent: 0,
+            currency: currency,
+            lastUpdated: now,
+          ),
+        ];
+        final state = PocketsState(
+          isLoading: false,
+          saved: saved,
+          editing: saved.map((pocket) => pocket.copyWith()).toList(),
+          budgetId: 'budget-$currency',
+          periodMonth: now,
+          previousBudget: 0,
+          hasPreviousMonthPockets: false,
+          currency: currency,
+          totalBudget: previousTotalBudgetCents / 100,
+          savedTotalBudget: previousTotalBudgetCents / 100,
+          unallocatedSpend: 0,
+          uncategorized: const [],
+          uncategorizedExpenses: const {},
+        );
+
+        final updated = applyRebalancedBudgetToPocketsState(
+          state: state,
+          newTotalBudget: newTotalBudgetCents / 100,
+        );
+        final amounts =
+            updated.editing.map((pocket) => pocket.budgetAmountCents).toList();
+
+        expect(updated.currency, currency);
+        expect(
+          amounts,
+          [stepCents * 50, stepCents * 30],
+          reason: 'Currency $currency should preserve allocation ratio',
+        );
+        expect(
+          amounts.every((amount) => amount % stepCents == 0),
+          isTrue,
+          reason: 'Currency $currency should use its adjustment step',
+        );
+        expect(
+          amounts.fold<int>(0, (sum, amount) => sum + amount) <=
+              newTotalBudgetCents,
+          isTrue,
+          reason: 'Currency $currency should not exceed budget',
+        );
+      }
+    });
+
+    test('preserves VND jar ratios with Vietnam-scale whole-number budgets',
+        () {
+      final now = DateTime(2026, 1, 1);
+      final saved = [
+        PocketEnvelope(
+          id: 'vnd-food',
+          name: 'Food',
+          budgetAmountCents: 500000000,
+          spent: 0,
+          currency: 'VND',
+          lastUpdated: now,
+        ),
+        PocketEnvelope(
+          id: 'vnd-rent',
+          name: 'Rent',
+          budgetAmountCents: 1000000000,
+          spent: 0,
+          currency: 'VND',
+          lastUpdated: now,
+        ),
+      ];
+      final state = PocketsState(
+        isLoading: false,
+        saved: saved,
+        editing: saved.map((pocket) => pocket.copyWith()).toList(),
+        budgetId: 'budget-vnd',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'VND',
+        totalBudget: 25000000,
+        savedTotalBudget: 25000000,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+      );
+
+      final updated = applyRebalancedBudgetToPocketsState(
+        state: state,
+        newTotalBudget: 30000000,
+      );
+
+      expect(updated.totalBudget, 30000000);
+      expect(updated.currency, 'VND');
+      expect(
+        updated.editing.map((pocket) => pocket.budgetAmountCents).toList(),
+        const [600000000, 1200000000],
+      );
+      expect(
+        updated.editing.every(
+          (pocket) =>
+              pocket.budgetAmountCents %
+                  pocketBudgetAdjustmentStepCents('VND') ==
+              0,
+        ),
+        isTrue,
+      );
     });
   });
 

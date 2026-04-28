@@ -22,6 +22,7 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/constants/pocket_icon_constants.dart';
+import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
@@ -113,14 +114,17 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
           final totalBudgetCents = (totalBudget * 100).round();
           final maxBudgetCents = math.max(0, totalBudgetCents);
-          final clampedCents = amountCents.clamp(0, maxBudgetCents).toInt();
+          final clampedCents = quantizePocketBudgetAmountCents(
+            amountCents.clamp(0, maxBudgetCents).toInt(),
+            stepCents: pocketBudgetAdjustmentStepCents(selectedCurrency),
+          );
           amountController.text = formatAmount(centsToAmount(clampedCents));
         }
       }
 
       amountFocusNode.addListener(onFocusChange);
       return () => amountFocusNode.removeListener(onFocusChange);
-    }, [amountFocusNode, totalBudget]);
+    }, [amountFocusNode, totalBudget, selectedCurrency]);
 
     final selectedCategories = useState<List<String>>(
       existingEnvelope == null
@@ -151,15 +155,19 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
     final currency = selectedCurrency;
     final totalBudgetCents = (totalBudget * 100).round();
     final maxBudgetCents = math.max(0, totalBudgetCents);
+    final allocationStepCents = pocketBudgetAdjustmentStepCents(currency);
     final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
     final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
     final periodMonth =
         '${monthStart.year}-${monthStart.month.toString().padLeft(2, '0')}-01';
-    final previewAmountCents = (tryParseMoneyToCents(amountController.text) ??
-            existingEnvelope?.budgetAmountCents ??
-            0)
-        .clamp(0, maxBudgetCents)
-        .toInt();
+    final previewAmountCents = quantizePocketBudgetAmountCents(
+      (tryParseMoneyToCents(amountController.text) ??
+              existingEnvelope?.budgetAmountCents ??
+              0)
+          .clamp(0, maxBudgetCents)
+          .toInt(),
+      stepCents: allocationStepCents,
+    );
     final previewShare =
         maxBudgetCents > 0 ? (previewAmountCents / maxBudgetCents) * 100 : 0.0;
     final sliderPercent = previewShare.clamp(0.0, 100.0);
@@ -192,6 +200,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         siblingAmountsCents: siblingAmounts,
         targetPocketAmountCents: currentAmountCents,
         totalBudgetCents: totalBudgetCents,
+        allocationStepCents: allocationStepCents,
       );
     }
 
@@ -300,7 +309,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         AppToast.error(context, l10n.pleaseEnterAmount);
         return;
       }
-      final clampedAmountCents = amountCents.clamp(0, maxBudgetCents).toInt();
+      final clampedAmountCents = quantizePocketBudgetAmountCents(
+        amountCents.clamp(0, maxBudgetCents).toInt(),
+        stepCents: allocationStepCents,
+      );
 
       if (selectedCategories.value.isEmpty) {
         AppToast.info(context, l10n.pleaseSelectCategory);
@@ -523,6 +535,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                     .map((pocket) => pocket.budgetAmountCents)
                     .toList(growable: false),
                 newTotalBudgetCents: totalBudgetCents,
+                allocationStepCents: allocationStepCents,
               );
         final nowIso = DateTime.now().toIso8601String();
 
@@ -1122,10 +1135,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                                           final pct = value.clamp(0.0, 100.0);
                                           final newCents =
-                                              ((pct / 100.0) * maxBudgetCents)
-                                                  .round()
-                                                  .clamp(0, maxBudgetCents)
-                                                  .toInt();
+                                              quantizePocketBudgetAmountCents(
+                                            ((pct / 100.0) * maxBudgetCents)
+                                                .round()
+                                                .clamp(0, maxBudgetCents)
+                                                .toInt(),
+                                            stepCents: allocationStepCents,
+                                          );
                                           final formatted = formatAmount(
                                             centsToAmount(newCents),
                                           );

@@ -32,6 +32,56 @@ ExpenseEntry _entry({
 }
 
 void main() {
+  group('transaction group totals', () {
+    test('keeps signed net totals for month and day groups', () {
+      final expenses = [
+        _entry(
+          id: 'groceries',
+          date: DateTime(2026, 4, 12),
+          amountCents: 2550,
+          type: 'expense',
+        ),
+        _entry(
+          id: 'refund',
+          date: DateTime(2026, 4, 12),
+          amountCents: 1000,
+          type: 'income',
+        ),
+        _entry(
+          id: 'subscription',
+          date: DateTime(2026, 4, 10),
+          amountCents: -700,
+        ),
+      ];
+
+      final monthGroup = groupTransactionsByMonth(expenses).single;
+      final dayGroup = groupTransactionsByDay(expenses)
+          .singleWhere((group) => group.date == DateTime(2026, 4, 12));
+
+      expect(monthGroup.total, -22.5);
+      expect(dayGroup.total, -15.5);
+    });
+
+    test('keeps day header net totals', () {
+      final monthGroup = groupTransactionsByMonth([
+        _entry(
+          id: 'expense',
+          date: DateTime(2026, 4, 12),
+          amountCents: 2550,
+        ),
+        _entry(
+          id: 'income',
+          date: DateTime(2026, 4, 12),
+          amountCents: 1000,
+          type: 'income',
+        ),
+      ]).single;
+      final dayGroup = groupTransactionsByDay(monthGroup.expenses).single;
+
+      expect(resolveDayTransactionHeaderTotal(dayGroup), -15.5);
+    });
+  });
+
   group('deriveTransactionsPageData', () {
     test('filters, merges projected recurring items, and sorts newest first',
         () {
@@ -205,10 +255,8 @@ void main() {
       );
 
       final totals = buildCompleteTransactionGroupTotals(result.monthGroups);
-      final monthGroup = totals.monthGroupFor(DateTime(2026, 4, 1));
       final dayGroup = totals.dayGroupFor(DateTime(2026, 4, 12));
 
-      expect(monthGroup?.total, -12100);
       expect(dayGroup?.total, -12000);
     });
 
@@ -223,7 +271,6 @@ void main() {
         hasMore: true,
       );
 
-      expect(completeness.isMonthComplete(DateTime(2026, 4, 1)), isFalse);
       expect(completeness.isDayComplete(DateTime(2026, 4, 1)), isFalse);
       expect(completeness.isDayComplete(DateTime(2026, 4, 10)), isTrue);
     });
@@ -236,7 +283,6 @@ void main() {
         hasMore: false,
       );
 
-      expect(completeness.isMonthComplete(DateTime(2026, 4, 1)), isTrue);
       expect(completeness.isDayComplete(DateTime(2026, 4, 1)), isTrue);
     });
 

@@ -17,6 +17,7 @@ import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_cache_store.dart';
 import 'package:moneko/features/pockets/presentation/constants/budget_templates.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
+import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
@@ -204,7 +205,7 @@ final _pocketsMonthCacheInvalidationProvider = Provider<void>((ref) {
     if (previous == null) {
       return;
     }
-    final prevId = previous?.uid ?? '';
+    final prevId = previous.uid;
     final nextId = next.uid;
     if (prevId != nextId) {
       _pocketsMonthCache.clear();
@@ -320,49 +321,52 @@ List<Map<String, dynamic>> resolveEnvelopeRowsForViewedMonth({
 List<int> rebalancePocketBudgetAmounts({
   required List<int> currentAmountsCents,
   required int newTotalBudgetCents,
+  int allocationStepCents = 1,
 }) {
   if (currentAmountsCents.isEmpty) {
     return const <int>[];
   }
 
   final sanitizedTarget = math.max(0, newTotalBudgetCents);
+  final sanitizedStep = math.max(1, allocationStepCents);
   final sanitizedCurrent = currentAmountsCents
       .map((amount) => math.max(0, amount))
       .toList(growable: false);
   final currentTotal =
       sanitizedCurrent.fold<int>(0, (sum, amount) => sum + amount);
+  final targetUnits = sanitizedTarget ~/ sanitizedStep;
 
-  if (sanitizedTarget == 0) {
+  if (targetUnits == 0) {
     return List<int>.filled(sanitizedCurrent.length, 0, growable: false);
   }
 
   if (currentTotal == 0) {
-    final baseShare = sanitizedTarget ~/ sanitizedCurrent.length;
-    final remainder = sanitizedTarget % sanitizedCurrent.length;
+    final baseShare = targetUnits ~/ sanitizedCurrent.length;
+    final remainder = targetUnits % sanitizedCurrent.length;
     return List<int>.generate(
       sanitizedCurrent.length,
-      (index) => baseShare + (index < remainder ? 1 : 0),
+      (index) => (baseShare + (index < remainder ? 1 : 0)) * sanitizedStep,
       growable: false,
     );
   }
 
-  final scaled = <({int index, int floorAmount, double remainder})>[];
+  final scaled = <({int index, int floorUnits, double remainder})>[];
   var assigned = 0;
 
   for (var index = 0; index < sanitizedCurrent.length; index++) {
-    final exact = sanitizedCurrent[index] * sanitizedTarget / currentTotal;
-    final floorAmount = exact.floor();
-    assigned += floorAmount;
+    final exact = sanitizedCurrent[index] * targetUnits / currentTotal;
+    final floorUnits = exact.floor();
+    assigned += floorUnits;
     scaled.add((
       index: index,
-      floorAmount: floorAmount,
-      remainder: exact - floorAmount,
+      floorUnits: floorUnits,
+      remainder: exact - floorUnits,
     ));
   }
 
   final result =
-      scaled.map((entry) => entry.floorAmount).toList(growable: false);
-  var remaining = sanitizedTarget - assigned;
+      scaled.map((entry) => entry.floorUnits).toList(growable: false);
+  var remaining = targetUnits - assigned;
 
   if (remaining > 0) {
     final byRemainder = [...scaled]..sort((a, b) {
@@ -374,27 +378,27 @@ List<int> rebalancePocketBudgetAmounts({
     for (var i = 0; i < byRemainder.length && remaining > 0; i++) {
       result[byRemainder[i].index] += 1;
       remaining -= 1;
-      if (i == byRemainder.length - 1 && remaining > 0) {
-        i = -1;
-      }
     }
   }
 
-  return result;
+  return result.map((units) => units * sanitizedStep).toList(growable: false);
 }
 
 List<int> rebalanceSiblingPocketBudgetAmounts({
   required List<int> siblingAmountsCents,
   required int targetPocketAmountCents,
   required int totalBudgetCents,
+  int allocationStepCents = 1,
 }) {
   if (siblingAmountsCents.isEmpty) {
     return const <int>[];
   }
 
   final sanitizedTotalBudget = math.max(0, totalBudgetCents);
-  final sanitizedTargetPocketAmount =
-      targetPocketAmountCents.clamp(0, sanitizedTotalBudget).toInt();
+  final sanitizedTargetPocketAmount = quantizePocketBudgetAmountCents(
+    targetPocketAmountCents.clamp(0, sanitizedTotalBudget).toInt(),
+    stepCents: allocationStepCents,
+  );
   final sanitizedSiblingAmounts = siblingAmountsCents
       .map((amount) => math.max(0, amount))
       .toList(growable: false);
@@ -404,7 +408,79 @@ List<int> rebalanceSiblingPocketBudgetAmounts({
   return rebalancePocketBudgetAmounts(
     currentAmountsCents: sanitizedSiblingAmounts,
     newTotalBudgetCents: remainingBudgetForSiblings,
+    allocationStepCents: allocationStepCents,
   );
+}
+
+@foundation.visibleForTesting
+List<int> rescalePocketBudgetAmountsForTotalBudgetChange({
+  required List<int> currentAmountsCents,
+  required int previousTotalBudgetCents,
+  required int newTotalBudgetCents,
+  int allocationStepCents = 1,
+}) {
+  if (currentAmountsCents.isEmpty) {
+    return const <int>[];
+  }
+
+  final sanitizedTarget = math.max(0, newTotalBudgetCents);
+  final sanitizedPreviousTotal = math.max(0, previousTotalBudgetCents);
+  final sanitizedCurrent = currentAmountsCents
+      .map((amount) => math.max(0, amount))
+      .toList(growable: false);
+  final currentAllocatedTotal =
+      sanitizedCurrent.fold<int>(0, (sum, amount) => sum + amount);
+
+  if (sanitizedTarget == 0) {
+    return List<int>.filled(sanitizedCurrent.length, 0, growable: false);
+  }
+
+  if (sanitizedPreviousTotal == 0) {
+    return rebalancePocketBudgetAmounts(
+      currentAmountsCents: sanitizedCurrent,
+      newTotalBudgetCents: sanitizedTarget,
+      allocationStepCents: allocationStepCents,
+    );
+  }
+
+  if (currentAllocatedTotal == 0) {
+    return List<int>.filled(sanitizedCurrent.length, 0, growable: false);
+  }
+
+  final scaledAllocatedTotal = _scaleCentsByBudgetRatioRoundedAndCappedAtTarget(
+    amountCents: currentAllocatedTotal,
+    previousTotalBudgetCents: sanitizedPreviousTotal,
+    newTotalBudgetCents: sanitizedTarget,
+  );
+  final targetAllocatedTotal = math.min(
+    sanitizedTarget,
+    scaledAllocatedTotal,
+  );
+
+  return rebalancePocketBudgetAmounts(
+    currentAmountsCents: sanitizedCurrent,
+    newTotalBudgetCents: targetAllocatedTotal,
+    allocationStepCents: allocationStepCents,
+  );
+}
+
+int _scaleCentsByBudgetRatioRoundedAndCappedAtTarget({
+  required int amountCents,
+  required int previousTotalBudgetCents,
+  required int newTotalBudgetCents,
+}) {
+  if (amountCents <= 0 ||
+      previousTotalBudgetCents <= 0 ||
+      newTotalBudgetCents <= 0) {
+    return 0;
+  }
+
+  final numerator = BigInt.from(amountCents) * BigInt.from(newTotalBudgetCents);
+  final denominator = BigInt.from(previousTotalBudgetCents);
+  final rounded = (numerator + (denominator ~/ BigInt.from(2))) ~/ denominator;
+  final cappedTarget = BigInt.from(newTotalBudgetCents);
+  final capped = rounded > cappedTarget ? cappedTarget : rounded;
+  return capped.toInt();
 }
 
 @foundation.visibleForTesting
@@ -412,12 +488,19 @@ PocketsState applyRebalancedBudgetToPocketsState({
   required PocketsState state,
   required double newTotalBudget,
 }) {
+  final hasSavedBaseline = _canUseSavedPocketBaseline(state);
+  final baselinePockets = hasSavedBaseline ? state.saved : state.editing;
+  final baselineTotalBudget =
+      hasSavedBaseline ? state.savedTotalBudget : state.totalBudget;
+  final previousTotalBudgetCents = (baselineTotalBudget * 100).round();
   final newTotalBudgetCents = (newTotalBudget * 100).round();
-  final rebalancedAmounts = rebalancePocketBudgetAmounts(
-    currentAmountsCents: state.editing
+  final rebalancedAmounts = rescalePocketBudgetAmountsForTotalBudgetChange(
+    currentAmountsCents: baselinePockets
         .map((pocket) => pocket.budgetAmountCents)
         .toList(growable: false),
+    previousTotalBudgetCents: previousTotalBudgetCents,
     newTotalBudgetCents: newTotalBudgetCents,
+    allocationStepCents: pocketBudgetAdjustmentStepCents(state.currency),
   );
 
   final rebalancedEditing = state.editing.isEmpty
@@ -434,6 +517,36 @@ PocketsState applyRebalancedBudgetToPocketsState({
     totalBudget: newTotalBudgetCents / 100.0,
     editing: rebalancedEditing,
   );
+}
+
+bool _canUseSavedPocketBaseline(PocketsState state) {
+  if (state.saved.length != state.editing.length) {
+    return false;
+  }
+
+  for (var index = 0; index < state.saved.length; index++) {
+    if (state.saved[index].id != state.editing[index].id) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+List<PocketEnvelope> _normalizePocketBudgetAmountsForCurrency(
+  List<PocketEnvelope> pockets,
+  String fallbackCurrency,
+) {
+  return pockets.map((pocket) {
+    final currency =
+        pocket.currency.trim().isNotEmpty ? pocket.currency : fallbackCurrency;
+    return pocket.copyWith(
+      budgetAmountCents: normalizePocketBudgetAmountCentsForCurrency(
+        pocket.budgetAmountCents,
+        currency,
+      ),
+    );
+  }).toList(growable: false);
 }
 
 /// Scope for pockets: personal or household.
@@ -813,17 +926,21 @@ class PocketsState {
   }
 
   factory PocketsState.fromCacheJson(Map<String, dynamic> json) {
+    final currency = json['currency'] as String? ?? 'USD';
+    final saved = ((json['saved'] as List?) ?? const [])
+        .cast<Map>()
+        .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+    final editing = ((json['editing'] as List?) ?? const [])
+        .cast<Map>()
+        .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+
     return PocketsState(
       isLoading: json['is_loading'] == true,
       error: json['error'] as String?,
-      saved: ((json['saved'] as List?) ?? const [])
-          .cast<Map>()
-          .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
-          .toList(growable: false),
-      editing: ((json['editing'] as List?) ?? const [])
-          .cast<Map>()
-          .map((row) => PocketEnvelope.fromJson(Map<String, dynamic>.from(row)))
-          .toList(growable: false),
+      saved: _normalizePocketBudgetAmountsForCurrency(saved, currency),
+      editing: _normalizePocketBudgetAmountsForCurrency(editing, currency),
       budgetId: json['budget_id'] as String?,
       periodMonth: DateTime.parse(
         json['period_month'] as String? ??
@@ -831,7 +948,7 @@ class PocketsState {
       ),
       previousBudget: (json['previous_budget'] as num?)?.toDouble() ?? 0,
       hasPreviousMonthPockets: json['has_previous_month_pockets'] == true,
-      currency: json['currency'] as String? ?? 'USD',
+      currency: currency,
       totalBudget: (json['total_budget'] as num?)?.toDouble() ?? 0,
       savedTotalBudget: (json['saved_total_budget'] as num?)?.toDouble() ?? 0,
       unallocatedSpend: (json['unallocated_spend'] as num?)?.toDouble() ?? 0,
@@ -1485,12 +1602,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       final pockets = envRows.map((row) {
         final id = row['id'] as String;
         final name = row['name'] as String? ?? '';
-        final resolvedAmountCents = allocationCentsByEnvelopeId[id] ??
+        final currency = row['currency'] as String? ?? selectedCurrency;
+        final rawAmountCents = allocationCentsByEnvelopeId[id] ??
             (row['budget_amount_cents'] as num?)?.toInt() ??
             0;
+        final resolvedAmountCents = normalizePocketBudgetAmountCentsForCurrency(
+          rawAmountCents,
+          currency,
+        );
         final spent = spentById[id] ?? 0;
         final hhId = row['household_id'] as String?;
-        final currency = row['currency'] as String? ?? selectedCurrency;
 
         // Icon can be stored as an int codepoint or a string name in the DB.
         // Use toString() to preserve whatever value is present instead of
@@ -1591,6 +1712,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
       }
 
+      final normalizedPockets = _normalizePocketBudgetAmountsForCurrency(
+        pockets,
+        selectedCurrency,
+      );
+
       final totalEnvelopeSpend =
           pockets.fold<double>(0, (sum, p) => sum + p.spent);
 
@@ -1600,8 +1726,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return PocketsState(
         isLoading: false,
         error: null,
-        saved: pockets,
-        editing: pockets.map((p) => p.copyWith()).toList(),
+        saved: normalizedPockets,
+        editing: normalizedPockets.map((p) => p.copyWith()).toList(),
         budgetId: budgetId,
         periodMonth: monthStart,
         previousBudget: previousBudget / 100.0,
@@ -2093,9 +2219,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         if (sourceEnvId == null || sourceEnvId.isEmpty) continue;
 
         final name = row['name'] as String? ?? '';
-        final amountCents = allocationCentsByEnvelopeId[sourceEnvId] ??
+        final rawAmountCents = allocationCentsByEnvelopeId[sourceEnvId] ??
             (row['budget_amount_cents'] as num?)?.toInt() ??
             0;
+        final amountCents = normalizePocketBudgetAmountCentsForCurrency(
+          rawAmountCents,
+          effectiveCurrency,
+        );
         final color = row['color'] as String?;
         final dynamic rawIcon = row['icon'];
         final String? icon = rawIcon?.toString();
@@ -2170,10 +2300,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   Future<void> revertChanges() async {
     if (!mounted) return;
-    final restored = state.saved.map((p) => p.copyWith()).toList();
+    final normalizedSaved = _normalizePocketBudgetAmountsForCurrency(
+      state.saved,
+      state.currency,
+    );
+    final restored = normalizedSaved.map((p) => p.copyWith()).toList();
     _debugLog(
         'revertChanges: restoring budget from ${state.totalBudget} to ${state.savedTotalBudget}');
     state = state.copyWith(
+      saved: normalizedSaved,
       editing: restored,
       totalBudget: state.savedTotalBudget, // Restore original budget
       clearError: true,
