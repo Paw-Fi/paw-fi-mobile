@@ -214,7 +214,9 @@ class HouseholdMembersNotifier
 
   Future<void> load() async {
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     final result = await AsyncValue.guard(
         () => _repository.getHouseholdMembers(_householdId));
     if (!mounted) return;
@@ -260,7 +262,9 @@ class HouseholdBudgetsNotifier
 
   Future<void> load() async {
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    if (!state.hasValue) {
+      state = const AsyncValue.loading();
+    }
     final result = await AsyncValue.guard(
         () => _repository.getHouseholdBudgets(_householdId));
     if (!mounted) return;
