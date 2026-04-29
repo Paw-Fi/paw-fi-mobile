@@ -3,10 +3,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:moneko/features/auth/domain/app_user.dart';
 import 'package:moneko/features/auth/presentation/states/auth.dart';
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockSupabaseClient extends Mock implements SupabaseClient {}
@@ -244,5 +246,71 @@ void main() {
         ),
       ).called(1);
     });
+
+    test(
+      'updates cached receipt URL and refreshes transaction feed after receipt replacement',
+      () async {
+        final successResponse = _MockFunctionResponse();
+        when(() => successResponse.data).thenReturn({
+          'success': true,
+          'data': {'receipt_image_url': 'https://example.com/new.jpg'},
+        });
+
+        when(
+          () => functionsClient.invoke(
+            'update-expense',
+            body: any(named: 'body'),
+          ),
+        ).thenAnswer((_) async => successResponse);
+
+        final container = createContainer(
+          supabaseClient: supabaseClient,
+          onAnalyticsNotifierCreated: (notifier) =>
+              analyticsNotifier = notifier,
+        );
+        addTearDown(container.dispose);
+
+        container.read(analyticsProvider);
+        analyticsNotifier!.state = AnalyticsData(
+          expenses: [
+            ExpenseEntry(
+              id: 'expense-1',
+              date: DateTime(2026, 4, 29),
+              amountCents: 1299,
+              createdAt: DateTime(2026, 4, 29, 12),
+              receiptImageUrl: 'https://example.com/old.jpg',
+            ),
+          ],
+          allExpenses: [
+            ExpenseEntry(
+              id: 'expense-1',
+              date: DateTime(2026, 4, 29),
+              amountCents: 1299,
+              createdAt: DateTime(2026, 4, 29, 12),
+              receiptImageUrl: 'https://example.com/old.jpg',
+            ),
+          ],
+        );
+
+        final originalFeedSignal =
+            container.read(transactionsFeedRefreshSignalProvider);
+
+        final result = await container
+            .read(transactionEditProvider.notifier)
+            .updateExpense('expense-1', {
+          'receipt_image_url': 'https://example.com/new.jpg',
+        });
+
+        expect(result, isTrue);
+        expect(
+          container.read(analyticsProvider).allExpenses.single.receiptImageUrl,
+          'https://example.com/new.jpg',
+        );
+        expect(
+          container.read(transactionsFeedRefreshSignalProvider),
+          originalFeedSignal + 1,
+        );
+      },
+    );
   });
 }

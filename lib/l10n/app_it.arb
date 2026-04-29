@@ -2632,5 +2632,6 @@
   "walletCaptureOfflineTitle": "Nessuna connessione durante il pagamento con Apple Pay?",
   "walletCaptureOfflineDescription": "Nessun problema. Moneko salva la transazione sul tuo iPhone e la sincronizza automaticamente quando riapri l’app con una connessione.",
   "currencyNotFound": "Valuta non disponibile",
-  "currencyNotFoundDescription": "Contattaci e usa temporaneamente un’altra valuta mentre aggiungiamo il supporto."
+  "currencyNotFoundDescription": "Contattaci e usa temporaneamente un’altra valuta mentre aggiungiamo il supporto.",
+  "replace": "Sostituisci"
 }

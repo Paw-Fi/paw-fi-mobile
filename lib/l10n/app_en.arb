@@ -2704,5 +2704,6 @@
   "walletCaptureOfflineTitle": "No internet while paying with Apple Pay?",
   "walletCaptureOfflineDescription": "Don't worry. Moneko saves the transaction on your iPhone and automatically syncs it the next time you open the app with internet.",
   "currencyNotFound": "Currency not found",
-  "currencyNotFoundDescription": "Contact us and use another currency for now while we add support for it."
+  "currencyNotFoundDescription": "Contact us and use another currency for now while we add support for it.",
+  "replace": "Replace"
 }

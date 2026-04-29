@@ -2632,5 +2632,6 @@
   "walletCaptureOfflineTitle": "Geen internet tijdens het betalen met Apple Pay?",
   "walletCaptureOfflineDescription": "Geen zorgen. Moneko slaat de transactie op je iPhone op en synchroniseert deze automatisch zodra je de app weer met internet opent.",
   "currencyNotFound": "Valuta niet gevonden",
-  "currencyNotFoundDescription": "Neem contact met ons op en gebruik voorlopig een andere valuta terwijl we ondersteuning toevoegen."
+  "currencyNotFoundDescription": "Neem contact met ons op en gebruik voorlopig een andere valuta terwijl we ondersteuning toevoegen.",
+  "replace": "Vervangen"
 }

@@ -1,36 +1,19 @@
 {
-  "currencyNotFound": {
-    "en": "Currency not found",
-    "de": "Währung nicht gefunden",
-    "es": "No se encontró la moneda",
-    "fr": "Devise introuvable",
-    "it": "Valuta non disponibile",
-    "ja": "通貨が見つかりません",
-    "kr": "통화를 찾을 수 없습니다",
-    "nl": "Valuta niet gevonden",
-    "ur": "کرنسی نہیں ملی",
-    "ru": "Валюта не найдена",
-    "th": "ไม่พบสกุลเงิน",
-    "uk": "Валюту не знайдено",
-    "zh": "未找到此货币",
-    "zh_TW": "找不到此貨幣",
-    "vi": "Không tìm thấy loại tiền tệ"
-  },
-  "currencyNotFoundDescription": {
-    "en": "Contact us and use another currency for now while we add support for it.",
-    "de": "Kontaktiere uns und nutze vorerst eine andere Währung, während wir die Unterstützung dafür hinzufügen.",
-    "es": "Contáctanos y usa otra moneda por ahora mientras añadimos compatibilidad.",
-    "fr": "Contactez-nous et utilisez une autre devise pour le moment pendant que nous ajoutons la prise en charge.",
-    "it": "Contattaci e usa temporaneamente un’altra valuta mentre aggiungiamo il supporto.",
-    "ja": "対応を追加中です。お問い合わせのうえ、しばらくは他の通貨をご利用ください。",
-    "kr": "문의해 주시고, 지원이 추가될 때까지는 다른 통화를 사용해 주세요.",
-    "nl": "Neem contact met ons op en gebruik voorlopig een andere valuta terwijl we ondersteuning toevoegen.",
-    "ur": "ہم سے رابطہ کریں اور فی الحال کوئی دوسری کرنسی استعمال کریں جب تک ہم اس کی سپورٹ شامل کر رہے ہیں۔",
-    "ru": "Свяжитесь с нами и пока используйте другую валюту, пока мы добавляем поддержку.",
-    "th": "ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ",
-    "uk": "Зв’яжіться з нами та поки використовуйте іншу валюту, поки ми додаємо підтримку.",
-    "zh": "请联系我们，并在我们添加支持期间暂时使用其他货币。",
-    "zh_TW": "請聯絡我們，在我們新增支援期間先使用其他貨幣。",
-    "vi": "Hãy liên hệ với chúng tôi và tạm thời sử dụng loại tiền khác trong khi chúng tôi bổ sung hỗ trợ."
+  "replace": {
+    "en": "Replace",
+    "de": "Ersetzen",
+    "es": "Reemplazar",
+    "fr": "Remplacer",
+    "it": "Sostituisci",
+    "ja": "置き換え",
+    "kr": "바꾸기",
+    "nl": "Vervangen",
+    "ur": "تبدیل کریں",
+    "ru": "Заменить",
+    "th": "แทนที่",
+    "uk": "Замінити",
+    "zh": "替换",
+    "zh_TW": "替換",
+    "vi": "Thay thế"
   }
 }

@@ -1045,8 +1045,8 @@ class PaywallScreen extends HookConsumerWidget {
 
     Future<void> onRestorePurchases() async {
       Future<void> refreshSubscriptionState() async {
-        await ref.read(subscriptionManagementProvider.notifier).refresh();
         await ref.read(subscriptionNotifierProvider.notifier).refresh();
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
       }
 
       didInitiateRestore.value = true;

@@ -7123,4 +7123,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get currencyNotFoundDescription => 'ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ';
+
+  @override
+  String get replace => 'แทนที่';
 }

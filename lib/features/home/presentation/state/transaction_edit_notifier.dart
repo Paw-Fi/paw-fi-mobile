@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/state/analytics_provider.dart'
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -194,6 +195,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // ═══════════════════════════════════════════════════════════════
       await ref.read(analyticsProvider.notifier).loadData(user.uid);
       ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 
       // ⚠️ CRITICAL: Always invalidate household providers after update
       // Even if the expense wasn't in analyticsProvider cache (household expense),
@@ -292,6 +294,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       accountId: updates.containsKey('account_id')
           ? (updates['account_id'] as String?)
           : expense.walletId,
+      receiptImageUrl: updates.containsKey('receipt_image_url')
+          ? (updates['receipt_image_url'] as String?)
+          : expense.receiptImageUrl,
     );
   }
 

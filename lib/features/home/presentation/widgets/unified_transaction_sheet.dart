@@ -53,15 +53,17 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:moneko/shared/widgets/moneko_action_sheet.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+const String _replaceReceiptPhotoLabel = 'Replace';
+const String _replaceReceiptPhotoTooltip = 'Replace receipt photo';
 
 /// Format date with relative terms
 String _formatRelativeDate(
@@ -117,6 +119,8 @@ class _AccountTarget {
 
   const _AccountTarget({required this.householdId, required this.isPortfolio});
 }
+
+enum _ReceiptPhotoSource { camera, gallery, cancel }
 
 /// Shows unified transaction sheet
 /// For existing expenses: shows details with option to change sharing
@@ -677,46 +681,90 @@ class _UnifiedTransactionSheetState
     return householdList.isNotEmpty ? householdList.first.id : null;
   }
 
-  /// Handle adding a photo to existing expense
-  Future<void> _handleAddPhoto() async {
+  Future<ImageSource?> _chooseReceiptPhotoSource(
+    BuildContext pickerContext,
+  ) async {
+    final selected = await MonekoActionSheet.show<_ReceiptPhotoSource>(
+      context: pickerContext,
+      title: pickerContext.l10n.addReceiptPhoto,
+      actions: [
+        MonekoActionSheetAction(
+          label: pickerContext.l10n.takePhotoWithCamera,
+          value: _ReceiptPhotoSource.camera,
+          icon: Icons.camera_alt_outlined,
+        ),
+        MonekoActionSheetAction(
+          label: pickerContext.l10n.choosePhotoFromLibrary,
+          value: _ReceiptPhotoSource.gallery,
+          icon: Icons.photo_library_outlined,
+        ),
+      ],
+      cancelAction: MonekoActionSheetAction(
+        label: pickerContext.l10n.cancel,
+        value: _ReceiptPhotoSource.cancel,
+      ),
+    );
+
+    return switch (selected) {
+      _ReceiptPhotoSource.camera => ImageSource.camera,
+      _ReceiptPhotoSource.gallery => ImageSource.gallery,
+      _ReceiptPhotoSource.cancel => null,
+      null => null,
+    };
+  }
+
+  Future<bool> _selectReceiptPhoto({
+    required BuildContext pickerContext,
+  }) async {
     if (ref.read(previewModeProvider).isActive) {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+      if (pickerContext.mounted) {
+        Navigator.of(pickerContext, rootNavigator: true).pop();
         AppToast.info(
-          context,
-          context.l10n.previewMockReceiptNoted,
+          pickerContext,
+          pickerContext.l10n.previewMockReceiptNoted,
         );
       }
-      return;
+      return false;
     }
 
-    debugPrint('📷 Adding photo to existing expense...');
+    debugPrint('📷 Selecting receipt photo...');
 
     try {
+      final source = await _chooseReceiptPhotoSource(pickerContext);
+      if (source == null) return false;
+
       final XFile? photo = await pickImageWithGuard(
         picker: _imagePicker,
-        source: ImageSource.camera,
+        source: source,
         imageQuality: 85,
       );
 
       if (photo != null) {
-        debugPrint('📷 Photo captured');
+        debugPrint('📷 Receipt photo selected');
         setState(() {
           _localImagePath = photo.path;
         });
+        return true;
       } else {
-        debugPrint('📷 Photo capture cancelled');
+        debugPrint('📷 Receipt photo selection cancelled');
       }
     } catch (e) {
-      debugPrint('❌ Error capturing photo: $e');
-      if (mounted) {
+      debugPrint('❌ Error selecting receipt photo: $e');
+      if (pickerContext.mounted) {
         AppToast.error(
-          context,
-          '${context.l10n.failedToCapturePhoto}: $e',
+          pickerContext,
+          '${pickerContext.l10n.failedToCapturePhoto}: $e',
           duration: const Duration(seconds: 6),
         );
       }
     }
+
+    return false;
+  }
+
+  /// Handle adding a photo to existing expense
+  Future<void> _handleAddPhoto() async {
+    await _selectReceiptPhoto(pickerContext: context);
   }
 
   /// Show full-screen image viewer with pinch-to-zoom
@@ -728,6 +776,11 @@ class _UnifiedTransactionSheetState
         builder: (context) => _FullScreenImageViewer(
           localImagePath: localImagePath,
           imageUrl: receiptImageUrl,
+          onReplacePhoto: isExistingExpense
+              ? (pickerContext) => _selectReceiptPhoto(
+                    pickerContext: pickerContext,
+                  )
+              : null,
         ),
       ),
     );
@@ -3246,6 +3299,8 @@ class _UnifiedTransactionSheetState
           updates['household_id'] = targetHouseholdId;
         }
 
+        String? replacedReceiptImageUrl;
+
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
           debugPrint(' Uploading new receipt image for existing expense');
@@ -3256,6 +3311,7 @@ class _UnifiedTransactionSheetState
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
+            replacedReceiptImageUrl = widget.existingExpense!.receiptImageUrl;
           }
         }
 
@@ -3438,6 +3494,12 @@ class _UnifiedTransactionSheetState
         }
 
         if (success) {
+          if (replacedReceiptImageUrl != null) {
+            await ref
+                .read(expenseSaveNotifierProvider.notifier)
+                .deleteReceiptImage(replacedReceiptImageUrl);
+          }
+
           //
           debugPrint(' Triggering comprehensive UI refresh...');
 
@@ -3722,10 +3784,12 @@ class _UnifiedTransactionSheetState
 class _FullScreenImageViewer extends StatefulWidget {
   final String? localImagePath;
   final String? imageUrl;
+  final Future<bool> Function(BuildContext context)? onReplacePhoto;
 
   const _FullScreenImageViewer({
     this.localImagePath,
     this.imageUrl,
+    this.onReplacePhoto,
   });
 
   @override
@@ -3751,6 +3815,26 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
         backgroundColor: colorScheme.appBackground,
         iconTheme: IconThemeData(color: colorScheme.foreground),
         elevation: 0,
+        actions: [
+          if (widget.onReplacePhoto != null)
+            Tooltip(
+              message: _replaceReceiptPhotoTooltip,
+            child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.foreground,
+                ),
+                icon: const Icon(Icons.find_replace_outlined),
+                label:  Text(context.l10n.replace),
+                onPressed: () async {
+                  final navigator = Navigator.of(context);
+                  final replaced = await widget.onReplacePhoto!(context);
+                  if (replaced && mounted) {
+                    navigator.pop();
+                  }
+                },
+              ),
+            ),
+        ],
       ),
       body: Center(
         child: InteractiveViewer(

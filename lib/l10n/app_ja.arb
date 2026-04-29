@@ -2685,5 +2685,6 @@
   "walletCaptureOfflineTitle": "Apple Payで支払うとき、インターネットに接続されていませんか？",
   "walletCaptureOfflineDescription": "ご安心ください。Monekoは取引をiPhoneに保存し、次回インターネット接続時にアプリを開くと自動的に同期されます。",
   "currencyNotFound": "通貨が見つかりません",
-  "currencyNotFoundDescription": "対応を追加中です。お問い合わせのうえ、しばらくは他の通貨をご利用ください。"
+  "currencyNotFoundDescription": "対応を追加中です。お問い合わせのうえ、しばらくは他の通貨をご利用ください。",
+  "replace": "置き換え"
 }

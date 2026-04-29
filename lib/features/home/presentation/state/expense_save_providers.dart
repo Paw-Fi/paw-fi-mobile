@@ -32,6 +32,22 @@ void _debugPrint(String? message, {int? wrapWidth}) {
   }
 }
 
+String? receiptStoragePathFromPublicUrl(String? publicUrl) {
+  if (publicUrl == null || publicUrl.trim().isEmpty) return null;
+
+  final uri = Uri.tryParse(publicUrl.trim());
+  if (uri == null) return null;
+
+  final segments = uri.pathSegments;
+  final bucketIndex = segments.indexOf('expense-receipts');
+  if (bucketIndex == -1 || bucketIndex == segments.length - 1) return null;
+
+  final objectPath = segments.skip(bucketIndex + 1).join('/');
+  if (!objectPath.startsWith('receipts/')) return null;
+
+  return objectPath;
+}
+
 // ============================================================================
 // PENDING EXPENSE PROVIDER
 // ============================================================================
@@ -583,6 +599,19 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     } catch (error) {
       _debugPrint('❌ Receipt upload failed: $error');
       return null; // Continue without receipt image
+    }
+  }
+
+  Future<void> deleteReceiptImage(String? receiptImageUrl) async {
+    final path = receiptStoragePathFromPublicUrl(receiptImageUrl);
+    if (path == null) return;
+
+    try {
+      _debugPrint('🗑️ Deleting receipt image...');
+      await supabase.storage.from('expense-receipts').remove([path]);
+      _debugPrint('✅ Receipt image deleted');
+    } catch (error) {
+      _debugPrint('❌ Receipt delete failed: $error');
     }
   }
 }
