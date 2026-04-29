@@ -200,37 +200,44 @@ void main() {
     });
 
     test('returns true for trialing status', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
         plan: 'premium',
         status: 'trialing',
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 14)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
     });
 
     test('returns true for active status with household binding', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
+        plan: 'family',
         status: 'active',
         boundToUserId: 'user_2',
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
     });
 
     test('returns true for active status with stripe subscription', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
         plan: 'premium',
         status: 'active',
         stripeSubscriptionId: 'stripe_sub_123',
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -360,7 +367,7 @@ void main() {
         createdAt: DateTime.now(),
       );
 
-      expect(subscription.isSubscribed, true);
+      expect(subscription.isSubscribed, false);
       expect(subscription.currentPeriodEnd!.isBefore(DateTime.now()), true);
     });
 
@@ -383,6 +390,7 @@ void main() {
     });
 
     test('handles subscription with cancelAtPeriodEnd true', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
@@ -390,7 +398,8 @@ void main() {
         status: 'active',
         stripeSubscriptionId: 'stripe_sub_123',
         cancelAtPeriodEnd: true,
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -398,6 +407,7 @@ void main() {
     });
 
     test('handles household-bound subscription', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
@@ -405,7 +415,8 @@ void main() {
         status: 'active',
         boundToUserId: 'owner_user',
         boundToHouseholdId: 'hh_1',
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -442,14 +453,15 @@ void main() {
     });
 
     test('Case 2: Active paid subscription', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
         plan: 'premium',
         status: 'active',
         stripeSubscriptionId: 'stripe_sub_123',
-        currentPeriodEnd: DateTime(2025, 1, 1),
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -470,14 +482,15 @@ void main() {
     });
 
     test('Case 4: Trial period', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
         plan: 'premium',
         status: 'trialing',
         stripeSubscriptionId: 'stripe_sub_123',
-        currentPeriodEnd: DateTime(2024, 2, 1),
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 14)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -485,13 +498,16 @@ void main() {
     });
 
     test('Case 5: Household member with shared access', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
+        plan: 'family',
         status: 'active',
         boundToUserId: 'owner_user',
         boundToHouseholdId: 'hh_1',
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       expect(subscription.isSubscribed, true);
@@ -511,6 +527,7 @@ void main() {
     });
 
     test('Case 7: Subscription set to cancel at period end', () {
+      final now = DateTime.now();
       final subscription = Subscription(
         id: 'sub_1',
         userId: 'user_1',
@@ -518,8 +535,8 @@ void main() {
         status: 'active',
         stripeSubscriptionId: 'stripe_sub_123',
         cancelAtPeriodEnd: true,
-        currentPeriodEnd: DateTime(2024, 2, 1),
-        createdAt: DateTime.now(),
+        currentPeriodEnd: now.add(const Duration(days: 30)),
+        createdAt: now,
       );
 
       // Still subscribed until period ends
@@ -648,6 +665,25 @@ void main() {
       );
 
       expect(subscription.isSubscribed, false);
+    });
+
+    test(
+        'App Store subscription in billing grace period returns true until grace expiry',
+        () {
+      final now = DateTime.now();
+      final graceExpiry = now.add(const Duration(days: 3));
+
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        provider: 'app_store',
+        plan: 'yearly',
+        status: 'past_due',
+        currentPeriodEnd: graceExpiry,
+        createdAt: now,
+      );
+
+      expect(subscription.isSubscribed, true);
     });
 
     test('isIap returns true for app_store provider', () {

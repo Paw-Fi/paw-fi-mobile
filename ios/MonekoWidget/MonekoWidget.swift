@@ -170,6 +170,17 @@ struct DataLoader {
 }
 
 extension MonekoEntry {
+    var isHouseholdScope: Bool {
+        guard let scopeId = configuration?.household?.id else {
+            return false
+        }
+        return scopeId != "personal"
+    }
+
+    var spentTitle: String {
+        isHouseholdScope ? "Spent by Household" : "Spent"
+    }
+
     static var categoryPlaceholder: MonekoEntry {
         MonekoEntry(
             date: Date(),
@@ -411,9 +422,11 @@ struct SmallWidgetView: View {
             
             Spacer()
             
-            Text("Spent")
+            Text(entry.spentTitle)
                 .font(.caption)
                 .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             
             Text(entry.totalSpent)
                 .font(.system(size: 20, weight: .bold))
@@ -436,10 +449,12 @@ struct MediumWidgetView: View {
         HStack(spacing: 16) {
             // Left: Summary
             VStack(alignment: .leading, spacing: 4) {
-                Text("This Month")
+                Text(entry.isHouseholdScope ? entry.spentTitle : "This Month")
                     .font(.caption)
                     .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                     .textCase(.uppercase)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 
                 Text(entry.totalSpent)
                     .font(.system(size: 26, weight: .bold))
@@ -500,10 +515,12 @@ struct LargeWidgetView: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Spent")
+                    Text(entry.spentTitle)
                         .font(.caption2)
                         .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                         .textCase(.uppercase)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                     Text(entry.totalSpent)
                         .font(.title3)
                         .fontWeight(.bold)

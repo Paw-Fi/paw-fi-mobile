@@ -9,8 +9,10 @@ import 'package:moneko/features/home/presentation/services/widget_sync_calculati
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
+import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
@@ -18,7 +20,6 @@ import 'package:moneko/features/recurring/presentation/providers/recurring_provi
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
-import 'package:moneko/features/households/data/services/household_service.dart';
 import 'package:moneko/features/households/domain/entities/household_summary.dart';
 
 String _colorToHex(Color color) {
@@ -177,21 +178,17 @@ class WidgetSyncManager extends HookConsumerWidget {
             return;
           }
 
-          // Get portfolio household IDs to include in personal scope
-          final householdScope = ref.read(householdScopeProvider);
-          final portfolioIds = householdScope.portfolioHouseholdIds.toList();
-
-          final now = DateTime.now();
-          final currentMonth = DateTime(now.year, now.month, 1);
+          final timezoneOffsetMinutes = resolveUserTimezoneOffsetMinutes(
+            appInitState.data?.user?.preferredTimezone,
+          );
+          final userNow = userNowFromOffsetMinutes(timezoneOffsetMinutes);
+          final widgetRange = buildWidgetThisMonthRange(userNow);
+          final currentMonth = widgetRange['from']!;
+          final currentRangeEnd = widgetRange['to']!;
 
           // Fetch Monthly Budgets for all scopes
           final monthStr =
               currentMonth.toIso8601String().substring(0, 10); // YYYY-MM-DD
-          final endDateStr = DateTime(now.year, now.month + 1, 0)
-              .toIso8601String()
-              .substring(0, 10);
-
-          final householdService = HouseholdService(Supabase.instance.client);
 
           Future<List<ExpenseEntry>> loadWidgetTransactionsForScope({
             required String scopeId,
@@ -205,7 +202,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 householdId: householdId,
                 selectedCurrency: currency,
                 startDate: currentMonth,
-                endDate: DateTime(now.year, now.month + 1, 0),
+                endDate: currentRangeEnd,
               );
               return ref.read(
                 dashboardCalendarTransactionsProvider(query).future,
@@ -229,9 +226,10 @@ class WidgetSyncManager extends HookConsumerWidget {
                   const <RecurringTransaction>[];
             }
 
-            final scopedHouseholdIds = scopeId == 'personal'
-                ? <String?>[null, ...portfolioIds]
-                : <String?>[scopeId];
+            final scopedHouseholdIds = widgetSourceHouseholdIds(
+              scopeId: scopeId,
+              portfolioHouseholdIds: const <String>{},
+            );
             final actualExpenses = <ExpenseEntry>[];
             final recurringTransactions = <RecurringTransaction>[];
             for (final householdId in scopedHouseholdIds) {
@@ -245,38 +243,64 @@ class WidgetSyncManager extends HookConsumerWidget {
               actualExpenses: actualExpenses,
               recurringTransactions: recurringTransactions,
               rangeStart: currentMonth,
-              rangeEnd: DateTime(now.year, now.month + 1, 0),
+              rangeEnd: currentRangeEnd,
               selectedCurrency: currency,
               includeFutureOccurrences: false,
-              now: now,
+              now: userNow,
             );
+          }
+
+          Future<HouseholdSummary?> loadHouseholdDerivedSummary({
+            required String householdId,
+            required String currency,
+          }) async {
+            final params = HouseholdSummaryParams(
+              householdId: householdId,
+              currency: currency,
+              startDate: formatDateOnlyYmd(currentMonth),
+              endDate: formatDateOnlyYmd(currentRangeEnd),
+            );
+
+            await ref.read(
+              cachedHouseholdExpensesProvider(
+                HouseholdExpensesParams(householdId: householdId),
+              ).future,
+            );
+            await ref.read(
+              cachedHouseholdSplitsProvider(
+                HouseholdSplitsParams(householdId: householdId),
+              ).future,
+            );
+            await ref
+                .read(householdMembersProvider(householdId).notifier)
+                .load();
+            await ref
+                .read(householdBudgetsProvider(householdId).notifier)
+                .load();
+
+            final summaryAsync =
+                ref.read(householdDerivedSummaryProvider(params));
+            if (summaryAsync.hasError && !summaryAsync.hasValue) {
+              throw summaryAsync.error ?? Exception('Failed to load summary');
+            }
+            return summaryAsync.valueOrNull;
           }
 
           // Use all supported currencies for configuration
           final allSupportedCurrencies = currencyOptions.keys.toList();
 
-          // Preload personal budgets from the new `budgets` table so the widget
-          // reflects the same monthly budget as the Pockets page. Fallback to
-          // legacy `daily_budgets` data when no entry exists here.
+          // Preload personal budgets from the new `budgets` table, scoped the
+          // same way as the personal home dashboard: household_id must be null.
           final personalBudgetsByCurrency = <String, double>{};
           final personalBudgetIdsByCurrency = <String, String>{};
           try {
-            var budgetsQuery = Supabase.instance.client
+            final budgetsRes = await Supabase.instance.client
                 .from('budgets')
                 .select(
                     'id,currency,total_budget_cents,period_month,household_id')
                 .eq('user_id', user.uid)
-                .eq('period_month', monthStr);
-
-            // Include personal (household_id null) and portfolio households
-            if (portfolioIds.isEmpty) {
-              budgetsQuery = budgetsQuery.isFilter('household_id', null);
-            } else {
-              budgetsQuery = budgetsQuery.or(
-                  'household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
-            }
-
-            final budgetsRes = await budgetsQuery;
+                .eq('period_month', monthStr)
+                .isFilter('household_id', null);
 
             final rows =
                 (budgetsRes as List?)?.cast<Map<String, dynamic>>() ?? [];
@@ -592,23 +616,17 @@ class WidgetSyncManager extends HookConsumerWidget {
                 // Session lost - exit loop, finally will handle cleanup
                 return;
               }
-              double totalSpent = 0.0;
-              double totalBudget = 0.0;
+              var financialSummary = const WidgetFinancialSummary(
+                totalSpent: 0,
+                totalBudget: 0,
+                remainingBudget: 0,
+                progress: 0,
+              );
               List<WidgetPocketData> topCategories = [];
               List<WidgetPocketData> budgetPockets = [];
 
               if (scopeId == 'personal') {
                 // --- PERSONAL SCOPE ---
-                // Use direct expenses query (same as pockets page) so widget
-                // amounts always match the Pockets screen, independent of
-                // analytics edge-function quirks.
-
-                // Skip currencies without a budget entry to avoid excessive
-                // queries for unused currencies.
-                if ((personalBudgetsByCurrency[currency] ?? 0.0) <= 0) {
-                  continue;
-                }
-
                 List<ExpenseEntry> scopeExpenses = [];
                 try {
                   scopeExpenses = await loadWidgetTransactionsForScope(
@@ -620,9 +638,10 @@ class WidgetSyncManager extends HookConsumerWidget {
                       'Error fetching personal expenses for widget ($currency): $e');
                 }
 
-                totalSpent = widgetCentsToAmount(
+                final totalSpent = widgetCentsToAmount(
                   calculateWidgetSpentCents(scopeExpenses),
                 );
+                var totalBudget = 0.0;
 
                 // 2. Get Budget
                 // Prefer the new monthly `budgets` table (used by Pockets),
@@ -641,8 +660,8 @@ class WidgetSyncManager extends HookConsumerWidget {
                       budget.date.month,
                       budget.date.day,
                     );
-                    final isMonthMatch = budgetDate.year == now.year &&
-                        budgetDate.month == now.month;
+                    final isMonthMatch = budgetDate.year == userNow.year &&
+                        budgetDate.month == userNow.month;
                     final currencyOk =
                         (budget.currency?.toUpperCase() ?? 'USD') == currency;
                     return isMonthMatch && currencyOk;
@@ -654,7 +673,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   } else {
                     // Find most recent budget before this month
                     DailyBudgetEntry? mostRecentBudget;
-                    final firstOfMonth = DateTime(now.year, now.month, 1);
+                    final firstOfMonth = DateTime(userNow.year, userNow.month, 1);
                     for (final budget in allBudgets.reversed) {
                       final budgetDate = DateTime(
                         budget.date.year,
@@ -673,6 +692,11 @@ class WidgetSyncManager extends HookConsumerWidget {
                     }
                   }
                 }
+
+                financialSummary = buildWidgetSummaryFromSpentAndBudget(
+                  totalSpent: totalSpent,
+                  totalBudget: totalBudget,
+                );
 
                 // 3. Budget pockets (envelopes) for this currency/month
                 budgetPockets = await loadPersonalBudgetPockets(
@@ -704,49 +728,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 }).toList();
               } else {
                 // --- HOUSEHOLD SCOPE ---
-                // Optimization: Only fetch if we suspect there's data?
-                // No, we can't know easily.
-                // But calling the Edge Function 40 times per household is definitely BAD.
-                // The Edge Function `households-summary` likely returns data for a specific currency.
-                // If we call it 40 times, it's 40 network requests.
-                // We should probably ONLY sync currencies that are "active" for the household.
-                // But the user might want to see "0" for a new currency.
-                // Compromise: For households, only sync currencies that are in `availableCurrencies` (which comes from AnalyticsData, but that might only be personal?).
-                // Wait, `AnalyticsData` in `AnalyticsProvider` fetches `get_analytics` which includes household data if the user is in one?
-                // No, `AnalyticsProvider` usually fetches personal data or currently selected household data.
-                // `WidgetSyncManager` is trying to sync ALL households.
-
-                // If we skip fetching for a currency, the widget will show old data or 0.
-                // Let's restrict household sync to:
-                // 1. Currencies present in `availableCurrencies` (which might be incomplete for other households)
-                // 2. 'USD', 'EUR', 'GBP' (Common defaults)
-                // 3. The household's "primary" currency? (We don't have that info easily here, maybe in Household object?)
-                // The `Household` entity has a `currency` field!
-
-                // Let's find the household object
-                final household =
-                    households.firstWhereOrNull((h) => h.id == scopeId);
-                final householdCurrency = household?.currency ?? 'USD';
-
-                // We should definitely sync the household's main currency.
-                // And maybe any others that have data?
-                // For now, to avoid 40+ API calls, let's only sync the household's default currency + USD/EUR.
-                // Or better: The user can only select "Personal" or "Household".
-                // If they select "Household", they probably want to see it in the household's currency.
-                // If they select a different currency, we might not have data.
-
-                final currenciesToSync = {
-                  householdCurrency,
-                  'USD',
-                  'EUR',
-                  'GBP',
-                  ...availableCurrencies
-                }.intersection(allSupportedCurrencies.toSet()).toList();
-
-                if (!currenciesToSync.contains(currency)) {
-                  continue;
-                }
-
                 // CIRCUIT BREAKER: Check if this scope+currency failed recently
                 final scopeKey = '$scopeId:$currency';
                 if (syncState.isScopeInCooldown(scopeKey)) {
@@ -764,21 +745,18 @@ class WidgetSyncManager extends HookConsumerWidget {
                     scopeId: scopeId,
                     currency: currency,
                   );
-                  final summaryMap = await householdService.getHouseholdSummary(
+                  final summary = await loadHouseholdDerivedSummary(
                     householdId: scopeId,
                     currency: currency,
-                    startDate: monthStr,
-                    endDate: endDateStr,
                   );
-                  final summary = HouseholdSummary.fromJson(summaryMap);
 
-                  totalSpent = widgetCentsToAmount(
+                  final totalSpent = widgetCentsToAmount(
                     calculateWidgetSpentCents(scopeExpenses),
                   );
 
-                  totalBudget = summary.budgets.fold<double>(
-                    0.0,
-                    (sum, b) => sum + b.amountCents / 100.0,
+                  financialSummary = buildHouseholdWidgetSummary(
+                    totalSpent: totalSpent,
+                    budgets: summary?.budgets ?? const <BudgetStatus>[],
                   );
 
                   budgetPockets = await loadHouseholdBudgetPockets(
@@ -828,12 +806,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                 }
               }
 
-              // Calculate Progress
-              double progress = 0.0;
-              if (totalBudget > 0) {
-                progress = (totalSpent / totalBudget).clamp(0.0, 1.0);
-              }
-
               // Use budget-based pockets when available; otherwise fall back to
               // topCategories so the widget still shows a breakdown instead of
               // an empty state.
@@ -843,20 +815,19 @@ class WidgetSyncManager extends HookConsumerWidget {
               await WidgetService().updateWidgetDataWithScope(
                 scopeId: scopeId,
                 currency: currency,
-                totalSpent: totalSpent,
-                totalBudget: totalBudget,
-                budgetProgress: progress,
+                totalSpent: financialSummary.totalSpent,
+                totalBudget: financialSummary.totalBudget,
+                remainingBudget: financialSummary.remainingBudget,
+                budgetProgress: financialSummary.progress,
                 pockets: pocketsForWidget,
               );
 
               // Save top categories separately for the dedicated widget variant.
-              if (topCategories.isNotEmpty) {
-                await WidgetService().saveTopCategoriesForScope(
-                  scopeId: scopeId,
-                  currency: currency,
-                  pockets: topCategories,
-                );
-              }
+              await WidgetService().saveTopCategoriesForScope(
+                scopeId: scopeId,
+                currency: currency,
+                pockets: topCategories,
+              );
 
               // Sync to legacy keys (no suffix) for Personal + Preferred Currency (or USD)
               // This ensures the widget has data before configuration is set
@@ -864,8 +835,10 @@ class WidgetSyncManager extends HookConsumerWidget {
                   analyticsData.preferredCurrency ?? 'USD';
               if (scopeId == 'personal' && currency == preferredCurrency) {
                 await WidgetService().updateWidgetData(
-                  totalSpent: totalSpent,
-                  totalBudget: totalBudget,
+                  totalSpent: financialSummary.totalSpent,
+                  totalBudget: financialSummary.totalBudget,
+                  remainingBudget: financialSummary.remainingBudget,
+                  budgetProgress: financialSummary.progress,
                   currency: currency,
                   pockets: pocketsForWidget,
                 );

@@ -154,8 +154,29 @@ class Subscription {
       return isValid;
     }
 
+    if (status == 'past_due') {
+      if (plan == 'free') {
+        appLog('PAST_DUE status but plan is "free" - subscribed=false',
+            name: 'Subscription');
+        return false;
+      }
+
+      if (currentPeriodEnd == null) {
+        appLog(
+            'PAST_DUE status missing current_period_end - subscribed=false (FAIL-SAFE)',
+            name: 'Subscription');
+        return false;
+      }
+
+      final isStillEntitled = currentPeriodEnd!.isAfter(DateTime.now());
+      appLog(
+          'PAST_DUE status - entitlement expires=$currentPeriodEnd valid=$isStillEntitled',
+          name: 'Subscription');
+      return isStillEntitled;
+    }
+
     // Case 2: All other cases mean free/inactive
-    appLog('No matching active/trialing subscription - subscribed=false (FREE)',
+    appLog('No matching access-granting subscription - subscribed=false (FREE)',
         name: 'Subscription');
     return false;
   }

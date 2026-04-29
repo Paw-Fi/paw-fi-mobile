@@ -16,6 +16,8 @@ class WidgetService {
   Future<void> updateWidgetData({
     required double totalSpent,
     required double totalBudget,
+    double? remainingBudget,
+    double? budgetProgress,
     required String currency,
     required List<WidgetPocketData> pockets,
   }) async {
@@ -27,14 +29,12 @@ class WidgetService {
       final currencyFormat = NumberFormat.simpleCurrency(name: currency);
       final spentStr = currencyFormat.format(totalSpent);
       final budgetStr = currencyFormat.format(totalBudget);
-      final remaining = totalBudget - totalSpent;
+      final remaining = remainingBudget ?? (totalBudget - totalSpent);
       final remainingStr = currencyFormat.format(remaining);
 
       // Calculate progress
-      double progress = 0.0;
-      if (totalBudget > 0) {
-        progress = (totalSpent / totalBudget).clamp(0.0, 1.0);
-      }
+      final progress = budgetProgress ??
+          (totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0) : 0.0);
 
       // Save Summary Data
       await HomeWidget.saveWidgetData<String>('total_spent', spentStr);
@@ -69,6 +69,7 @@ class WidgetService {
     required String currency,
     required double totalSpent,
     required double totalBudget,
+    double? remainingBudget,
     required double budgetProgress,
     required List<WidgetPocketData> pockets,
   }) async {
@@ -84,7 +85,7 @@ class WidgetService {
       await HomeWidget.saveWidgetData(
           'remaining_budget_$keySuffix',
           NumberFormat.simpleCurrency(name: currency)
-              .format(totalBudget - totalSpent)); // Using NumberFormat directly
+              .format(remainingBudget ?? (totalBudget - totalSpent)));
       await HomeWidget.saveWidgetData(
           'budget_progress_$keySuffix', budgetProgress);
 
