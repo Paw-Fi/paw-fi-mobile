@@ -38,13 +38,18 @@ class _HouseholdInvitationSheetState
     super.initState();
     debugPrint(
         '🏠 [HouseholdInvitationSheet] Initializing with token: ${widget.token}');
-    WidgetsBinding.instance.addPostFrameCallback((_) => _acceptInvite());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _acceptInvite();
+    });
   }
 
   /// Helper method to refresh the household list for the current user
   /// This is called whenever a user joins or is already a member of a household
   /// to ensure the UI reflects the latest state
   Future<void> _refreshHouseholdList() async {
+    if (!mounted) return;
+
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
@@ -60,6 +65,8 @@ class _HouseholdInvitationSheetState
   }
 
   Future<void> _acceptInvite() async {
+    if (!mounted) return;
+
     debugPrint(
         '🏠 [HouseholdInvitationSheet] Starting invitation acceptance flow');
     final repo = ref.read(householdRepositoryProvider);
@@ -84,6 +91,7 @@ class _HouseholdInvitationSheetState
         // This handles cases where the household might not be in the local cache
         await _refreshHouseholdList();
 
+        if (!mounted) return;
         setState(() {
           _accepted = true;
           _householdId = householdId;
@@ -101,6 +109,7 @@ class _HouseholdInvitationSheetState
             final data = await repo.acceptInvite(widget.token);
             debugPrint(
                 '🏠 [HouseholdInvitationSheet] Successfully accepted! Household ID: ${data['household_id']}');
+            if (!mounted) return;
             setState(() {
               _accepted = true;
               _householdId = data['household_id'] as String? ?? householdId;
@@ -117,6 +126,7 @@ class _HouseholdInvitationSheetState
               // Refresh household list to ensure consistency
               await _refreshHouseholdList();
 
+              if (!mounted) return;
               setState(() {
                 _accepted = true;
                 _householdId = householdId;
@@ -132,6 +142,7 @@ class _HouseholdInvitationSheetState
         } else {
           debugPrint(
               '❌ [HouseholdInvitationSheet] Missing household ID in validation response');
+          if (!mounted) return;
           setState(() {
             _error = context.l10n.invalidInvitationMissingInfo;
             _isProcessing = false;
@@ -142,6 +153,7 @@ class _HouseholdInvitationSheetState
         final errorMsg =
             validateResponse['error'] as String? ?? 'Invalid invitation';
         debugPrint('❌ [HouseholdInvitationSheet] Validation failed: $errorMsg');
+        if (!mounted) return;
         setState(() {
           _error = errorMsg;
           _isProcessing = false;
@@ -150,6 +162,7 @@ class _HouseholdInvitationSheetState
     } catch (e) {
       debugPrint(
           '❌ [HouseholdInvitationSheet] Exception during invitation flow: $e');
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isProcessing = false;

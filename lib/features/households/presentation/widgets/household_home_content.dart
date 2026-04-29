@@ -151,6 +151,8 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     required List<DashboardWidgetConfig> configs,
     required DateTime referenceNow,
   }) async {
+    if (!mounted) return;
+
     final warmupTrace = HomeDebugTrace(
       label: 'HouseholdDashboardWarmup',
       enabled: ref.read(homeDebugLoggingEnabledProvider),
@@ -285,21 +287,25 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
         await ref
             .read(recurringProvider.notifier)
             .loadRecurringTransactions(userId);
+        if (!mounted) return;
         warmupTrace.mark('warmup-recurring-success');
       }
     }
 
+    if (!mounted) return;
     ref.read(householdMembersProvider(household.id));
     warmupTrace.mark('warmup-members-read');
 
     if (needsSplits) {
       try {
         warmupTrace.mark('warmup-splits-start');
+        if (!mounted) return;
         await ref.read(
           householdSplitsProvider(HouseholdSplitsParams(
             householdId: household.id,
           )).future,
         );
+        if (!mounted) return;
         warmupTrace.mark('warmup-splits-success');
       } catch (error) {
         warmupTrace.mark('warmup-splits-error', {'error': error});
@@ -312,7 +318,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           'rangeStart': query.formattedStartDate,
           'rangeEnd': query.formattedEndDate,
         });
+        if (!mounted) return;
         await ref.read(dashboardCalendarTransactionsProvider(query).future);
+        if (!mounted) return;
         warmupTrace.mark('warmup-calendar-success');
       } catch (error) {
         warmupTrace.mark('warmup-calendar-error', {'error': error});
@@ -325,7 +333,9 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
           'rangeStart': params.startDate,
           'rangeEnd': params.endDate,
         });
+        if (!mounted) return;
         await ref.read(householdSummaryProvider(params).future);
+        if (!mounted) return;
         warmupTrace.mark('warmup-summary-success');
       } catch (error) {
         warmupTrace.mark('warmup-summary-error', {'error': error});

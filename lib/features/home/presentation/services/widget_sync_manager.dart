@@ -32,6 +32,16 @@ String _colorToHex(Color color) {
   return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
 }
 
+class _BudgetPocketsSnapshot {
+  const _BudgetPocketsSnapshot({
+    required this.totalBudget,
+    required this.pockets,
+  });
+
+  final double totalBudget;
+  final List<WidgetPocketData> pockets;
+}
+
 class WidgetSyncManager extends HookConsumerWidget {
   const WidgetSyncManager({super.key});
 
@@ -323,23 +333,21 @@ class WidgetSyncManager extends HookConsumerWidget {
 
           // Helper to build per-envelope budget pockets for the personal scope
           // using the same data model as the Pockets page (budgets + envelopes).
-          Future<List<WidgetPocketData>> loadPersonalBudgetPockets({
+          Future<_BudgetPocketsSnapshot?> loadPersonalBudgetPockets({
             required String currency,
+            required DateTime monthStart,
             required List<ExpenseEntry> scopeExpenses,
           }) async {
             final budgetId = personalBudgetIdsByCurrency[currency];
             final totalBudget = personalBudgetsByCurrency[currency] ?? 0.0;
             if (budgetId == null || totalBudget <= 0) {
-              return [];
+              return null;
             }
 
             try {
               final client = Supabase.instance.client;
 
-              final now = DateTime.now();
-              final periodMonth = DateTime(now.year, now.month, 1)
-                  .toIso8601String()
-                  .substring(0, 10);
+              final periodMonth = monthStart.toIso8601String().substring(0, 10);
 
               // Fetch envelopes for this budget/currency
               final envelopesRes = await client
@@ -353,7 +361,10 @@ class WidgetSyncManager extends HookConsumerWidget {
               final envRows =
                   (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
               if (envRows.isEmpty) {
-                return [];
+                return _BudgetPocketsSnapshot(
+                  totalBudget: totalBudget,
+                  pockets: const [],
+                );
               }
 
               final envIds = envRows.map((e) => e['id'] as String).toList();
@@ -441,15 +452,18 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
               }
 
-              return pockets;
+              return _BudgetPocketsSnapshot(
+                totalBudget: totalBudget,
+                pockets: pockets,
+              );
             } catch (e) {
               debugPrint(
                   'Error loading personal budget pockets for widget: $e');
-              return [];
+              return null;
             }
           }
 
-          Future<List<WidgetPocketData>> loadHouseholdBudgetPockets({
+          Future<_BudgetPocketsSnapshot?> loadHouseholdBudgetPockets({
             required String householdId,
             required String currency,
             required DateTime monthStart,
@@ -470,7 +484,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   .maybeSingle();
 
               if (budgetRow == null) {
-                return [];
+                return null;
               }
 
               final budgetId = budgetRow['id'] as String?;
@@ -480,7 +494,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                       100.0;
 
               if (budgetId == null || totalBudget <= 0) {
-                return [];
+                return null;
               }
 
               final envelopesRes = await client
@@ -494,7 +508,10 @@ class WidgetSyncManager extends HookConsumerWidget {
               final envRows =
                   (envelopesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
               if (envRows.isEmpty) {
-                return [];
+                return _BudgetPocketsSnapshot(
+                  totalBudget: totalBudget,
+                  pockets: const [],
+                );
               }
 
               final envIds = envRows.map((e) => e['id'] as String).toList();
@@ -578,11 +595,14 @@ class WidgetSyncManager extends HookConsumerWidget {
                 );
               }
 
-              return pockets;
+              return _BudgetPocketsSnapshot(
+                totalBudget: totalBudget,
+                pockets: pockets,
+              );
             } catch (e) {
               debugPrint(
                   'Error loading household budget pockets for widget: $e');
-              return [];
+              return null;
             }
           }
 
@@ -624,6 +644,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               );
               List<WidgetPocketData> topCategories = [];
               List<WidgetPocketData> budgetPockets = [];
+              var hasBudgetPocketsSource = false;
 
               if (scopeId == 'personal') {
                 // --- PERSONAL SCOPE ---
@@ -647,8 +668,16 @@ class WidgetSyncManager extends HookConsumerWidget {
                 // Prefer the new monthly `budgets` table (used by Pockets),
                 // but fall back to legacy `daily_budgets` data via analytics
                 // if nothing exists there.
-                final fromBudgetsTable =
-                    personalBudgetsByCurrency[currency] ?? 0.0;
+                final budgetSnapshot = await loadPersonalBudgetPockets(
+                  currency: currency,
+                  monthStart: currentMonth,
+                  scopeExpenses: scopeExpenses,
+                );
+                budgetPockets =
+                    budgetSnapshot?.pockets ?? const <WidgetPocketData>[];
+                hasBudgetPocketsSource = budgetSnapshot != null;
+
+                final fromBudgetsTable = budgetSnapshot?.totalBudget ?? 0.0;
 
                 if (fromBudgetsTable > 0) {
                   totalBudget = fromBudgetsTable;
@@ -673,7 +702,8 @@ class WidgetSyncManager extends HookConsumerWidget {
                   } else {
                     // Find most recent budget before this month
                     DailyBudgetEntry? mostRecentBudget;
-                    final firstOfMonth = DateTime(userNow.year, userNow.month, 1);
+                    final firstOfMonth =
+                        DateTime(userNow.year, userNow.month, 1);
                     for (final budget in allBudgets.reversed) {
                       final budgetDate = DateTime(
                         budget.date.year,
@@ -698,13 +728,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   totalBudget: totalBudget,
                 );
 
-                // 3. Budget pockets (envelopes) for this currency/month
-                budgetPockets = await loadPersonalBudgetPockets(
-                  currency: currency,
-                  scopeExpenses: scopeExpenses,
-                );
-
-                // 4. Top Categories (for optional category-based widgets)
+                // 3. Top Categories (for optional category-based widgets)
                 final categoryMap = calculateWidgetCategorySpentCents(
                   scopeExpenses,
                 );
@@ -745,26 +769,36 @@ class WidgetSyncManager extends HookConsumerWidget {
                     scopeId: scopeId,
                     currency: currency,
                   );
-                  final summary = await loadHouseholdDerivedSummary(
-                    householdId: scopeId,
-                    currency: currency,
-                  );
-
                   final totalSpent = widgetCentsToAmount(
                     calculateWidgetSpentCents(scopeExpenses),
                   );
 
-                  financialSummary = buildHouseholdWidgetSummary(
-                    totalSpent: totalSpent,
-                    budgets: summary?.budgets ?? const <BudgetStatus>[],
-                  );
-
-                  budgetPockets = await loadHouseholdBudgetPockets(
+                  final budgetSnapshot = await loadHouseholdBudgetPockets(
                     householdId: scopeId,
                     currency: currency,
                     monthStart: currentMonth,
                     scopeExpenses: scopeExpenses,
                   );
+                  budgetPockets =
+                      budgetSnapshot?.pockets ?? const <WidgetPocketData>[];
+                  hasBudgetPocketsSource = budgetSnapshot != null;
+
+                  if (budgetSnapshot != null) {
+                    financialSummary = buildWidgetSummaryFromSpentAndBudget(
+                      totalSpent: totalSpent,
+                      totalBudget: budgetSnapshot.totalBudget,
+                    );
+                  } else {
+                    final summary = await loadHouseholdDerivedSummary(
+                      householdId: scopeId,
+                      currency: currency,
+                    );
+
+                    financialSummary = buildHouseholdWidgetSummary(
+                      totalSpent: totalSpent,
+                      budgets: summary?.budgets ?? const <BudgetStatus>[],
+                    );
+                  }
 
                   final categoryMap = calculateWidgetCategorySpentCents(
                     scopeExpenses,
@@ -806,11 +840,11 @@ class WidgetSyncManager extends HookConsumerWidget {
                 }
               }
 
-              // Use budget-based pockets when available; otherwise fall back to
-              // topCategories so the widget still shows a breakdown instead of
-              // an empty state.
+              // Use budget envelopes whenever the Pockets budget source exists.
+              // Only fall back to categories for scopes that do not have a
+              // monthly Pockets budget yet.
               final pocketsForWidget =
-                  budgetPockets.isNotEmpty ? budgetPockets : topCategories;
+                  hasBudgetPocketsSource ? budgetPockets : topCategories;
 
               await WidgetService().updateWidgetDataWithScope(
                 scopeId: scopeId,

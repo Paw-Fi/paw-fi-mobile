@@ -16,6 +16,9 @@ Locale normalizeAppLocale(Locale locale) {
   if (lc == 'cn') {
     return const Locale('zh');
   }
+  if (lc == 'kr') {
+    return const Locale('ko');
+  }
   if (lc == 'zh' && cc.isEmpty) {
     return const Locale('zh');
   }
@@ -52,7 +55,7 @@ Locale resolveSupportedAppLocale(
     }
   }
 
-  const aliasMap = <String, String>{'ko': 'kr'};
+  const aliasMap = <String, String>{'kr': 'ko'};
   final alias = aliasMap[normalized.languageCode];
   if (alias != null) {
     for (final supported in supportedLocales) {

@@ -251,8 +251,10 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
         _isCompletionDialogVisible = false;
       }
 
+      if (!mounted) return;
       await _refreshDataAfterImport(next);
 
+      if (!mounted) return;
       ref.read(importWizardProvider.notifier).resetAfterImport();
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -260,17 +262,21 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
   }
 
   Future<void> _refreshDataAfterImport(ImportWizardState next) async {
+    if (!mounted) return;
+
     final authState = ref.read(authProvider);
     final userId = authState.uid;
     if (userId.isEmpty) return;
 
+    final analyticsNotifier = ref.read(analyticsProvider.notifier);
     final targetHouseholdId = next.targetHouseholdId;
     if (targetHouseholdId == null || targetHouseholdId.isEmpty) {
-      await ref.read(analyticsProvider.notifier).loadData(
-            userId,
-            forceReload: true,
-          );
+      await analyticsNotifier.loadData(
+        userId,
+        forceReload: true,
+      );
     } else {
+      if (!mounted) return;
       ref
           .read(cacheInvalidatorProvider)
           .invalidateHouseholdData(targetHouseholdId);
@@ -283,10 +289,11 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       ref.invalidate(householdMembersProvider);
       ref.invalidate(appInitializationV2Provider);
       try {
-        await ref.read(analyticsProvider.notifier).loadData(
-              userId,
-              forceReload: true,
-            );
+        await analyticsNotifier.loadData(
+          userId,
+          forceReload: true,
+        );
+        if (!mounted) return;
         await ref.read(
           cachedHouseholdExpensesProvider(
             HouseholdExpensesParams(householdId: targetHouseholdId),
@@ -295,6 +302,7 @@ class _ImportWizardPageState extends ConsumerState<ImportWizardPage> {
       } catch (_) {}
     }
 
+    if (!mounted) return;
     ref.invalidate(pocketsProvider);
     ref.invalidate(currencyTransactionCountsProvider);
   }

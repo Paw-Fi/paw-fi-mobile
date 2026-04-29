@@ -21,6 +21,26 @@ void main() {
     expect(result, isFalse);
   });
 
+  test('shouldReportFatalFlutterError returns false for SocketException', () {
+    final result = shouldReportFatalFlutterError(
+      const SocketException('Connection reset by peer'),
+    );
+
+    expect(result, isFalse);
+  });
+
+  test(
+      'shouldReportFatalFlutterError returns false for transient Supabase failures',
+      () {
+    final result = shouldReportFatalFlutterError(
+      Exception(
+        'FunctionException(status: 503, details: {code: SUPABASE_EDGE_RUNTIME_ERROR, message: Service is temporarily unavailable})',
+      ),
+    );
+
+    expect(result, isFalse);
+  });
+
   test(
       'shouldReportFatalFlutterError returns false for reply already submitted',
       () {

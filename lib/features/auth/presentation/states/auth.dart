@@ -94,7 +94,7 @@ class Auth extends _$Auth {
         appLog('Auth session expired, clearing local session', name: 'Auth');
         unawaited(SiriShortcutAuthService.instance.clearAuthContext());
         unawaited(NotificationCaptureService.instance.clearAuthContext());
-        unawaited(supabase.auth.signOut());
+        unawaited(supabase.auth.signOut().catchError((Object _) {}));
         return;
       }
       if (_isFlowStateNotFound(error)) {
@@ -161,11 +161,15 @@ class Auth extends _$Auth {
 
   bool _isRefreshTokenNotFound(Object error) {
     if (error is AuthApiException) {
-      return error.code?.toLowerCase() == 'refresh_token_not_found';
+      final code = error.code?.toLowerCase();
+      return code == 'refresh_token_not_found' ||
+          code == 'refresh_token_already_used';
     }
     final message = error.toString().toLowerCase();
     return message.contains('refresh_token_not_found') ||
-        message.contains('refresh token not found');
+        message.contains('refresh token not found') ||
+        message.contains('refresh_token_already_used') ||
+        message.contains('invalid refresh token: already used');
   }
 
   bool _isFlowStateNotFound(Object error) {

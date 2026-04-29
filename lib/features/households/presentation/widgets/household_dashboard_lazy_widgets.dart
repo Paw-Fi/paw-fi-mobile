@@ -89,10 +89,10 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
 
@@ -243,10 +243,10 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         userId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
     final params = buildHouseholdSummaryParams(
@@ -442,10 +442,10 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
     if (userId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
 
@@ -523,10 +523,10 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
     if (userId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
 
@@ -707,10 +707,10 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
     if (userId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
 
@@ -823,10 +823,10 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     if (userId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier =
+          ref.read(recurringTransactionsProvider(household.id).notifier);
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(household.id).notifier)
-            .loadRecurringTransactions(userId);
+        recurringNotifier.loadRecurringTransactions(userId);
       });
     }
     if (summary == null && summaryAsync.hasError) {

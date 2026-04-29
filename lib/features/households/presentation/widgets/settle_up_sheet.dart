@@ -74,6 +74,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   }
 
   Future<void> _recomputeFromSplits() async {
+    if (!mounted) return;
+
     final memberId = _selectedMemberId;
     if (memberId == null) return;
 
@@ -103,6 +105,7 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           '[SettleUpSheet] v2 recompute failed; falling back to legacy calculator: $error\n$stackTrace',
         );
       }
+      if (!mounted) return;
       await _recomputeFromLegacyData(
         memberId: memberId,
         currencyCode: currencyCode,
@@ -160,6 +163,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
     required String memberId,
     required String currencyCode,
   }) async {
+    if (!mounted) return;
+
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null) return;
 

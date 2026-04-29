@@ -28,6 +28,7 @@ void main() {
             },
           ],
         },
+        flowReason: null,
         provider: 'plaid',
         targetHouseholdId: null,
       );
@@ -65,6 +66,7 @@ void main() {
             },
           ],
         },
+        flowReason: null,
         provider: 'tink',
         targetHouseholdId: 'household-1',
       );

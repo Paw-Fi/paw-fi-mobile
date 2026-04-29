@@ -138,8 +138,11 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
-
+    final subscription = container.listen<ImportWizardState>(
+      importWizardProvider,
+      (previous, next) {},
+      fireImmediately: true,
+    );
     final notifier = container.read(importWizardProvider.notifier);
     notifier.state = notifier.state.copyWith(
       step: ImportStep.preview,
@@ -153,6 +156,12 @@ void main() {
       container.read(importWizardProvider).targetAccountId,
       'wallet_new',
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    subscription.close();
+    await tester.pump(const Duration(milliseconds: 1));
+    container.dispose();
+    await tester.pump();
   });
 
   testWidgets('PreviewStep auto-selects a default wallet when none is chosen',
@@ -172,8 +181,11 @@ void main() {
         ),
       ],
     );
-    addTearDown(container.dispose);
-
+    final subscription = container.listen<ImportWizardState>(
+      importWizardProvider,
+      (previous, next) {},
+      fireImmediately: true,
+    );
     final notifier = container.read(importWizardProvider.notifier);
     notifier.state = notifier.state.copyWith(step: ImportStep.preview);
 
@@ -184,5 +196,11 @@ void main() {
       container.read(importWizardProvider).targetAccountId,
       _defaultWallet.id,
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    subscription.close();
+    await tester.pump(const Duration(milliseconds: 1));
+    container.dispose();
+    await tester.pump();
   });
 }

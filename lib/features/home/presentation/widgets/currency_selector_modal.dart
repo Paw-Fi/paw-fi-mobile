@@ -579,14 +579,9 @@ class _CurrencySelectorScreenState
                 icon: Icons.email_outlined,
                 onTap: () {
                   // Launch email with predefined subject and body
-                  final uri = Uri(
-                    scheme: 'mailto',
-                    path: 'hello@moneko.io',
-                    queryParameters: {
-                      'subject': 'Request: Add my local currency',
-                      'body': "Hi Moneko team,\n\nI'd love to use Moneko with my local currency. Could you please add support for $searchQuery?\n\nThanks!",
-                    },
-                  );
+                  final subject = Uri.encodeComponent('Request: Add my local currency');
+                  final body = Uri.encodeComponent("Hi Moneko team,\n\nI'd love to use Moneko with my local currency. Could you please add support for $searchQuery?\n\nThanks!");
+                  final uri = Uri.parse('mailto:hello@moneko.io?subject=$subject&body=$body');
                   launchUrl(uri);
                 },
                 colorScheme: colorScheme,

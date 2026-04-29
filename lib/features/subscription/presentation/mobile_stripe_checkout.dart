@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/l10n/l10n.dart';
@@ -135,6 +136,40 @@ class _MobileStripeCheckoutSheetState
   String? _errorMessage;
 
   @override
+  void dispose() {
+    _controller = null;
+    super.dispose();
+  }
+
+  Future<void> _reloadCheckout() async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    try {
+      await controller.loadUrl(
+        urlRequest: URLRequest(
+          url: WebUri(widget.checkoutUrl),
+        ),
+      );
+    } on MissingPluginException catch (_) {
+      if (!mounted) return;
+      await launchUrl(
+        Uri.parse(widget.checkoutUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(const MobileStripeCheckoutResult.canceled());
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _hasLoadError = true;
+        _errorMessage = error.message ?? error.code;
+        _progress = 0;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
@@ -202,11 +237,7 @@ class _MobileStripeCheckoutSheetState
                             _hasLoadError = false;
                             _errorMessage = null;
                           });
-                          _controller?.loadUrl(
-                            urlRequest: URLRequest(
-                              url: WebUri(widget.checkoutUrl),
-                            ),
-                          );
+                          _reloadCheckout();
                         },
                       )
                     : InAppWebView(
@@ -230,6 +261,7 @@ class _MobileStripeCheckoutSheetState
                           useShouldOverrideUrlLoading: true,
                         ),
                         onWebViewCreated: (controller) {
+                          if (!mounted) return;
                           _controller = controller;
                         },
                         onProgressChanged: (_, progress) {

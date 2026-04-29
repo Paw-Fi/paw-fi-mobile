@@ -37,6 +37,7 @@ class _HouseholdMembersSectionState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(householdInvitesProvider(widget.householdId).notifier).load();
     });
   }

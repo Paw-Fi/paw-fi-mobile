@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -14,7 +15,7 @@ final RegExp _opaqueImportIdPattern = RegExp(
 );
 
 String? _normalizeUserFacingImportNote(String? value) {
-  final trimmed = value?.trim();
+  final trimmed = value == null ? null : sanitizeUtf16(value).trim();
   if (trimmed == null || trimmed.isEmpty) return null;
   if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
       (trimmed.startsWith('[') && trimmed.endsWith(']'))) {

@@ -1,14 +1,15 @@
 package com.moneko.mobile
 
 import android.appwidget.AppWidgetManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 
 class MonekoWidgetProvider : HomeWidgetProvider() {
@@ -31,10 +32,10 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
                     setViewVisibility(R.id.widget_setup, View.VISIBLE)
                     setViewVisibility(R.id.widget_content, View.GONE)
 
-                    val configureIntent = HomeWidgetLaunchIntent.getActivity(
+                    val configureIntent = activityPendingIntent(
                         context,
-                        MainActivity::class.java,
                         Uri.parse("moneko://configure_widget?widgetId=$widgetId"),
+                        widgetId * 10 + 1,
                     )
                     setOnClickPendingIntent(R.id.widget_setup, configureIntent)
                     return@apply
@@ -54,30 +55,49 @@ class MonekoWidgetProvider : HomeWidgetProvider() {
                 setTextViewText(R.id.widget_remaining, "Left: $remainingBudget")
                 setProgressBar(R.id.widget_progress_bar, 100, (progress * 100).toInt(), false)
 
-                val textIntent = HomeWidgetLaunchIntent.getActivity(
+                val textIntent = activityPendingIntent(
                     context,
-                    MainActivity::class.java,
                     Uri.parse("moneko://text"),
+                    widgetId * 10 + 2,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_text, textIntent)
 
-                val cameraIntent = HomeWidgetLaunchIntent.getActivity(
+                val cameraIntent = activityPendingIntent(
                     context,
-                    MainActivity::class.java,
                     Uri.parse("moneko://camera"),
+                    widgetId * 10 + 3,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_camera, cameraIntent)
 
-                val settingsIntent = HomeWidgetLaunchIntent.getActivity(
+                val settingsIntent = activityPendingIntent(
                     context,
-                    MainActivity::class.java,
                     Uri.parse("moneko://configure_widget?widgetId=$widgetId"),
+                    widgetId * 10 + 4,
                 )
                 setOnClickPendingIntent(R.id.widget_btn_settings, settingsIntent)
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)
         }
+    }
+
+    private fun activityPendingIntent(
+        context: Context,
+        uri: Uri,
+        requestCode: Int,
+    ): PendingIntent {
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            setClass(context, MainActivity::class.java)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun RemoteViews.applyTheme(context: Context, isConfigured: Boolean) {

@@ -74,10 +74,9 @@ Locale? _localeResolutionCallback(
     return languageOnly;
   }
 
-  // 3) Common alias fixes (map device language to our supported set)
-  // e.g., device uses 'ko' but our bundle is 'kr'
+  // 3) Common alias fixes (map legacy stored app language to supported set)
   final aliasMap = <String, String>{
-    'ko': 'kr',
+    'kr': 'ko',
   };
   final alias = aliasMap[locale.languageCode];
   if (alias != null) {

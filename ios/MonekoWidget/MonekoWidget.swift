@@ -339,7 +339,7 @@ struct MonekoWidgetEntryView : View {
     
     var shouldShowSetup: Bool {
         if let config = entry.configuration {
-            return config.household == nil
+            return config.household == nil || config.currency == nil
         }
         return false
     }
@@ -375,7 +375,7 @@ struct TopCategoriesWidgetEntryView: View {
     
     var shouldShowSetup: Bool {
         if let config = entry.configuration {
-            return config.household == nil
+            return config.household == nil || config.currency == nil
         }
         return false
     }

@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:moneko/core/resources/lib/supabase.dart';
+import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -1037,7 +1038,12 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       final dateOnly = DateFormat('yyyy-MM-dd').format(row.date!);
       final safeTimestamp =
           DateTime(row.date!.year, row.date!.month, row.date!.day, 12);
-      final merchantLabel = (row.merchant ?? row.description)?.trim();
+      final description = row.description == null
+          ? null
+          : sanitizeUtf16(row.description!).trim();
+      final merchant =
+          row.merchant == null ? null : sanitizeUtf16(row.merchant!).trim();
+      final merchantLabel = (merchant ?? description)?.trim();
       final hasValidMerchantLabel = merchantLabel != null &&
           merchantLabel.isNotEmpty &&
           merchantLabel.length <= 255;
@@ -1050,7 +1056,8 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         'date': dateOnly,
         if (effectiveAccountId != null) 'accountId': effectiveAccountId,
         'clientCreatedAt': safeTimestamp.toUtc().toIso8601String(),
-        if (row.description != null) 'description': row.description,
+        if (description != null && description.isNotEmpty)
+          'description': description,
         if (hasValidMerchantLabel) 'merchant': merchantLabel,
       };
     }).toList(growable: false);

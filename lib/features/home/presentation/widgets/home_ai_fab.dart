@@ -1253,6 +1253,11 @@ bool shouldFallbackForBatchError(Object error) {
   if (message.contains('bad file descriptor')) {
     return true;
   }
+  if (message.contains('status: 503') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error')) {
+    return true;
+  }
   // Backend rejected the batch size — fall back to individual saves.
   if (message.contains('batch size exceeds')) {
     return true;

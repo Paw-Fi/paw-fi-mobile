@@ -185,15 +185,15 @@ void main() {
           .thenAnswer((invocation) {
         capturedParams =
             invocation.namedArguments[#params] as Map<String, dynamic>;
-        return PostgrestFilterBuilder<dynamic>(
-          PostgrestBuilder<dynamic, dynamic, dynamic>(
-            url: Uri.parse('https://example.test/rest/v1/rpc/delete_household'),
-            headers: Map<String, String>.of(const {}),
-            method: 'POST',
-            httpClient: MockClient(
-              (request) async => http.Response('', 204, request: request),
-            ),
+        return PostgrestClient(
+          'https://example.test/rest/v1',
+          headers: Map<String, String>.of(const {}),
+          httpClient: MockClient(
+            (request) async => http.Response('', 204, request: request),
           ),
+        ).rpc<dynamic>(
+          'delete_household',
+          params: {'p_household_id': 'hh_123'},
         );
       });
 
