@@ -3628,8 +3628,8 @@ class _UnifiedTransactionSheetState
       context: toastContext,
       title: toastContext.l10n.updateCategoryPreferenceTitle,
       description: toastContext.l10n.updateCategoryPreferenceDescription(
-        toLabel,
         fromLabel,
+        toLabel,
       ),
       confirmLabel: toastContext.l10n.yes,
       cancelLabel: toastContext.l10n.no,
