@@ -5,10 +5,16 @@ import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/services/widget_sync_calculations.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:collection/collection.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -187,6 +193,65 @@ class WidgetSyncManager extends HookConsumerWidget {
 
           final householdService = HouseholdService(Supabase.instance.client);
 
+          Future<List<ExpenseEntry>> loadWidgetTransactionsForScope({
+            required String scopeId,
+            required String currency,
+          }) async {
+            Future<List<ExpenseEntry>> loadActualExpenses(
+              String? householdId,
+            ) async {
+              final query = DashboardScopeQuery(
+                userId: user.uid,
+                householdId: householdId,
+                selectedCurrency: currency,
+                startDate: currentMonth,
+                endDate: DateTime(now.year, now.month + 1, 0),
+              );
+              return ref.read(
+                dashboardCalendarTransactionsProvider(query).future,
+              );
+            }
+
+            Future<List<RecurringTransaction>> loadRecurringTransactions(
+              String? householdId,
+            ) async {
+              final recurringProvider = recurringTransactionsProvider(
+                householdId,
+              );
+              final recurringState = ref.read(recurringProvider);
+              if (!recurringState.hasLoadedOnce &&
+                  !recurringState.data.isLoading) {
+                await ref
+                    .read(recurringProvider.notifier)
+                    .loadRecurringTransactions(user.uid);
+              }
+              return ref.read(recurringProvider).data.valueOrNull ??
+                  const <RecurringTransaction>[];
+            }
+
+            final scopedHouseholdIds = scopeId == 'personal'
+                ? <String?>[null, ...portfolioIds]
+                : <String?>[scopeId];
+            final actualExpenses = <ExpenseEntry>[];
+            final recurringTransactions = <RecurringTransaction>[];
+            for (final householdId in scopedHouseholdIds) {
+              actualExpenses.addAll(await loadActualExpenses(householdId));
+              recurringTransactions.addAll(
+                await loadRecurringTransactions(householdId),
+              );
+            }
+
+            return mergeActualExpensesWithProjectedRecurring(
+              actualExpenses: actualExpenses,
+              recurringTransactions: recurringTransactions,
+              rangeStart: currentMonth,
+              rangeEnd: DateTime(now.year, now.month + 1, 0),
+              selectedCurrency: currency,
+              includeFutureOccurrences: false,
+              now: now,
+            );
+          }
+
           // Use all supported currencies for configuration
           final allSupportedCurrencies = currencyOptions.keys.toList();
 
@@ -317,7 +382,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                 for (final e in scopeExpenses) {
                   final cat = (e.category ?? '').toLowerCase();
                   if (categories.contains(cat)) {
-                    spent += e.amount;
+                    spent += widgetCentsToAmount(widgetSpentCents(e));
                   }
                 }
                 spentById[envId] = spent;
@@ -364,6 +429,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             required String householdId,
             required String currency,
             required DateTime monthStart,
+            required List<ExpenseEntry> scopeExpenses,
           }) async {
             try {
               final client = Supabase.instance.client;
@@ -444,21 +510,6 @@ class WidgetSyncManager extends HookConsumerWidget {
                     .add(category);
               }
 
-              final monthEnd =
-                  DateTime(monthStart.year, monthStart.month + 1, 1);
-
-              final expensesRes = await client
-                  .from('expenses')
-                  .select(
-                      'amount_cents,category,type,household_id,currency,date,breakdown')
-                  .eq('household_id', householdId)
-                  .eq('currency', currency)
-                  .gte('date', monthStart.toIso8601String())
-                  .lt('date', monthEnd.toIso8601String());
-
-              final expensesRows =
-                  (expensesRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-
               final spentById = <String, double>{};
               for (final envId in envIds) {
                 final categories = categoriesByEnvelopeId[envId] ?? const [];
@@ -468,15 +519,10 @@ class WidgetSyncManager extends HookConsumerWidget {
                 }
 
                 double spent = 0.0;
-                for (final row in expensesRows) {
-                  final type = (row['type'] as String?)?.toLowerCase();
-                  if (type == 'income') continue;
-                  final cat =
-                      (row['category'] as String? ?? '').toLowerCase().trim();
+                for (final entry in scopeExpenses) {
+                  final cat = (entry.category ?? '').toLowerCase().trim();
                   if (categories.contains(cat)) {
-                    final cents =
-                        (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
-                    spent += cents / 100.0;
+                    spent += widgetCentsToAmount(widgetSpentCents(entry));
                   }
                 }
                 spentById[envId] = spent;
@@ -563,42 +609,20 @@ class WidgetSyncManager extends HookConsumerWidget {
                   continue;
                 }
 
-                List<Map<String, dynamic>> scopeExpenses = [];
+                List<ExpenseEntry> scopeExpenses = [];
                 try {
-                  var expenseQuery = Supabase.instance.client
-                      .from('expenses')
-                      .select(
-                          'amount_cents,category,type,household_id,currency,date,breakdown')
-                      .eq('user_id', user.uid)
-                      .eq('currency', currency)
-                      .gte('date', monthStr)
-                      .lte('date', endDateStr);
-
-                  // Include personal (household_id null) and portfolio households
-                  if (portfolioIds.isEmpty) {
-                    expenseQuery = expenseQuery.isFilter('household_id', null);
-                  } else {
-                    expenseQuery = expenseQuery.or(
-                        'household_id.is.null,household_id.in.(${portfolioIds.join(',')})');
-                  }
-
-                  final expensesRes = await expenseQuery;
-                  scopeExpenses =
-                      (expensesRes as List?)?.cast<Map<String, dynamic>>() ??
-                          [];
+                  scopeExpenses = await loadWidgetTransactionsForScope(
+                    scopeId: scopeId,
+                    currency: currency,
+                  );
                 } catch (e) {
                   debugPrint(
                       'Error fetching personal expenses for widget ($currency): $e');
                 }
 
-                totalSpent = 0.0;
-                for (final row in scopeExpenses) {
-                  final type = (row['type'] as String?)?.toLowerCase();
-                  if (type == 'income') continue;
-                  final cents =
-                      (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
-                  totalSpent += cents / 100.0;
-                }
+                totalSpent = widgetCentsToAmount(
+                  calculateWidgetSpentCents(scopeExpenses),
+                );
 
                 // 2. Get Budget
                 // Prefer the new monthly `budgets` table (used by Pockets),
@@ -653,38 +677,13 @@ class WidgetSyncManager extends HookConsumerWidget {
                 // 3. Budget pockets (envelopes) for this currency/month
                 budgetPockets = await loadPersonalBudgetPockets(
                   currency: currency,
-                  scopeExpenses: scopeExpenses
-                      .map((row) => ExpenseEntry.fromJson({
-                            'id': '',
-                            'contact_id': null,
-                            'user_id': user.uid,
-                            'date': row['date'],
-                            'amount_cents': row['amount_cents'],
-                            'currency': row['currency'],
-                            'category': row['category'],
-                            'created_at': row['date'],
-                            'updated_at': row['date'],
-                            'raw_text': null,
-                            'breakdown': row['breakdown'],
-                            'receipt_image_url': null,
-                            'household_id': row['household_id'],
-                            'split_group_id': null,
-                            'type': row['type'],
-                          }))
-                      .toList(),
+                  scopeExpenses: scopeExpenses,
                 );
 
                 // 4. Top Categories (for optional category-based widgets)
-                final categoryMap = <String, double>{};
-                for (final row in scopeExpenses) {
-                  final type = (row['type'] as String?)?.toLowerCase();
-                  if (type == 'income') continue;
-                  final cents =
-                      (row['amount_cents'] as num?)?.toDouble() ?? 0.0;
-                  final amount = cents / 100.0;
-                  final cat = (row['category'] as String? ?? 'Uncategorized');
-                  categoryMap[cat] = (categoryMap[cat] ?? 0) + amount;
-                }
+                final categoryMap = calculateWidgetCategorySpentCents(
+                  scopeExpenses,
+                );
 
                 topCategories = categoryMap.entries
                     .sorted((a, b) => b.value.compareTo(a.value))
@@ -694,7 +693,7 @@ class WidgetSyncManager extends HookConsumerWidget {
                   final hex = _colorToHex(color);
                   return WidgetPocketData(
                     name: e.key,
-                    spent: e.value,
+                    spent: widgetCentsToAmount(e.value),
                     budget: 0,
                     color: hex,
                     currency: currency,
@@ -756,12 +755,15 @@ class WidgetSyncManager extends HookConsumerWidget {
                   continue;
                 }
 
-                // Use HouseholdService to fetch summary via Edge Function
                 try {
                   if (Supabase.instance.client.auth.currentSession == null) {
                     // Session lost - exit loop, finally will handle cleanup
                     return;
                   }
+                  final scopeExpenses = await loadWidgetTransactionsForScope(
+                    scopeId: scopeId,
+                    currency: currency,
+                  );
                   final summaryMap = await householdService.getHouseholdSummary(
                     householdId: scopeId,
                     currency: currency,
@@ -770,7 +772,9 @@ class WidgetSyncManager extends HookConsumerWidget {
                   );
                   final summary = HouseholdSummary.fromJson(summaryMap);
 
-                  totalSpent = summary.totals.totalExpensesCents / 100.0;
+                  totalSpent = widgetCentsToAmount(
+                    calculateWidgetSpentCents(scopeExpenses),
+                  );
 
                   totalBudget = summary.budgets.fold<double>(
                     0.0,
@@ -781,19 +785,25 @@ class WidgetSyncManager extends HookConsumerWidget {
                     householdId: scopeId,
                     currency: currency,
                     monthStart: currentMonth,
+                    scopeExpenses: scopeExpenses,
                   );
 
-                  // Top Categories
-                  topCategories = summary.categoryBreakdown.take(4).map((cat) {
-                    final color = getCategoryColor(cat.category);
+                  final categoryMap = calculateWidgetCategorySpentCents(
+                    scopeExpenses,
+                  );
+                  topCategories = categoryMap.entries
+                      .sorted((a, b) => b.value.compareTo(a.value))
+                      .take(4)
+                      .map((entry) {
+                    final color = getCategoryColor(entry.key);
                     final hex = _colorToHex(color);
                     return WidgetPocketData(
-                      name: cat.category,
-                      spent: cat.amountCents / 100.0,
+                      name: entry.key,
+                      spent: widgetCentsToAmount(entry.value),
                       budget: 0,
                       color: hex,
                       currency: currency,
-                      icon: cat.category,
+                      icon: entry.key,
                     );
                   }).toList();
                 } catch (e) {
