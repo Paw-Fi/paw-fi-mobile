@@ -90,18 +90,18 @@
   "loading": "Chargement...",
   "failedToLoadMembership": "Échec du chargement de l'abonnement.",
   "couldNotOpenMembershipPage": "Impossible d'ouvrir la page de l'abonnement.",
-  "freePlan": "Gratuit",
+  "freePlan": "Formule gratuite",
   "freePlanStatus": "Formule gratuite",
   "lifetimePlan": "À vie",
-  "plusPlan": "Plus",
+  "plusPlan": "Formule Plus",
   "plusMonthlyPlan": "Plus (Mensuel)",
   "plusYearlyPlan": "Plus (Annuel)",
   "activeStatus": "Actif",
   "activeLifetimeStatus": "Actif • À vie",
   "canceledStatus": "Annulé",
   "pastDueStatus": "En retard",
-  "trialStatus": "Essai",
-  "trialEndsInDays": "Fin de l'essai dans {days} jours",
+  "trialStatus": "En période d’essai",
+  "trialEndsInDays": "L’essai se termine dans {days} jours",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "Fin de l'accès dans {days} jours",
+  "accessEndsInDays": "L’abonnement se termine dans {days} jours",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -2686,5 +2686,14 @@
   "walletCaptureOfflineDescription": "Pas d’inquiétude. Moneko enregistre la transaction sur votre iPhone et la synchronise automatiquement dès que vous ouvrez l’application avec une connexion internet.",
   "currencyNotFound": "Devise introuvable",
   "currencyNotFoundDescription": "Contactez-nous et utilisez une autre devise pour le moment pendant que nous ajoutons la prise en charge.",
-  "replace": "Remplacer"
+  "replace": "Remplacer",
+  "plus": "Plus",
+  "plusMonthly": "Plus mensuel",
+  "plusYearly": "Plus annuel",
+  "activeLifetime": "Actif • À vie",
+  "canceled": "Annulé",
+  "pastDue": "Paiement en retard",
+  "trial": "Essai",
+  "unknownFeature": "Fonctionnalité inconnue",
+  "paywallBenefit5": "Enregistre automatiquement tes dépenses en transférant les reçus depuis tes e-mails"
 }

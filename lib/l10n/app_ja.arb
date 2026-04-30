@@ -90,7 +90,7 @@
   "loading": "読み込み中...",
   "failedToLoadMembership": "メンバーシップの読み込みに失敗しました",
   "couldNotOpenMembershipPage": "メンバーシップページを開けませんでした",
-  "freePlan": "フリープラン",
+  "freePlan": "無料プラン",
   "freePlanStatus": "フリープラン",
   "lifetimePlan": "買い切りプラン",
   "plusPlan": "Plusプラン",
@@ -109,8 +109,8 @@
       }
     }
   },
-  "trialEnded": "トライアルは終了しました",
-  "renewsInDays": "あと{days}日で更新",
+  "trialEnded": "トライアル終了",
+  "renewsInDays": "{days}日後に更新",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "あと{days}日でアクセス終了",
+  "accessEndsInDays": "メンバーシップはあと{days}日で終了します",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -126,7 +126,7 @@
       }
     }
   },
-  "subscriptionEnded": "サブスクリプションは終了しました",
+  "subscriptionEnded": "サブスクリプション終了",
   "profile": "プロフィール",
   "errorLoadingProfile": "プロフィールの読み込みエラー",
   "user": "ユーザー",
@@ -452,7 +452,7 @@
   "warningThresholdHelper": "予算の使用率がこの割合に達すると警告します",
   "alertThresholdHelper": "この割合で重大なアラートを通知します",
   "budgetStatus": "予算ステータス",
-  "active": "アクティブ",
+  "active": "有効",
   "inactive": "無効",
   "deletingBudget": "予算を削除中...",
   "savingChanges": "変更を保存中...",
@@ -2361,7 +2361,7 @@
   "paywallBenefit2": "WhatsAppやTelegramから支出を追加",
   "paywallBenefit3": "リアルタイムで同期する共有予算",
   "paywallBenefit4": "支出をコントロールするシンプルな封筒貯金",
-  "paywallLovedBy": "6,000人以上のユーザーに愛用されています",
+  "paywallLovedBy": "6,500人以上のユーザーに愛用されています",
   "paywallBadgeSave50": "50% OFF",
   "paywallBadgeLimited": "期間限定",
   "pocketsCopyDialogTitle": "先月のポケットをコピーしますか？",
@@ -2686,5 +2686,14 @@
   "walletCaptureOfflineDescription": "ご安心ください。Monekoは取引をiPhoneに保存し、次回インターネット接続時にアプリを開くと自動的に同期されます。",
   "currencyNotFound": "通貨が見つかりません",
   "currencyNotFoundDescription": "対応を追加中です。お問い合わせのうえ、しばらくは他の通貨をご利用ください。",
-  "replace": "置き換え"
+  "replace": "置き換え",
+  "plus": "Plus",
+  "plusMonthly": "Plus 月額",
+  "plusYearly": "Plus 年額",
+  "activeLifetime": "有効 • 買い切り",
+  "canceled": "キャンセル済み",
+  "pastDue": "支払い期限切れ",
+  "trial": "トライアル",
+  "unknownFeature": "不明な機能",
+  "paywallBenefit5": "メールの領収書を転送して支出を自動記録"
 }

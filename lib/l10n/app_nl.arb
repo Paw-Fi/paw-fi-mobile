@@ -90,17 +90,17 @@
   "loading": "Laden...",
   "failedToLoadMembership": "Kon abonnement niet laden",
   "couldNotOpenMembershipPage": "Kon abonnementspagina niet openen",
-  "freePlan": "Gratis",
+  "freePlan": "Gratis abonnement",
   "freePlanStatus": "Gratis abonnement",
   "lifetimePlan": "Lifetime",
-  "plusPlan": "Plus",
+  "plusPlan": "Plus-abonnement",
   "plusMonthlyPlan": "Plus (per maand)",
   "plusYearlyPlan": "Plus (per jaar)",
   "activeStatus": "Actief",
   "activeLifetimeStatus": "Actief • Lifetime",
   "canceledStatus": "Geannuleerd",
   "pastDueStatus": "Achterstallig",
-  "trialStatus": "Proefperiode",
+  "trialStatus": "In proefperiode",
   "trialEndsInDays": "Proefperiode eindigt over {days} dagen",
   "@trialEndsInDays": {
     "placeholders": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "Toegang eindigt over {days} dagen",
+  "accessEndsInDays": "Lidmaatschap eindigt over {days} dagen",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -2633,5 +2633,14 @@
   "walletCaptureOfflineDescription": "Geen zorgen. Moneko slaat de transactie op je iPhone op en synchroniseert deze automatisch zodra je de app weer met internet opent.",
   "currencyNotFound": "Valuta niet gevonden",
   "currencyNotFoundDescription": "Neem contact met ons op en gebruik voorlopig een andere valuta terwijl we ondersteuning toevoegen.",
-  "replace": "Vervangen"
+  "replace": "Vervangen",
+  "plus": "Plus",
+  "plusMonthly": "Plus maandelijks",
+  "plusYearly": "Plus jaarlijks",
+  "activeLifetime": "Actief • Levenslang",
+  "canceled": "Geannuleerd",
+  "pastDue": "Betaling achterstallig",
+  "trial": "Proefperiode",
+  "unknownFeature": "Onbekende functie",
+  "paywallBenefit5": "Registreer uitgaven automatisch door bonnetjes vanuit je e-mail door te sturen"
 }

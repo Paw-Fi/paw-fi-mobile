@@ -102,18 +102,18 @@
   "loading": "กำลังโหลด...",
   "failedToLoadMembership": "โหลดข้อมูลสมาชิกไม่สำเร็จ",
   "couldNotOpenMembershipPage": "เปิดหน้าแพ็กเกจสมาชิกไม่ได้",
-  "freePlan": "ฟรี",
+  "freePlan": "แพ็กเกจฟรี",
   "freePlanStatus": "แพ็กเกจฟรี",
   "lifetimePlan": "ตลอดชีพ",
-  "plusPlan": "Plus",
+  "plusPlan": "แพ็กเกจ Plus",
   "plusMonthlyPlan": "Plus รายเดือน",
   "plusYearlyPlan": "Plus รายปี",
   "activeStatus": "ใช้งานอยู่",
   "activeLifetimeStatus": "ใช้งานอยู่ • ตลอดชีพ",
   "canceledStatus": "ยกเลิกแล้ว",
   "pastDueStatus": "ค้างชำระ",
-  "trialStatus": "ทดลองใช้ฟรี",
-  "trialEndsInDays": "ทดลองใช้ฟรีอีก {days} วัน",
+  "trialStatus": "อยู่ในช่วงทดลองใช้ฟรี",
+  "trialEndsInDays": "ช่วงทดลองใช้ฟรีจะสิ้นสุดในอีก {days} วัน",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -121,7 +121,7 @@
       }
     }
   },
-  "trialEnded": "หมดช่วงทดลองใช้ฟรี",
+  "trialEnded": "ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว",
   "renewsInDays": "ต่ออายุในอีก {days} วัน",
   "@renewsInDays": {
     "placeholders": {
@@ -130,7 +130,7 @@
       }
     }
   },
-  "accessEndsInDays": "หมดอายุการใช้งานในอีก {days} วัน",
+  "accessEndsInDays": "สมาชิกภาพจะสิ้นสุดในอีก {days} วัน",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -138,7 +138,7 @@
       }
     }
   },
-  "subscriptionEnded": "แพ็กเกจสมาชิกหมดอายุแล้ว",
+  "subscriptionEnded": "การสมัครสมาชิกสิ้นสุดแล้ว",
   "profile": "โปรไฟล์",
   "errorLoadingProfile": "โหลดโปรไฟล์ไม่สำเร็จ",
   "user": "ผู้ใช้",
@@ -468,7 +468,7 @@
   "warningThresholdHelper": "แจ้งเตือนเมื่องบถูกใช้ถึงเปอร์เซ็นต์นี้",
   "alertThresholdHelper": "แจ้งเตือนแบบจริงจังเมื่อถึงเปอร์เซ็นต์นี้",
   "budgetStatus": "สถานะงบ",
-  "active": "เปิดใช้งาน",
+  "active": "ใช้งานอยู่",
   "inactive": "ปิดใช้งาน",
   "deletingBudget": "กำลังลบงบ...",
   "savingChanges": "กำลังบันทึก...",
@@ -2378,7 +2378,7 @@
   "paywallBenefit2": "เพิ่มรายจ่ายได้รวดเร็วผ่าน WhatsApp และ Telegram",
   "paywallBenefit3": "แชร์งบกับคนในบ้าน ข้อมูลอัปเดตเรียลไทม์",
   "paywallBenefit4": "ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว",
-  "paywallLovedBy": "ถูกใจผู้ใช้กว่า 6,000+ คน",
+  "paywallLovedBy": "ถูกใจผู้ใช้กว่า 6,500+ คน",
   "paywallBadgeSave50": "ประหยัด 50%",
   "paywallBadgeLimited": "จำกัดเวลา",
   "pocketsCopyDialogTitle": "คัดลอกพ็อกเก็ตจากเดือนที่แล้ว?",
@@ -2703,5 +2703,14 @@
   "walletCaptureOfflineDescription": "ไม่ต้องกังวล Moneko จะบันทึกรายการธุรกรรมไว้ใน iPhone ของคุณ และจะซิงค์ให้อัตโนมัติเมื่อคุณเปิดแอปอีกครั้งเมื่อมีอินเทอร์เน็ต",
   "currencyNotFound": "ไม่พบสกุลเงิน",
   "currencyNotFoundDescription": "ติดต่อเราได้เลย และในระหว่างนี้สามารถใช้สกุลเงินอื่นไปก่อน ขณะที่เรากำลังเพิ่มการรองรับ",
-  "replace": "แทนที่"
+  "replace": "แทนที่",
+  "plus": "Plus",
+  "plusMonthly": "Plus รายเดือน",
+  "plusYearly": "Plus รายปี",
+  "activeLifetime": "ใช้งานอยู่ • ตลอดชีพ",
+  "canceled": "ยกเลิกแล้ว",
+  "pastDue": "ค้างชำระ",
+  "trial": "ทดลองใช้ฟรี",
+  "unknownFeature": "ไม่ทราบฟีเจอร์",
+  "paywallBenefit5": "บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล"
 }

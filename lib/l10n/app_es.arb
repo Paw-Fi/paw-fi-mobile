@@ -90,18 +90,18 @@
   "loading": "Cargando...",
   "failedToLoadMembership": "Error al cargar la suscripción",
   "couldNotOpenMembershipPage": "No se pudo abrir la página de suscripción",
-  "freePlan": "Gratis",
+  "freePlan": "Plan gratis",
   "freePlanStatus": "Plan gratuito",
   "lifetimePlan": "De por vida",
-  "plusPlan": "Plus",
+  "plusPlan": "Plan Plus",
   "plusMonthlyPlan": "Plus Mensual",
   "plusYearlyPlan": "Plus Anual",
   "activeStatus": "Activa",
   "activeLifetimeStatus": "Activa • De por vida",
   "canceledStatus": "Cancelada",
   "pastDueStatus": "Pago pendiente",
-  "trialStatus": "Prueba",
-  "trialEndsInDays": "La prueba termina en {days} {days, plural, =1 {día} other {días}}",
+  "trialStatus": "En prueba",
+  "trialEndsInDays": "La prueba termina en {days} días",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -109,8 +109,8 @@
       }
     }
   },
-  "trialEnded": "Prueba finalizada",
-  "renewsInDays": "Se renueva en {days} {days, plural, =1 {día} other {días}}",
+  "trialEnded": "La prueba terminó",
+  "renewsInDays": "Se renueva en {days} días",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "El acceso finaliza en {days} {days, plural, =1 {día} other {días}}",
+  "accessEndsInDays": "La membresía termina en {days} días",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -2363,7 +2363,7 @@
   "paywallBenefit2": "Añade gastos desde WhatsApp o Telegram",
   "paywallBenefit3": "Presupuestos compartidos siempre sincronizados",
   "paywallBenefit4": "Presupuesto por sobres para controlar tus gastos",
-  "paywallLovedBy": "Amada por más de 6,000 usuarios",
+  "paywallLovedBy": "Amada por más de 6,500 usuarios",
   "paywallBadgeSave50": "AHORRA 50%",
   "paywallBadgeLimited": "LIMITADO",
   "pocketsCopyDialogTitle": "¿Copiar los sobres del mes pasado?",
@@ -2688,5 +2688,14 @@
   "walletCaptureOfflineDescription": "No te preocupes. Moneko guarda la transacción en tu iPhone y la sincroniza automáticamente la próxima vez que abras la app con conexión a internet.",
   "currencyNotFound": "No se encontró la moneda",
   "currencyNotFoundDescription": "Contáctanos y usa otra moneda por ahora mientras añadimos compatibilidad.",
-  "replace": "Reemplazar"
+  "replace": "Reemplazar",
+  "plus": "Plus",
+  "plusMonthly": "Plus mensual",
+  "plusYearly": "Plus anual",
+  "activeLifetime": "Activo • De por vida",
+  "canceled": "Cancelado",
+  "pastDue": "Pago vencido",
+  "trial": "Prueba",
+  "unknownFeature": "Función desconocida",
+  "paywallBenefit5": "Registra gastos automáticamente reenviando recibos desde tu correo"
 }

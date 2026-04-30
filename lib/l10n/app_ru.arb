@@ -90,18 +90,18 @@
   "loading": "Загрузка...",
   "failedToLoadMembership": "Не удалось загрузить подписку",
   "couldNotOpenMembershipPage": "Не удалось открыть страницу подписки",
-  "freePlan": "Бесплатно",
+  "freePlan": "Бесплатный тариф",
   "freePlanStatus": "Бесплатный план",
   "lifetimePlan": "Навсегда",
-  "plusPlan": "Plus",
+  "plusPlan": "Тариф Plus",
   "plusMonthlyPlan": "Plus (ежемесячно)",
   "plusYearlyPlan": "Plus (ежегодно)",
   "activeStatus": "Активна",
   "activeLifetimeStatus": "Активна • Навсегда",
   "canceledStatus": "Отменена",
   "pastDueStatus": "Просрочена",
-  "trialStatus": "Пробный период",
-  "trialEndsInDays": "Пробный период закончится через {days, plural, =1 {1 день} few {{days} дня} many {{days} дней} other {{days} дня}}",
+  "trialStatus": "Пробный период активен",
+  "trialEndsInDays": "Пробный период закончится через {days} дн.",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -110,8 +110,8 @@
     },
     "plural": "days"
   },
-  "trialEnded": "Пробный период окончен",
-  "renewsInDays": "Продление через {days, plural, =1 {1 день} few {{days} дня} many {{days} дней} other {{days} дня}}",
+  "trialEnded": "Пробный период закончился",
+  "renewsInDays": "Продление через {days} дн.",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -120,7 +120,7 @@
     },
     "plural": "days"
   },
-  "accessEndsInDays": "Доступ закроется через {days, plural, =1 {1 день} few {{days} дня} many {{days} дней} other {{days} дня}}",
+  "accessEndsInDays": "Членство закончится через {days} дн.",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -129,7 +129,7 @@
     },
     "plural": "days"
   },
-  "subscriptionEnded": "Подписка закончилась",
+  "subscriptionEnded": "Подписка завершена",
   "profile": "Профиль",
   "errorLoadingProfile": "Ошибка загрузки профиля",
   "user": "Пользователь",
@@ -454,7 +454,7 @@
   "warningThresholdHelper": "Оповещение при достижении этого % бюджета",
   "alertThresholdHelper": "Критическое оповещение при этом %",
   "budgetStatus": "Статус бюджета",
-  "active": "Активные",
+  "active": "Активно",
   "inactive": "Неактивен",
   "deletingBudget": "Удаление бюджета...",
   "savingChanges": "Сохранение...",
@@ -2251,7 +2251,7 @@
   "missingUserSession": "Сессия пользователя отсутствует",
   "invalidResponse": "Неверный ответ",
   "unableToUpdateCurrency": "Не удалось обновить валюту",
-  "lifetime": "Бессрочно",
+  "lifetime": "Навсегда",
   "perMonth": "/мес.",
   "perYear": "/год",
   "onboardingCarouselLogTitle": "Записывайте где угодно",
@@ -2636,5 +2636,14 @@
   "walletCaptureOfflineDescription": "Не переживайте. Moneko сохранит транзакцию на вашем iPhone и автоматически синхронизирует её при следующем открытии приложения с интернетом.",
   "currencyNotFound": "Валюта не найдена",
   "currencyNotFoundDescription": "Свяжитесь с нами и пока используйте другую валюту, пока мы добавляем поддержку.",
-  "replace": "Заменить"
+  "replace": "Заменить",
+  "plus": "Plus",
+  "plusMonthly": "Plus на месяц",
+  "plusYearly": "Plus на год",
+  "activeLifetime": "Активно • Навсегда",
+  "canceled": "Отменено",
+  "pastDue": "Платеж просрочен",
+  "trial": "Пробный период",
+  "unknownFeature": "Неизвестная функция",
+  "paywallBenefit5": "Автоматически добавляйте расходы, пересылая чеки из почты"
 }

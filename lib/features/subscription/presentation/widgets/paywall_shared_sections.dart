@@ -122,6 +122,7 @@ class PaywallBenefitsChecklist extends StatelessWidget {
     final items = [
       context.l10n.paywallBenefit1,
       context.l10n.paywallBenefit2,
+      context.l10n.paywallBenefit5,
       context.l10n.paywallBenefit3,
       context.l10n.paywallBenefit4,
     ];

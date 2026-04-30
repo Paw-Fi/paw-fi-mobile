@@ -20,7 +20,6 @@ class AppStoreReview {
 
 // App Store rating to display in header
 const double kAppStoreRating = 4.8;
-const int kTotalReviewCount = 17;
 
 // Hardcoded 5-star reviews - REAL REVIEWS FROM APP STORE
 const List<AppStoreReview> appStoreReviews = [
@@ -209,6 +208,16 @@ const List<AppStoreReview> appStoreReviews = [
         "Really fantastic budgeting app — straightforward, easy to use and integrate, helpful. The interface is very natural and it all works very smoothly.",
     reviewerNickname: "User34862",
     createdDate: "2026-02-19T12:00:00-08:00",
+    territory: "USA",
+  ),
+  AppStoreReview(
+    id: "review-020",
+    rating: 5,
+    title: "Switched from Spendee. This Is Way Better.",
+    body:
+        "I used to use Spendee for the last 2 years, but not anymore. Moneko is honestly the best app I've tried so far. The best part for me is the voice logging and Siri Shortcuts assistant,, it makes adding expenses so quick and effortless. The app is simple, smooth, and very easy to use. Highly recommended Big thanks to the developer for creating such an amazing and useful app. Please keep it always updated and improving.",
+    reviewerNickname: "iamnoman21",
+    createdDate: "2026-04-17T00:00:00-08:00",
     territory: "USA",
   ),
 ];

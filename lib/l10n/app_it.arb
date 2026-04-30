@@ -90,10 +90,10 @@
   "loading": "Caricamento in corso...",
   "failedToLoadMembership": "Impossibile caricare l'abbonamento",
   "couldNotOpenMembershipPage": "Impossibile aprire la pagina dell'abbonamento",
-  "freePlan": "Gratuito",
+  "freePlan": "Piano gratuito",
   "freePlanStatus": "Piano gratuito",
   "lifetimePlan": "A vita",
-  "plusPlan": "Plus",
+  "plusPlan": "Piano Plus",
   "plusMonthlyPlan": "Plus Mensile",
   "plusYearlyPlan": "Plus Annuale",
   "activeStatus": "Attivo",
@@ -109,7 +109,7 @@
       }
     }
   },
-  "trialEnded": "Periodo di prova terminato",
+  "trialEnded": "Prova terminata",
   "renewsInDays": "Si rinnova tra {days} giorni",
   "@renewsInDays": {
     "placeholders": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "L'accesso termina tra {days} giorni",
+  "accessEndsInDays": "L’abbonamento termina tra {days} giorni",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -2633,5 +2633,14 @@
   "walletCaptureOfflineDescription": "Nessun problema. Moneko salva la transazione sul tuo iPhone e la sincronizza automaticamente quando riapri l’app con una connessione.",
   "currencyNotFound": "Valuta non disponibile",
   "currencyNotFoundDescription": "Contattaci e usa temporaneamente un’altra valuta mentre aggiungiamo il supporto.",
-  "replace": "Sostituisci"
+  "replace": "Sostituisci",
+  "plus": "Plus",
+  "plusMonthly": "Plus mensile",
+  "plusYearly": "Plus annuale",
+  "activeLifetime": "Attivo • A vita",
+  "canceled": "Annullato",
+  "pastDue": "Pagamento scaduto",
+  "trial": "Prova",
+  "unknownFeature": "Funzione sconosciuta",
+  "paywallBenefit5": "Registra automaticamente le spese inoltrando le ricevute dall’e-mail"
 }

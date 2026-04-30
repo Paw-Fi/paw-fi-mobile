@@ -90,10 +90,10 @@
   "loading": "加载中...",
   "failedToLoadMembership": "会员信息加载失败",
   "couldNotOpenMembershipPage": "无法打开会员页面",
-  "freePlan": "免费版",
+  "freePlan": "免费套餐",
   "freePlanStatus": "免费版",
   "lifetimePlan": "终身版",
-  "plusPlan": "Plus 版",
+  "plusPlan": "Plus 套餐",
   "plusMonthlyPlan": "Plus 月度版",
   "plusYearlyPlan": "Plus 年度版",
   "activeStatus": "生效中",
@@ -101,7 +101,7 @@
   "canceledStatus": "已取消",
   "pastDueStatus": "已逾期",
   "trialStatus": "试用中",
-  "trialEndsInDays": "试用期剩余 {days} 天",
+  "trialEndsInDays": "试用将在 {days} 天后结束",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -110,7 +110,7 @@
     }
   },
   "trialEnded": "试用已结束",
-  "renewsInDays": "{days} 天后自动续费",
+  "renewsInDays": "{days} 天后续订",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "访问权限剩余 {days} 天",
+  "accessEndsInDays": "会员资格将在 {days} 天后结束",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -450,7 +450,7 @@
   "warningThresholdHelper": "当预算使用达到此百分比时提醒",
   "alertThresholdHelper": "达到此百分比时发送严重警报",
   "budgetStatus": "预算状态",
-  "active": "活跃",
+  "active": "有效",
   "inactive": "停用",
   "deletingBudget": "正在删除预算...",
   "savingChanges": "正在保存更改...",
@@ -2357,7 +2357,7 @@
   "paywallBenefit2": "从 WhatsApp 或 Telegram 添加支出",
   "paywallBenefit3": "始终同步的共享预算",
   "paywallBenefit4": "简单的信封预算法，轻松控制支出",
-  "paywallLovedBy": "深受 6,000 多名用户的喜爱",
+  "paywallLovedBy": "深受 6,500 多名用户的喜爱",
   "paywallBadgeSave50": "立省 50%",
   "paywallBadgeLimited": "限量/限时",
   "pocketsCopyDialogTitle": "复制上个月的口袋？",
@@ -2682,5 +2682,14 @@
   "walletCaptureOfflineDescription": "不用担心，Moneko 会将交易保存在你的 iPhone 上，并在你下次连接网络打开应用时自动同步。",
   "currencyNotFound": "未找到此货币",
   "currencyNotFoundDescription": "请联系我们，并在我们添加支持期间暂时使用其他货币。",
-  "replace": "替换"
+  "replace": "替换",
+  "plus": "Plus",
+  "plusMonthly": "Plus 月度套餐",
+  "plusYearly": "Plus 年度套餐",
+  "activeLifetime": "有效 • 终身",
+  "canceled": "已取消",
+  "pastDue": "付款逾期",
+  "trial": "试用",
+  "unknownFeature": "未知功能",
+  "paywallBenefit5": "从邮箱转发收据，自动记录支出"
 }

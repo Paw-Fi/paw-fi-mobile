@@ -220,7 +220,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get couldNotOpenMembershipPage => 'เปิดหน้าแพ็กเกจสมาชิกไม่ได้';
 
   @override
-  String get freePlan => 'ฟรี';
+  String get freePlan => 'แพ็กเกจฟรี';
 
   @override
   String get freePlanStatus => 'แพ็กเกจฟรี';
@@ -229,7 +229,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get lifetimePlan => 'ตลอดชีพ';
 
   @override
-  String get plusPlan => 'Plus';
+  String get plusPlan => 'แพ็กเกจ Plus';
 
   @override
   String get plusMonthlyPlan => 'Plus รายเดือน';
@@ -250,15 +250,15 @@ class AppLocalizationsTh extends AppLocalizations {
   String get pastDueStatus => 'ค้างชำระ';
 
   @override
-  String get trialStatus => 'ทดลองใช้ฟรี';
+  String get trialStatus => 'อยู่ในช่วงทดลองใช้ฟรี';
 
   @override
   String trialEndsInDays(int days) {
-    return 'ทดลองใช้ฟรีอีก $days วัน';
+    return 'ช่วงทดลองใช้ฟรีจะสิ้นสุดในอีก $days วัน';
   }
 
   @override
-  String get trialEnded => 'หมดช่วงทดลองใช้ฟรี';
+  String get trialEnded => 'ช่วงทดลองใช้ฟรีสิ้นสุดแล้ว';
 
   @override
   String renewsInDays(int days) {
@@ -267,11 +267,11 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String accessEndsInDays(int days) {
-    return 'หมดอายุการใช้งานในอีก $days วัน';
+    return 'สมาชิกภาพจะสิ้นสุดในอีก $days วัน';
   }
 
   @override
-  String get subscriptionEnded => 'แพ็กเกจสมาชิกหมดอายุแล้ว';
+  String get subscriptionEnded => 'การสมัครสมาชิกสิ้นสุดแล้ว';
 
   @override
   String get profile => 'โปรไฟล์';
@@ -1198,7 +1198,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get budgetStatus => 'สถานะงบ';
 
   @override
-  String get active => 'เปิดใช้งาน';
+  String get active => 'ใช้งานอยู่';
 
   @override
   String get inactive => 'ปิดใช้งาน';
@@ -6130,7 +6130,7 @@ class AppLocalizationsTh extends AppLocalizations {
   String get paywallBenefit4 => 'ระบบจัดการงบแบบแบ่งซอง ช่วยคุมรายจ่ายไม่ให้เกินตัว';
 
   @override
-  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 6,000+ คน';
+  String get paywallLovedBy => 'ถูกใจผู้ใช้กว่า 6,500+ คน';
 
   @override
   String get paywallBadgeSave50 => 'ประหยัด 50%';
@@ -7126,4 +7126,31 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get replace => 'แทนที่';
+
+  @override
+  String get plus => 'Plus';
+
+  @override
+  String get plusMonthly => 'Plus รายเดือน';
+
+  @override
+  String get plusYearly => 'Plus รายปี';
+
+  @override
+  String get activeLifetime => 'ใช้งานอยู่ • ตลอดชีพ';
+
+  @override
+  String get canceled => 'ยกเลิกแล้ว';
+
+  @override
+  String get pastDue => 'ค้างชำระ';
+
+  @override
+  String get trial => 'ทดลองใช้ฟรี';
+
+  @override
+  String get unknownFeature => 'ไม่ทราบฟีเจอร์';
+
+  @override
+  String get paywallBenefit5 => 'บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล';
 }

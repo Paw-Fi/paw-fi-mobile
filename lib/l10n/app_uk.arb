@@ -90,18 +90,18 @@
   "loading": "Завантаження...",
   "failedToLoadMembership": "Не вдалося завантажити дані підписки",
   "couldNotOpenMembershipPage": "Не вдалося відкрити сторінку підписки",
-  "freePlan": "Безкоштовно",
+  "freePlan": "Безкоштовний тариф",
   "freePlanStatus": "Безкоштовний",
   "lifetimePlan": "Довічна",
-  "plusPlan": "Plus",
+  "plusPlan": "Тариф Plus",
   "plusMonthlyPlan": "Plus (місячна)",
   "plusYearlyPlan": "Plus (річна)",
   "activeStatus": "Активна",
   "activeLifetimeStatus": "Активна • Довічна",
   "canceledStatus": "Скасована",
   "pastDueStatus": "Прострочена",
-  "trialStatus": "Пробна",
-  "trialEndsInDays": "Пробна версія: {days} дн.",
+  "trialStatus": "Пробний період активний",
+  "trialEndsInDays": "Пробний період завершиться через {days} дн.",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -109,8 +109,8 @@
       }
     }
   },
-  "trialEnded": "Пробну версію завершено",
-  "renewsInDays": "Поновлення через: {days} дн.",
+  "trialEnded": "Пробний період завершено",
+  "renewsInDays": "Поновлення через {days} дн.",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "Доступ завершиться через: {days} дн.",
+  "accessEndsInDays": "Членство завершиться через {days} дн.",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -451,7 +451,7 @@
   "warningThresholdHelper": "Сповістити, коли використання бюджету досягне цього відсотка",
   "alertThresholdHelper": "Критичне сповіщення при цьому відсотку",
   "budgetStatus": "Статус бюджету",
-  "active": "Активні",
+  "active": "Активно",
   "inactive": "Неактивний",
   "deletingBudget": "Видалення бюджету...",
   "savingChanges": "Збереження змін...",
@@ -2293,7 +2293,7 @@
   "missingUserSession": "Сесія користувача відсутня",
   "invalidResponse": "Невірна відповідь",
   "unableToUpdateCurrency": "Не вдалося оновити валюту",
-  "lifetime": "Довічно",
+  "lifetime": "Назавжди",
   "perMonth": "/міс.",
   "perYear": "/рік",
   "onboardingCarouselLogTitle": "Записуйте будь-де",
@@ -2678,5 +2678,14 @@
   "walletCaptureOfflineDescription": "Не хвилюйтеся. Moneko збереже транзакцію на вашому iPhone і автоматично синхронізує її, коли ви наступного разу відкриєте додаток із підключенням до інтернету.",
   "currencyNotFound": "Валюту не знайдено",
   "currencyNotFoundDescription": "Зв’яжіться з нами та поки використовуйте іншу валюту, поки ми додаємо підтримку.",
-  "replace": "Замінити"
+  "replace": "Замінити",
+  "plus": "Plus",
+  "plusMonthly": "Plus щомісяця",
+  "plusYearly": "Plus щорічно",
+  "activeLifetime": "Активно • Назавжди",
+  "canceled": "Скасовано",
+  "pastDue": "Платіж прострочено",
+  "trial": "Пробний період",
+  "unknownFeature": "Невідома функція",
+  "paywallBenefit5": "Автоматично додавайте витрати, пересилаючи чеки з пошти"
 }

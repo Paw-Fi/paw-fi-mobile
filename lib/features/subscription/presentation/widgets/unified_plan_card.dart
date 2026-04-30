@@ -71,7 +71,7 @@ class UnifiedPlanCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isDisabled
                       ? scheme.onSurface.withValues(alpha: 0.03)
-                      : (isDark ? const Color(0xFF17181D) : scheme.surface),
+                      : (isDark ? const Color(0xFF17181D) : scheme.card),
                   borderRadius: BorderRadius.circular(36),
                   border: Border.all(
                     color: isDisabled

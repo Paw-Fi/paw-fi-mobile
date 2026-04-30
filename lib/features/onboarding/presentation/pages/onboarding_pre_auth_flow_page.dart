@@ -761,8 +761,8 @@ class _PreAuthTestimonialStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final sarahReview = appStoreReviews.firstWhere(
-      (review) => review.id == 'review-002',
+    final qualityReview = appStoreReviews.firstWhere(
+      (review) => review.id == 'review-020',
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
@@ -795,7 +795,7 @@ class _PreAuthTestimonialStep extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           AppStoreReviewCard(
-            review: sarahReview,
+            review: qualityReview,
           ),
         ],
       ),
