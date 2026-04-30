@@ -151,6 +151,53 @@ void main() {
     expect(state.hasMore, isFalse);
   });
 
+  test(
+      'addingExpenses merges built-in category variants into canonical summary',
+      () {
+    final summary = const TransactionsFeedSummary(
+      transactionCount: 1,
+      expenseTotal: 11,
+      incomeTotal: 0,
+      hasMultipleCurrencies: false,
+      categorySummaries: <TransactionsFeedCategorySummary>[
+        TransactionsFeedCategorySummary(
+          category: 'takeout/delivery',
+          amount: 11,
+          transactionCount: 1,
+        ),
+      ],
+      yearlyPeriodTotals: <DateTime, double>{},
+    ).addingExpenses([
+      ExpenseEntry(
+        id: 'projected',
+        date: DateTime(2026, 4, 4),
+        amountCents: 2200,
+        createdAt: DateTime(2026, 4, 4),
+        category: 'Takeout / Delivery',
+        type: 'expense',
+        currency: 'USD',
+      ),
+      ExpenseEntry(
+        id: 'custom',
+        date: DateTime(2026, 4, 4),
+        amountCents: 3300,
+        createdAt: DateTime(2026, 4, 4),
+        category: 'cat insurance',
+        type: 'expense',
+        currency: 'USD',
+      ),
+    ]);
+
+    expect(summary.categorySummaries.map((entry) => entry.category), [
+      'takeout & delivery',
+      'cat insurance',
+    ]);
+    expect(summary.categorySummaries.first.amount, 33);
+    expect(summary.categorySummaries.first.transactionCount, 2);
+    expect(summary.categorySummaries.last.amount, 33);
+    expect(summary.categorySummaries.last.transactionCount, 1);
+  });
+
   test('empty user skips remote fetches', () async {
     final service = _FakeTransactionsFeedService(const []);
     final container = ProviderContainer(

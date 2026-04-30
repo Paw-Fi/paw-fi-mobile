@@ -458,8 +458,7 @@ int computeFallbackCategoryColorArgb(String? category) {
 }
 
 Color getCategoryColor(String? category) {
-  final raw = (category ?? 'uncategorized').trim().toLowerCase();
-  final directKey = raw.isEmpty ? 'uncategorized' : raw;
+  final directKey = canonicalizeCategoryKey(category);
 
   final directOverride = getCustomCategoryStyleOverrides()[directKey];
   final directColorArgb = directOverride?.colorArgb;
@@ -488,8 +487,7 @@ Color getCategoryColor(String? category) {
 }
 
 IconData getCategoryIcon(String? category) {
-  final raw = (category ?? 'uncategorized').trim().toLowerCase();
-  final directKey = raw.isEmpty ? 'uncategorized' : raw;
+  final directKey = canonicalizeCategoryKey(category);
 
   final directOverride = getCustomCategoryStyleOverrides()[directKey];
   final directIconKey = directOverride?.iconKey;
@@ -680,6 +678,9 @@ final Set<String> _builtinCategoryKeys = <String>{
 final Map<String, String> _builtinCategoryLookupAcrossLocales =
     _buildBuiltinCategoryLookupAcrossLocales();
 
+final Map<String, String> _builtinCategoryLookupByFoldedKey =
+    _buildBuiltinCategoryLookupByFoldedKey();
+
 Map<String, String> _buildBuiltinCategoryLookupAcrossLocales() {
   final lookup = <String, String>{};
   for (final locale in AppLocalizations.supportedLocales) {
@@ -694,21 +695,69 @@ Map<String, String> _buildBuiltinCategoryLookupAcrossLocales() {
   return Map<String, String>.unmodifiable(lookup);
 }
 
-String? resolveBuiltinCategoryKeyAcrossLocales(String? category) {
-  final rawValue = (category ?? '').trim();
-  if (rawValue.isEmpty) return null;
+Map<String, String> _buildBuiltinCategoryLookupByFoldedKey() {
+  final lookup = <String, String>{};
+  for (final key in _builtinCategoryKeys) {
+    final folded = _foldCategoryAliasKey(key);
+    if (folded.isNotEmpty) {
+      lookup.putIfAbsent(folded, () => key);
+    }
+  }
+  return Map<String, String>.unmodifiable(lookup);
+}
+
+String _foldCategoryAliasKey(String value) {
+  final words = value
+      .toLowerCase()
+      .replaceAll('&', ' and ')
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((word) => word.isNotEmpty && word != 'and')
+      .toList();
+  return words.join(' ');
+}
+
+String canonicalizeCategoryKey(String? category) {
+  final rawValue = (category ?? 'uncategorized').trim();
+  if (rawValue.isEmpty) {
+    return 'uncategorized';
+  }
 
   final rawKey = rawValue.toLowerCase();
   if (_builtinCategoryKeys.contains(rawKey)) {
     return rawKey;
   }
 
-  final normalized = normalizeCategory(rawValue);
-  if (_builtinCategoryKeys.contains(normalized)) {
-    return normalized;
+  final localized = _builtinCategoryLookupAcrossLocales[rawKey];
+  if (localized != null) {
+    return localized;
   }
 
-  return _builtinCategoryLookupAcrossLocales[rawKey];
+  final folded = _foldCategoryAliasKey(rawValue);
+  final foldedBuiltin = _builtinCategoryLookupByFoldedKey[folded];
+  if (foldedBuiltin != null) {
+    return foldedBuiltin;
+  }
+
+  final words = rawKey
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((word) => word.isNotEmpty)
+      .toList();
+  if (words.length == 1) {
+    final normalized = normalizeCategory(rawValue);
+    if (_builtinCategoryKeys.contains(normalized)) {
+      return normalized;
+    }
+  }
+
+  return rawKey;
+}
+
+String? resolveBuiltinCategoryKeyAcrossLocales(String? category) {
+  final rawValue = (category ?? '').trim();
+  if (rawValue.isEmpty) return null;
+
+  final canonical = canonicalizeCategoryKey(rawValue);
+  return _builtinCategoryKeys.contains(canonical) ? canonical : null;
 }
 
 /// Translates category names to localized strings
@@ -721,17 +770,9 @@ String getCategoryTranslation(BuildContext context, String? category) {
     return translations['uncategorized'] ?? _titleCase('uncategorized');
   }
 
-  // Exact key takes precedence and keeps user-defined categories intact.
-  final exact = translations[rawKey];
+  final categoryKey = canonicalizeCategoryKey(rawValue);
+  final exact = translations[categoryKey];
   if (exact != null) return exact;
-
-  // Legacy alias mapping for single-token values (e.g. "restaurant").
-  // Multi-word values are treated as user-entered labels and are not remapped.
-  if (!rawKey.contains(' ')) {
-    final normalized = normalizeCategory(rawValue);
-    final mapped = translations[normalized];
-    if (mapped != null) return mapped;
-  }
 
   return _titleCase(rawValue);
 }

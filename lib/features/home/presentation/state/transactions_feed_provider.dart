@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -262,13 +263,23 @@ class TransactionsFeedSummary {
             (expense) => (expense.type ?? 'expense').toLowerCase() == 'income')
         .toList();
 
-    final categoryMap = {
-      for (final summary in categorySummaries)
-        summary.category: summary.copyWith(),
-    };
+    final categoryMap = <String, TransactionsFeedCategorySummary>{};
+    for (final summary in categorySummaries) {
+      final category = canonicalizeCategoryKey(summary.category);
+      final current = categoryMap[category] ??
+          TransactionsFeedCategorySummary(
+            category: category,
+            amount: 0,
+            transactionCount: 0,
+          );
+      categoryMap[category] = current.copyWith(
+        amount: current.amount + summary.amount,
+        transactionCount: current.transactionCount + summary.transactionCount,
+      );
+    }
 
     for (final expense in expenseRows) {
-      final category = (expense.category ?? 'uncategorized').toLowerCase();
+      final category = canonicalizeCategoryKey(expense.category);
       final current = categoryMap[category] ??
           TransactionsFeedCategorySummary(
             category: category,
@@ -448,17 +459,26 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
     );
 
     final payload = Map<String, dynamic>.from(response as Map);
-    final categoryRows = ((payload['category_summaries'] as List?) ?? const [])
-        .cast<Map>()
-        .map(
-          (row) => TransactionsFeedCategorySummary(
-            category:
-                (row['category'] as String? ?? 'uncategorized').toLowerCase(),
-            amount: _centsToDouble(row['amount_cents']),
-            transactionCount: (row['transaction_count'] as num?)?.toInt() ?? 0,
-          ),
-        )
-        .toList();
+    final categoryMap = <String, TransactionsFeedCategorySummary>{};
+    for (final row
+        in ((payload['category_summaries'] as List?) ?? const []).cast<Map>()) {
+      final category = canonicalizeCategoryKey(
+        row['category'] as String? ?? 'uncategorized',
+      );
+      final current = categoryMap[category] ??
+          TransactionsFeedCategorySummary(
+            category: category,
+            amount: 0,
+            transactionCount: 0,
+          );
+      categoryMap[category] = current.copyWith(
+        amount: current.amount + _centsToDouble(row['amount_cents']),
+        transactionCount: current.transactionCount +
+            ((row['transaction_count'] as num?)?.toInt() ?? 0),
+      );
+    }
+    final categoryRows = categoryMap.values.toList()
+      ..sort((left, right) => right.amount.compareTo(left.amount));
 
     final yearlyPeriodTotals = <DateTime, double>{};
     final periodTotals = <DateTime, double>{};

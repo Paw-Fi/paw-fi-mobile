@@ -67,8 +67,7 @@ bool isTransactionsPieCategoryNavigable(String? category) {
 }
 
 String _normalizePieCategory(String? category) {
-  final normalized = (category ?? 'uncategorized').trim().toLowerCase();
-  return normalized.isEmpty ? 'uncategorized' : normalized;
+  return canonicalizeCategoryKey(category);
 }
 
 class _TransactionsPieChartState extends State<TransactionsPieChart> {

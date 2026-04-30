@@ -73,6 +73,41 @@ void main() {
     );
   });
 
+  test('legend summaries merge built-in separator variants by canonical key',
+      () {
+    final summaries = buildTransactionsPieCategorySummaries([
+      _entry(
+        id: 'slash',
+        category: 'takeout/delivery',
+        amountCents: 1100,
+      ),
+      _entry(
+        id: 'spaced-slash',
+        category: 'Takeout / Delivery',
+        amountCents: 2200,
+      ),
+      _entry(
+        id: 'canonical',
+        category: 'takeout & delivery',
+        amountCents: 3300,
+      ),
+      _entry(
+        id: 'custom',
+        category: 'cat insurance',
+        amountCents: 4400,
+      ),
+    ]);
+
+    expect(summaries.map((summary) => summary.category).toList(), [
+      'takeout & delivery',
+      'cat insurance',
+    ]);
+    expect(summaries.first.amount, 66);
+    expect(summaries.first.transactionCount, 3);
+    expect(summaries.last.amount, 44);
+    expect(summaries.last.transactionCount, 1);
+  });
+
   testWidgets('real other legend card opens category details', (tester) async {
     final observer = _RecordingNavigatorObserver();
 

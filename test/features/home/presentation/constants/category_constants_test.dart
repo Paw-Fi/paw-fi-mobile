@@ -276,6 +276,21 @@ void main() {
     });
   });
 
+  group('canonicalizeCategoryKey', () {
+    test('merges separator variants for built-in categories', () {
+      expect(canonicalizeCategoryKey('takeout/delivery'), 'takeout & delivery');
+      expect(
+          canonicalizeCategoryKey('Takeout / Delivery'), 'takeout & delivery');
+      expect(canonicalizeCategoryKey('takeout and delivery'),
+          'takeout & delivery');
+    });
+
+    test('preserves custom categories containing built-in words', () {
+      expect(canonicalizeCategoryKey('cat insurance'), 'cat insurance');
+      expect(canonicalizeCategoryKey('food truck'), 'food truck');
+    });
+  });
+
   group('getIncomeCategories', () {
     test('returns list of income categories', () {
       final categories = getIncomeCategories();
