@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/services/widget_sync_manager.d
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -226,6 +227,15 @@ class MainShell extends HookConsumerWidget {
             if (ref.read(mainShellTabIndexProvider) != 0) {
               tabController.state = 0;
             }
+            final command = homePageCommandFromWidgetLaunch(next);
+            if (command != null) {
+              ref.read(homePageCommandProvider.notifier).state =
+                  HomePageCommand(
+                command.type,
+                requestId: DateTime.now().microsecondsSinceEpoch,
+              );
+            }
+            widgetLaunchNotifier.state = const WidgetLaunchEvent();
           } else if (next.type == WidgetLaunchActionType.openPockets) {
             if (ref.read(mainShellTabIndexProvider) != 2) {
               tabController.state = 2;

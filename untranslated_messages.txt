@@ -1,1 +1,13 @@
-{}
+{
+  "ko": [
+    "plus",
+    "plusMonthly",
+    "plusYearly",
+    "activeLifetime",
+    "canceled",
+    "pastDue",
+    "trial",
+    "unknownFeature",
+    "paywallBenefit5"
+  ]
+}

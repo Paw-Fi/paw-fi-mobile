@@ -30,6 +30,14 @@ void main() {
     expect(mapping.fieldToColumnIndex[ImportField.description], 3);
   });
 
+  test('autoMapFields matches common abbreviated amount headers', () {
+    final mapping = autoMapFields(['Posted Date', 'Transaction Amt', 'Memo']);
+
+    expect(mapping.fieldToColumnIndex[ImportField.date], 0);
+    expect(mapping.fieldToColumnIndex[ImportField.amount], 1);
+    expect(mapping.fieldToColumnIndex[ImportField.description], 2);
+  });
+
   test('autoMapFieldsWithConfidence detects single expenses columns as debit',
       () {
     final result = autoMapFieldsWithConfidence(

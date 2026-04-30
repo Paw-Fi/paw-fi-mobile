@@ -1273,9 +1273,15 @@ class SettingsPage extends HookConsumerWidget {
                       icon: Icons.star_outline_rounded,
                       label: context.l10n.membership,
                       value: subscriptionAsync.when(
-                        data: (d) => d?.hasActiveSubscription == true
-                            ? context.l10n.premium
-                            : context.l10n.free,
+                        data: (d) {
+                          final status = d?.subscription?.status?.toLowerCase();
+                          if (status == 'trialing') {
+                            return context.l10n.trialStatus;
+                          }
+                          return d?.hasActiveSubscription == true
+                              ? context.l10n.plusPlan
+                              : context.l10n.free;
+                        },
                         loading: () => '...',
                         error: (_, __) => context.l10n.error('unknown'),
                       ),

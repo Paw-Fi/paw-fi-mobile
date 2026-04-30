@@ -90,10 +90,10 @@
   "loading": "載入中...",
   "failedToLoadMembership": "無法載入會員方案",
   "couldNotOpenMembershipPage": "無法開啟會員方案頁面",
-  "freePlan": "免費",
+  "freePlan": "免費套餐",
   "freePlanStatus": "免費方案",
   "lifetimePlan": "終身",
-  "plusPlan": "Plus",
+  "plusPlan": "Plus 套餐",
   "plusMonthlyPlan": "Plus 月繳方案",
   "plusYearlyPlan": "Plus 年繳方案",
   "activeStatus": "有效",
@@ -101,7 +101,7 @@
   "canceledStatus": "已取消",
   "pastDueStatus": "已逾期",
   "trialStatus": "試用中",
-  "trialEndsInDays": "試用將於 {days} 天後結束",
+  "trialEndsInDays": "試用將在 {days} 天後結束",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "會員資格將於 {days} 天後結束",
+  "accessEndsInDays": "會員資格將在 {days} 天後結束",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -451,7 +451,7 @@
   "warningThresholdHelper": "當預算使用率達到此百分比時提醒",
   "alertThresholdHelper": "達到此百分比時發出嚴重警示",
   "budgetStatus": "預算狀態",
-  "active": "活躍",
+  "active": "有效",
   "inactive": "停用",
   "deletingBudget": "正在刪除預算...",
   "savingChanges": "正在儲存變更...",
@@ -2305,7 +2305,7 @@
   "paywallBenefit2": "從 WhatsApp 或 Telegram 新增支出",
   "paywallBenefit3": "始終同步的共享預算",
   "paywallBenefit4": "簡單的信封預算法，輕鬆控制支出",
-  "paywallLovedBy": "深受 6,000 多名使用者的喜愛",
+  "paywallLovedBy": "深受 6,500 多名使用者的喜愛",
   "paywallBadgeSave50": "省下 50%",
   "paywallBadgeLimited": "限量/限時",
   "pocketsCopyDialogTitle": "複製上個月的口袋？",
@@ -2630,5 +2630,14 @@
   "walletCaptureOfflineDescription": "別擔心，Moneko 會將交易儲存在你的 iPhone 上，並在你下次連上網路開啟 App 時自動同步。",
   "currencyNotFound": "找不到此貨幣",
   "currencyNotFoundDescription": "請聯絡我們，在我們新增支援期間先使用其他貨幣。",
-  "replace": "替換"
+  "replace": "替換",
+  "plus": "Plus",
+  "plusMonthly": "Plus 月費套餐",
+  "plusYearly": "Plus 年費套餐",
+  "activeLifetime": "有效 • 終身",
+  "canceled": "已取消",
+  "pastDue": "付款逾期",
+  "trial": "試用",
+  "unknownFeature": "未知功能",
+  "paywallBenefit5": "從信箱轉寄收據，自動記錄支出"
 }

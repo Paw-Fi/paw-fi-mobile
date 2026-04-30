@@ -90,17 +90,17 @@
   "loading": "Laden...",
   "failedToLoadMembership": "Mitgliedschaft konnte nicht geladen werden",
   "couldNotOpenMembershipPage": "Seite zur Mitgliedschaft konnte nicht geöffnet werden",
-  "freePlan": "Kostenlos",
+  "freePlan": "Kostenloser Tarif",
   "freePlanStatus": "Kostenloser Plan",
   "lifetimePlan": "Lebenslang",
-  "plusPlan": "Plus",
+  "plusPlan": "Plus-Tarif",
   "plusMonthlyPlan": "Plus Monatlich",
   "plusYearlyPlan": "Plus Jährlich",
   "activeStatus": "Aktiv",
   "activeLifetimeStatus": "Aktiv • Lebenslang",
   "canceledStatus": "Gekündigt",
   "pastDueStatus": "Überfällig",
-  "trialStatus": "Testphase",
+  "trialStatus": "In der Testphase",
   "trialEndsInDays": "Testphase endet in {days} Tagen",
   "@trialEndsInDays": {
     "placeholders": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "Zugriff endet in {days} Tagen",
+  "accessEndsInDays": "Mitgliedschaft endet in {days} Tagen",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -126,7 +126,7 @@
       }
     }
   },
-  "subscriptionEnded": "Abonnement beendet",
+  "subscriptionEnded": "Abo beendet",
   "profile": "Profil",
   "errorLoadingProfile": "Fehler beim Laden des Profils",
   "user": "Benutzer",
@@ -2686,5 +2686,14 @@
   "walletCaptureOfflineDescription": "Keine Sorge. Moneko speichert die Transaktion auf deinem iPhone und synchronisiert sie automatisch, sobald du die App das nächste Mal mit Internet öffnest.",
   "currencyNotFound": "Währung nicht gefunden",
   "currencyNotFoundDescription": "Kontaktiere uns und nutze vorerst eine andere Währung, während wir die Unterstützung dafür hinzufügen.",
-  "replace": "Ersetzen"
+  "replace": "Ersetzen",
+  "plus": "Plus",
+  "plusMonthly": "Plus monatlich",
+  "plusYearly": "Plus jährlich",
+  "activeLifetime": "Aktiv • Lebenslang",
+  "canceled": "Gekündigt",
+  "pastDue": "Zahlung überfällig",
+  "trial": "Testphase",
+  "unknownFeature": "Unbekannte Funktion",
+  "paywallBenefit5": "Ausgaben automatisch erfassen, indem du Belege aus E-Mails weiterleitest"
 }

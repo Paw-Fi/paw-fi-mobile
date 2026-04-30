@@ -15,7 +15,6 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
@@ -40,6 +39,8 @@ void print(Object? message) => _debugLog(message);
 const bool forceUseStripeCheckout = false;
 const String purchaseOwnedByAnotherAccountCode =
     'PURCHASE_OWNED_BY_ANOTHER_ACCOUNT';
+const String membershipDashboardUrl =
+    'https://moneko.io/dashboard/user-settings/membership';
 
 enum PlanSelectionMode {
   trial,
@@ -84,7 +85,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     // View State
-    final selectedPlanId = useState<String>('plus_monthly');
+    final selectedPlanId = useState<String?>(null);
     final hasAcknowledgedAutoRenew = useState(false);
     final isStripeProcessing = useState(false);
     final processingDialogOpen = useState(false);
@@ -97,6 +98,10 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
+    final isStoreManagedSubscription =
+        currentProvider == 'app_store' || currentProvider == 'play_store';
+    final canManageCurrentSubscription =
+        currentPlanId != 'free' && currentPlanId != 'lifetime';
 
     // Check if user is truly new (no subscription data exists)
     final isNewUser = currentSub?.subscription == null;
@@ -201,7 +206,7 @@ class PlanSelectionPage extends HookConsumerWidget {
         didInitiateCheckout.value = false;
         AppToast.error(
           context,
-          'Purchase completed but subscription not activated. Please restart the app.',
+          context.l10n.paywallErrorNotActivated,
         );
       } catch (e, stack) {
         _debugLog(
@@ -212,7 +217,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           dismissProcessingDialog('iap verification error');
           AppToast.error(
             context,
-            'Purchase completed but failed to verify subscription. Please restart the app.',
+            context.l10n.paywallErrorVerificationFailedRestart,
           );
         }
       }
@@ -226,28 +231,28 @@ class PlanSelectionPage extends HookConsumerWidget {
           lower.contains('belongs to another account')) {
         return message.isNotEmpty
             ? message
-            : 'This App Store purchase is already linked to another Moneko account.';
+            : context.l10n.paywallErrorPurchaseOwnedByAnotherAccount;
       }
-      if (lower.contains('cancel')) return 'Purchase cancelled.';
+      if (lower.contains('cancel')) {
+        return context.l10n.paywallErrorPurchaseCancelled;
+      }
       if (lower.contains('subscription_managed_in_app') ||
           lower.contains('managed through an in-app purchase')) {
-        return 'Your subscription is managed through an in-app purchase. Please manage billing in the App Store / Play Store.';
+        return context.l10n.paywallErrorManagedInStore;
       }
       if (lower.contains('household') || lower.contains('family')) {
-        return 'Your Apple ID is part of a shared subscription. Please leave the household to manage your own subscription.';
+        return context.l10n.paywallErrorSharedSubscription;
       }
       if (lower.contains('timed out')) {
-        return 'Purchase timed out. Please try again.';
+        return context.l10n.paywallErrorTimedOut;
       }
       if (lower.contains('not available') || lower.contains('store')) {
-        return 'Store unavailable. Please try again later.';
+        return context.l10n.paywallErrorStoreUnavailable;
       }
       if (lower.contains('verification')) {
-        return 'Purchase verification failed. Please try again.';
+        return context.l10n.paywallErrorVerificationFailed;
       }
-      return message.isNotEmpty
-          ? message
-          : 'Purchase failed. Please try again.';
+      return message.isNotEmpty ? message : context.l10n.paywallErrorGeneric;
     }
 
     void showIapError(String message, String source, [String? code]) {
@@ -287,7 +292,7 @@ class PlanSelectionPage extends HookConsumerWidget {
           dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
           showIapError(
-            'Purchase failed. Please try again.',
+            context.l10n.paywallErrorGeneric,
             'provider error',
           );
           return;
@@ -412,15 +417,15 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       final effectiveCatalogProducts = catalogProducts.isNotEmpty
           ? catalogProducts
-          : const <SubscriptionProduct>[
+          : <SubscriptionProduct>[
               SubscriptionProduct(
                 id: 'fallback_plus_monthly_ios',
                 platform: 'ios',
                 plan: 'plus',
                 billingInterval: 'monthly',
                 storeProductId: 'monthly',
-                displayName: 'Monthly',
-                tagline: 'Flexible. Cancel anytime.',
+                displayName: context.l10n.monthly,
+                tagline: context.l10n.paywallPlanMonthlyTagline,
                 badgeText: null,
                 isPopular: false,
                 displayPriceUsd: 5.99,
@@ -433,9 +438,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                 plan: 'plus',
                 billingInterval: 'yearly',
                 storeProductId: 'yearly',
-                displayName: 'Yearly',
-                tagline: 'Best value for 12 months.',
-                badgeText: 'SAVE 50%',
+                displayName: context.l10n.yearly,
+                tagline: context.l10n.paywallPlanYearlyTagline,
+                badgeText: context.l10n.paywallBadgeSave50,
                 isPopular: true,
                 displayPriceUsd: 29.99,
                 originalPriceUsd: 59.99,
@@ -447,9 +452,9 @@ class PlanSelectionPage extends HookConsumerWidget {
                 plan: 'lifetime',
                 billingInterval: null,
                 storeProductId: 'lifetime_earlybird',
-                displayName: 'Lifetime',
-                tagline: 'Pay once, own it forever.',
-                badgeText: 'LIMITED',
+                displayName: context.l10n.lifetime,
+                tagline: context.l10n.paywallPlanLifetimeTagline,
+                badgeText: context.l10n.paywallBadgeLimited,
                 isPopular: false,
                 displayPriceUsd: 39.99,
                 originalPriceUsd: null,
@@ -484,77 +489,62 @@ class PlanSelectionPage extends HookConsumerWidget {
         });
     } else {
       // Android remains Stripe checkout (web) for now.
-      plans = const [
+      plans = [
         PlanOption(
           id: 'plus_monthly',
           serverPlanId: 'plus',
           billingInterval: 'monthly',
-          name: 'Monthly',
+          name: context.l10n.monthly,
           storePrice: null,
           displayPriceUsd: 2.99,
-          tagline: 'Flexible. Cancel anytime.',
+          tagline: context.l10n.paywallPlanMonthlyTagline,
         ),
         PlanOption(
           id: 'plus_yearly',
           serverPlanId: 'plus',
           billingInterval: 'yearly',
-          name: 'Yearly',
+          name: context.l10n.yearly,
           storePrice: null,
           displayPriceUsd: 9.99,
-          tagline: 'Best value for 12 months.',
+          tagline: context.l10n.paywallPlanYearlyTagline,
           isPopular: true,
-          badgeText: 'SAVE 50%',
+          badgeText: context.l10n.paywallBadgeSave50,
         ),
         PlanOption(
           id: 'lifetime',
           serverPlanId: 'lifetime',
           billingInterval: null,
-          name: 'Lifetime',
+          name: context.l10n.lifetime,
           storePrice: null,
           displayPriceUsd: 29.99,
-          tagline: 'Pay once, own it forever.',
-          badgeText: 'LIMITED',
+          tagline: context.l10n.paywallPlanLifetimeTagline,
+          badgeText: context.l10n.paywallBadgeLimited,
         ),
       ];
     }
 
-    // Effect: If user is already on a plan, try to select it visually
+    // Keep selection valid when plan options refresh.
     useEffect(() {
-      if (plans.isNotEmpty && !plans.any((p) => p.id == selectedPlanId.value)) {
-        selectedPlanId.value = plans.first.id;
-      }
-
-      if (currentPlanId == 'lifetime') {
-        selectedPlanId.value = 'lifetime';
-      } else if (currentPlanId == 'plus') {
-        if (currentInterval == 'monthly') {
-          selectedPlanId.value = 'plus_monthly';
-        } else {
-          selectedPlanId.value = 'plus_yearly';
-        }
-      } else {
-        // Free user (both trial and resubscribe): default to monthly
-        final monthly = plans
-            .where((p) =>
-                p.serverPlanId == 'plus' && p.billingInterval == 'monthly')
-            .toList();
-        if (monthly.isNotEmpty) {
-          selectedPlanId.value = monthly.first.id;
-        }
+      if (selectedPlanId.value != null &&
+          !plans.any((p) => p.id == selectedPlanId.value)) {
+        selectedPlanId.value = null;
       }
       return null;
-    }, [mode, currentPlanId, currentInterval, plans.length]);
+    }, [plans.length]);
 
     // Helpers
-    final activePlanOption = plans.firstWhere(
-      (p) => p.id == selectedPlanId.value,
-      orElse: () => plans.first,
-    );
+    PlanOption? activePlanOption;
+    for (final option in plans) {
+      if (option.id == selectedPlanId.value) {
+        activePlanOption = option;
+        break;
+      }
+    }
 
     final requiresAutoRenewAcknowledgement =
-        activePlanOption.serverPlanId != 'lifetime';
-    final canConfirmAutoRenew =
-        !requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value;
+        activePlanOption != null && activePlanOption.serverPlanId != 'lifetime';
+    final canConfirmAutoRenew = activePlanOption != null &&
+        (!requiresAutoRenewAcknowledgement || hasAcknowledgedAutoRenew.value);
 
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
@@ -569,7 +559,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       _debugLog(
         '✅ Active subscription detected on plan selection; scheduling flow completion '
         '| checkout=${didInitiateCheckout.value} restore=${didInitiateRestore.value} '
-        'mode=${mode.queryValue} option=${activePlanOption.id}',
+        'mode=${mode.queryValue} option=${activePlanOption?.id ?? 'none'}',
       );
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -590,7 +580,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     }, [
       hasActiveSubscription,
       useIap,
-      activePlanOption.id,
+      activePlanOption?.id,
       mode.queryValue,
       currentSub?.subscription?.plan,
       currentSub?.subscription?.status,
@@ -598,6 +588,11 @@ class PlanSelectionPage extends HookConsumerWidget {
     ]);
 
     useEffect(() {
+      if (activePlanOption == null) {
+        hasAcknowledgedAutoRenew.value = false;
+        return null;
+      }
+
       if (!requiresAutoRenewAcknowledgement) {
         hasAcknowledgedAutoRenew.value = true;
         return null;
@@ -605,7 +600,7 @@ class PlanSelectionPage extends HookConsumerWidget {
 
       hasAcknowledgedAutoRenew.value = false;
       return null;
-    }, [activePlanOption.id]);
+    }, [activePlanOption?.id]);
 
     bool isCurrentPlan(PlanOption option) {
       final shouldBlockSamePlan =
@@ -639,6 +634,53 @@ class PlanSelectionPage extends HookConsumerWidget {
       ));
     }
 
+    String resolveSubscriptionStatusLabel() {
+      return switch (currentStatus) {
+        'active' => currentPlanId == 'lifetime'
+            ? context.l10n.activeLifetimeStatus
+            : context.l10n.activeStatus,
+        'trialing' => context.l10n.trialStatus,
+        'canceled' => context.l10n.canceledStatus,
+        'past_due' => context.l10n.pastDueStatus,
+        _ => context.l10n.freePlan,
+      };
+    }
+
+    Future<void> openMembershipDashboardOnWeb() async {
+      final uri = Uri.parse(membershipDashboardUrl);
+      var launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      }
+      if (!launched && context.mounted) {
+        AppToast.error(context, context.l10n.couldNotOpenMembershipPage);
+      }
+    }
+
+    Future<void> onManageMembership() async {
+      if (!canManageCurrentSubscription) {
+        return;
+      }
+
+      if (isStoreManagedSubscription) {
+        final storeProductId = currentSub?.subscription?.storeProductId;
+        final uri = defaultTargetPlatform == TargetPlatform.iOS
+            ? Uri.parse('https://apps.apple.com/account/subscriptions')
+            : Uri.parse(
+                'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
+              );
+        final launched =
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched && context.mounted) {
+          AppToast.error(
+              context, context.l10n.unableToOpenSubscriptionSettings);
+        }
+        return;
+      }
+
+      await openMembershipDashboardOnWeb();
+    }
+
     if (useIap && (productsAsync.hasError || plans.isEmpty)) {
       return StatusBarOverlayRegion(
           child: AdaptiveScaffold(
@@ -652,7 +694,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Unable to load subscription options',
+                    context.l10n.paywallErrorLoadOptions,
                     style: TextStyle(
                       color: colorScheme.onSurface,
                       fontSize: 16,
@@ -665,7 +707,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                     onPressed: () => ref
                         .read(subscriptionProductsProvider.notifier)
                         .refresh(),
-                    child: const Text('Retry'),
+                    child: Text(context.l10n.retry),
                   ),
                 ],
               ),
@@ -759,18 +801,23 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     // Action Logic
     Future<void> onMainAction() async {
+      final selectedPlan = activePlanOption;
+      if (selectedPlan == null) {
+        return;
+      }
+
       checkoutAttemptCounter.value += 1;
       final attemptId = checkoutAttemptCounter.value;
       _debugLog(
         '🧭 onMainAction start | attempt=$attemptId '
-        'plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} '
+        'plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} '
         'storeReady=$isStoreReady useIap=$useIap hasActiveSubscription=$hasActiveSubscription '
         'currentPlan=$currentPlanId currentInterval=$currentInterval currentStatus=$currentStatus currentProvider=$currentProvider',
       );
       print(
-          '🎯 Starting subscription flow for plan: ${activePlanOption.serverPlanId}');
+          '🎯 Starting subscription flow for plan: ${selectedPlan.serverPlanId}');
 
-      if (isCurrentPlan(activePlanOption)) {
+      if (isCurrentPlan(selectedPlan)) {
         print('⚠️ User already on this plan');
         // Already on this plan
         AppToast.info(context, context.l10n.alreadyOnThisPlan);
@@ -782,7 +829,7 @@ class PlanSelectionPage extends HookConsumerWidget {
       // we direct users to manage plan changes in Google Play for now.
 
       _debugLog(
-        '🧾 Confirmed selection | plan=${activePlanOption.id} serverPlan=${activePlanOption.serverPlanId} interval=${activePlanOption.billingInterval} useIap=$useIap',
+        '🧾 Confirmed selection | plan=${selectedPlan.id} serverPlan=${selectedPlan.serverPlanId} interval=${selectedPlan.billingInterval} useIap=$useIap',
       );
       try {
         didInitiateCheckout.value = true;
@@ -791,13 +838,15 @@ class PlanSelectionPage extends HookConsumerWidget {
           // Don't allow purchase attempts until the store/products are ready.
           final iapState = iapStateAsync.valueOrNull;
           if (iapState == null || !iapState.storeAvailable) {
-            throw Exception('Store unavailable');
+            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
           }
 
-          final catalog = activePlanOption.catalogProduct;
+          final catalog = selectedPlan.catalogProduct;
           print(
               '📦 catalogProduct: ${catalog != null ? "id=${catalog.storeProductId}, plan=${catalog.plan}, interval=${catalog.billingInterval}" : "NULL"}');
-          if (catalog == null) throw Exception('Missing iOS product mapping');
+          if (catalog == null) {
+            throw Exception(context.l10n.paywallErrorMissingProductMapping);
+          }
 
           print('✅ catalogProduct is valid, proceeding...');
 
@@ -810,11 +859,11 @@ class PlanSelectionPage extends HookConsumerWidget {
             processingDialogOpen.value = true;
             processingDialogKind.value = _ProcessingDialogKind.iapPurchase;
             _debugLog(
-                '🧾 Dialog open set to true (iap). attempt=$attemptId plan=${activePlanOption.id} '
+                '🧾 Dialog open set to true (iap). attempt=$attemptId plan=${selectedPlan.id} '
                 'initialDidSeeIapProcessing=${didSeeIapProcessing.value}');
             showBlockingProcessingDialog(
               context: context,
-              message: 'Processing your purchase...',
+              message: context.l10n.paywallProcessingPurchase,
             );
             print('✅ Processing dialog shown');
           } else {
@@ -839,9 +888,9 @@ class PlanSelectionPage extends HookConsumerWidget {
           isStripeProcessing.value = true;
 
           try {
-            await startStripeCheckout(activePlanOption);
+            await startStripeCheckout(selectedPlan);
             await completePlanSelectionFlowToDashboard(
-              option: activePlanOption,
+              option: selectedPlan,
               source: 'checkout',
               provider: 'stripe',
               includePurchaseEvent: true,
@@ -870,11 +919,10 @@ class PlanSelectionPage extends HookConsumerWidget {
           if (isManagedInApp) {
             final result = await MonekoAlertDialog.show(
               context: context,
-              title: 'Manage subscription in Play Store',
-              description:
-                  'Your subscription is managed through an in-app purchase. Please manage billing in the Play Store.',
-              confirmLabel: 'Open Play Store',
-              cancelLabel: 'Cancel',
+              title: context.l10n.paywallManageSubscriptionPlayStore,
+              description: context.l10n.paywallErrorManagedInPlayStore,
+              confirmLabel: context.l10n.paywallOpenPlayStore,
+              cancelLabel: context.l10n.cancel,
             );
             if (result?.confirmed == true) {
               await onManageStoreSubscription();
@@ -888,131 +936,6 @@ class PlanSelectionPage extends HookConsumerWidget {
           }
 
           AppToast.error(context, humanizePurchaseError(raw));
-        }
-      }
-    }
-
-    Future<void> onRestorePurchases() async {
-      Future<void> refreshSubscriptionState() async {
-        await ref.read(subscriptionManagementProvider.notifier).refresh();
-        await ref.read(subscriptionNotifierProvider.notifier).refresh();
-      }
-
-      didInitiateRestore.value = true;
-      if (context.mounted) {
-        processingDialogOpen.value = true;
-        _debugLog('🧾 Dialog open set to true (restore purchases)');
-        showBlockingProcessingDialog(
-          context: context,
-          message: 'Restoring purchases...',
-        );
-      }
-
-      try {
-        if (useIap) {
-          final iapState = iapStateAsync.valueOrNull;
-          if (iapState == null || !iapState.storeAvailable) {
-            throw Exception(context.l10n.paywallErrorStoreUnavailableShort);
-          }
-
-          await ref.read(iapControllerProvider.notifier).restorePurchases();
-        }
-
-        await refreshSubscriptionState();
-
-        var refreshedSubscription =
-            ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
-        var refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
-        var restoreError = refreshedIapState?.lastError ?? '';
-        var restoreErrorCode = refreshedIapState?.lastErrorCode;
-        var isRestored = refreshedSubscription?.isSubscribed ?? false;
-
-        if (useIap && !isRestored && restoreError.isEmpty) {
-          for (var attempt = 0; attempt < 5; attempt++) {
-            await Future<void>.delayed(const Duration(seconds: 1));
-            await refreshSubscriptionState();
-            refreshedSubscription = ref
-                .read(subscriptionManagementProvider)
-                .valueOrNull
-                ?.subscription;
-            refreshedIapState = ref.read(iapControllerProvider).valueOrNull;
-            restoreError = refreshedIapState?.lastError ?? '';
-            restoreErrorCode = refreshedIapState?.lastErrorCode;
-            isRestored = refreshedSubscription?.isSubscribed ?? false;
-            if (isRestored || restoreError.isNotEmpty) {
-              break;
-            }
-          }
-        }
-
-        if (!context.mounted) return;
-
-        if (isRestored) {
-          await completePlanSelectionFlowToDashboard(
-            option: activePlanOption,
-            source: 'restore',
-            provider: useIap ? 'iap' : 'stripe',
-            includePurchaseEvent: true,
-          );
-          return;
-        }
-
-        didInitiateRestore.value = false;
-        if (restoreError.isNotEmpty) {
-          AppToast.error(
-            context,
-            humanizePurchaseError(restoreError, restoreErrorCode),
-          );
-          return;
-        }
-
-        AppToast.error(
-            context, 'Failed to restore: Purchase failed. Please try again.');
-      } catch (e) {
-        didInitiateRestore.value = false;
-        if (context.mounted) {
-          AppToast.error(
-              context, '${context.l10n.failedToRestore}: ${e.toString()}');
-        }
-      } finally {
-        dismissProcessingDialog('restore purchases');
-      }
-    }
-
-    Future<void> onCancelSubscription() async {
-      final result = await MonekoAlertDialog.show(
-        context: context,
-        title: 'Cancel Subscription',
-        description:
-            'Are you sure? You will lose access to premium features at the end of your current billing period.',
-        confirmLabel: 'Confirm Cancellation',
-        cancelLabel: 'Keep Plan',
-        isDestructive: true,
-      );
-
-      if (result?.confirmed == true) {
-        if (context.mounted) {
-          processingDialogOpen.value = true;
-          _debugLog('🧾 Dialog open set to true (cancel subscription)');
-          showBlockingProcessingDialog(
-            context: context,
-            message: 'Cancelling subscription...',
-          );
-        }
-
-        try {
-          await ref
-              .read(subscriptionManagementProvider.notifier)
-              .cancelSubscription();
-          if (context.mounted) {
-            AppToast.success(context, context.l10n.subscriptionCancelled);
-          }
-        } catch (e) {
-          if (context.mounted) {
-            AppToast.error(context, e.toString());
-          }
-        } finally {
-          dismissProcessingDialog('cancel subscription');
         }
       }
     }
@@ -1037,27 +960,103 @@ class PlanSelectionPage extends HookConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             // Header
-                            const SizedBox(height: 24),
-                            Text(
-                              mode == PlanSelectionMode.trial
-                                  ? 'Start your free trial'
-                                  : 'Subscribe Now',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.5,
+                            const SizedBox(height: 50),
+
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              mode == PlanSelectionMode.trial
-                                  ? 'Pick a plan. You won\'t be charged until your trial ends.'
-                                  : 'Pick a plan to get back to full access.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: colorScheme.mutedForeground,
+                              decoration: BoxDecoration(
+                                color: colorScheme.card,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: colorScheme.outlineVariant
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                currentSub?.planDisplayName(context.l10n) ??
+                                                    context.l10n.freePlan,
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: colorScheme.foreground,
+                                                  letterSpacing: -0.2,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: colorScheme.primary
+                                                    .withValues(alpha: 0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                resolveSubscriptionStatusLabel()
+                                                    .toUpperCase(),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: colorScheme.primary,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (currentSub?.renewalInfo !=
+                                            null) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            currentSub!.renewalInfo(context.l10n) !,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color:
+                                                  colorScheme.mutedForeground,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (canManageCurrentSubscription) ...[
+                                    const SizedBox(width: 16),
+                                    GestureDetector(
+                                      onTap: isProcessing
+                                          ? null
+                                          : onManageMembership,
+                                      child: Text(
+                                        context.l10n.manage,
+                                        style: TextStyle(
+                                          color: colorScheme.primary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             const SizedBox(height: 24),
@@ -1069,7 +1068,7 @@ class PlanSelectionPage extends HookConsumerWidget {
                             // --- SUBSCRIPTION PLANS ---
                             UnifiedPlanCard(
                               plans: plans,
-                              selectedPlanId: selectedPlanId.value,
+                              selectedPlanId: selectedPlanId.value ?? '',
                               onPlanSelected: (id) => selectedPlanId.value = id,
                               isCurrentPlan: isCurrentPlan,
                               isNewUser: isNewUser,
@@ -1088,140 +1087,112 @@ class PlanSelectionPage extends HookConsumerWidget {
                     ),
                   ),
 
-                  // Bottom Actions
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                    decoration: BoxDecoration(
-                      color: colorScheme.appBackground,
-                      border: Border(
-                          top: BorderSide(
-                              color: colorScheme.outlineVariant
-                                  .withValues(alpha: 0.5))),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (requiresAutoRenewAcknowledgement) ...[
-                          CheckboxListTile(
-                            value: hasAcknowledgedAutoRenew.value,
-                            onChanged: isProcessing
+                  // Bottom Actions (shown only after explicit plan selection)
+                  if (activePlanOption != null)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.appBackground,
+                        border: Border(
+                            top: BorderSide(
+                                color: colorScheme.outlineVariant
+                                    .withValues(alpha: 0.5))),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (requiresAutoRenewAcknowledgement) ...[
+                            CheckboxListTile(
+                              value: hasAcknowledgedAutoRenew.value,
+                              onChanged: isProcessing
+                                  ? null
+                                  : (value) => hasAcknowledgedAutoRenew.value =
+                                      value ?? false,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: colorScheme.primary,
+                              checkColor: colorScheme.onPrimary,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                mode == PlanSelectionMode.trial
+                                    ? context.l10n.paywallTrialTerms(
+                                        activePlanOption.billingInterval ==
+                                                'monthly'
+                                            ? context.l10n.perMonth
+                                            : context.l10n.perYear,
+                                        activePlanOption.priceDisplay,
+                                      )
+                                    : context.l10n.paywallSubTerms(
+                                        activePlanOption.billingInterval ==
+                                                'monthly'
+                                            ? context.l10n.perMonth
+                                            : context.l10n.perYear,
+                                        activePlanOption.priceDisplay,
+                                      ),
+                                style: TextStyle(
+                                  color: colorScheme.mutedForeground,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          PrimaryAdaptiveButton(
+                            onPressed: isProcessing ||
+                                    !canConfirmAutoRenew ||
+                                    !isStoreReady ||
+                                    isCurrentPlan(activePlanOption)
                                 ? null
-                                : (value) => hasAcknowledgedAutoRenew.value =
-                                    value ?? false,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            activeColor: colorScheme.primary,
-                            checkColor: colorScheme.onPrimary,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              mode == PlanSelectionMode.trial
-                                  ? 'I understand that my free trial will last for 30 days, and will auto-renew at ${activePlanOption.priceDisplay}${activePlanOption.billingInterval == 'monthly' ? '/month' : '/year'} until cancelled.'
-                                  : context.l10n.paywallSubTerms(
-                                      activePlanOption.priceDisplay,
-                                      activePlanOption.billingInterval ==
-                                              'monthly'
-                                          ? '/month'
-                                          : '/year',
-                                    ),
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 13,
-                                height: 1.35,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        PrimaryAdaptiveButton(
-                          onPressed: isProcessing ||
-                                  !canConfirmAutoRenew ||
-                                  !isStoreReady ||
-                                  isCurrentPlan(activePlanOption)
-                              ? null
-                              : onMainAction,
-                          child: Text(
-                            isProcessing
-                                ? 'Processing...'
-                                : !isStoreReady
-                                    ? 'Store unavailable'
-                                    : isCurrentPlan(activePlanOption)
-                                        ? 'Current Plan'
-                                        : mode == PlanSelectionMode.trial &&
-                                                activePlanOption.serverPlanId !=
-                                                    'lifetime'
-                                            ? 'Start your free month'
-                                            : activePlanOption.serverPlanId ==
-                                                    'lifetime'
-                                                ? 'Get Lifetime Access'
-                                                : 'Subscribe for ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? '/mo' : '/yr'}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-
-                        // Cancel / Manage Subscription Button
-                        // ONLY shown if user is NOT on free plan
-                        if (currentPlanId != 'free' &&
-                            (currentProvider == null ||
-                                (currentProvider != 'app_store' &&
-                                    currentProvider != 'play_store'))) ...[
-                          const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap: isProcessing ? null : onCancelSubscription,
+                                : onMainAction,
                             child: Text(
-                              'Cancel Subscription',
-                              style: TextStyle(
-                                color: colorScheme.mutedForeground,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                decoration: TextDecoration.underline,
-                                decorationColor: colorScheme.mutedForeground
-                                    .withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ),
-                        ],
-
-                        if (currentPlanId != 'free' &&
-                            (currentProvider == 'app_store' ||
-                                currentProvider == 'play_store') &&
-                            currentPlanId != 'lifetime') ...[
-                          const SizedBox(height: 16),
-                          GestureDetector(
-                            onTap:
-                                isProcessing ? null : onManageStoreSubscription,
-                            child: Text(
-                              'Manage Subscription',
-                              style: TextStyle(
-                                color: colorScheme.primary,
-                                fontSize: 14,
+                              isProcessing
+                                  ? context.l10n.paywallProcessing
+                                  : !isStoreReady
+                                      ? context.l10n
+                                          .paywallErrorStoreUnavailableShort
+                                      : isCurrentPlan(activePlanOption)
+                                          ? context.l10n.alreadyOnThisPlan
+                                          : mode == PlanSelectionMode.trial &&
+                                                  activePlanOption
+                                                          .serverPlanId !=
+                                                      'lifetime'
+                                              ? context.l10n.paywallStartTrial
+                                              : activePlanOption.serverPlanId ==
+                                                      'lifetime'
+                                                  ? context
+                                                      .l10n.paywallGetLifetime
+                                                  : '${context.l10n.paywallSubscribe} ${activePlanOption.priceDisplay} ${activePlanOption.billingInterval == 'monthly' ? context.l10n.perMonth : context.l10n.perYear}',
+                              style: const TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                decoration: TextDecoration.underline,
-                                decorationColor:
-                                    colorScheme.primary.withValues(alpha: 0.5),
                               ),
                             ),
                           ),
-                        ],
-
-                        // Restore Purchases (Always visible)
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: isProcessing ? null : onRestorePurchases,
-                          child: Text(
-                            'Restore Purchases',
-                            style: TextStyle(
-                              color: colorScheme.mutedForeground
-                                  .withValues(alpha: 0.7),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          if (currentPlanId != 'free' &&
+                              (currentProvider == 'app_store' ||
+                                  currentProvider == 'play_store') &&
+                              currentPlanId != 'lifetime') ...[
+                            const SizedBox(height: 16),
+                            GestureDetector(
+                              onTap: isProcessing
+                                  ? null
+                                  : onManageStoreSubscription,
+                              child: Text(
+                                context.l10n.paywallManageSubscriptionPlayStore,
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: colorScheme.primary
+                                      .withValues(alpha: 0.5),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

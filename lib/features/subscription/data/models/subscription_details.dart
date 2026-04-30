@@ -1,3 +1,4 @@
+import 'package:moneko/l10n/app_localizations.dart';
 import 'subscription.dart';
 
 class SubscriptionDetails {
@@ -39,47 +40,47 @@ class SubscriptionDetails {
     );
   }
 
-  String get planDisplayName {
+  String planDisplayName(AppLocalizations l10n) {
     if (subscription?.plan == null ||
         subscription?.plan?.toLowerCase() == 'free') {
-      return 'Free';
+      return l10n.free;
     }
 
     switch (subscription!.plan!.toLowerCase()) {
       case 'lifetime':
-        return 'Lifetime';
+        return l10n.lifetime;
       case 'plus':
-        return 'Plus';
+        return l10n.plus;
       case 'monthly':
-        return 'Plus Monthly';
+        return l10n.plusMonthly;
       case 'yearly':
-        return 'Plus Yearly';
+        return l10n.plusYearly;
       default:
         return subscription!.plan!.toUpperCase();
     }
   }
 
-  String get statusDisplayName {
+  String statusDisplayName(AppLocalizations l10n) {
     if (subscription?.plan == null ||
         subscription?.plan?.toLowerCase() == 'free') {
-      return 'Free plan';
+      return l10n.freePlan;
     }
 
     switch (subscription!.status?.toLowerCase()) {
       case 'active':
-        return isLifetime ? 'Active • Lifetime' : 'Active';
+        return isLifetime ? l10n.activeLifetime : l10n.active;
       case 'canceled':
-        return 'Canceled';
+        return l10n.canceled;
       case 'past_due':
-        return 'Past due';
+        return l10n.pastDue;
       case 'trialing':
-        return 'Trial';
+        return l10n.trial;
       default:
-        return subscription!.status ?? 'Unknown';
+        return subscription!.status ?? l10n.unknown;
     }
   }
 
-  String? get renewalInfo {
+  String? renewalInfo(AppLocalizations l10n) {
     if (subscription == null || isLifetime) {
       return null;
     }
@@ -88,19 +89,19 @@ class SubscriptionDetails {
         subscription!.currentPeriodEnd != null) {
       final trialEnd = subscription!.currentPeriodEnd!;
       final now = DateTime.now();
-      final daysLeft = trialEnd.difference(now).inDays;
+      final daysLeft = trialEnd.difference(now).inDays+1;
 
       if (daysLeft > 0) {
-        return 'Trial ends in $daysLeft days';
+        return l10n.trialEndsInDays(daysLeft);
       } else {
-        return 'Trial ended';
+        return l10n.trialEnded;
       }
     }
 
     if (subscription!.status?.toLowerCase() == 'active' &&
         daysUntilNextPayment != null &&
         daysUntilNextPayment! > 0) {
-      return 'Renews in $daysUntilNextPayment days';
+      return l10n.renewsInDays(daysUntilNextPayment!);
     }
 
     if (subscription!.status?.toLowerCase() == 'canceled' &&
@@ -110,9 +111,9 @@ class SubscriptionDetails {
       final daysLeft = endDate.difference(now).inDays;
 
       if (daysLeft > 0) {
-        return 'Access ends in $daysLeft days';
+        return l10n.accessEndsInDays(daysLeft);
       } else {
-        return 'Subscription ended';
+        return l10n.subscriptionEnded;
       }
     }
 
@@ -170,7 +171,7 @@ class SubscriptionFeature {
 
   factory SubscriptionFeature.fromJson(Map<String, dynamic> json) {
     return SubscriptionFeature(
-      name: json['name']?.toString() ?? 'Unknown Feature',
+      name: json['name']?.toString() ?? 'unknownFeature',
       description: json['description'] as String?,
       enabled: json['enabled'] as bool? ?? false,
     );

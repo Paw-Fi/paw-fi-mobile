@@ -90,18 +90,18 @@
   "loading": "Đang tải...",
   "failedToLoadMembership": "Không tải được thông tin gói thành viên",
   "couldNotOpenMembershipPage": "Không thể mở trang gói thành viên",
-  "freePlan": "Miễn phí",
+  "freePlan": "Gói miễn phí",
   "freePlanStatus": "Gói miễn phí",
   "lifetimePlan": "Trọn đời",
-  "plusPlan": "Plus",
+  "plusPlan": "Gói Plus",
   "plusMonthlyPlan": "Plus Hàng tháng",
   "plusYearlyPlan": "Plus Hàng năm",
   "activeStatus": "Đang hoạt động",
   "activeLifetimeStatus": "Hoạt động • Trọn đời",
   "canceledStatus": "Đã hủy",
   "pastDueStatus": "Quá hạn",
-  "trialStatus": "Dùng thử",
-  "trialEndsInDays": "Dùng thử còn {days} ngày",
+  "trialStatus": "Đang dùng thử",
+  "trialEndsInDays": "Thời gian dùng thử kết thúc sau {days} ngày",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -109,8 +109,8 @@
       }
     }
   },
-  "trialEnded": "Đã kết thúc dùng thử",
-  "renewsInDays": "Gia hạn trong {days} ngày",
+  "trialEnded": "Thời gian dùng thử đã kết thúc",
+  "renewsInDays": "Gia hạn sau {days} ngày",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "Hết hạn trong {days} ngày",
+  "accessEndsInDays": "Gói thành viên kết thúc sau {days} ngày",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -126,7 +126,7 @@
       }
     }
   },
-  "subscriptionEnded": "Gói đã kết thúc",
+  "subscriptionEnded": "Gói đăng ký đã kết thúc",
   "profile": "Hồ sơ",
   "errorLoadingProfile": "Lỗi khi tải hồ sơ",
   "user": "Người dùng",
@@ -395,7 +395,7 @@
   "remove": "Xóa",
   "confirmRemoveMember": "Bạn có chắc muốn xóa",
   "updatedMemberRole": "Đã cập nhật vai trò thành viên",
-  "unknown": "Không rõ",
+  "unknown": "Không xác định",
   "makeAdmin": "Đặt làm Quản trị viên",
   "makeMember": "Đặt làm Thành viên",
   "@householdInvites": {},
@@ -2685,5 +2685,14 @@
   "walletCaptureOfflineDescription": "Đừng lo. Moneko sẽ lưu giao dịch trên iPhone của bạn và tự động đồng bộ khi bạn mở lại ứng dụng có kết nối internet.",
   "currencyNotFound": "Không tìm thấy loại tiền tệ",
   "currencyNotFoundDescription": "Hãy liên hệ với chúng tôi và tạm thời sử dụng loại tiền khác trong khi chúng tôi bổ sung hỗ trợ.",
-  "replace": "Thay thế"
+  "replace": "Thay thế",
+  "plus": "Plus",
+  "plusMonthly": "Plus hằng tháng",
+  "plusYearly": "Plus hằng năm",
+  "activeLifetime": "Đang hoạt động • Trọn đời",
+  "canceled": "Đã hủy",
+  "pastDue": "Quá hạn thanh toán",
+  "trial": "Dùng thử",
+  "unknownFeature": "Tính năng không xác định",
+  "paywallBenefit5": "Tự động ghi lại chi tiêu bằng cách chuyển tiếp hóa đơn từ email"
 }

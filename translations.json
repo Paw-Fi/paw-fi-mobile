@@ -1,19 +1,19 @@
 {
-  "replace": {
-    "en": "Replace",
-    "de": "Ersetzen",
-    "es": "Reemplazar",
-    "fr": "Remplacer",
-    "it": "Sostituisci",
-    "ja": "置き換え",
-    "ko": "바꾸기",
-    "nl": "Vervangen",
-    "ur": "تبدیل کریں",
-    "ru": "Заменить",
-    "th": "แทนที่",
-    "uk": "Замінити",
-    "zh": "替换",
-    "zh_TW": "替換",
-    "vi": "Thay thế"
+  "paywallBenefit5": {
+    "en": "Auto-log expenses by forwarding receipts from email",
+    "de": "Ausgaben automatisch erfassen, indem du Belege aus E-Mails weiterleitest",
+    "es": "Registra gastos automáticamente reenviando recibos desde tu correo",
+    "fr": "Enregistre automatiquement tes dépenses en transférant les reçus depuis tes e-mails",
+    "it": "Registra automaticamente le spese inoltrando le ricevute dall’e-mail",
+    "ja": "メールの領収書を転送して支出を自動記録",
+    "ko": "이메일 영수증을 전달해 지출을 자동으로 기록",
+    "nl": "Registreer uitgaven automatisch door bonnetjes vanuit je e-mail door te sturen",
+    "ru": "Автоматически добавляйте расходы, пересылая чеки из почты",
+    "th": "บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล",
+    "uk": "Автоматично додавайте витрати, пересилаючи чеки з пошти",
+    "ur": "ای میل سے رسیدیں فارورڈ کر کے اخراجات خودکار طور پر لاگ کریں",
+    "vi": "Tự động ghi lại chi tiêu bằng cách chuyển tiếp hóa đơn từ email",
+    "zh": "从邮箱转发收据，自动记录支出",
+    "zh_TW": "從信箱轉寄收據，自動記錄支出"
   }
 }

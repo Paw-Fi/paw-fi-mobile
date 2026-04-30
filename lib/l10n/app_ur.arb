@@ -90,18 +90,18 @@
   "loading": "لوڈ ہو رہا ہے۔۔۔",
   "failedToLoadMembership": "ممبرشپ لوڈ کرنے میں ناکامی",
   "couldNotOpenMembershipPage": "ممبرشپ صفحہ نہیں کھل سکا",
-  "freePlan": "مفت",
+  "freePlan": "مفت پلان",
   "freePlanStatus": "مفت پلان",
   "lifetimePlan": "لائف ٹائم",
-  "plusPlan": "پلس",
+  "plusPlan": "پلس پلان",
   "plusMonthlyPlan": "پلس ماہانہ",
   "plusYearlyPlan": "پلس سالانہ",
   "activeStatus": "فعال",
   "activeLifetimeStatus": "فعال • لائف ٹائم",
   "canceledStatus": "منسوخ شدہ",
   "pastDueStatus": "واجب الادا",
-  "trialStatus": "ٹرائل",
-  "trialEndsInDays": "ٹرائل {days} دنوں میں ختم ہو جائے گا",
+  "trialStatus": "آزمائشی مدت جاری ہے",
+  "trialEndsInDays": "ٹرائل {days} دن میں ختم ہو جائے گا",
   "@trialEndsInDays": {
     "placeholders": {
       "days": {
@@ -110,7 +110,7 @@
     }
   },
   "trialEnded": "ٹرائل ختم ہو گیا",
-  "renewsInDays": "{days} دنوں میں تجدید ہو گی",
+  "renewsInDays": "{days} دن میں تجدید ہو گی",
   "@renewsInDays": {
     "placeholders": {
       "days": {
@@ -118,7 +118,7 @@
       }
     }
   },
-  "accessEndsInDays": "رسائی {days} دنوں میں ختم ہو جائے گی",
+  "accessEndsInDays": "رکنیت {days} دن میں ختم ہو جائے گی",
   "@accessEndsInDays": {
     "placeholders": {
       "days": {
@@ -2247,7 +2247,7 @@
   "missingUserSession": "صارف کا سیشن غائب ہے",
   "invalidResponse": "غلط جواب",
   "unableToUpdateCurrency": "کرنسی اپ ڈیٹ کرنے میں ناکام",
-  "lifetime": "لائف ٹائم",
+  "lifetime": "تاحیات",
   "perMonth": "/ماہ",
   "perYear": "/سال",
   "onboardingCarouselLogTitle": "کہیں سے بھی درج کریں",
@@ -2307,7 +2307,7 @@
   "paywallBenefit2": "واٹس ایپ یا ٹیلی گرام سے اخراجات شامل کریں",
   "paywallBenefit3": "مشترکہ بجٹ جو ہمیشہ ہم آہنگ رہتے ہیں",
   "paywallBenefit4": "خرچ کو کنٹرول کرنے کے لیے سادہ لفافہ بجٹ",
-  "paywallLovedBy": "6,000 سے زیادہ صارفین کا پسندیدہ",
+  "paywallLovedBy": "6,500 سے زیادہ صارفین کا پسندیدہ",
   "paywallBadgeSave50": "50% بچائیں",
   "paywallBadgeLimited": "محدود",
   "pocketsCopyDialogTitle": "پچھلے مہینے کے پاکٹس کاپی کریں؟",
@@ -2632,5 +2632,14 @@
   "walletCaptureOfflineDescription": "فکر نہ کریں۔ Moneko آپ کے iPhone پر لین دین محفوظ کر لیتا ہے اور جب آپ اگلی بار انٹرنیٹ کے ساتھ ایپ کھولیں گے تو خود بخود سنک ہو جائے گا۔",
   "currencyNotFound": "کرنسی نہیں ملی",
   "currencyNotFoundDescription": "ہم سے رابطہ کریں اور فی الحال کوئی دوسری کرنسی استعمال کریں جب تک ہم اس کی سپورٹ شامل کر رہے ہیں۔",
-  "replace": "تبدیل کریں"
+  "replace": "تبدیل کریں",
+  "plus": "Plus",
+  "plusMonthly": "Plus ماہانہ",
+  "plusYearly": "Plus سالانہ",
+  "activeLifetime": "فعال • تاحیات",
+  "canceled": "منسوخ ہو گیا",
+  "pastDue": "ادائیگی تاخیر کا شکار ہے",
+  "trial": "ٹرائل",
+  "unknownFeature": "نامعلوم فیچر",
+  "paywallBenefit5": "ای میل سے رسیدیں فارورڈ کر کے اخراجات خودکار طور پر لاگ کریں"
 }
