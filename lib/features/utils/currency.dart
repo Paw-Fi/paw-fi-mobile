@@ -12,11 +12,13 @@ const Map<String, String> currencyOptions = {
   'CHF': 'CHF',
   'CLP': 'CLP\$',
   'CNY': '¥',
+  'COP': 'COP\$',
   'CZK': 'Kč',
   'DKK': 'kr',
   'DOP': 'RD\$',
   'DZD': 'د.ج',
   'EGP': 'E£',
+  'ETB': 'Br',
   'EUR': '€',
   'GBP': '£',
   'GHS': '₵',
@@ -60,6 +62,7 @@ const Map<String, String> currencyOptions = {
   'JOD': 'د.أ',
   'SYP': '£S',
   'ZMW': 'ZK',
+  'XOF': 'CFA',
 };
 
 const String _defaultCurrencySymbol = r'$';

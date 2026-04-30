@@ -14,6 +14,9 @@ void main() {
       expect(resolveCurrencySymbol('ILS'), '₪');
       expect(resolveCurrencySymbol('INR'), '₹');
       expect(resolveCurrencySymbol('ZMW'), 'ZK');
+      expect(resolveCurrencySymbol('COP'), 'COP\$');
+      expect(resolveCurrencySymbol('ETB'), 'Br');
+      expect(resolveCurrencySymbol('XOF'), 'CFA');
     });
 
     test('handles null and empty codes', () {
@@ -69,6 +72,9 @@ void main() {
       expect(isSupportedCurrencyCode('ILS'), true);
       expect(isSupportedCurrencyCode('JPY'), true);
       expect(isSupportedCurrencyCode('CNY'), true);
+      expect(isSupportedCurrencyCode('COP'), true);
+      expect(isSupportedCurrencyCode('ETB'), true);
+      expect(isSupportedCurrencyCode('XOF'), true);
     });
 
     test('rejects unsupported currencies', () {
@@ -131,6 +137,9 @@ void main() {
       expect(options.containsKey('SGD'), true);
       expect(options.containsKey('INR'), true);
       expect(options.containsKey('ZMW'), true);
+      expect(options.containsKey('COP'), true);
+      expect(options.containsKey('ETB'), true);
+      expect(options.containsKey('XOF'), true);
     });
 
     test('contains correct symbol mappings', () {
@@ -144,6 +153,9 @@ void main() {
       expect(options['AED'], 'د.إ');
       expect(options['ILS'], '₪');
       expect(options['ZMW'], 'ZK');
+      expect(options['COP'], 'COP\$');
+      expect(options['ETB'], 'Br');
+      expect(options['XOF'], 'CFA');
     });
   });
 

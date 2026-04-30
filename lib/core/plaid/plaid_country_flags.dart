@@ -19,6 +19,7 @@ String getPlaidCountryFlagPath(String countryCode) {
     'MX': 'MXN',
     'BR': 'BRL',
     'CL': 'CLP',
+    'CO': 'COP',
     'PY': 'PYG',
     'GT': 'GTQ',
     'DO': 'DOP',
@@ -88,8 +89,10 @@ String getPlaidCountryFlagPath(String countryCode) {
     // Africa & Middle East
     'NG': 'NGN',
     'EG': 'EGP',
+    'ET': 'ETB',
     'GH': 'GHS',
     'KE': 'KES',
+    'SN': 'XOF',
     'ZA': 'ZAR',
     'AE': 'AED',
     'IL': 'ILS',

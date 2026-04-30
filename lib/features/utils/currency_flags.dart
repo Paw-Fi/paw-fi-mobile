@@ -15,6 +15,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'BZD': 'belize',
     'CAD': 'ca',
     'CNY': 'cn',
+    'COP': 'colombia',
     'JPY': 'jp',
     'JMD': 'jamaica',
     'HKD': 'hk',
@@ -50,6 +51,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'AED': 'uae',
     'SAR': 'saudi_arabia',
     'EGP': 'egypt',
+    'ETB': 'ethiopia',
     'VND': 'vietnam',
     'DOP': 'dominican',
     'DZD': 'algeria',
@@ -64,6 +66,7 @@ String? getCurrencyFlagPath(String currencyCode) {
     'JOD': 'jordan',
     'SYP': 'syria',
     'ZMW': 'zambia',
+    'XOF': 'senegal',
   };
 
   final flagName = flagMap[code];

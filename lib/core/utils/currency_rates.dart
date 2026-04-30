@@ -18,11 +18,13 @@ static const Map<String, double> rates = {
   'CHF': 0.786439,
   'CLP': 895.458534,
   'CNY': 6.841274,
+  'COP': 4200.0,
   'CZK': 20.792137,
   'DKK': 6.373198,
   'DOP': 59.570551,
   'DZD': 132.450964,
   'EGP': 52.669544,
+  'ETB': 125.0,
   'EUR': 0.854233,
   'GBP': 0.740223,
   'GHS': 11.113256,
@@ -65,6 +67,7 @@ static const Map<String, double> rates = {
   'JOD': 0.709,
   'SYP': 112.518772,
   'ZMW': 18.908195,
+  'XOF': 605.0,
 };
 
   /// Converts an [amount] from [fromCurrency] to [toCurrency].

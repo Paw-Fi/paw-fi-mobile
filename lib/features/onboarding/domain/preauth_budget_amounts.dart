@@ -68,6 +68,7 @@ const Map<String, double> _currencyBaselines = {
   'NZD': 10000,
   'HKD': 60000,
   'CNY': 20000,
+  'COP': 40000000,
   'JPY': 300000,
   'KRW': 6000000,
   'MYR': 10000,
@@ -84,6 +85,7 @@ const Map<String, double> _currencyBaselines = {
   'NGN': 2000000,
   'PKR': 300000,
   'EGP': 70000,
+  'ETB': 1250000,
   'GHS': 40000,
   'KES': 120000,
   'UAH': 250000,
@@ -103,6 +105,7 @@ const Map<String, double> _currencyBaselines = {
   'LKR': 300000,
   'JMD': 1500000,
   'MWK': 20000000,
+  'XOF': 6000000,
 };
 
 const Map<String, double> _currencyMinimums = {
@@ -122,6 +125,7 @@ const Map<String, double> _currencyRounding = {
   'NZD': 50,
   'HKD': 500,
   'CNY': 100,
+  'COP': 50000,
   'JPY': 5000,
   'KRW': 50000,
   'MYR': 50,
@@ -138,6 +142,7 @@ const Map<String, double> _currencyRounding = {
   'NGN': 50000,
   'PKR': 5000,
   'EGP': 1000,
+  'ETB': 1000,
   'GHS': 500,
   'KES': 5000,
   'UAH': 10000,
@@ -157,4 +162,5 @@ const Map<String, double> _currencyRounding = {
   'LKR': 10000,
   'JMD': 50000,
   'MWK': 500000,
+  'XOF': 5000,
 };

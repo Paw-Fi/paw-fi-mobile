@@ -14,11 +14,13 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'CHF': 10000,
   'CLP': 900000,
   'CNY': 20000,
+  'COP': 40000000,
   'CZK': 60000,
   'DKK': 40000,
   'DOP': 150000,
   'DZD': 1500000,
   'EGP': 70000,
+  'ETB': 1250000,
   'EUR': 10000,
   'GBP': 10000,
   'GHS': 40000,
@@ -62,6 +64,7 @@ const Map<String, double> pocketCurrencyBudgetBaselines = {
   'JOD': 7000,
   'SYP': 50000000,
   'ZMW': 250000,
+  'XOF': 6000000,
 };
 
 String _normalizePocketCurrencyCode(String currencyCode) {

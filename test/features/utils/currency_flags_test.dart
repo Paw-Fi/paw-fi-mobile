@@ -49,6 +49,7 @@ void main() {
         'AUD': 'au',
         'CAD': 'ca',
         'CNY': 'cn',
+        'COP': 'colombia',
         'JPY': 'jp',
         'JMD': 'jamaica',
         'HKD': 'hk',
@@ -77,12 +78,14 @@ void main() {
         'AED': 'uae', // Corrected from 'uab'
         'SAR': 'saudi_arabia',
         'EGP': 'egypt',
+        'ETB': 'ethiopia',
         'NGN': 'nigeria',
         'PKR': 'pakistan',
         'KES': 'kenya',
         'GHS': 'ghana',
         'VND': 'vietnam',
         'DOP': 'dominican',
+        'XOF': 'senegal',
       };
 
       for (final entry in mappedCurrencies.entries) {
