@@ -647,10 +647,9 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final availableCurrencies = ref.watch(availableCurrenciesProvider);
+    final currencyCode = ref.watch(selectedHomeCurrencyCodeProvider);
 
     final selectedScope = useState<String>('personal');
-    final selectedCurrency = useState<String>('USD');
 
     return AlertDialog(
       title: Text(context.l10n.configureWidgetTitle),
@@ -661,7 +660,7 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
           DropdownButtonFormField<String>(
             initialValue: selectedScope.value,
             decoration: InputDecoration(
-              labelText: context.l10n.widgetHouseholdLabel,
+              labelText: context.l10n.space,
             ),
             items: [
               DropdownMenuItem(
@@ -678,23 +677,12 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
             },
           ),
           const SizedBox(height: 16),
-          // Currency Selector
-          DropdownButtonFormField<String>(
-            initialValue: selectedCurrency.value,
-            decoration: InputDecoration(
-              labelText: context.l10n.currencyLabel,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${context.l10n.currencyLabel}: $currencyCode',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            items: (availableCurrencies.isNotEmpty
-                    ? availableCurrencies
-                    : ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'])
-                .map((c) => DropdownMenuItem(
-                      value: c,
-                      child: Text(c),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) selectedCurrency.value = value;
-            },
           ),
         ],
       ),
@@ -708,7 +696,6 @@ class _WidgetConfigurationDialog extends HookConsumerWidget {
             await WidgetService().saveWidgetConfiguration(
               widgetId: widgetId,
               scopeId: selectedScope.value,
-              currency: selectedCurrency.value,
             );
             if (context.mounted) Navigator.pop(context);
           },

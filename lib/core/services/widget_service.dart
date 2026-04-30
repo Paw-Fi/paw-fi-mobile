@@ -13,6 +13,30 @@ class WidgetService {
     await HomeWidget.setAppGroupId(_appGroupId);
   }
 
+  Future<void> saveSelectedWidgetCurrency(String currency) async {
+    try {
+      await _ensureAppGroupIdSet();
+      await HomeWidget.saveWidgetData<String>(
+        'selected_widget_currency',
+        currency.trim().toUpperCase(),
+      );
+    } catch (e) {
+      debugPrint('Error saving selected widget currency: $e');
+    }
+  }
+
+  Future<void> reloadWidgets() async {
+    await HomeWidget.updateWidget(
+      name: _androidWidgetName,
+      androidName: _androidWidgetName,
+      iOSName: _iOSWidgetName,
+    );
+    await HomeWidget.updateWidget(
+      name: _androidWidgetName,
+      iOSName: _iOSTopCategoriesWidgetName,
+    );
+  }
+
   Future<void> updateWidgetData({
     required double totalSpent,
     required double totalBudget,
@@ -20,6 +44,7 @@ class WidgetService {
     double? budgetProgress,
     required String currency,
     required List<WidgetPocketData> pockets,
+    bool shouldReloadWidgets = true,
   }) async {
     try {
       // Ensure App Group ID is set
@@ -46,16 +71,9 @@ class WidgetService {
       final pocketsJson = jsonEncode(pockets.map((p) => p.toJson()).toList());
       await HomeWidget.saveWidgetData<String>('pockets_data', pocketsJson);
 
-      // Update Widgets
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName,
-        androidName: _androidWidgetName,
-        iOSName: _iOSWidgetName,
-      );
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName,
-        iOSName: _iOSTopCategoriesWidgetName,
-      );
+      if (shouldReloadWidgets) {
+        await reloadWidgets();
+      }
 
       debugPrint('✅ Widget data updated: $spentStr / $budgetStr');
     } catch (e) {
@@ -72,6 +90,7 @@ class WidgetService {
     double? remainingBudget,
     required double budgetProgress,
     required List<WidgetPocketData> pockets,
+    bool shouldReloadWidgets = true,
   }) async {
     try {
       await _ensureAppGroupIdSet();
@@ -92,14 +111,9 @@ class WidgetService {
       final pocketsJson = jsonEncode(pockets.map((e) => e.toJson()).toList());
       await HomeWidget.saveWidgetData('pockets_data_$keySuffix', pocketsJson);
 
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName, // Use class constant
-        iOSName: _iOSWidgetName, // Use class constant
-      );
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName,
-        iOSName: _iOSTopCategoriesWidgetName,
-      );
+      if (shouldReloadWidgets) {
+        await reloadWidgets();
+      }
     } catch (e) {
       debugPrint('Error updating widget data for $scopeId/$currency: $e');
     }
@@ -112,6 +126,7 @@ class WidgetService {
     required String scopeId,
     required String currency,
     required List<WidgetPocketData> pockets,
+    bool shouldReloadWidgets = true,
   }) async {
     try {
       await _ensureAppGroupIdSet();
@@ -120,10 +135,9 @@ class WidgetService {
       final pocketsJson = jsonEncode(pockets.map((e) => e.toJson()).toList());
       await HomeWidget.saveWidgetData('top_categories_$keySuffix', pocketsJson);
 
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName,
-        iOSName: _iOSTopCategoriesWidgetName,
-      );
+      if (shouldReloadWidgets) {
+        await reloadWidgets();
+      }
     } catch (e) {
       debugPrint('Error saving top categories for $scopeId/$currency: $e');
     }
@@ -131,16 +145,13 @@ class WidgetService {
 
   Future<void> saveConfigurationOptions({
     required List<Map<String, Object?>> households,
-    required List<String> currencies,
   }) async {
     try {
       await _ensureAppGroupIdSet();
 
       final householdsJson = jsonEncode(households);
-      final currenciesJson = jsonEncode(currencies);
 
       await HomeWidget.saveWidgetData('config_households', householdsJson);
-      await HomeWidget.saveWidgetData('config_currencies', currenciesJson);
       // No need to update widget, just saving data for the intent to read
     } catch (e) {
       debugPrint('Error saving config options: $e');
@@ -150,19 +161,14 @@ class WidgetService {
   Future<void> saveWidgetConfiguration({
     required int widgetId,
     required String scopeId,
-    required String currency,
   }) async {
     try {
       await _ensureAppGroupIdSet();
 
       await HomeWidget.saveWidgetData('config_scope_$widgetId', scopeId);
-      await HomeWidget.saveWidgetData('config_currency_$widgetId', currency);
 
       // Trigger update so the widget re-reads the config and loads the correct data
-      await HomeWidget.updateWidget(
-        name: _androidWidgetName,
-        iOSName: _iOSWidgetName,
-      );
+      await reloadWidgets();
     } catch (e) {
       debugPrint('Error saving widget config: $e');
     }

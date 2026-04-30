@@ -433,12 +433,6 @@ class AppInitializationV2 extends _$AppInitializationV2 {
             isFromCache: true,
           );
 
-          state = state.copyWith(
-            state: AppInitState.initialized,
-            data: initData,
-            clearError: true,
-          );
-
           await _initializeSelectedCurrency(
             initData.user,
             preferExistingState: true,
@@ -457,6 +451,12 @@ class AppInitializationV2 extends _$AppInitializationV2 {
                   .initialize(preloadedHouseholds: initData.households),
             );
           }
+
+          state = state.copyWith(
+            state: AppInitState.initialized,
+            data: initData,
+            clearError: true,
+          );
 
           debugPrint(
               '✅ [InitV2] Loaded from cache (${stopwatch.elapsedMilliseconds}ms)');

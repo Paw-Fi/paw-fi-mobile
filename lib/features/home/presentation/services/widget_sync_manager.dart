@@ -13,7 +13,6 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -30,6 +29,14 @@ String _colorToHex(Color color) {
   final b =
       ((color.b * 255.0).round() & 0xff).toRadixString(16).padLeft(2, '0');
   return '#${r.toUpperCase()}${g.toUpperCase()}${b.toUpperCase()}';
+}
+
+String normalizeWidgetSyncCurrency(String? currency) {
+  final normalized = currency?.trim().toUpperCase();
+  if (normalized == null || normalized.isEmpty) {
+    return 'USD';
+  }
+  return normalized;
 }
 
 class _BudgetPocketsSnapshot {
@@ -59,10 +66,12 @@ class WidgetSyncManager extends HookConsumerWidget {
 
     final analyticsData = ref.watch(analyticsProvider);
     final householdsAsync = ref.watch(userHouseholdsProvider(user.uid));
-    final availableCurrencies = ref.watch(availableCurrenciesProvider);
+    final selectedWidgetCurrency = normalizeWidgetSyncCurrency(
+      ref.watch(selectedHomeCurrencyCodeProvider),
+    );
     final widgetSyncVersion = ref.watch(widgetSyncVersionProvider);
 
-    // Ensure configuration options (households + currencies) are always saved
+    // Ensure configuration options (spaces) are always saved
     // for the iOS AppIntent, independent of analytics loading state.
     useEffect(() {
       if (user.uid.isEmpty ||
@@ -75,8 +84,6 @@ class WidgetSyncManager extends HookConsumerWidget {
       final households = householdsAsync.valueOrNull!;
 
       Future<void> syncConfigOptions() async {
-        final allSupportedCurrencies = currencyOptions.keys.toList();
-
         await WidgetService().saveConfigurationOptions(
           households: [
             {'id': 'personal', 'name': 'Personal', 'isPortfolio': false},
@@ -88,7 +95,6 @@ class WidgetSyncManager extends HookConsumerWidget {
               },
             ),
           ],
-          currencies: allSupportedCurrencies,
         );
       }
 
@@ -155,7 +161,7 @@ class WidgetSyncManager extends HookConsumerWidget {
       }
 
       // GUARD 4: Debounce - don't sync too frequently
-      if (!syncState.canSync) {
+      if (!syncState.canSyncForCurrency(selectedWidgetCurrency)) {
         debugPrint(
             '🔄 [WidgetSync] Skipping - debounce (last sync ${syncState.lastAttemptTime})');
         return null;
@@ -174,8 +180,9 @@ class WidgetSyncManager extends HookConsumerWidget {
       ];
 
       Future<void> syncAllScopes() async {
+        final widgetService = WidgetService();
         // Mark sync as started
-        syncStateNotifier.startSync();
+        syncStateNotifier.startSync(currency: selectedWidgetCurrency);
 
         // Track whether sync completed successfully to ensure proper cleanup
         bool syncSucceeded = false;
@@ -295,9 +302,6 @@ class WidgetSyncManager extends HookConsumerWidget {
             }
             return summaryAsync.valueOrNull;
           }
-
-          // Use all supported currencies for configuration
-          final allSupportedCurrencies = currencyOptions.keys.toList();
 
           // Preload personal budgets from the new `budgets` table, scoped the
           // same way as the personal home dashboard: household_id must be null.
@@ -606,18 +610,9 @@ class WidgetSyncManager extends HookConsumerWidget {
             }
           }
 
-          // Iterate and Sync
-          // We sync data for currencies that are either available (have data) OR are major currencies.
-          // Syncing ALL 40+ currencies for EVERY household might be too heavy (40 * N writes).
-          // Let's sync availableCurrencies + a few defaults if available is empty.
-          // The user can select any currency in the widget, but if there is no data,
-          // the widget will just show 0/0 if we sync it, or "No Data" if we don't.
-          // To ensure the widget works for any selected currency, we should ideally sync all.
-          // But let's try to be smart: Sync availableCurrencies + USD + EUR + user's preferred currency.
-          // Actually, if we don't sync a currency, the widget (DataLoader.swift) won't find the key
-          // and will likely show default/placeholder data or 0.
-          // Let's sync ALL supported currencies for now to fully satisfy the requirement "configurable... which currency".
-          // If performance is bad, we can optimize.
+          // The iOS widget can choose a space, but its currency follows the
+          // home header. Sync only that currency to avoid fanning out RPCs for
+          // every supported currency while the app is idle.
 
           if (Supabase.instance.client.auth.currentSession == null) {
             // Session lost - exit loop, finally will handle cleanup
@@ -631,7 +626,7 @@ class WidgetSyncManager extends HookConsumerWidget {
             }
             final scopeId = scope['id']!;
 
-            for (final currency in allSupportedCurrencies) {
+            for (final currency in [selectedWidgetCurrency]) {
               if (Supabase.instance.client.auth.currentSession == null) {
                 // Session lost - exit loop, finally will handle cleanup
                 return;
@@ -846,7 +841,7 @@ class WidgetSyncManager extends HookConsumerWidget {
               final pocketsForWidget =
                   hasBudgetPocketsSource ? budgetPockets : topCategories;
 
-              await WidgetService().updateWidgetDataWithScope(
+              await widgetService.updateWidgetDataWithScope(
                 scopeId: scopeId,
                 currency: currency,
                 totalSpent: financialSummary.totalSpent,
@@ -854,31 +849,35 @@ class WidgetSyncManager extends HookConsumerWidget {
                 remainingBudget: financialSummary.remainingBudget,
                 budgetProgress: financialSummary.progress,
                 pockets: pocketsForWidget,
+                shouldReloadWidgets: false,
               );
 
               // Save top categories separately for the dedicated widget variant.
-              await WidgetService().saveTopCategoriesForScope(
+              await widgetService.saveTopCategoriesForScope(
                 scopeId: scopeId,
                 currency: currency,
                 pockets: topCategories,
+                shouldReloadWidgets: false,
               );
 
-              // Sync to legacy keys (no suffix) for Personal + Preferred Currency (or USD)
-              // This ensures the widget has data before configuration is set
-              final preferredCurrency =
-                  analyticsData.preferredCurrency ?? 'USD';
-              if (scopeId == 'personal' && currency == preferredCurrency) {
-                await WidgetService().updateWidgetData(
+              // Sync to legacy keys for unconfigured/older widgets.
+              if (scopeId == 'personal') {
+                await widgetService.updateWidgetData(
                   totalSpent: financialSummary.totalSpent,
                   totalBudget: financialSummary.totalBudget,
                   remainingBudget: financialSummary.remainingBudget,
                   budgetProgress: financialSummary.progress,
                   currency: currency,
                   pockets: pocketsForWidget,
+                  shouldReloadWidgets: false,
                 );
               }
             }
           }
+
+          await widgetService
+              .saveSelectedWidgetCurrency(selectedWidgetCurrency);
+          await widgetService.reloadWidgets();
 
           // If we reach here, sync completed successfully
           syncSucceeded = true;
@@ -906,8 +905,9 @@ class WidgetSyncManager extends HookConsumerWidget {
       analyticsData.allBudgets,
       analyticsData.preferredCurrency,
       householdsAsync.valueOrNull,
-      availableCurrencies,
+      selectedWidgetCurrency,
       widgetSyncVersion,
+      syncState.isSyncing,
       isAppReady, // Add app ready state as dependency
     ]);
 

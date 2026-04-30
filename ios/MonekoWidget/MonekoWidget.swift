@@ -52,6 +52,7 @@ struct MonekoEntry: TimelineEntry {
     let remainingBudget: String
     let progress: Double
     let pockets: [PocketData]
+    let currencyCode: String
     let configuration: ConfigurationAppIntent?
 }
 
@@ -132,11 +133,13 @@ struct DataLoader {
         let userDefaults = UserDefaults(suiteName: "group.moneko.mobile")
         
         let scopeId = configuration?.household?.id
-        let currency = configuration?.currency?.id
+        let rawCurrency = userDefaults?.string(forKey: "selected_widget_currency") ?? "USD"
+        let trimmedCurrency = rawCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currency = trimmedCurrency.isEmpty ? "USD" : trimmedCurrency.uppercased()
         
         var suffix = ""
-        if let s = scopeId, let c = currency {
-            suffix = "_\(s)_\(c)"
+        if let s = scopeId {
+            suffix = "_\(s)_\(currency)"
         }
         
         let totalSpentKey = "total_spent\(suffix)"
@@ -164,6 +167,7 @@ struct DataLoader {
             remainingBudget: remainingBudget,
             progress: progress,
             pockets: pockets,
+            currencyCode: currency,
             configuration: configuration
         )
     }
@@ -192,7 +196,8 @@ extension MonekoEntry {
                 PocketData(name: "Transport", spent: 120, budget: 200, color: "#16CDA2", currency: "USD", icon: "directions_car"),
                 PocketData(name: "Dining", spent: 300, budget: 400, color: "#FFC219", currency: "USD", icon: "restaurant")
             ],
-            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"), currency: CurrencyEntity(id: "USD"))
+            currencyCode: "USD",
+            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"))
         )
     }
     
@@ -209,7 +214,8 @@ extension MonekoEntry {
                 PocketData(name: "Pocket 4", spent: 300, budget: 400, color: "#F05252", currency: "USD", icon: "savings"),
                 PocketData(name: "Pocket 5", spent: 150, budget: 600, color: "#3F83F8", currency: "USD", icon: "savings")
             ],
-            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"), currency: CurrencyEntity(id: "USD"))
+            currencyCode: "USD",
+            configuration: ConfigurationAppIntent(household: HouseholdEntity(id: "personal", name: "Personal"))
         )
     }
 }
@@ -219,25 +225,21 @@ extension MonekoEntry {
 @available(iOS 17.0, *)
 struct ConfigurationAppIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Configuration"
-    static var description = IntentDescription("Select household and currency.")
+    static var description = IntentDescription("Select a space.")
 
-    @Parameter(title: "Household")
+    @Parameter(title: "Space")
     var household: HouseholdEntity?
-
-    @Parameter(title: "Currency")
-    var currency: CurrencyEntity?
     
     init() {}
     
-    init(household: HouseholdEntity?, currency: CurrencyEntity?) {
+    init(household: HouseholdEntity?) {
         self.household = household
-        self.currency = currency
     }
 }
 
 @available(iOS 16.0, *)
 struct HouseholdEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Household"
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Space"
     static var defaultQuery = HouseholdQuery()
     
     var id: String
@@ -266,39 +268,6 @@ struct HouseholdQuery: EntityQuery {
             return [HouseholdEntity(id: "personal", name: "Personal")]
         }
         return list.map { HouseholdEntity(id: $0.id, name: $0.name) }
-    }
-}
-
-@available(iOS 16.0, *)
-struct CurrencyEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Currency"
-    static var defaultQuery = CurrencyQuery()
-    
-    var id: String // Currency Code
-    
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(id)")
-    }
-}
-
-@available(iOS 16.0, *)
-struct CurrencyQuery: EntityQuery {
-    func entities(for identifiers: [String]) async throws -> [CurrencyEntity] {
-        return allCurrencies().filter { identifiers.contains($0.id) }
-    }
-    
-    func suggestedEntities() async throws -> [CurrencyEntity] {
-        return allCurrencies()
-    }
-    
-    func allCurrencies() -> [CurrencyEntity] {
-        let userDefaults = UserDefaults(suiteName: "group.moneko.mobile")
-        guard let json = userDefaults?.string(forKey: "config_currencies"),
-              let data = json.data(using: .utf8),
-              let list = try? JSONDecoder().decode([String].self, from: data) else {
-            return [CurrencyEntity(id: "USD")]
-        }
-        return list.map { CurrencyEntity(id: $0) }
     }
 }
 
@@ -616,7 +585,7 @@ struct TopCategoriesLargeWidgetView: View {
                             .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                         
                         if let totalBudget = getTotalBudget(from: entry.pockets), totalBudget > 0 {
-                            Text("/ \(formatCurrency(totalBudget, currencyCode: entry.configuration?.currency?.id))")
+                            Text("/ \(formatCurrency(totalBudget, currencyCode: entry.currencyCode))")
                                 .font(.caption)
                                 .foregroundColor(colorScheme == .dark ? Theme.darkMuted : Theme.lightMuted)
                         }

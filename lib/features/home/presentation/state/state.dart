@@ -47,6 +47,9 @@ class WidgetSyncState {
   /// Timestamp of the last sync attempt (success or failure)
   final DateTime? lastAttemptTime;
 
+  /// Currency used by the last sync attempt.
+  final String? lastAttemptedCurrency;
+
   /// Map of failed scope:currency combinations to their failure timestamps
   /// Used for circuit breaker pattern - skip scopes that failed recently
   final Map<String, DateTime> failedScopes;
@@ -61,6 +64,7 @@ class WidgetSyncState {
     this.isSyncing = false,
     this.lastSyncTime,
     this.lastAttemptTime,
+    this.lastAttemptedCurrency,
     this.failedScopes = const {},
     required this.appStartTime,
     this.consecutiveFailures = 0,
@@ -70,6 +74,7 @@ class WidgetSyncState {
     bool? isSyncing,
     DateTime? lastSyncTime,
     DateTime? lastAttemptTime,
+    String? lastAttemptedCurrency,
     Map<String, DateTime>? failedScopes,
     DateTime? appStartTime,
     int? consecutiveFailures,
@@ -78,6 +83,8 @@ class WidgetSyncState {
       isSyncing: isSyncing ?? this.isSyncing,
       lastSyncTime: lastSyncTime ?? this.lastSyncTime,
       lastAttemptTime: lastAttemptTime ?? this.lastAttemptTime,
+      lastAttemptedCurrency:
+          lastAttemptedCurrency ?? this.lastAttemptedCurrency,
       failedScopes: Map.unmodifiable(failedScopes ?? this.failedScopes),
       appStartTime: appStartTime ?? this.appStartTime,
       consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
@@ -102,6 +109,16 @@ class WidgetSyncState {
     return DateTime.now().difference(lastAttemptTime!) >= minSyncInterval;
   }
 
+  /// Allows header currency changes to update widgets immediately while still
+  /// debouncing repeated syncs for the same currency.
+  bool canSyncForCurrency(String currency) {
+    final normalized = currency.trim().toUpperCase();
+    if (normalized.isNotEmpty && normalized != lastAttemptedCurrency) {
+      return true;
+    }
+    return canSync;
+  }
+
   /// Check if a specific scope is in cooldown due to recent failure
   bool isScopeInCooldown(String scopeKey) {
     final failureTime = failedScopes[scopeKey];
@@ -116,10 +133,11 @@ class WidgetSyncStateNotifier extends StateNotifier<WidgetSyncState> {
       : super(WidgetSyncState(appStartTime: DateTime.now()));
 
   /// Mark sync as started
-  void startSync() {
+  void startSync({required String currency}) {
     state = state.copyWith(
       isSyncing: true,
       lastAttemptTime: DateTime.now(),
+      lastAttemptedCurrency: currency.trim().toUpperCase(),
     );
   }
 
