@@ -20,7 +20,7 @@ class CategoryPieChart extends StatefulWidget {
   final double sectionRadius;
   final double touchedSectionRadius;
   final WrapAlignment legendAlignment;
-  final int legendItemLimit;
+  final int? legendItemLimit;
   final EdgeInsetsGeometry legendPadding;
   final double? legendViewportHeight;
 
@@ -35,7 +35,7 @@ class CategoryPieChart extends StatefulWidget {
     this.sectionRadius = 30,
     this.touchedSectionRadius = 35,
     this.legendAlignment = WrapAlignment.start,
-    this.legendItemLimit = 6,
+    this.legendItemLimit,
     this.legendPadding = const EdgeInsets.only(top: 24),
     this.legendViewportHeight,
   });
@@ -58,11 +58,12 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
     List<ExpenseEntry> expenses,
   ) {
     final summaries = _getCategorySummaries(expenses);
-    if (summaries.length <= widget.legendItemLimit) {
+    final limit = widget.legendItemLimit;
+    if (limit == null || summaries.length <= limit) {
       return summaries;
     }
 
-    final visibleCount = widget.legendItemLimit - 1;
+    final visibleCount = limit - 1;
     final visible = summaries.take(visibleCount).toList(growable: true);
     final otherItems = summaries.skip(visibleCount);
     final otherAmount =
@@ -471,7 +472,7 @@ List<CategorySummary> _getCategorySummaries(List<ExpenseEntry> expenses) {
   final Map<String, int> categoryCounts = {};
 
   for (final expense in expenses) {
-    final cat = (expense.category ?? 'uncategorized').toLowerCase();
+    final cat = canonicalizeCategoryKey(expense.category);
     categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
     categoryCounts[cat] = (categoryCounts[cat] ?? 0) + 1;
   }

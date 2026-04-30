@@ -41,7 +41,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     // Aggregate by category for quick stats/legends
     final Map<String, double> categoryTotals = {};
     for (final expense in filteredExpenses) {
-      final cat = expense.category ?? 'uncategorized';
+      final cat = canonicalizeCategoryKey(expense.category);
       categoryTotals[cat] = (categoryTotals[cat] ?? 0) + expense.amount.abs();
     }
 
@@ -49,8 +49,7 @@ class WhereTheMoneyWentWidget extends StatelessWidget {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Show top 5 categories
-    final explicitCategories = sortedCategories.take(5).toList();
+    final explicitCategories = sortedCategories;
 
     return Material(
       color: Colors.transparent,
