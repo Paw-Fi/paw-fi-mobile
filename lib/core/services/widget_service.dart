@@ -66,6 +66,10 @@ class WidgetService {
       await HomeWidget.saveWidgetData<String>('total_budget', budgetStr);
       await HomeWidget.saveWidgetData<String>('remaining_budget', remainingStr);
       await HomeWidget.saveWidgetData<double>('budget_progress', progress);
+      await HomeWidget.saveWidgetData<String>(
+        'legacy_widget_currency',
+        currency.trim().toUpperCase(),
+      );
 
       // Save Pockets Data (JSON)
       final pocketsJson = jsonEncode(pockets.map((p) => p.toJson()).toList());

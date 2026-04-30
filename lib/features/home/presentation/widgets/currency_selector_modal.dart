@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:moneko/core/constants/links.dart';
+import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/utils/currency.dart';
@@ -332,205 +333,232 @@ class _CurrencySelectorScreenState
                                   filterState.selectedCurrency?.toUpperCase() ==
                                       summary.currencyCode,
                               onTap: () async {
-                          final previousCurrency = filterState.selectedCurrency;
-                          final service =
-                              ref.read(currencyPreferenceServiceProvider);
-                          final filterNotifier =
-                              ref.read(homeFilterProvider.notifier);
-                          final analyticsNotifier =
-                              ref.read(analyticsProvider.notifier);
-                          final toastContext =
-                              Navigator.maybeOf(context, rootNavigator: true)
-                                  ?.context;
+                                final previousCurrency =
+                                    filterState.selectedCurrency;
+                                final service =
+                                    ref.read(currencyPreferenceServiceProvider);
+                                final filterNotifier =
+                                    ref.read(homeFilterProvider.notifier);
+                                final analyticsNotifier =
+                                    ref.read(analyticsProvider.notifier);
+                                final toastContext = Navigator.maybeOf(context,
+                                        rootNavigator: true)
+                                    ?.context;
 
-                          // Optimistically update UI immediately
-                          await service
-                              .setSelectedCurrency(summary.currencyCode);
-                          filterNotifier
-                              .setSelectedCurrency(summary.currencyCode);
-                          analyticsNotifier
-                              .updatePreferredCurrency(summary.currencyCode);
-
-                          // Close modal immediately for better UX and return selected currency
-                          if (context.mounted) {
-                            Navigator.pop(context, summary.currencyCode);
-                          }
-
-                          // Make BE call in background
-                          final hasSession =
-                              supabase.auth.currentSession != null;
-                          if (hasSession) {
-                            try {
-                              final userId =
-                                  supabase.auth.currentSession?.user.id;
-                              if (userId == null || userId.isEmpty) {
-                                throw Exception('Missing user session');
-                              }
-                              final response = await supabase.functions.invoke(
-                                'update-preferred-currency',
-                                body: {
-                                  'currency': summary.currencyCode,
-                                  'userId': userId,
-                                },
-                              );
-
-                              final status = response.status;
-                              if (status >= 400) {
-                                throw Exception('Request failed ($status)');
-                              }
-
-                              final payloadData = response.data;
-                              if (payloadData is! Map) {
-                                throw Exception('Invalid response');
-                              }
-                              final payload =
-                                  payloadData.cast<String, dynamic>();
-                              if (payload['ok'] != true) {
-                                throw Exception(
-                                  (payload['error'] ??
-                                          'Unable to update currency')
-                                      .toString(),
-                                );
-                              }
-
-                              // Success - currency is now synced with backend
-                            } catch (error) {
-                              // Rollback on error
-                              debugPrint(
-                                  'Failed to update preferred currency on backend: $error');
-
-                              final currentSelection = ref
-                                  .read(homeFilterProvider)
-                                  .selectedCurrency
-                                  ?.toUpperCase();
-                              final selectedCode =
-                                  summary.currencyCode.toUpperCase();
-                              if (previousCurrency != null &&
-                                  currentSelection == selectedCode) {
+                                // Optimistically update UI immediately
                                 await service
-                                    .setSelectedCurrency(previousCurrency);
+                                    .setSelectedCurrency(summary.currencyCode);
                                 filterNotifier
-                                    .setSelectedCurrency(previousCurrency);
-                                analyticsNotifier
-                                    .updatePreferredCurrency(previousCurrency);
-                              }
+                                    .setSelectedCurrency(summary.currencyCode);
+                                analyticsNotifier.updatePreferredCurrency(
+                                    summary.currencyCode);
+                                await WidgetService()
+                                    .saveSelectedWidgetCurrency(
+                                        summary.currencyCode);
+                                await WidgetService().reloadWidgets();
 
-                              if (toastContext != null &&
-                                  toastContext.mounted) {
-                                final toastCtx = toastContext;
-                                // Use AppToast with action so message appears above any bottom sheet
-                                AppToast.action(
-                                  toastCtx,
-                                  context.l10n.failedToSyncCurrency,
-                                  actionLabel: context.l10n.retry,
-                                  type: AppToastType.warning,
-                                  onPressed: () async {
-                                    try {
-                                      if (!toastCtx.mounted) return;
-                                      final hasSession =
-                                          supabase.auth.currentSession != null;
-                                      if (!hasSession) {
-                                        throw Exception(
-                                            context.l10n.missingUserSession);
-                                      }
-                                      final userId =
-                                          supabase.auth.currentSession?.user.id;
-                                      if (userId == null || userId.isEmpty) {
-                                        throw Exception(
-                                            context.l10n.missingUserSession);
-                                      }
-                                      final retryResponse =
-                                          await supabase.functions.invoke(
-                                        'update-preferred-currency',
-                                        body: {
-                                          'currency': summary.currencyCode,
-                                          'userId': userId,
+                                // Close modal immediately for better UX and return selected currency
+                                if (context.mounted) {
+                                  Navigator.pop(context, summary.currencyCode);
+                                }
+
+                                // Make BE call in background
+                                final hasSession =
+                                    supabase.auth.currentSession != null;
+                                if (hasSession) {
+                                  try {
+                                    final userId =
+                                        supabase.auth.currentSession?.user.id;
+                                    if (userId == null || userId.isEmpty) {
+                                      throw Exception('Missing user session');
+                                    }
+                                    final response =
+                                        await supabase.functions.invoke(
+                                      'update-preferred-currency',
+                                      body: {
+                                        'currency': summary.currencyCode,
+                                        'userId': userId,
+                                      },
+                                    );
+
+                                    final status = response.status;
+                                    if (status >= 400) {
+                                      throw Exception(
+                                          'Request failed ($status)');
+                                    }
+
+                                    final payloadData = response.data;
+                                    if (payloadData is! Map) {
+                                      throw Exception('Invalid response');
+                                    }
+                                    final payload =
+                                        payloadData.cast<String, dynamic>();
+                                    if (payload['ok'] != true) {
+                                      throw Exception(
+                                        (payload['error'] ??
+                                                'Unable to update currency')
+                                            .toString(),
+                                      );
+                                    }
+
+                                    // Success - currency is now synced with backend
+                                  } catch (error) {
+                                    // Rollback on error
+                                    debugPrint(
+                                        'Failed to update preferred currency on backend: $error');
+
+                                    final currentSelection = ref
+                                        .read(homeFilterProvider)
+                                        .selectedCurrency
+                                        ?.toUpperCase();
+                                    final selectedCode =
+                                        summary.currencyCode.toUpperCase();
+                                    if (previousCurrency != null &&
+                                        currentSelection == selectedCode) {
+                                      await service.setSelectedCurrency(
+                                          previousCurrency);
+                                      filterNotifier.setSelectedCurrency(
+                                          previousCurrency);
+                                      analyticsNotifier.updatePreferredCurrency(
+                                          previousCurrency);
+                                      await WidgetService()
+                                          .saveSelectedWidgetCurrency(
+                                              previousCurrency);
+                                      await WidgetService().reloadWidgets();
+                                    }
+
+                                    if (toastContext != null &&
+                                        toastContext.mounted) {
+                                      final toastCtx = toastContext;
+                                      final missingUserSessionMessage =
+                                          context.l10n.missingUserSession;
+                                      final invalidResponseMessage =
+                                          context.l10n.invalidResponse;
+                                      final unableToUpdateCurrencyMessage =
+                                          context.l10n.unableToUpdateCurrency;
+                                      // Use AppToast with action so message appears above any bottom sheet
+                                      AppToast.action(
+                                        toastCtx,
+                                        context.l10n.failedToSyncCurrency,
+                                        actionLabel: context.l10n.retry,
+                                        type: AppToastType.warning,
+                                        onPressed: () async {
+                                          try {
+                                            if (!toastCtx.mounted) return;
+                                            final hasSession =
+                                                supabase.auth.currentSession !=
+                                                    null;
+                                            if (!hasSession) {
+                                              throw Exception(
+                                                  missingUserSessionMessage);
+                                            }
+                                            final userId = supabase
+                                                .auth.currentSession?.user.id;
+                                            if (userId == null ||
+                                                userId.isEmpty) {
+                                              throw Exception(
+                                                  missingUserSessionMessage);
+                                            }
+                                            final retryResponse =
+                                                await supabase.functions.invoke(
+                                              'update-preferred-currency',
+                                              body: {
+                                                'currency':
+                                                    summary.currencyCode,
+                                                'userId': userId,
+                                              },
+                                            );
+                                            if (retryResponse.status >= 400) {
+                                              throw Exception(
+                                                  'Retry failed (${retryResponse.status})');
+                                            }
+                                            final retryData =
+                                                retryResponse.data;
+                                            if (retryData is! Map) {
+                                              throw Exception(
+                                                  invalidResponseMessage);
+                                            }
+                                            final payload = retryData
+                                                .cast<String, dynamic>();
+                                            if (payload['ok'] != true) {
+                                              throw Exception(
+                                                (payload['error'] ??
+                                                        unableToUpdateCurrencyMessage)
+                                                    .toString(),
+                                              );
+                                            }
+                                            await service.setSelectedCurrency(
+                                                summary.currencyCode);
+                                            filterNotifier.setSelectedCurrency(
+                                                summary.currencyCode);
+                                            analyticsNotifier
+                                                .updatePreferredCurrency(
+                                                    summary.currencyCode);
+                                            await WidgetService()
+                                                .saveSelectedWidgetCurrency(
+                                                    summary.currencyCode);
+                                            await WidgetService()
+                                                .reloadWidgets();
+                                            if (toastCtx.mounted) {
+                                              AppToast.success(
+                                                toastCtx,
+                                                context.l10n
+                                                    .currencyUpdatedSuccess,
+                                              );
+                                            }
+                                          } catch (retryError) {
+                                            debugPrint(
+                                                'Failed to retry preferred currency update: $retryError');
+                                            if (toastCtx.mounted) {
+                                              AppToast.error(
+                                                toastCtx,
+                                                context.l10n.retryFailed(''),
+                                              );
+                                            }
+                                          }
                                         },
                                       );
-                                      if (retryResponse.status >= 400) {
-                                        throw Exception(
-                                            'Retry failed (${retryResponse.status})');
-                                      }
-                                      final retryData = retryResponse.data;
-                                      if (retryData is! Map) {
-                                        throw Exception(
-                                            context.l10n.invalidResponse);
-                                      }
-                                      final payload =
-                                          retryData.cast<String, dynamic>();
-                                      if (payload['ok'] != true) {
-                                        throw Exception(
-                                          (payload['error'] ??
-                                                  context.l10n
-                                                      .unableToUpdateCurrency)
-                                              .toString(),
-                                        );
-                                      }
-                                      await service.setSelectedCurrency(
-                                          summary.currencyCode);
-                                      filterNotifier.setSelectedCurrency(
-                                          summary.currencyCode);
-                                      analyticsNotifier.updatePreferredCurrency(
-                                          summary.currencyCode);
-                                      if (toastCtx.mounted) {
-                                        AppToast.success(
-                                          toastCtx,
-                                          context.l10n.currencyUpdatedSuccess,
-                                        );
-                                      }
-                                    } catch (retryError) {
-                                      debugPrint(
-                                          'Failed to retry preferred currency update: $retryError');
-                                      if (toastCtx.mounted) {
-                                        AppToast.error(
-                                          toastCtx,
-                                          context.l10n.retryFailed(''),
-                                        );
-                                      }
                                     }
-                                  },
-                                );
-                              }
-                            }
-                          }
-                        },
-                      ),
-                    ),
+                                  }
+                                }
+                              },
+                            ),
+                          ),
 
-                  // Show all currencies toggle button - minimal Apple-style design
-                  if (inactiveCurrencies.isNotEmpty)
-                    GestureDetector(
-                      key: const Key('show_all_toggle'),
-                      onTap: () {
-                        setState(() {
-                          _showAllCurrencies = !_showAllCurrencies;
-                        });
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _showAllCurrencies
-                                    ? context.l10n.showLessCurrencies
-                                    : context.l10n.showAllCurrencies(
-                                        inactiveCurrencies.length),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w400,
-                                  color: colorScheme.primary,
+                        // Show all currencies toggle button - minimal Apple-style design
+                        if (inactiveCurrencies.isNotEmpty)
+                          GestureDetector(
+                            key: const Key('show_all_toggle'),
+                            onTap: () {
+                              setState(() {
+                                _showAllCurrencies = !_showAllCurrencies;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _showAllCurrencies
+                                          ? context.l10n.showLessCurrencies
+                                          : context.l10n.showAllCurrencies(
+                                              inactiveCurrencies.length),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w400,
+                                        color: colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
-                ],
-              ),
             ),
           ],
         ),
@@ -538,7 +566,8 @@ class _CurrencySelectorScreenState
     );
   }
 
-  Widget _buildEmptySearchState(BuildContext context, ColorScheme colorScheme, String searchQuery) {
+  Widget _buildEmptySearchState(
+      BuildContext context, ColorScheme colorScheme, String searchQuery) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
       child: Column(
@@ -579,9 +608,12 @@ class _CurrencySelectorScreenState
                 icon: Icons.email_outlined,
                 onTap: () {
                   // Launch email with predefined subject and body
-                  final subject = Uri.encodeComponent('Request: Add my local currency');
-                  final body = Uri.encodeComponent("Hi Moneko team,\n\nI'd love to use Moneko with my local currency. Could you please add support for $searchQuery?\n\nThanks!");
-                  final uri = Uri.parse('mailto:hello@moneko.io?subject=$subject&body=$body');
+                  final subject =
+                      Uri.encodeComponent('Request: Add my local currency');
+                  final body = Uri.encodeComponent(
+                      "Hi Moneko team,\n\nI'd love to use Moneko with my local currency. Could you please add support for $searchQuery?\n\nThanks!");
+                  final uri = Uri.parse(
+                      'mailto:hello@moneko.io?subject=$subject&body=$body');
                   launchUrl(uri);
                 },
                 colorScheme: colorScheme,

@@ -132,27 +132,38 @@ struct DataLoader {
     static func load(configuration: ConfigurationAppIntent?, pocketsKeyBase: String = "pockets_data") -> MonekoEntry {
         let userDefaults = UserDefaults(suiteName: "group.moneko.mobile")
         
-        let scopeId = configuration?.household?.id
+        let configuredScopeId = configuration?.household?.id
         let rawCurrency = userDefaults?.string(forKey: "selected_widget_currency") ?? "USD"
         let trimmedCurrency = rawCurrency.trimmingCharacters(in: .whitespacesAndNewlines)
         let currency = trimmedCurrency.isEmpty ? "USD" : trimmedCurrency.uppercased()
+        let scopeId = configuredScopeId ?? "personal"
         
-        var suffix = ""
-        if let s = scopeId {
-            suffix = "_\(s)_\(currency)"
-        }
+        let suffix = "_\(scopeId)_\(currency)"
         
         let totalSpentKey = "total_spent\(suffix)"
         let remainingKey = "remaining_budget\(suffix)"
         let progressKey = "budget_progress\(suffix)"
         let pocketsKey = "\(pocketsKeyBase)\(suffix)"
         
-        let totalSpent = userDefaults?.string(forKey: totalSpentKey) ?? "$0"
-        let remainingBudget = userDefaults?.string(forKey: remainingKey) ?? "$0"
-        let progress = userDefaults?.double(forKey: progressKey) ?? 0.0
+        let legacyCurrency = (userDefaults?.string(forKey: "legacy_widget_currency") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+        let canUseLegacyKeys = configuredScopeId == nil && legacyCurrency == currency
+        
+        let totalSpent = userDefaults?.string(forKey: totalSpentKey)
+            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: "total_spent") : nil)
+            ?? "$0"
+        let remainingBudget = userDefaults?.string(forKey: remainingKey)
+            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: "remaining_budget") : nil)
+            ?? "$0"
+        let progress = userDefaults?.object(forKey: progressKey) != nil
+            ? userDefaults?.double(forKey: progressKey) ?? 0.0
+            : (canUseLegacyKeys ? userDefaults?.double(forKey: "budget_progress") ?? 0.0 : 0.0)
         
         var pockets: [PocketData] = []
-        if let pocketsJson = userDefaults?.string(forKey: pocketsKey),
+        let pocketsJson = userDefaults?.string(forKey: pocketsKey)
+            ?? (canUseLegacyKeys ? userDefaults?.string(forKey: pocketsKeyBase) : nil)
+        if let pocketsJson = pocketsJson,
            let data = pocketsJson.data(using: .utf8) {
             do {
                 pockets = try JSONDecoder().decode([PocketData].self, from: data)
@@ -308,7 +319,7 @@ struct MonekoWidgetEntryView : View {
     
     var shouldShowSetup: Bool {
         if let config = entry.configuration {
-            return config.household == nil || config.currency == nil
+            return config.household == nil
         }
         return false
     }
@@ -344,7 +355,7 @@ struct TopCategoriesWidgetEntryView: View {
     
     var shouldShowSetup: Bool {
         if let config = entry.configuration {
-            return config.household == nil || config.currency == nil
+            return config.household == nil
         }
         return false
     }
