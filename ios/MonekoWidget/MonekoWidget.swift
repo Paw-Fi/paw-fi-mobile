@@ -380,6 +380,25 @@ struct SetupWidgetView: View {
     }
 }
 
+struct WidgetCircleActionLink: View {
+    let systemName: String
+    let destination: String
+    let size: CGFloat
+    let iconSize: CGFloat
+    @Environment(\.colorScheme) var colorScheme
+
+    var body: some View {
+        Link(destination: URL(string: destination)!) {
+            Image(systemName: systemName)
+                .font(.system(size: iconSize, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: size, height: size)
+                .background(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
+                .clipShape(Circle())
+        }
+    }
+}
+
 struct SmallWidgetView: View {
     let entry: MonekoEntry
     @Environment(\.colorScheme) var colorScheme
@@ -390,13 +409,19 @@ struct SmallWidgetView: View {
                 Image(systemName: "chart.pie.fill")
                     .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
                 Spacer()
-                Link(destination: URL(string: "moneko://text")!) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 24, height: 24)
-                        .background(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
-                        .clipShape(Circle())
+                HStack(spacing: 6) {
+                    WidgetCircleActionLink(
+                        systemName: "plus",
+                        destination: "moneko://text",
+                        size: 24,
+                        iconSize: 14
+                    )
+                    WidgetCircleActionLink(
+                        systemName: "camera.fill",
+                        destination: "moneko://camera",
+                        size: 24,
+                        iconSize: 12
+                    )
                 }
             }
             
@@ -507,10 +532,19 @@ struct LargeWidgetView: View {
                         .foregroundColor(colorScheme == .dark ? Theme.darkForeground : Theme.lightForeground)
                 }
                 Spacer()
-                Link(destination: URL(string: "moneko://text")!) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 28))
-                        .foregroundColor(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary)
+                HStack(spacing: 8) {
+                    WidgetCircleActionLink(
+                        systemName: "plus",
+                        destination: "moneko://text",
+                        size: 30,
+                        iconSize: 17
+                    )
+                    WidgetCircleActionLink(
+                        systemName: "camera.fill",
+                        destination: "moneko://camera",
+                        size: 30,
+                        iconSize: 15
+                    )
                 }
             }
             
@@ -603,12 +637,19 @@ struct TopCategoriesLargeWidgetView: View {
                     }
                 }
                 Spacer()
-                Link(destination: URL(string: "moneko://text")!) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Circle().fill(colorScheme == .dark ? Theme.darkPrimary : Theme.lightPrimary))
+                HStack(spacing: 8) {
+                    WidgetCircleActionLink(
+                        systemName: "plus",
+                        destination: "moneko://text",
+                        size: 36,
+                        iconSize: 16
+                    )
+                    WidgetCircleActionLink(
+                        systemName: "camera.fill",
+                        destination: "moneko://camera",
+                        size: 36,
+                        iconSize: 15
+                    )
                 }
             }
 

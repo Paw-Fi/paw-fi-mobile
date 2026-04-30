@@ -421,6 +421,8 @@ class _FinancialCalendarWidgetState
               transactions: transactions,
               recurringTransactions: widget.recurringTransactions,
               currency: widget.currency,
+              userId: widget.userId,
+              householdId: widget.householdId,
             ),
           ),
         );
