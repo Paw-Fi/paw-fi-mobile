@@ -8,6 +8,7 @@ import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 final RegExp _opaqueImportIdPattern = RegExp(
   r'^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Z0-9_-]{10,})$',
@@ -29,6 +30,92 @@ String? _normalizeUserFacingImportNote(String? value) {
     return null;
   }
   return trimmed;
+}
+
+String normalizeImportTextForMatching(String value) {
+  return _normalizeImportNumberGlyphs(sanitizeUtf16(value))
+      .toLowerCase()
+      .trim();
+}
+
+String normalizeImportHeaderToken(String value) {
+  return normalizeImportTextForMatching(value).replaceAll(
+    RegExp(r'[^\p{L}\p{N}]', unicode: true),
+    '',
+  );
+}
+
+String _normalizeImportNumberGlyphs(String value) {
+  final buffer = StringBuffer();
+  for (final rune in value.runes) {
+    final digit = _unicodeDecimalDigitValue(rune);
+    if (digit != null) {
+      buffer.write(digit);
+      continue;
+    }
+
+    if (rune >= 0xFF01 && rune <= 0xFF5E) {
+      buffer.writeCharCode(rune - 0xFEE0);
+      continue;
+    }
+
+    switch (rune) {
+      case 0x2212: // minus sign
+      case 0x2012: // figure dash
+      case 0x2013: // en dash
+      case 0x2014: // em dash
+      case 0xFE63: // small hyphen-minus
+        buffer.write('-');
+        break;
+      case 0xFE62: // small plus sign
+        buffer.write('+');
+        break;
+      case 0x066B: // Arabic decimal separator
+        buffer.write('.');
+        break;
+      case 0x066C: // Arabic thousands separator
+      case 0x060C: // Arabic comma
+      case 0x3001: // ideographic comma
+        buffer.write(',');
+        break;
+      case 0x00A0:
+      case 0x202F:
+        buffer.write(' ');
+        break;
+      default:
+        buffer.writeCharCode(rune);
+    }
+  }
+  return buffer.toString();
+}
+
+int? _unicodeDecimalDigitValue(int rune) {
+  const ranges = <int>[
+    0x0030, // ASCII
+    0x0660, // Arabic-Indic
+    0x06F0, // Extended Arabic-Indic
+    0x0966, // Devanagari
+    0x09E6, // Bengali
+    0x0A66, // Gurmukhi
+    0x0AE6, // Gujarati
+    0x0B66, // Oriya
+    0x0BE6, // Tamil
+    0x0C66, // Telugu
+    0x0CE6, // Kannada
+    0x0D66, // Malayalam
+    0x0E50, // Thai
+    0x0ED0, // Lao
+    0x1040, // Myanmar
+    0x17E0, // Khmer
+    0x1810, // Mongolian
+    0xFF10, // Fullwidth
+  ];
+
+  for (final start in ranges) {
+    final value = rune - start;
+    if (value >= 0 && value <= 9) return value;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,17 +385,48 @@ const Set<String> _knownImportHeaderTokens = {
   'net',
 };
 
+final Set<String> _knownImportHeaderTokensForMatching =
+    _buildKnownImportHeaderTokensForMatching();
+
+Set<String> _buildKnownImportHeaderTokensForMatching() {
+  final tokens = <String>{
+    for (final token in _knownImportHeaderTokens)
+      normalizeImportHeaderToken(token),
+  };
+
+  void add(String value) {
+    final normalized = normalizeImportHeaderToken(value);
+    if (normalized.isNotEmpty) tokens.add(normalized);
+  }
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    final l10n = lookupAppLocalizations(locale);
+    add(l10n.date);
+    add(l10n.amount);
+    add(l10n.category);
+    add(l10n.notes);
+    add(l10n.description);
+    add(l10n.currency);
+    add(l10n.type);
+    add(l10n.account);
+    add(l10n.merchant);
+    add(l10n.income);
+    add(l10n.expense);
+  }
+
+  tokens.removeWhere((token) => token.isEmpty);
+  return Set<String>.unmodifiable(tokens);
+}
+
 bool _looksLikeHeaderRow(List<String> row) {
   final nonEmpty =
       row.map((cell) => cell.trim()).where((cell) => cell.isNotEmpty).toList();
   if (nonEmpty.isEmpty) return false;
 
-  final normalized = nonEmpty
-      .map((cell) => cell.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''))
-      .toList();
+  final normalized = nonEmpty.map(normalizeImportHeaderToken).toList();
   final matchedHeaderCells = normalized.where((cell) {
-    return _knownImportHeaderTokens.any(
-      (token) => cell == token || (token.length >= 5 && cell.contains(token)),
+    return _knownImportHeaderTokensForMatching.any(
+      (token) => _headerTokenMatches(cell, token),
     );
   }).length;
   if (matchedHeaderCells > 0) return true;
@@ -327,6 +445,19 @@ bool _looksLikeHeaderRow(List<String> row) {
   return shortTextCells >= (nonEmpty.length / 2).ceil();
 }
 
+bool _headerTokenMatches(String cell, String token) {
+  if (cell.isEmpty || token.isEmpty) return false;
+  if (cell == token) return true;
+  if (!_canUseHeaderSubstring(token)) return false;
+  return cell.contains(token);
+}
+
+bool _canUseHeaderSubstring(String token) {
+  final isAscii = RegExp(r'^[a-z0-9]+$').hasMatch(token);
+  if (!isAscii) return token.runes.length >= 2;
+  return token.length >= 4;
+}
+
 bool _looksLikeDataCellForHeaderDetection(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return false;
@@ -334,22 +465,7 @@ bool _looksLikeDataCellForHeaderDetection(String value) {
   if (parseDateValue(trimmed) != null) return true;
   if (parseAmountCents(trimmed) != null) return true;
   if (_normalizeCurrencyCode(trimmed) != null) return true;
-
-  const typeTokens = {
-    'income',
-    'expense',
-    'debit',
-    'credit',
-    'dr',
-    'cr',
-    'inflow',
-    'outflow',
-    'deposit',
-    'withdrawal',
-    'received',
-    'paid',
-  };
-  return typeTokens.contains(trimmed.toLowerCase());
+  return resolveImportTypeValue(trimmed) != null;
 }
 
 // ---------------------------------------------------------------------------
@@ -706,7 +822,9 @@ DateTime? parseDateValue(
   if (value == null || value.trim().isEmpty) return null;
 
   // Strip leading/trailing quotes that some exporters leave in.
-  var trimmed = value.trim().replaceAll(RegExp("[\"']"), '');
+  var trimmed = _normalizeImportNumberGlyphs(value.trim())
+      .replaceAll(RegExp("[\"'＂＇]"), '')
+      .trim();
 
   // Try DateTime.parse first (handles full ISO 8601 including timezone).
   final iso = DateTime.tryParse(trimmed);
@@ -728,20 +846,364 @@ DateTime? parseDateValue(
       )
       .trim();
 
+  final yearFirst = _parseYearFirstNumericDate(stripped);
+  if (yearFirst != null) return yearFirst;
+
+  final localizedMonthDate = _parseLocalizedMonthDate(stripped);
+  if (localizedMonthDate != null) return localizedMonthDate;
+
   // Try each date format, preferring an inferred slash-date order when we have
   // reliable evidence from the file (for example an "Expenses" export using
   // dd/MM/yyyy throughout).
   for (final format in _orderedDateFormats(orderHint)) {
-    for (final locale in [null, 'en_US']) {
+    for (final locale in _dateParseLocales) {
       try {
         final parsed = locale == null
             ? DateFormat(format).parseStrict(stripped)
             : DateFormat(format, locale).parseStrict(stripped);
-        return DateTime(parsed.year, parsed.month, parsed.day);
+        return DateTime(
+            _normalizeCalendarYear(parsed.year), parsed.month, parsed.day);
       } catch (_) {}
     }
   }
   return null;
+}
+
+final List<String?> _dateParseLocales = <String?>[
+  null,
+  'en_US',
+  ...AppLocalizations.supportedLocales.expand((locale) sync* {
+    final localeName = locale.toString();
+    yield localeName;
+    if (locale.countryCode != null && locale.countryCode!.isNotEmpty) {
+      yield locale.languageCode;
+    }
+  }),
+].toSet().toList(growable: false);
+
+DateTime? _parseYearFirstNumericDate(String value) {
+  final match = RegExp(
+    r'^\s*(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)',
+  ).firstMatch(value);
+  if (match == null) return null;
+
+  final year = int.tryParse(match.group(1) ?? '');
+  final month = int.tryParse(match.group(2) ?? '');
+  final day = int.tryParse(match.group(3) ?? '');
+  if (year == null || month == null || day == null) return null;
+  return _validDate(year, month, day);
+}
+
+DateTime? _validDate(int year, int month, int day) {
+  year = _normalizeCalendarYear(year);
+  if (year < 1000 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  final parsed = DateTime(year, month, day);
+  if (parsed.year != year || parsed.month != month || parsed.day != day) {
+    return null;
+  }
+  return parsed;
+}
+
+int _normalizeCalendarYear(int year) {
+  if (year >= 2400 && year <= 2800) return year - 543;
+  return year;
+}
+
+DateTime? _parseLocalizedMonthDate(String value) {
+  final dayMonthYear = RegExp(
+    r'^\s*(\d{1,2})[\s./\-]+([^\d]+?)[\s,./\-]+(\d{2,4})(?:\D|$)',
+    unicode: true,
+  ).firstMatch(value);
+  if (dayMonthYear != null) {
+    final day = int.tryParse(dayMonthYear.group(1) ?? '');
+    final month = _monthNumberFromLocalizedName(dayMonthYear.group(2));
+    final year = int.tryParse(dayMonthYear.group(3) ?? '');
+    if (day != null && month != null && year != null) {
+      return _validDate(_expandTwoDigitYear(year), month, day);
+    }
+  }
+
+  final monthDayYear = RegExp(
+    r'^\s*([^\d]+?)[\s./\-]+(\d{1,2}),?[\s./\-]+(\d{2,4})(?:\D|$)',
+    unicode: true,
+  ).firstMatch(value);
+  if (monthDayYear != null) {
+    final month = _monthNumberFromLocalizedName(monthDayYear.group(1));
+    final day = int.tryParse(monthDayYear.group(2) ?? '');
+    final year = int.tryParse(monthDayYear.group(3) ?? '');
+    if (month != null && day != null && year != null) {
+      return _validDate(_expandTwoDigitYear(year), month, day);
+    }
+  }
+
+  final vietnamese = RegExp(
+    r'(?:ngày\s*)?(\d{1,2})\s*tháng\s*(\d{1,2})\s*(?:năm\s*)?(\d{2,4})',
+    caseSensitive: false,
+    unicode: true,
+  ).firstMatch(normalizeImportTextForMatching(value));
+  if (vietnamese != null) {
+    final day = int.tryParse(vietnamese.group(1) ?? '');
+    final month = int.tryParse(vietnamese.group(2) ?? '');
+    final year = int.tryParse(vietnamese.group(3) ?? '');
+    if (day != null && month != null && year != null) {
+      return _validDate(_expandTwoDigitYear(year), month, day);
+    }
+  }
+
+  return null;
+}
+
+int _expandTwoDigitYear(int year) {
+  if (year >= 100) return year;
+  return year >= 70 ? 1900 + year : 2000 + year;
+}
+
+int? _monthNumberFromLocalizedName(String? rawValue) {
+  if (rawValue == null) return null;
+  final key = normalizeImportHeaderToken(rawValue);
+  if (key.isEmpty) return null;
+  return _localizedMonthLookup[key];
+}
+
+final Map<String, int> _localizedMonthLookup = _buildLocalizedMonthLookup();
+
+Map<String, int> _buildLocalizedMonthLookup() {
+  const aliases = <int, List<String>>{
+    1: [
+      'jan',
+      'january',
+      'januar',
+      'enero',
+      'janvier',
+      'gennaio',
+      'januari',
+      'январь',
+      'января',
+      'янв',
+      'січень',
+      'січня',
+      'січ',
+      'جنوری',
+      'มกราคม',
+      'ม.ค.',
+    ],
+    2: [
+      'feb',
+      'february',
+      'februar',
+      'febrero',
+      'février',
+      'fevrier',
+      'févr',
+      'fevr',
+      'febbraio',
+      'februari',
+      'февраль',
+      'февраля',
+      'фев',
+      'лютий',
+      'лютого',
+      'лют',
+      'فروری',
+      'กุมภาพันธ์',
+      'ก.พ.',
+    ],
+    3: [
+      'mar',
+      'march',
+      'märz',
+      'maerz',
+      'marzo',
+      'mars',
+      'maart',
+      'март',
+      'марта',
+      'мар',
+      'березень',
+      'березня',
+      'бер',
+      'مارچ',
+      'มีนาคม',
+      'มี.ค.',
+    ],
+    4: [
+      'apr',
+      'april',
+      'abril',
+      'avr',
+      'avril',
+      'aprile',
+      'апрель',
+      'апреля',
+      'апр',
+      'квітень',
+      'квітня',
+      'кві',
+      'квіт',
+      'اپریل',
+      'เมษายน',
+      'เม.ย.',
+    ],
+    5: [
+      'may',
+      'mai',
+      'mayo',
+      'maggio',
+      'mag',
+      'mei',
+      'май',
+      'мая',
+      'травень',
+      'травня',
+      'тра',
+      'трав',
+      'مئی',
+      'พฤษภาคม',
+      'พ.ค.',
+    ],
+    6: [
+      'jun',
+      'june',
+      'juni',
+      'junio',
+      'juin',
+      'giugno',
+      'giu',
+      'июнь',
+      'июня',
+      'июн',
+      'червень',
+      'червня',
+      'чер',
+      'جون',
+      'มิถุนายน',
+      'มิ.ย.',
+    ],
+    7: [
+      'jul',
+      'july',
+      'juli',
+      'julio',
+      'juil',
+      'juillet',
+      'luglio',
+      'lug',
+      'июль',
+      'июля',
+      'июл',
+      'липень',
+      'липня',
+      'лип',
+      'جولائی',
+      'กรกฎาคม',
+      'ก.ค.',
+    ],
+    8: [
+      'aug',
+      'august',
+      'agosto',
+      'août',
+      'aout',
+      'augustus',
+      'август',
+      'августа',
+      'авг',
+      'серпень',
+      'серпня',
+      'сер',
+      'اگست',
+      'สิงหาคม',
+      'ส.ค.',
+    ],
+    9: [
+      'sep',
+      'sept',
+      'september',
+      'septiembre',
+      'septembre',
+      'settembre',
+      'set',
+      'сентябрь',
+      'сентября',
+      'сен',
+      'сент',
+      'вересень',
+      'вересня',
+      'вер',
+      'ستمبر',
+      'กันยายน',
+      'ก.ย.',
+    ],
+    10: [
+      'oct',
+      'october',
+      'okt',
+      'oktober',
+      'octubre',
+      'octobre',
+      'ottobre',
+      'ott',
+      'октябрь',
+      'октября',
+      'окт',
+      'жовтень',
+      'жовтня',
+      'жов',
+      'اکتوبر',
+      'ตุลาคม',
+      'ต.ค.',
+    ],
+    11: [
+      'nov',
+      'november',
+      'noviembre',
+      'novembre',
+      'ноябрь',
+      'ноября',
+      'ноя',
+      'нояб',
+      'листопад',
+      'листопада',
+      'лис',
+      'лист',
+      'نومبر',
+      'พฤศจิกายน',
+      'พ.ย.',
+    ],
+    12: [
+      'dec',
+      'december',
+      'dez',
+      'dezember',
+      'diciembre',
+      'dic',
+      'déc',
+      'décembre',
+      'decembre',
+      'dicembre',
+      'декабрь',
+      'декабря',
+      'дек',
+      'грудень',
+      'грудня',
+      'гру',
+      'груд',
+      'دسمبر',
+      'ธันวาคม',
+      'ธ.ค.',
+    ],
+  };
+
+  final lookup = <String, int>{};
+  for (final entry in aliases.entries) {
+    for (final alias in entry.value) {
+      final key = normalizeImportHeaderToken(alias);
+      if (key.isNotEmpty) lookup[key] = entry.key;
+    }
+  }
+  return Map<String, int>.unmodifiable(lookup);
 }
 
 List<String> _orderedDateFormats(ImportDateOrderHint orderHint) {
@@ -848,10 +1310,10 @@ ImportDateOrderHint inferDateOrderHint(
 
 int? parseAmountCents(String? value) {
   if (value == null || value.trim().isEmpty) return null;
-  var cleaned = value.trim();
+  var cleaned = _normalizeImportNumberGlyphs(value.trim());
 
   // Strip surrounding quotes.
-  cleaned = cleaned.replaceAll(RegExp("[\"']"), '');
+  cleaned = cleaned.replaceAll(RegExp("[\"'＂＇]"), '');
   cleaned = cleaned.replaceAll(RegExp(r'[−–—]'), '-');
 
   // Accounting-style negatives: "(1,234.56)" or "(1.234,56)"
@@ -864,11 +1326,12 @@ int? parseAmountCents(String? value) {
   // Strip any Unicode currency symbol (Sc category) — covers ALL currencies
   // without maintaining a fixed list. Also strip 3-letter ISO currency codes
   // (e.g. "USD", "EUR") that appear as leading/trailing text.
-  cleaned = cleaned
-      .replaceAll(RegExp(r'\p{Sc}', unicode: true), '')
-      .replaceAll(RegExp(r'^[A-Z]{3}\s*', caseSensitive: false), '')
-      .replaceAll(RegExp(r'\s*[A-Z]{3}$', caseSensitive: false), '')
-      .trim();
+  cleaned = cleaned.replaceAll(RegExp(r'\p{Sc}', unicode: true), '').trim();
+  cleaned = _stripIsoCurrencyCodeFromAmountText(cleaned);
+
+  if (_containsNonCurrencyAmountText(cleaned)) return null;
+
+  cleaned = _extractPotentialAmountNumberText(cleaned);
 
   // Detect leading minus after symbol stripping.
   if (cleaned.startsWith('-')) {
@@ -876,6 +1339,13 @@ int? parseAmountCents(String? value) {
     cleaned = cleaned.substring(1).trim();
   } else if (cleaned.startsWith('+')) {
     cleaned = cleaned.substring(1).trim();
+  }
+
+  if (cleaned.endsWith('-')) {
+    negative = true;
+    cleaned = cleaned.substring(0, cleaned.length - 1).trim();
+  } else if (cleaned.endsWith('+')) {
+    cleaned = cleaned.substring(0, cleaned.length - 1).trim();
   }
 
   if (cleaned.isEmpty) return null;
@@ -886,6 +1356,65 @@ int? parseAmountCents(String? value) {
 
   final cents = (parsed * 100).round();
   return negative ? -cents : cents;
+}
+
+String _stripIsoCurrencyCodeFromAmountText(String value) {
+  var result = value.trim();
+  result = result
+      .replaceFirst(
+        RegExp(r'^[A-Z]{3}(?=\s|[+\-]?\d)', caseSensitive: false),
+        '',
+      )
+      .trim();
+
+  final trailing = RegExp(
+    r'^(.*\d)\s*[A-Z]{3}$',
+    caseSensitive: false,
+  ).firstMatch(result);
+  if (trailing != null) {
+    result = (trailing.group(1) ?? '').trim();
+  }
+
+  return result;
+}
+
+bool _containsNonCurrencyAmountText(String value) {
+  final lettersOnly = value.replaceAll(
+    RegExp(r'[^\p{L}]', unicode: true),
+    '',
+  );
+  if (lettersOnly.isEmpty) return false;
+  if (extractCanonicalCurrencyCode(value) != null) return false;
+
+  // Short letter clusters cover common currency markers that are not unique
+  // ISO symbols, such as "kr", "Rp", "Rs", or regional abbreviated units.
+  return normalizeImportHeaderToken(lettersOnly).runes.length > 3;
+}
+
+String _extractPotentialAmountNumberText(String value) {
+  final buffer = StringBuffer();
+  for (final rune in value.runes) {
+    final char = String.fromCharCode(rune);
+    if ((rune >= 0x30 && rune <= 0x39) ||
+        char == '.' ||
+        char == ',' ||
+        char == '+' ||
+        char == '-' ||
+        char == '(' ||
+        char == ')' ||
+        char == '\'' ||
+        char == '’') {
+      buffer.write(char);
+    } else if (RegExp(r'\s').hasMatch(char)) {
+      buffer.write(' ');
+    }
+  }
+
+  return buffer
+      .toString()
+      .replaceAll(RegExp(r'^[\s.,]+'), '')
+      .replaceAll(RegExp(r'[\s.,]+$'), '')
+      .trim();
 }
 
 /// Parses a numeric string that may use either:
@@ -950,34 +1479,144 @@ double? _parseNumericString(String value) {
 // Type resolution
 // ---------------------------------------------------------------------------
 
-String _resolveType(String? rawType, int? amountCents) {
-  if (rawType != null && rawType.trim().isNotEmpty) {
-    final normalized = rawType.trim().toLowerCase();
-    const incomeKeywords = [
+final Set<String> _incomeTypeTokens = _buildImportTypeTokens(isIncome: true);
+final Set<String> _expenseTypeTokens = _buildImportTypeTokens(isIncome: false);
+
+Set<String> _buildImportTypeTokens({required bool isIncome}) {
+  final tokens = <String>{
+    if (isIncome) ...[
       'income',
       'credit',
       'inflow',
       'deposit',
+      'dep',
       'cr',
+      'c',
       'received',
       'refund',
       'salary',
       'payment received',
-    ];
-    const expenseKeywords = [
+      'money in',
+      'moneyin',
+    ] else ...[
       'expense',
       'debit',
+      'db',
+      'd',
       'outflow',
       'withdrawal',
+      'wd',
       'dr',
       'paid',
       'purchase',
       'payment sent',
       'transfer out',
-    ];
-    if (incomeKeywords.any((kw) => normalized.contains(kw))) return 'income';
-    if (expenseKeywords.any((kw) => normalized.contains(kw))) return 'expense';
+      'money out',
+      'moneyout',
+    ],
+  };
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    final l10n = lookupAppLocalizations(locale);
+    tokens.add(isIncome ? l10n.income : l10n.expense);
+    if (isIncome) {
+      tokens.add(l10n.categoryIncome);
+      tokens.add(l10n.categoryRefunds);
+    }
   }
+
+  final normalized = tokens
+      .map(_normalizeImportDirectionToken)
+      .where((token) => token.isNotEmpty)
+      .toSet();
+  return Set<String>.unmodifiable(normalized);
+}
+
+String? resolveImportTypeValue(String? rawType) {
+  if (rawType == null || rawType.trim().isEmpty) return null;
+
+  final normalized = _normalizeImportDirectionToken(rawType);
+  if (normalized.isEmpty) return null;
+
+  final compact = _compactImportDirectionToken(normalized);
+  final matchesIncome =
+      _matchesImportDirection(normalized, compact, _incomeTypeTokens);
+  final matchesExpense =
+      _matchesImportDirection(normalized, compact, _expenseTypeTokens);
+
+  if (matchesIncome && !matchesExpense) return 'income';
+  if (matchesExpense && !matchesIncome) return 'expense';
+
+  final hasPlus = RegExp(r'(^|[^0-9])\+([^0-9]|$)').hasMatch(normalized);
+  final hasMinus = RegExp(r'(^|[^0-9])-([^0-9]|$)').hasMatch(normalized);
+  if (hasPlus && !hasMinus) return 'income';
+  if (hasMinus && !hasPlus) return 'expense';
+
+  return null;
+}
+
+String _normalizeImportDirectionToken(String value) {
+  return normalizeImportTextForMatching(value)
+      .replaceAll(RegExp(r'[\p{Z}\s]+', unicode: true), ' ')
+      .trim();
+}
+
+String _compactImportDirectionToken(String value) {
+  return value.replaceAll(
+    RegExp(r'[^\p{L}\p{N}+\-]', unicode: true),
+    '',
+  );
+}
+
+bool _matchesImportDirection(
+  String normalized,
+  String compact,
+  Set<String> candidates,
+) {
+  final words = normalized
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((word) => word.isNotEmpty)
+      .toSet();
+
+  for (final candidate in candidates) {
+    if (candidate.isEmpty) continue;
+
+    final candidateCompact = _compactImportDirectionToken(candidate);
+    if (normalized == candidate || compact == candidateCompact) return true;
+
+    final isAsciiCandidate = RegExp(r'^[a-z0-9 ]+$').hasMatch(candidate);
+    if (isAsciiCandidate) {
+      if (candidate.contains(' ')) {
+        if (normalized.contains(candidate) ||
+            compact.contains(candidateCompact)) {
+          return true;
+        }
+        continue;
+      }
+
+      if (candidate.length <= 2) {
+        if (words.contains(candidate)) return true;
+        continue;
+      }
+
+      if (words.contains(candidate) || compact.contains(candidateCompact)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (candidateCompact.runes.length >= 2 &&
+        compact.contains(candidateCompact)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+String _resolveType(String? rawType, int? amountCents) {
+  final explicitType = resolveImportTypeValue(rawType);
+  if (explicitType != null) return explicitType;
 
   // Fall back to sign of amount: negative = expense, positive = income.
   if (amountCents != null && amountCents > 0) return 'income';

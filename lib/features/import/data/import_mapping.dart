@@ -1,5 +1,7 @@
 import 'package:moneko/features/import/data/import_parser.dart';
 import 'package:moneko/features/import/domain/import_models.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Auto-mapping: header → ImportField (with confidence scoring)
@@ -23,7 +25,7 @@ MappingResult autoMapFieldsWithConfidence(
   List<String> headers, {
   List<List<String>> sampleRows = const [],
 }) {
-  final normalized = headers.map(_normalizeHeader).toList();
+  final normalized = headers.map(normalizeImportHeaderToken).toList();
   final fieldScores = <ImportField, FieldMappingScore>{};
   final warnings = <String>[];
 
@@ -34,7 +36,7 @@ MappingResult autoMapFieldsWithConfidence(
 
   for (final entry in _synonyms.entries) {
     final field = entry.key;
-    final candidates = entry.value;
+    final candidates = _synonymsForField(field);
     final best = _scoreBestColumn(
       field,
       candidates,
@@ -311,6 +313,53 @@ const _synonyms = <ImportField, List<String>>{
   ],
 };
 
+final Map<ImportField, List<String>> _localizedSynonyms =
+    _buildLocalizedSynonyms();
+
+Map<ImportField, List<String>> _buildLocalizedSynonyms() {
+  final values = <ImportField, Set<String>>{
+    for (final field in ImportField.values) field: <String>{},
+  };
+
+  void add(ImportField field, String value) {
+    final normalized = normalizeImportHeaderToken(value);
+    if (normalized.isNotEmpty) {
+      values[field]!.add(normalized);
+    }
+  }
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    final l10n = lookupAppLocalizations(locale);
+    add(ImportField.date, l10n.date);
+    add(ImportField.amount, l10n.amount);
+    add(ImportField.debit, l10n.expense);
+    add(ImportField.credit, l10n.income);
+    add(ImportField.category, l10n.category);
+    add(ImportField.description, l10n.notes);
+    add(ImportField.description, l10n.description);
+    add(ImportField.merchant, l10n.merchant);
+    add(ImportField.currency, l10n.currency);
+    add(ImportField.type, l10n.type);
+    add(ImportField.type, l10n.income);
+    add(ImportField.type, l10n.expense);
+  }
+
+  return Map<ImportField, List<String>>.unmodifiable({
+    for (final entry in values.entries)
+      entry.key: List<String>.unmodifiable(entry.value),
+  });
+}
+
+List<String> _synonymsForField(ImportField field) {
+  final combined = <String>{
+    for (final synonym in _synonyms[field] ?? const <String>[])
+      normalizeImportHeaderToken(synonym),
+    ...?_localizedSynonyms[field],
+  };
+  combined.removeWhere((value) => value.isEmpty);
+  return List<String>.unmodifiable(combined);
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
@@ -347,11 +396,19 @@ FieldMappingScore _scoreBestColumn(
       reason = "exact header match: '${rawHeaders[i]}'";
     }
     // ── Header substring match ───────────────────────────────────────
-    else if (synonyms.any((s) => h.contains(s))) {
-      final matched = synonyms.firstWhere((s) => h.contains(s));
-      score = 0.7;
-      confidence = FieldConfidence.partial;
-      reason = "substring match '$matched' in '${rawHeaders[i]}'";
+    else {
+      String? matched;
+      for (final synonym in synonyms) {
+        if (_headerContainsSynonym(h, synonym)) {
+          matched = synonym;
+          break;
+        }
+      }
+      if (matched != null) {
+        score = 0.7;
+        confidence = FieldConfidence.partial;
+        reason = "substring match '$matched' in '${rawHeaders[i]}'";
+      }
     }
 
     // ── Value-based boost ────────────────────────────────────────────
@@ -447,6 +504,7 @@ double _scoreColumnValues(
 
 /// Quick heuristic: does this string look like a date?
 bool _looksLikeDate(String value) {
+  if (parseDateValue(value) != null) return true;
   // Contains digit-separator-digit patterns typical of dates.
   if (RegExp(r'\d{1,4}[/\-\.]\d{1,2}[/\-\.]\d{1,4}').hasMatch(value)) {
     return true;
@@ -465,6 +523,9 @@ bool _looksLikeDate(String value) {
 
 /// Quick heuristic: does this string look like a monetary amount?
 bool _looksLikeAmount(String value) {
+  if (parseDateValue(value) != null) return false;
+  if (parseAmountCents(value) != null) return true;
+
   // Strip currency symbols and whitespace, check if remainder is numeric.
   final stripped = value
       .replaceAll(
@@ -488,6 +549,7 @@ bool _looksLikeAmount(String value) {
 
 /// Quick heuristic: does this string look like a currency code?
 bool _looksLikeCurrency(String value) {
+  if (extractCanonicalCurrencyCode(value) != null) return true;
   // 3-letter uppercase ISO 4217 codes.
   if (RegExp(r'^[A-Z]{3}$').hasMatch(value.trim().toUpperCase())) return true;
   // Common symbols.
@@ -497,23 +559,7 @@ bool _looksLikeCurrency(String value) {
 
 /// Quick heuristic: does this string look like a transaction type/direction?
 bool _looksLikeType(String value) {
-  const typeKeywords = {
-    'expense',
-    'income',
-    'debit',
-    'credit',
-    'dr',
-    'cr',
-    'inflow',
-    'outflow',
-    'deposit',
-    'withdrawal',
-    'payment',
-    'purchase',
-    'refund',
-    'transfer',
-  };
-  return typeKeywords.contains(value.trim().toLowerCase());
+  return resolveImportTypeValue(value) != null;
 }
 
 // ---------------------------------------------------------------------------
@@ -557,12 +603,12 @@ MappingConfidence _computeOverallConfidence(
   return MappingConfidence.low;
 }
 
-// ---------------------------------------------------------------------------
-// Header normalization
-// ---------------------------------------------------------------------------
+bool _headerContainsSynonym(String header, String token) {
+  final isAscii = RegExp(r'^[a-z0-9]+$').hasMatch(token);
+  if (!isAscii) return token.runes.length >= 2 && header.contains(token);
+  if (token.length >= 4) return header.contains(token);
 
-/// Normalizes a header string for comparison: lower-case, strips all
-/// non-alphanumeric characters (spaces, dashes, parentheses, etc.).
-String _normalizeHeader(String value) {
-  return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  const shortHeaderSuffixes = {'amt', 'ccy', 'ref'};
+  return shortHeaderSuffixes.contains(token) &&
+      (header.endsWith(token) || header.startsWith(token));
 }
