@@ -32,6 +32,8 @@ class ExpenseEntry {
   final String? accountColor;
   final String? type; // 'expense' | 'income'
   final bool isRecurring;
+  final String? syncStatus;
+  final List<String>? reviewReasons;
 
   ExpenseEntry({
     required this.id,
@@ -59,6 +61,8 @@ class ExpenseEntry {
     this.accountColor,
     this.type,
     this.isRecurring = false,
+    this.syncStatus,
+    this.reviewReasons,
   });
 
   double get amount => amountCents / 100.0;
@@ -126,6 +130,12 @@ class ExpenseEntry {
       accountColor: _sanitizeNullable(json['account_color'] as String?),
       type: json['type'] as String?,
       isRecurring: json['is_recurring'] == true,
+      syncStatus: _sanitizeNullable(json['sync_status'] as String?),
+      reviewReasons: json['review_reasons'] != null
+          ? (json['review_reasons'] as List)
+              .map((e) => sanitizeUtf16(e.toString()))
+              .toList()
+          : null,
     );
   }
 
@@ -156,6 +166,8 @@ class ExpenseEntry {
       'account_color': accountColor,
       'type': type,
       'is_recurring': isRecurring,
+      'sync_status': syncStatus,
+      'review_reasons': reviewReasons,
     };
   }
 
@@ -186,6 +198,8 @@ class ExpenseEntry {
     String? accountColor,
     String? type,
     bool? isRecurring,
+    String? syncStatus,
+    List<String>? reviewReasons,
   }) {
     return ExpenseEntry(
       id: id ?? this.id,
@@ -207,12 +221,14 @@ class ExpenseEntry {
       sharedMemberIds: sharedMemberIds ?? this.sharedMemberIds,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       bankAccountId: bankAccountId ?? this.bankAccountId,
-      walletId: accountId ?? this.walletId,
+      walletId: accountId ?? walletId,
       accountName: accountName ?? this.accountName,
       accountIcon: accountIcon ?? this.accountIcon,
       accountColor: accountColor ?? this.accountColor,
       type: type ?? this.type,
       isRecurring: isRecurring ?? this.isRecurring,
+      syncStatus: syncStatus ?? this.syncStatus,
+      reviewReasons: reviewReasons ?? this.reviewReasons,
     );
   }
 }

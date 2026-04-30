@@ -14,6 +14,7 @@ import 'package:moneko/features/home/presentation/state/dashboard_snapshot_model
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/date_range_utils.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+import 'package:moneko/features/home/presentation/state/local_recent_transactions_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/presentation/widgets/financial_calendar_widget.dart';
@@ -61,12 +62,19 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final overlay = ref.watch(
+      homeTransactionOverlayProvider(_overlayRequestForQuery(query)),
+    );
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
+    final actualExpenses = mergeHomeTransactions(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      overlay: overlay,
+    );
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: actualExpenses,
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -74,7 +82,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
 
-    if (transactionsAsync.isLoading && !transactionsAsync.hasValue) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildSpendingSkeleton(
         context,
         colorScheme,
@@ -83,7 +93,9 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         userNow,
       );
     }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    if (transactionsAsync.hasError &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildDashboardErrorCard(
         context,
         colorScheme,
@@ -159,22 +171,32 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         ref.watch(dashboardCalendarTransactionsProvider(previousQuery));
     final currentTransactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(currentQuery));
+    final previousOverlay = ref.watch(
+      homeTransactionOverlayProvider(_overlayRequestForQuery(previousQuery)),
+    );
+    final currentOverlay = ref.watch(
+      homeTransactionOverlayProvider(_overlayRequestForQuery(currentQuery)),
+    );
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
 
     if ((currentTransactionsAsync.isLoading &&
-            !currentTransactionsAsync.hasValue) ||
+            !currentTransactionsAsync.hasValue &&
+            currentOverlay.isEmpty) ||
         (previousTransactionsAsync.isLoading &&
-            !previousTransactionsAsync.hasValue)) {
+            !previousTransactionsAsync.hasValue &&
+            previousOverlay.isEmpty)) {
       return _buildNetCashflowSkeleton(context, colorScheme, budgets, contact,
           config, filterState.selectedCurrency);
     }
     if ((currentTransactionsAsync.hasError &&
-            !currentTransactionsAsync.hasValue) ||
+            !currentTransactionsAsync.hasValue &&
+            currentOverlay.isEmpty) ||
         (previousTransactionsAsync.hasError &&
-            !previousTransactionsAsync.hasValue)) {
+            !previousTransactionsAsync.hasValue &&
+            previousOverlay.isEmpty)) {
       return _buildDashboardErrorCard(
         context,
         colorScheme,
@@ -187,8 +209,10 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
     }
 
     final currentTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses:
-          currentTransactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: mergeHomeTransactions(
+        base: currentTransactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+        overlay: currentOverlay,
+      ),
       recurringTransactions: recurringTransactions,
       rangeStart: currentRange.$1,
       rangeEnd: currentRange.$2,
@@ -196,8 +220,10 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
     final previousTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses:
-          previousTransactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: mergeHomeTransactions(
+        base: previousTransactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+        overlay: previousOverlay,
+      ),
       recurringTransactions: recurringTransactions,
       rangeStart: previousRange.$1,
       rangeEnd: previousRange.$2,
@@ -270,36 +296,67 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       scope: scope,
       selectedCurrency: filterState.selectedCurrency,
     );
+    const recentLimit = 5;
+    final remoteRequest = DashboardRecentTransactionsRequest(
+      query: query,
+      limit: recentLimit,
+    );
+    final localRequest = LocalRecentTransactionsRequest(
+      userId: query.userId,
+      householdId: query.householdId,
+      currency: query.normalizedCurrency,
+      limit: recentLimit,
+    );
     final recentAsync = ref.watch(
-      dashboardRecentTransactionsProvider(
-        DashboardRecentTransactionsRequest(query: query, limit: 5),
+      dashboardRecentTransactionsProvider(remoteRequest),
+    );
+    final localRecentAsync = ref.watch(
+      localRecentTransactionsProvider(localRequest),
+    );
+    final localEntries = localRecentAsync.valueOrNull ?? const <ExpenseEntry>[];
+    final overlay = ref.watch(
+      homeTransactionOverlayProvider(
+        _overlayRequestForQuery(query, limit: recentLimit),
       ),
     );
 
-    if (recentAsync.isLoading && !recentAsync.hasValue) {
+    if (recentAsync.isLoading &&
+        !recentAsync.hasValue &&
+        localEntries.isEmpty &&
+        overlay.isEmpty) {
       return _buildRecentTransactionsSkeleton(
         context,
         colorScheme,
         filterState.selectedCurrency,
       );
     }
-    if (recentAsync.hasError && !recentAsync.hasValue) {
+    if (recentAsync.hasError &&
+        !recentAsync.hasValue &&
+        localEntries.isEmpty &&
+        overlay.isEmpty &&
+        !localRecentAsync.isLoading) {
       return _buildDashboardErrorCard(
         context,
         colorScheme,
         context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(
-          dashboardRecentTransactionsProvider(
-            DashboardRecentTransactionsRequest(query: query, limit: 5),
-          ),
-        ),
+        onRetry: () {
+          ref.invalidate(dashboardRecentTransactionsProvider(remoteRequest));
+          ref.invalidate(localRecentTransactionsProvider(localRequest));
+        },
       );
     }
+
+    final entries = mergeRecentTransactions(
+      remote: recentAsync.valueOrNull ?? const <ExpenseEntry>[],
+      local: localEntries,
+      overlay: overlay,
+      limit: recentLimit,
+    );
 
     return buildRecentTransactionsCard(
       context,
       colorScheme,
-      recentAsync.valueOrNull ?? const <ExpenseEntry>[],
+      entries,
       contact,
       selectedCurrency: filterState.selectedCurrency,
       onViewAll: () {
@@ -346,12 +403,18 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final overlay = ref.watch(
+      homeTransactionOverlayProvider(_overlayRequestForQuery(query)),
+    );
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: mergeHomeTransactions(
+        base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+        overlay: overlay,
+      ),
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -359,10 +422,14 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
 
-    if (transactionsAsync.isLoading && !transactionsAsync.hasValue) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildBreakdownSkeleton(colorScheme);
     }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    if (transactionsAsync.hasError &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildDashboardErrorCard(
         context,
         colorScheme,
@@ -418,12 +485,18 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final overlay = ref.watch(
+      homeTransactionOverlayProvider(_overlayRequestForQuery(query)),
+    );
     final recurringState = ref.watch(
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
     final recurringTransactions = recurringState.data.valueOrNull ?? const [];
     final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: mergeHomeTransactions(
+        base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+        overlay: overlay,
+      ),
       recurringTransactions: recurringTransactions,
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -431,10 +504,14 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
 
-    if (transactionsAsync.isLoading && !transactionsAsync.hasValue) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildWhereMoneyWentSkeleton(colorScheme);
     }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+    if (transactionsAsync.hasError &&
+        !transactionsAsync.hasValue &&
+        overlay.isEmpty) {
       return _buildDashboardErrorCard(
         context,
         colorScheme,
@@ -471,6 +548,20 @@ DashboardScopeQuery _buildScopedQuery({
     startDate: startDate,
     endDate: endDate,
     intervalGranularity: intervalGranularity,
+  );
+}
+
+HomeTransactionOverlayRequest _overlayRequestForQuery(
+  DashboardScopeQuery query, {
+  int? limit,
+}) {
+  return HomeTransactionOverlayRequest(
+    userId: query.userId,
+    householdId: query.householdId,
+    currency: query.normalizedCurrency,
+    startDate: query.formattedStartDate,
+    endDate: query.formattedEndDate,
+    limit: limit,
   );
 }
 
@@ -560,22 +651,16 @@ Widget _buildRecentTransactionsSkeleton(
     child: buildRecentTransactionsCard(
       context,
       colorScheme,
-      [
-        ExpenseEntry(
-          id: 'recent-skeleton-1',
+      List.generate(
+        5,
+        (index) => ExpenseEntry(
+          id: 'recent-skeleton-$index',
           date: DateTime.now(),
           amountCents: 0,
           createdAt: DateTime.now(),
           currency: selectedCurrency ?? 'USD',
         ),
-        ExpenseEntry(
-          id: 'recent-skeleton-2',
-          date: DateTime.now(),
-          amountCents: 0,
-          createdAt: DateTime.now(),
-          currency: selectedCurrency ?? 'USD',
-        ),
-      ],
+      ),
       null,
       selectedCurrency: selectedCurrency,
       onViewAll: () {},
