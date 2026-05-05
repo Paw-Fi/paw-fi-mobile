@@ -23,6 +23,7 @@ import 'package:moneko/core/core.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
+import 'package:moneko/core/sync/application/sync_queue_controller.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
@@ -35,6 +36,8 @@ import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_preference.dart';
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
+import 'package:moneko/features/home/presentation/state/ai_transaction_command_mapper.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
@@ -46,6 +49,8 @@ import 'package:moneko/features/households/presentation/providers/household_prov
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/transactions/domain/transaction_command.dart';
+import 'package:moneko/features/transactions/presentation/state/transaction_capture_controller.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 
@@ -72,6 +77,9 @@ final ImagePicker _imagePicker = ImagePicker();
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+
+bool get _useLocalFirstAiPersistence =>
+    !const bool.fromEnvironment('MONEKO_REMOTE_AI_BATCH_SAVE');
 
 void _debugPrint(String? message, {int? wrapWidth}) {
   if (foundation.kDebugMode && _enableDebugLogs) {
@@ -693,6 +701,7 @@ Future<void> _persistAiTransactions(
   required String? householdId,
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
+  required TransactionCaptureSource captureSource,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
@@ -896,6 +905,126 @@ Future<void> _persistAiTransactions(
               householdId: householdId,
             )
           : null;
+
+  if (_useLocalFirstAiPersistence) {
+    var didPersistAny = false;
+    var savedExpenseCount = 0;
+
+    for (final item in transactions) {
+      try {
+        final tx = item.transaction;
+        final isRecurring = resolveIsRecurring(item.raw);
+        final recurrenceRule = normalizeRecurrenceRule(
+          item.raw,
+          formatDateOnlyYmd(tx.date),
+        );
+        final rawPayerUserId = item.raw['payerUserId'];
+        final payerUserId =
+            rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
+                ? rawPayerUserId.trim()
+                : tx.payerUserId;
+        final hasExplicitCustomSplits = _hasExplicitCustomSplits(
+          item.raw['customSplits'],
+        );
+        final autoSplitEnabled =
+            autoSplitContext?.household.autoSplitEnabled != false;
+        final explicitCustomSplits = autoSplitEnabled
+            ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
+            : null;
+        final defaultCustomSplits = householdId != null &&
+                householdId.isNotEmpty &&
+                !isPortfolio &&
+                autoSplitEnabled &&
+                !hasExplicitCustomSplits
+            ? _resolveAutoSplitCustomSplitsPayload(
+                autoSplitContext,
+                totalAmount: tx.amount,
+              )
+            : null;
+        final effectiveCustomSplits =
+            explicitCustomSplits ?? defaultCustomSplits;
+
+        final transactionId = await container
+            .read(transactionCaptureControllerProvider.notifier)
+            .createLocalTransaction(
+              buildAiTransactionCommand(
+                userId: userId,
+                householdId: householdId,
+                walletId: scopedDefaultAccountId,
+                isPortfolio: isPortfolio,
+                transaction: tx,
+                captureSource: captureSource,
+                raw: item.raw,
+                receiptImageUrl: tx.isIncome ? null : receiptUrl,
+                localImagePath: localImagePath,
+                isRecurring: isRecurring,
+                recurrenceRule: recurrenceRule,
+                customSplits: effectiveCustomSplits,
+                payerUserId: payerUserId,
+              ),
+            );
+
+        final savedEntry = ExpenseEntry(
+          id: transactionId,
+          userId: userId,
+          householdId: householdId,
+          date: tx.date,
+          amountCents: tx.amountCents.abs(),
+          currency: tx.currency,
+          category: tx.category,
+          createdAt: DateTime.now(),
+          rawText: tx.description,
+          merchant: tx.merchant,
+          breakdown: tx.breakdown,
+          receiptImageUrl: tx.isIncome ? null : receiptUrl,
+          walletId: scopedDefaultAccountId,
+          type: tx.isIncome ? 'income' : 'expense',
+          isRecurring: isRecurring,
+        );
+        upsertSavedEntry(
+          optimisticId: item.optimisticId,
+          savedEntry: savedEntry,
+        );
+        didPersistAny = true;
+        if (!tx.isIncome) {
+          savedExpenseCount += 1;
+        }
+      } catch (itemError) {
+        _debugPrint(
+          '❌ [AI Local Save] Failed to persist local transaction: $itemError',
+        );
+        removeOptimisticTransactionWithContainer(
+          container: container,
+          optimisticId: item.optimisticId,
+          householdId: householdId,
+        );
+      }
+    }
+
+    if (didPersistAny) {
+      container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      container.read(walletActionsProvider).refreshAccountData();
+      unawaited(
+        container
+            .read(syncQueueControllerProvider.notifier)
+            .syncNow(SyncTrigger.manual),
+      );
+    }
+
+    if (savedExpenseCount > 0) {
+      final prefs = container.read(sharedPreferencesProvider);
+      unawaited(Future<void>.delayed(
+        const Duration(milliseconds: 300),
+        () => _maybeRequestReviewAfterExpenseSave(
+          userId: userId,
+          prefs: prefs,
+          additionalExpenseCount: savedExpenseCount,
+        ),
+      ));
+    }
+
+    return;
+  }
 
   // Build batch payload - all transactions in a single request
   final batchTransactions = transactions.map((item) {
@@ -2016,6 +2145,11 @@ Future<void> _processExpense(
 
           if (!preview.isActive) {
             final container = ProviderScope.containerOf(context, listen: false);
+            final captureSource = resolveAiCaptureSource(
+              hasImageInput: hasImageInput,
+              hasAudioInput: hasAudioInput,
+              hasAttachments: hasAttachments,
+            );
             unawaited(
               _persistAiTransactions(
                 container,
@@ -2023,6 +2157,7 @@ Future<void> _processExpense(
                 householdId: householdId,
                 isPortfolio: isPortfolio,
                 transactions: parsed,
+                captureSource: captureSource,
                 localImagePath: imagePath,
               ),
             );

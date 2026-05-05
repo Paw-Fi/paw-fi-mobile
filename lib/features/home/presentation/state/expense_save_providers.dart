@@ -1,5 +1,6 @@
 // State providers for expense save flow
 
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -20,8 +21,10 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
+import 'package:moneko/core/sync/application/sync_queue_controller.dart';
+import 'package:moneko/features/transactions/domain/transaction_command.dart';
+import 'package:moneko/features/transactions/presentation/state/transaction_capture_controller.dart';
 
 const bool _enableDebugLogs =
     bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
@@ -99,148 +102,76 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         }
       }
 
-      // Prepare request body
       final accountingDate = DateTime(
         expense.date.year,
         expense.date.month,
         expense.date.day,
       );
+      final normalizedHouseholdId = _normalizeOptionalId(householdId);
+      final normalizedAccountId = _normalizeOptionalId(accountId);
+      final isPortfolio = normalizedHouseholdId != null &&
+          ref.read(householdScopeProvider).isPortfolioId(normalizedHouseholdId);
+      final reviewReasons = <String>[
+        if (normalizedAccountId == null) 'missingWallet',
+        if (expense.category.trim().isEmpty) 'missingCategory',
+      ];
 
-      final Map<String, dynamic> requestBody = {
-        'userId': user.uid,
-        'amount': expense.amount,
-        'category': expense.category,
-        'currency': expense.currency,
-        // Date is accounting date semantics (calendar day).
-        'date': formatDateOnlyYmd(accountingDate),
-        // UTC instant for audit/ordering only.
-        'clientCreatedAt': DateTime.now().toUtc().toIso8601String(),
-        // Explicitly set type for new expenses
-        'type': 'expense',
-      };
+      final transactionId = await ref
+          .read(transactionCaptureControllerProvider.notifier)
+          .createLocalTransaction(
+            CreateTransactionCommand(
+              userId: user.uid,
+              householdId: normalizedHouseholdId,
+              walletId: normalizedAccountId,
+              type: TransactionCommandType.expense,
+              amountCents: expense.amountCents.abs(),
+              currency: expense.currency,
+              category: expense.category,
+              merchant: expense.merchant,
+              rawText: expense.description,
+              description: expense.description,
+              date: accountingDate,
+              captureSource: receiptImageUrl == null
+                  ? TransactionCaptureSource.manual
+                  : TransactionCaptureSource.receiptPhoto,
+              reviewReasons: reviewReasons,
+              receiptLocalPath: expense.localImagePath,
+              payerUserId: payerUserId,
+              isPortfolio: isPortfolio,
+            ),
+          );
 
-      final description = expense.description;
-      if (description != null && description.trim().isNotEmpty) {
-        requestBody['description'] = description;
-      }
-
-      final merchant = expense.merchant;
-      if (merchant != null && merchant.trim().isNotEmpty) {
-        requestBody['merchant'] = merchant;
-      }
-
-      final breakdown = expense.breakdown;
-      if (breakdown != null && breakdown.isNotEmpty) {
-        requestBody['breakdown'] = breakdown;
-      }
-
-      if (receiptImageUrl != null && receiptImageUrl.trim().isNotEmpty) {
-        requestBody['receiptImageUrl'] = receiptImageUrl;
-      }
-
-      if (householdId != null && householdId.trim().isNotEmpty) {
-        requestBody['householdId'] = householdId;
-      }
-
-      if (accountId != null && accountId.trim().isNotEmpty) {
-        requestBody['accountId'] = accountId;
-      }
-
-      final isPortfolio = householdId != null &&
-          ref.read(householdScopeProvider).isPortfolioId(householdId);
-      if (householdId != null) {
-        requestBody['isPortfolio'] = isPortfolio;
-      }
-
-      // Add custom splits if provided
-      if (!isPortfolio &&
-          householdId != null &&
-          customSplitType != null &&
-          customSplits != null) {
-        final splitTypeStr = customSplitType.toString().split('.').last;
-
-        _debugPrint('🔍 [SAVE EXPENSE] Preparing custom splits');
-        _debugPrint('  - Split type: $splitTypeStr');
-        _debugPrint('  - Members count: ${customSplits.length}');
-
-        requestBody['customSplits'] = {
-          'splitType': splitTypeStr,
-          'memberSplits': customSplits.map((split) {
-            final memberData = <String, dynamic>{
-              'userId': split.member.userId,
-            };
-
-            // Add the appropriate field based on split type
-            switch (customSplitType) {
-              case SplitType.amount:
-                memberData['amount'] = split.amount;
-                _debugPrint('  - Amount split row prepared');
-                break;
-              case SplitType.percentage:
-                memberData['percentage'] = split.percentage;
-                _debugPrint('  - Percentage split row prepared');
-                break;
-              case SplitType.shares:
-                memberData['shares'] = split.shares;
-                _debugPrint('  - Shares split row prepared');
-                break;
-              case SplitType.equal:
-                _debugPrint('  - Equal split row prepared');
-                // No additional data needed for equal splits
-                break;
-            }
-
-            return memberData;
-          }).toList(),
-        };
-
-        _debugPrint('📊 Custom splits payload attached');
-      } else if (householdId != null) {
-        _debugPrint(
-            '⚠️ [SAVE EXPENSE] No custom splits - backend will default to equal split');
-        _debugPrint('  - customSplitType: $customSplitType');
-        _debugPrint('  - customSplits: ${customSplits?.length ?? 0} members');
-      }
-
-      if (!isPortfolio &&
-          householdId != null &&
-          payerUserId != null &&
-          payerUserId.isNotEmpty) {
-        requestBody['payerUserId'] = payerUserId;
-      }
-
-      // Call save-expense edge function
-      final response = await supabase.functions.invoke(
-        'save-expense',
-        body: requestBody,
+      final createdAt = DateTime.now();
+      final entry = _buildOptimisticExpenseEntry(
+        expense: expense,
+        expenseId: transactionId,
+        householdId: normalizedHouseholdId,
+        userId: user.uid,
+        receiptImageUrl: receiptImageUrl,
+        createdAt: createdAt,
+        accountId: normalizedAccountId,
       );
 
-      if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? 'Failed to save expense');
-      }
-
-      _debugPrint('✅ Expense saved successfully');
-      final responseMap = response.data is Map<String, dynamic>
-          ? response.data as Map<String, dynamic>
-          : null;
-      _addOptimisticHouseholdData(
+      ref.read(analyticsProvider.notifier).addOptimisticTransaction(entry);
+      _addLocalFirstHouseholdData(
+        entry: entry,
         expense: expense,
-        householdId: householdId,
-        accountId: accountId,
+        householdId: normalizedHouseholdId,
         payerUserId: payerUserId ?? user.uid,
-        receiptImageUrl: receiptImageUrl,
         customSplitType: customSplitType,
         customSplits: customSplits,
-        responseData: responseMap,
-        userId: user.uid,
       );
 
       if (invalidateProviders) {
-        // Invalidate providers to trigger UI refresh
-        await _invalidateProviders(user.uid, householdId);
+        _notifyLocalFirstMutation(normalizedHouseholdId);
       }
 
       state = const AsyncValue.data(null);
+      unawaited(
+        ref
+            .read(syncQueueControllerProvider.notifier)
+            .syncNow(SyncTrigger.manual),
+      );
     } catch (error, stackTrace) {
       _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);
@@ -248,80 +179,61 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  void _addOptimisticHouseholdData({
+  String? _normalizeOptionalId(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  void _notifyLocalFirstMutation(String? householdId) {
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.invalidate(pocketsProvider);
+    ref.invalidate(currencyTransactionCountsProvider);
+
+    if (householdId == null) return;
+    ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
+  }
+
+  void _addLocalFirstHouseholdData({
+    required ExpenseEntry entry,
     required ParsedExpense expense,
     required String? householdId,
-    required String? accountId,
     required String payerUserId,
-    required String? receiptImageUrl,
     required SplitType? customSplitType,
     required List<MemberSplit>? customSplits,
-    required Map<String, dynamic>? responseData,
-    required String userId,
   }) {
     if (householdId == null || householdId.isEmpty) return;
-    final sharedFlag = responseData?['shared'];
-    if (sharedFlag is bool && sharedFlag == false) return;
-    if (sharedFlag == null && responseData?['warning'] != null) return;
-
-    final saved = responseData?['data'];
-    final savedMap =
-        saved is Map<String, dynamic> ? saved : <String, dynamic>{};
-    final savedId = savedMap['id']?.toString();
-    final hasServerId = savedId != null && savedId.isNotEmpty;
-    if (!hasServerId) return;
-    final expenseId = savedId;
-
-    final createdAtRaw = savedMap['created_at']?.toString();
-    final createdAt =
-        createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null;
-    final splitSkipped = responseData?['splitSkipped'] == true;
-    final savedSplitGroupId = savedMap['split_group_id']?.toString().trim();
-    final shouldAddOptimisticSplit = !splitSkipped &&
-        savedSplitGroupId != null &&
-        savedSplitGroupId.isNotEmpty;
-
-    final members = ref.read(householdMembersProvider(householdId)).valueOrNull;
-
-    final splitGroup = hasServerId && shouldAddOptimisticSplit
-        ? _buildOptimisticSplitGroup(
-            householdId: householdId,
-            expenseId: expenseId,
-            splitGroupId: savedSplitGroupId,
-            payerUserId: payerUserId,
-            expense: expense,
-            customSplitType: customSplitType,
-            customSplits: customSplits,
-            members: members,
-          )
-        : null;
-
-    final entry = _buildOptimisticExpenseEntry(
-      expense: expense,
-      expenseId: expenseId,
-      householdId: householdId,
-      userId: userId,
-      receiptImageUrl: receiptImageUrl,
-      createdAt: createdAt ?? expense.date,
-      splitGroupId: shouldAddOptimisticSplit ? savedSplitGroupId : null,
-      accountId: accountId,
-    );
 
     ref
         .read(householdOptimisticExpensesProvider.notifier)
         .addExpense(householdId, entry);
 
-    if (splitGroup != null) {
-      ref
-          .read(householdOptimisticSplitsProvider.notifier)
-          .addSplitGroup(householdId, splitGroup);
-    }
+    final splitGroupId = 'local_split_${entry.id}';
+    final members = ref.read(householdMembersProvider(householdId)).valueOrNull;
+    final splitGroup = _buildOptimisticSplitGroup(
+      householdId: householdId,
+      expenseId: entry.id,
+      splitGroupId: splitGroupId,
+      payerUserId: payerUserId,
+      expense: expense,
+      customSplitType: customSplitType,
+      customSplits: customSplits,
+      members: members,
+    );
+    if (splitGroup == null) return;
+
+    final updatedEntry = entry.copyWith(splitGroupId: splitGroup.id);
+    ref
+        .read(householdOptimisticExpensesProvider.notifier)
+        .replaceExpense(householdId, entry.id, updatedEntry);
+    ref
+        .read(householdOptimisticSplitsProvider.notifier)
+        .addSplitGroup(householdId, splitGroup);
   }
 
   ExpenseEntry _buildOptimisticExpenseEntry({
     required ParsedExpense expense,
     required String expenseId,
-    required String householdId,
+    required String? householdId,
     required String userId,
     required String? receiptImageUrl,
     required DateTime createdAt,

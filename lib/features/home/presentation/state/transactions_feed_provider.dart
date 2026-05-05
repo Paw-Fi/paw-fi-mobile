@@ -1,9 +1,12 @@
 import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_database/app_database.dart';
+import 'package:moneko/core/local_database/app_database_provider.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/local_recent_transactions_provider.dart';
 import 'package:moneko/features/home/presentation/utils/chart_interval_utils.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -533,6 +536,83 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
   }
 }
 
+class LocalFirstTransactionsFeedService implements TransactionsFeedService {
+  const LocalFirstTransactionsFeedService({
+    required TransactionsFeedService remote,
+    required AppDatabase database,
+    this.localLimit = 500,
+  })  : _remote = remote,
+        _database = database;
+
+  final TransactionsFeedService _remote;
+  final AppDatabase _database;
+  final int localLimit;
+
+  @override
+  Future<TransactionsFeedPageResult> fetchPage(
+    TransactionsFeedQuery query, {
+    TransactionsFeedCursor? cursor,
+  }) async {
+    final remotePage = await _remote.fetchPage(query, cursor: cursor);
+    if (cursor != null) {
+      return remotePage;
+    }
+
+    final local = await _fetchLocalEntries(query);
+    return TransactionsFeedPageResult(
+      items: _mergeTransactionEntries(
+        remote: remotePage.items,
+        local: local,
+      ),
+      hasMore: remotePage.hasMore,
+      nextCursor: remotePage.nextCursor,
+    );
+  }
+
+  @override
+  Future<TransactionsFeedSummary> fetchSummary(
+    TransactionsFeedQuery query,
+  ) async {
+    final results = await Future.wait<dynamic>([
+      _remote.fetchSummary(query),
+      _fetchLocalEntries(query),
+    ]);
+    final remoteSummary = results[0] as TransactionsFeedSummary;
+    final local = results[1] as List<ExpenseEntry>;
+    return remoteSummary.addingExpenses(local);
+  }
+
+  @override
+  Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
+    final results = await Future.wait<dynamic>([
+      _remote.fetchAllPages(query),
+      _fetchLocalEntries(query),
+    ]);
+    final remote = results[0] as List<ExpenseEntry>;
+    final local = results[1] as List<ExpenseEntry>;
+    return _mergeTransactionEntries(remote: remote, local: local);
+  }
+
+  Future<List<ExpenseEntry>> _fetchLocalEntries(
+    TransactionsFeedQuery query,
+  ) async {
+    if (query.userId.isEmpty) {
+      return const <ExpenseEntry>[];
+    }
+
+    final rows = await _database.localTransactions(
+      userId: query.userId,
+      householdId: query.householdId,
+      currency: query.normalizedCurrency,
+      limit: localLimit,
+    );
+    return rows
+        .map(localRecordToExpenseEntry)
+        .where((entry) => _matchesFeedQuery(entry, query))
+        .toList(growable: false);
+  }
+}
+
 class TransactionsFeedState {
   final TransactionsFeedSummary summary;
   final List<ExpenseEntry> items;
@@ -577,7 +657,11 @@ class TransactionsFeedState {
 final transactionsFeedServiceProvider =
     Provider<TransactionsFeedService>((ref) {
   final client = ref.watch(supabaseClientProvider);
-  return SupabaseTransactionsFeedService(client);
+  final database = ref.watch(appDatabaseProvider);
+  return LocalFirstTransactionsFeedService(
+    remote: SupabaseTransactionsFeedService(client),
+    database: database,
+  );
 });
 
 final transactionsFeedRefreshSignalProvider = StateProvider<int>((ref) => 0);
@@ -745,4 +829,98 @@ bool _listEquals(List<String>? left, List<String>? right) {
     }
   }
   return true;
+}
+
+List<ExpenseEntry> _mergeTransactionEntries({
+  required List<ExpenseEntry> remote,
+  required List<ExpenseEntry> local,
+}) {
+  if (local.isEmpty) {
+    return remote;
+  }
+
+  final byId = <String, ExpenseEntry>{};
+  for (final entry in remote) {
+    byId[entry.id] = entry;
+  }
+  for (final entry in local) {
+    final existing = byId[entry.id];
+    if (existing == null || _isEntryNewer(entry, existing)) {
+      byId[entry.id] = entry;
+    }
+  }
+
+  final merged = byId.values.toList(growable: false)
+    ..sort((a, b) {
+      final byDate = b.date.compareTo(a.date);
+      if (byDate != 0) {
+        return byDate;
+      }
+      return b.createdAt.compareTo(a.createdAt);
+    });
+  return merged;
+}
+
+bool _matchesFeedQuery(ExpenseEntry entry, TransactionsFeedQuery query) {
+  if (query.normalizedType != 'all' &&
+      (entry.type ?? 'expense').toLowerCase() != query.normalizedType) {
+    return false;
+  }
+
+  final category = canonicalizeCategoryKey(entry.category);
+  final selectedCategory = query.normalizedCategory;
+  if (selectedCategory != null &&
+      category != canonicalizeCategoryKey(selectedCategory)) {
+    return false;
+  }
+
+  final selectedCategories = query.normalizedCategories;
+  if (selectedCategories != null &&
+      !selectedCategories.map(canonicalizeCategoryKey).contains(category)) {
+    return false;
+  }
+
+  final accountId = query.normalizedAccountId;
+  if (accountId != null) {
+    final entryAccountId = entry.walletId?.trim();
+    final matchesAccount = entryAccountId == accountId;
+    final matchesUnassigned = query.includeUnassignedAccount &&
+        (entryAccountId == null || entryAccountId.isEmpty);
+    if (!matchesAccount && !matchesUnassigned) {
+      return false;
+    }
+  }
+
+  final startDate = query.startDate;
+  if (startDate != null && entry.date.isBefore(startDate)) {
+    return false;
+  }
+
+  final endDate = query.endDate;
+  if (endDate != null && entry.date.isAfter(endDate)) {
+    return false;
+  }
+
+  final search = query.normalizedSearchQuery?.toLowerCase();
+  if (search != null) {
+    final haystack = [
+      entry.rawText,
+      entry.merchant,
+      entry.category,
+      entry.accountName,
+    ].whereType<String>().join(' ').toLowerCase();
+    if (!haystack.contains(search)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool _isEntryNewer(ExpenseEntry candidate, ExpenseEntry existing) {
+  final byDate = candidate.date.compareTo(existing.date);
+  if (byDate != 0) {
+    return byDate > 0;
+  }
+  return !candidate.createdAt.isBefore(existing.createdAt);
 }

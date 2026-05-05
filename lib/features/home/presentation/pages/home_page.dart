@@ -27,6 +27,7 @@ import 'package:moneko/features/home/presentation/pages/thai_language_prompt_log
 import 'package:moneko/core/app/locale_provider.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
 import 'package:moneko/features/home/presentation/widgets/mom_trend_bar.dart';
+import 'package:moneko/core/sync/application/sync_queue_controller.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/services/preferred_language_sync_service.dart';
 import 'package:moneko/shared/widgets/spotlight/spotlight_controller.dart';
@@ -586,6 +587,10 @@ class _HomePageState extends ConsumerState<HomePage> {
             onRefresh: () async {
               final user = ref.read(authProvider);
               if (user.uid.isEmpty) return;
+
+              await ref
+                  .read(syncQueueControllerProvider.notifier)
+                  .syncNow(SyncTrigger.pullToRefresh);
 
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {

@@ -15,6 +15,7 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/util/constants.dart';
 import 'package:moneko/core/services/deep_link_service.dart';
 import 'package:moneko/core/services/siri_shortcut_auth_service.dart';
+import 'package:moneko/core/sync/application/sync_queue_controller.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/app_version/presentation/widgets/version_check_wrapper.dart';
 import 'package:moneko/l10n/app_localizations.dart';
@@ -44,6 +45,11 @@ class _AppState extends ConsumerState<App> {
         debugPrint('[OnboardingAnalytics] app lifecycle state=$state');
         if (state == AppLifecycleState.resumed) {
           unawaited(
+            ref
+                .read(syncQueueControllerProvider.notifier)
+                .syncNow(SyncTrigger.appResume),
+          );
+          unawaited(
             ref.read(subscriptionManagementProvider.notifier).refresh(),
           );
           unawaited(_syncPendingIosWalletCapturesOnResume());
@@ -71,6 +77,12 @@ class _AppState extends ConsumerState<App> {
         }
         _deepLinkInitialized = true;
       }
+
+      unawaited(
+        ref
+            .read(syncQueueControllerProvider.notifier)
+            .syncNow(SyncTrigger.appStart),
+      );
     });
 
     // Check for widget launch
@@ -149,6 +161,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(syncQueueControllerProvider);
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
     //final themeMode=ThemeMode.dark;

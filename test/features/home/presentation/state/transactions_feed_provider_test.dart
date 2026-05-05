@@ -1,5 +1,8 @@
+import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_database/app_database.dart';
+import 'package:moneko/core/sync/domain/sync_status.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
@@ -69,6 +72,16 @@ class _FakeTransactionsFeedService implements TransactionsFeedService {
 }
 
 void main() {
+  late AppDatabase database;
+
+  setUp(() {
+    database = AppDatabase(NativeDatabase.memory());
+  });
+
+  tearDown(() async {
+    await database.close();
+  });
+
   TransactionsFeedQuery buildQuery({String userId = 'user-1'}) {
     return TransactionsFeedQuery(
       userId: userId,
@@ -299,5 +312,74 @@ void main() {
 
     expect(refreshedItems.map((expense) => expense.id).toList(), ['c']);
     expect(service.allPagesCallCount, 2);
+  });
+
+  test('local-first feed service merges local rows into page and summary',
+      () async {
+    await database.insertLocalTransaction(
+      id: 'local-tx-1',
+      clientMutationId: 'mutation-1',
+      userId: 'user-1',
+      householdId: null,
+      walletId: 'wallet-1',
+      type: 'expense',
+      amountCents: 1299,
+      currency: 'USD',
+      category: 'food',
+      merchant: 'Cafe Nero',
+      rawText: 'Lunch',
+      description: 'Lunch',
+      breakdownJson: '[]',
+      dateYmd: '2026-04-30',
+      createdAt: '2026-04-30T12:00:00.000Z',
+      updatedAt: '2026-04-30T12:00:00.000Z',
+      captureSource: 'aiText',
+      syncStatus: SyncStatus.localOnly.name,
+      reviewReasonsJson: '[]',
+    );
+    final remote = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [_entry('remote-tx-1', DateTime(2026, 4, 29))],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    remote.summary = const TransactionsFeedSummary(
+      transactionCount: 1,
+      expenseTotal: 10,
+      incomeTotal: 0,
+      hasMultipleCurrencies: false,
+      categorySummaries: <TransactionsFeedCategorySummary>[
+        TransactionsFeedCategorySummary(
+          category: 'food',
+          amount: 10,
+          transactionCount: 1,
+        ),
+      ],
+      yearlyPeriodTotals: <DateTime, double>{},
+    );
+
+    final service = LocalFirstTransactionsFeedService(
+      remote: remote,
+      database: database,
+    );
+
+    final query = buildQuery();
+    final page = await service.fetchPage(query);
+    final summary = await service.fetchSummary(query);
+    final allItems = await service.fetchAllPages(query);
+
+    expect(
+      page.items.map((expense) => expense.id).toList(),
+      ['local-tx-1', 'remote-tx-1'],
+    );
+    expect(
+      allItems.map((expense) => expense.id).toList(),
+      ['local-tx-1', 'remote-tx-1'],
+    );
+    expect(summary.transactionCount, 2);
+    expect(summary.expenseTotal, closeTo(22.99, 0.001));
+    expect(summary.categorySummaries.single.amount, closeTo(22.99, 0.001));
+    expect(summary.categorySummaries.single.transactionCount, 2);
   });
 }
