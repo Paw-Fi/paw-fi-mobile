@@ -14,6 +14,13 @@ abstract class Constants {
   // Subscription & Referral
   static const int discordVoucherMonths = 12;
 
+  // Subscription pricing (USD)
+  static const double subscriptionMonthlyPrice = 4.99;
+  static const double subscriptionMonthlyOriginalPrice = 7.99;
+  static const double subscriptionYearlyPrice = 34.99;
+  static const double subscriptionYearlyOriginalPrice = 59.99;
+  static const double subscriptionLifetimePrice = 69.99;
+
   // Checkout URLs
   static String get checkoutBaseUrl =>
       dotenv.env['PAYMENT_CHECKOUT_URL'] ?? 'moneko.io';
