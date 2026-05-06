@@ -9,6 +9,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/app/router.dart' show rootNavigatorKey;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
@@ -17,6 +18,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
+import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
@@ -96,6 +98,7 @@ class PlanSelectionPage extends HookConsumerWidget {
     final currentInterval = currentSub?.subscription?.billingInterval;
     final currentProvider = currentSub?.subscription?.provider;
     final currentStatus = currentSub?.subscription?.status?.toLowerCase();
+    final renewalInfoLabel = currentSub?.renewalInfo(context.l10n);
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
     final isStoreManagedSubscription =
@@ -124,6 +127,8 @@ class PlanSelectionPage extends HookConsumerWidget {
     final didSeeIapProcessing = useRef(false);
     final didInitiateCheckout = useRef(false);
     final didInitiateRestore = useRef(false);
+    final didInitiateFamilyAutoRestore = useRef(false);
+    final didAttemptFamilyAutoRestore = useRef(false);
     final didCompletePlanSelectionFlow = useRef(false);
     final checkoutAttemptCounter = useRef(0);
 
@@ -149,12 +154,27 @@ class PlanSelectionPage extends HookConsumerWidget {
     }) async {
       if (didCompletePlanSelectionFlow.value) return;
       didCompletePlanSelectionFlow.value = true;
+      final isFamilyAutoRestore = source == 'family_sharing';
       didInitiateCheckout.value = false;
       didInitiateRestore.value = false;
+      didInitiateFamilyAutoRestore.value = false;
 
       dismissProcessingDialog('plan selection flow completed');
 
       if (!context.mounted) return;
+
+      if (isFamilyAutoRestore) {
+        final restoredDetails =
+            ref.read(subscriptionManagementProvider).valueOrNull;
+        await showAppStoreAccessRestoredDialog(
+          context,
+          planName: restoredDetails?.planDisplayName(context.l10n) ??
+              context.l10n.plus,
+          isFamilyShared:
+              restoredDetails?.subscription?.isAppStoreFamilyShared ?? false,
+        );
+        if (!context.mounted) return;
+      }
 
       final successMessage = source == 'restore'
           ? context.l10n.subscriptionStatusRestored
@@ -164,7 +184,9 @@ class PlanSelectionPage extends HookConsumerWidget {
           toastContext != null && toastContext.mounted ? toastContext : context;
       final router = GoRouter.of(context);
 
-      AppToast.success(effectiveToastContext, successMessage);
+      if (!isFamilyAutoRestore) {
+        AppToast.success(effectiveToastContext, successMessage);
+      }
 
       if (router.canPop()) {
         router.pop();
@@ -306,6 +328,13 @@ class PlanSelectionPage extends HookConsumerWidget {
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
+          if (didInitiateFamilyAutoRestore.value &&
+              !didInitiateCheckout.value &&
+              !didInitiateRestore.value) {
+            didInitiateFamilyAutoRestore.value = false;
+            _debugLog('Auto family restore ended with IAP error: $nextError');
+            return;
+          }
           didInitiateCheckout.value = false;
           _debugLog('🚨 IAP purchase error detected: $nextError');
           _debugLog('🚨 Calling showIapError...');
@@ -549,10 +578,103 @@ class PlanSelectionPage extends HookConsumerWidget {
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
+    Future<void> refreshSubscriptionState() async {
+      ref.invalidate(subscriptionNotifierProvider);
+      await ref.read(subscriptionManagementProvider.notifier).refresh();
+    }
+
+    Future<bool> restoreIapEntitlement({required bool showProcessing}) async {
+      final iapState = iapStateAsync.valueOrNull;
+      if (!useIap || iapState == null || !iapState.storeAvailable) {
+        return false;
+      }
+
+      if (showProcessing && context.mounted) {
+        processingDialogOpen.value = true;
+        _debugLog('🧾 Dialog open set to true (plan selection restore)');
+        showBlockingProcessingDialog(
+          context: context,
+          message: context.l10n.paywallRestoringPurchases,
+        );
+      }
+
+      await ref.read(iapControllerProvider.notifier).restorePurchases();
+      await refreshSubscriptionState();
+
+      var restoredSubscription =
+          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+      var isRestored = restoredSubscription?.isSubscribed ?? false;
+
+      if (showProcessing && !isRestored) {
+        for (var attempt = 0; attempt < 5; attempt++) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          await refreshSubscriptionState();
+          restoredSubscription = ref
+              .read(subscriptionManagementProvider)
+              .valueOrNull
+              ?.subscription;
+          isRestored = restoredSubscription?.isSubscribed ?? false;
+          final restoreError =
+              ref.read(iapControllerProvider).valueOrNull?.lastError ?? '';
+          if (isRestored || restoreError.isNotEmpty) {
+            break;
+          }
+        }
+      }
+
+      return isRestored;
+    }
+
+    useEffect(() {
+      if (!useIap ||
+          didAttemptFamilyAutoRestore.value ||
+          hasActiveSubscription ||
+          isProcessing ||
+          !isStoreReady ||
+          productsAsync.isLoading ||
+          plans.isEmpty) {
+        return null;
+      }
+
+      didAttemptFamilyAutoRestore.value = true;
+      didInitiateFamilyAutoRestore.value = true;
+      unawaited(() async {
+        try {
+          final isRestored = await restoreIapEntitlement(showProcessing: false);
+          if (!context.mounted) return;
+          if (isRestored) {
+            await completePlanSelectionFlowToDashboard(
+              option: activePlanOption,
+              source: 'family_sharing',
+              provider: 'iap',
+              includePurchaseEvent: false,
+            );
+          } else {
+            didInitiateFamilyAutoRestore.value = false;
+          }
+        } catch (e, stack) {
+          didInitiateFamilyAutoRestore.value = false;
+          _debugLog('Auto family restore skipped: $e');
+          _debugLog('Stack: $stack');
+        }
+      }());
+
+      return null;
+    }, [
+      useIap,
+      hasActiveSubscription,
+      isProcessing,
+      isStoreReady,
+      productsAsync.isLoading,
+      plans.length,
+    ]);
+
     useEffect(() {
       if (didCompletePlanSelectionFlow.value) return null;
       if (!hasActiveSubscription) return null;
-      if (!didInitiateCheckout.value && !didInitiateRestore.value) {
+      if (!didInitiateCheckout.value &&
+          !didInitiateRestore.value &&
+          !didInitiateFamilyAutoRestore.value) {
         return null;
       }
 
@@ -568,7 +690,11 @@ class PlanSelectionPage extends HookConsumerWidget {
 
           await completePlanSelectionFlowToDashboard(
             option: activePlanOption,
-            source: didInitiateRestore.value ? 'restore' : 'checkout',
+            source: didInitiateFamilyAutoRestore.value
+                ? 'family_sharing'
+                : didInitiateRestore.value
+                    ? 'restore'
+                    : 'checkout',
             provider: useIap ? 'iap' : 'stripe',
             includePurchaseEvent:
                 didInitiateCheckout.value || didInitiateRestore.value,
@@ -940,6 +1066,49 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> onRestorePurchases() async {
+      didInitiateRestore.value = true;
+      lastIapErrorShown.value = null;
+      didSeeIapProcessing.value = false;
+
+      try {
+        final isRestored = await restoreIapEntitlement(showProcessing: true);
+        if (!context.mounted) return;
+
+        if (isRestored) {
+          await completePlanSelectionFlowToDashboard(source: 'restore');
+          return;
+        }
+
+        didInitiateRestore.value = false;
+        final restoredIapState = ref.read(iapControllerProvider).valueOrNull;
+        final restoreError = restoredIapState?.lastError ?? '';
+        if (restoreError.isNotEmpty) {
+          AppToast.error(
+            context,
+            humanizePurchaseError(
+                restoreError, restoredIapState?.lastErrorCode),
+          );
+          return;
+        }
+
+        AppToast.error(
+          context,
+          context.l10n.paywallRestoreFailed(context.l10n.paywallErrorGeneric),
+        );
+      } catch (e) {
+        didInitiateRestore.value = false;
+        if (context.mounted) {
+          AppToast.error(
+            context,
+            context.l10n.paywallRestoreFailed(e.toString()),
+          );
+        }
+      } finally {
+        dismissProcessingDialog('plan selection restore purchases');
+      }
+    }
+
     return StatusBarOverlayRegion(
         child: AdaptiveScaffold(
       appBar: const AdaptiveAppBar(title: ''),
@@ -988,7 +1157,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                                           children: [
                                             Flexible(
                                               child: Text(
-                                                currentSub?.planDisplayName(context.l10n) ??
+                                                currentSub?.planDisplayName(
+                                                        context.l10n) ??
                                                     context.l10n.freePlan,
                                                 style: TextStyle(
                                                   fontSize: 16,
@@ -1023,13 +1193,18 @@ class PlanSelectionPage extends HookConsumerWidget {
                                                 ),
                                               ),
                                             ),
+                                            if (currentSub?.subscription
+                                                    ?.isAppStoreFamilyShared ??
+                                                false) ...[
+                                              const SizedBox(width: 6),
+                                              const _FamilySharingBadge(),
+                                            ],
                                           ],
                                         ),
-                                        if (currentSub?.renewalInfo !=
-                                            null) ...[
+                                        if (renewalInfoLabel != null) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            currentSub!.renewalInfo(context.l10n) !,
+                                            renewalInfoLabel,
                                             style: TextStyle(
                                               fontSize: 13,
                                               color:
@@ -1079,7 +1254,13 @@ class PlanSelectionPage extends HookConsumerWidget {
                             const SizedBox(height: 40),
                             const PaywallReviewsSection(),
                             const SizedBox(height: 12),
-                            const _LegalLinks(),
+                            if (useIap)
+                              _PlanSelectionFooterLinks(
+                                isProcessing: isProcessing || !isStoreReady,
+                                onRestorePurchases: onRestorePurchases,
+                              )
+                            else
+                              const _LegalLinks(),
                             const SizedBox(height: 24),
                           ],
                         ),
@@ -1239,6 +1420,74 @@ class _LifetimeView extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanSelectionFooterLinks extends StatelessWidget {
+  const _PlanSelectionFooterLinks({
+    required this.isProcessing,
+    required this.onRestorePurchases,
+  });
+
+  final bool isProcessing;
+  final VoidCallback onRestorePurchases;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final linkStyle = TextStyle(
+      color: colorScheme.mutedForeground.withValues(alpha: 0.8),
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+    );
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GestureDetector(
+          onTap: isProcessing ? null : onRestorePurchases,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            child: Text(
+              context.l10n.paywallRestorePurchase,
+              style: linkStyle,
+            ),
+          ),
+        ),
+        Text('|', style: linkStyle),
+        const _LegalLinks(),
+      ],
+    );
+  }
+}
+
+class _FamilySharingBadge extends StatelessWidget {
+  const _FamilySharingBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Text(
+        'Family',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.primary,
+          letterSpacing: 0.2,
         ),
       ),
     );

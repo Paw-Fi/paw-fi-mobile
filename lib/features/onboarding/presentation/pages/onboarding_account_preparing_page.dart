@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
@@ -23,8 +25,12 @@ import 'package:moneko/features/onboarding/domain/onboarding_budget_sync_service
 import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
+import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 import 'dart:io';
@@ -37,8 +43,54 @@ const _kBudgetSyncFailurePrefix = 'onboarding_budget_sync_failures:';
 const _kCurrencySyncTimeout = Duration(seconds: 8);
 const _kPaywallReturnTrialGrantedPrefix = 'paywall_return_trial:';
 const _kSubscriptionRefreshTimeout = Duration(seconds: 10);
+const _kAppStoreRestoreTimeout = Duration(seconds: 16);
 const _kTrialGrantTimeout = Duration(seconds: 20);
 const _kPostGrantRefreshTimeout = Duration(seconds: 8);
+
+class OnboardingSubscriptionCompletionCopy {
+  const OnboardingSubscriptionCompletionCopy({
+    required this.progressLabel,
+    required this.title,
+    required this.body,
+  });
+
+  final String progressLabel;
+  final String title;
+  final String body;
+}
+
+OnboardingSubscriptionCompletionCopy onboardingCompletionCopyForSubscription({
+  required AppLocalizations l10n,
+  required SubscriptionDetails? details,
+}) {
+  final subscription = details?.subscription;
+  if ((subscription?.isSubscribed ?? false) &&
+      subscription?.provider == 'app_store') {
+    final planName = details?.planDisplayName(l10n) ?? l10n.plus;
+
+    if (subscription?.isAppStoreFamilyShared ?? false) {
+      return OnboardingSubscriptionCompletionCopy(
+        progressLabel: 'Family Sharing access restored.',
+        title: 'Moneko Plus is shared through Family Sharing',
+        body:
+            'Your $planName access is shared through Apple Family Sharing, so we skipped the trial and restored Plus for this account.',
+      );
+    }
+
+    return OnboardingSubscriptionCompletionCopy(
+      progressLabel: 'App Store subscription restored.',
+      title: 'App Store subscription restored',
+      body:
+          'Your existing $planName App Store subscription has been restored for this account, so we skipped the onboarding trial.',
+    );
+  }
+
+  return OnboardingSubscriptionCompletionCopy(
+    progressLabel: l10n.onboardingPreparingProgressReady,
+    title: l10n.onboardingPreparingTitleDone,
+    body: l10n.onboardingPreparingBodyDone,
+  );
+}
 
 class _ExistingAccountState {
   const _ExistingAccountState({
@@ -91,6 +143,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         useState(context.l10n.onboardingPreparingProgressInitial);
     final setupError = useState<String?>(null);
     final isDone = useState(false);
+    final completionCopy =
+        useState<OnboardingSubscriptionCompletionCopy?>(null);
     final didStart = useState(false);
     final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     final isPrimaryActionEnabled = isDone.value || setupError.value != null;
@@ -387,6 +441,35 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
+    Future<void> restoreAppStoreSubscriptionIfAvailable() async {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+
+      try {
+        await ref
+            .read(subscriptionProductsProvider.future)
+            .timeout(_kSubscriptionRefreshTimeout);
+
+        final iapState = await ref
+            .read(iapControllerProvider.future)
+            .timeout(_kSubscriptionRefreshTimeout);
+        if (!iapState.storeAvailable) {
+          debugPrint(
+            '[OnboardingPrep] App Store restore skipped because StoreKit is unavailable',
+          );
+          return;
+        }
+
+        await ref
+            .read(iapControllerProvider.notifier)
+            .restorePurchases()
+            .timeout(_kAppStoreRestoreTimeout);
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[OnboardingPrep] App Store restore check skipped: $error\n$stackTrace',
+        );
+      }
+    }
+
     Future<void> ensureOnboardingSubscription({
       required String userId,
       required _ExistingAccountState existingState,
@@ -401,6 +484,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       final prefs = ref.read(sharedPreferencesProvider);
       final alreadyGrantedLocally =
           prefs.getBool(paywallReturnTrialGrantedKey(userId)) ?? false;
+
+      await restoreAppStoreSubscriptionIfAvailable();
 
       await ref
           .read(subscriptionManagementProvider.notifier)
@@ -504,6 +589,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       if (didStart.value || isDone.value) return;
       didStart.value = true;
       setupError.value = null;
+      completionCopy.value = null;
 
       void setProgressState(
           {double? progressValue, String? label, bool? done}) {
@@ -866,9 +952,15 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       } catch (_) {}
       if (!context.mounted) return;
 
+      final doneCopy = onboardingCompletionCopyForSubscription(
+        l10n: context.l10n,
+        details: ref.read(subscriptionManagementProvider).valueOrNull,
+      );
+      completionCopy.value = doneCopy;
+
       setProgressState(
         progressValue: 1.0,
-        label: context.l10n.onboardingPreparingProgressReady,
+        label: doneCopy.progressLabel,
         done: true,
       );
     }
@@ -969,7 +1061,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                     setupError.value != null
                         ? context.l10n.onboardingPreparingTitleError
                         : isDone.value
-                            ? context.l10n.onboardingPreparingTitleDone
+                            ? completionCopy.value?.title ??
+                                context.l10n.onboardingPreparingTitleDone
                             : context.l10n.onboardingPreparingTitleLoading,
                     key: ValueKey(setupError.value != null
                         ? 'error'
@@ -994,7 +1087,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
                             ? context.l10n.onboardingPreparingBodyErrorDashboard
                             : context.l10n.onboardingPreparingBodyErrorRetry)
                         : isDone.value
-                            ? context.l10n.onboardingPreparingBodyDone
+                            ? completionCopy.value?.body ??
+                                context.l10n.onboardingPreparingBodyDone
                             : context.l10n.onboardingPreparingBodyLoading,
                     key: ValueKey(setupError.value != null
                         ? 'error_body'

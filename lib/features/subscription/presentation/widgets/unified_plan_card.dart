@@ -65,7 +65,7 @@ class UnifiedPlanCard extends StatelessWidget {
                 curve: Curves.easeOut,
                 constraints: const BoxConstraints.tightFor(
                   width: 188,
-                  height: 156,
+                  height: 192,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
