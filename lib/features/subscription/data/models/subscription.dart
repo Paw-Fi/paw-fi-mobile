@@ -7,6 +7,7 @@ class Subscription {
   final String? stripeCustomerId;
   final String? provider; // stripe | app_store | play_store
   final String? storeProductId;
+  final String? appStoreInAppOwnershipType;
   final String? plan;
   final String? status;
   final DateTime? currentPeriodEnd;
@@ -25,6 +26,7 @@ class Subscription {
     this.stripeCustomerId,
     this.provider,
     this.storeProductId,
+    this.appStoreInAppOwnershipType,
     this.plan,
     this.status,
     this.currentPeriodEnd,
@@ -45,6 +47,8 @@ class Subscription {
       stripeCustomerId: json['stripe_customer_id'] as String?,
       provider: json['provider'] as String?,
       storeProductId: json['store_product_id'] as String?,
+      appStoreInAppOwnershipType:
+          json['app_store_in_app_ownership_type'] as String?,
       plan: json['plan'] as String?,
       status: json['status'] as String?,
       currentPeriodEnd: json['current_period_end'] != null
@@ -74,6 +78,7 @@ class Subscription {
       'stripe_customer_id': stripeCustomerId,
       'provider': provider,
       'store_product_id': storeProductId,
+      'app_store_in_app_ownership_type': appStoreInAppOwnershipType,
       'plan': plan,
       'status': status,
       'current_period_end': currentPeriodEnd?.toIso8601String(),
@@ -185,4 +190,6 @@ class Subscription {
   bool get isFreePlan => plan == 'free' || plan == null;
 
   bool get isIap => provider == 'app_store' || provider == 'play_store';
+  bool get isAppStoreFamilyShared =>
+      provider == 'app_store' && appStoreInAppOwnershipType == 'FAMILY_SHARED';
 }

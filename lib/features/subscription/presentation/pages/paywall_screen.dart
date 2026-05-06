@@ -20,6 +20,7 @@ import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
+import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
 import 'package:moneko/features/subscription/presentation/widgets/unified_plan_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
@@ -116,6 +117,8 @@ class PaywallScreen extends HookConsumerWidget {
     final didSeeIapProcessing = useRef(false);
     final didInitiateCheckout = useRef(false);
     final didInitiateRestore = useRef(false);
+    final didInitiateFamilyAutoRestore = useRef(false);
+    final didAttemptFamilyAutoRestore = useRef(false);
     final didCompletePaywallFlow = useRef(false);
     final lastPresentedPlanKey = useRef<String?>(null);
 
@@ -144,6 +147,7 @@ class PaywallScreen extends HookConsumerWidget {
     }) async {
       if (didCompletePaywallFlow.value) return;
       didCompletePaywallFlow.value = true;
+      final isFamilyAutoRestore = source == 'family_sharing';
 
       if (includePurchaseEvent) {
         await analytics.trackEvent(
@@ -176,8 +180,21 @@ class PaywallScreen extends HookConsumerWidget {
 
       didInitiateCheckout.value = false;
       didInitiateRestore.value = false;
+      didInitiateFamilyAutoRestore.value = false;
 
       if (context.mounted) {
+        if (isFamilyAutoRestore) {
+          final restoredDetails =
+              ref.read(subscriptionManagementProvider).valueOrNull;
+          await showAppStoreAccessRestoredDialog(
+            context,
+            planName: restoredDetails?.planDisplayName(context.l10n) ??
+                context.l10n.plus,
+            isFamilyShared:
+                restoredDetails?.subscription?.isAppStoreFamilyShared ?? false,
+          );
+          if (!context.mounted) return;
+        }
         _debugLog(
           '🚪 completePaywallFlowToDashboard -> context.go(/dashboard) '
           '| source=$source provider=$provider option=${option.id} '
@@ -279,6 +296,13 @@ class PaywallScreen extends HookConsumerWidget {
         if (nextError != null &&
             nextError.isNotEmpty &&
             nextError != prevError) {
+          if (didInitiateFamilyAutoRestore.value &&
+              !didInitiateCheckout.value &&
+              !didInitiateRestore.value) {
+            didInitiateFamilyAutoRestore.value = false;
+            _debugLog('Auto family restore ended with IAP error: $nextError');
+            return;
+          }
           _debugLog('🚨 IAP purchase error detected: $nextError');
           _debugLog('🚨 Calling showIapError...');
           showIapError(nextError, 'lastError');
@@ -604,6 +628,71 @@ class PaywallScreen extends HookConsumerWidget {
     final isStoreReady =
         !useIap || (iapStateAsync.valueOrNull?.storeAvailable ?? false);
 
+    Future<void> refreshSubscriptionState() async {
+      await ref.read(subscriptionNotifierProvider.notifier).refresh();
+      await ref.read(subscriptionManagementProvider.notifier).refresh();
+    }
+
+    Future<bool> restoreIapEntitlementQuietly() async {
+      final iapState = iapStateAsync.valueOrNull;
+      if (!useIap || iapState == null || !iapState.storeAvailable) {
+        return false;
+      }
+
+      await ref.read(iapControllerProvider.notifier).restorePurchases();
+      await refreshSubscriptionState();
+
+      var restoredSubscription =
+          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
+      var isRestored = restoredSubscription?.isSubscribed ?? false;
+
+      return isRestored;
+    }
+
+    useEffect(() {
+      if (!useIap ||
+          didAttemptFamilyAutoRestore.value ||
+          hasActiveSubscription ||
+          isProcessing ||
+          !isStoreReady ||
+          productsAsync.isLoading ||
+          plans.isEmpty) {
+        return null;
+      }
+
+      didAttemptFamilyAutoRestore.value = true;
+      didInitiateFamilyAutoRestore.value = true;
+      unawaited(() async {
+        try {
+          final isRestored = await restoreIapEntitlementQuietly();
+          if (!context.mounted) return;
+          if (isRestored) {
+            await completePaywallFlowToDashboard(
+              option: activePlanOption,
+              source: 'family_sharing',
+              provider: 'iap',
+              includePurchaseEvent: false,
+            );
+          } else {
+            didInitiateFamilyAutoRestore.value = false;
+          }
+        } catch (e, stack) {
+          didInitiateFamilyAutoRestore.value = false;
+          _debugLog('Auto family restore skipped: $e');
+          _debugLog('Stack: $stack');
+        }
+      }());
+
+      return null;
+    }, [
+      useIap,
+      hasActiveSubscription,
+      isProcessing,
+      isStoreReady,
+      productsAsync.isLoading,
+      plans.length,
+    ]);
+
     useEffect(() {
       _debugLog(
         '🧭 Paywall subscription snapshot '
@@ -639,11 +728,13 @@ class PaywallScreen extends HookConsumerWidget {
             );
             await completePaywallFlowToDashboard(
               option: activePlanOption,
-              source: didInitiateRestore.value
-                  ? 'restore'
-                  : didInitiateCheckout.value
-                      ? 'checkout'
-                      : 'existing_subscription',
+              source: didInitiateFamilyAutoRestore.value
+                  ? 'family_sharing'
+                  : didInitiateRestore.value
+                      ? 'restore'
+                      : didInitiateCheckout.value
+                          ? 'checkout'
+                          : 'existing_subscription',
               provider: useIap ? 'iap' : 'stripe',
               includePurchaseEvent:
                   didInitiateCheckout.value || didInitiateRestore.value,
