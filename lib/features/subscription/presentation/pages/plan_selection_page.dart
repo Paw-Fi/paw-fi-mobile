@@ -16,6 +16,7 @@ import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
+import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/presentation/widgets/paywall_shared_sections.dart';
 import 'package:moneko/features/subscription/presentation/widgets/family_sharing_restored_dialog.dart';
@@ -604,31 +605,21 @@ class PlanSelectionPage extends HookConsumerWidget {
         );
       }
 
-      await ref.read(iapControllerProvider.notifier).restorePurchases();
-      await refreshSubscriptionState();
-
-      var restoredSubscription =
-          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
-      var isRestored = restoredSubscription?.isSubscribed ?? false;
-
-      if (showProcessing && !isRestored) {
-        for (var attempt = 0; attempt < 5; attempt++) {
-          await Future<void>.delayed(const Duration(seconds: 1));
-          await refreshSubscriptionState();
-          restoredSubscription = ref
+      return restoreAndWaitForIapSubscription(
+        restorePurchases: () =>
+            ref.read(iapControllerProvider.notifier).restorePurchases(),
+        refreshSubscription: refreshSubscriptionState,
+        hasActiveSubscription: () {
+          final restoredSubscription = ref
               .read(subscriptionManagementProvider)
               .valueOrNull
               ?.subscription;
-          isRestored = restoredSubscription?.isSubscribed ?? false;
-          final restoreError =
-              ref.read(iapControllerProvider).valueOrNull?.lastError ?? '';
-          if (isRestored || restoreError.isNotEmpty) {
-            break;
-          }
-        }
-      }
-
-      return isRestored;
+          return restoredSubscription?.isSubscribed ?? false;
+        },
+        restoreError: () =>
+            ref.read(iapControllerProvider).valueOrNull?.lastError ?? '',
+        maxRefreshAttempts: showProcessing ? 6 : 5,
+      );
     }
 
     useEffect(() {

@@ -107,6 +107,29 @@ void main() {
     expect(copy.body, contains('shared through Apple Family Sharing'));
   });
 
+  test('completion copy explains Family Sharing access without provider', () {
+    final l10n = lookupAppLocalizations(const Locale('en'));
+    final copy = onboardingCompletionCopyForSubscription(
+      l10n: l10n,
+      details: SubscriptionDetails(
+        subscription: Subscription(
+          id: 'sub_family',
+          userId: 'u1',
+          appStoreInAppOwnershipType: 'FAMILY_SHARED',
+          plan: 'plus',
+          status: 'active',
+          currentPeriodEnd: DateTime.now().add(const Duration(days: 30)),
+          createdAt: DateTime.now(),
+        ),
+        invoices: const [],
+      ),
+    );
+
+    expect(copy.progressLabel, 'Family Sharing access restored.');
+    expect(copy.title, 'Moneko Plus is shared through Family Sharing');
+    expect(copy.body, contains('shared through Apple Family Sharing'));
+  });
+
   test('completion copy explains owned App Store subscription restore', () {
     final l10n = lookupAppLocalizations(const Locale('en'));
     final copy = onboardingCompletionCopyForSubscription(

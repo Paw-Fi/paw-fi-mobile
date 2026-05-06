@@ -25,6 +25,7 @@ import 'package:moneko/features/onboarding/domain/budget_recommender.dart';
 import 'package:moneko/features/onboarding/domain/preauth_budget_profile.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/subscription/data/models/subscription_details.dart';
+import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
@@ -64,7 +65,8 @@ OnboardingSubscriptionCompletionCopy onboardingCompletionCopyForSubscription({
 }) {
   final subscription = details?.subscription;
   if ((subscription?.isSubscribed ?? false) &&
-      subscription?.provider == 'app_store') {
+      (subscription?.provider == 'app_store' ||
+          subscription?.appStoreInAppOwnershipType != null)) {
     final planName = details?.planDisplayName(l10n) ?? l10n.plus;
 
     if (subscription?.isAppStoreFamilyShared ?? false) {
@@ -137,9 +139,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     final progress = useState(0.0);
-    final progressLabel =
-        useState(context.l10n.onboardingPreparingProgressInitial);
+    final progressLabel = useState(l10n.onboardingPreparingProgressInitial);
     final setupError = useState<String?>(null);
     final isDone = useState(false);
     final completionCopy =
@@ -432,8 +434,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> restoreAppStoreSubscriptionIfAvailable() async {
-      if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    Future<bool> restoreAppStoreSubscriptionIfAvailable() async {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return false;
 
       try {
         await ref
@@ -447,17 +449,37 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           debugPrint(
             '[OnboardingPrep] App Store restore skipped because StoreKit is unavailable',
           );
-          return;
+          return false;
         }
 
-        await ref
-            .read(iapControllerProvider.notifier)
-            .restorePurchases()
-            .timeout(_kAppStoreRestoreTimeout);
+        return await restoreAndWaitForIapSubscription(
+          restorePurchases: () => ref
+              .read(iapControllerProvider.notifier)
+              .restorePurchases()
+              .timeout(_kAppStoreRestoreTimeout),
+          refreshSubscription: () async {
+            await ref
+                .read(subscriptionManagementProvider.notifier)
+                .refresh()
+                .timeout(_kSubscriptionRefreshTimeout);
+            await ref
+                .read(subscriptionNotifierProvider.notifier)
+                .refresh()
+                .timeout(_kSubscriptionRefreshTimeout);
+          },
+          hasActiveSubscription: () {
+            final subscriptionDetails =
+                ref.read(subscriptionManagementProvider).valueOrNull;
+            return subscriptionDetails?.hasActiveSubscription ?? false;
+          },
+          restoreError: () =>
+              ref.read(iapControllerProvider).valueOrNull?.lastError ?? '',
+        );
       } catch (error, stackTrace) {
         debugPrint(
           '[OnboardingPrep] App Store restore check skipped: $error\n$stackTrace',
         );
+        return false;
       }
     }
 
@@ -531,7 +553,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       try {
         setProgressState(
           progressValue: 0.1,
-          label: context.l10n
+          label: l10n
               .onboardingPreparingProgressInitial, // Use general word instead of activating free trial text
         );
         debugPrint(
@@ -625,7 +647,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           draft.wantsStarterPockets && shouldRunOnboardingPrep;
 
       setProgressState(
-        label: context.l10n.onboardingPreparingProgressSavingPreferences,
+        label: l10n.onboardingPreparingProgressSavingPreferences,
         progressValue: 0.2,
       );
 
@@ -637,7 +659,7 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       }
 
       setProgressState(
-        label: context.l10n.onboardingPreparingProgressApplyingDefaults,
+        label: l10n.onboardingPreparingProgressApplyingDefaults,
         progressValue: 0.55,
       );
 
@@ -871,8 +893,8 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
           setProgressState(
             progressValue: 0.85,
             label: canUseDashboardFallback
-                ? context.l10n.onboardingPreparingProgressErrorDashboard
-                : context.l10n.onboardingPreparingProgressErrorRetry,
+                ? l10n.onboardingPreparingProgressErrorDashboard
+                : l10n.onboardingPreparingProgressErrorRetry,
             done: false,
           );
           setupError.value = canUseDashboardFallback

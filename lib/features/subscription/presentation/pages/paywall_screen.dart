@@ -15,6 +15,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_products_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/iap_controller_provider.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
+import 'package:moneko/features/subscription/presentation/iap_restore_polling.dart';
 import 'package:moneko/features/subscription/presentation/mobile_stripe_checkout.dart';
 import 'package:moneko/features/subscription/data/models/subscription_product.dart';
 import 'package:moneko/features/subscription/data/models/plan_option.dart';
@@ -614,14 +615,20 @@ class PaywallScreen extends HookConsumerWidget {
         return false;
       }
 
-      await ref.read(iapControllerProvider.notifier).restorePurchases();
-      await refreshSubscriptionState();
-
-      var restoredSubscription =
-          ref.read(subscriptionManagementProvider).valueOrNull?.subscription;
-      var isRestored = restoredSubscription?.isSubscribed ?? false;
-
-      return isRestored;
+      return restoreAndWaitForIapSubscription(
+        restorePurchases: () =>
+            ref.read(iapControllerProvider.notifier).restorePurchases(),
+        refreshSubscription: refreshSubscriptionState,
+        hasActiveSubscription: () {
+          final restoredSubscription = ref
+              .read(subscriptionManagementProvider)
+              .valueOrNull
+              ?.subscription;
+          return restoredSubscription?.isSubscribed ?? false;
+        },
+        restoreError: () =>
+            ref.read(iapControllerProvider).valueOrNull?.lastError ?? '',
+      );
     }
 
     useEffect(() {
