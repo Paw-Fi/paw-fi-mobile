@@ -67,6 +67,8 @@ String? getCurrencyFlagPath(String currencyCode) {
     'SYP': 'syria',
     'ZMW': 'zambia',
     'XOF': 'senegal',
+    'CRC': 'costa_rica',
+    'XAF': 'cameroon',
   };
 
   final flagName = flagMap[code];

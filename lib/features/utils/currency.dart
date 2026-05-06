@@ -63,6 +63,8 @@ const Map<String, String> currencyOptions = {
   'SYP': '£S',
   'ZMW': 'ZK',
   'XOF': 'CFA',
+  'CRC': '₡',
+  'XAF': 'FCFA',
 };
 
 const String _defaultCurrencySymbol = r'$';
