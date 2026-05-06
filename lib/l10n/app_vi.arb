@@ -2701,5 +2701,6 @@
   "onboardingPreparingProgressAppStoreRestored": "Đã khôi phục gói đăng ký App Store.",
   "onboardingPreparingTitleAppStoreRestored": "Đã khôi phục gói đăng ký App Store",
   "onboardingPreparingBodyAppStoreRestored": "Chào mừng bạn trở lại! Gói đăng ký Moneko Plus qua App Store của bạn đã được khôi phục cho tài khoản này.",
-  "paywallBenefit0": "Một gói đăng ký cho cả gia đình"
+  "paywallBenefit0": "Một gói đăng ký cho cả gia đình",
+  "helpCenter": "Trung tâm trợ giúp"
 }

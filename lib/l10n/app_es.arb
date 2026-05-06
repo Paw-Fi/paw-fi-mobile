@@ -2704,5 +2704,6 @@
   "onboardingPreparingProgressAppStoreRestored": "Suscripción del App Store restaurada.",
   "onboardingPreparingTitleAppStoreRestored": "Suscripción del App Store restaurada",
   "onboardingPreparingBodyAppStoreRestored": "¡Te damos la bienvenida de nuevo! Tu suscripción a Moneko Plus del App Store se ha restaurado para esta cuenta.",
-  "paywallBenefit0": "Una suscripción para toda la familia"
+  "paywallBenefit0": "Una suscripción para toda la familia",
+  "helpCenter": "Centro de ayuda"
 }

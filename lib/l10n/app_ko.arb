@@ -2506,5 +2506,6 @@
   "onboardingPreparingProgressAppStoreRestored": "App Store 구독이 복원되었습니다.",
   "onboardingPreparingTitleAppStoreRestored": "App Store 구독이 복원되었습니다",
   "onboardingPreparingBodyAppStoreRestored": "다시 오신 걸 환영해요! 이 계정에 Moneko Plus App Store 구독이 복원되었습니다.",
-  "paywallBenefit0": "온 가족이 함께 쓰는 하나의 구독"
+  "paywallBenefit0": "온 가족이 함께 쓰는 하나의 구독",
+  "helpCenter": "도움말 센터"
 }

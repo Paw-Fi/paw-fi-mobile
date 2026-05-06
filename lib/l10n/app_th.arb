@@ -2719,5 +2719,6 @@
   "onboardingPreparingProgressAppStoreRestored": "กู้คืนการสมัครสมาชิก App Store แล้ว",
   "onboardingPreparingTitleAppStoreRestored": "กู้คืนการสมัครสมาชิก App Store แล้ว",
   "onboardingPreparingBodyAppStoreRestored": "ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว",
-  "paywallBenefit0": "สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว"
+  "paywallBenefit0": "สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว",
+  "helpCenter": "ศูนย์ช่วยเหลือ"
 }

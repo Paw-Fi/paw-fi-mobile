@@ -2702,5 +2702,6 @@
   "onboardingPreparingProgressAppStoreRestored": "App Storeのサブスクリプションが復元されました。",
   "onboardingPreparingTitleAppStoreRestored": "App Storeのサブスクリプションが復元されました",
   "onboardingPreparingBodyAppStoreRestored": "おかえりなさい！このアカウントでMoneko PlusのApp Storeサブスクリプションが復元されました。",
-  "paywallBenefit0": "家族みんなで使える1つのサブスクリプション"
+  "paywallBenefit0": "家族みんなで使える1つのサブスクリプション",
+  "helpCenter": "ヘルプセンター"
 }

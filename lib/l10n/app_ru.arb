@@ -2652,5 +2652,6 @@
   "onboardingPreparingProgressAppStoreRestored": "Подписка App Store восстановлена.",
   "onboardingPreparingTitleAppStoreRestored": "Подписка App Store восстановлена",
   "onboardingPreparingBodyAppStoreRestored": "С возвращением! Ваша подписка Moneko Plus через App Store восстановлена для этой учетной записи.",
-  "paywallBenefit0": "Одна подписка для всей семьи"
+  "paywallBenefit0": "Одна подписка для всей семьи",
+  "helpCenter": "Справочный центр"
 }

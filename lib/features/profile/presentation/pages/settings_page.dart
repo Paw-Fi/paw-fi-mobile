@@ -1329,6 +1329,14 @@ class SettingsPage extends HookConsumerWidget {
                   title: context.l10n.support,
                   children: [
                     _SettingsTile(
+                      icon: Icons.help_rounded,
+                      label: context.l10n.helpCenter,
+                      onTap: () => launchIntegrationUrl(
+                        Uri.parse('https://moneko.io/help'),
+                        errorMessage: 'Could not open help center',
+                      ),
+                    ),
+                    _SettingsTile(
                       icon: Icons.bug_report_rounded,
                       label: context.l10n.reportABug,
                       onTap: () => _showReportBugSheet(context),

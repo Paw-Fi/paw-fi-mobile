@@ -2649,5 +2649,6 @@
   "onboardingPreparingProgressAppStoreRestored": "App Store-abonnement hersteld.",
   "onboardingPreparingTitleAppStoreRestored": "App Store-abonnement hersteld",
   "onboardingPreparingBodyAppStoreRestored": "Welkom terug! Je Moneko Plus-abonnement via de App Store is voor dit account hersteld.",
-  "paywallBenefit0": "Eén abonnement voor het hele gezin"
+  "paywallBenefit0": "Eén abonnement voor het hele gezin",
+  "helpCenter": "Helpcentrum"
 }

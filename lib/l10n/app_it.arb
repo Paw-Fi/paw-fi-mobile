@@ -2649,5 +2649,6 @@
   "onboardingPreparingProgressAppStoreRestored": "Abbonamento App Store ripristinato.",
   "onboardingPreparingTitleAppStoreRestored": "Abbonamento App Store ripristinato",
   "onboardingPreparingBodyAppStoreRestored": "Bentornato! Il tuo abbonamento Moneko Plus tramite App Store è stato ripristinato per questo account.",
-  "paywallBenefit0": "Un solo abbonamento per tutta la famiglia"
+  "paywallBenefit0": "Un solo abbonamento per tutta la famiglia",
+  "helpCenter": "Centro assistenza"
 }

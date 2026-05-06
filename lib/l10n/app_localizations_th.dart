@@ -7174,4 +7174,7 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get paywallBenefit0 => 'สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว';
+
+  @override
+  String get helpCenter => 'ศูนย์ช่วยเหลือ';
 }

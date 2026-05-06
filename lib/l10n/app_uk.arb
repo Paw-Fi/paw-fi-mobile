@@ -2694,5 +2694,6 @@
   "onboardingPreparingProgressAppStoreRestored": "Підписку App Store відновлено.",
   "onboardingPreparingTitleAppStoreRestored": "Підписку App Store відновлено",
   "onboardingPreparingBodyAppStoreRestored": "З поверненням! Вашу підписку Moneko Plus через App Store відновлено для цього облікового запису.",
-  "paywallBenefit0": "Одна підписка для всієї родини"
+  "paywallBenefit0": "Одна підписка для всієї родини",
+  "helpCenter": "Довідковий центр"
 }

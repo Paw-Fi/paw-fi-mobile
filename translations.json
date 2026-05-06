@@ -1,19 +1,19 @@
 {
-  "paywallBenefit0": {
-    "en": "One subscription for the whole family",
-    "de": "Ein Abo für die ganze Familie",
-    "es": "Una suscripción para toda la familia",
-    "fr": "Un seul abonnement pour toute la famille",
-    "it": "Un solo abbonamento per tutta la famiglia",
-    "ja": "家族みんなで使える1つのサブスクリプション",
-    "ko": "온 가족이 함께 쓰는 하나의 구독",
-    "nl": "Eén abonnement voor het hele gezin",
-    "ur": "پورے خاندان کے لیے ایک ہی سبسکرپشن",
-    "ru": "Одна подписка для всей семьи",
-    "th": "สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว",
-    "uk": "Одна підписка для всієї родини",
-    "zh": "一个订阅，全家共享",
-    "zh_TW": "一個訂閱，全家共享",
-    "vi": "Một gói đăng ký cho cả gia đình"
+  "helpCenter": {
+    "en": "Help Center",
+    "de": "Hilfe-Center",
+    "es": "Centro de ayuda",
+    "fr": "Centre d’aide",
+    "it": "Centro assistenza",
+    "ja": "ヘルプセンター",
+    "ko": "도움말 센터",
+    "nl": "Helpcentrum",
+    "ur": "مرکزِ مدد",
+    "ru": "Справочный центр",
+    "th": "ศูนย์ช่วยเหลือ",
+    "uk": "Довідковий центр",
+    "zh": "帮助中心",
+    "zh_TW": "說明中心",
+    "vi": "Trung tâm trợ giúp"
   }
 }
