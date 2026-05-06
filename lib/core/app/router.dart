@@ -411,8 +411,15 @@ GoRouter router(RouterRef ref) {
           return '/onboarding?stage=post';
         }
 
-        // Allow paywall page for authenticated users (mobile only)
+        // Allow paywall page only while the router-facing subscription gate
+        // still requires it. If a purchase just activated, leave paywall even
+        // if the widget-level navigation did not run.
         if (!kIsWeb && isOnPaywallPage && isAuthenticated) {
+          if (!isSubscriptionChecking &&
+              !requiresPaywall &&
+              !hasExpiredEntitlement) {
+            return '/dashboard';
+          }
           return null;
         }
 

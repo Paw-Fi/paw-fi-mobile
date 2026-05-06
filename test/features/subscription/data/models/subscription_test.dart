@@ -161,6 +161,37 @@ void main() {
     });
   });
 
+  group('Subscription - provider detection', () {
+    test('treats App Store ownership metadata as IAP when provider is missing',
+        () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        plan: 'plus',
+        status: 'active',
+        billingInterval: 'monthly',
+        appStoreInAppOwnershipType: 'FAMILY_SHARED',
+        createdAt: DateTime(2024, 1, 1),
+      );
+
+      expect(subscription.isIap, true);
+    });
+
+    test('treats family shared App Store ownership as family sharing', () {
+      final subscription = Subscription(
+        id: 'sub_1',
+        userId: 'user_1',
+        plan: 'plus',
+        status: 'active',
+        billingInterval: 'monthly',
+        appStoreInAppOwnershipType: 'FAMILY_SHARED',
+        createdAt: DateTime(2024, 1, 1),
+      );
+
+      expect(subscription.isAppStoreFamilyShared, true);
+    });
+  });
+
   group('Subscription - isSubscribed Logic', () {
     test('returns false for canceled status', () {
       final subscription = Subscription(

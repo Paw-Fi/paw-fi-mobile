@@ -8,7 +8,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:intl/intl.dart';
 
-import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -55,32 +54,6 @@ Future<void> _maybeShowOnboardingReviewPrompt(
   } catch (_) {}
 }
 
-String _postAuthPageId(int stepIndex) {
-  switch (stepIndex) {
-    case 0:
-      return 'post_auth_log_expense';
-    case 1:
-      return 'post_auth_import';
-    case 2:
-      return 'post_auth_notifications';
-    default:
-      return 'post_auth_unknown';
-  }
-}
-
-String _postAuthStepKey(int stepIndex) {
-  switch (stepIndex) {
-    case 0:
-      return 'log_expense';
-    case 1:
-      return 'import';
-    case 2:
-      return 'notifications';
-    default:
-      return 'unknown';
-  }
-}
-
 class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   const OnboardingPostAuthFlowPage({
     super.key,
@@ -101,24 +74,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     final loggedExpensePreview =
         useState<OnboardingLoggedExpensePreview?>(null);
     final isPrimaryBusy = useState(false);
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
-
-    useEffect(() {
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(currentPage.value),
-          stepIndex: currentPage.value,
-          enableTracking: !fromSettings,
-          properties: <String, Object?>{
-            'from_settings': fromSettings,
-            'step_group': 'post_auth',
-            'step_key': _postAuthStepKey(currentPage.value),
-          },
-        ),
-      );
-      return null;
-    }, [currentPage.value, fromSettings]);
 
     useEffect(() {
       unawaited(
@@ -163,20 +118,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     void skip() {
-      unawaited(
-        analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(currentPage.value),
-          stepIndex: currentPage.value,
-          actionId: '${_postAuthStepKey(currentPage.value)}_skipped',
-          result: 'skipped',
-          enableTracking: !fromSettings,
-          properties: <String, Object?>{
-            'step_group': 'post_auth',
-            'step_key': _postAuthStepKey(currentPage.value),
-          },
-        ),
-      );
       if (currentPage.value == _kTotalSteps - 1) {
         unawaited(showFinishPage());
         return;
@@ -201,18 +142,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
         if (!context.mounted) return;
 
         notificationFlowCompleted.value = true;
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(2),
-          stepIndex: 2,
-          actionId: 'notifications_enabled',
-          result: 'used',
-          enableTracking: !fromSettings,
-          properties: const <String, Object?>{
-            'step_group': 'post_auth',
-            'step_key': 'notifications',
-          },
-        );
         await showFinishPage();
       } finally {
         if (context.mounted) {
@@ -222,19 +151,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     }
 
     Future<void> handleLogExpense() async {
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _postAuthPageId(0),
-        stepIndex: 0,
-        actionId: 'log_expense_started',
-        result: 'used',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'post_auth',
-          'step_key': 'log_expense',
-          'capture_source': selectedExpenseSource.value.name,
-        },
-      );
       final preview =
           await ref.read(onboardingPostAuthLogExpenseActionProvider)(
         context,
@@ -244,70 +160,17 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
       if (!context.mounted) return;
       if (preview != null) {
         loggedExpensePreview.value = preview;
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(0),
-          stepIndex: 0,
-          actionId: 'log_expense_completed',
-          result: 'success',
-          enableTracking: !fromSettings,
-          properties: <String, Object?>{
-            'step_group': 'post_auth',
-            'step_key': 'log_expense',
-            'capture_source': selectedExpenseSource.value.name,
-            'item_count': preview.items.length,
-          },
-        );
         await _showLoggedExpenseResultSheet(context, preview);
         return;
       }
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _postAuthPageId(0),
-        stepIndex: 0,
-        actionId: 'log_expense_cancelled',
-        result: 'cancelled',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'post_auth',
-          'step_key': 'log_expense',
-          'capture_source': selectedExpenseSource.value.name,
-        },
-      );
     }
 
     Future<void> handleImportExpenses() async {
       final notUsingAnApp = context.l10n.notUsingAnApp;
       if (selectedImportApp.value == notUsingAnApp) {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(1),
-          stepIndex: 1,
-          actionId: 'import_skipped',
-          result: 'skipped',
-          enableTracking: !fromSettings,
-          properties: const <String, Object?>{
-            'step_group': 'post_auth',
-            'step_key': 'import',
-          },
-        );
         next();
         return;
       }
-
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _postAuthPageId(1),
-        stepIndex: 1,
-        actionId: 'import_started',
-        result: 'used',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'post_auth',
-          'step_key': 'import',
-          'selected_import_app': selectedImportApp.value,
-        },
-      );
 
       ref.read(importWizardProvider.notifier).resetAfterImport();
       final imported = await Navigator.of(context).push<bool>(
@@ -321,35 +184,9 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
 
       if (!context.mounted) return;
       if (imported == true) {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _postAuthPageId(1),
-          stepIndex: 1,
-          actionId: 'import_completed',
-          result: 'success',
-          enableTracking: !fromSettings,
-          properties: <String, Object?>{
-            'step_group': 'post_auth',
-            'step_key': 'import',
-            'selected_import_app': selectedImportApp.value,
-          },
-        );
         next();
         return;
       }
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _postAuthPageId(1),
-        stepIndex: 1,
-        actionId: 'import_cancelled',
-        result: 'cancelled',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'post_auth',
-          'step_key': 'import',
-          'selected_import_app': selectedImportApp.value,
-        },
-      );
     }
 
     Future<void> primary() async {
@@ -383,19 +220,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
     Future<void> handleSourceSelection(_ExpenseCaptureSource value) async {
       if (isPrimaryBusy.value) return;
       selectedExpenseSource.value = value;
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _postAuthPageId(0),
-        stepIndex: 0,
-        actionId: 'expense_source_selected',
-        result: 'used',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'post_auth',
-          'step_key': 'log_expense',
-          'capture_source': value.name,
-        },
-      );
       await primary();
     }
 
@@ -442,21 +266,6 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
                       selectedApp: selectedImportApp.value,
                       onAppChanged: (value) {
                         selectedImportApp.value = value;
-                        unawaited(
-                          analytics.trackAction(
-                            flowName: 'onboarding_funnel',
-                            pageId: _postAuthPageId(1),
-                            stepIndex: 1,
-                            actionId: 'import_app_selected',
-                            result: 'used',
-                            enableTracking: !fromSettings,
-                            properties: <String, Object?>{
-                              'step_group': 'post_auth',
-                              'step_key': 'import',
-                              'selected_import_app': value,
-                            },
-                          ),
-                        );
                       },
                     ),
                     const _NotificationsStep(),
@@ -531,31 +340,10 @@ class OnboardingPostAuthFlowPage extends HookConsumerWidget {
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
     await _markOnboardingCompleted(ref);
     if (!context.mounted) return;
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     if (fromSettings) {
-      await analytics.endPage(
-        reason: 'settings_onboarding_closed',
-        transitionTo: '/settings',
-      );
       Navigator.of(context).pop();
       return;
     }
-    await analytics.trackAction(
-      flowName: 'onboarding_funnel',
-      pageId: _postAuthPageId(_kTotalSteps - 1),
-      stepIndex: _kTotalSteps - 1,
-      actionId: 'post_auth_completed',
-      result: 'success',
-      properties: const <String, Object?>{
-        'step_group': 'post_auth',
-        'step_key': 'notifications',
-        'next_route': '/dashboard',
-      },
-    );
-    await analytics.endPage(
-      reason: 'post_auth_completed',
-      transitionTo: 'dashboard',
-    );
     context.go('/dashboard');
   }
 }

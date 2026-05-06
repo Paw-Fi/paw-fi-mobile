@@ -263,7 +263,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Family'), findsOneWidget);
+      expect(find.text('Family Sharing'), findsOneWidget);
+      expect(find.text('Manage'), findsNothing);
       debugDefaultTargetPlatformOverride = null;
     },
   );

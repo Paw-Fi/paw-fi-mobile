@@ -11,7 +11,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/shared/widgets/moneko_rich_text.dart';
-import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -74,34 +73,6 @@ String _importSourceLabel(ImportSourceApp source) {
   }
 }
 
-String _guestIntroPageId() => 'onboarding_intro';
-
-String _authenticatedOnboardingPageId(int stepIndex) {
-  switch (stepIndex) {
-    case 0:
-      return 'onboarding_setup_notifications';
-    case 1:
-      return 'onboarding_setup_import';
-    case 2:
-      return 'onboarding_setup_ai_log';
-    default:
-      return 'onboarding_setup_unknown';
-  }
-}
-
-String _authenticatedOnboardingStepKey(int stepIndex) {
-  switch (stepIndex) {
-    case 0:
-      return 'notifications';
-    case 1:
-      return 'import';
-    case 2:
-      return 'ai_log';
-    default:
-      return 'unknown';
-  }
-}
-
 class _GuestOnboardingFlow extends HookConsumerWidget {
   const _GuestOnboardingFlow();
 
@@ -116,7 +87,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         GoRouterState.of(context).uri.queryParameters['entry'] == 'orbit' ||
             shouldReturnToOrbitFromPrefs;
     final isBusy = useState(false);
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     final isApplePlatform = defaultTargetPlatform == TargetPlatform.iOS;
     final introSlides = [
       (
@@ -159,15 +129,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
     }, const []);
 
     useEffect(() {
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex:
-              showOrbitPage.value ? introSlides.length : carouselIndex.value,
-          properties: <String, Object?>{'entry_path': 'guest_intro'},
-        ),
-      );
       return null;
     }, [carouselIndex.value, showOrbitPage.value]);
 
@@ -175,19 +136,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       if (isBusy.value) return;
       isBusy.value = true;
       try {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex:
-              showOrbitPage.value ? introSlides.length : carouselIndex.value,
-          actionId: 'intro_completed',
-          result: 'used',
-          properties: const <String, Object?>{'step_group': 'guest_intro'},
-        );
-        await analytics.endPage(
-          reason: 'intro_completed',
-          transitionTo: 'preauth_housing_situation',
-        );
         final store = ref.read(onboardingPreauthDraftStoreProvider);
         final current = store.load();
         await store.save(current.copyWith(currentStep: 0));
@@ -204,34 +152,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       if (isBusy.value) return;
       isBusy.value = true;
       try {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex:
-              showOrbitPage.value ? introSlides.length : carouselIndex.value,
-          actionId: 'preview_app_tapped',
-          result: 'used',
-          properties: const <String, Object?>{
-            'step_group': 'guest_intro',
-            'preview_entry_point': 'get_started',
-          },
-        );
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex:
-              showOrbitPage.value ? introSlides.length : carouselIndex.value,
-          actionId: 'intro_preview_app',
-          result: 'used',
-          properties: const <String, Object?>{
-            'step_group': 'guest_intro',
-            'preview_entry_point': 'get_started',
-          },
-        );
-        await analytics.endPage(
-          reason: 'intro_preview_app',
-          transitionTo: '/dashboard',
-        );
         final prefs = ref.read(sharedPreferencesProvider);
         await prefs.setBool(kPreviewModeActiveKey, true);
         await prefs.setBool(kPreviewReturnToPreauthKey, false);
@@ -251,19 +171,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
       if (isBusy.value) return;
       isBusy.value = true;
       try {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex:
-              showOrbitPage.value ? introSlides.length : carouselIndex.value,
-          actionId: 'intro_sign_in_tapped',
-          result: 'used',
-          properties: const <String, Object?>{'step_group': 'guest_intro'},
-        );
-        await analytics.endPage(
-          reason: 'intro_sign_in',
-          transitionTo: '/login',
-        );
         if (!context.mounted) return;
         context.go('/login');
       } finally {
@@ -278,16 +185,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         unawaited(goToPreAuthQuestions());
         return;
       }
-      unawaited(
-        analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex: carouselIndex.value,
-          actionId: 'intro_next',
-          result: 'used',
-          properties: const <String, Object?>{'step_group': 'guest_intro'},
-        ),
-      );
       if (carouselIndex.value >= introSlides.length - 1) {
         showOrbitPage.value = true;
         return;
@@ -315,16 +212,6 @@ class _GuestOnboardingFlow extends HookConsumerWidget {
         return;
       }
       if (carouselIndex.value <= 0) return;
-      unawaited(
-        analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _guestIntroPageId(),
-          stepIndex: carouselIndex.value,
-          actionId: 'intro_back',
-          result: 'used',
-          properties: const <String, Object?>{'step_group': 'guest_intro'},
-        ),
-      );
       final previousPage = carouselIndex.value - 1;
       if (pageController.hasClients) {
         unawaited(pageController.animateToPage(
@@ -1279,22 +1166,9 @@ class OnboardingFlowPage extends HookConsumerWidget {
     final selectedImportSource = useState<ImportSourceApp?>(null);
     final aiLogSuccess = useState<AiLogSuccess?>(null);
     final isPrimaryBusy = useState(false);
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     const totalSteps = 3;
 
     useEffect(() {
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: _authenticatedOnboardingPageId(currentPage.value),
-          stepIndex: currentPage.value,
-          enableTracking: !fromSettings,
-          properties: <String, Object?>{
-            'from_settings': fromSettings,
-            'step_key': _authenticatedOnboardingStepKey(currentPage.value),
-          },
-        ),
-      );
       return null;
     }, [currentPage.value, fromSettings]);
 
@@ -1334,27 +1208,7 @@ class OnboardingFlowPage extends HookConsumerWidget {
       }
     }
 
-    Future<void> trackSkipAction() async {
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _authenticatedOnboardingPageId(currentPage.value),
-        stepIndex: currentPage.value,
-        actionId:
-            '${_authenticatedOnboardingStepKey(currentPage.value)}_skipped',
-        result: 'skipped',
-        enableTracking: !fromSettings,
-        properties: <String, Object?>{
-          'step_group': 'authenticated_onboarding',
-          'step_key': _authenticatedOnboardingStepKey(currentPage.value),
-          if (selectedImportSource.value != null)
-            'selected_import_source':
-                _importSourceLabel(selectedImportSource.value!),
-        },
-      );
-    }
-
     void skip() {
-      unawaited(trackSkipAction());
       next();
     }
 
@@ -1387,18 +1241,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
         if (!context.mounted) return;
 
         notificationFlowCompleted.value = true;
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: _authenticatedOnboardingPageId(0),
-          stepIndex: 0,
-          actionId: 'notifications_enabled',
-          result: 'used',
-          enableTracking: !fromSettings,
-          properties: const <String, Object?>{
-            'step_group': 'authenticated_onboarding',
-            'step_key': 'notifications',
-          },
-        );
         next();
       } finally {
         if (context.mounted) {
@@ -1419,35 +1261,9 @@ class OnboardingFlowPage extends HookConsumerWidget {
         if (currentPage.value == 1) {
           final source = selectedImportSource.value;
           if (source == null) {
-            await analytics.trackAction(
-              flowName: 'onboarding_funnel',
-              pageId: _authenticatedOnboardingPageId(1),
-              stepIndex: 1,
-              actionId: 'import_skipped_no_source',
-              result: 'skipped',
-              enableTracking: !fromSettings,
-              properties: const <String, Object?>{
-                'step_group': 'authenticated_onboarding',
-                'step_key': 'import',
-              },
-            );
             next();
             return;
           }
-
-          await analytics.trackAction(
-            flowName: 'onboarding_funnel',
-            pageId: _authenticatedOnboardingPageId(1),
-            stepIndex: 1,
-            actionId: 'import_started',
-            result: 'used',
-            enableTracking: !fromSettings,
-            properties: <String, Object?>{
-              'step_group': 'authenticated_onboarding',
-              'step_key': 'import',
-              'selected_import_source': _importSourceLabel(source),
-            },
-          );
 
           final imported = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
@@ -1460,35 +1276,9 @@ class OnboardingFlowPage extends HookConsumerWidget {
 
           if (!context.mounted) return;
           if (imported == true) {
-            await analytics.trackAction(
-              flowName: 'onboarding_funnel',
-              pageId: _authenticatedOnboardingPageId(1),
-              stepIndex: 1,
-              actionId: 'import_completed',
-              result: 'success',
-              enableTracking: !fromSettings,
-              properties: <String, Object?>{
-                'step_group': 'authenticated_onboarding',
-                'step_key': 'import',
-                'selected_import_source': _importSourceLabel(source),
-              },
-            );
             next();
             return;
           }
-          await analytics.trackAction(
-            flowName: 'onboarding_funnel',
-            pageId: _authenticatedOnboardingPageId(1),
-            stepIndex: 1,
-            actionId: 'import_cancelled',
-            result: 'cancelled',
-            enableTracking: !fromSettings,
-            properties: <String, Object?>{
-              'step_group': 'authenticated_onboarding',
-              'step_key': 'import',
-              'selected_import_source': _importSourceLabel(source),
-            },
-          );
           return;
         }
 
@@ -1503,20 +1293,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
             ref,
             onSuccess: (success) {
               aiLogSuccess.value = success;
-              unawaited(
-                analytics.trackAction(
-                  flowName: 'onboarding_funnel',
-                  pageId: _authenticatedOnboardingPageId(2),
-                  stepIndex: 2,
-                  actionId: 'ai_log_completed',
-                  result: 'success',
-                  enableTracking: !fromSettings,
-                  properties: const <String, Object?>{
-                    'step_group': 'authenticated_onboarding',
-                    'step_key': 'ai_log',
-                  },
-                ),
-              );
             },
           );
           return;
@@ -1580,22 +1356,6 @@ class OnboardingFlowPage extends HookConsumerWidget {
                             selected: selectedImportSource.value,
                             onSelected: (value) {
                               selectedImportSource.value = value;
-                              unawaited(
-                                analytics.trackAction(
-                                  flowName: 'onboarding_funnel',
-                                  pageId: _authenticatedOnboardingPageId(1),
-                                  stepIndex: 1,
-                                  actionId: 'import_source_selected',
-                                  result: 'used',
-                                  enableTracking: !fromSettings,
-                                  properties: <String, Object?>{
-                                    'step_group': 'authenticated_onboarding',
-                                    'step_key': 'import',
-                                    'selected_import_source':
-                                        _importSourceLabel(value),
-                                  },
-                                ),
-                              );
                             },
                           )
                         : const SizedBox.shrink(),
@@ -1668,22 +1428,9 @@ class OnboardingFlowPage extends HookConsumerWidget {
   Future<void> _completeOnboarding(BuildContext context, WidgetRef ref) async {
     await _markOnboardingCompleted(ref);
     if (!context.mounted) return;
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     if (fromSettings) {
-      await analytics.endPage(
-        reason: 'settings_onboarding_closed',
-        transitionTo: '/settings',
-      );
       Navigator.of(context).pop();
     } else {
-      await analytics.completeSession(
-        flowName: 'onboarding_funnel',
-        pageId: _authenticatedOnboardingPageId(2),
-        stepIndex: 2,
-        properties: const <String, Object?>{
-          'completion_target': 'dashboard',
-        },
-      );
       context.go('/dashboard');
     }
   }

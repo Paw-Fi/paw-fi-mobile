@@ -9,7 +9,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -146,18 +145,10 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     final completionCopy =
         useState<OnboardingSubscriptionCompletionCopy?>(null);
     final didStart = useState(false);
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     final isPrimaryActionEnabled = isDone.value || setupError.value != null;
     final isGrantingOnboardingTrial = useRef(false);
 
     useEffect(() {
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: 'onboarding_account_preparing',
-          properties: const <String, Object?>{'entry_path': 'prepare'},
-        ),
-      );
       return null;
     }, const []);
 
@@ -629,35 +620,9 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
         setProgressState: setProgressState,
       );
       final hasExistingData = existingState.hasMeaningfulData;
-      final isExternalSubscriptionNewUser =
-          existingState.isExternalSubscriptionNewUser;
       final shouldRunOnboardingPrep = !wasAlreadySynced || !hasExistingData;
       final shouldApplyStarterSync =
           draft.wantsStarterPockets && shouldRunOnboardingPrep;
-
-      await analytics.classifySession(
-        flowName: 'onboarding_funnel',
-        pageId: 'onboarding_account_preparing',
-        classification: hasExistingData
-            ? 'existing_user_reentry'
-            : isExternalSubscriptionNewUser
-                ? 'external_subscription_new_user'
-                : 'in_app_new_user',
-        excludedFromMetrics: hasExistingData,
-        properties: <String, Object?>{
-          'acquisition_source': hasExistingData
-              ? 'existing_user_reentry'
-              : isExternalSubscriptionNewUser
-                  ? 'external_prepaid'
-                  : 'app_onboarding',
-          'has_existing_data': hasExistingData,
-          'has_existing_subscription': existingState.hasSubscriptionData,
-          'has_existing_budget_data': existingState.hasBudgetData,
-          'has_existing_expenses': existingState.hasExpenses,
-          'has_existing_household_membership':
-              existingState.hasHouseholdMembership,
-        },
-      );
 
       setProgressState(
         label: context.l10n.onboardingPreparingProgressSavingPreferences,
@@ -665,15 +630,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
       );
 
       if (!shouldRunOnboardingPrep) {
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: 'onboarding_account_preparing',
-          actionId: 'existing_user_detected',
-          result: 'excluded',
-          properties: <String, Object?>{
-            'classification': 'existing_user_reentry',
-          },
-        );
         if (context.mounted) {
           context.go('/dashboard');
         }
@@ -974,26 +930,6 @@ class OnboardingAccountPreparingPage extends HookConsumerWidget {
     }, [autoStart]);
 
     Future<void> onPrimaryActionTap() async {
-      final actionId = isDone.value
-          ? 'prepare_open_dashboard_tapped'
-          : setupError.value == 'budget_validation_failed'
-              ? 'prepare_open_dashboard_tapped'
-              : setupError.value != null
-                  ? 'prepare_try_again_tapped'
-                  : 'prepare_continue_tapped';
-
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: 'onboarding_account_preparing',
-        actionId: actionId,
-        result: 'used',
-        properties: <String, Object?>{
-          'has_error': setupError.value != null,
-          'error_code': setupError.value,
-          'is_done': isDone.value,
-        },
-      );
-
       if (isDone.value || setupError.value == 'budget_validation_failed') {
         if (context.mounted) {
           context.go('/dashboard');

@@ -189,7 +189,11 @@ class Subscription {
   /// Helper to check if user is on free plan
   bool get isFreePlan => plan == 'free' || plan == null;
 
-  bool get isIap => provider == 'app_store' || provider == 'play_store';
+  bool get isIap =>
+      provider == 'app_store' ||
+      provider == 'play_store' ||
+      appStoreInAppOwnershipType != null;
   bool get isAppStoreFamilyShared =>
-      provider == 'app_store' && appStoreInAppOwnershipType == 'FAMILY_SHARED';
+      (provider == null || provider == 'app_store') &&
+      appStoreInAppOwnershipType == 'FAMILY_SHARED';
 }

@@ -12,7 +12,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:moneko/core/l10n/l10n.dart';
-import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/features/onboarding/data/onboarding_preauth_draft_store.dart';
@@ -146,19 +145,10 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
     final answeredOptionSteps = useState<Set<int>>(<int>{});
     final isAutoAdvancing = useState(false);
     final budgetSliderDebounce = useRef<Timer?>(null);
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
     const totalSteps = _kTotalPreAuthSteps;
 
     useEffect(() {
       if (!isLoaded.value) return null;
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: _preauthPageId(currentPage.value),
-          stepIndex: currentPage.value,
-          properties: const <String, Object?>{'entry_path': 'preauth'},
-        ),
-      );
       return null;
     }, [isLoaded.value, currentPage.value]);
 
@@ -242,17 +232,6 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
 
     Future<void> goBack() async {
       if (currentPage.value <= 0) return;
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _preauthPageId(currentPage.value),
-        stepIndex: currentPage.value,
-        actionId: 'preauth_back',
-        result: 'used',
-        properties: <String, Object?>{
-          'step_group': 'preauth',
-          'step_key': _preauthPageId(currentPage.value),
-        },
-      );
       var previousStep = currentPage.value - 1;
       while (previousStep > 0 && _kTransientSteps.contains(previousStep)) {
         previousStep -= 1;
@@ -299,18 +278,6 @@ class OnboardingPreAuthFlowPage extends HookConsumerWidget {
       HapticFeedback.lightImpact();
       markAnswered(stepIndex);
       await persistDraft(nextDraft);
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: _preauthPageId(stepIndex),
-        stepIndex: stepIndex,
-        actionId: 'preauth_answered',
-        result: 'used',
-        properties: <String, Object?>{
-          'step_group': 'preauth',
-          'step_key': _preauthPageId(stepIndex),
-          if (selectedValue != null) 'selected_value': selectedValue,
-        },
-      );
       afterPersist?.call();
       if (!context.mounted) return;
       isAutoAdvancing.value = true;
@@ -765,7 +732,7 @@ class _PreAuthTestimonialStep extends StatelessWidget {
       (review) => review.id == 'review-020',
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -777,7 +744,7 @@ class _PreAuthTestimonialStep extends StatelessWidget {
               color: colorScheme.foreground,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             context.l10n.onboardingPreauthTestimonialSubtitle,
             style: TextStyle(
@@ -785,15 +752,15 @@ class _PreAuthTestimonialStep extends StatelessWidget {
               color: colorScheme.mutedForeground,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           Center(
             child: SvgPicture.asset(
               'lib/assets/images/onboarding/testimonial.svg',
-              height: 190,
+              height: 185,
               fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           AppStoreReviewCard(
             review: qualityReview,
           ),

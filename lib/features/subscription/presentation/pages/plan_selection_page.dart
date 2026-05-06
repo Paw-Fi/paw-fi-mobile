@@ -101,10 +101,16 @@ class PlanSelectionPage extends HookConsumerWidget {
     final renewalInfoLabel = currentSub?.renewalInfo(context.l10n);
     final hasActiveSubscription =
         currentSub?.subscription?.isSubscribed ?? false;
-    final isStoreManagedSubscription =
-        currentProvider == 'app_store' || currentProvider == 'play_store';
-    final canManageCurrentSubscription =
-        currentPlanId != 'free' && currentPlanId != 'lifetime';
+    final currentSubscription = currentSub?.subscription;
+    final isFamilySharedSubscription =
+        currentSubscription?.isAppStoreFamilyShared ?? false;
+    final isAppStoreManagedSubscription = currentProvider == 'app_store' ||
+        currentSubscription?.appStoreInAppOwnershipType != null;
+    final isPlayStoreManagedSubscription = currentProvider == 'play_store';
+    final isStoreManagedSubscription = currentSubscription?.isIap ?? false;
+    final canManageCurrentSubscription = currentPlanId != 'free' &&
+        currentPlanId != 'lifetime' &&
+        !isFamilySharedSubscription;
 
     // Check if user is truly new (no subscription data exists)
     final isNewUser = currentSub?.subscription == null;
@@ -789,8 +795,10 @@ class PlanSelectionPage extends HookConsumerWidget {
       }
 
       if (isStoreManagedSubscription) {
-        final storeProductId = currentSub?.subscription?.storeProductId;
-        final uri = defaultTargetPlatform == TargetPlatform.iOS
+        final storeProductId = currentSubscription?.storeProductId;
+        final uri = isAppStoreManagedSubscription ||
+                (!isPlayStoreManagedSubscription &&
+                    defaultTargetPlatform == TargetPlatform.iOS)
             ? Uri.parse('https://apps.apple.com/account/subscriptions')
             : Uri.parse(
                 'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
@@ -845,8 +853,10 @@ class PlanSelectionPage extends HookConsumerWidget {
 
     Future<void> onManageStoreSubscription() async {
       _debugLog('🧾 Open manage store subscription');
-      final storeProductId = currentSub?.subscription?.storeProductId;
-      final uri = defaultTargetPlatform == TargetPlatform.iOS
+      final storeProductId = currentSubscription?.storeProductId;
+      final uri = isAppStoreManagedSubscription ||
+              (!isPlayStoreManagedSubscription &&
+                  defaultTargetPlatform == TargetPlatform.iOS)
           ? Uri.parse('https://apps.apple.com/account/subscriptions')
           : Uri.parse(
               'https://play.google.com/store/account/subscriptions?package=com.moneko.mobile${storeProductId != null ? '&sku=$storeProductId' : ''}',
@@ -1193,11 +1203,11 @@ class PlanSelectionPage extends HookConsumerWidget {
                                                 ),
                                               ),
                                             ),
-                                            if (currentSub?.subscription
-                                                    ?.isAppStoreFamilyShared ??
-                                                false) ...[
+                                            if (isFamilySharedSubscription) ...[
                                               const SizedBox(width: 6),
-                                              const _FamilySharingBadge(),
+                                              const Flexible(
+                                                child: _FamilySharingBadge(),
+                                              ),
                                             ],
                                           ],
                                         ),
@@ -1350,8 +1360,8 @@ class PlanSelectionPage extends HookConsumerWidget {
                             ),
                           ),
                           if (currentPlanId != 'free' &&
-                              (currentProvider == 'app_store' ||
-                                  currentProvider == 'play_store') &&
+                              isStoreManagedSubscription &&
+                              !isFamilySharedSubscription &&
                               currentPlanId != 'lifetime') ...[
                             const SizedBox(height: 16),
                             GestureDetector(
@@ -1482,7 +1492,9 @@ class _FamilySharingBadge extends StatelessWidget {
         ),
       ),
       child: Text(
-        'Family',
+        context.l10n.onboardingFinishHighlightHouseholdTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,

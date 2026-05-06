@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
-import 'package:moneko/core/analytics/onboarding_flow_analytics_service.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_management_provider.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
@@ -81,10 +80,10 @@ class PaywallScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final subscriptionAsync = ref.watch(subscriptionManagementProvider);
+    final routerSubscriptionAsync = ref.watch(subscriptionNotifierProvider);
     final productsAsync = ref.watch(subscriptionProductsProvider);
     final iapStateAsync = ref.watch(iapControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final analytics = ref.read(onboardingFlowAnalyticsServiceProvider);
 
     // View State
     final selectedPlanId = useState<String>('plus_yearly');
@@ -94,11 +93,15 @@ class PaywallScreen extends HookConsumerWidget {
     final processingDialogKind = useState<_ProcessingDialogKind?>(null);
 
     final currentSub = subscriptionAsync.value;
-    final currentPlanId = currentSub?.subscription?.plan ?? 'free';
-    final currentInterval = currentSub?.subscription?.billingInterval;
-    final currentStatus = currentSub?.subscription?.status?.toLowerCase();
+    final directSubscription = routerSubscriptionAsync.valueOrNull;
+    final effectiveSubscription =
+        currentSub?.subscription ?? directSubscription;
+    final currentPlanId = effectiveSubscription?.plan ?? 'free';
+    final currentInterval = effectiveSubscription?.billingInterval;
+    final currentStatus = effectiveSubscription?.status?.toLowerCase();
     final hasActiveSubscription =
-        currentSub?.subscription?.isSubscribed ?? false;
+        (currentSub?.subscription?.isSubscribed ?? false) ||
+            (directSubscription?.isSubscribed ?? false);
     final isIos = defaultTargetPlatform == TargetPlatform.iOS;
     final useIap = isIos && !forceUseStripeCheckout;
 
@@ -120,18 +123,10 @@ class PaywallScreen extends HookConsumerWidget {
     final didInitiateFamilyAutoRestore = useRef(false);
     final didAttemptFamilyAutoRestore = useRef(false);
     final didCompletePaywallFlow = useRef(false);
+    final checkoutPlanOption = useRef<PlanOption?>(null);
     final lastPresentedPlanKey = useRef<String?>(null);
 
     useEffect(() {
-      unawaited(
-        analytics.beginPage(
-          flowName: 'onboarding_funnel',
-          pageId: 'paywall',
-          properties: <String, Object?>{
-            'paywall_mode': mode.queryValue,
-          },
-        ),
-      );
       return null;
     }, [mode]);
 
@@ -149,38 +144,10 @@ class PaywallScreen extends HookConsumerWidget {
       didCompletePaywallFlow.value = true;
       final isFamilyAutoRestore = source == 'family_sharing';
 
-      if (includePurchaseEvent) {
-        await analytics.trackEvent(
-          eventName: 'paywall_purchase_succeeded',
-          flowName: 'onboarding_funnel',
-          pageId: 'paywall',
-          dedupeKey: 'success-${mode.queryValue}-${option.id}-$source',
-          properties: <String, Object?>{
-            'paywall_mode': mode.queryValue,
-            'selected_plan': option.serverPlanId,
-            'selected_option_id': option.id,
-            'billing_interval': option.billingInterval,
-            'provider': provider,
-            'source': source,
-          },
-        );
-      }
-
-      await analytics.completeSession(
-        flowName: 'onboarding_funnel',
-        pageId: 'paywall',
-        properties: <String, Object?>{
-          'completion_target': 'dashboard',
-          'paywall_mode': mode.queryValue,
-          'selected_plan': option.id,
-          'provider': provider,
-          'source': source,
-        },
-      );
-
       didInitiateCheckout.value = false;
       didInitiateRestore.value = false;
       didInitiateFamilyAutoRestore.value = false;
+      checkoutPlanOption.value = null;
 
       if (context.mounted) {
         if (isFamilyAutoRestore) {
@@ -262,6 +229,67 @@ class PaywallScreen extends HookConsumerWidget {
       });
     }
 
+    Future<void> verifyIapSubscriptionAndCompleteCheckout(
+        String trigger) async {
+      try {
+        await ref.read(subscriptionNotifierProvider.notifier).refresh();
+        await ref.read(subscriptionManagementProvider.notifier).refresh();
+
+        // Give the Edge Function/Supabase read path a short propagation window.
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        if (!context.mounted) return;
+
+        final subscriptionAsync = ref.read(subscriptionManagementProvider);
+        final subscriptionDetails = subscriptionAsync.valueOrNull;
+        final subscriptionData = subscriptionDetails?.subscription;
+        final directSubscription =
+            ref.read(subscriptionNotifierProvider).valueOrNull;
+        final isActive = (subscriptionData?.isSubscribed ?? false) ||
+            (directSubscription?.isSubscribed ?? false);
+
+        if (isActive) {
+          final completedOption = checkoutPlanOption.value;
+          if (completedOption == null) {
+            didCompletePaywallFlow.value = true;
+            didInitiateCheckout.value = false;
+            checkoutPlanOption.value = null;
+            context.go('/dashboard');
+            return;
+          }
+
+          await completePaywallFlowToDashboard(
+            option: completedOption,
+            source: 'checkout',
+            provider: 'iap',
+            includePurchaseEvent: true,
+          );
+          return;
+        }
+
+        didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
+        AppToast.error(
+          context,
+          context.l10n.paywallErrorNotActivated,
+        );
+      } catch (e, stack) {
+        _debugLog(
+            '❌ verifyIapSubscriptionAndCompleteCheckout failed | trigger=$trigger error=$e');
+        _debugLog('Stack: $stack');
+        didInitiateCheckout.value = false;
+        checkoutPlanOption.value = null;
+
+        if (context.mounted) {
+          dismissProcessingDialog('iap verification error');
+          AppToast.error(
+            context,
+            context.l10n.paywallErrorVerificationFailedRestart,
+          );
+        }
+      }
+    }
+
     if (useIap && !didRegisterIapListener.value) {
       didRegisterIapListener.value = true;
       ref.listen<AsyncValue<IapState>>(iapControllerProvider, (prev, next) {
@@ -280,6 +308,8 @@ class PaywallScreen extends HookConsumerWidget {
         );
 
         if (next.hasError) {
+          didInitiateCheckout.value = false;
+          checkoutPlanOption.value = null;
           dismissProcessingDialog('provider error');
           _debugLog('IAP provider error: ${next.error}');
           showIapError(
@@ -305,6 +335,8 @@ class PaywallScreen extends HookConsumerWidget {
           }
           _debugLog('🚨 IAP purchase error detected: $nextError');
           _debugLog('🚨 Calling showIapError...');
+          didInitiateCheckout.value = false;
+          checkoutPlanOption.value = null;
           showIapError(nextError, 'lastError');
           _debugLog('🚨 showIapError called');
         }
@@ -327,77 +359,34 @@ class PaywallScreen extends HookConsumerWidget {
           _debugLog('✅ Purchase successful! Refreshing subscription...');
 
           // Schedule async work without blocking the listener
-          Future.microtask(() async {
-            try {
-              // Refresh subscription state - cross-invalidation ensures both providers stay in sync
-              _debugLog('🔄 Refreshing subscription state...');
-              await ref.read(subscriptionManagementProvider.notifier).refresh();
-              // Note: subscriptionNotifierProvider is cross-invalidated automatically
-
-              // Wait a bit longer to ensure Supabase propagation
-              await Future.delayed(const Duration(milliseconds: 1000));
-
-              if (!context.mounted) return;
-
-              // Verify subscription is actually active before navigating
-              final subscriptionAsync =
-                  ref.read(subscriptionManagementProvider);
-              final subscriptionDetails = subscriptionAsync.valueOrNull;
-              final subscriptionData = subscriptionDetails?.subscription;
-
-              // Use the Subscription model's isSubscribed check (includes expiry validation)
-              final isActive = subscriptionData?.isSubscribed ?? false;
-
-              _debugLog('📊 Full subscription check:');
-              _debugLog(
-                  '  - AsyncValue hasValue: ${subscriptionAsync.hasValue}');
-              _debugLog(
-                  '  - AsyncValue hasError: ${subscriptionAsync.hasError}');
-              _debugLog(
-                  '  - SubscriptionDetails: ${subscriptionDetails != null}');
-              _debugLog('  - Subscription model: ${subscriptionData != null}');
-              _debugLog('  - plan: ${subscriptionData?.plan}');
-              _debugLog('  - status: ${subscriptionData?.status}');
-              _debugLog('  - provider: ${subscriptionData?.provider}');
-              _debugLog(
-                  '  - currentPeriodEnd: ${subscriptionData?.currentPeriodEnd}');
-              _debugLog('  - now: ${DateTime.now()}');
-              if (subscriptionData?.currentPeriodEnd != null) {
-                _debugLog(
-                    '  - isAfter now: ${subscriptionData!.currentPeriodEnd!.isAfter(DateTime.now())}');
-              }
-              _debugLog('  - isSubscribed (from model): $isActive');
-
-              if (isActive) {
-                _debugLog(
-                    '✅ Subscription confirmed active, waiting for paywall completion effect');
-              } else {
-                // Subscription still not active - show error
-                _debugLog('❌ Subscription not active after purchase!');
-                AppToast.error(
-                  context,
-                  context.l10n.paywallErrorNotActivated,
-                );
-              }
-            } catch (e, stack) {
-              _debugLog('❌ Error refreshing subscription: $e');
-              _debugLog('Stack: $stack');
-
-              // Show error to user instead of navigating
-              if (context.mounted) {
-                dismissProcessingDialog('iap verification error');
-                AppToast.error(
-                  context,
-                  context.l10n.paywallErrorVerificationFailedRestart,
-                );
-              }
-            }
-          });
+          Future.microtask(
+            () => verifyIapSubscriptionAndCompleteCheckout(
+              'has_new_completion',
+            ),
+          );
         }
 
         if (!prevProcessing && nextProcessing) {
           _debugLog('⏳ IAP processing started');
           didSeeIapProcessing.value = true;
+        }
+
+        if (prevProcessing &&
+            !nextProcessing &&
+            nextError == null &&
+            nextCompletedProductId == null) {
+          _debugLog(
+            '⚠️ IAP processing ended without error/completion marker; '
+            'dialogOpen=${processingDialogOpen.value} initiated=${nextState?.initiatedProductId}',
+          );
+          if (didInitiateCheckout.value) {
+            dismissProcessingDialog('iap processing ended without completion');
+            Future.microtask(
+              () => verifyIapSubscriptionAndCompleteCheckout(
+                'processing_ended_without_completion_marker',
+              ),
+            );
+          }
         }
       });
     }
@@ -596,20 +585,6 @@ class PaywallScreen extends HookConsumerWidget {
       }
 
       lastPresentedPlanKey.value = planKey;
-      unawaited(
-        analytics.trackEvent(
-          eventName: 'paywall_plan_presented',
-          flowName: 'onboarding_funnel',
-          pageId: 'paywall',
-          dedupeKey: planKey,
-          properties: <String, Object?>{
-            'paywall_mode': mode.queryValue,
-            'selected_plan': activePlanOption.serverPlanId,
-            'selected_option_id': activePlanOption.id,
-            'billing_interval': activePlanOption.billingInterval,
-          },
-        ),
-      );
       return null;
     }, [
       plans.length,
@@ -807,18 +782,6 @@ class PaywallScreen extends HookConsumerWidget {
                   const SizedBox(height: 12),
                   PrimaryAdaptiveButton(
                     onPressed: () {
-                      unawaited(
-                        analytics.trackAction(
-                          flowName: 'onboarding_funnel',
-                          pageId: 'paywall',
-                          actionId: 'retry_load_options_tapped',
-                          result: 'used',
-                          properties: <String, Object?>{
-                            'paywall_mode': mode.queryValue,
-                            'provider': 'iap',
-                          },
-                        ),
-                      );
                       ref.read(subscriptionProductsProvider.notifier).refresh();
                     },
                     child: Text(context.l10n.retry),
@@ -832,16 +795,6 @@ class PaywallScreen extends HookConsumerWidget {
     }
 
     Future<void> onManageStoreSubscription() async {
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: 'paywall',
-        actionId: 'manage_store_subscription_tapped',
-        result: 'used',
-        properties: <String, Object?>{
-          'paywall_mode': mode.queryValue,
-          'provider': useIap ? 'iap' : 'stripe',
-        },
-      );
       _debugLog('🧾 Open manage store subscription');
       final storeProductId = currentSub?.subscription?.storeProductId;
       final uri = defaultTargetPlatform == TargetPlatform.iOS
@@ -960,21 +913,9 @@ class PaywallScreen extends HookConsumerWidget {
       );
       try {
         didInitiateCheckout.value = true;
-        await analytics.trackAction(
-          flowName: 'onboarding_funnel',
-          pageId: 'paywall',
-          actionId: 'subscribe_tapped',
-          result: 'used',
-          properties: <String, Object?>{
-            'paywall_mode': mode.queryValue,
-            'selected_plan': activePlanOption.serverPlanId,
-            'selected_option_id': activePlanOption.id,
-            'billing_interval': activePlanOption.billingInterval,
-            'provider': useIap ? 'iap' : 'stripe',
-          },
-        );
         print('🍎 Platform check - iOS: $isIos');
         if (useIap) {
+          checkoutPlanOption.value = activePlanOption;
           // Don't allow purchase attempts until the store/products are ready.
           final iapState = iapStateAsync.valueOrNull;
           if (iapState == null || !iapState.storeAvailable) {
@@ -1015,18 +956,6 @@ class PaywallScreen extends HookConsumerWidget {
           _debugLog(
             '🧾 IAP buy start | product=${catalog.storeProductId} plan=${catalog.plan} interval=${catalog.billingInterval}',
           );
-          await analytics.trackEvent(
-            eventName: 'paywall_checkout_started',
-            flowName: 'onboarding_funnel',
-            pageId: 'paywall',
-            properties: <String, Object?>{
-              'paywall_mode': mode.queryValue,
-              'selected_plan': activePlanOption.serverPlanId,
-              'selected_option_id': activePlanOption.id,
-              'billing_interval': activePlanOption.billingInterval,
-              'provider': 'iap',
-            },
-          );
           await ref.read(iapControllerProvider.notifier).buy(catalog);
           print('✅ buy() method completed');
           _debugLog('🧾 IAP buy completed');
@@ -1040,18 +969,6 @@ class PaywallScreen extends HookConsumerWidget {
           isStripeProcessing.value = true;
 
           try {
-            await analytics.trackEvent(
-              eventName: 'paywall_checkout_started',
-              flowName: 'onboarding_funnel',
-              pageId: 'paywall',
-              properties: <String, Object?>{
-                'paywall_mode': mode.queryValue,
-                'selected_plan': activePlanOption.serverPlanId,
-                'selected_option_id': activePlanOption.id,
-                'billing_interval': activePlanOption.billingInterval,
-                'provider': 'stripe',
-              },
-            );
             await startStripeCheckout(activePlanOption);
             await completePaywallFlowToDashboard(
               option: activePlanOption,
@@ -1080,18 +997,8 @@ class PaywallScreen extends HookConsumerWidget {
                   lower.contains('managed through an in-app purchase');
 
           if (isManagedInApp) {
-            await analytics.trackEvent(
-              eventName: 'paywall_purchase_failed',
-              flowName: 'onboarding_funnel',
-              pageId: 'paywall',
-              properties: <String, Object?>{
-                'paywall_mode': mode.queryValue,
-                'selected_plan': activePlanOption.serverPlanId,
-                'billing_interval': activePlanOption.billingInterval,
-                'provider': useIap ? 'iap' : 'stripe',
-                'failure_reason': 'managed_in_store',
-              },
-            );
+            didInitiateCheckout.value = false;
+            checkoutPlanOption.value = null;
             if (!context.mounted) return;
             final result = await MonekoAlertDialog.show(
               context: context,
@@ -1107,21 +1014,8 @@ class PaywallScreen extends HookConsumerWidget {
             return;
           }
 
-          await analytics.trackEvent(
-            eventName: isCanceled
-                ? 'paywall_purchase_cancelled'
-                : 'paywall_purchase_failed',
-            flowName: 'onboarding_funnel',
-            pageId: 'paywall',
-            properties: <String, Object?>{
-              'paywall_mode': mode.queryValue,
-              'selected_plan': activePlanOption.serverPlanId,
-              'billing_interval': activePlanOption.billingInterval,
-              'provider': useIap ? 'iap' : 'stripe',
-              'error_message': raw,
-            },
-          );
           didInitiateCheckout.value = false;
+          checkoutPlanOption.value = null;
           if (!context.mounted) return;
 
           if (isCanceled) {
@@ -1145,15 +1039,6 @@ class PaywallScreen extends HookConsumerWidget {
       didSeeIapProcessing.value = false;
       final storeUnavailableMessage =
           context.l10n.paywallErrorStoreUnavailableShort;
-      await analytics.trackAction(
-        flowName: 'onboarding_funnel',
-        pageId: 'paywall',
-        actionId: 'restore_purchases_tapped',
-        result: 'used',
-        properties: <String, Object?>{
-          'paywall_mode': mode.queryValue,
-        },
-      );
       if (context.mounted) {
         processingDialogOpen.value = true;
         _debugLog('🧾 Dialog open set to true (restore purchases)');
@@ -1293,27 +1178,7 @@ class PaywallScreen extends HookConsumerWidget {
                               plans: plans,
                               selectedPlanId: selectedPlanId.value,
                               onPlanSelected: (id) {
-                                final selectedPlan = plans.firstWhere(
-                                  (plan) => plan.id == id,
-                                  orElse: () => plans.first,
-                                );
                                 selectedPlanId.value = id;
-                                unawaited(
-                                  analytics.trackAction(
-                                    flowName: 'onboarding_funnel',
-                                    pageId: 'paywall',
-                                    actionId: 'plan_selected',
-                                    result: 'used',
-                                    properties: <String, Object?>{
-                                      'paywall_mode': mode.queryValue,
-                                      'selected_plan':
-                                          selectedPlan.serverPlanId,
-                                      'selected_option_id': selectedPlan.id,
-                                      'billing_interval':
-                                          selectedPlan.billingInterval,
-                                    },
-                                  ),
-                                );
                               },
                               isNewUser: currentPlanId == 'free',
                               isCurrentPlan: null, // Always allow on paywall
@@ -1332,37 +1197,6 @@ class PaywallScreen extends HookConsumerWidget {
                             GestureDetector(
                               onTap: () {
                                 unawaited(() async {
-                                  await analytics.trackEvent(
-                                    eventName: 'onboarding_preview_clicked',
-                                    flowName: 'onboarding_funnel',
-                                    pageId: 'paywall',
-                                    properties: <String, Object?>{
-                                      'paywall_mode': mode.queryValue,
-                                      'selected_plan':
-                                          activePlanOption.serverPlanId,
-                                      'billing_interval':
-                                          activePlanOption.billingInterval,
-                                      'preview_entry_point': 'paywall',
-                                    },
-                                  );
-                                  await analytics.trackAction(
-                                    flowName: 'onboarding_funnel',
-                                    pageId: 'paywall',
-                                    actionId: 'preview_app_tapped',
-                                    result: 'used',
-                                    properties: <String, Object?>{
-                                      'paywall_mode': mode.queryValue,
-                                      'selected_plan':
-                                          activePlanOption.serverPlanId,
-                                      'billing_interval':
-                                          activePlanOption.billingInterval,
-                                      'preview_entry_point': 'paywall',
-                                    },
-                                  );
-                                  await analytics.endPage(
-                                    reason: 'preview_app',
-                                    transitionTo: '/dashboard',
-                                  );
                                   final prefs =
                                       ref.read(sharedPreferencesProvider);
                                   await prefs.setBool(
@@ -1476,22 +1310,6 @@ class PaywallScreen extends HookConsumerWidget {
                                           !hasAcknowledgedAutoRenew.value;
                                       hasAcknowledgedAutoRenew.value =
                                           nextValue;
-                                      unawaited(
-                                        analytics.trackAction(
-                                          flowName: 'onboarding_funnel',
-                                          pageId: 'paywall',
-                                          actionId: 'auto_renew_ack_toggled',
-                                          result: 'used',
-                                          properties: <String, Object?>{
-                                            'paywall_mode': mode.queryValue,
-                                            'selected_plan':
-                                                activePlanOption.serverPlanId,
-                                            'billing_interval': activePlanOption
-                                                .billingInterval,
-                                            'is_checked': nextValue,
-                                          },
-                                        ),
-                                      );
                                     },
                               behavior: HitTestBehavior.opaque,
                               child: Padding(
@@ -1511,28 +1329,6 @@ class PaywallScreen extends HookConsumerWidget {
                                                     value ?? false;
                                                 hasAcknowledgedAutoRenew.value =
                                                     nextValue;
-                                                unawaited(
-                                                  analytics.trackAction(
-                                                    flowName:
-                                                        'onboarding_funnel',
-                                                    pageId: 'paywall',
-                                                    actionId:
-                                                        'auto_renew_ack_toggled',
-                                                    result: 'used',
-                                                    properties: <String,
-                                                        Object?>{
-                                                      'paywall_mode':
-                                                          mode.queryValue,
-                                                      'selected_plan':
-                                                          activePlanOption
-                                                              .serverPlanId,
-                                                      'billing_interval':
-                                                          activePlanOption
-                                                              .billingInterval,
-                                                      'is_checked': nextValue,
-                                                    },
-                                                  ),
-                                                );
                                               },
                                         activeColor: colorScheme.primary,
                                         checkColor: colorScheme.onPrimary,
@@ -1632,19 +1428,6 @@ class PaywallScreen extends HookConsumerWidget {
                               ),
                               GestureDetector(
                                 onTap: () async {
-                                  await analytics.trackAction(
-                                    flowName: 'onboarding_funnel',
-                                    pageId: 'paywall',
-                                    actionId: 'terms_privacy_tapped',
-                                    result: 'used',
-                                    properties: <String, Object?>{
-                                      'paywall_mode': mode.queryValue,
-                                      'selected_plan':
-                                          activePlanOption.serverPlanId,
-                                      'billing_interval':
-                                          activePlanOption.billingInterval,
-                                    },
-                                  );
                                   final uri = Uri.parse(
                                       'https://moneko.io/terms-of-service');
                                   await launchUrl(uri,
