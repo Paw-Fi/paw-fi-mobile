@@ -59,7 +59,8 @@ void main() {
     expect(command.reviewReasons, isEmpty);
   });
 
-  test('buildAiTransactionCommand sends low confidence items to review', () {
+  test('buildAiTransactionCommand keeps AI capture syncable without review',
+      () {
     final command = buildAiTransactionCommand(
       userId: 'user-1',
       householdId: null,
@@ -76,9 +77,10 @@ void main() {
       raw: const {'confidence': 0.54},
     );
 
-    expect(command.reviewReasons, contains('missingWallet'));
-    expect(command.reviewReasons, contains('missingCategory'));
-    expect(command.reviewReasons, contains('lowConfidence'));
+    expect(command.walletId, isNull);
+    expect(command.category, 'uncategorized');
+    expect(command.confidenceScore, 0.54);
+    expect(command.reviewReasons, isEmpty);
   });
 
   test('resolveAiCaptureSource reflects the user capture channel', () {

@@ -6,7 +6,9 @@ import 'package:moneko/core/sync/data/sync_providers.dart';
 import 'package:moneko/core/sync/data/sync_queue_service.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
+import 'package:moneko/features/home/presentation/state/local_recent_transactions_provider.dart';
 import 'package:moneko/features/transactions/data/transaction_providers.dart';
 import 'package:moneko/features/transactions/domain/transaction_command.dart';
 import 'package:moneko/features/transactions/domain/transaction_repository.dart';
@@ -121,9 +123,7 @@ void main() {
     );
   });
 
-  test(
-      'saveExpense records missing wallet as review instead of blocking capture',
-      () async {
+  test('saveExpense keeps missing wallet syncable without review', () async {
     final repository = _FakeTransactionRepository();
     final container = ProviderContainer(
       overrides: [
@@ -155,6 +155,94 @@ void main() {
 
     final command = repository.commands.single;
     expect(command.walletId, isNull);
-    expect(command.reviewReasons, contains('missingWallet'));
+    expect(command.reviewReasons, isEmpty);
+  });
+
+  test('saveExpense normalizes empty category instead of requiring confirm',
+      () async {
+    final repository = _FakeTransactionRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(
+          () => _FakeAuth(
+            const AppUser(uid: 'user-1', email: 'user@example.com'),
+          ),
+        ),
+        transactionRepositoryProvider.overrideWithValue(repository),
+        syncConnectivityProvider.overrideWith((ref) => const Stream.empty()),
+        syncQueueProcessorProvider.overrideWithValue(
+          _FakeSyncQueueProcessor(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(expenseSaveNotifierProvider.notifier).saveExpense(
+          expense: ParsedExpense(
+            isIncome: false,
+            amount: 12,
+            category: '',
+            currency: 'EUR',
+            currencySymbol: '€',
+            date: DateTime.utc(2026, 4, 30),
+          ),
+          invalidateProviders: false,
+        );
+
+    final command = repository.commands.single;
+    expect(command.category, 'uncategorized');
+    expect(command.reviewReasons, isEmpty);
+  });
+
+  test('saveExpense is visible to home recent providers immediately', () async {
+    final repository = _FakeTransactionRepository();
+    final container = ProviderContainer(
+      overrides: [
+        authProvider.overrideWith(
+          () => _FakeAuth(
+            const AppUser(uid: 'user-1', email: 'user@example.com'),
+          ),
+        ),
+        transactionRepositoryProvider.overrideWithValue(repository),
+        syncConnectivityProvider.overrideWith((ref) => const Stream.empty()),
+        syncQueueProcessorProvider.overrideWithValue(
+          _FakeSyncQueueProcessor(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(expenseSaveNotifierProvider.notifier).saveExpense(
+          expense: ParsedExpense(
+            isIncome: false,
+            amount: 12.99,
+            category: 'dining',
+            currency: 'EUR',
+            currencySymbol: '€',
+            date: DateTime.utc(2026, 4, 30),
+            description: 'Lunch',
+          ),
+          accountId: 'wallet-1',
+        );
+
+    final overlay = container.read(
+      homeTransactionOverlayProvider(
+        const HomeTransactionOverlayRequest(
+          userId: 'user-1',
+          currency: 'EUR',
+          limit: 5,
+        ),
+      ),
+    );
+    final merged = mergeRecentTransactions(
+      remote: const [],
+      local: const [],
+      overlay: overlay,
+    );
+
+    expect(overlay.map((entry) => entry.id), ['local-tx-1']);
+    expect(merged.single.amountCents, 1299);
+    expect(merged.single.rawText, 'Lunch');
+    expect(container.read(dashboardRefreshSignalProvider), 1);
   });
 }

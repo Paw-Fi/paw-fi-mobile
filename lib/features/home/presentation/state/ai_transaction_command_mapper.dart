@@ -1,8 +1,6 @@
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/transactions/domain/transaction_command.dart';
 
-const double aiNeedsReviewConfidenceThreshold = 0.75;
-
 TransactionCaptureSource resolveAiCaptureSource({
   required bool hasImageInput,
   required bool hasAudioInput,
@@ -33,15 +31,8 @@ CreateTransactionCommand buildAiTransactionCommand({
   String? payerUserId,
 }) {
   final normalizedWalletId = _normalizeOptionalId(walletId);
-  final normalizedCategory = transaction.category.trim();
+  final normalizedCategory = _syncableCategory(transaction.category);
   final confidenceScore = _parseConfidenceScore(raw);
-  final reviewReasons = <String>[
-    if (normalizedWalletId == null) 'missingWallet',
-    if (normalizedCategory.isEmpty) 'missingCategory',
-    if (confidenceScore != null &&
-        confidenceScore < aiNeedsReviewConfidenceThreshold)
-      'lowConfidence',
-  ];
 
   return CreateTransactionCommand(
     userId: userId,
@@ -52,7 +43,7 @@ CreateTransactionCommand buildAiTransactionCommand({
         : TransactionCommandType.expense,
     amountCents: transaction.amountCents.abs(),
     currency: transaction.currency.trim().toUpperCase(),
-    category: transaction.category,
+    category: normalizedCategory,
     merchant: transaction.merchant,
     rawText: transaction.description,
     description: transaction.description,
@@ -64,7 +55,7 @@ CreateTransactionCommand buildAiTransactionCommand({
     ),
     captureSource: captureSource,
     confidenceScore: confidenceScore,
-    reviewReasons: reviewReasons,
+    reviewReasons: const [],
     receiptLocalPath: localImagePath ?? transaction.localImagePath,
     receiptImageUrl: receiptImageUrl,
     recurrenceRule: recurrenceRule,
@@ -78,6 +69,11 @@ CreateTransactionCommand buildAiTransactionCommand({
 String? _normalizeOptionalId(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+String _syncableCategory(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? 'uncategorized' : trimmed;
 }
 
 double? _parseConfidenceScore(Map<String, dynamic> raw) {

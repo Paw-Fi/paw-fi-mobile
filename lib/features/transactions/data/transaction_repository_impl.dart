@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
 
+import '../../../core/util/logger.dart';
 import '../../../core/local_database/app_database.dart';
 import '../../../core/sync/domain/sync_operation_type.dart';
 import '../../../core/sync/domain/sync_status.dart';
@@ -101,6 +102,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
         updatedAt: nowIso,
       );
     });
+
+    appLog(
+      'Queued local transaction id=$transactionId '
+      'status=${syncStatus.name} '
+      'capture=${command.captureSource.name} '
+      'hasWallet=${command.walletId != null} '
+      'hasHousehold=${command.householdId != null} '
+      'reviewReasons=${command.reviewReasons}',
+      name: 'TransactionRepository',
+    );
 
     return transactionId;
   }

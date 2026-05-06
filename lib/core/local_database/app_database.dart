@@ -5,7 +5,7 @@ class AppDatabase extends GeneratedDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   Iterable<TableInfo> get allTables => const [];
@@ -13,18 +13,115 @@ class AppDatabase extends GeneratedDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (_) async {
-          await customStatement(_createLocalTransactionsTable);
-          await customStatement(_createSyncOpsTable);
-          await customStatement(_createLocalTransactionsUserDateIndex);
-          await customStatement(_createLocalTransactionsWalletDateIndex);
-          await customStatement(_createSyncOpsStatusIndex);
-          await customStatement(_createSyncOpsAggregateIndex);
+          await _createSchema();
+        },
+        onUpgrade: (_, __, ___) async {
+          await _ensureSchema();
         },
         beforeOpen: (_) async {
           await customStatement('PRAGMA foreign_keys = ON');
           await customStatement('PRAGMA journal_mode = WAL');
+          await _ensureSchema();
         },
       );
+
+  Future<void> _createSchema() async {
+    await customStatement(_createLocalTransactionsTable);
+    await customStatement(_createSyncOpsTable);
+    await customStatement(_createLocalTransactionsUserDateIndex);
+    await customStatement(_createLocalTransactionsWalletDateIndex);
+    await customStatement(_createSyncOpsStatusIndex);
+    await customStatement(_createSyncOpsAggregateIndex);
+  }
+
+  Future<void> _ensureSchema() async {
+    if (!await _tableExists('local_transactions')) {
+      await customStatement(_createLocalTransactionsTable);
+    } else {
+      await _addMissingColumns(
+        tableName: 'local_transactions',
+        columns: _localTransactionColumnMigrations,
+      );
+    }
+
+    if (!await _tableExists('sync_ops')) {
+      await customStatement(_createSyncOpsTable);
+    } else {
+      await _addMissingColumns(
+        tableName: 'sync_ops',
+        columns: _syncOpsColumnMigrations,
+      );
+    }
+
+    await customStatement(_createLocalTransactionsUserDateIndexIfNotExists);
+    await customStatement(_createLocalTransactionsWalletDateIndexIfNotExists);
+    await customStatement(_createSyncOpsStatusIndexIfNotExists);
+    await customStatement(_createSyncOpsAggregateIndexIfNotExists);
+    await _releaseReviewTransactionsForSync();
+  }
+
+  Future<bool> _tableExists(String tableName) async {
+    final row = await customSelect(
+      '''
+      SELECT name FROM sqlite_master
+      WHERE type = 'table' AND name = ?
+      LIMIT 1
+      ''',
+      variables: [Variable.withString(tableName)],
+    ).getSingleOrNull();
+    return row != null;
+  }
+
+  Future<void> _addMissingColumns({
+    required String tableName,
+    required Map<String, String> columns,
+  }) async {
+    final rows = await customSelect('PRAGMA table_info($tableName)').get();
+    final existing = rows.map((row) => row.read<String>('name')).toSet();
+
+    for (final entry in columns.entries) {
+      if (existing.contains(entry.key)) continue;
+      await customStatement(
+        'ALTER TABLE $tableName ADD COLUMN ${entry.key} ${entry.value}',
+      );
+    }
+  }
+
+  Future<void> _releaseReviewTransactionsForSync() async {
+    await customUpdate(
+      '''
+      UPDATE local_transactions
+      SET sync_status = ?,
+          review_reasons_json = ?,
+          category = CASE
+            WHEN TRIM(COALESCE(category, '')) = '' THEN ?
+            ELSE category
+          END
+      WHERE sync_status = ?
+      ''',
+      variables: [
+        Variable.withString('localOnly'),
+        Variable.withString('[]'),
+        Variable.withString('uncategorized'),
+        Variable.withString('needsReview'),
+      ],
+    );
+    await customUpdate(
+      '''
+      UPDATE sync_ops
+      SET status = ?,
+          last_error = NULL,
+          next_retry_at = NULL
+      WHERE aggregate_type = ?
+        AND status = ?
+      ''',
+      variables: [
+        Variable.withString('localOnly'),
+        Variable.withString('transaction'),
+        Variable.withString('needsReview'),
+      ],
+    );
+  }
 
   Future<int> insertLocalTransaction({
     required String id,
@@ -775,6 +872,83 @@ const _createSyncOpsStatusIndex =
 
 const _createSyncOpsAggregateIndex = 'CREATE INDEX sync_ops_aggregate_idx '
     'ON sync_ops (aggregate_type, aggregate_local_id)';
+
+const _createLocalTransactionsUserDateIndexIfNotExists =
+    'CREATE INDEX IF NOT EXISTS local_transactions_user_date_idx '
+    'ON local_transactions (user_id, date_ymd)';
+
+const _createLocalTransactionsWalletDateIndexIfNotExists =
+    'CREATE INDEX IF NOT EXISTS local_transactions_wallet_date_idx '
+    'ON local_transactions (wallet_id, date_ymd)';
+
+const _createSyncOpsStatusIndexIfNotExists =
+    'CREATE INDEX IF NOT EXISTS sync_ops_status_idx '
+    'ON sync_ops (status, next_retry_at)';
+
+const _createSyncOpsAggregateIndexIfNotExists =
+    'CREATE INDEX IF NOT EXISTS sync_ops_aggregate_idx '
+    'ON sync_ops (aggregate_type, aggregate_local_id)';
+
+const _localTransactionColumnMigrations = <String, String>{
+  'server_id': 'TEXT',
+  'client_mutation_id': 'TEXT',
+  'user_id': 'TEXT',
+  'household_id': 'TEXT',
+  'wallet_id': 'TEXT',
+  'bank_account_id': 'TEXT',
+  'contact_id': 'TEXT',
+  'split_group_id': 'TEXT',
+  'type': "TEXT NOT NULL DEFAULT 'expense'",
+  'amount_cents': 'INTEGER NOT NULL DEFAULT 0',
+  'currency': "TEXT NOT NULL DEFAULT 'EUR'",
+  'base_currency': 'TEXT',
+  'normalized_amount_cents': 'INTEGER',
+  'fx_rate': 'REAL',
+  'category': 'TEXT',
+  'merchant': 'TEXT',
+  'raw_text': 'TEXT',
+  'description': 'TEXT',
+  'breakdown_json': "TEXT NOT NULL DEFAULT '[]'",
+  'date_ymd': "TEXT NOT NULL DEFAULT ''",
+  'created_at': "TEXT NOT NULL DEFAULT ''",
+  'updated_at': "TEXT NOT NULL DEFAULT ''",
+  'server_created_at': 'TEXT',
+  'server_updated_at': 'TEXT',
+  'deleted_at': 'TEXT',
+  'capture_source': "TEXT NOT NULL DEFAULT 'manual'",
+  'confidence_score': 'REAL',
+  'sync_status': "TEXT NOT NULL DEFAULT 'localOnly'",
+  'review_reasons_json': "TEXT NOT NULL DEFAULT '[]'",
+  'local_revision': 'INTEGER NOT NULL DEFAULT 1',
+  'server_revision': 'INTEGER',
+  'base_server_revision': 'INTEGER',
+  'receipt_local_path': 'TEXT',
+  'receipt_image_url': 'TEXT',
+  'provider_transaction_id': 'TEXT',
+  'provider': 'TEXT',
+  'is_recurring': 'INTEGER NOT NULL DEFAULT 0',
+  'recurrence_rule_json': 'TEXT',
+  'payer_user_id': 'TEXT',
+  'is_portfolio': 'INTEGER NOT NULL DEFAULT 0',
+  'last_sync_error': 'TEXT',
+};
+
+const _syncOpsColumnMigrations = <String, String>{
+  'aggregate_type': "TEXT NOT NULL DEFAULT 'transaction'",
+  'aggregate_local_id': "TEXT NOT NULL DEFAULT ''",
+  'aggregate_server_id': 'TEXT',
+  'operation_type': "TEXT NOT NULL DEFAULT 'create'",
+  'status': "TEXT NOT NULL DEFAULT 'localOnly'",
+  'payload_json': "TEXT NOT NULL DEFAULT '{}'",
+  'idempotency_key': 'TEXT',
+  'attempt_count': 'INTEGER NOT NULL DEFAULT 0',
+  'last_error': 'TEXT',
+  'next_retry_at': 'TEXT',
+  'created_at': "TEXT NOT NULL DEFAULT ''",
+  'updated_at': "TEXT NOT NULL DEFAULT ''",
+  'started_at': 'TEXT',
+  'completed_at': 'TEXT',
+};
 
 const _insertLocalTransaction = '''
 INSERT INTO local_transactions (

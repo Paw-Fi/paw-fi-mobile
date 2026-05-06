@@ -35,7 +35,6 @@ import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -50,7 +49,6 @@ class MainShell extends HookConsumerWidget {
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
-    final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
     final auth = ref.watch(authProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
@@ -58,10 +56,6 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
-    final showSubscriptionVerificationBanner =
-        subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
-            subscriptionGateStatus == SubscriptionGateStatus.unknown;
-
     useEffect(() {
       if (visitedTabs.value.contains(currentIndex)) {
         return null;
@@ -316,22 +310,6 @@ class MainShell extends HookConsumerWidget {
                       },
                     ),
                   ),
-                if (!previewState.isActive &&
-                    showSubscriptionVerificationBanner)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _SubscriptionVerificationBanner(
-                      status: subscriptionGateStatus,
-                      onRetryTap: () {
-                        unawaited(ref
-                            .read(subscriptionNotifierProvider.notifier)
-                            .refresh());
-                      },
-                      onManageTap: () {
-                        context.push('/paywall?mode=resubscribe');
-                      },
-                    ),
-                  ),
                 const TrialReminderBannerGate(),
                 const HomeHeaderSliver(),
                 Expanded(
@@ -398,86 +376,6 @@ class MainShell extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
-    );
-  }
-}
-
-class _SubscriptionVerificationBanner extends StatelessWidget {
-  const _SubscriptionVerificationBanner({
-    required this.status,
-    required this.onRetryTap,
-    required this.onManageTap,
-  });
-
-  final SubscriptionGateStatus status;
-  final VoidCallback onRetryTap;
-  final VoidCallback onManageTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isGraceAccess = status == SubscriptionGateStatus.graceActive;
-    final title = isGraceAccess
-        ? 'You are in offline grace access'
-        : 'We can’t verify your subscription right now';
-    final subtitle = isGraceAccess
-        ? 'Your previous active subscription is kept for up to 72 hours while we reconnect.'
-        : 'You still have full access while we retry in the background. Your subscription is not removed.';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.warningSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.warningBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.warning,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: colorScheme.foreground,
-              height: 1.3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                style: FilledButton.styleFrom(
-                  foregroundColor: colorScheme.onPrimary,
-                  backgroundColor: colorScheme.warning,
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onRetryTap,
-                child: const Text('Retry now'),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.foreground,
-                  side: BorderSide(color: colorScheme.border),
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onManageTap,
-                child: const Text('Manage plan'),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

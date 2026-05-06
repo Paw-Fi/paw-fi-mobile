@@ -31,10 +31,12 @@ TransactionSyncFunctionRequest mapTransactionCreateSyncRequest(
     throw ArgumentError.value(date, 'dateYmd', 'must not be empty');
   }
 
+  final category = payload['category']?.toString().trim();
   final body = <String, dynamic>{
     'userId': _requiredString(payload, 'userId'),
     'amount': amount,
-    'category': _requiredString(payload, 'category'),
+    'category':
+        category == null || category.isEmpty ? 'uncategorized' : category,
     'currency': currency,
     'date': date,
     'clientCreatedAt': _requiredString(payload, 'createdAt'),

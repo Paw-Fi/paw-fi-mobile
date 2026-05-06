@@ -12,8 +12,10 @@ import 'package:moneko/features/transactions/presentation/state/transaction_capt
 void main() {
   late AppDatabase database;
   late TransactionRepositoryImpl repository;
+  var defaultDatabaseClosed = false;
 
   setUp(() {
+    defaultDatabaseClosed = false;
     database = AppDatabase(NativeDatabase.memory());
     repository = TransactionRepositoryImpl(
       database: database,
@@ -25,7 +27,9 @@ void main() {
   });
 
   tearDown(() async {
-    await database.close();
+    if (!defaultDatabaseClosed) {
+      await database.close();
+    }
   });
 
   test(
@@ -262,5 +266,231 @@ void main() {
     expect(syncOp.status, SyncStatus.needsReview.name);
     expect(syncOp.payloadJson, contains('"category":"groceries"'));
     expect(syncOp.payloadJson, contains('"reviewReasons":["lowConfidence"]'));
+  });
+
+  test('migrates an older local database before inserting transaction',
+      () async {
+    await database.close();
+    defaultDatabaseClosed = true;
+
+    final legacyDatabase = AppDatabase(
+      NativeDatabase.memory(
+        setup: (rawDb) {
+          rawDb.execute('''
+            CREATE TABLE local_transactions (
+              id TEXT NOT NULL PRIMARY KEY,
+              server_id TEXT UNIQUE,
+              client_mutation_id TEXT NOT NULL UNIQUE,
+              user_id TEXT NOT NULL,
+              household_id TEXT,
+              wallet_id TEXT,
+              type TEXT NOT NULL,
+              amount_cents INTEGER NOT NULL,
+              currency TEXT NOT NULL,
+              category TEXT,
+              merchant TEXT,
+              raw_text TEXT,
+              description TEXT,
+              breakdown_json TEXT NOT NULL,
+              date_ymd TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              capture_source TEXT NOT NULL,
+              confidence_score REAL,
+              sync_status TEXT NOT NULL,
+              review_reasons_json TEXT NOT NULL,
+              receipt_local_path TEXT,
+              receipt_image_url TEXT,
+              is_recurring INTEGER NOT NULL DEFAULT 0,
+              recurrence_rule_json TEXT,
+              payer_user_id TEXT,
+              is_portfolio INTEGER NOT NULL DEFAULT 0,
+              last_sync_error TEXT
+            )
+          ''');
+          rawDb.execute('''
+            CREATE TABLE sync_ops (
+              id TEXT NOT NULL PRIMARY KEY,
+              aggregate_type TEXT NOT NULL,
+              aggregate_local_id TEXT NOT NULL,
+              aggregate_server_id TEXT,
+              operation_type TEXT NOT NULL,
+              status TEXT NOT NULL,
+              payload_json TEXT NOT NULL,
+              idempotency_key TEXT NOT NULL UNIQUE,
+              attempt_count INTEGER NOT NULL DEFAULT 0,
+              last_error TEXT,
+              next_retry_at TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            )
+          ''');
+          rawDb.userVersion = 1;
+        },
+      ),
+    );
+    addTearDown(legacyDatabase.close);
+    final legacyRepository = TransactionRepositoryImpl(
+      database: legacyDatabase,
+      clock: () => DateTime.utc(2026, 4, 30, 12),
+      idFactory: () => 'legacy-local-tx-1',
+      mutationIdFactory: () => 'legacy-mutation-1',
+      syncOpIdFactory: () => 'legacy-sync-op-1',
+    );
+
+    final transactionId = await legacyRepository.createLocalTransaction(
+      CreateTransactionCommand(
+        userId: 'user-1',
+        householdId: null,
+        walletId: 'wallet-1',
+        type: TransactionCommandType.expense,
+        amountCents: 1299,
+        currency: 'EUR',
+        category: 'dining',
+        description: 'Lunch',
+        date: DateTime.utc(2026, 4, 30),
+        captureSource: TransactionCaptureSource.manual,
+      ),
+    );
+
+    final transaction =
+        await legacyDatabase.localTransactionById(transactionId);
+    expect(transaction.id, 'legacy-local-tx-1');
+    expect(transaction.bankAccountId, isNull);
+
+    final syncOp = await legacyDatabase.syncOpForAggregate(transactionId);
+    expect(syncOp.startedAt, isNull);
+    expect(syncOp.completedAt, isNull);
+  });
+
+  test('releases existing needs review rows back to the sync queue', () async {
+    await database.close();
+    defaultDatabaseClosed = true;
+
+    final legacyDatabase = AppDatabase(
+      NativeDatabase.memory(
+        setup: (rawDb) {
+          rawDb.execute('''
+            CREATE TABLE local_transactions (
+              id TEXT NOT NULL PRIMARY KEY,
+              server_id TEXT UNIQUE,
+              client_mutation_id TEXT NOT NULL UNIQUE,
+              user_id TEXT NOT NULL,
+              household_id TEXT,
+              wallet_id TEXT,
+              type TEXT NOT NULL,
+              amount_cents INTEGER NOT NULL,
+              currency TEXT NOT NULL,
+              category TEXT,
+              merchant TEXT,
+              raw_text TEXT,
+              description TEXT,
+              breakdown_json TEXT NOT NULL,
+              date_ymd TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              capture_source TEXT NOT NULL,
+              confidence_score REAL,
+              sync_status TEXT NOT NULL,
+              review_reasons_json TEXT NOT NULL,
+              receipt_local_path TEXT,
+              receipt_image_url TEXT,
+              is_recurring INTEGER NOT NULL DEFAULT 0,
+              recurrence_rule_json TEXT,
+              payer_user_id TEXT,
+              is_portfolio INTEGER NOT NULL DEFAULT 0,
+              last_sync_error TEXT
+            )
+          ''');
+          rawDb.execute('''
+            CREATE TABLE sync_ops (
+              id TEXT NOT NULL PRIMARY KEY,
+              aggregate_type TEXT NOT NULL,
+              aggregate_local_id TEXT NOT NULL,
+              aggregate_server_id TEXT,
+              operation_type TEXT NOT NULL,
+              status TEXT NOT NULL,
+              payload_json TEXT NOT NULL,
+              idempotency_key TEXT NOT NULL UNIQUE,
+              attempt_count INTEGER NOT NULL DEFAULT 0,
+              last_error TEXT,
+              next_retry_at TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            )
+          ''');
+          rawDb.execute('''
+            INSERT INTO local_transactions (
+              id,
+              client_mutation_id,
+              user_id,
+              type,
+              amount_cents,
+              currency,
+              category,
+              breakdown_json,
+              date_ymd,
+              created_at,
+              updated_at,
+              capture_source,
+              sync_status,
+              review_reasons_json
+            ) VALUES (
+              'review-tx-1',
+              'review-mutation-1',
+              'user-1',
+              'expense',
+              1000,
+              'EUR',
+              'breakfast',
+              '[]',
+              '2026-04-30',
+              '2026-04-30T12:00:00.000Z',
+              '2026-04-30T12:00:00.000Z',
+              'aiText',
+              'needsReview',
+              '["missingWallet"]'
+            )
+          ''');
+          rawDb.execute('''
+            INSERT INTO sync_ops (
+              id,
+              aggregate_type,
+              aggregate_local_id,
+              operation_type,
+              status,
+              payload_json,
+              idempotency_key,
+              created_at,
+              updated_at
+            ) VALUES (
+              'review-sync-op-1',
+              'transaction',
+              'review-tx-1',
+              'create',
+              'needsReview',
+              '{"type":"expense","amountCents":1000,"currency":"EUR","category":"breakfast","dateYmd":"2026-04-30","userId":"user-1","createdAt":"2026-04-30T12:00:00.000Z","clientMutationId":"review-mutation-1"}',
+              'review-mutation-1',
+              '2026-04-30T12:00:00.000Z',
+              '2026-04-30T12:00:00.000Z'
+            )
+          ''');
+          rawDb.userVersion = 1;
+        },
+      ),
+    );
+    addTearDown(legacyDatabase.close);
+
+    final transaction = await legacyDatabase.localTransactionById(
+      'review-tx-1',
+    );
+    expect(transaction.syncStatus, SyncStatus.localOnly.name);
+    expect(transaction.reviewReasonsJson, '[]');
+
+    final pending = await legacyDatabase.pendingSyncOps(
+      nowIso: '2026-04-30T13:00:00.000Z',
+    );
+    expect(pending.map((op) => op.aggregateLocalId), contains('review-tx-1'));
+    expect(pending.single.status, SyncStatus.localOnly.name);
   });
 }

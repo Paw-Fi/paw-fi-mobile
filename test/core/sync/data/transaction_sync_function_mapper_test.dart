@@ -70,4 +70,23 @@ void main() {
     expect(request.body['accountId'], 'wallet-2');
     expect(request.body['clientMutationId'], 'mutation-2');
   });
+
+  test('maps empty category to uncategorized for remote sync', () {
+    final request = mapTransactionCreateSyncRequest(
+      jsonDecode('''
+      {
+        "clientMutationId": "mutation-3",
+        "userId": "user-1",
+        "type": "expense",
+        "amountCents": 500,
+        "currency": "EUR",
+        "category": "",
+        "dateYmd": "2026-04-30",
+        "createdAt": "2026-04-30T12:00:00.000Z"
+      }
+      ''') as Map<String, dynamic>,
+    );
+
+    expect(request.body['category'], 'uncategorized');
+  });
 }

@@ -111,10 +111,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final normalizedAccountId = _normalizeOptionalId(accountId);
       final isPortfolio = normalizedHouseholdId != null &&
           ref.read(householdScopeProvider).isPortfolioId(normalizedHouseholdId);
-      final reviewReasons = <String>[
-        if (normalizedAccountId == null) 'missingWallet',
-        if (expense.category.trim().isEmpty) 'missingCategory',
-      ];
+      final syncableCategory = _syncableCategory(expense.category);
+      final syncableExpense = syncableCategory == expense.category
+          ? expense
+          : expense.copyWith(category: syncableCategory);
 
       final transactionId = await ref
           .read(transactionCaptureControllerProvider.notifier)
@@ -124,18 +124,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
               householdId: normalizedHouseholdId,
               walletId: normalizedAccountId,
               type: TransactionCommandType.expense,
-              amountCents: expense.amountCents.abs(),
-              currency: expense.currency,
-              category: expense.category,
-              merchant: expense.merchant,
-              rawText: expense.description,
-              description: expense.description,
+              amountCents: syncableExpense.amountCents.abs(),
+              currency: syncableExpense.currency,
+              category: syncableExpense.category,
+              merchant: syncableExpense.merchant,
+              rawText: syncableExpense.description,
+              description: syncableExpense.description,
               date: accountingDate,
               captureSource: receiptImageUrl == null
                   ? TransactionCaptureSource.manual
                   : TransactionCaptureSource.receiptPhoto,
-              reviewReasons: reviewReasons,
-              receiptLocalPath: expense.localImagePath,
+              reviewReasons: const [],
+              receiptLocalPath: syncableExpense.localImagePath,
               payerUserId: payerUserId,
               isPortfolio: isPortfolio,
             ),
@@ -143,7 +143,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
 
       final createdAt = DateTime.now();
       final entry = _buildOptimisticExpenseEntry(
-        expense: expense,
+        expense: syncableExpense,
         expenseId: transactionId,
         householdId: normalizedHouseholdId,
         userId: user.uid,
@@ -155,7 +155,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       ref.read(analyticsProvider.notifier).addOptimisticTransaction(entry);
       _addLocalFirstHouseholdData(
         entry: entry,
-        expense: expense,
+        expense: syncableExpense,
         householdId: normalizedHouseholdId,
         payerUserId: payerUserId ?? user.uid,
         customSplitType: customSplitType,
@@ -182,6 +182,11 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   String? _normalizeOptionalId(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  String _syncableCategory(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? 'uncategorized' : trimmed;
   }
 
   void _notifyLocalFirstMutation(String? householdId) {

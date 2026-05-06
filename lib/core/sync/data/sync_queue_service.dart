@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../local_database/app_database.dart';
+import '../../util/logger.dart';
 import '../domain/sync_status.dart';
 import 'transaction_sync_function_mapper.dart';
 
@@ -136,16 +137,31 @@ class SyncQueueService implements SyncQueueProcessor {
       limit: limit,
     );
 
+    appLog(
+      'Processing sync queue count=${pending.length}',
+      name: 'SyncQueueService',
+    );
+
     var succeeded = 0;
     var failed = 0;
 
     for (final operation in pending) {
+      appLog(
+        'Syncing operation id=${operation.id} '
+        'aggregate=${operation.aggregateType}:${operation.aggregateLocalId} '
+        'attempt=${operation.attemptCount}',
+        name: 'SyncQueueService',
+      );
       await _markSyncing(operation, startedAt);
 
       try {
         final remoteResult = await remoteClient.pushOperation(operation);
         final completedAt = _nowIso();
         await _markSynced(operation, remoteResult, completedAt);
+        appLog(
+          'Synced operation id=${operation.id} serverId=${remoteResult.serverId}',
+          name: 'SyncQueueService',
+        );
         succeeded += 1;
       } catch (error) {
         final failedAt = _nowIso();
@@ -159,6 +175,11 @@ class SyncQueueService implements SyncQueueProcessor {
           lastError: _errorMessage(error),
           nextRetryAt: nextRetryAt,
           failedAt: failedAt,
+        );
+        appLog(
+          'Sync failed operation id=${operation.id}: ${_errorMessage(error)}',
+          name: 'SyncQueueService',
+          error: error,
         );
         failed += 1;
       }
