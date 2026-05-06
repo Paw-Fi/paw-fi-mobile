@@ -2712,5 +2712,12 @@
   "pastDue": "ค้างชำระ",
   "trial": "ทดลองใช้ฟรี",
   "unknownFeature": "ไม่ทราบฟีเจอร์",
-  "paywallBenefit5": "บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล"
+  "paywallBenefit5": "บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล",
+  "onboardingPreparingProgressFamilySharingRestored": "กู้คืนสิทธิ์เข้าถึงผ่านการแชร์กันในครอบครัวแล้ว",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus แชร์ผ่านการแชร์กันในครอบครัว",
+  "onboardingPreparingBodyFamilySharingRestored": "ข่าวดี! คุณสามารถใช้ Moneko Plus ผ่าน Apple Family Sharing ได้โดยไม่มีค่าใช้จ่ายเพิ่มเติม",
+  "onboardingPreparingProgressAppStoreRestored": "กู้คืนการสมัครสมาชิก App Store แล้ว",
+  "onboardingPreparingTitleAppStoreRestored": "กู้คืนการสมัครสมาชิก App Store แล้ว",
+  "onboardingPreparingBodyAppStoreRestored": "ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว",
+  "paywallBenefit0": "สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว"
 }

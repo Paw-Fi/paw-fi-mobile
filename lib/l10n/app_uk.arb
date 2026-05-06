@@ -2687,5 +2687,12 @@
   "pastDue": "Платіж прострочено",
   "trial": "Пробний період",
   "unknownFeature": "Невідома функція",
-  "paywallBenefit5": "Автоматично додавайте витрати, пересилаючи чеки з пошти"
+  "paywallBenefit5": "Автоматично додавайте витрати, пересилаючи чеки з пошти",
+  "onboardingPreparingProgressFamilySharingRestored": "Доступ через Сімейний доступ відновлено.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus доступний через Сімейний доступ",
+  "onboardingPreparingBodyFamilySharingRestored": "Чудові новини! Ви маєте доступ до Moneko Plus через Сімейний доступ Apple без додаткової оплати.",
+  "onboardingPreparingProgressAppStoreRestored": "Підписку App Store відновлено.",
+  "onboardingPreparingTitleAppStoreRestored": "Підписку App Store відновлено",
+  "onboardingPreparingBodyAppStoreRestored": "З поверненням! Вашу підписку Moneko Plus через App Store відновлено для цього облікового запису.",
+  "paywallBenefit0": "Одна підписка для всієї родини"
 }

@@ -2695,5 +2695,12 @@
   "pastDue": "Paiement en retard",
   "trial": "Essai",
   "unknownFeature": "Fonctionnalité inconnue",
-  "paywallBenefit5": "Enregistre automatiquement tes dépenses en transférant les reçus depuis tes e-mails"
+  "paywallBenefit5": "Enregistre automatiquement tes dépenses en transférant les reçus depuis tes e-mails",
+  "onboardingPreparingProgressFamilySharingRestored": "Accès via le partage familial restauré.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus est partagé via le partage familial",
+  "onboardingPreparingBodyFamilySharingRestored": "Bonne nouvelle ! Vous avez accès à Moneko Plus via le partage familial Apple, sans frais supplémentaires.",
+  "onboardingPreparingProgressAppStoreRestored": "Abonnement App Store restauré.",
+  "onboardingPreparingTitleAppStoreRestored": "Abonnement App Store restauré",
+  "onboardingPreparingBodyAppStoreRestored": "Bon retour ! Votre abonnement Moneko Plus via l’App Store a été restauré pour ce compte.",
+  "paywallBenefit0": "Un seul abonnement pour toute la famille"
 }

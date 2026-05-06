@@ -67,22 +67,18 @@ OnboardingSubscriptionCompletionCopy onboardingCompletionCopyForSubscription({
   if ((subscription?.isSubscribed ?? false) &&
       (subscription?.provider == 'app_store' ||
           subscription?.appStoreInAppOwnershipType != null)) {
-    final planName = details?.planDisplayName(l10n) ?? l10n.plus;
-
     if (subscription?.isAppStoreFamilyShared ?? false) {
       return OnboardingSubscriptionCompletionCopy(
-        progressLabel: 'Family Sharing access restored.',
-        title: 'Moneko Plus is shared through Family Sharing',
-        body:
-            'Your $planName access is shared through Apple Family Sharing, so we skipped the trial and restored Plus for this account.',
+        progressLabel: l10n.onboardingPreparingProgressFamilySharingRestored,
+        title: l10n.onboardingPreparingTitleFamilySharingRestored,
+        body: l10n.onboardingPreparingBodyFamilySharingRestored,
       );
     }
 
     return OnboardingSubscriptionCompletionCopy(
-      progressLabel: 'App Store subscription restored.',
-      title: 'App Store subscription restored',
-      body:
-          'Your existing $planName App Store subscription has been restored for this account, so we skipped the onboarding trial.',
+      progressLabel: l10n.onboardingPreparingProgressAppStoreRestored,
+      title: l10n.onboardingPreparingTitleAppStoreRestored,
+      body: l10n.onboardingPreparingBodyAppStoreRestored,
     );
   }
 

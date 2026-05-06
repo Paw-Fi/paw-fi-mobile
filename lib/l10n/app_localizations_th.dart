@@ -7153,4 +7153,25 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get paywallBenefit5 => 'บันทึกค่าใช้จ่ายอัตโนมัติด้วยการส่งต่อใบเสร็จจากอีเมล';
+
+  @override
+  String get onboardingPreparingProgressFamilySharingRestored => 'กู้คืนสิทธิ์เข้าถึงผ่านการแชร์กันในครอบครัวแล้ว';
+
+  @override
+  String get onboardingPreparingTitleFamilySharingRestored => 'Moneko Plus แชร์ผ่านการแชร์กันในครอบครัว';
+
+  @override
+  String get onboardingPreparingBodyFamilySharingRestored => 'ข่าวดี! คุณสามารถใช้ Moneko Plus ผ่าน Apple Family Sharing ได้โดยไม่มีค่าใช้จ่ายเพิ่มเติม';
+
+  @override
+  String get onboardingPreparingProgressAppStoreRestored => 'กู้คืนการสมัครสมาชิก App Store แล้ว';
+
+  @override
+  String get onboardingPreparingTitleAppStoreRestored => 'กู้คืนการสมัครสมาชิก App Store แล้ว';
+
+  @override
+  String get onboardingPreparingBodyAppStoreRestored => 'ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว';
+
+  @override
+  String get paywallBenefit0 => 'สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว';
 }

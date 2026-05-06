@@ -2642,5 +2642,12 @@
   "pastDue": "Pagamento scaduto",
   "trial": "Prova",
   "unknownFeature": "Funzione sconosciuta",
-  "paywallBenefit5": "Registra automaticamente le spese inoltrando le ricevute dall’e-mail"
+  "paywallBenefit5": "Registra automaticamente le spese inoltrando le ricevute dall’e-mail",
+  "onboardingPreparingProgressFamilySharingRestored": "Accesso tramite “In famiglia” ripristinato.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus è condiviso tramite “In famiglia”",
+  "onboardingPreparingBodyFamilySharingRestored": "Ottime notizie! Hai accesso a Moneko Plus tramite “In famiglia” di Apple, senza costi aggiuntivi.",
+  "onboardingPreparingProgressAppStoreRestored": "Abbonamento App Store ripristinato.",
+  "onboardingPreparingTitleAppStoreRestored": "Abbonamento App Store ripristinato",
+  "onboardingPreparingBodyAppStoreRestored": "Bentornato! Il tuo abbonamento Moneko Plus tramite App Store è stato ripristinato per questo account.",
+  "paywallBenefit0": "Un solo abbonamento per tutta la famiglia"
 }

@@ -2691,5 +2691,12 @@
   "pastDue": "付款逾期",
   "trial": "试用",
   "unknownFeature": "未知功能",
-  "paywallBenefit5": "从邮箱转发收据，自动记录支出"
+  "paywallBenefit5": "从邮箱转发收据，自动记录支出",
+  "onboardingPreparingProgressFamilySharingRestored": "已恢复「家人共享」访问权限。",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus 已通过「家人共享」提供",
+  "onboardingPreparingBodyFamilySharingRestored": "好消息！你可以通过 Apple「家人共享」使用 Moneko Plus，无需额外付费。",
+  "onboardingPreparingProgressAppStoreRestored": "已恢复 App Store 订阅。",
+  "onboardingPreparingTitleAppStoreRestored": "已恢复 App Store 订阅",
+  "onboardingPreparingBodyAppStoreRestored": "欢迎回来！你的 Moneko Plus App Store 订阅已为此账号恢复。",
+  "paywallBenefit0": "一个订阅，全家共享"
 }

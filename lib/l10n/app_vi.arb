@@ -2694,5 +2694,12 @@
   "pastDue": "Quá hạn thanh toán",
   "trial": "Dùng thử",
   "unknownFeature": "Tính năng không xác định",
-  "paywallBenefit5": "Tự động ghi lại chi tiêu bằng cách chuyển tiếp hóa đơn từ email"
+  "paywallBenefit5": "Tự động ghi lại chi tiêu bằng cách chuyển tiếp hóa đơn từ email",
+  "onboardingPreparingProgressFamilySharingRestored": "Đã khôi phục quyền truy cập qua Chia sẻ trong gia đình.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus được chia sẻ qua Chia sẻ trong gia đình",
+  "onboardingPreparingBodyFamilySharingRestored": "Tin vui! Bạn có quyền truy cập Moneko Plus qua Chia sẻ trong gia đình của Apple mà không mất thêm phí.",
+  "onboardingPreparingProgressAppStoreRestored": "Đã khôi phục gói đăng ký App Store.",
+  "onboardingPreparingTitleAppStoreRestored": "Đã khôi phục gói đăng ký App Store",
+  "onboardingPreparingBodyAppStoreRestored": "Chào mừng bạn trở lại! Gói đăng ký Moneko Plus qua App Store của bạn đã được khôi phục cho tài khoản này.",
+  "paywallBenefit0": "Một gói đăng ký cho cả gia đình"
 }

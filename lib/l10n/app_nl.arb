@@ -2642,5 +2642,12 @@
   "pastDue": "Betaling achterstallig",
   "trial": "Proefperiode",
   "unknownFeature": "Onbekende functie",
-  "paywallBenefit5": "Registreer uitgaven automatisch door bonnetjes vanuit je e-mail door te sturen"
+  "paywallBenefit5": "Registreer uitgaven automatisch door bonnetjes vanuit je e-mail door te sturen",
+  "onboardingPreparingProgressFamilySharingRestored": "Toegang via Delen met gezin hersteld.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus wordt gedeeld via Delen met gezin",
+  "onboardingPreparingBodyFamilySharingRestored": "Goed nieuws! Je hebt toegang tot Moneko Plus via Apple Delen met gezin, zonder extra kosten.",
+  "onboardingPreparingProgressAppStoreRestored": "App Store-abonnement hersteld.",
+  "onboardingPreparingTitleAppStoreRestored": "App Store-abonnement hersteld",
+  "onboardingPreparingBodyAppStoreRestored": "Welkom terug! Je Moneko Plus-abonnement via de App Store is voor dit account hersteld.",
+  "paywallBenefit0": "Eén abonnement voor het hele gezin"
 }

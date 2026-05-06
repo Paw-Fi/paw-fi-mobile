@@ -120,6 +120,7 @@ class PaywallBenefitsChecklist extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     final items = [
+      context.l10n.paywallBenefit0,
       context.l10n.paywallBenefit1,
       context.l10n.paywallBenefit2,
       context.l10n.paywallBenefit5,

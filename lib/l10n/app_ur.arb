@@ -2641,5 +2641,12 @@
   "pastDue": "ادائیگی تاخیر کا شکار ہے",
   "trial": "ٹرائل",
   "unknownFeature": "نامعلوم فیچر",
-  "paywallBenefit5": "ای میل سے رسیدیں فارورڈ کر کے اخراجات خودکار طور پر لاگ کریں"
+  "paywallBenefit5": "ای میل سے رسیدیں فارورڈ کر کے اخراجات خودکار طور پر لاگ کریں",
+  "onboardingPreparingProgressFamilySharingRestored": "فیملی شیئرنگ کی رسائی بحال ہو گئی ہے۔",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus فیملی شیئرنگ کے ذریعے شیئر کیا گیا ہے",
+  "onboardingPreparingBodyFamilySharingRestored": "اچھی خبر! آپ کو Apple Family Sharing کے ذریعے Moneko Plus تک رسائی حاصل ہے، بغیر کسی اضافی فیس کے۔",
+  "onboardingPreparingProgressAppStoreRestored": "App Store سبسکرپشن بحال ہو گئی ہے۔",
+  "onboardingPreparingTitleAppStoreRestored": "App Store سبسکرپشن بحال ہو گئی ہے",
+  "onboardingPreparingBodyAppStoreRestored": "واپسی پر خوش آمدید! آپ کی Moneko Plus App Store سبسکرپشن اس اکاؤنٹ کے لیے بحال کر دی گئی ہے۔",
+  "paywallBenefit0": "پورے خاندان کے لیے ایک ہی سبسکرپشن"
 }

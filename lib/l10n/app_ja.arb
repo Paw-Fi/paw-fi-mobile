@@ -2695,5 +2695,12 @@
   "pastDue": "支払い期限切れ",
   "trial": "トライアル",
   "unknownFeature": "不明な機能",
-  "paywallBenefit5": "メールの領収書を転送して支出を自動記録"
+  "paywallBenefit5": "メールの領収書を転送して支出を自動記録",
+  "onboardingPreparingProgressFamilySharingRestored": "ファミリー共有のアクセス権が復元されました。",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plusはファミリー共有で利用できます",
+  "onboardingPreparingBodyFamilySharingRestored": "うれしいお知らせです！Appleのファミリー共有を通じて、追加料金なしでMoneko Plusをご利用いただけます。",
+  "onboardingPreparingProgressAppStoreRestored": "App Storeのサブスクリプションが復元されました。",
+  "onboardingPreparingTitleAppStoreRestored": "App Storeのサブスクリプションが復元されました",
+  "onboardingPreparingBodyAppStoreRestored": "おかえりなさい！このアカウントでMoneko PlusのApp Storeサブスクリプションが復元されました。",
+  "paywallBenefit0": "家族みんなで使える1つのサブスクリプション"
 }

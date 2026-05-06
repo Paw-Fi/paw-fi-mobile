@@ -102,9 +102,10 @@ void main() {
       ),
     );
 
-    expect(copy.progressLabel, 'Family Sharing access restored.');
-    expect(copy.title, 'Moneko Plus is shared through Family Sharing');
-    expect(copy.body, contains('shared through Apple Family Sharing'));
+    expect(copy.progressLabel,
+        l10n.onboardingPreparingProgressFamilySharingRestored);
+    expect(copy.title, l10n.onboardingPreparingTitleFamilySharingRestored);
+    expect(copy.body, l10n.onboardingPreparingBodyFamilySharingRestored);
   });
 
   test('completion copy explains Family Sharing access without provider', () {
@@ -125,9 +126,10 @@ void main() {
       ),
     );
 
-    expect(copy.progressLabel, 'Family Sharing access restored.');
-    expect(copy.title, 'Moneko Plus is shared through Family Sharing');
-    expect(copy.body, contains('shared through Apple Family Sharing'));
+    expect(copy.progressLabel,
+        l10n.onboardingPreparingProgressFamilySharingRestored);
+    expect(copy.title, l10n.onboardingPreparingTitleFamilySharingRestored);
+    expect(copy.body, l10n.onboardingPreparingBodyFamilySharingRestored);
   });
 
   test('completion copy explains owned App Store subscription restore', () {
@@ -149,8 +151,9 @@ void main() {
       ),
     );
 
-    expect(copy.progressLabel, 'App Store subscription restored.');
-    expect(copy.title, 'App Store subscription restored');
-    expect(copy.body, contains('existing Plus App Store subscription'));
+    expect(
+        copy.progressLabel, l10n.onboardingPreparingProgressAppStoreRestored);
+    expect(copy.title, l10n.onboardingPreparingTitleAppStoreRestored);
+    expect(copy.body, l10n.onboardingPreparingBodyAppStoreRestored);
   });
 }

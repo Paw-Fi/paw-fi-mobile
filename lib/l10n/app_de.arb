@@ -2695,5 +2695,12 @@
   "pastDue": "Zahlung überfällig",
   "trial": "Testphase",
   "unknownFeature": "Unbekannte Funktion",
-  "paywallBenefit5": "Ausgaben automatisch erfassen, indem du Belege aus E-Mails weiterleitest"
+  "paywallBenefit5": "Ausgaben automatisch erfassen, indem du Belege aus E-Mails weiterleitest",
+  "onboardingPreparingProgressFamilySharingRestored": "Zugriff über die Familienfreigabe wiederhergestellt.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus wird über die Familienfreigabe geteilt",
+  "onboardingPreparingBodyFamilySharingRestored": "Tolle Neuigkeiten! Du hast über die Apple-Familienfreigabe Zugriff auf Moneko Plus – ohne zusätzliche Kosten.",
+  "onboardingPreparingProgressAppStoreRestored": "App Store-Abonnement wiederhergestellt.",
+  "onboardingPreparingTitleAppStoreRestored": "App Store-Abonnement wiederhergestellt",
+  "onboardingPreparingBodyAppStoreRestored": "Willkommen zurück! Dein Moneko Plus-Abonnement über den App Store wurde für dieses Konto wiederhergestellt.",
+  "paywallBenefit0": "Ein Abo für die ganze Familie"
 }

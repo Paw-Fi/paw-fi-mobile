@@ -2645,5 +2645,12 @@
   "pastDue": "Платеж просрочен",
   "trial": "Пробный период",
   "unknownFeature": "Неизвестная функция",
-  "paywallBenefit5": "Автоматически добавляйте расходы, пересылая чеки из почты"
+  "paywallBenefit5": "Автоматически добавляйте расходы, пересылая чеки из почты",
+  "onboardingPreparingProgressFamilySharingRestored": "Доступ через Семейный доступ восстановлен.",
+  "onboardingPreparingTitleFamilySharingRestored": "Moneko Plus доступен через Семейный доступ",
+  "onboardingPreparingBodyFamilySharingRestored": "Отличные новости! У вас есть доступ к Moneko Plus через Семейный доступ Apple без дополнительной платы.",
+  "onboardingPreparingProgressAppStoreRestored": "Подписка App Store восстановлена.",
+  "onboardingPreparingTitleAppStoreRestored": "Подписка App Store восстановлена",
+  "onboardingPreparingBodyAppStoreRestored": "С возвращением! Ваша подписка Moneko Plus через App Store восстановлена для этой учетной записи.",
+  "paywallBenefit0": "Одна подписка для всей семьи"
 }
