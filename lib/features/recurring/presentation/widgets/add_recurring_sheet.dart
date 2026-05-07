@@ -35,7 +35,6 @@ import 'package:moneko/features/households/domain/entities/expense_split.dart'
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
 import 'package:moneko/features/pockets/presentation/state/pocket_details_provider.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
-import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
@@ -969,7 +968,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 );
           } else {
             // CREATE new expense
-            result = await ref
+            final saveFuture = ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringExpense(
                   userId: userId,
@@ -998,6 +997,34 @@ class AddRecurringSheet extends HookConsumerWidget {
                       : null,
                   accountId: selectedAccountId,
                 );
+            final providerContainer = ProviderScope.containerOf(
+              context,
+              listen: false,
+            );
+            isLoading.value = false;
+            if (context.mounted) {
+              closeDialog();
+              Navigator.of(context).pop(true);
+              AppToast.success(
+                toastContext,
+                l10n.recurringExpenseAddedSuccessfully,
+              );
+            }
+            unawaited(saveFuture.then((saved) {
+              if (saved != null) {
+                providerContainer
+                    .read(walletActionsProvider)
+                    .refreshAccountData();
+                providerContainer.invalidate(pocketDetailsProvider);
+                return;
+              }
+              if (!toastContext.mounted) return;
+              AppToast.error(
+                toastContext,
+                l10n.failedToSaveRecurringTransaction,
+              );
+            }));
+            return;
           }
         } else {
           if (isEditing) {
@@ -1027,7 +1054,7 @@ class AddRecurringSheet extends HookConsumerWidget {
                 );
           } else {
             // CREATE new income
-            result = await ref
+            final saveFuture = ref
                 .read(recurringTransactionSaveProvider.notifier)
                 .saveRecurringIncome(
                   userId: userId,
@@ -1050,6 +1077,34 @@ class AddRecurringSheet extends HookConsumerWidget {
                   householdId: activeHouseholdId,
                   accountId: selectedAccountId,
                 );
+            final providerContainer = ProviderScope.containerOf(
+              context,
+              listen: false,
+            );
+            isLoading.value = false;
+            if (context.mounted) {
+              closeDialog();
+              Navigator.of(context).pop(true);
+              AppToast.success(
+                toastContext,
+                l10n.recurringIncomeAddedSuccessfully,
+              );
+            }
+            unawaited(saveFuture.then((saved) {
+              if (saved != null) {
+                providerContainer
+                    .read(walletActionsProvider)
+                    .refreshAccountData();
+                providerContainer.invalidate(pocketDetailsProvider);
+                return;
+              }
+              if (!toastContext.mounted) return;
+              AppToast.error(
+                toastContext,
+                l10n.failedToSaveRecurringTransaction,
+              );
+            }));
+            return;
           }
         }
 

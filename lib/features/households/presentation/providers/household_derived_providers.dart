@@ -8,6 +8,7 @@ import 'package:moneko/features/households/domain/entities/household_summary.dar
 import 'package:moneko/features/households/domain/entities/shared_budget.dart';
 import 'package:moneko/features/households/domain/utils/settlement_net_calculator.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -47,6 +48,11 @@ final settlementOverviewProvider =
 
     final splits = splitsAsync.valueOrNull;
     final payments = paymentsAsync.valueOrNull;
+    final optimisticPayments = ref.watch(
+      optimisticSettlementPaymentsProvider.select(
+        (state) => state[householdId] ?? const <SettlementPaymentRecord>[],
+      ),
+    );
 
     // If either has errored and has no usable cached value, propagate error.
     if (splits == null && splitsAsync.hasError) {
@@ -69,7 +75,7 @@ final settlementOverviewProvider =
 
     return AsyncValue.data(SettlementOverviewData(
       splits: splits,
-      payments: payments,
+      payments: [...optimisticPayments, ...payments],
     ));
   },
 );
@@ -121,6 +127,12 @@ final householdDerivedSummaryProvider =
       return const AsyncValue.loading();
     }
 
+    final optimisticExpenses = ref.watch(
+      householdOptimisticExpensesProvider.select(
+        (state) => state[params.householdId] ?? const <ExpenseEntry>[],
+      ),
+    );
+    final mergedExpenses = mergeHouseholdExpenses(expenses, optimisticExpenses);
     final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final members = membersAsync.valueOrNull ?? const <HouseholdMember>[];
     final budgets = budgetsAsync.valueOrNull ?? const <SharedBudget>[];
@@ -128,7 +140,7 @@ final householdDerivedSummaryProvider =
     final rangeStart = _normalizeDate(DateTime.parse(params.startDate));
     final rangeEnd = _normalizeDate(DateTime.parse(params.endDate));
     final expensesWithRecurring = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: expenses,
+      actualExpenses: mergedExpenses,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: rangeStart,
       rangeEnd: rangeEnd,

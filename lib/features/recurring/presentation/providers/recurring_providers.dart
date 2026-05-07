@@ -43,6 +43,66 @@ String? _buildEndDateYmd(DateTime? endDate) {
   return formatDateOnlyYmd(DateTime(endDate.year, endDate.month, endDate.day));
 }
 
+String _makeOptimisticRecurringId() {
+  return 'optimistic-recurring-${DateTime.now().microsecondsSinceEpoch}';
+}
+
+RecurringTransaction _buildOptimisticRecurringTransaction({
+  required String userId,
+  required String type,
+  required double amount,
+  required String category,
+  required String currency,
+  required DateTime startDate,
+  required String frequency,
+  DateTime? endDate,
+  int? interval,
+  String? description,
+  String? merchant,
+  String? source,
+  bool? hasReminder,
+  int? reminderValue,
+  String? reminderUnit,
+  String ownerType = 'me',
+  String privacyScope = 'full',
+  String? householdId,
+  String? payerUserId,
+  String? accountId,
+}) {
+  final now = DateTime.now();
+  return RecurringTransaction(
+    id: _makeOptimisticRecurringId(),
+    userId: userId,
+    date: DateTime(startDate.year, startDate.month, startDate.day),
+    category: category,
+    description: description,
+    merchant: merchant,
+    source: source,
+    amount: amount,
+    currency: currency,
+    ownerType: ownerType,
+    privacyScope: privacyScope,
+    householdId: householdId,
+    payerUserId: payerUserId,
+    accountId: accountId,
+    recurrenceRule: RecurrenceRule(
+      frequency: frequency,
+      anchorDate: DateTime(startDate.year, startDate.month, startDate.day),
+      endDate: endDate == null
+          ? null
+          : DateTime(endDate.year, endDate.month, endDate.day),
+      interval: interval,
+      reminderEnabled: hasReminder,
+      reminderValue: hasReminder == true ? reminderValue : null,
+      reminderUnit: hasReminder == true ? reminderUnit : null,
+    ),
+    type: type,
+    attachments: const [],
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
 // ============================================================================
 // STATE CLASSES WITH CACHING SUPPORT - SINGLE SOURCE OF TRUTH
 // ============================================================================
@@ -203,8 +263,23 @@ class RecurringTransactionsNotifier
 
       if (!mounted) return;
 
+      final currentTransactions =
+          state.data.valueOrNull ?? const <RecurringTransaction>[];
+      final pendingOptimistic = currentTransactions
+          .where((transaction) =>
+              transaction.id.startsWith('optimistic-recurring-'))
+          .toList(growable: false);
+      final serverIds =
+          allTransactions.map((transaction) => transaction.id).toSet();
+      final mergedTransactions = <RecurringTransaction>[
+        ...pendingOptimistic.where(
+          (transaction) => !serverIds.contains(transaction.id),
+        ),
+        ...allTransactions,
+      ];
+
       state = state.copyWith(
-        data: AsyncValue.data(allTransactions),
+        data: AsyncValue.data(mergedTransactions),
         hasLoadedOnce: true,
       );
 
@@ -237,7 +312,10 @@ class RecurringTransactionsNotifier
   void addRecurring(RecurringTransaction transaction) {
     if (!mounted) return;
     state.data.whenData((transactions) {
-      final updated = [transaction, ...transactions];
+      final withoutDuplicate = transactions
+          .where((existing) => existing.id != transaction.id)
+          .toList(growable: false);
+      final updated = [transaction, ...withoutDuplicate];
       state = state.copyWith(data: AsyncValue.data(updated));
     });
   }
@@ -250,6 +328,56 @@ class RecurringTransactionsNotifier
         return t.id == transaction.id ? transaction : t;
       }).toList();
       state = state.copyWith(data: AsyncValue.data(updated));
+    });
+  }
+
+  /// Replace an optimistic row with the saved server row.
+  void replaceRecurring(
+    String optimisticId,
+    RecurringTransaction savedTransaction,
+  ) {
+    if (!mounted) return;
+    state.data.whenData((transactions) {
+      final updated = <RecurringTransaction>[];
+      var inserted = false;
+
+      for (final transaction in transactions) {
+        if (transaction.id == optimisticId) {
+          if (!inserted) {
+            updated.add(savedTransaction);
+            inserted = true;
+          }
+          continue;
+        }
+        if (transaction.id == savedTransaction.id) {
+          if (!inserted) {
+            updated.add(savedTransaction);
+            inserted = true;
+          }
+          continue;
+        }
+        updated.add(transaction);
+      }
+
+      if (!inserted) {
+        updated.insert(0, savedTransaction);
+      }
+
+      state = state.copyWith(data: AsyncValue.data(updated));
+    });
+  }
+
+  /// Remove a pending or deleted recurring transaction from local state.
+  void removeRecurring(String transactionId) {
+    if (!mounted) return;
+    state.data.whenData((transactions) {
+      state = state.copyWith(
+        data: AsyncValue.data(
+          transactions
+              .where((transaction) => transaction.id != transactionId)
+              .toList(growable: false),
+        ),
+      );
     });
   }
 
@@ -585,6 +713,7 @@ class RecurringTransactionSaveNotifier
       return null;
     }
     state = const AsyncValue.loading();
+    RecurringTransaction? optimisticTransaction;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -667,6 +796,31 @@ class RecurringTransactionSaveNotifier
         }
       }
 
+      optimisticTransaction = _buildOptimisticRecurringTransaction(
+        userId: userId,
+        type: 'expense',
+        amount: amount,
+        category: category,
+        currency: currency,
+        startDate: startDate,
+        frequency: frequency,
+        endDate: endDate,
+        interval: interval,
+        description: description,
+        merchant: merchant,
+        hasReminder: hasReminder,
+        reminderValue: reminderValue,
+        reminderUnit: reminderUnit,
+        ownerType: ownerType,
+        privacyScope: privacyScope,
+        householdId: householdId,
+        payerUserId: payerUserId,
+        accountId: accountId,
+      );
+      ref
+          .read(recurringTransactionsProvider(householdId).notifier)
+          .addRecurring(optimisticTransaction);
+
       final response = await supabase.functions.invoke(
         'save-expense',
         body: requestBody,
@@ -675,15 +829,21 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final expense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .replaceRecurring(optimisticTransaction.id, expense);
         state = AsyncValue.data(expense);
 
-        // Force refresh the list provider to show the new transaction
-        // Don't use optimistic update as we'll invalidate in the sheet
         _debugPrint(
-            '🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
+            '🔄 [SaveRecurring] Saved successfully, optimistic row reconciled');
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
 
         return expense;
       } else {
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .removeRecurring(optimisticTransaction.id);
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to save recurring expense',
@@ -695,6 +855,14 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      try {
+        final optimistic = optimisticTransaction;
+        if (optimistic != null) {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .removeRecurring(optimistic.id);
+        }
+      } catch (_) {}
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -725,6 +893,7 @@ class RecurringTransactionSaveNotifier
       return null;
     }
     state = const AsyncValue.loading();
+    RecurringTransaction? optimisticTransaction;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -747,6 +916,31 @@ class RecurringTransactionSaveNotifier
             'unit': reminderUnit,
           },
       };
+
+      optimisticTransaction = _buildOptimisticRecurringTransaction(
+        userId: userId,
+        type: 'income',
+        amount: amount,
+        category: category,
+        currency: currency,
+        startDate: startDate,
+        frequency: frequency,
+        endDate: endDate,
+        interval: interval,
+        description: description,
+        merchant: merchant,
+        source: source,
+        hasReminder: hasReminder,
+        reminderValue: reminderValue,
+        reminderUnit: reminderUnit,
+        ownerType: ownerType,
+        privacyScope: privacyScope,
+        householdId: householdId,
+        accountId: accountId,
+      );
+      ref
+          .read(recurringTransactionsProvider(householdId).notifier)
+          .addRecurring(optimisticTransaction);
 
       final response = await supabase.functions.invoke(
         'save-income',
@@ -776,15 +970,21 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final income = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .replaceRecurring(optimisticTransaction.id, income);
         state = AsyncValue.data(income);
 
-        // Force refresh the list provider to show the new transaction
-        // Don't use optimistic update as we'll invalidate in the sheet
         _debugPrint(
-            '🔄 [SaveRecurring] Saved successfully, transaction will be reloaded by invalidation');
+            '🔄 [SaveRecurring] Saved successfully, optimistic row reconciled');
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
 
         return income;
       } else {
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .removeRecurring(optimisticTransaction.id);
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to save recurring income',
@@ -796,6 +996,13 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      try {
+        if (optimisticTransaction != null) {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .removeRecurring(optimisticTransaction.id);
+        }
+      } catch (_) {}
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -1044,6 +1251,29 @@ class RecurringTransactionSaveNotifier
     }
     state = const AsyncValue.loading();
 
+    final originalScopeKey = previousHouseholdId ?? householdId;
+    final originalExpense = ref
+        .read(recurringTransactionsProvider(originalScopeKey))
+        .data
+        .valueOrNull
+        ?.where((transaction) => transaction.id == expenseId)
+        .firstOrNull;
+
+    void rollbackOptimisticExpense() {
+      try {
+        if (householdId != originalScopeKey) {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .removeRecurring(expenseId);
+        }
+        if (originalExpense != null) {
+          ref
+              .read(recurringTransactionsProvider(originalScopeKey).notifier)
+              .replaceRecurring(expenseId, originalExpense);
+        }
+      } catch (_) {}
+    }
+
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
       // Keep the row's `date` aligned with the user-selected schedule day.
@@ -1170,6 +1400,38 @@ class RecurringTransactionSaveNotifier
       }
       _debugPrint('   Request key count: ${requestBody.length}');
 
+      final optimisticExpense = _buildOptimisticRecurringTransaction(
+        userId: userId,
+        type: 'expense',
+        amount: amount,
+        category: category,
+        currency: currency,
+        startDate: startDate,
+        frequency: frequency,
+        endDate: endDate,
+        interval: interval,
+        description: description,
+        merchant: merchant,
+        hasReminder: hasReminder,
+        reminderValue: reminderValue,
+        reminderUnit: reminderUnit,
+        ownerType: ownerType,
+        privacyScope: privacyScope,
+        householdId: householdId,
+        payerUserId: payerUserId,
+        accountId: accountId,
+      ).copyWith(id: expenseId);
+      try {
+        if (previousHouseholdId != null && previousHouseholdId != householdId) {
+          ref
+              .read(recurringTransactionsProvider(previousHouseholdId).notifier)
+              .removeRecurring(expenseId);
+        }
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .replaceRecurring(expenseId, optimisticExpense);
+      } catch (_) {}
+
       final response = await supabase.functions.invoke(
         'update-expense',
         body: requestBody,
@@ -1209,6 +1471,7 @@ class RecurringTransactionSaveNotifier
 
         return updatedExpense;
       } else {
+        rollbackOptimisticExpense();
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to update recurring expense',
@@ -1220,6 +1483,7 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      rollbackOptimisticExpense();
       state = AsyncValue.error(e, st);
       return null;
     }
@@ -1251,6 +1515,23 @@ class RecurringTransactionSaveNotifier
       return null;
     }
     state = const AsyncValue.loading();
+
+    final originalIncome = ref
+        .read(recurringTransactionsProvider(householdId))
+        .data
+        .valueOrNull
+        ?.where((transaction) => transaction.id == expenseId)
+        .firstOrNull;
+
+    void rollbackOptimisticIncome() {
+      try {
+        if (originalIncome != null) {
+          ref
+              .read(recurringTransactionsProvider(householdId).notifier)
+              .replaceRecurring(expenseId, originalIncome);
+        }
+      } catch (_) {}
+    }
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -1294,6 +1575,33 @@ class RecurringTransactionSaveNotifier
       updatesIncome['source'] =
           source != null && source.trim().isNotEmpty ? source.trim() : null;
 
+      final optimisticIncome = _buildOptimisticRecurringTransaction(
+        userId: userId,
+        type: 'income',
+        amount: amount,
+        category: category,
+        currency: currency,
+        startDate: startDate,
+        frequency: frequency,
+        endDate: endDate,
+        interval: interval,
+        description: description,
+        merchant: merchant,
+        source: source,
+        hasReminder: hasReminder,
+        reminderValue: reminderValue,
+        reminderUnit: reminderUnit,
+        ownerType: ownerType,
+        privacyScope: privacyScope,
+        householdId: householdId,
+        accountId: accountId,
+      ).copyWith(id: expenseId);
+      try {
+        ref
+            .read(recurringTransactionsProvider(householdId).notifier)
+            .replaceRecurring(expenseId, optimisticIncome);
+      } catch (_) {}
+
       final response = await supabase.functions.invoke(
         'update-expense',
         body: {
@@ -1320,6 +1628,7 @@ class RecurringTransactionSaveNotifier
 
         return updatedIncome;
       } else {
+        rollbackOptimisticIncome();
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to update recurring income',
@@ -1331,6 +1640,7 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      rollbackOptimisticIncome();
       state = AsyncValue.error(e, st);
       return null;
     }

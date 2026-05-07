@@ -62,6 +62,13 @@ class _SettlementSuggestionsCardState
     final overviewAsync = ref.watch(
       settlementOverviewProvider(widget.summary.householdId),
     );
+    final optimisticPayments = ref.watch(
+      optimisticSettlementPaymentsProvider.select(
+        (state) =>
+            state[widget.summary.householdId] ??
+            const <SettlementPaymentRecord>[],
+      ),
+    );
 
     if (balancesAsync.isLoading && overviewAsync.isLoading) {
       return _buildLoadingCard(context, colorScheme);
@@ -113,7 +120,7 @@ class _SettlementSuggestionsCardState
               context.l10n.member;
         }
 
-        final mySuggestions = balances != null
+        final mySuggestions = balances != null && optimisticPayments.isEmpty
             ? _buildSuggestionsFromBalances(
                 balances,
                 currentUserId,

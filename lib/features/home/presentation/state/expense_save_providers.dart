@@ -523,6 +523,8 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     }
 
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
+        1;
     ref.read(walletActionsProvider).refreshAccountData();
 
     // Refresh pockets so budget calculations reflect the new expense.

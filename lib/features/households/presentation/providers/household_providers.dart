@@ -162,19 +162,65 @@ class UserHouseholdsNotifier
     state = AsyncValue.data(households);
   }
 
+  void addOrReplaceHousehold(Household household) {
+    if (!mounted) return;
+    final current = state.valueOrNull ?? const <Household>[];
+    final updated = current
+        .map((existing) => existing.id == household.id ? household : existing)
+        .toList(growable: true);
+
+    if (!current.any((existing) => existing.id == household.id)) {
+      updated.add(household);
+    }
+
+    state = AsyncValue.data(updated);
+  }
+
+  void removeHousehold(String householdId) {
+    if (!mounted) return;
+    final current = state.valueOrNull ?? const <Household>[];
+    state = AsyncValue.data(
+      current
+          .where((household) => household.id != householdId)
+          .toList(growable: false),
+    );
+  }
+
   Future<void> createHousehold({
     required String name,
     required String currency,
     String? coverImageUrl,
     String? themeColor,
   }) async {
-    await _repository.createHousehold(
+    final optimisticId =
+        'optimistic-household-${DateTime.now().microsecondsSinceEpoch}';
+    final now = DateTime.now();
+    final optimistic = Household(
+      id: optimisticId,
       name: name,
-      currency: currency,
+      ownerId: _userId,
       coverImageUrl: coverImageUrl,
       themeColor: themeColor,
+      currency: currency.toUpperCase(),
+      createdAt: now,
+      updatedAt: now,
     );
-    await load();
+    addOrReplaceHousehold(optimistic);
+
+    try {
+      final created = await _repository.createHousehold(
+        name: name,
+        currency: currency,
+        coverImageUrl: coverImageUrl,
+        themeColor: themeColor,
+      );
+      removeHousehold(optimisticId);
+      addOrReplaceHousehold(created);
+      unawaited(load());
+    } catch (_) {
+      removeHousehold(optimisticId);
+      rethrow;
+    }
   }
 }
 
@@ -894,6 +940,44 @@ final householdSettlementPaymentsProvider = FutureProvider.autoDispose
     return const <SettlementPaymentRecord>[];
   }
 });
+
+class OptimisticSettlementPaymentsNotifier
+    extends StateNotifier<Map<String, List<SettlementPaymentRecord>>> {
+  OptimisticSettlementPaymentsNotifier() : super(const {});
+
+  void addPayment(String householdId, SettlementPaymentRecord payment) {
+    state = {
+      ...state,
+      householdId: [payment, ...(state[householdId] ?? const [])],
+    };
+  }
+
+  void removePayment(String householdId, SettlementPaymentRecord payment) {
+    final existing = state[householdId] ?? const <SettlementPaymentRecord>[];
+    final updated = existing.where((candidate) {
+      return candidate.payerUserId != payment.payerUserId ||
+          candidate.participantUserId != payment.participantUserId ||
+          candidate.amountCents != payment.amountCents ||
+          (candidate.currency ?? '').toUpperCase() !=
+              (payment.currency ?? '').toUpperCase();
+    }).toList(growable: false);
+    state = {
+      ...state,
+      if (updated.isNotEmpty) householdId: updated,
+    }..removeWhere((key, value) => value.isEmpty);
+  }
+
+  void clearHousehold(String householdId) {
+    if (!state.containsKey(householdId)) return;
+    state = {...state}..remove(householdId);
+  }
+}
+
+final optimisticSettlementPaymentsProvider = StateNotifierProvider<
+    OptimisticSettlementPaymentsNotifier,
+    Map<String, List<SettlementPaymentRecord>>>(
+  (ref) => OptimisticSettlementPaymentsNotifier(),
+);
 
 // ============================================================================
 // HOUSEHOLD SETTLEMENT HISTORY (from household_settlement_events)

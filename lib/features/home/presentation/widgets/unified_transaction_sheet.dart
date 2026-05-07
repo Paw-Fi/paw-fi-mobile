@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/utils/payer_resolver.dart';
@@ -2865,6 +2866,8 @@ class _UnifiedTransactionSheetState
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
+        1;
 
     debugPrint(
         '✅ [REFRESH] Household UI refresh complete - all provider families invalidated');
@@ -2883,6 +2886,8 @@ class _UnifiedTransactionSheetState
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
+        1;
 
     debugPrint('✅ [REFRESH] Personal UI refresh complete');
   }
@@ -3483,6 +3488,7 @@ class _UnifiedTransactionSheetState
                   widget.existingExpense!.id,
                   updates,
                   extraBody: extraBody,
+                  originalExpense: widget.existingExpense,
                 );
         debugPrint(
           '🧪 updateExpense result: success=$success updates=${updates.keys.toList()}',
@@ -3730,6 +3736,9 @@ class _UnifiedTransactionSheetState
       ref.invalidate(pocketDetailsProvider);
       ref.read(walletActionsProvider).refreshAccountData();
       ref.invalidate(currencyTransactionCountsProvider);
+      ref
+          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+          .state += 1;
 
       // If this was a household expense, invalidate household providers
       final householdId = widget.existingExpense!.householdId;
@@ -3819,12 +3828,12 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
           if (widget.onReplacePhoto != null)
             Tooltip(
               message: _replaceReceiptPhotoTooltip,
-            child: TextButton.icon(
+              child: TextButton.icon(
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.foreground,
                 ),
                 icon: const Icon(Icons.find_replace_outlined),
-                label:  Text(context.l10n.replace),
+                label: Text(context.l10n.replace),
                 onPressed: () async {
                   final navigator = Navigator.of(context);
                   final replaced = await widget.onReplacePhoto!(context);

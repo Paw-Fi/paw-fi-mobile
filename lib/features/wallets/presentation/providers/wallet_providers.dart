@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
@@ -256,9 +257,15 @@ class ScopedWalletsNotifier extends AsyncNotifier<List<WalletEntity>> {
 
 final effectiveScopeWalletsProvider = Provider<List<WalletEntity>>((ref) {
   final baseAccounts = ref.watch(scopedWalletsProvider).valueOrNull ?? const [];
+  final scopeHouseholdId = ref.watch(walletScopeHouseholdIdProvider);
   final optimisticOverrides =
       ref.watch(optimisticScopedAccountsOverridesProvider);
-  return _mergeOptimisticAccounts(baseAccounts, optimisticOverrides);
+  final scopedOverrides = Map<String, WalletEntity>.fromEntries(
+    optimisticOverrides.entries.where(
+      (entry) => entry.value.householdId == scopeHouseholdId,
+    ),
+  );
+  return _mergeOptimisticAccounts(baseAccounts, scopedOverrides);
 });
 
 final defaultScopedAccountProvider = Provider<WalletEntity?>((ref) {
@@ -359,22 +366,55 @@ class WalletActions {
     bool isDefault = false,
   }) async {
     final householdId = ref.read(walletScopeHouseholdIdProvider);
+    final user = ref.read(authProvider);
     final authHeaders = _requireAuthHeaders();
-    final response = await supabase.functions.invoke(
-      'save-wallet',
-      headers: authHeaders,
-      body: {
-        'name': name,
-        'icon': icon,
-        'color': color,
-        'openingBalanceCents': openingBalanceCents,
-        'goalAmountCents': goalAmountCents,
-        'isDefault': isDefault,
-        if (householdId != null) 'householdId': householdId,
-      },
+    final optimisticId =
+        'optimistic-wallet-${DateTime.now().microsecondsSinceEpoch}';
+    final optimisticWallet = WalletEntity(
+      id: optimisticId,
+      userId: user.uid,
+      householdId: householdId,
+      name: name,
+      icon: icon,
+      color: color,
+      openingBalanceCents: openingBalanceCents,
+      goalAmountCents: goalAmountCents,
+      isDefault: isDefault,
+      isSystem: false,
+      isArchived: false,
+      currentBalanceCents: openingBalanceCents,
     );
-    _throwIfFailed(response.data, 'Failed to create wallet');
-    _invalidateAll();
+    setOptimisticWallet(optimisticWallet);
+
+    try {
+      final response = await supabase.functions.invoke(
+        'save-wallet',
+        headers: authHeaders,
+        body: {
+          'name': name,
+          'icon': icon,
+          'color': color,
+          'openingBalanceCents': openingBalanceCents,
+          'goalAmountCents': goalAmountCents,
+          'isDefault': isDefault,
+          if (householdId != null) 'householdId': householdId,
+        },
+      );
+      _throwIfFailed(response.data, 'Failed to create wallet');
+      clearOptimisticWallet(optimisticId);
+
+      final payload = response.data;
+      final saved = payload is Map<String, dynamic>
+          ? payload['data'] ?? payload['wallet'] ?? payload['account']
+          : null;
+      if (saved is Map<String, dynamic>) {
+        setOptimisticWallet(WalletEntity.fromJson(saved));
+      }
+      _invalidateAll();
+    } catch (_) {
+      clearOptimisticWallet(optimisticId);
+      rethrow;
+    }
   }
 
   Future<void> updateAccount({
@@ -389,51 +429,101 @@ class WalletActions {
     bool invalidate = true,
   }) async {
     final authHeaders = _requireAuthHeaders();
+    final existingWallet =
+        ref.read(effectiveScopeWalletsProvider).where((wallet) {
+      return wallet.id == walletId;
+    }).firstOrNull;
+    if (existingWallet != null) {
+      setOptimisticWallet(WalletEntity(
+        id: existingWallet.id,
+        userId: existingWallet.userId,
+        householdId: existingWallet.householdId,
+        name: name ?? existingWallet.name,
+        icon: icon ?? existingWallet.icon,
+        color: color ?? existingWallet.color,
+        openingBalanceCents:
+            openingBalanceCents ?? existingWallet.openingBalanceCents,
+        goalAmountCents: includeGoalAmount
+            ? goalAmountCents
+            : (goalAmountCents ?? existingWallet.goalAmountCents),
+        isDefault: isDefault ?? existingWallet.isDefault,
+        isSystem: existingWallet.isSystem,
+        isArchived: existingWallet.isArchived,
+        currentBalanceCents: existingWallet.currentBalanceCents,
+      ));
+    }
     debugPrint(
       '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
-    final response = await supabase.functions.invoke(
-      'update-wallet',
-      headers: authHeaders,
-      body: {
-        'accountId': walletId,
-        if (name != null) 'name': name,
-        if (icon != null) 'icon': icon,
-        if (color != null) 'color': color,
-        if (openingBalanceCents != null)
-          'openingBalanceCents': openingBalanceCents,
-        if (includeGoalAmount || goalAmountCents != null)
-          'goalAmountCents': goalAmountCents,
-        if (isDefault != null) 'isDefault': isDefault,
-      },
-    );
-    _throwIfFailed(response.data, 'Failed to update wallet');
-    debugPrint('[Accounts][Update] success accountId=$walletId');
-    if (invalidate) {
-      _invalidateAll();
+
+    try {
+      final response = await supabase.functions.invoke(
+        'update-wallet',
+        headers: authHeaders,
+        body: {
+          'accountId': walletId,
+          if (name != null) 'name': name,
+          if (icon != null) 'icon': icon,
+          if (color != null) 'color': color,
+          if (openingBalanceCents != null)
+            'openingBalanceCents': openingBalanceCents,
+          if (includeGoalAmount || goalAmountCents != null)
+            'goalAmountCents': goalAmountCents,
+          if (isDefault != null) 'isDefault': isDefault,
+        },
+      );
+      _throwIfFailed(response.data, 'Failed to update wallet');
+      debugPrint('[Accounts][Update] success accountId=$walletId');
+      if (invalidate) {
+        _invalidateAll();
+      }
+    } catch (_) {
+      clearOptimisticWallet(walletId);
+      rethrow;
     }
   }
 
   Future<void> archiveAccount(String accountId) async {
     final authHeaders = _requireAuthHeaders();
-    final response = await supabase.functions.invoke(
-      'archive-wallet',
-      headers: authHeaders,
-      body: {'accountId': accountId},
-    );
-    _throwIfFailed(response.data, 'Failed to archive wallet');
-    _invalidateAll();
+    final existingWallet = ref.read(walletByIdProvider(accountId));
+    if (existingWallet != null) {
+      setOptimisticWallet(existingWallet.copyWith(isArchived: true));
+    }
+    try {
+      final response = await supabase.functions.invoke(
+        'archive-wallet',
+        headers: authHeaders,
+        body: {'accountId': accountId},
+      );
+      _throwIfFailed(response.data, 'Failed to archive wallet');
+      _invalidateAll();
+    } catch (_) {
+      clearOptimisticWallet(accountId);
+      rethrow;
+    }
   }
 
   Future<void> restoreAccount(String accountId) async {
     final authHeaders = _requireAuthHeaders();
-    final response = await supabase.functions.invoke(
-      'restore-wallet',
-      headers: authHeaders,
-      body: {'accountId': accountId},
-    );
-    _throwIfFailed(response.data, 'Failed to restore wallet');
-    _invalidateAll();
+    final existingWallet = ref
+        .read(archivedScopedAccountsProvider)
+        .valueOrNull
+        ?.firstWhereOrNull((wallet) => wallet.id == accountId);
+    if (existingWallet != null) {
+      setOptimisticWallet(existingWallet.copyWith(isArchived: false));
+    }
+    try {
+      final response = await supabase.functions.invoke(
+        'restore-wallet',
+        headers: authHeaders,
+        body: {'accountId': accountId},
+      );
+      _throwIfFailed(response.data, 'Failed to restore wallet');
+      _invalidateAll();
+    } catch (_) {
+      clearOptimisticWallet(accountId);
+      rethrow;
+    }
   }
 
   Future<void> createTransfer({
@@ -445,20 +535,41 @@ class WalletActions {
     String? note,
   }) async {
     final authHeaders = _requireAuthHeaders();
-    final response = await supabase.functions.invoke(
-      'create-wallet-transfer',
-      headers: authHeaders,
-      body: {
-        'fromAccountId': fromAccountId,
-        'toAccountId': toAccountId,
-        'amountCents': amountCents,
-        'currency': currency,
-        'date': formatDateOnlyYmd(date),
-        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-      },
-    );
-    _throwIfFailed(response.data, 'Failed to create transfer');
-    _invalidateAll();
+    final wallets = ref.read(effectiveScopeWalletsProvider);
+    final fromWallet =
+        wallets.firstWhereOrNull((wallet) => wallet.id == fromAccountId);
+    final toWallet =
+        wallets.firstWhereOrNull((wallet) => wallet.id == toAccountId);
+    if (fromWallet != null) {
+      setOptimisticWallet(fromWallet.copyWith(
+        currentBalanceCents: fromWallet.currentBalanceCents - amountCents,
+      ));
+    }
+    if (toWallet != null) {
+      setOptimisticWallet(toWallet.copyWith(
+        currentBalanceCents: toWallet.currentBalanceCents + amountCents,
+      ));
+    }
+    try {
+      final response = await supabase.functions.invoke(
+        'create-wallet-transfer',
+        headers: authHeaders,
+        body: {
+          'fromAccountId': fromAccountId,
+          'toAccountId': toAccountId,
+          'amountCents': amountCents,
+          'currency': currency,
+          'date': formatDateOnlyYmd(date),
+          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        },
+      );
+      _throwIfFailed(response.data, 'Failed to create transfer');
+      _invalidateAll();
+    } catch (_) {
+      clearOptimisticWallet(fromAccountId);
+      clearOptimisticWallet(toAccountId);
+      rethrow;
+    }
   }
 
   Future<void> updateBalance({
@@ -468,22 +579,48 @@ class WalletActions {
     bool invalidate = true,
   }) async {
     final authHeaders = _requireAuthHeaders();
+    final existingWallet =
+        ref.read(effectiveScopeWalletsProvider).where((wallet) {
+      return wallet.id == walletId;
+    }).firstOrNull;
+    if (existingWallet != null) {
+      setOptimisticWallet(WalletEntity(
+        id: existingWallet.id,
+        userId: existingWallet.userId,
+        householdId: existingWallet.householdId,
+        name: existingWallet.name,
+        icon: existingWallet.icon,
+        color: existingWallet.color,
+        openingBalanceCents: existingWallet.openingBalanceCents,
+        goalAmountCents: existingWallet.goalAmountCents,
+        isDefault: existingWallet.isDefault,
+        isSystem: existingWallet.isSystem,
+        isArchived: existingWallet.isArchived,
+        currentBalanceCents: targetBalanceCents,
+      ));
+    }
     debugPrint(
       '[Accounts][Balance] start accountId=$walletId targetBalanceCents=$targetBalanceCents invalidate=$invalidate',
     );
-    final response = await supabase.functions.invoke(
-      'update-wallet-balance',
-      headers: authHeaders,
-      body: {
-        'accountId': walletId,
-        'targetBalanceCents': targetBalanceCents,
-        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
-      },
-    );
-    _throwIfFailed(response.data, 'Failed to update account balance');
-    debugPrint('[Accounts][Balance] success accountId=$walletId');
-    if (invalidate) {
-      _invalidateAll();
+
+    try {
+      final response = await supabase.functions.invoke(
+        'update-wallet-balance',
+        headers: authHeaders,
+        body: {
+          'accountId': walletId,
+          'targetBalanceCents': targetBalanceCents,
+          if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        },
+      );
+      _throwIfFailed(response.data, 'Failed to update account balance');
+      debugPrint('[Accounts][Balance] success accountId=$walletId');
+      if (invalidate) {
+        _invalidateAll();
+      }
+    } catch (_) {
+      clearOptimisticWallet(walletId);
+      rethrow;
     }
   }
 

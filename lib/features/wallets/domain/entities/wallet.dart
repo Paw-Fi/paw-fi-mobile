@@ -62,4 +62,34 @@ class WalletEntity {
       'current_balance_cents': currentBalanceCents,
     };
   }
+
+  WalletEntity copyWith({
+    String? id,
+    String? userId,
+    String? householdId,
+    String? name,
+    String? icon,
+    String? color,
+    int? openingBalanceCents,
+    int? goalAmountCents,
+    bool? isDefault,
+    bool? isSystem,
+    bool? isArchived,
+    int? currentBalanceCents,
+  }) {
+    return WalletEntity(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      householdId: householdId ?? this.householdId,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      openingBalanceCents: openingBalanceCents ?? this.openingBalanceCents,
+      goalAmountCents: goalAmountCents ?? this.goalAmountCents,
+      isDefault: isDefault ?? this.isDefault,
+      isSystem: isSystem ?? this.isSystem,
+      isArchived: isArchived ?? this.isArchived,
+      currentBalanceCents: currentBalanceCents ?? this.currentBalanceCents,
+    );
+  }
 }

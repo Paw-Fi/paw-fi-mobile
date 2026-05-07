@@ -32,10 +32,22 @@ final currencyTransactionCountsProvider =
       ? analyticsData.allExpenses
       : mergeHouseholdExpenses(analyticsData.allExpenses, optimistic);
 
+  return buildCurrencyTransactionCountsForScope(
+    expenses: source,
+    activeAccountType: scope.activeAccountType,
+    activeHouseholdId: activeHouseholdId,
+  );
+});
+
+Map<String, int> buildCurrencyTransactionCountsForScope({
+  required Iterable<ExpenseEntry> expenses,
+  required ActiveWalletType activeAccountType,
+  required String? activeHouseholdId,
+}) {
   final counts = <String, int>{};
-  for (final expense in source) {
+  for (final expense in expenses) {
     final householdId = expense.householdId;
-    final matchesScope = switch (scope.activeAccountType) {
+    final matchesScope = switch (activeAccountType) {
       ActiveWalletType.personal =>
         householdId == null || householdId.trim().isEmpty,
       ActiveWalletType.household ||
@@ -50,4 +62,4 @@ final currencyTransactionCountsProvider =
   }
 
   return counts;
-});
+}

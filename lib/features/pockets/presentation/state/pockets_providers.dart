@@ -2383,6 +2383,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       _showPreviewModeToast();
       return;
     }
+    final previousState = state;
     try {
       final authUser = ref.read(authProvider);
       final selectedCurrency = _resolveWriteCurrency();
@@ -2398,6 +2399,18 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (isScopedToHousehold && householdId == null) {
         throw Exception('No household selected for scoped budget save');
       }
+
+      final optimisticSaved = _normalizePocketBudgetAmountsForCurrency(
+        state.editing,
+        selectedCurrency,
+      );
+      state = state.copyWith(
+        isLoading: false,
+        saved: optimisticSaved,
+        editing: optimisticSaved.map((pocket) => pocket.copyWith()).toList(),
+        savedTotalBudget: state.totalBudget,
+        clearError: true,
+      );
 
       // Persist/update the parent budget first
       final nowIso = DateTime.now().toIso8601String();
@@ -2564,8 +2577,37 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
       if (!mounted) return;
-      state = state.copyWith(error: ErrorHandler.getUserFriendlyMessage(e));
+      state = previousState.copyWith(
+        error: ErrorHandler.getUserFriendlyMessage(e),
+      );
     }
+  }
+
+  void applyOptimisticPockets({
+    required List<PocketEnvelope> pockets,
+    double? totalBudget,
+    String? budgetId,
+  }) {
+    if (!mounted) return;
+    final selectedCurrency = _resolveWriteCurrency();
+    final optimisticSaved = _normalizePocketBudgetAmountsForCurrency(
+      pockets,
+      selectedCurrency,
+    );
+    state = state.copyWith(
+      isLoading: false,
+      saved: optimisticSaved,
+      editing: optimisticSaved.map((pocket) => pocket.copyWith()).toList(),
+      totalBudget: totalBudget ?? state.totalBudget,
+      savedTotalBudget: totalBudget ?? state.totalBudget,
+      budgetId: budgetId,
+      clearError: true,
+    );
+  }
+
+  void restoreOptimisticPockets(PocketsState previousState) {
+    if (!mounted) return;
+    state = previousState;
   }
 
   Future<void> createBudgetFromTemplate({

@@ -10,11 +10,11 @@ List<ExpenseEntry> mergeHouseholdExpenses(
   final seen = <String>{};
   final merged = <ExpenseEntry>[];
 
-  for (final entry in base) {
+  for (final entry in optimistic) {
     if (entry.id.isEmpty) continue;
     if (seen.add(entry.id)) merged.add(entry);
   }
-  for (final entry in optimistic) {
+  for (final entry in base) {
     if (entry.id.isEmpty) continue;
     if (seen.add(entry.id)) merged.add(entry);
   }

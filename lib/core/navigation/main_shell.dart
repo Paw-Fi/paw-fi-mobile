@@ -18,10 +18,12 @@ import 'package:moneko/features/home/presentation/state/widget_launch_provider.d
 import 'package:moneko/features/home/presentation/services/widget_sync_manager.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -39,6 +41,42 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+
+const Duration _foregroundResyncMinInterval = Duration(seconds: 20);
+
+class _MainShellLifecycleObserver extends WidgetsBindingObserver {
+  _MainShellLifecycleObserver({required this.onResume});
+
+  final VoidCallback onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      onResume();
+    }
+  }
+}
+
+void _silentResyncMainShellData(WidgetRef ref, String userId) {
+  if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+
+  ref.read(analyticsProvider.notifier).refresh(userId);
+  ref.read(cacheInvalidatorProvider).invalidateAll();
+  ref.invalidate(userHouseholdsProvider(userId));
+  ref.invalidate(householdProvider);
+  ref.invalidate(householdMembersProvider);
+  ref.invalidate(householdBudgetsProvider);
+  ref.invalidate(householdInvitesProvider);
+  ref.invalidate(householdExpensesProvider);
+  ref.invalidate(cachedHouseholdExpensesProvider);
+  ref.invalidate(householdSplitsProvider);
+  ref.invalidate(cachedHouseholdSplitsProvider);
+  ref.invalidate(recurringTransactionsProvider);
+  ref.invalidate(pocketsProvider);
+  ref.invalidate(currencyTransactionCountsProvider);
+  ref.invalidate(scopedWalletsProvider);
+  ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+}
 
 /// Main navigation shell with bottom navigation bar
 class MainShell extends HookConsumerWidget {
@@ -58,6 +96,7 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
+    final lastForegroundResyncAtRef = useRef<DateTime?>(null);
     final showSubscriptionVerificationBanner =
         subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
             subscriptionGateStatus == SubscriptionGateStatus.unknown;
@@ -116,6 +155,31 @@ class MainShell extends HookConsumerWidget {
       walletAuthHeaders != null,
       walletScopeHouseholdId,
     ]);
+
+    useEffect(() {
+      final observer = _MainShellLifecycleObserver(
+        onResume: () {
+          final userId = ref.read(authProvider).uid;
+          if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
+            return;
+          }
+
+          final now = DateTime.now();
+          final last = lastForegroundResyncAtRef.value;
+          if (last != null &&
+              now.difference(last) < _foregroundResyncMinInterval) {
+            return;
+          }
+
+          lastForegroundResyncAtRef.value = now;
+          unawaited(Future<void>.microtask(
+            () => _silentResyncMainShellData(ref, userId),
+          ));
+        },
+      );
+      WidgetsBinding.instance.addObserver(observer);
+      return () => WidgetsBinding.instance.removeObserver(observer);
+    }, const []);
 
     Future<void> clearPreviewDataCaches() async {
       // Always reset shell navigation first.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -118,12 +119,22 @@ class _CurrencySelectorScreenState
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final summaries =
-        ref.watch(dashboardCurrencySummariesProvider).valueOrNull ??
-            const <CurrencySummary>[];
+    final summariesAsync = ref.watch(dashboardCurrencySummariesProvider);
+    final summaries = summariesAsync.valueOrNull ?? const <CurrencySummary>[];
     final filterState = ref.watch(homeFilterProvider);
-    final currencyCounts =
+    final currencyCountsAsync =
         ref.watch(dashboardCurrencyTransactionCountsProvider);
+    final summaryCurrencyCounts =
+        ref.watch(dashboardCurrencySummaryTransactionCountsProvider);
+    final currencyCounts = currencyCountsAsync.valueOrNull ??
+        (summaryCurrencyCounts.isNotEmpty
+            ? summaryCurrencyCounts
+            : const <String, int>{});
+    if (foundation.kDebugMode) {
+      foundation.debugPrint(
+        '[CurrencySelector][Modal] build summariesLoading=${summariesAsync.isLoading} countsLoading=${currencyCountsAsync.isLoading} hasError=${summariesAsync.hasError || currencyCountsAsync.hasError} summaryCount=${summaries.length} selected=${filterState.selectedCurrency ?? '<none>'} counts=$currencyCounts summaryCounts=$summaryCurrencyCounts summaryError=${summariesAsync.error ?? '<none>'} countsError=${currencyCountsAsync.error ?? '<none>'}',
+      );
+    }
 
     // Get all supported currencies from backend
     final currencyOptions = getAvailableCurrencyOptions();

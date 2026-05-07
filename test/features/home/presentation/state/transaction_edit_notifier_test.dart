@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mocktail/mocktail.dart';
@@ -9,6 +11,7 @@ import 'package:moneko/features/home/presentation/state/analytics_notifier.dart'
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _MockSupabaseClient extends Mock implements SupabaseClient {}
@@ -310,6 +313,62 @@ void main() {
           container.read(transactionsFeedRefreshSignalProvider),
           originalFeedSignal + 1,
         );
+      },
+    );
+
+    test(
+      'applies household expense optimistic overlay while backend update is in flight',
+      () async {
+        final successResponse = _MockFunctionResponse();
+        when(() => successResponse.data).thenReturn({
+          'success': true,
+          'data': {'category': 'groceries'},
+        });
+
+        final responseCompleter = Completer<FunctionResponse>();
+        when(
+          () => functionsClient.invoke(
+            'update-expense',
+            body: any(named: 'body'),
+          ),
+        ).thenAnswer((_) => responseCompleter.future);
+
+        final container = createContainer(
+          supabaseClient: supabaseClient,
+          onAnalyticsNotifierCreated: (notifier) =>
+              analyticsNotifier = notifier,
+        );
+        addTearDown(container.dispose);
+
+        final original = ExpenseEntry(
+          id: 'household-expense-1',
+          userId: 'user-1',
+          householdId: 'household-1',
+          date: DateTime(2026, 5, 7),
+          amountCents: 1200,
+          currency: 'USD',
+          category: 'food',
+          createdAt: DateTime(2026, 5, 7, 10),
+          type: 'expense',
+        );
+
+        final updateFuture =
+            container.read(transactionEditProvider.notifier).updateExpense(
+                  original.id,
+                  {'category': 'groceries'},
+                  originalExpense: original,
+                );
+
+        await Future<void>.delayed(Duration.zero);
+
+        final optimistic = container.read(householdOptimisticExpensesProvider);
+        expect(
+          optimistic['household-1']?.single.category,
+          'groceries',
+        );
+
+        responseCompleter.complete(successResponse);
+        expect(await updateFuture, isTrue);
       },
     );
   });

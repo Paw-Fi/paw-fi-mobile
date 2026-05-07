@@ -6,12 +6,14 @@ import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_state.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -38,6 +40,7 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     String expenseId,
     Map<String, dynamic> updates, {
     Map<String, dynamic>? extraBody,
+    ExpenseEntry? originalExpense,
   }) async {
     if (state.isLoading) {
       _debugPrint('⚠️ Update already in progress, ignoring');
@@ -67,19 +70,23 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
 
       final originalExpenseIndex =
           currentExpenses.indexWhere((e) => e.id == expenseId);
+      final cachedOriginalExpense = originalExpenseIndex == -1
+          ? originalExpense
+          : currentExpenses[originalExpenseIndex];
 
       // If expense found in local cache, apply optimistic update
-      if (originalExpenseIndex != -1) {
-        final originalExpense = currentExpenses[originalExpenseIndex];
-
+      if (cachedOriginalExpense != null) {
         // 2. Create optimistic update (what the UI will show immediately)
-        final optimisticExpense = _applyUpdates(originalExpense, updates);
+        final optimisticExpense = _applyUpdates(cachedOriginalExpense, updates);
 
         _debugPrint('💾 Applying optimistic update');
 
         // 3. Update UI immediately (optimistic)
         state = state.copyWith(optimisticUpdate: optimisticExpense);
-        _applyOptimisticUpdateToProvider(optimisticExpense);
+        _applyOptimisticUpdateToProvider(
+          optimisticExpense,
+          originalExpense: cachedOriginalExpense,
+        );
       } else {
         // Expense not in cache - likely a household expense
         // This is NOT an error, just skip optimistic update
@@ -218,6 +225,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // Keep other tabs in sync (pockets + currency counts).
       ref.invalidate(pocketsProvider);
       ref.invalidate(currencyTransactionCountsProvider);
+      ref
+          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+          .state += 1;
       ref.read(walletActionsProvider).refreshAccountData();
 
       state = state.copyWith(
@@ -232,6 +242,13 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       _debugPrint('❌ Update failed: $e');
 
       try {
+        final originalHouseholdId = originalExpense?.householdId?.trim();
+        if (originalHouseholdId != null && originalHouseholdId.isNotEmpty) {
+          ref
+              .read(householdOptimisticExpensesProvider.notifier)
+              .removeExpense(originalHouseholdId, expenseId);
+        }
+
         final analyticsData = ref.read(analyticsProvider);
         final currentExpenses = analyticsData.allExpenses;
         final originalExpenseIndex =
@@ -291,6 +308,9 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
             })()
           : expense.date,
       currency: updates['currency'] as String? ?? expense.currency,
+      householdId: updates['household_id'] is String
+          ? updates['household_id'] as String
+          : expense.householdId,
       accountId: updates.containsKey('account_id')
           ? (updates['account_id'] as String?)
           : expense.walletId,
@@ -301,7 +321,34 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   }
 
   /// Apply optimistic update to the analytics provider state
-  void _applyOptimisticUpdateToProvider(ExpenseEntry updatedExpense) {
+  void _applyOptimisticUpdateToProvider(
+    ExpenseEntry updatedExpense, {
+    required ExpenseEntry originalExpense,
+  }) {
+    final originalHouseholdId = originalExpense.householdId?.trim();
+    final updatedHouseholdId = updatedExpense.householdId?.trim();
+
+    if (originalHouseholdId != null && originalHouseholdId.isNotEmpty) {
+      final householdNotifier =
+          ref.read(householdOptimisticExpensesProvider.notifier);
+      if (updatedHouseholdId != null &&
+          updatedHouseholdId.isNotEmpty &&
+          updatedHouseholdId != originalHouseholdId) {
+        householdNotifier.removeExpense(originalHouseholdId, updatedExpense.id);
+        householdNotifier.replaceExpense(
+          updatedHouseholdId,
+          updatedExpense.id,
+          updatedExpense,
+        );
+      } else {
+        householdNotifier.replaceExpense(
+          originalHouseholdId,
+          updatedExpense.id,
+          updatedExpense,
+        );
+      }
+    }
+
     final analytics = ref.read(analyticsProvider);
 
     // Update both expenses and allExpenses lists

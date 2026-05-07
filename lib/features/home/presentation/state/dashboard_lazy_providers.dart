@@ -6,9 +6,11 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class DashboardDataService {
@@ -274,6 +276,94 @@ final dashboardDataServiceProvider = Provider<DashboardDataService>((ref) {
 });
 
 final dashboardRefreshSignalProvider = StateProvider<int>((ref) => 0);
+
+final dashboardLocalOverlayTransactionsProvider =
+    Provider.family<List<ExpenseEntry>, DashboardScopeQuery>((ref, query) {
+  final analyticsExpenses = ref.watch(
+    analyticsProvider.select((state) => state.allExpenses),
+  );
+  final householdId = query.householdId?.trim();
+  if (householdId == null || householdId.isEmpty) {
+    return analyticsExpenses;
+  }
+
+  final optimistic = ref.watch(
+    householdOptimisticExpensesProvider.select(
+      (state) => state[householdId] ?? const <ExpenseEntry>[],
+    ),
+  );
+  return mergeDashboardTransactionsWithLocalOverlay(
+    base: analyticsExpenses,
+    localOverlay: optimistic,
+    query: query,
+  );
+});
+
+List<ExpenseEntry> mergeDashboardTransactionsWithLocalOverlay({
+  required List<ExpenseEntry> base,
+  required Iterable<ExpenseEntry> localOverlay,
+  required DashboardScopeQuery query,
+  int? limit,
+}) {
+  final merged = <ExpenseEntry>[];
+  final seen = <String>{};
+
+  void addIfUnique(ExpenseEntry entry) {
+    if (entry.id.isEmpty) return;
+    if (!_matchesDashboardQuery(entry, query)) return;
+    if (seen.add(entry.id)) {
+      merged.add(entry);
+    }
+  }
+
+  for (final entry in localOverlay) {
+    addIfUnique(entry);
+  }
+  for (final entry in base) {
+    addIfUnique(entry);
+  }
+
+  merged.sort((a, b) {
+    final byDate = b.date.compareTo(a.date);
+    if (byDate != 0) return byDate;
+    return b.createdAt.compareTo(a.createdAt);
+  });
+
+  if (limit != null && limit >= 0 && merged.length > limit) {
+    return merged.take(limit).toList(growable: false);
+  }
+  return merged;
+}
+
+bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
+  final queryHouseholdId = query.householdId?.trim();
+  final entryHouseholdId = entry.householdId?.trim();
+  final matchesHousehold = queryHouseholdId == null || queryHouseholdId.isEmpty
+      ? entryHouseholdId == null || entryHouseholdId.isEmpty
+      : entryHouseholdId == queryHouseholdId;
+  if (!matchesHousehold) return false;
+
+  final currency = query.normalizedCurrency;
+  if (currency != null &&
+      (entry.currency ?? '').trim().toUpperCase() != currency) {
+    return false;
+  }
+
+  final entryDate = DateTime(entry.date.year, entry.date.month, entry.date.day);
+  final start = query.startDate;
+  if (start != null) {
+    final startDate = DateTime(start.year, start.month, start.day);
+    if (entryDate.isBefore(startDate)) return false;
+  }
+
+  final end = query.endDate;
+  if (end != null) {
+    final endDate = DateTime(end.year, end.month, end.day);
+    if (entryDate.isAfter(endDate)) return false;
+  }
+
+  return true;
+}
 
 final dashboardSummaryProvider = FutureProvider.autoDispose
     .family<DashboardSnapshotSummary, DashboardScopeQuery>(

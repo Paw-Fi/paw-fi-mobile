@@ -37,6 +37,20 @@ String dashboardBudgetsCacheKey({
   return 'dashboard:budgets:v1:$contactId';
 }
 
+String dashboardCurrencySummariesCacheKey({
+  required String userId,
+  required String? householdId,
+}) {
+  return 'dashboard:currency-summaries:v1:$userId:${householdId ?? 'personal'}';
+}
+
+String dashboardCurrencyTransactionCountsCacheKey({
+  required String userId,
+  required String? householdId,
+}) {
+  return 'dashboard:currency-transaction-counts:v1:$userId:${householdId ?? 'personal'}';
+}
+
 ({DateTime cachedAt, T value})? readDashboardSessionCache<T>(String key) {
   final cached = _dashboardSessionCache[key];
   if (cached == null) {
@@ -109,6 +123,8 @@ Future<void> clearAllDashboardPersistedCachesForUser(
   final prefixes = [
     'dashboard:calendar:v1:$userId:',
     'dashboard:recent:v1:$userId:',
+    'dashboard:currency-summaries:v1:$userId:',
+    'dashboard:currency-transaction-counts:v1:$userId:',
   ];
   final keys = prefs
       .getKeys()
@@ -147,6 +163,9 @@ Duration dashboardTransactionsCacheTtl(DateTime? startDate, DateTime? endDate) {
 
 const Duration dashboardBudgetsCacheTtl = Duration(minutes: 30);
 const Duration dashboardRecentTransactionsCacheTtl = Duration(minutes: 5);
+const Duration dashboardCurrencySummariesCacheTtl = Duration(minutes: 5);
+const Duration dashboardCurrencyTransactionCountsCacheTtl =
+    Duration(minutes: 5);
 
 final dashboardCacheInvalidationProvider = Provider<void>((ref) {
   ref.listen<int>(dashboardRefreshSignalProvider, (previous, next) {

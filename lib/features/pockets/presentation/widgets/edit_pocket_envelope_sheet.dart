@@ -376,11 +376,76 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
 
+      final previousPocketsState = ref.read(pocketsProvider(scopeParams));
       try {
         final nowIso = DateTime.now().toIso8601String();
         final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
         final rebalancedSiblingAmounts =
             buildRebalancedSiblingAmounts(clampedAmountCents);
+        final optimisticEnvelopeId = isEditing
+            ? existingEnvelope!.id
+            : 'optimistic-pocket-${DateTime.now().microsecondsSinceEpoch}';
+        final rebalancedByPocketId = <String, int>{
+          for (var index = 0; index < siblingPockets.length; index++)
+            siblingPockets[index].id: rebalancedSiblingAmounts[index],
+        };
+        final optimisticPockets = <PocketEnvelope>[
+          for (final pocket in allPockets)
+            if (pocket.id == existingEnvelope?.id)
+              PocketEnvelope(
+                id: pocket.id,
+                name: name,
+                budgetAmountCents: clampedAmountCents,
+                spent: pocket.spent,
+                currency: selectedCurrency,
+                icon: selectedIcon.value,
+                color: selectedColor.value,
+                budgetId: budgetId,
+                householdId: pocket.householdId,
+                lastUpdated: DateTime.now(),
+              )
+            else
+              pocket.copyWith(
+                budgetAmountCents:
+                    rebalancedByPocketId[pocket.id] ?? pocket.budgetAmountCents,
+                currency: selectedCurrency,
+                budgetId: budgetId,
+              ),
+          if (isEditing &&
+              !allPockets.any((pocket) => pocket.id == existingEnvelope!.id))
+            PocketEnvelope(
+              id: existingEnvelope!.id,
+              name: name,
+              budgetAmountCents: clampedAmountCents,
+              spent: existingEnvelope!.spent,
+              currency: selectedCurrency,
+              icon: selectedIcon.value,
+              color: selectedColor.value,
+              budgetId: budgetId,
+              householdId: existingEnvelope!.householdId,
+              lastUpdated: DateTime.now(),
+            ),
+          if (!isEditing)
+            PocketEnvelope(
+              id: optimisticEnvelopeId,
+              name: name,
+              budgetAmountCents: clampedAmountCents,
+              spent: 0,
+              currency: selectedCurrency,
+              icon: selectedIcon.value,
+              color: selectedColor.value,
+              budgetId: budgetId,
+              householdId: scopeParams.scope == PocketsScopeType.personal
+                  ? null
+                  : householdId,
+              lastUpdated: DateTime.now(),
+            ),
+        ];
+        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
+              pockets: optimisticPockets,
+              totalBudget: totalBudget,
+              budgetId: budgetId,
+            );
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -495,6 +560,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, message);
         }
       } catch (e) {
+        ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .restoreOptimisticPockets(previousPocketsState);
         if (context.mounted) {
           AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
         }
@@ -524,6 +592,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       if (context.mounted) {
         isLoading.value = true;
       }
+      final previousPocketsState = ref.read(pocketsProvider(scopeParams));
       try {
         final remainingPockets = allPockets
             .where((pocket) => pocket.id != existingEnvelope!.id)
@@ -538,6 +607,19 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                 allocationStepCents: allocationStepCents,
               );
         final nowIso = DateTime.now().toIso8601String();
+        final optimisticRemaining = <PocketEnvelope>[
+          for (var index = 0; index < remainingPockets.length; index++)
+            remainingPockets[index].copyWith(
+              budgetAmountCents: rebalancedRemainingAmounts[index],
+              currency: selectedCurrency,
+              budgetId: budgetId,
+            ),
+        ];
+        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
+              pockets: optimisticRemaining,
+              totalBudget: totalBudget,
+              budgetId: budgetId,
+            );
 
         await supabase
             .from('budget_envelopes')
@@ -586,6 +668,9 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, l10n.pocketDeleted);
         }
       } catch (e) {
+        ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .restoreOptimisticPockets(previousPocketsState);
         if (context.mounted) {
           AppToast.error(context, l10n.failedToDeletePocket);
         }

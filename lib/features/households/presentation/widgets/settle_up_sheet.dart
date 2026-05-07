@@ -677,6 +677,22 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           : widget.settleTheyOweYou
               ? 'from_member'
               : 'to_member';
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      SettlementPaymentRecord? optimisticPayment;
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        final currentUserPays = widget.isExpressNetting
+            ? _youOweCents >= _youAreOwedCents
+            : !widget.settleTheyOweYou;
+        optimisticPayment = SettlementPaymentRecord(
+          payerUserId: currentUserPays ? currentUserId : memberId,
+          participantUserId: currentUserPays ? memberId : currentUserId,
+          amountCents: amountCents,
+          currency: _settlementCurrencyCode,
+        );
+        ref
+            .read(optimisticSettlementPaymentsProvider.notifier)
+            .addPayment(widget.householdId, optimisticPayment);
+      }
 
       final count = await service.settleAmountAndNotify(
         householdId: widget.householdId,
@@ -733,6 +749,11 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
           ),
         ));
       } catch (_) {}
+      if (optimisticPayment != null) {
+        ref
+            .read(optimisticSettlementPaymentsProvider.notifier)
+            .removePayment(widget.householdId, optimisticPayment);
+      }
 
       if (mounted) {
         Navigator.pop(context, true);
@@ -743,6 +764,28 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
                 : context.l10n.nothingToSettle);
       }
     } catch (e) {
+      try {
+        final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+        final memberId = _selectedMemberId ?? widget.specificMemberId;
+        if (currentUserId != null && memberId != null) {
+          final currentUserPays = widget.isExpressNetting
+              ? _youOweCents >= _youAreOwedCents
+              : !widget.settleTheyOweYou;
+          ref.read(optimisticSettlementPaymentsProvider.notifier).removePayment(
+                widget.householdId,
+                SettlementPaymentRecord(
+                  payerUserId: currentUserPays ? currentUserId : memberId,
+                  participantUserId: currentUserPays ? memberId : currentUserId,
+                  amountCents: _clampAmountCents(
+                        requestedCents: _parseAmountCents(_pendingAmountText),
+                        maxCents: _maxSettleCents,
+                      ) ??
+                      0,
+                  currency: _settlementCurrencyCode,
+                ),
+              );
+        }
+      } catch (_) {}
       if (mounted) {
         AppToast.error(context, '${context.l10n.error}: $e');
       }

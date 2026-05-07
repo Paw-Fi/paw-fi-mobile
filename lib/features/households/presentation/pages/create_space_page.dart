@@ -11,6 +11,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/utils/sub_page_top_padding.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
+import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/households/presentation/widgets/create_household_form_content.dart';
@@ -275,15 +276,39 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         setState(() => _isUploadingImage = false);
       }
 
-      final createdHousehold =
-          await ref.read(householdRepositoryProvider).createHousehold(
-                name: name,
-                currency: _selectedCurrency!,
-                coverImageUrl: imageUrl,
-                isPortfolio: !_isSharedSpace,
-              );
+      final optimisticId =
+          'optimistic-household-${DateTime.now().microsecondsSinceEpoch}';
+      final now = DateTime.now();
+      final householdsNotifier =
+          ref.read(userHouseholdsProvider(userId).notifier);
+      householdsNotifier.addOrReplaceHousehold(
+        Household(
+          id: optimisticId,
+          name: name,
+          ownerId: userId,
+          coverImageUrl: imageUrl,
+          currency: _selectedCurrency!,
+          isPortfolio: !_isSharedSpace,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
 
-      ref.invalidate(userHouseholdsProvider(userId));
+      late final Household createdHousehold;
+      try {
+        createdHousehold =
+            await ref.read(householdRepositoryProvider).createHousehold(
+                  name: name,
+                  currency: _selectedCurrency!,
+                  coverImageUrl: imageUrl,
+                  isPortfolio: !_isSharedSpace,
+                );
+        householdsNotifier.removeHousehold(optimisticId);
+        householdsNotifier.addOrReplaceHousehold(createdHousehold);
+      } catch (_) {
+        householdsNotifier.removeHousehold(optimisticId);
+        rethrow;
+      }
 
       if (!_isSharedSpace) {
         // --- Private Space Flow ---

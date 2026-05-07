@@ -258,11 +258,18 @@ class HomeHeaderSliver extends ConsumerWidget {
     Future<void> refreshHomeDataForSelectedAccount({
       bool refreshCurrenciesNow = false,
     }) async {
-      // Intentionally a no-op.
-      //
+      if (refreshCurrenciesNow) {
+        ref.invalidate(currencyTransactionCountsProvider);
+        ref.invalidate(dashboardCurrencySummariesProvider);
+        ref
+            .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+            .state++;
+      }
       // Home analytics is loaded once during app initialization and filtered
       // locally by `householdScopeProvider` + `homeFilterProvider`, so space /
-      // currency changes recompute immediately without a refetch.
+      // currency changes recompute immediately without a refetch. Currency
+      // summary RPC data is scoped and refreshed only when the header asks for
+      // it, while still serving cached rows for quick modal paint.
       //
       // Recurring and pockets pages lazy-load off their active tab using the
       // current scope/currency, so changing the header selection updates the

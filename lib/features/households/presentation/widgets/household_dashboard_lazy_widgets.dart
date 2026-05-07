@@ -84,6 +84,11 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
     final recurringState =
@@ -96,7 +101,9 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       });
     }
 
-    if ((transactionsAsync.isLoading && !transactionsAsync.hasValue) ||
+    if ((transactionsAsync.isLoading &&
+            !transactionsAsync.hasValue &&
+            transactions.isEmpty) ||
         (splitsAsync.isLoading && !splitsAsync.hasValue)) {
       return _buildSpentByYouSkeleton(
         context,
@@ -124,7 +131,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
     }
 
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -235,6 +242,11 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
     final recurringState =
@@ -305,7 +317,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     }
 
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -367,8 +379,16 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
         DashboardRecentTransactionsRequest(query: query, limit: 5),
       ),
     );
+    final recentTransactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: recentAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+      limit: 5,
+    );
 
-    if (recentAsync.isLoading && !recentAsync.hasValue) {
+    if (recentAsync.isLoading &&
+        !recentAsync.hasValue &&
+        recentTransactions.isEmpty) {
       return _buildRecentTransactionsSkeleton(
           context, selectedCurrency, household.id, userId);
     }
@@ -388,7 +408,7 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
     return buildRecentTransactionsCard(
       context,
       Theme.of(context).colorScheme,
-      recentAsync.valueOrNull ?? const <ExpenseEntry>[],
+      recentTransactions,
       null,
       selectedCurrency: selectedCurrency,
       householdId: household.id,
@@ -437,6 +457,11 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (userId.isNotEmpty &&
@@ -449,7 +474,9 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
       });
     }
 
-    if (transactionsAsync.isLoading && !transactionsAsync.hasValue) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        transactions.isEmpty) {
       return _buildBreakdownSkeleton(context);
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
@@ -463,7 +490,7 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
     }
 
     final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -518,6 +545,11 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (userId.isNotEmpty &&
@@ -530,7 +562,9 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
       });
     }
 
-    if (transactionsAsync.isLoading && !transactionsAsync.hasValue) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        transactions.isEmpty) {
       return _buildWhereMoneyWentSkeleton(context);
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
@@ -544,7 +578,7 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
     }
 
     final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -702,6 +736,11 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (userId.isNotEmpty &&
@@ -738,7 +777,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
     }
 
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
@@ -816,6 +855,11 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     );
     final transactionsAsync =
         ref.watch(dashboardCalendarTransactionsProvider(query));
+    final transactions = mergeDashboardTransactionsWithLocalOverlay(
+      base: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      localOverlay: ref.watch(dashboardLocalOverlayTransactionsProvider(query)),
+      query: query,
+    );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
     final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
     final recurringState =
@@ -857,7 +901,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
     if (summary == null) return const SizedBox.shrink();
 
     final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactionsAsync.valueOrNull ?? const <ExpenseEntry>[],
+      actualExpenses: transactions,
       recurringTransactions: recurringState.data.valueOrNull ?? const [],
       rangeStart: range['from']!,
       rangeEnd: range['to']!,
