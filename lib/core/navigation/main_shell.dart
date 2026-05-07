@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/services/widget_sync_manager.d
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
@@ -36,13 +37,16 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/wallets/presentation/pages/wallets_page.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_auth_headers_provider.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
+import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
-const Duration _foregroundResyncMinInterval = Duration(seconds: 20);
+const Duration _foregroundResyncMinInterval = Duration(minutes: 1);
+const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
+const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
 
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
@@ -57,25 +61,107 @@ class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   }
 }
 
-void _silentResyncMainShellData(WidgetRef ref, String userId) {
+void _silentResyncMainShellData(
+    WidgetRef ref, String userId, int currentIndex) {
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
 
-  ref.read(analyticsProvider.notifier).refresh(userId);
-  ref.read(cacheInvalidatorProvider).invalidateAll();
-  ref.invalidate(userHouseholdsProvider(userId));
-  ref.invalidate(householdProvider);
-  ref.invalidate(householdMembersProvider);
-  ref.invalidate(householdBudgetsProvider);
-  ref.invalidate(householdInvitesProvider);
-  ref.invalidate(householdExpensesProvider);
-  ref.invalidate(cachedHouseholdExpensesProvider);
-  ref.invalidate(householdSplitsProvider);
-  ref.invalidate(cachedHouseholdSplitsProvider);
-  ref.invalidate(recurringTransactionsProvider);
-  ref.invalidate(pocketsProvider);
-  ref.invalidate(currencyTransactionCountsProvider);
-  ref.invalidate(scopedWalletsProvider);
-  ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+  unawaited(_refreshActiveMainShellTab(ref, userId, currentIndex));
+  unawaited(_refreshDeferredMainShellData(ref, userId, currentIndex));
+}
+
+String? _activeMainShellHouseholdId(WidgetRef ref) {
+  final scope = ref.read(householdScopeProvider);
+  return switch (scope.activeAccountType) {
+    ActiveWalletType.personal => null,
+    ActiveWalletType.portfolio => scope.activeAccountHouseholdId,
+    ActiveWalletType.household => scope.selectedHouseholdId,
+  };
+}
+
+Future<void> _refreshActiveMainShellTab(
+  WidgetRef ref,
+  String userId,
+  int currentIndex,
+) async {
+  try {
+    switch (currentIndex) {
+      case 0:
+        final scope = ref.read(householdScopeProvider);
+        if (scope.isHouseholdView) {
+          ref.read(cacheInvalidatorProvider).invalidateAll();
+          ref.invalidate(userHouseholdsProvider(userId));
+          ref.invalidate(householdExpensesProvider);
+          ref.invalidate(cachedHouseholdExpensesProvider);
+          ref.invalidate(householdSplitsProvider);
+          ref.invalidate(cachedHouseholdSplitsProvider);
+          ref.invalidate(householdBudgetsProvider);
+          ref.invalidate(householdMembersProvider);
+        } else {
+          ref.read(analyticsProvider.notifier).refresh(userId);
+          ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        }
+        return;
+      case 1:
+        await ref
+            .read(
+                recurringTransactionsProvider(_activeMainShellHouseholdId(ref))
+                    .notifier)
+            .refresh(userId);
+        return;
+      case 2:
+        ref.invalidate(pocketsProvider);
+        return;
+      case 3:
+        await _refreshWalletsMainShellData(ref);
+        return;
+      case 4:
+        ref.read(analyticsProvider.notifier).refresh(userId);
+        return;
+    }
+  } catch (_) {}
+}
+
+Future<void> _refreshDeferredMainShellData(
+  WidgetRef ref,
+  String userId,
+  int currentIndex,
+) async {
+  try {
+    await Future<void>.delayed(_foregroundDeferredResyncDelay);
+    if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+
+    ref.invalidate(userHouseholdsProvider(userId));
+    ref.invalidate(householdProvider);
+    ref.invalidate(householdMembersProvider);
+    ref.invalidate(householdBudgetsProvider);
+    ref.invalidate(householdInvitesProvider);
+    ref.invalidate(currencyTransactionCountsProvider);
+
+    if (currentIndex != 1) {
+      await Future<void>.delayed(_foregroundDeferredResyncSpacing);
+      await ref
+          .read(recurringTransactionsProvider(_activeMainShellHouseholdId(ref))
+              .notifier)
+          .refresh(userId);
+    }
+
+    if (currentIndex != 3) {
+      await Future<void>.delayed(_foregroundDeferredResyncSpacing);
+      await _refreshWalletsMainShellData(ref);
+    }
+
+    if (currentIndex != 0 && currentIndex != 4) {
+      await Future<void>.delayed(_foregroundDeferredResyncSpacing);
+      ref.read(analyticsProvider.notifier).refresh(userId);
+    }
+  } catch (_) {}
+}
+
+Future<void> _refreshWalletsMainShellData(WidgetRef ref) async {
+  await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
+  final query = ref.read(walletsScopeQueryProvider);
+  await ref.read(walletsPageStateProvider(query).future);
+  await ref.read(walletsPageStateProvider(query).notifier).refresh();
 }
 
 /// Main navigation shell with bottom navigation bar
@@ -173,7 +259,11 @@ class MainShell extends HookConsumerWidget {
 
           lastForegroundResyncAtRef.value = now;
           unawaited(Future<void>.microtask(
-            () => _silentResyncMainShellData(ref, userId),
+            () => _silentResyncMainShellData(
+              ref,
+              userId,
+              ref.read(mainShellTabIndexProvider),
+            ),
           ));
         },
       );
@@ -345,7 +435,10 @@ class MainShell extends HookConsumerWidget {
         return const SizedBox.shrink();
       }
 
-      return pageBuilders[index]();
+      return RepaintBoundary(
+        key: ValueKey('main_shell_page_$index'),
+        child: pageBuilders[index](),
+      );
     }, growable: false);
 
     return StatusBarOverlayRegion(

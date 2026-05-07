@@ -200,7 +200,9 @@ class RecurringTransactionsNotifier
 
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) return;
-    state = state.copyWith(data: const AsyncValue.loading());
+    if (!state.hasLoadedOnce) {
+      state = state.copyWith(data: const AsyncValue.loading());
+    }
 
     try {
       // For recurring transactions we only need rows from the `expenses`

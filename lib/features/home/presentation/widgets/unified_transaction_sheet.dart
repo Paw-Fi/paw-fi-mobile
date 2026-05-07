@@ -19,6 +19,7 @@ import 'package:moneko/features/home/presentation/models/user_contact.dart';
 import 'package:moneko/features/home/presentation/state/transaction_edit_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
@@ -138,7 +139,7 @@ Future<bool?> showUnifiedTransactionSheet(
 
   return showModalBottomSheet<bool>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.5),
+    barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
     enableDrag: false,
     useSafeArea: true,
     isScrollControlled: true,
@@ -903,7 +904,7 @@ class _UnifiedTransactionSheetState
       ),
       child: Scaffold(
         // Wrap content in Scaffold to get background color filling the sheet
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorScheme.surface.withValues(alpha: 0.0),
         body: PopScope(
           canPop: !_isSaving && !_isDeleting,
           child: Column(
@@ -2866,6 +2867,7 @@ class _UnifiedTransactionSheetState
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;
 
@@ -2886,6 +2888,7 @@ class _UnifiedTransactionSheetState
 
     // Keep currency selector counts up-to-date.
     ref.invalidate(currencyTransactionCountsProvider);
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;
 
@@ -3726,8 +3729,7 @@ class _UnifiedTransactionSheetState
 
       debugPrint(' Expense deleted successfully');
 
-      // Refresh analytics data (personal expenses)
-      await ref.read(analyticsProvider.notifier).loadData(user.uid);
+      ref.read(analyticsProvider.notifier).refresh(user.uid);
 
       // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
       // This ensures pockets page refreshes regardless of personal/household mode
@@ -3736,6 +3738,7 @@ class _UnifiedTransactionSheetState
       ref.invalidate(pocketDetailsProvider);
       ref.read(walletActionsProvider).refreshAccountData();
       ref.invalidate(currencyTransactionCountsProvider);
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
       ref
           .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
           .state += 1;

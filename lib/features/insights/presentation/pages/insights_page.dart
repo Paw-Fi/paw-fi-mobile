@@ -39,7 +39,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   }
 
   Future<void> _startInsightsTourIfNeeded(int currentTabIndex) async {
-    if (currentTabIndex != 3) return;
+    if (currentTabIndex != 4) return;
     if (ref.read(insightsTabIndexProvider) != 0) return;
     if (ref.read(authProvider).uid.isEmpty) return;
 
@@ -86,6 +86,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         analyticsData.hasLoadedOnce != true &&
         !analyticsData.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         ref.read(analyticsProvider.notifier).loadData(auth.uid);
       });
     }
@@ -95,6 +96,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         analyticsData.allExpenses.isEmpty &&
         !analyticsData.isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         final userId = auth.uid.isNotEmpty
             ? auth.uid
             : (PreviewMockData.contact.userId ?? 'preview-user');
@@ -135,32 +137,48 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     context.l10n.longTermTab,
                   ],
                   children: [
-                    _buildScenarioPlanningTabWithProvider(
-                      colorScheme,
-                      scopedAnalyticsData,
-                      filterState.selectedCurrency,
-                      _insightsTourController,
+                    _buildLazyInsightsTab(
+                      index: 0,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => _buildScenarioPlanningTabWithProvider(
+                        colorScheme,
+                        scopedAnalyticsData,
+                        filterState.selectedCurrency,
+                        _insightsTourController,
+                      ),
                     ),
-                    buildRunningBalanceTab(
-                      context,
-                      colorScheme,
-                      scopedAnalyticsData,
-                      householdScope: householdScope,
-                      selectedCurrency: filterState.selectedCurrency,
+                    _buildLazyInsightsTab(
+                      index: 1,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => buildRunningBalanceTab(
+                        context,
+                        colorScheme,
+                        scopedAnalyticsData,
+                        householdScope: householdScope,
+                        selectedCurrency: filterState.selectedCurrency,
+                      ),
                     ),
-                    build30DayLookAheadTab(
-                      context,
-                      colorScheme,
-                      scopedAnalyticsData,
-                      householdScope: householdScope,
-                      selectedCurrency: filterState.selectedCurrency,
+                    _buildLazyInsightsTab(
+                      index: 2,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => build30DayLookAheadTab(
+                        context,
+                        colorScheme,
+                        scopedAnalyticsData,
+                        householdScope: householdScope,
+                        selectedCurrency: filterState.selectedCurrency,
+                      ),
                     ),
-                    buildLongTermProjectionTab(
-                      context,
-                      colorScheme,
-                      scopedAnalyticsData,
-                      householdScope: householdScope,
-                      selectedCurrency: filterState.selectedCurrency,
+                    _buildLazyInsightsTab(
+                      index: 3,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => buildLongTermProjectionTab(
+                        context,
+                        colorScheme,
+                        scopedAnalyticsData,
+                        householdScope: householdScope,
+                        selectedCurrency: filterState.selectedCurrency,
+                      ),
                     ),
                   ],
                   onTabChanged: (index) {
@@ -188,5 +206,17 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
       selectedCurrency: selectedCurrency,
       spotlightController: spotlightController,
     );
+  }
+
+  Widget _buildLazyInsightsTab({
+    required int index,
+    required int activeIndex,
+    required Widget Function() buildChild,
+  }) {
+    if (index != activeIndex) {
+      return const SizedBox.shrink();
+    }
+
+    return RepaintBoundary(child: buildChild());
   }
 }

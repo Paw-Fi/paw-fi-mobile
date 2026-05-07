@@ -296,51 +296,61 @@ class _HouseholdHomeContentState extends ConsumerState<HouseholdHomeContent> {
     ref.read(householdMembersProvider(household.id));
     warmupTrace.mark('warmup-members-read');
 
+    final warmupTasks = <Future<void>>[];
+
     if (needsSplits) {
-      try {
-        warmupTrace.mark('warmup-splits-start');
-        if (!mounted) return;
-        await ref.read(
-          householdSplitsProvider(HouseholdSplitsParams(
-            householdId: household.id,
-          )).future,
-        );
-        if (!mounted) return;
-        warmupTrace.mark('warmup-splits-success');
-      } catch (error) {
-        warmupTrace.mark('warmup-splits-error', {'error': error});
-      }
+      warmupTasks.add(() async {
+        try {
+          warmupTrace.mark('warmup-splits-start');
+          if (!mounted) return;
+          await ref.read(
+            householdSplitsProvider(HouseholdSplitsParams(
+              householdId: household.id,
+            )).future,
+          );
+          if (!mounted) return;
+          warmupTrace.mark('warmup-splits-success');
+        } catch (error) {
+          warmupTrace.mark('warmup-splits-error', {'error': error});
+        }
+      }());
     }
 
     for (final query in calendarQueries) {
-      try {
-        warmupTrace.mark('warmup-calendar-start', {
-          'rangeStart': query.formattedStartDate,
-          'rangeEnd': query.formattedEndDate,
-        });
-        if (!mounted) return;
-        await ref.read(dashboardCalendarTransactionsProvider(query).future);
-        if (!mounted) return;
-        warmupTrace.mark('warmup-calendar-success');
-      } catch (error) {
-        warmupTrace.mark('warmup-calendar-error', {'error': error});
-      }
+      warmupTasks.add(() async {
+        try {
+          warmupTrace.mark('warmup-calendar-start', {
+            'rangeStart': query.formattedStartDate,
+            'rangeEnd': query.formattedEndDate,
+          });
+          if (!mounted) return;
+          await ref.read(dashboardCalendarTransactionsProvider(query).future);
+          if (!mounted) return;
+          warmupTrace.mark('warmup-calendar-success');
+        } catch (error) {
+          warmupTrace.mark('warmup-calendar-error', {'error': error});
+        }
+      }());
     }
 
     for (final params in summaryParams) {
-      try {
-        warmupTrace.mark('warmup-summary-start', {
-          'rangeStart': params.startDate,
-          'rangeEnd': params.endDate,
-        });
-        if (!mounted) return;
-        await ref.read(householdSummaryProvider(params).future);
-        if (!mounted) return;
-        warmupTrace.mark('warmup-summary-success');
-      } catch (error) {
-        warmupTrace.mark('warmup-summary-error', {'error': error});
-      }
+      warmupTasks.add(() async {
+        try {
+          warmupTrace.mark('warmup-summary-start', {
+            'rangeStart': params.startDate,
+            'rangeEnd': params.endDate,
+          });
+          if (!mounted) return;
+          await ref.read(householdSummaryProvider(params).future);
+          if (!mounted) return;
+          warmupTrace.mark('warmup-summary-success');
+        } catch (error) {
+          warmupTrace.mark('warmup-summary-error', {'error': error});
+        }
+      }());
     }
+
+    await Future.wait(warmupTasks);
 
     warmupTrace.mark('warmup-complete', {
       'summaryCount': summaryParams.length,

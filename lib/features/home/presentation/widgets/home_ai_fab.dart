@@ -1375,29 +1375,33 @@ Future<void> handleAiFreeFormText(
 }) async {
   final controller = TextEditingController();
 
-  await showTextInputDrawer(
-    context,
-    controller,
-    (text) async {
-      if (!context.mounted) return;
-      await _processExpense(
-        context,
-        ref,
-        text: text,
-        onSuccess: onSuccess,
-      );
-    },
-    onSubmitAudio: (audioBytes, contentType) async {
-      if (!context.mounted) return;
-      await _processExpense(
-        context,
-        ref,
-        audioBytes: audioBytes,
-        audioContentType: contentType,
-        onSuccess: onSuccess,
-      );
-    },
-  );
+  try {
+    await showTextInputDrawer(
+      context,
+      controller,
+      (text) async {
+        if (!context.mounted) return;
+        await _processExpense(
+          context,
+          ref,
+          text: text,
+          onSuccess: onSuccess,
+        );
+      },
+      onSubmitAudio: (audioBytes, contentType) async {
+        if (!context.mounted) return;
+        await _processExpense(
+          context,
+          ref,
+          audioBytes: audioBytes,
+          audioContentType: contentType,
+          onSuccess: onSuccess,
+        );
+      },
+    );
+  } finally {
+    controller.dispose();
+  }
 }
 
 Future<void> handleAiFileUpload(
@@ -1438,7 +1442,8 @@ Future<void> handleAiFileUpload(
     }
 
     final bytes = await File(path).readAsBytes();
-    final base64Data = base64Encode(bytes);
+    final base64Data =
+        await foundation.compute<List<int>, String>(base64Encode, bytes);
 
     final extension = path.split('.').last.toLowerCase();
     String contentType = 'application/octet-stream';
@@ -1752,7 +1757,8 @@ Future<void> _processExpense(
       // Read image bytes and convert to base64
       final imageFile = File(imagePath);
       final bytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      final base64Image =
+          await foundation.compute<List<int>, String>(base64Encode, bytes);
 
       // Determine content type from file extension
       String contentType = 'image/jpeg';
@@ -1776,7 +1782,8 @@ Future<void> _processExpense(
     }
 
     if (audioBytes != null && audioBytes.isNotEmpty) {
-      final base64Audio = base64Encode(audioBytes);
+      final base64Audio =
+          await foundation.compute<List<int>, String>(base64Encode, audioBytes);
       body['audio'] = {
         'data': base64Audio,
         'contentType': audioContentType ?? 'audio/mpeg',

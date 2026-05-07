@@ -374,11 +374,14 @@ class DraggableDashboardList extends ConsumerWidget {
           enabled: isEditMode,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
-            child: DashboardWidgetWrapper(
-              config: config,
-              onToggleVisibility: () => onToggleVisibility(config.id),
-              onEdit: () => _showConfigPicker(context, config, onUpdateConfig),
-              child: builder(context, config),
+            child: RepaintBoundary(
+              child: DashboardWidgetWrapper(
+                config: config,
+                onToggleVisibility: () => onToggleVisibility(config.id),
+                onEdit: () =>
+                    _showConfigPicker(context, config, onUpdateConfig),
+                child: builder(context, config),
+              ),
             ),
           ),
         );

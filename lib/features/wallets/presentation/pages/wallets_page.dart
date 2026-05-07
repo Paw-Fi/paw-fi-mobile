@@ -141,8 +141,10 @@ class AccountsPage extends HookConsumerWidget {
         return;
       }
 
-      await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
-      await ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh();
+      await Future.wait([
+        ref.read(scopedWalletsProvider.notifier).refreshFromNetwork(),
+        ref.read(walletsPageStateProvider(scopeQuery).notifier).refresh(),
+      ]);
     }
 
     final walletsPageState = walletsPageStateAsync?.valueOrNull;
@@ -426,67 +428,70 @@ class AccountsPage extends HookConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                SizedBox(
-                  height: (!hasDismissedSwipeHintState.value &&
-                          availableMonths.length > 1)
-                      ? 290
-                      : 260,
-                  child: PageView.builder(
-                    itemCount: availableMonths.length,
-                    controller: monthPageController,
-                    reverse: true,
-                    onPageChanged: (index) {
-                      final monthStart = availableMonths[index];
-                      if (isPreviewMode) {
-                        previewSelectedMonthState.value = monthStart;
-                      } else {
-                        unawaited(ref
-                            .read(walletsPageStateProvider(scopeQuery).notifier)
-                            .selectMonth(monthStart));
-                      }
-                      if (hasDismissedSwipeHintState.value) {
-                        return;
-                      }
-                      hasDismissedSwipeHintState.value = true;
-                      unawaited(prefs.setBool(swipeHintPrefKey, true));
-                    },
-                    itemBuilder: (context, index) {
-                      final monthStart = availableMonths[index];
-                      final isActive = selectedMonthIndex == index;
-                      final monthSnapshot = isPreviewMode
-                          ? previewWalletsData?.snapshotForMonth(monthStart)
-                          : walletsPageState
-                              ?.cachedSnapshotsByMonth[monthStart];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Container(
-                          key: isActive ? netWorthSpotlightKey : null,
-                          child: _WalletsOverviewCard(
-                            availableMonths: availableMonths,
-                            monthStart: monthStart,
-                            selectedMonthStart: selectedMonth,
-                            snapshot: monthSnapshot != null
-                                ? _accountsSnapshotFromMonthSnapshot(
-                                    monthSnapshot,
-                                  )
-                                : selectedSnapshot,
-                            history: isPreviewMode
-                                ? previewWalletsData?.history
-                                : walletsPageState?.history,
-                            currencyCode: selectedCurrencyCode,
-                            hasDismissedSwipeHint:
-                                hasDismissedSwipeHintState.value,
-                            error: !isPreviewMode && isActive
-                                ? walletsPageState?.selectedMonthError
-                                : null,
-                            isLoading: !isPreviewMode &&
-                                isActive &&
-                                (walletsPageState?.isSelectedMonthLoading ??
-                                    true),
+                RepaintBoundary(
+                  child: SizedBox(
+                    height: (!hasDismissedSwipeHintState.value &&
+                            availableMonths.length > 1)
+                        ? 290
+                        : 260,
+                    child: PageView.builder(
+                      itemCount: availableMonths.length,
+                      controller: monthPageController,
+                      reverse: true,
+                      onPageChanged: (index) {
+                        final monthStart = availableMonths[index];
+                        if (isPreviewMode) {
+                          previewSelectedMonthState.value = monthStart;
+                        } else {
+                          unawaited(ref
+                              .read(
+                                  walletsPageStateProvider(scopeQuery).notifier)
+                              .selectMonth(monthStart));
+                        }
+                        if (hasDismissedSwipeHintState.value) {
+                          return;
+                        }
+                        hasDismissedSwipeHintState.value = true;
+                        unawaited(prefs.setBool(swipeHintPrefKey, true));
+                      },
+                      itemBuilder: (context, index) {
+                        final monthStart = availableMonths[index];
+                        final isActive = selectedMonthIndex == index;
+                        final monthSnapshot = isPreviewMode
+                            ? previewWalletsData?.snapshotForMonth(monthStart)
+                            : walletsPageState
+                                ?.cachedSnapshotsByMonth[monthStart];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Container(
+                            key: isActive ? netWorthSpotlightKey : null,
+                            child: _WalletsOverviewCard(
+                              availableMonths: availableMonths,
+                              monthStart: monthStart,
+                              selectedMonthStart: selectedMonth,
+                              snapshot: monthSnapshot != null
+                                  ? _accountsSnapshotFromMonthSnapshot(
+                                      monthSnapshot,
+                                    )
+                                  : selectedSnapshot,
+                              history: isPreviewMode
+                                  ? previewWalletsData?.history
+                                  : walletsPageState?.history,
+                              currencyCode: selectedCurrencyCode,
+                              hasDismissedSwipeHint:
+                                  hasDismissedSwipeHintState.value,
+                              error: !isPreviewMode && isActive
+                                  ? walletsPageState?.selectedMonthError
+                                  : null,
+                              isLoading: !isPreviewMode &&
+                                  isActive &&
+                                  (walletsPageState?.isSelectedMonthLoading ??
+                                      true),
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -512,7 +517,7 @@ class AccountsPage extends HookConsumerWidget {
                     ),
                   )
                 else
-                  Container(
+                  RepaintBoundary(
                     key: walletStackSpotlightKey,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 24, top: 12),
@@ -594,25 +599,8 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                            AppToast.info(context, context.l10n.comingSoon);
-                            return;
-
-                          if (isPreviewMode) {
-                            AppToast.info(context,
-                                context.l10n.previewMockUpdatesApplied);
-                            return;
-                          }
-
-                          await Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => PlaidSyncWalkthroughPage(
-                                targetHouseholdId:
-                                    _resolveWalletsScopeHouseholdId(
-                                  householdScope,
-                                ),
-                              ),
-                            ),
-                          );
+                          AppToast.info(context, context.l10n.comingSoon);
+                          return;
                         },
                         icon: Icon(
                           Icons.sync,

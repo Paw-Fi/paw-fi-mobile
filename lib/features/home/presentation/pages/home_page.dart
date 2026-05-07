@@ -400,6 +400,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   final dashboardBudgets =
                       ref.watch(dashboardPersonalBudgetsProvider).valueOrNull ??
                           const <DailyBudgetEntry>[];
+                  final selectedCurrencyFilter = selectedCurrency;
                   final timezoneOffsetMinutes =
                       resolveUserTimezoneOffsetMinutes(
                     dashboardContact?.preferredTimezone,
@@ -421,8 +422,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     final d = DateTime(
                         budget.date.year, budget.date.month, budget.date.day);
                     final dateOk = !d.isBefore(netFrom) && !d.isAfter(netTo);
-                    final currencyOk = selectedCurrency == null ||
-                        (budget.currency?.toUpperCase() == selectedCurrency);
+                    final currencyOk = selectedCurrencyFilter == null ||
+                        (budget.currency?.toUpperCase() ==
+                            selectedCurrencyFilter);
                     return dateOk && currencyOk;
                   }).toList();
                   final dashboardAsync =
