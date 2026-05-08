@@ -195,9 +195,6 @@ class _EditTransactionBottomSheetState
             );
             if (value != null) {
               _controller.text = value;
-              if (widget.field == EditField.amount) {
-                widget.onChanged?.call();
-              }
             }
           },
           child: AbsorbPointer(
@@ -208,7 +205,10 @@ class _EditTransactionBottomSheetState
                   widget.field != EditField.currency,
               maxLines: widget.field == EditField.description ? 3 : 1,
               inputFormatters: widget.field == EditField.amount
-                  ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
+                  ? [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}'))
+                    ]
                   : null,
               style: TextStyle(
                 fontSize: 16,
@@ -230,9 +230,6 @@ class _EditTransactionBottomSheetState
             ),
           ),
         ),
-      );
-    }
-        },
       );
     }
   }
@@ -1006,17 +1003,6 @@ class _EditTransactionBottomSheetState
         return 'Time';
       case EditField.currency:
         return 'Currency';
-    }
-  }
-
-  TextInputType _getKeyboardType() {
-    switch (widget.field) {
-      case EditField.amount:
-        return const TextInputType.numberWithOptions(decimal: true);
-      case EditField.currency:
-        return TextInputType.text;
-      default:
-        return TextInputType.text;
     }
   }
 

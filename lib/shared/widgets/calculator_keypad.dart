@@ -189,15 +189,26 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
                       fontSize: 14,
                     ),
                   ),
-                Text(
-                  _display.isEmpty ? '0' : _getLocalizedDisplay(_display),
-                  style: TextStyle(
-                    color: scheme.foreground,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _isFirstInput && _display.isNotEmpty
+                        ? scheme.primary.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    _display.isEmpty ? '0' : _getLocalizedDisplay(_display),
+                    style: TextStyle(
+                      color: _isFirstInput && _display.isNotEmpty
+                          ? scheme.primary
+                          : scheme.foreground,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

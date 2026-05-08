@@ -807,6 +807,14 @@ Future<void> _persistAiTransactions(
   if (transactions.isEmpty) return;
 
   final clientCreatedAtIso = DateTime.now().toUtc().toIso8601String();
+  final batchTraceBase = sha256
+      .convert(utf8.encode([
+        userId,
+        householdId ?? '',
+        clientCreatedAtIso,
+        ...transactions.map((item) => item.optimisticId),
+      ].join('|')))
+      .toString();
   final scopedDefaultAccountId =
       container.read(defaultScopedAccountProvider)?.id;
 
@@ -1036,6 +1044,9 @@ Future<void> _persistAiTransactions(
     final tx = item.transaction;
     final isIncome = tx.isIncome;
     final isRecurring = resolveIsRecurring(item.raw);
+    final mutationMetadata = buildTransactionMutationMetadata(
+      item.optimisticId,
+    );
     final recurrenceRule = normalizeRecurrenceRule(
       item.raw,
       formatDateOnlyYmd(tx.date),
@@ -1083,6 +1094,7 @@ Future<void> _persistAiTransactions(
       if (scopedDefaultAccountId != null && scopedDefaultAccountId.isNotEmpty)
         'accountId': scopedDefaultAccountId,
       'clientCreatedAt': clientCreatedAtIso,
+      ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
       if (isRecurring && recurrenceRule != null)
         'recurrence_rule': recurrenceRule,
@@ -1117,6 +1129,7 @@ Future<void> _persistAiTransactions(
         'save-transactions-batch',
         body: {
           'userId': userId,
+          'debugTraceId': 'mobile-ai-$batchTraceBase-$batchOffset',
           if (householdId != null && householdId.isNotEmpty)
             'householdId': householdId,
           if (householdId != null && householdId.isNotEmpty)
@@ -1240,6 +1253,9 @@ Future<void> _persistAiTransactions(
           final tx = item.transaction;
           final isIncome = tx.isIncome;
           final isRecurring = resolveIsRecurring(item.raw);
+          final mutationMetadata = buildTransactionMutationMetadata(
+            item.optimisticId,
+          );
           final recurrenceRule = normalizeRecurrenceRule(
             item.raw,
             formatDateOnlyYmd(tx.date),
@@ -1256,6 +1272,7 @@ Future<void> _persistAiTransactions(
                 scopedDefaultAccountId.isNotEmpty)
               'accountId': scopedDefaultAccountId,
             'clientCreatedAt': clientCreatedAtIso,
+            ...mutationMetadata.toRequestJson(),
             if (isRecurring) 'isRecurring': true,
             if (isRecurring && recurrenceRule != null)
               'recurrence_rule': recurrenceRule,

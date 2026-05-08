@@ -6,7 +6,6 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
-import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';

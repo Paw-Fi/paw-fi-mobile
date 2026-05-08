@@ -329,6 +329,7 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       recentTransactions,
       contact,
       selectedCurrency: filterState.selectedCurrency,
+      householdId: query.householdId,
       onViewAll: () {
         Navigator.of(context).push(
           MaterialPageRoute(

@@ -23,8 +23,6 @@ import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
 import 'package:moneko/core/utils/money_parser.dart';
-import 'package:moneko/shared/widgets/calculator_keypad.dart';
-import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;

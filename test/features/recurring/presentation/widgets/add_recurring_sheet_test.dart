@@ -195,6 +195,7 @@ class _FakeHouseholdRepository implements HouseholdRepository {
     String? coverImageUrl,
     String? themeColor,
     bool isPortfolio = false,
+    bool? autoSplitEnabled,
   }) =>
       throw UnimplementedError();
 

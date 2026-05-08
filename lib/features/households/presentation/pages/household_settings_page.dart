@@ -23,6 +23,7 @@ import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dar
 import '../../domain/entities/household.dart';
 import '../providers/household_providers.dart';
 import '../providers/selected_household_provider.dart';
+import '../widgets/auto_split_toggle_tile.dart';
 import '../widgets/create_household_form_content.dart';
 import '../widgets/household_members_panel.dart';
 import '../widgets/space_visibility_selector_card.dart';
@@ -394,17 +395,10 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
       context,
       title: 'Auto Split',
       children: [
-        _buildSettingsTile(
-          context: context,
-          title: const Text('Auto split'),
-          subtitle: const Text(
-            'Set how shared expenses are split by default',
-          ),
-          trailing: AdaptiveSwitch(
-            value: isEnabled,
-            onChanged: canEdit ? _handleAutoSplitToggle : null,
-          ),
-          onTap: canEdit ? () => _handleAutoSplitToggle(!isEnabled) : null,
+        AutoSplitToggleTile(
+          value: isEnabled,
+          enabled: canEdit,
+          onChanged: _handleAutoSplitToggle,
         ),
         if (isEnabled)
           Padding(
@@ -771,9 +765,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
         final sharesRaw = normalizeNum(map['shares']);
         final shares = sharesRaw is int
             ? (sharesRaw > 0 ? sharesRaw : null)
-            : (sharesRaw is num && sharesRaw > 0
-                ? sharesRaw.round()
-                : null);
+            : (sharesRaw is num && sharesRaw > 0 ? sharesRaw.round() : null);
 
         normalizedSplits.add({
           'userId': userId,
@@ -797,8 +789,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     }
 
     normalizedSplits.sort(
-      (a, b) =>
-          (a['userId'] as String).compareTo(b['userId'] as String),
+      (a, b) => (a['userId'] as String).compareTo(b['userId'] as String),
     );
 
     num? normalizeRootNum(dynamic value) {

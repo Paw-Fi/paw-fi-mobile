@@ -14,6 +14,7 @@ import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
+import 'package:moneko/features/households/presentation/widgets/auto_split_toggle_tile.dart';
 import 'package:moneko/features/households/presentation/widgets/create_household_form_content.dart';
 import 'package:moneko/features/households/presentation/pages/invite_members_page.dart';
 import 'package:moneko/features/households/presentation/utils/household_creation_utils.dart';
@@ -49,6 +50,7 @@ class CreateSpacePage extends ConsumerStatefulWidget {
 class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
   // Mode Selection: true = Shared Space, false = Private Space
   bool _isSharedSpace = true;
+  bool _autoSplitEnabled = true;
 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
@@ -177,6 +179,11 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
 
                           // Shared/Members Card
                           _buildMembersCard(),
+
+                          if (_isSharedSpace) ...[
+                            const SizedBox(height: 20),
+                            _buildAutoSplitCard(isLoading),
+                          ],
                         ],
                       ),
                     ),
@@ -199,6 +206,38 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
         setState(() => _isSharedSpace = value);
       },
       onInfoTap: _showSpacesInfo,
+    );
+  }
+
+  Widget _buildAutoSplitCard(bool isLoading) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'AUTO SPLIT',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 1.0,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.cardSurface,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: AutoSplitToggleTile(
+            value: _autoSplitEnabled,
+            enabled: !isLoading,
+            onChanged: _handleAutoSplitToggle,
+          ),
+        ),
+      ],
     );
   }
 
@@ -289,6 +328,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
           coverImageUrl: imageUrl,
           currency: _selectedCurrency!,
           isPortfolio: !_isSharedSpace,
+          autoSplitEnabled: _isSharedSpace ? _autoSplitEnabled : true,
           createdAt: now,
           updatedAt: now,
         ),
@@ -302,6 +342,7 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
                   currency: _selectedCurrency!,
                   coverImageUrl: imageUrl,
                   isPortfolio: !_isSharedSpace,
+                  autoSplitEnabled: _isSharedSpace ? _autoSplitEnabled : null,
                 );
         householdsNotifier.removeHousehold(optimisticId);
         householdsNotifier.addOrReplaceHousehold(createdHousehold);
@@ -346,6 +387,11 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
       });
       AppToast.error(context, ErrorHandler.getUserFriendlyMessage(e));
     }
+  }
+
+  void _handleAutoSplitToggle(bool value) {
+    if (!mounted) return;
+    setState(() => _autoSplitEnabled = value);
   }
 
   Future<void> _generateInvitationAndNavigate(

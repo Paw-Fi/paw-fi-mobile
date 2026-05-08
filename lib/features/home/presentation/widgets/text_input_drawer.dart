@@ -95,6 +95,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   Future<void> _processExpense() async {
+    if (_isProcessing) return;
+
     final text = _textController.text.trim();
     if (text.isEmpty) {
       AppToast.info(widget.parentContext,
@@ -107,14 +109,24 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     });
 
     if (mounted) {
-      await widget.onSubmit(text);
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      try {
+        await widget.onSubmit(text);
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
       }
     }
   }
 
   Future<void> _onRecordStart() async {
+    if (_isProcessing) return;
+
     HapticFeedback.heavyImpact();
 
     final hasPermission = await _recorder.hasPermission();
@@ -148,11 +160,14 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   void _onRecordEnd() async {
+    if (_isProcessing) return;
+
     _micScaleController.reverse();
     final startedAt = _recordingStartTime;
     if (startedAt == null) {
       return;
     }
+    _recordingStartTime = null;
 
     final duration = DateTime.now().difference(startedAt);
     debugPrint(
@@ -197,9 +212,20 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     }
 
     if (widget.onSubmitAudio != null) {
-      await widget.onSubmitAudio!(bytes, 'audio/aac');
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      setState(() {
+        _isProcessing = true;
+      });
+      try {
+        await widget.onSubmitAudio!(bytes, 'audio/aac');
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isProcessing = false;
+          });
+        }
       }
     }
   }

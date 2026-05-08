@@ -267,7 +267,10 @@ class RecurringTransactionsNotifier
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) return;
     if (!state.hasLoadedOnce || forceRefresh) {
-      state = state.copyWith(data: const AsyncValue.loading());
+      state = state.copyWith(
+        data: const AsyncValue<List<RecurringTransaction>>.loading()
+            .copyWithPrevious(state.data),
+      );
     }
 
     await _refreshRecurringTransactionsFromNetwork(userId, limit);
@@ -746,48 +749,44 @@ final upcomingRecurringTransactionProvider =
   final allTransactions =
       ref.watch(recurringTransactionsProvider(scope.householdId));
   final currency = scope.currency?.trim().toUpperCase();
+  final transactions = allTransactions.data.valueOrNull;
+  if (transactions == null) return null;
 
-  return allTransactions.data.when(
-    data: (transactions) {
-      final preferredTimezone = ref
-          .watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
-      final today = effectiveToday(preferredTimezone: preferredTimezone);
-      UpcomingRecurringTransaction? best;
+  final preferredTimezone =
+      ref.watch(analyticsProvider.select((s) => s.contact?.preferredTimezone));
+  final today = effectiveToday(preferredTimezone: preferredTimezone);
+  UpcomingRecurringTransaction? best;
 
-      for (final transaction in transactions) {
-        if (!transaction.isActive) continue;
-        if (currency != null &&
-            currency.isNotEmpty &&
-            transaction.currency.toUpperCase() != currency) {
-          continue;
-        }
+  for (final transaction in transactions) {
+    if (!transaction.isActive) continue;
+    if (currency != null &&
+        currency.isNotEmpty &&
+        transaction.currency.toUpperCase() != currency) {
+      continue;
+    }
 
-        final nextOccurrence = transaction.getNextOccurrence(today);
-        final nextDate = DateTime(
-          nextOccurrence.year,
-          nextOccurrence.month,
-          nextOccurrence.day,
-        );
-        final daysUntil = nextDate.difference(today).inDays;
+    final nextOccurrence = transaction.getNextOccurrence(today);
+    final nextDate = DateTime(
+      nextOccurrence.year,
+      nextOccurrence.month,
+      nextOccurrence.day,
+    );
+    final daysUntil = nextDate.difference(today).inDays;
 
-        if (daysUntil < 0 || daysUntil > 3) continue;
+    if (daysUntil < 0 || daysUntil > 3) continue;
 
-        final candidate = UpcomingRecurringTransaction(
-          transaction: transaction,
-          nextOccurrence: nextDate,
-          daysUntil: daysUntil,
-        );
+    final candidate = UpcomingRecurringTransaction(
+      transaction: transaction,
+      nextOccurrence: nextDate,
+      daysUntil: daysUntil,
+    );
 
-        if (best == null || nextDate.isBefore(best.nextOccurrence)) {
-          best = candidate;
-        }
-      }
+    if (best == null || nextDate.isBefore(best.nextOccurrence)) {
+      best = candidate;
+    }
+  }
 
-      return best;
-    },
-    loading: () => null,
-    error: (_, __) => null,
-  );
+  return best;
 });
 
 // ============================================================================
