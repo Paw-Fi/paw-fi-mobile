@@ -467,6 +467,106 @@ class MonekoDatabase {
     _notifyChanged();
   }
 
+  Future<void> reconcileTransactionsFeedPage({
+    required LocalTransactionsFeedQuery query,
+    required List<ExpenseEntry> authoritativeItems,
+    required bool remoteHasMore,
+  }) async {
+    final authoritativeIds = authoritativeItems
+        .map((entry) => entry.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final boundary =
+        authoritativeItems.isEmpty ? null : authoritativeItems.last;
+
+    if (remoteHasMore && boundary == null) {
+      return;
+    }
+
+    final filter = _localFeedFilter(query, includeCursor: false);
+    final deleteConditions = <String>[
+      filter.whereSql,
+      'sync_status = ?',
+    ];
+    final deleteArgs = <Object?>[
+      ...filter.args,
+      localSyncStatusSynced,
+    ];
+
+    if (authoritativeIds.isNotEmpty) {
+      deleteConditions.add(
+        'id NOT IN (${List.filled(authoritativeIds.length, '?').join(', ')})',
+      );
+      deleteArgs.addAll(authoritativeIds);
+    }
+
+    if (remoteHasMore) {
+      deleteConditions.add('''
+        (
+          date > ?
+          OR (
+            date = ?
+            AND (
+              created_at > ?
+              OR (created_at = ? AND id >= ?)
+            )
+          )
+        )
+      ''');
+      deleteArgs.addAll([
+        _dateOnly(boundary!.date),
+        _dateOnly(boundary.date),
+        _instant(boundary.createdAt),
+        _instant(boundary.createdAt),
+        boundary.id,
+      ]);
+    }
+
+    final whereSql = deleteConditions.join(' AND ');
+    final touched = <_SummaryKey>{};
+
+    _runInTransaction(() {
+      final rows = _db.select(
+        '''
+        SELECT user_id, household_id, date, currency
+        FROM local_transactions
+        WHERE $whereSql
+        ''',
+        deleteArgs,
+      );
+      for (final row in rows) {
+        touched.add(_SummaryKey(
+          scopeKey: localScopeKey(
+            userId: row['user_id'] as String,
+            householdId: row['household_id'] as String?,
+          ),
+          month: localMonthBucket(DateTime.parse(row['date'] as String)),
+          currency: (row['currency'] as String).toUpperCase(),
+        ));
+      }
+
+      if (rows.isEmpty) {
+        return;
+      }
+
+      _db.execute(
+        '''
+        DELETE FROM local_transactions
+        WHERE $whereSql
+        ''',
+        deleteArgs,
+      );
+
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    if (touched.isNotEmpty) {
+      _notifyChanged();
+    }
+  }
+
   Future<void> replaceRecurringTransactionsForScope({
     required String userId,
     required String? householdId,
@@ -690,6 +790,30 @@ class MonekoDatabase {
       yearlyPeriodTotalsCents: _bucketMapFromRows(yearlyRows),
       periodTotalsCents: _bucketMapFromRows(periodRows),
     );
+  }
+
+  Future<int> getTransactionsFeedCount(
+    LocalTransactionsFeedQuery query, {
+    String? syncStatus,
+  }) async {
+    final filter = _localFeedFilter(query, includeCursor: false);
+    final conditions = <String>[filter.whereSql];
+    final args = <Object?>[...filter.args];
+    if (syncStatus != null) {
+      conditions.add('sync_status = ?');
+      args.add(syncStatus);
+    }
+
+    final rows = _db.select(
+      '''
+      SELECT COUNT(*) AS transaction_count
+      FROM local_transactions
+      WHERE ${conditions.join(' AND ')}
+      ''',
+      args,
+    );
+
+    return rows.isEmpty ? 0 : _rowInt(rows.first['transaction_count']);
   }
 
   Stream<List<ExpenseEntry>> watchRecentTransactions({

@@ -362,7 +362,7 @@ bool _matchesDashboardQuery(ExpenseEntry entry, DashboardScopeQuery query) {
   return true;
 }
 
-TransactionsFeedQuery _dashboardTransactionsQuery(
+TransactionsFeedQuery dashboardTransactionsQuery(
   DashboardScopeQuery query, {
   int pageSize = 60,
 }) {
@@ -435,7 +435,7 @@ final dashboardSummaryProvider = FutureProvider.autoDispose
         ? await ref.watch(dashboardDataServiceProvider).fetchSnapshot(query)
         : _dashboardSummaryFromTransactionsFeedSummary(
             await ref.watch(transactionsFeedServiceProvider).fetchSummary(
-                  _dashboardTransactionsQuery(query),
+                  dashboardTransactionsQuery(query),
                 ),
           );
     writeDashboardSessionCache(cacheKey, summary);
@@ -502,7 +502,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
             .watch(dashboardDataServiceProvider)
             .fetchRecentTransactions(request)
         : (await ref.watch(transactionsFeedServiceProvider).fetchPage(
-                  _dashboardTransactionsQuery(
+                  dashboardTransactionsQuery(
                     request.query,
                     pageSize: request.limit,
                   ),
@@ -580,7 +580,7 @@ final dashboardCalendarTransactionsProvider =
             .fetchCalendarTransactions(query)
         : await ref
             .watch(transactionsFeedServiceProvider)
-            .fetchAllPages(_dashboardTransactionsQuery(query, pageSize: 500));
+            .fetchAllPages(dashboardTransactionsQuery(query, pageSize: 500));
     writeDashboardSessionCache(cacheKey, entries);
     unawaited(writeDashboardPersistedCache(ref, cacheKey, {
       'cached_at': DateTime.now().toIso8601String(),

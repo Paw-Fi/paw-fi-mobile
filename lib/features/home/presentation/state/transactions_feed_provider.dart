@@ -627,8 +627,29 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _remote.fetchSummary(query),
       _remote.fetchPage(query),
     ]);
+    final summary = results[0] as TransactionsFeedSummary;
     final page = results[1] as TransactionsFeedPageResult;
+    final localQuery = _localQuery(query);
     await _cacheRemoteItems(page.items);
+    await _database.reconcileTransactionsFeedPage(
+      query: localQuery,
+      authoritativeItems: page.items,
+      remoteHasMore: page.hasMore,
+    );
+
+    final syncedLocalCount = await _database.getTransactionsFeedCount(
+      localQuery,
+      syncStatus: localSyncStatusSynced,
+    );
+    if (syncedLocalCount > summary.transactionCount) {
+      final authoritativeItems = await _remote.fetchAllPages(query);
+      await _cacheRemoteItems(authoritativeItems);
+      await _database.reconcileTransactionsFeedPage(
+        query: localQuery,
+        authoritativeItems: authoritativeItems,
+        remoteHasMore: false,
+      );
+    }
   }
 
   Future<void> _cacheRemoteItems(List<ExpenseEntry> items) async {

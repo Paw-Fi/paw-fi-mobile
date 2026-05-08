@@ -25,6 +25,8 @@ import 'package:moneko/features/home/presentation/state/home_page_command_provid
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
+import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -46,7 +48,6 @@ import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
 
-const Duration _foregroundResyncMinInterval = Duration(minutes: 1);
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
 
@@ -99,6 +100,7 @@ Future<void> _refreshActiveMainShellTab(
   try {
     switch (currentIndex) {
       case 0:
+        await _refreshActiveTransactionsWindow(ref, userId);
         final scope = ref.read(householdScopeProvider);
         if (scope.isHouseholdView) {
           ref.read(cacheInvalidatorProvider).invalidateAll();
@@ -128,10 +130,36 @@ Future<void> _refreshActiveMainShellTab(
         await _refreshWalletsMainShellData(ref);
         return;
       case 4:
+        await _refreshActiveTransactionsWindow(ref, userId);
         ref.read(analyticsProvider.notifier).refresh(userId);
         return;
     }
   } catch (_) {}
+}
+
+Future<void> _refreshActiveTransactionsWindow(
+  WidgetRef ref,
+  String userId,
+) async {
+  if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
+
+  final selectedCurrency =
+      ref.read(homeFilterProvider).selectedCurrency?.trim().toUpperCase();
+  final query = dashboardTransactionsQuery(
+    DashboardScopeQuery(
+      userId: userId,
+      householdId: _activeMainShellHouseholdId(ref),
+      selectedCurrency: selectedCurrency == null || selectedCurrency.isEmpty
+          ? null
+          : selectedCurrency,
+      startDate: null,
+      endDate: null,
+    ),
+    pageSize: 120,
+  );
+
+  await ref.read(transactionsFeedServiceProvider).refreshFromRemote(query);
+  ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
 }
 
 Future<void> _refreshDeferredMainShellData(
@@ -232,7 +260,6 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
-    final lastForegroundResyncAtRef = useRef<DateTime?>(null);
     final showSubscriptionVerificationBanner =
         subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
             subscriptionGateStatus == SubscriptionGateStatus.unknown;
@@ -251,7 +278,11 @@ class MainShell extends HookConsumerWidget {
         return null;
       }
 
-      unawaited(_syncMobileTransactions(ref, auth.uid));
+      _silentResyncMainShellData(
+        ref,
+        auth.uid,
+        ref.read(mainShellTabIndexProvider),
+      );
       return null;
     }, [previewState.isActive, auth.uid]);
 
@@ -309,14 +340,6 @@ class MainShell extends HookConsumerWidget {
             return;
           }
 
-          final now = DateTime.now();
-          final last = lastForegroundResyncAtRef.value;
-          if (last != null &&
-              now.difference(last) < _foregroundResyncMinInterval) {
-            return;
-          }
-
-          lastForegroundResyncAtRef.value = now;
           unawaited(Future<void>.microtask(
             () => _silentResyncMainShellData(
               ref,

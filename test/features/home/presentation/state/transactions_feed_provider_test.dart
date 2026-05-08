@@ -363,7 +363,46 @@ void main() {
     final refreshed = await service.fetchPage(query);
     expect(remote.pageCallCount, 1);
     expect(remote.summaryCallCount, 1);
-    expect(refreshed.items.map((entry) => entry.id), ['remote_1', 'local_1']);
+    expect(refreshed.items.map((entry) => entry.id), ['remote_1']);
+  });
+
+  test('local-first service removes synced local rows missing from remote page',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.upsertTransactions([
+      ExpenseEntry(
+        id: 'stale_deleted',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 4),
+        amountCents: 1100,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 4, 10),
+        type: 'expense',
+      ),
+    ]);
+    final remote = _FakeTransactionsFeedService([
+      const TransactionsFeedPageResult(
+        items: <ExpenseEntry>[],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    remote.summary = const TransactionsFeedSummary.empty();
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    await service.refreshFromRemote(buildQuery());
+
+    final rows = await database.getRecentTransactions(
+      userId: 'user-1',
+      householdId: null,
+      limit: 20,
+    );
+    expect(rows, isEmpty);
   });
 
   test('local-first service falls back to remote when cache is empty',

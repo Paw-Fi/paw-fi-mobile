@@ -38,6 +38,7 @@ import 'package:moneko/features/home/presentation/widgets/customizable_dashboard
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_widgets.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/widgets/dashboard_lazy_widgets.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:go_router/go_router.dart';
@@ -588,6 +589,31 @@ class _HomePageState extends ConsumerState<HomePage> {
             onRefresh: () async {
               final user = ref.read(authProvider);
               if (user.uid.isEmpty) return;
+
+              if (!ref.read(previewModeProvider).isActive) {
+                try {
+                  await ref
+                      .read(transactionsFeedServiceProvider)
+                      .refreshFromRemote(
+                        dashboardTransactionsQuery(
+                          DashboardScopeQuery(
+                            userId: user.uid,
+                            householdId: householdScope.activeAccountType ==
+                                    ActiveWalletType.personal
+                                ? null
+                                : householdScope.activeAccountHouseholdId,
+                            selectedCurrency: selectedCurrency,
+                            startDate: null,
+                            endDate: null,
+                          ),
+                          pageSize: 120,
+                        ),
+                      );
+                  ref
+                      .read(transactionsFeedRefreshSignalProvider.notifier)
+                      .state += 1;
+                } catch (_) {}
+              }
 
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {

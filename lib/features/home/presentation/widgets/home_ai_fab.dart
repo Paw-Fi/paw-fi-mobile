@@ -14,12 +14,15 @@ import 'package:file_picker/file_picker.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:crypto/crypto.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
@@ -806,6 +809,31 @@ Future<void> _persistAiTransactions(
   final scopedDefaultAccountId =
       container.read(defaultScopedAccountProvider)?.id;
 
+  Future<void> cacheSavedEntriesAndRefresh(
+    List<ExpenseEntry> savedEntries,
+  ) async {
+    final cacheable = savedEntries
+        .where((entry) => entry.userId?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (cacheable.isEmpty) return;
+
+    try {
+      final database = await container.read(localDatabaseProvider.future);
+      await database.upsertTransactions(
+        cacheable,
+        syncStatus: localSyncStatusSynced,
+      );
+    } catch (error) {
+      _debugPrint('⚠️ Failed to cache AI saved transactions locally: $error');
+    }
+
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    container
+        .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+        .state += 1;
+  }
+
   String? normalizeBucketId(String? value) {
     final trimmed = value?.trim();
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
@@ -1076,6 +1104,7 @@ Future<void> _persistAiTransactions(
 
     var didPersistAny = false;
     var savedExpenseCount = 0;
+    final savedEntries = <ExpenseEntry>[];
     final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
     for (var batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -1142,6 +1171,7 @@ Future<void> _persistAiTransactions(
               savedEntry: savedEntry,
             );
             didPersistAny = true;
+            savedEntries.add(savedEntry);
             if (!originalItem.transaction.isIncome) {
               savedExpenseCount += 1;
               savedExpenseEntriesById[savedEntry.id] = savedEntry;
@@ -1167,6 +1197,7 @@ Future<void> _persistAiTransactions(
     }
 
     await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+    await cacheSavedEntriesAndRefresh(savedEntries);
 
     if (didPersistAny) {
       await container
@@ -1200,6 +1231,7 @@ Future<void> _persistAiTransactions(
       // Save transactions individually using existing endpoints
       var savedCount = 0;
       var savedExpenseCount = 0;
+      final savedEntries = <ExpenseEntry>[];
       final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
       for (final item in transactions) {
@@ -1288,6 +1320,7 @@ Future<void> _persistAiTransactions(
               savedEntry: savedEntry,
             );
             savedCount++;
+            savedEntries.add(savedEntry);
             if (!isIncome) {
               savedExpenseCount++;
               savedExpenseEntriesById[savedEntry.id] = savedEntry;
@@ -1309,6 +1342,12 @@ Future<void> _persistAiTransactions(
       _debugPrint(
           '[AI Fallback Save] Saved $savedCount/${transactions.length} transactions');
 
+      if (savedExpenseEntriesById.isNotEmpty) {
+        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
+      }
+
+      await cacheSavedEntriesAndRefresh(savedEntries);
+
       if (savedCount > 0) {
         await container
             .read(expenseSaveNotifierProvider.notifier)
@@ -1316,10 +1355,6 @@ Future<void> _persistAiTransactions(
               userId: userId,
               householdId: householdId,
             );
-      }
-
-      if (savedExpenseEntriesById.isNotEmpty) {
-        await attachOptimisticSplitsForSavedExpenses(savedExpenseEntriesById);
       }
 
       if (savedExpenseCount > 0) {

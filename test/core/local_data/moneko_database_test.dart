@@ -360,6 +360,72 @@ void main() {
       expect(summary?.transactionCount, 0);
     });
 
+    test('reconciles hard-deleted server rows from an authoritative page',
+        () async {
+      await database.upsertTransactions([
+        _entry(
+          id: 'server_keep',
+          userId: 'user_1',
+          amountCents: 1500,
+          date: DateTime(2026, 4, 6),
+          createdAt: DateTime.utc(2026, 4, 6, 9),
+        ),
+        _entry(
+          id: 'server_deleted',
+          userId: 'user_1',
+          amountCents: 2500,
+          date: DateTime(2026, 4, 5),
+          createdAt: DateTime.utc(2026, 4, 5, 9),
+        ),
+      ]);
+      await database.writeOptimisticTransaction(
+        entry: _entry(
+          id: 'local_pending',
+          userId: 'user_1',
+          amountCents: 3300,
+          date: DateTime(2026, 4, 7),
+          createdAt: DateTime.utc(2026, 4, 7, 9),
+        ),
+        clientMutationId: 'mobile:local_pending',
+        operation: 'create',
+        payload: {'id': 'local_pending'},
+      );
+
+      await database.reconcileTransactionsFeedPage(
+        query: const LocalTransactionsFeedQuery(
+          userId: 'user_1',
+          householdId: null,
+          currency: 'EUR',
+          pageSize: 60,
+        ),
+        authoritativeItems: [
+          _entry(
+            id: 'server_keep',
+            userId: 'user_1',
+            amountCents: 1500,
+            date: DateTime(2026, 4, 6),
+            createdAt: DateTime.utc(2026, 4, 6, 9),
+          ),
+        ],
+        remoteHasMore: false,
+      );
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      final summary = await database.getMonthlySummary(
+        scopeKey: localScopeKey(userId: 'user_1', householdId: null),
+        month: DateTime(2026, 4),
+        currency: 'EUR',
+      );
+
+      expect(rows.map((entry) => entry.id), ['local_pending', 'server_keep']);
+      expect(summary?.expenseCents, 4800);
+      expect(summary?.transactionCount, 2);
+    });
+
     test('returns filtered transaction feed pages from local cache', () async {
       await database.upsertTransactions([
         _entry(

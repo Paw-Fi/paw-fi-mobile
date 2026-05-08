@@ -1,5 +1,6 @@
 // State providers for expense save flow
 
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -544,6 +545,25 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     if (householdId == null || householdId.isEmpty || isPortfolioSave) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
+
+    unawaited(() async {
+      try {
+        await ref.read(transactionsFeedServiceProvider).refreshFromRemote(
+              TransactionsFeedQuery(
+                userId: userId,
+                householdId: householdId,
+                selectedCurrency: null,
+                selectedCategory: null,
+                selectedType: 'all',
+                searchQuery: '',
+                startDate: null,
+                endDate: null,
+                pageSize: 120,
+              ),
+            );
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      } catch (_) {}
+    }());
 
     ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
