@@ -6,6 +6,8 @@ import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
+import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_cache_store.dart';
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
@@ -281,7 +283,14 @@ final dashboardLocalOverlayTransactionsProvider =
     Provider.family<List<ExpenseEntry>, DashboardScopeQuery>((ref, query) {
   final householdId = query.householdId?.trim();
   if (householdId == null || householdId.isEmpty) {
-    return const <ExpenseEntry>[];
+    // Personal mode: get optimistic transactions from analyticsProvider
+    final analyticsData = ref.watch(analyticsProvider);
+    final optimistic = analyticsData.expenses;
+    return mergeDashboardTransactionsWithLocalOverlay(
+      base: const <ExpenseEntry>[],
+      localOverlay: optimistic,
+      query: query,
+    );
   }
 
   final optimistic = ref.watch(

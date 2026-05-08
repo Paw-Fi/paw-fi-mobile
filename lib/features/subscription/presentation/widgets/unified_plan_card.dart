@@ -65,14 +65,14 @@ class UnifiedPlanCard extends StatelessWidget {
                 curve: Curves.easeOut,
                 constraints: const BoxConstraints.tightFor(
                   width: 188,
-                  height: 190,
+                  height: 130,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: isDisabled
                       ? scheme.onSurface.withValues(alpha: 0.03)
                       : (isDark ? const Color(0xFF17181D) : scheme.card),
-                  borderRadius: BorderRadius.circular(36),
+                  borderRadius: BorderRadius.circular(30),
                   border: Border.all(
                     color: isDisabled
                         ? Colors.transparent
