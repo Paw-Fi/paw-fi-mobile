@@ -43,6 +43,7 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -111,9 +112,13 @@ class AddRecurringSheet extends HookConsumerWidget {
     // Ensure custom category style overrides are loaded for display widgets.
     ref.watch(userCategoryConfigProvider);
 
-    final amountController = useTextEditingController(
-      text: existingTransaction?.amount.toString() ?? '',
-    );
+    final txn = existingTransaction;
+    final amountText = txn != null
+        ? (txn.amount == txn.amount.toInt()
+            ? txn.amount.toInt().toString()
+            : txn.amount.toString())
+        : '';
+    final amountController = useTextEditingController(text: amountText);
     final descriptionController = useTextEditingController(
       text: existingTransaction?.description ?? '',
     );
@@ -1663,36 +1668,16 @@ class AddRecurringSheet extends HookConsumerWidget {
                                     : amountController.text.trim(),
                                 isFirst: true,
                                 onTap: () async {
-                                  final result = await MonekoAlertDialog.show(
+                                  final value = await showCalculatorKeypadSheet(
                                     context: context,
-                                    title: context.l10n.editAmount,
-                                    description: null,
-                                    confirmLabel: context.l10n.save,
-                                    cancelLabel: context.l10n.cancel,
-                                    inputConfig: MonekoAlertDialogInputConfig(
-                                      initialValue:
-                                          amountController.text.trim(),
-                                      placeholder: context.l10n.amount,
-                                      isRequired: true,
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                      validationPattern:
-                                          RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-                                      validationMessage:
-                                          context.l10n.pleaseEnterValidAmount,
-                                    ),
+                                    initialValue:
+                                        amountController.text.trim().isEmpty
+                                            ? ''
+                                            : amountController.text.trim(),
                                   );
-
-                                  if (!context.mounted ||
-                                      result == null ||
-                                      !result.confirmed ||
-                                      result.text == null) {
-                                    return;
+                                  if (value != null) {
+                                    amountController.text = value;
                                   }
-
-                                  amountController.text = result.text!.trim();
                                 },
                               ),
                               _buildDivider(colorScheme),

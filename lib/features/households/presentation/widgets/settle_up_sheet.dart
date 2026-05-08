@@ -22,6 +22,9 @@ import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/user_avatar.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
+import 'package:moneko/shared/widgets/moneko_bottom_sheet.dart';
 
 class SettleUpSheet extends ConsumerStatefulWidget {
   final String householdId;
@@ -800,24 +803,8 @@ class _SettleUpSheetState extends ConsumerState<SettleUpSheet> {
   }
 
   int? _parseAmountCents(String? raw) {
-    final input = (raw ?? '').trim();
-    if (input.isEmpty) return null;
-
-    final cleaned = input.replaceAll(RegExp(r'[^0-9,\.]'), '');
-    if (cleaned.isEmpty) return null;
-
-    final String normalized;
-    if (!cleaned.contains('.') && cleaned.contains(',')) {
-      normalized = cleaned.replaceAll(',', '.');
-    } else {
-      normalized = cleaned.replaceAll(',', '');
-    }
-
-    final value = double.tryParse(normalized);
-    if (value == null || value.isNaN || value.isInfinite) return null;
-    final cents = (value * 100).round();
-    if (cents <= 0) return null;
-    return cents;
+    final cents = tryParseMoneyToCents(raw ?? '');
+    return cents != null && cents > 0 ? cents : null;
   }
 
   int? _clampAmountCents({

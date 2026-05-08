@@ -45,6 +45,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/intl_locale.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
@@ -61,6 +62,7 @@ import 'package:moneko/core/ui/widgets/transaction_currency_picker.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/ui/widgets/transaction_selection_sheet.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
 import 'package:moneko/shared/widgets/moneko_disclosure_row.dart';
@@ -1855,37 +1857,26 @@ class _UnifiedTransactionSheetState
 
   // Edit handlers - update local state for both new and existing
   void _handleEditAmount(double currentAmount) async {
-    final result = await MonekoAlertDialog.show(
+    final value = await showCalculatorKeypadSheet(
       context: context,
-      title: context.l10n.editAmount,
-      description: null,
-      confirmLabel: context.l10n.save,
-      cancelLabel: context.l10n.cancel,
-      inputConfig: MonekoAlertDialogInputConfig(
-        initialValue: currentAmount.toStringAsFixed(2),
-        placeholder: context.l10n.amount,
-        isRequired: true,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
-        validationMessage: context.l10n.pleaseEnterValidAmount,
-      ),
+      initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
     );
+    if (value == null) return;
 
-    if (result != null && result.confirmed && result.text != null) {
-      final parsed = double.tryParse(result.text!.replaceAll(',', ''));
-      if (parsed == null || parsed <= 0) return;
+    final amountCents = tryParseMoneyToCents(value);
+    final parsed = amountCents != null ? centsToAmount(amountCents) : null;
+    if (parsed == null || parsed <= 0) return;
 
-      if (isNewExpense) {
-        final current = ref.read(pendingExpenseProvider);
-        if (current != null) {
-          ref.read(pendingExpenseProvider.notifier).state =
-              current.copyWith(amount: parsed);
-        }
-      } else {
-        setState(() {
-          _editedAmount = parsed;
-        });
+    if (isNewExpense) {
+      final current = ref.read(pendingExpenseProvider);
+      if (current != null) {
+        ref.read(pendingExpenseProvider.notifier).state =
+            current.copyWith(amount: parsed);
       }
+    } else {
+      setState(() {
+        _editedAmount = parsed;
+      });
     }
   }
 

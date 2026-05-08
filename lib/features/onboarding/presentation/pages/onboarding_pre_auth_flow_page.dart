@@ -28,6 +28,7 @@ import 'package:moneko/features/utils/currency_flags.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/app_store_review_card.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -1734,7 +1735,8 @@ class _PreAuthStarterStep extends StatelessWidget {
         return;
       }
 
-      final parsed = double.tryParse(result.text!.trim().replaceAll(',', ''));
+      final cents = tryParseMoneyToCents(result.text!);
+      final parsed = cents != null ? centsToAmount(cents) : null;
       if (parsed == null) {
         return;
       }

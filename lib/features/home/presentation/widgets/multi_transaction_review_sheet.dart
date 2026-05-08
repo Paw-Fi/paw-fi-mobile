@@ -26,6 +26,7 @@ import 'package:moneko/features/utils/datetime.dart';
 import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 String _formatRelativeDate(DateTime date, BuildContext context) {
   final now = DateTime.now();
@@ -1456,15 +1457,29 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextField(
-                      controller: _amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      onChanged: _handleAmountChanged,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.amount,
-                        prefixText: _currencySymbol,
-                        border: const OutlineInputBorder(),
+                    Builder(
+                      builder: (context) => GestureDetector(
+                        onTap: () async {
+                          final value = await showCalculatorKeypadSheet(
+                            context: context,
+                            initialValue: _amountController.text,
+                          );
+                          if (value != null) {
+                            _amountController.text = value;
+                            _handleAmountChanged(value);
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            controller: _amountController,
+                            textAlign: TextAlign.right,
+                            decoration: InputDecoration(
+                              labelText: context.l10n.amount,
+                              prefixText: _currencySymbol,
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),

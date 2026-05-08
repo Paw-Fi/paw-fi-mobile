@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 
 /// Shared edit handlers for transaction form fields.
 ///
@@ -27,13 +28,14 @@ class TransactionEditHandlers {
         placeholder: context.l10n.amount,
         isRequired: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        validationPattern: RegExp(r'^[0-9]+(\.[0-9]{0,2})?$'),
+        validationPattern: RegExp(r'^[0-9]+(?:[.,][0-9]{0,2})?$'),
         validationMessage: context.l10n.pleaseEnterValidAmount,
       ),
     );
 
     if (result != null && result.confirmed && result.text != null) {
-      final parsed = double.tryParse(result.text!.replaceAll(',', ''));
+      final amountCents = tryParseMoneyToCents(result.text!);
+      final parsed = amountCents != null ? centsToAmount(amountCents) : null;
       if (parsed == null || parsed <= 0) return null;
       return parsed;
     }

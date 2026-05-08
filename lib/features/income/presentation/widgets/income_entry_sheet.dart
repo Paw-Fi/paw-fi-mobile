@@ -14,6 +14,8 @@ import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 
 void showIncomeEntrySheet(BuildContext context) {
   showModalBottomSheet(
@@ -102,8 +104,8 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
       return;
     }
 
-    final amountText = _amountController.text.trim().replaceAll(',', '');
-    final amount = double.tryParse(amountText);
+    final amountCents = tryParseMoneyToCents(_amountController.text.trim());
+    final amount = amountCents != null ? centsToAmount(amountCents) : null;
 
     if (amount == null || amount <= 0) {
       AppToast.error(context, context.l10n.failedToSaveIncome);
@@ -282,30 +284,49 @@ class _IncomeEntrySheetState extends ConsumerState<_IncomeEntrySheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Amount
-                    TextFormField(
-                      controller: _amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: context.l10n.amount,
-                        prefixText: resolveCurrencySymbol(
-                            ref.watch(selectedCurrencyProvider)),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    Builder(
+                      builder: (context) => GestureDetector(
+                        onTap: () async {
+                          final value = await showCalculatorKeypadSheet(
+                            context: context,
+                            initialValue: _amountController.text,
+                          );
+                          if (value != null) {
+                            _amountController.text = value;
+                          }
+                        },
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            controller: _amountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.amount,
+                              prefixText: resolveCurrencySymbol(
+                                  ref.watch(selectedCurrencyProvider)),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            autofocus: true,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return context
+                                    .l10n.enterValidAmountGreaterThan0;
+                              }
+                              final amountCents = tryParseMoneyToCents(value);
+                              final amount = amountCents != null
+                                  ? centsToAmount(amountCents)
+                                  : null;
+                              if (amount == null || amount <= 0) {
+                                return context
+                                    .l10n.enterValidAmountGreaterThan0;
+                              }
+                              return null;
+                            },
+                          ),
                         ),
                       ),
-                      autofocus: true,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return context.l10n.enterValidAmountGreaterThan0;
-                        }
-                        final amount =
-                            double.tryParse(value.replaceAll(',', ''));
-                        if (amount == null || amount <= 0) {
-                          return context.l10n.enterValidAmountGreaterThan0;
-                        }
-                        return null;
-                      },
                     ),
 
                     const SizedBox(height: 16),

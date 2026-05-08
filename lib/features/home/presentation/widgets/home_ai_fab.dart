@@ -30,6 +30,7 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
+import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -495,8 +496,8 @@ String? _resolveMentionedMemberId({
 }
 
 double? _parseLooseAmount(String raw) {
-  final normalized = raw.replaceAll(',', '').trim();
-  return double.tryParse(normalized);
+  final cents = tryParseMoneyToCents(raw);
+  return cents != null ? centsToAmount(cents) : null;
 }
 
 String? _extractDescriptionHintFromTotalClause(String clause) {

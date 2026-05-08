@@ -23,6 +23,8 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
+
 /// Generic bottom sheet for editing transaction fields
 class EditTransactionBottomSheet extends ConsumerStatefulWidget {
   final String expenseId;
@@ -184,41 +186,52 @@ class _EditTransactionBottomSheetState
     } else if (widget.field == EditField.currency) {
       return _buildCurrencyPicker(colorScheme);
     } else {
-      return TextField(
-        controller: _controller,
-        autofocus: widget.field != EditField.date &&
-            widget.field != EditField.time &&
-            widget.field != EditField.currency,
-        keyboardType: _getKeyboardType(),
-        maxLines: widget.field == EditField.description ? 3 : 1,
-        inputFormatters: widget.field == EditField.amount
-            ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
-            : null,
-        style: TextStyle(
-          fontSize: 16,
-          color: colorScheme.foreground,
-          fontWeight: FontWeight.w400,
-        ),
-        decoration: InputDecoration(
-          labelText: _getLabel(),
-          labelStyle: TextStyle(color: colorScheme.foreground),
-          errorText: _error,
-          prefixText: widget.field == EditField.amount
-              ? resolveCurrencySymbol(widget.expense.currency)
-              : null,
-          prefixStyle: TextStyle(
-            fontSize: 16,
-            color: colorScheme.foreground,
-            fontWeight: FontWeight.w400,
+      return Builder(
+        builder: (context) => GestureDetector(
+          onTap: () async {
+            final value = await showCalculatorKeypadSheet(
+              context: context,
+              initialValue: _controller.text,
+            );
+            if (value != null) {
+              _controller.text = value;
+              if (widget.field == EditField.amount) {
+                widget.onChanged?.call();
+              }
+            }
+          },
+          child: AbsorbPointer(
+            child: TextField(
+              controller: _controller,
+              autofocus: widget.field != EditField.date &&
+                  widget.field != EditField.time &&
+                  widget.field != EditField.currency,
+              maxLines: widget.field == EditField.description ? 3 : 1,
+              inputFormatters: widget.field == EditField.amount
+                  ? [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))]
+                  : null,
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.foreground,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: InputDecoration(
+                labelText: _getLabel(),
+                labelStyle: TextStyle(color: colorScheme.foreground),
+                errorText: _error,
+                prefixText: widget.field == EditField.amount
+                    ? resolveCurrencySymbol(widget.expense.currency)
+                    : null,
+                prefixStyle: TextStyle(
+                  fontSize: 16,
+                  color: colorScheme.foreground,
+                ),
+              ),
+            ),
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
         ),
-        onChanged: (_) {
-          if (_error != null) {
-            setState(() => _error = null);
-          }
+      );
+    }
         },
       );
     }
