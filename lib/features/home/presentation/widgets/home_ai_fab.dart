@@ -1478,35 +1478,28 @@ Future<void> handleAiFreeFormText(
   WidgetRef ref, {
   void Function(AiLogSuccess success)? onSuccess,
 }) async {
-  final controller = TextEditingController();
-
-  try {
-    await showTextInputDrawer(
-      context,
-      controller,
-      (text) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          text: text,
-          onSuccess: onSuccess,
-        );
-      },
-      onSubmitAudio: (audioBytes, contentType) async {
-        if (!context.mounted) return;
-        await _processExpense(
-          context,
-          ref,
-          audioBytes: audioBytes,
-          audioContentType: contentType,
-          onSuccess: onSuccess,
-        );
-      },
-    );
-  } finally {
-    controller.dispose();
-  }
+  await showTextInputDrawer(
+    context,
+    (text) async {
+      if (!context.mounted) return;
+      await _processExpense(
+        context,
+        ref,
+        text: text,
+        onSuccess: onSuccess,
+      );
+    },
+    onSubmitAudio: (audioBytes, contentType) async {
+      if (!context.mounted) return;
+      await _processExpense(
+        context,
+        ref,
+        audioBytes: audioBytes,
+        audioContentType: contentType,
+        onSuccess: onSuccess,
+      );
+    },
+  );
 }
 
 Future<void> handleAiFileUpload(

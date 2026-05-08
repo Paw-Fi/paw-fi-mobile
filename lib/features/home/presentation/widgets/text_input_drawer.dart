@@ -18,7 +18,6 @@ import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
 Future<void> showTextInputDrawer(
   BuildContext parentContext,
-  TextEditingController textController,
   Future<void> Function(String text) onSubmit, {
   Future<void> Function(Uint8List audioBytes, String contentType)?
       onSubmitAudio,
@@ -34,7 +33,6 @@ Future<void> showTextInputDrawer(
     backgroundColor: colorScheme.sheetBackground,
     builder: (modalContext) => _TextInputContent(
       parentContext: parentContext,
-      textController: textController,
       colorScheme: colorScheme,
       onSubmit: onSubmit,
       onSubmitAudio: onSubmitAudio,
@@ -44,7 +42,6 @@ Future<void> showTextInputDrawer(
 
 class _TextInputContent extends ConsumerStatefulWidget {
   final BuildContext parentContext;
-  final TextEditingController textController;
   final ColorScheme colorScheme;
   final Future<void> Function(String text) onSubmit;
   final Future<void> Function(Uint8List audioBytes, String contentType)?
@@ -52,7 +49,6 @@ class _TextInputContent extends ConsumerStatefulWidget {
 
   const _TextInputContent({
     required this.parentContext,
-    required this.textController,
     required this.colorScheme,
     required this.onSubmit,
     this.onSubmitAudio,
@@ -70,6 +66,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   Timer? _mockTranscribingTimer;
   final AudioRecorder _recorder = AudioRecorder();
   final FocusNode _textFocusNode = FocusNode();
+  late final TextEditingController _textController;
   double? _keyboardInsetOnRecordStart;
 
   // Animation for the mic button scale
@@ -79,6 +76,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   @override
   void initState() {
     super.initState();
+    _textController = TextEditingController();
     _micScaleController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 200));
     _micScaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
@@ -88,6 +86,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
   @override
   void dispose() {
+    _textController.dispose();
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
     _recorder.dispose();
@@ -96,7 +95,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   }
 
   Future<void> _processExpense() async {
-    final text = widget.textController.text.trim();
+    final text = _textController.text.trim();
     if (text.isEmpty) {
       AppToast.info(widget.parentContext,
           widget.parentContext.l10n.pleaseEnterExpenseDetails);
@@ -109,7 +108,6 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
 
     if (mounted) {
       await widget.onSubmit(text);
-      widget.textController.clear();
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -288,7 +286,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
                   // TextField always in tree to prevent keyboard dismissal
                   TextField(
                     key: const ValueKey('textField'),
-                    controller: widget.textController,
+                    controller: _textController,
                     focusNode: _textFocusNode,
                     autofocus: true,
                     maxLines: 4,
