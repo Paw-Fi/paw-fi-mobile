@@ -156,19 +156,19 @@ class AppToast {
   }
 
   static void info(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 3)}) =>
+          {Duration duration = const Duration(seconds: 5)}) =>
       show(context, message, type: AppToastType.info, duration: duration);
 
   static void success(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 3)}) =>
+          {Duration duration = const Duration(seconds: 5)}) =>
       show(context, message, type: AppToastType.success, duration: duration);
 
   static void warning(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 3)}) =>
+          {Duration duration = const Duration(seconds: 5)}) =>
       show(context, message, type: AppToastType.warning, duration: duration);
 
   static void error(BuildContext context, String message,
-          {Duration duration = const Duration(seconds: 4)}) =>
+          {Duration duration = const Duration(seconds: 6)}) =>
       show(context, message, type: AppToastType.error, duration: duration);
 
   /// Safely resolve an [OverlayState] for the provided [context].
