@@ -38,6 +38,15 @@ void main() {
     expect(range.end, DateTime(2026, 2, 4));
   });
 
+  test('resolvePeriodDateRange includes current month for last 3 months', () {
+    final selection = PeriodSelection.preset(DateRangeFilter.last3Months);
+    final now = DateTime(2026, 5, 8, 10, 30);
+    final range = resolvePeriodDateRange(selection, now: now);
+
+    expect(range.start, DateTime(2026, 3, 1));
+    expect(range.end, DateTime(2026, 5, 8));
+  });
+
   test('PeriodFilterNotifier shiftMonth uses current month selection',
       () async {
     final fakeService = _FakePeriodPreferenceService();

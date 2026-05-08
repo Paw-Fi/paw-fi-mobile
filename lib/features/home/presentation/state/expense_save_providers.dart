@@ -76,7 +76,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   /// Save expense to database
   /// If householdId provided, creates household split
   /// If customSplits provided, uses custom split configuration
-  Future<void> saveExpense({
+  Future<ExpenseEntry?> saveExpense({
     required ParsedExpense expense,
     String? householdId,
     String? accountId,
@@ -84,6 +84,10 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     SplitType? customSplitType,
     List<MemberSplit>? customSplits,
     String? payerUserId,
+    String? clientRecordId,
+    String? clientMutationId,
+    String? idempotencyKey,
+    bool addHouseholdOptimisticData = true,
     bool invalidateProviders = true,
   }) async {
     state = const AsyncValue.loading();
@@ -118,6 +122,18 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         // Explicitly set type for new expenses
         'type': 'expense',
       };
+
+      if (clientRecordId != null && clientRecordId.trim().isNotEmpty) {
+        requestBody['clientRecordId'] = clientRecordId.trim();
+      }
+
+      if (clientMutationId != null && clientMutationId.trim().isNotEmpty) {
+        requestBody['clientMutationId'] = clientMutationId.trim();
+      }
+
+      if (idempotencyKey != null && idempotencyKey.trim().isNotEmpty) {
+        requestBody['idempotencyKey'] = idempotencyKey.trim();
+      }
 
       final description = expense.description;
       if (description != null && description.trim().isNotEmpty) {
@@ -223,17 +239,23 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final responseMap = response.data is Map<String, dynamic>
           ? response.data as Map<String, dynamic>
           : null;
-      _addOptimisticHouseholdData(
-        expense: expense,
-        householdId: householdId,
-        accountId: accountId,
-        payerUserId: payerUserId ?? user.uid,
-        receiptImageUrl: receiptImageUrl,
-        customSplitType: customSplitType,
-        customSplits: customSplits,
-        responseData: responseMap,
-        userId: user.uid,
-      );
+      final saved = responseMap?['data'];
+      final savedEntry =
+          saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
+
+      if (addHouseholdOptimisticData) {
+        _addOptimisticHouseholdData(
+          expense: expense,
+          householdId: householdId,
+          accountId: accountId,
+          payerUserId: payerUserId ?? user.uid,
+          receiptImageUrl: receiptImageUrl,
+          customSplitType: customSplitType,
+          customSplits: customSplits,
+          responseData: responseMap,
+          userId: user.uid,
+        );
+      }
 
       if (invalidateProviders) {
         // Invalidate providers to trigger UI refresh
@@ -241,6 +263,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       }
 
       state = const AsyncValue.data(null);
+      return savedEntry;
     } catch (error, stackTrace) {
       _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);

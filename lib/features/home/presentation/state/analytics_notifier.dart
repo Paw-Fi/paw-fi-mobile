@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/home/presentation/models/models.dart';
@@ -84,8 +86,17 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
     final currentOperationId = ++_loadOperationId;
     _activeLoadUserId = userId;
 
-    // Only set loading state, NOT hasLoadedOnce - that's set on success only
-    state = state.copyWith(isLoading: true, clearError: true);
+    final hydratedFromLocal = await hydrateFromLocalCache(userId);
+    if (_loadOperationId != currentOperationId) {
+      debugPrint(
+          '[Analytics] Operation $currentOperationId superseded during local hydration');
+      return;
+    }
+
+    final hasVisibleData = hydratedFromLocal ||
+        state.expenses.isNotEmpty ||
+        state.allExpenses.isNotEmpty;
+    state = state.copyWith(isLoading: !hasVisibleData, clearError: true);
 
     try {
       if (userId.isEmpty) {
@@ -240,6 +251,7 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
       // Store ALL data in both allExpenses/allBudgets AND expenses/budgets
       // Filtering will be done locally in the home page
       final currentState = state;
+      await _cacheServerExpenses(allExpenses);
       final mergedExpenses = _mergeWithLocalExpenses(
         serverExpenses: allExpenses,
         current: currentState,
@@ -459,6 +471,71 @@ class AnalyticsNotifier extends StateNotifier<AnalyticsData> {
   /// Refresh analytics data - simply reloads all data
   void refresh(String userId) {
     loadData(userId, forceReload: true);
+  }
+
+  Future<bool> hydrateFromLocalCache(
+    String userId, {
+    String? householdId,
+  }) async {
+    if (userId.trim().isEmpty) return false;
+
+    final database = await _localDatabaseOrNull();
+    if (database == null) return false;
+
+    try {
+      final localExpenses = await database.getRecentTransactions(
+        userId: userId,
+        householdId: householdId,
+        limit: 5000,
+      );
+      if (localExpenses.isEmpty) return false;
+
+      final mergedExpenses = _mergeWithLocalExpenses(
+        serverExpenses: localExpenses,
+        current: state,
+      );
+      state = state.copyWith(
+        expenses: mergedExpenses,
+        allExpenses: mergedExpenses,
+        isLoading: false,
+        hasLoadedOnce: true,
+        clearError: true,
+      );
+      return true;
+    } catch (error) {
+      debugPrint('[Analytics] Local cache hydration failed: $error');
+      return false;
+    }
+  }
+
+  Future<void> _cacheServerExpenses(List<ExpenseEntry> expenses) async {
+    if (expenses.isEmpty) return;
+
+    final cacheable = expenses
+        .where((entry) => entry.userId?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (cacheable.isEmpty) return;
+
+    final database = await _localDatabaseOrNull();
+    if (database == null) return;
+
+    try {
+      await database.upsertTransactions(
+        cacheable,
+        syncStatus: localSyncStatusSynced,
+      );
+    } catch (error) {
+      debugPrint('[Analytics] Failed to write local transaction cache: $error');
+    }
+  }
+
+  Future<MonekoDatabase?> _localDatabaseOrNull() async {
+    try {
+      return await ref.read(localDatabaseProvider.future);
+    } catch (error) {
+      debugPrint('[Analytics] Local database unavailable: $error');
+      return null;
+    }
   }
 
   void updatePreferredCurrency(String currency) {

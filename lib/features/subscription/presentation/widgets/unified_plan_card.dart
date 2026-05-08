@@ -65,7 +65,7 @@ class UnifiedPlanCard extends StatelessWidget {
                 curve: Curves.easeOut,
                 constraints: const BoxConstraints.tightFor(
                   width: 188,
-                  height: 145,
+                  height: 190,
                 ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -175,32 +175,38 @@ class UnifiedPlanCard extends StatelessWidget {
                             ? scheme.onSurface.withValues(alpha: 0.4)
                             : scheme.mutedForeground,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const Spacer(),
-                    RichText(
-                      text: TextSpan(
-                        text: plan.priceDisplay,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: isDisabled
-                              ? scheme.onSurface.withValues(alpha: 0.5)
-                              : const Color(0xFF8B5CF6),
-                          letterSpacing: -0.5,
-                        ),
-                        children: [
-                          if (periodText.isNotEmpty)
-                            TextSpan(
-                              text: periodText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: isDisabled
-                                    ? scheme.onSurface.withValues(alpha: 0.4)
-                                    : const Color(0xFF8B5CF6),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: RichText(
+                        text: TextSpan(
+                          text: plan.priceDisplay,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDisabled
+                                ? scheme.onSurface.withValues(alpha: 0.5)
+                                : const Color(0xFF8B5CF6),
+                            letterSpacing: -0.5,
+                          ),
+                          children: [
+                            if (periodText.isNotEmpty)
+                              TextSpan(
+                                text: periodText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDisabled
+                                      ? scheme.onSurface.withValues(alpha: 0.4)
+                                      : const Color(0xFF8B5CF6),
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],

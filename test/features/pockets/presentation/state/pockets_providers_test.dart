@@ -187,6 +187,35 @@ void main() {
       expect(restored.saved.single.budgetAmountCents, 1000);
       expect(restored.editing.single.budgetAmountCents, 1000);
     });
+
+    test('restores cached envelope category links for pocket details', () {
+      final now = DateTime(2026, 1, 1);
+      final state = PocketsState(
+        isLoading: false,
+        saved: const [],
+        editing: const [],
+        budgetId: 'budget',
+        periodMonth: now,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 0,
+        savedTotalBudget: 0,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'pocket-food': ['Groceries', ' dining '],
+        },
+      );
+
+      final restored = PocketsState.fromCacheJson(state.toCacheJson());
+
+      expect(
+        restored.envelopeCategories['pocket-food'],
+        ['groceries', 'dining'],
+      );
+    });
   });
 
   group('rebalanceSiblingPocketBudgetAmounts', () {

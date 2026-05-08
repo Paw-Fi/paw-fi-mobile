@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/preview/preview_data.dart';
 import 'package:moneko/core/app/app_initialization_provider_v2.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/features/auth/auth.dart';
@@ -175,14 +176,33 @@ final dashboardHasLoggedTransactionsProvider =
     return false;
   }
 
-  final response = await supabase.rpc(
-    'get_dashboard_user_activity_v1',
-    params: <String, dynamic>{
-      'p_user_id': userId,
-    },
-  );
-  final payload = Map<String, dynamic>.from(response as Map);
-  return payload['has_logged_transactions'] == true;
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    final localRows = await database.getRecentTransactions(
+      userId: userId,
+      householdId: null,
+      limit: 1,
+    );
+    if (localRows.isNotEmpty) {
+      return true;
+    }
+  } catch (_) {
+    // Local cache is an optimization here; keep the checklist resilient when
+    // the DB is unavailable in tests or early app startup.
+  }
+
+  try {
+    final response = await supabase.rpc(
+      'get_dashboard_user_activity_v1',
+      params: <String, dynamic>{
+        'p_user_id': userId,
+      },
+    );
+    final payload = Map<String, dynamic>.from(response as Map);
+    return payload['has_logged_transactions'] == true;
+  } catch (_) {
+    return false;
+  }
 });
 
 final dashboardCurrencySummariesRefreshSignalProvider =

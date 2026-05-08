@@ -273,11 +273,19 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
               );
 
               return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _touchedIndex = isSelected ? null : index;
-                  });
-                },
+                onTap: canOpenCategory
+                    ? () {
+                        setState(() {
+                          _touchedIndex = index;
+                        });
+                        _openCategoryDetails(context, category.category);
+                      }
+                    : () {
+                        setState(() {
+                          _touchedIndex = isSelected ? null : index;
+                        });
+                      },
+                behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
                   key: ValueKey('transactions-pie-legend-${category.category}'),
                   duration: const Duration(milliseconds: 200),
@@ -291,7 +299,7 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                     border: Border.all(
                       color: isSelected
                           ? widget.colorScheme.primary.withValues(alpha: 0.5)
-                          : Colors.transparent,
+                          : widget.colorScheme.surface.withValues(alpha: 0.0),
                       width: 1,
                     ),
                     boxShadow: Theme.of(context).brightness == Brightness.dark
@@ -362,44 +370,31 @@ class _TransactionsPieChartState extends State<TransactionsPieChart> {
                       Row(
                         children: [
                           Expanded(
-                            child: GestureDetector(
-                              onTap: canOpenCategory
-                                  ? () {
-                                      setState(() {
-                                        _touchedIndex = index;
-                                      });
-                                      _openCategoryDetails(
-                                        context,
-                                        category.category,
-                                      );
-                                    }
-                                  : null,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      displayAmount(category.amount),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: widget.colorScheme.foreground,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayAmount(category.amount),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: widget.colorScheme.foreground,
+                                      letterSpacing: -0.5,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (canOpenCategory) ...[
-                                    const SizedBox(width: 2),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 16,
-                                      color: widget.colorScheme.mutedForeground,
-                                    ),
-                                  ],
+                                ),
+                                if (canOpenCategory) ...[
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 16,
+                                    color: widget.colorScheme.mutedForeground,
+                                  ),
                                 ],
-                              ),
+                              ],
                             ),
                           ),
                         ],

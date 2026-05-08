@@ -4,17 +4,11 @@ import 'package:moneko/features/home/presentation/models/models.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:moneko/features/home/presentation/widgets/unified_transaction_sheet.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
-import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
-import 'package:moneko/features/households/presentation/providers/household_providers.dart';
-import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/transaction_list_tile.dart';
-import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/features/recurring/presentation/widgets/add_recurring_sheet.dart';
@@ -140,112 +134,28 @@ Widget buildRecentTransactionsCard(
                               SlidableAction(
                                 onPressed: (_) async {
                                   final l10n = context.l10n;
-                                  final uid = Supabase
-                                      .instance.client.auth.currentUser?.id;
-                                  if (uid == null) {
-                                    AppToast.error(
-                                        context, l10n.userNotAuthenticated);
-                                    return;
-                                  }
-
                                   final rootNavigator = Navigator.of(context,
                                       rootNavigator: true);
                                   final toastContext = rootNavigator.context;
-                                  var dialogOpen = false;
-                                  void closeDialog() {
-                                    if (!dialogOpen) return;
-                                    if (rootNavigator.canPop()) {
-                                      rootNavigator.pop();
-                                    }
-                                    dialogOpen = false;
-                                  }
 
-                                  // Show loading dialog
-                                  showBlockingProcessingDialog(
-                                    context: toastContext,
-                                    message: '${l10n.delete}...',
-                                  );
-                                  dialogOpen = true;
+                                  AppToast.success(
+                                      toastContext, l10n.transactionDeleted);
+                                  final success = await ref
+                                      .read(transactionEditProvider.notifier)
+                                      .deleteExpensesOptimistically([e]);
 
-                                  try {
-                                    final res = await Supabase
-                                        .instance.client.functions
-                                        .invoke('delete-expense', body: {
-                                      'userId': uid,
-                                      'expenseIds': e.id,
-                                    });
-
-                                    if (!context.mounted) {
-                                      closeDialog();
-                                      return;
-                                    }
-
-                                    closeDialog();
-
-                                    if (res.data != null &&
-                                        (res.data['success'] == true)) {
-                                      // Always refresh analytics (personal tab) since the
-                                      // deleted row may be present in the user's dataset.
-                                      ref
-                                          .read(analyticsProvider.notifier)
-                                          .refresh(uid);
-
-                                      if (householdId != null) {
-                                        ref
-                                            .read(cacheInvalidatorProvider)
-                                            .invalidateHouseholdData(
-                                                householdId);
-                                        ref.invalidate(
-                                            userHouseholdsProvider(uid));
-                                        ref.invalidate(
-                                            householdExpensesProvider);
-                                        ref.invalidate(
-                                            cachedHouseholdExpensesProvider);
-                                        ref.invalidate(householdSplitsProvider);
-                                        ref.invalidate(
-                                            cachedHouseholdSplitsProvider);
-                                        ref.invalidate(
-                                            householdBudgetsProvider);
-                                        ref.invalidate(
-                                            householdMembersProvider);
-                                      }
-
-                                      // Keep other tabs and the currency selector in sync.
-                                      ref.invalidate(pocketsProvider);
-                                      ref.invalidate(
-                                          currencyTransactionCountsProvider);
-                                      ref
-                                          .read(dashboardRefreshSignalProvider
-                                              .notifier)
-                                          .state += 1;
-                                      AppToast.success(toastContext,
-                                          l10n.transactionDeleted);
-                                    } else {
-                                      final payload = res.data
-                                              is Map<String, dynamic>
-                                          ? (res.data as Map<String, dynamic>)
-                                          : null;
-                                      final message =
-                                          (payload?['error'] as String?)
-                                              ?.trim();
-                                      AppToast.error(
-                                        toastContext,
-                                        (message != null && message.isNotEmpty)
-                                            ? message
-                                            : l10n.anErrorOccurred,
-                                      );
-                                    }
-                                  } catch (err) {
-                                    closeDialog();
-                                    if (context.mounted) {
-                                      AppToast.error(
-                                        toastContext,
-                                        ErrorHandler.getUserFriendlyMessage(
-                                            err),
-                                      );
-                                    }
-                                  } finally {
-                                    closeDialog();
+                                  if (!success) {
+                                    final error =
+                                        ref.read(transactionEditProvider).error;
+                                    if (!toastContext.mounted) return;
+                                    AppToast.error(
+                                      toastContext,
+                                      ErrorHandler.getUserFriendlyMessage(
+                                        error,
+                                        context:
+                                            BackendErrorContext.deleteExpense,
+                                      ),
+                                    );
                                   }
                                 },
                                 backgroundColor: colorScheme.destructive,

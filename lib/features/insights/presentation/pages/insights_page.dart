@@ -65,17 +65,27 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
             : state[activeHouseholdId] ?? const <ExpenseEntry>[],
       ),
     );
+    final activeScopeDeletedExpenseIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => (activeHouseholdId == null || activeHouseholdId.isEmpty)
+            ? const <String>{}
+            : state[activeHouseholdId] ?? const <String>{},
+      ),
+    );
 
-    final scopedAnalyticsData = activeScopeOptimisticExpenses.isEmpty
+    final scopedAnalyticsData = activeScopeOptimisticExpenses.isEmpty &&
+            activeScopeDeletedExpenseIds.isEmpty
         ? analyticsData
         : analyticsData.copyWith(
             expenses: mergeHouseholdExpenses(
               analyticsData.expenses,
               activeScopeOptimisticExpenses,
+              deletedIds: activeScopeDeletedExpenseIds,
             ),
             allExpenses: mergeHouseholdExpenses(
               analyticsData.allExpenses,
               activeScopeOptimisticExpenses,
+              deletedIds: activeScopeDeletedExpenseIds,
             ),
           );
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);

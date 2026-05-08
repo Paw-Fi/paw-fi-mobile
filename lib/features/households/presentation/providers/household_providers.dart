@@ -822,12 +822,21 @@ final householdExpensesProvider = FutureProvider.autoDispose
         householdOptimisticExpensesProvider
             .select((state) => state[params.householdId] ?? const []),
       );
+      final deletedIds = ref.watch(
+        householdOptimisticDeletedExpenseIdsProvider.select(
+          (state) => state[params.householdId] ?? const <String>{},
+        ),
+      );
       if (optimistic.isNotEmpty) {
         ref
             .read(householdOptimisticExpensesProvider.notifier)
             .pruneIfInServer(params.householdId, entries);
       }
-      return mergeHouseholdExpenses(entries, optimistic);
+      return mergeHouseholdExpenses(
+        entries,
+        optimistic,
+        deletedIds: deletedIds,
+      );
     } on TimeoutException catch (e, st) {
       FirebaseCrashlytics.instance.log(
         '⚠️ householdExpensesProvider timeout for '

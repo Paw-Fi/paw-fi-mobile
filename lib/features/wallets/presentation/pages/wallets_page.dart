@@ -155,6 +155,10 @@ class AccountsPage extends HookConsumerWidget {
     final activeCarouselMonth = isPreviewMode
         ? (previewSelectedMonthState.value ?? availableMonths.first)
         : walletsPageState?.selectedMonthStart ?? availableMonths.first;
+    final activeCarouselMonthIndex =
+        availableMonths.indexOf(activeCarouselMonth);
+    final selectedMonthIndex =
+        activeCarouselMonthIndex >= 0 ? activeCarouselMonthIndex : 0;
     final swipeHintPrefKey = _walletsMonthSwipeHintDismissedKey(auth.uid);
     final hasDismissedSwipeHintState =
         useState<bool>(prefs.getBool(swipeHintPrefKey) ?? false);
@@ -167,6 +171,21 @@ class AccountsPage extends HookConsumerWidget {
         ? const AsyncValue<List<BankConnection>>.data(<BankConnection>[])
         : ref.watch(bankConnectionsProvider);
     final isManualSyncingState = useState<bool>(false);
+
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!monthPageController.hasClients ||
+            selectedMonthIndex >= availableMonths.length) {
+          return;
+        }
+        final currentPage = monthPageController.page?.round() ??
+            monthPageController.initialPage;
+        if (currentPage != selectedMonthIndex) {
+          monthPageController.jumpToPage(selectedMonthIndex);
+        }
+      });
+      return null;
+    }, [selectedMonthIndex, availableMonths.length]);
 
     useEffect(() {
       pageTrace.mark('wallets-async-state', {
@@ -408,9 +427,6 @@ class AccountsPage extends HookConsumerWidget {
           }
 
           final selectedMonth = activeCarouselMonth;
-          final rawSelectedMonthIndex = availableMonths.indexOf(selectedMonth);
-          final selectedMonthIndex =
-              rawSelectedMonthIndex >= 0 ? rawSelectedMonthIndex : 0;
           final previewSelectedSnapshot = isPreviewMode
               ? previewWalletsData?.snapshotForMonth(selectedMonth)
               : null;
@@ -599,8 +615,24 @@ class AccountsPage extends HookConsumerWidget {
                     children: [
                       TextButton.icon(
                         onPressed: () async {
-                          AppToast.info(context, context.l10n.comingSoon);
-                          return;
+                          if (isPreviewMode) {
+                            AppToast.info(
+                              context,
+                              context.l10n.previewMockUpdatesApplied,
+                            );
+                            return;
+                          }
+
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PlaidSyncWalkthroughPage(
+                                targetHouseholdId:
+                                    _resolveWalletsScopeHouseholdId(
+                                  householdScope,
+                                ),
+                              ),
+                            ),
+                          );
                         },
                         icon: Icon(
                           Icons.sync,

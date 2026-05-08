@@ -144,6 +144,11 @@ final cachedHouseholdExpensesProvider =
       householdOptimisticExpensesProvider
           .select((state) => state[params.householdId] ?? const []),
     );
+    final deletedIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[params.householdId] ?? const <String>{},
+      ),
+    );
 
     final result = await _expensesDeduplicator.deduplicate(
       key,
@@ -163,7 +168,11 @@ final cachedHouseholdExpensesProvider =
           .pruneIfInServer(params.householdId, result);
     }
 
-    final merged = mergeHouseholdExpenses(result, optimistic);
+    final merged = mergeHouseholdExpenses(
+      result,
+      optimistic,
+      deletedIds: deletedIds,
+    );
     final deduped = <ExpenseEntry>[];
     final seen = <String>{};
     for (final entry in merged) {

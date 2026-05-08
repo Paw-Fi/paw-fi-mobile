@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
@@ -337,12 +339,18 @@ class TransactionsFeedPageResult {
 }
 
 abstract class TransactionsFeedService {
+  const TransactionsFeedService();
+
+  bool get supportsBackgroundRefresh => false;
+
   Future<TransactionsFeedPageResult> fetchPage(
     TransactionsFeedQuery query, {
     TransactionsFeedCursor? cursor,
   });
 
   Future<TransactionsFeedSummary> fetchSummary(TransactionsFeedQuery query);
+
+  Future<void> refreshFromRemote(TransactionsFeedQuery query) async {}
 
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
     final items = <ExpenseEntry>[];
@@ -363,7 +371,30 @@ abstract class TransactionsFeedService {
   }
 }
 
-class SupabaseTransactionsFeedService implements TransactionsFeedService {
+class EmptyTransactionsFeedService extends TransactionsFeedService {
+  const EmptyTransactionsFeedService();
+
+  @override
+  Future<TransactionsFeedPageResult> fetchPage(
+    TransactionsFeedQuery query, {
+    TransactionsFeedCursor? cursor,
+  }) async {
+    return const TransactionsFeedPageResult(
+      items: <ExpenseEntry>[],
+      hasMore: false,
+      nextCursor: null,
+    );
+  }
+
+  @override
+  Future<TransactionsFeedSummary> fetchSummary(
+    TransactionsFeedQuery query,
+  ) async {
+    return const TransactionsFeedSummary.empty();
+  }
+}
+
+class SupabaseTransactionsFeedService extends TransactionsFeedService {
   final SupabaseClient _client;
 
   const SupabaseTransactionsFeedService(this._client);
@@ -533,6 +564,159 @@ class SupabaseTransactionsFeedService implements TransactionsFeedService {
   }
 }
 
+class LocalFirstTransactionsFeedService extends TransactionsFeedService {
+  const LocalFirstTransactionsFeedService({
+    required MonekoDatabase database,
+    required TransactionsFeedService remote,
+  })  : _database = database,
+        _remote = remote;
+
+  final MonekoDatabase _database;
+  final TransactionsFeedService _remote;
+
+  @override
+  bool get supportsBackgroundRefresh => true;
+
+  @override
+  Future<TransactionsFeedPageResult> fetchPage(
+    TransactionsFeedQuery query, {
+    TransactionsFeedCursor? cursor,
+  }) async {
+    final localPage = await _database.getTransactionsFeedPage(
+      _localQuery(query, cursor: cursor),
+    );
+    if (localPage.items.isNotEmpty || cursor != null) {
+      return _pageFromLocal(localPage, query);
+    }
+
+    final remotePage = await _remote.fetchPage(query, cursor: cursor);
+    await _cacheRemoteItems(remotePage.items);
+    return remotePage;
+  }
+
+  @override
+  Future<TransactionsFeedSummary> fetchSummary(
+    TransactionsFeedQuery query,
+  ) async {
+    final localSummary = await _database.getTransactionsFeedSummary(
+      _localQuery(query),
+    );
+    if (localSummary.transactionCount > 0) {
+      return _summaryFromLocal(localSummary);
+    }
+    return _remote.fetchSummary(query);
+  }
+
+  @override
+  Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
+    final localItems = await _database.getTransactionsFeedItems(
+      _localQuery(query, pageSize: query.pageSize),
+    );
+    if (localItems.isNotEmpty) {
+      return localItems;
+    }
+
+    final remoteItems = await _remote.fetchAllPages(query);
+    await _cacheRemoteItems(remoteItems);
+    return remoteItems;
+  }
+
+  @override
+  Future<void> refreshFromRemote(TransactionsFeedQuery query) async {
+    final results = await Future.wait<dynamic>([
+      _remote.fetchSummary(query),
+      _remote.fetchPage(query),
+    ]);
+    final page = results[1] as TransactionsFeedPageResult;
+    await _cacheRemoteItems(page.items);
+  }
+
+  Future<void> _cacheRemoteItems(List<ExpenseEntry> items) async {
+    final cacheable = items
+        .where((entry) => entry.userId?.trim().isNotEmpty == true)
+        .toList(growable: false);
+    if (cacheable.isEmpty) return;
+    await _database.upsertTransactions(cacheable);
+  }
+
+  LocalTransactionsFeedQuery _localQuery(
+    TransactionsFeedQuery query, {
+    TransactionsFeedCursor? cursor,
+    int? pageSize,
+  }) {
+    return LocalTransactionsFeedQuery(
+      userId: query.userId,
+      householdId: query.householdId,
+      currency: query.normalizedCurrency,
+      category: query.normalizedCategory,
+      categories: query.normalizedCategories,
+      accountId: query.normalizedAccountId,
+      includeUnassignedAccount: query.includeUnassignedAccount,
+      type: query.normalizedType,
+      searchQuery: query.normalizedSearchQuery,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      pageSize: pageSize ?? query.pageSize,
+      cursor: cursor == null
+          ? null
+          : LocalTransactionFeedCursor(
+              date: cursor.date,
+              createdAt: cursor.createdAt,
+              id: cursor.id,
+            ),
+      intervalGranularity:
+          query.normalizedSummaryIntervalGranularity ?? 'yearly',
+    );
+  }
+
+  TransactionsFeedPageResult _pageFromLocal(
+    LocalTransactionsFeedPage page,
+    TransactionsFeedQuery query,
+  ) {
+    return TransactionsFeedPageResult(
+      items: page.items,
+      hasMore: page.hasMore || page.items.length >= query.pageSize,
+      nextCursor: page.nextCursor == null
+          ? null
+          : TransactionsFeedCursor(
+              date: page.nextCursor!.date,
+              createdAt: page.nextCursor!.createdAt,
+              id: page.nextCursor!.id,
+            ),
+    );
+  }
+
+  TransactionsFeedSummary _summaryFromLocal(
+    LocalTransactionsFeedSummary summary,
+  ) {
+    return TransactionsFeedSummary(
+      transactionCount: summary.transactionCount,
+      expenseTotal: _centsToDouble(summary.expenseTotalCents),
+      incomeTotal: _centsToDouble(summary.incomeTotalCents),
+      hasMultipleCurrencies: summary.hasMultipleCurrencies,
+      categorySummaries: summary.categorySummaries
+          .map(
+            (entry) => TransactionsFeedCategorySummary(
+              category: canonicalizeCategoryKey(entry.category),
+              amount: _centsToDouble(entry.amountCents),
+              transactionCount: entry.transactionCount,
+            ),
+          )
+          .toList(growable: false),
+      yearlyPeriodTotals: _doubleBucketMap(summary.yearlyPeriodTotalsCents),
+      periodTotals: _doubleBucketMap(summary.periodTotalsCents),
+    );
+  }
+
+  Map<DateTime, double> _doubleBucketMap(Map<DateTime, int> source) {
+    return source.map(
+      (bucket, cents) => MapEntry(bucket, _centsToDouble(cents)),
+    );
+  }
+
+  double _centsToDouble(int cents) => cents / 100.0;
+}
+
 class TransactionsFeedState {
   final TransactionsFeedSummary summary;
   final List<ExpenseEntry> items;
@@ -574,10 +758,24 @@ class TransactionsFeedState {
   }
 }
 
-final transactionsFeedServiceProvider =
+final transactionsRemoteFeedServiceProvider =
     Provider<TransactionsFeedService>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return SupabaseTransactionsFeedService(client);
+});
+
+final transactionsFeedServiceProvider =
+    Provider<TransactionsFeedService>((ref) {
+  final remote = ref.watch(transactionsRemoteFeedServiceProvider);
+  final localDatabase = ref.watch(localDatabaseProvider);
+  return localDatabase.when(
+    data: (database) => LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    ),
+    error: (_, __) => remote,
+    loading: () => const EmptyTransactionsFeedService(),
+  );
 });
 
 final transactionsFeedRefreshSignalProvider = StateProvider<int>((ref) => 0);
@@ -615,6 +813,7 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
   final TransactionsFeedService _service;
   final TransactionsFeedQuery _query;
+  Future<void>? _backgroundRefresh;
 
   Future<void> loadInitial() async {
     if (state.isLoading || state.isLoadingMore) {
@@ -623,6 +822,12 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
 
     if (_query.userId.isEmpty) {
       state = const TransactionsFeedState();
+      return;
+    }
+
+    if (_service.supportsBackgroundRefresh && state.items.isNotEmpty) {
+      state = state.copyWith(clearError: true);
+      _startBackgroundRefresh();
       return;
     }
 
@@ -645,6 +850,9 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         hasMore: page.hasMore,
         nextCursor: page.nextCursor,
       );
+      if (_service.supportsBackgroundRefresh) {
+        _startBackgroundRefresh();
+      }
     } catch (error) {
       state = state.copyWith(
         isLoading: false,
@@ -670,6 +878,9 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
     );
 
     try {
+      if (_service.supportsBackgroundRefresh) {
+        await _service.refreshFromRemote(_query);
+      }
       final results = await Future.wait<dynamic>([
         _service.fetchSummary(_query),
         _service.fetchPage(_query),
@@ -716,6 +927,35 @@ class TransactionsFeedNotifier extends StateNotifier<TransactionsFeedState> {
         error: error.toString(),
       );
     }
+  }
+
+  Future<void> _refreshFromRemoteAndReload() async {
+    try {
+      await _service.refreshFromRemote(_query);
+      if (!mounted) return;
+      final results = await Future.wait<dynamic>([
+        _service.fetchSummary(_query),
+        _service.fetchPage(_query),
+      ]);
+      if (!mounted) return;
+      final summary = results[0] as TransactionsFeedSummary;
+      final page = results[1] as TransactionsFeedPageResult;
+      state = TransactionsFeedState(
+        summary: summary,
+        items: page.items,
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+      );
+    } catch (_) {
+      // The local snapshot is already rendered. Background refresh failures
+      // should not replace usable cached data with an error state.
+    }
+  }
+
+  void _startBackgroundRefresh() {
+    _backgroundRefresh ??= _refreshFromRemoteAndReload().whenComplete(() {
+      _backgroundRefresh = null;
+    });
   }
 }
 

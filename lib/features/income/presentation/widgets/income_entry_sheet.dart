@@ -11,7 +11,6 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/currency_selector_modal.dart';
 import 'package:moneko/core/theme/app_theme.dart';
-import 'package:moneko/shared/widgets/moneko_switch.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';

@@ -30,6 +30,8 @@ import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/core/navigation/navigation_ready_provider.dart';
 import 'package:moneko/core/notifications/notification_dispatcher.dart';
+import 'package:moneko/core/sync/mobile_delta_sync_provider.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
@@ -48,6 +50,8 @@ const Duration _foregroundResyncMinInterval = Duration(minutes: 1);
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
 
+final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
+
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
 
@@ -65,8 +69,17 @@ void _silentResyncMainShellData(
     WidgetRef ref, String userId, int currentIndex) {
   if (userId.isEmpty || ref.read(previewModeProvider).isActive) return;
 
-  unawaited(_refreshActiveMainShellTab(ref, userId, currentIndex));
-  unawaited(_refreshDeferredMainShellData(ref, userId, currentIndex));
+  unawaited(_syncThenRefreshMainShellData(ref, userId, currentIndex));
+}
+
+Future<void> _syncThenRefreshMainShellData(
+  WidgetRef ref,
+  String userId,
+  int currentIndex,
+) async {
+  await _syncMobileTransactions(ref, userId);
+  await _refreshActiveMainShellTab(ref, userId, currentIndex);
+  await _refreshDeferredMainShellData(ref, userId, currentIndex);
 }
 
 String? _activeMainShellHouseholdId(WidgetRef ref) {
@@ -157,6 +170,43 @@ Future<void> _refreshDeferredMainShellData(
   } catch (_) {}
 }
 
+Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
+  try {
+    final service = await ref.read(mobileDeltaSyncServiceProvider.future);
+    await service.pullAndApply(userId: userId);
+  } catch (_) {}
+}
+
+Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
+  if (userId.isEmpty) return;
+
+  final inFlight = _mobileSyncInFlightByUser[userId];
+  if (inFlight != null) {
+    await inFlight;
+    return;
+  }
+
+  final sync = () async {
+    try {
+      await _drainMobileOutbox(ref);
+      await _pullMobileDelta(ref, userId);
+    } finally {
+      _mobileSyncInFlightByUser.remove(userId);
+    }
+  }();
+  _mobileSyncInFlightByUser[userId] = sync;
+  await sync;
+}
+
+Future<void> _drainMobileOutbox(WidgetRef ref) async {
+  try {
+    final coordinator = await ref.read(
+      mobileOutboxSyncCoordinatorProvider.future,
+    );
+    await coordinator.drainOutbox();
+  } catch (_) {}
+}
+
 Future<void> _refreshWalletsMainShellData(WidgetRef ref) async {
   await ref.read(scopedWalletsProvider.notifier).refreshFromNetwork();
   final query = ref.read(walletsScopeQueryProvider);
@@ -195,6 +245,15 @@ class MainShell extends HookConsumerWidget {
       visitedTabs.value = <int>{...visitedTabs.value, currentIndex};
       return null;
     }, [currentIndex]);
+
+    useEffect(() {
+      if (previewState.isActive || auth.uid.isEmpty) {
+        return null;
+      }
+
+      unawaited(_syncMobileTransactions(ref, auth.uid));
+      return null;
+    }, [previewState.isActive, auth.uid]);
 
     useEffect(() {
       if (previewState.isActive ||

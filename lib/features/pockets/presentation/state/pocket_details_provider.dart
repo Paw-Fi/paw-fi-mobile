@@ -77,14 +77,16 @@ final pocketDetailsProvider =
   final prevMonthStart = DateTime(monthStart.year, monthStart.month - 1, 1);
   final prevMonthEnd = monthStart;
 
-  // 1. Get categories linked to this pocket
-  final linksRes = await supabase
-      .from('envelope_category_links')
-      .select('category')
-      .eq('envelope_id', params.pocketId);
-
-  final categories =
-      (linksRes as List?)?.map((r) => r['category'] as String).toList() ?? [];
+  final pocketsState = ref.watch(pocketsProvider(params.scopeParams));
+  final cachedCategories =
+      pocketsState.envelopeCategories[params.pocketId] ?? const <String>[];
+  final categories = cachedCategories.isNotEmpty
+      ? cachedCategories
+      : await _fetchPocketLinkedCategories(
+          pocketId: params.pocketId,
+          fallbackCategories: cachedCategories,
+          canUseFallback: !pocketsState.isLoading,
+        );
 
   if (categories.isEmpty) {
     return PocketDetailsData(
@@ -97,15 +99,6 @@ final pocketDetailsProvider =
       dailyAverage: 0,
     );
   }
-
-  // 2. Fetch CURRENT month expenses
-  var query = supabase
-      .from('expenses')
-      .select('*')
-      .eq('currency', selectedCurrency)
-      .gte('date', monthStart.toIso8601String())
-      .lt('date', monthEnd.toIso8601String())
-      .inFilter('category', categories);
 
   final scopeType = params.scopeParams.scope;
   final householdId = params.scopeParams.householdId;
@@ -121,21 +114,39 @@ final pocketDetailsProvider =
     );
   }
 
-  query = switch (scopeType) {
-    PocketsScopeType.personal =>
-      query.eq('user_id', authUser.uid).isFilter('household_id', null),
-    PocketsScopeType.portfolio =>
-      query.eq('user_id', authUser.uid).eq('household_id', householdId!),
-    PocketsScopeType.household => query.eq('household_id', householdId!),
+  final feedHouseholdId = switch (scopeType) {
+    PocketsScopeType.personal => null,
+    PocketsScopeType.portfolio => householdId,
+    PocketsScopeType.household => householdId,
   };
+  final monthEndInclusive = monthEnd.subtract(const Duration(days: 1));
+  final previousMonthEndInclusive =
+      prevMonthEnd.subtract(const Duration(days: 1));
+  final transactionsFeedService = ref.read(transactionsFeedServiceProvider);
 
-  final res = await query.order('date', ascending: false);
-  final transactionRows = (res as List?)?.cast<Map<String, dynamic>>() ?? [];
+  final currentTransactions = await transactionsFeedService.fetchAllPages(
+    TransactionsFeedQuery(
+      userId: authUser.uid,
+      householdId: feedHouseholdId,
+      selectedCurrency: selectedCurrency,
+      selectedCategory: null,
+      selectedCategories: categories,
+      selectedType: 'expense',
+      searchQuery: '',
+      startDate: monthStart,
+      endDate: monthEndInclusive,
+      pageSize: 200,
+    ),
+  );
+  final scopedCurrentTransactions = scopeType == PocketsScopeType.portfolio
+      ? currentTransactions
+          .where((transaction) => transaction.userId == authUser.uid)
+          .toList(growable: false)
+      : currentTransactions;
   // CRITICAL: keep pocket details aligned with the main pockets page totals.
   // STRICT REQUIREMENT: exclude only income rows here so recurring expenses
   // remain visible and totals stay consistent with the primary pockets flow.
-  final actualTransactions = transactionRows
-      .map(ExpenseEntry.fromJson)
+  final actualTransactions = scopedCurrentTransactions
       .where((expense) => (expense.type ?? 'expense').toLowerCase() != 'income')
       .toList(growable: false);
 
@@ -174,39 +185,39 @@ final pocketDetailsProvider =
   ]..sort((a, b) => b.date.compareTo(a.date));
 
   // 3. Fetch PREVIOUS month expenses (for comparison)
-  var prevQuery = supabase
-      .from('expenses')
-      .select('amount_cents,is_recurring,type')
-      .eq('currency', selectedCurrency)
-      .gte('date', prevMonthStart.toIso8601String())
-      .lt('date', prevMonthEnd.toIso8601String())
-      .inFilter('category', categories);
-
-  prevQuery = switch (scopeType) {
-    PocketsScopeType.personal =>
-      prevQuery.eq('user_id', authUser.uid).isFilter('household_id', null),
-    PocketsScopeType.portfolio =>
-      prevQuery.eq('user_id', authUser.uid).eq('household_id', householdId!),
-    PocketsScopeType.household => prevQuery.eq('household_id', householdId!),
-  };
-
-  final prevRes = await prevQuery;
-  final prevTransactions =
-      (prevRes as List?)?.cast<Map<String, dynamic>>() ?? [];
-  final totalSpentLastMonth = prevTransactions.fold<double>(
+  final prevTransactions = await transactionsFeedService.fetchAllPages(
+    TransactionsFeedQuery(
+      userId: authUser.uid,
+      householdId: feedHouseholdId,
+      selectedCurrency: selectedCurrency,
+      selectedCategory: null,
+      selectedCategories: categories,
+      selectedType: 'expense',
+      searchQuery: '',
+      startDate: prevMonthStart,
+      endDate: previousMonthEndInclusive,
+      pageSize: 200,
+    ),
+  );
+  final scopedPrevTransactions = scopeType == PocketsScopeType.portfolio
+      ? prevTransactions
+          .where((transaction) => transaction.userId == authUser.uid)
+          .toList(growable: false)
+      : prevTransactions;
+  final totalSpentLastMonth = scopedPrevTransactions.fold<double>(
     0,
     (sum, transaction) {
       // CRITICAL: previous-month comparison must ignore recurring template rows
       // for the same reason as the current-month calculation.
       // STRICT REQUIREMENT: only posted expenses plus projected month rows
       // should affect pocket comparisons.
-      if (transaction['is_recurring'] == true) {
+      if (transaction.isRecurring) {
         return sum;
       }
-      if ((transaction['type'] as String?)?.toLowerCase() == 'income') {
+      if ((transaction.type ?? 'expense').toLowerCase() == 'income') {
         return sum;
       }
-      return sum + ((transaction['amount_cents'] as num).toDouble() / 100.0);
+      return sum + transaction.amount;
     },
   );
 
@@ -269,3 +280,27 @@ final pocketDetailsProvider =
     dailyAverage: dailyAverage,
   );
 });
+
+Future<List<String>> _fetchPocketLinkedCategories({
+  required String pocketId,
+  required List<String> fallbackCategories,
+  required bool canUseFallback,
+}) async {
+  try {
+    final linksRes = await supabase
+        .from('envelope_category_links')
+        .select('category')
+        .eq('envelope_id', pocketId);
+
+    return ((linksRes as List?) ?? const [])
+        .map((row) => (row as Map)['category']?.toString() ?? '')
+        .map((category) => category.trim().toLowerCase())
+        .where((category) => category.isNotEmpty)
+        .toList(growable: false);
+  } catch (_) {
+    if (canUseFallback) {
+      return fallbackCategories;
+    }
+    rethrow;
+  }
+}

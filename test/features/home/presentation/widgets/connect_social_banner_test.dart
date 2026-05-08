@@ -2,15 +2,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/analytics_data.dart';
 import 'package:moneko/features/home/presentation/state/analytics_notifier.dart';
 import 'package:moneko/features/home/presentation/state/analytics_provider.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_user_context_provider.dart';
+import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/features/home/presentation/widgets/connect_social_banner.dart';
+import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/features/profile/data/providers/telegram_binding_provider.dart';
 import 'package:moneko/features/profile/data/providers/whatsapp_binding_provider.dart';
+import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
+import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:moneko/l10n/app_localizations.dart';
 
 class _TestAuth extends Auth {
@@ -55,6 +62,50 @@ class _FakeTelegramBinding extends TelegramBinding {
   Future<bool> build() async => value;
 }
 
+class _LoadedRecurringTransactionsNotifier
+    extends RecurringTransactionsNotifier {
+  _LoadedRecurringTransactionsNotifier(
+    Ref ref,
+    this.transactions,
+  ) : super(ref, null) {
+    state = RecurringTransactionsState(
+      data: AsyncValue.data(transactions),
+      hasLoadedOnce: true,
+    );
+  }
+
+  final List<RecurringTransaction> transactions;
+
+  @override
+  Future<void> loadRecurringTransactions(
+    String userId, {
+    int limit = 250,
+    bool forceRefresh = false,
+  }) async {
+    state = RecurringTransactionsState(
+      data: AsyncValue.data(transactions),
+      hasLoadedOnce: true,
+    );
+  }
+}
+
+RecurringTransaction _recurringExpenseFixture() {
+  final now = DateTime(2026, 1, 2);
+  return RecurringTransaction(
+    id: 'recurring-1',
+    userId: 'user-1',
+    date: now,
+    category: 'subscriptions',
+    amount: 12,
+    currency: 'USD',
+    ownerType: 'me',
+    privacyScope: 'full',
+    type: 'expense',
+    attachments: const [],
+    createdAt: now,
+  );
+}
+
 void main() {
   Future<void> pumpBanner(
     WidgetTester tester, {
@@ -63,15 +114,34 @@ void main() {
     required bool whatsappConnected,
     required bool telegramConnected,
     required bool walletCaptureEnabled,
+    bool emailImportEnabled = false,
+    bool hasLoggedTransactions = true,
   }) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final recurringTransactions = expenses.any((expense) => expense.isRecurring)
+        ? <RecurringTransaction>[_recurringExpenseFixture()]
+        : const <RecurringTransaction>[];
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           authProvider.overrideWith(() => _TestAuth(user)),
+          householdScopeProvider.overrideWith(
+            (ref) => const HouseholdScope(
+              viewMode: ViewMode.personal,
+              selected: SelectedHouseholdState(),
+              portfolioHouseholdIds: <String>{},
+            ),
+          ),
           analyticsProvider.overrideWith((ref) {
             final notifier = _FakeAnalyticsNotifier(ref, expenses);
             return notifier;
           }),
+          dashboardHasLoggedTransactionsProvider.overrideWith(
+            (ref) async => hasLoggedTransactions,
+          ),
           whatsAppBindingProvider.overrideWith(
             () => _FakeWhatsAppBinding(whatsappConnected),
           ),
@@ -80,6 +150,14 @@ void main() {
           ),
           walletCaptureEnabledProvider.overrideWith(
             (ref) async => walletCaptureEnabled,
+          ),
+          emailImportEnabledProvider
+              .overrideWith((ref) async => emailImportEnabled),
+          recurringTransactionsProvider(null).overrideWith(
+            (ref) => _LoadedRecurringTransactionsNotifier(
+              ref,
+              recurringTransactions,
+            ),
           ),
         ],
         child: const MaterialApp(
@@ -130,29 +208,33 @@ void main() {
         ? l10n.applePayIntegration
         : l10n.autoCapture;
 
-    expect(find.text('Finish your profile'), findsOneWidget);
+    expect(find.text(l10n.setupChecklist), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text(l10n.homeFabTourTitle)).dx,
+      tester.getTopLeft(find.text(l10n.connectChat)).dx,
       lessThan(tester.getTopLeft(find.text(l10n.createAccount)).dx),
     );
     expect(
-      tester.getTopLeft(find.text(l10n.connectSocialBannerTitle)).dx,
+      tester.getTopLeft(find.text(l10n.emailFileImportEnableSwitchTitle)).dx,
       lessThan(tester.getTopLeft(find.text(l10n.createAccount)).dx),
     );
     expect(
       tester.getTopLeft(find.text(l10n.createAccount)).dx,
-      lessThan(tester.getTopLeft(find.text(l10n.recurringTourFabTitle)).dx),
+      lessThan(tester.getTopLeft(find.text(l10n.logExpense)).dx),
     );
     expect(
-      tester.getTopLeft(find.text(l10n.recurringTourFabTitle)).dx,
+      tester.getTopLeft(find.text(l10n.logExpense)).dx,
+      lessThan(tester.getTopLeft(find.text(l10n.setRecurring)).dx),
+    );
+    expect(
+      tester.getTopLeft(find.text(l10n.setRecurring)).dx,
       lessThan(tester.getTopLeft(find.text(captureTitle)).dx),
     );
 
     final firstCardSize = tester.getSize(
-      find.byKey(ValueKey('connect-social-card-${l10n.createAccount}')),
+      find.byKey(const ValueKey('connect-social-card-create_account')),
     );
     final secondCardSize = tester.getSize(
-      find.byKey(ValueKey('connect-social-card-${l10n.homeFabTourTitle}')),
+      find.byKey(const ValueKey('connect-social-card-connect_chat')),
     );
     expect(firstCardSize, secondCardSize);
   });
@@ -198,9 +280,12 @@ void main() {
       whatsappConnected: false,
       telegramConnected: true,
       walletCaptureEnabled: true,
+      emailImportEnabled: true,
     );
 
-    expect(find.text('Finish your profile'), findsNothing);
+    final context = tester.element(find.byType(Scaffold));
+    final l10n = AppLocalizations.of(context)!;
+    expect(find.text(l10n.setupChecklist), findsNothing);
     expect(find.byType(ConnectSocialBanner), findsOneWidget);
   });
 }

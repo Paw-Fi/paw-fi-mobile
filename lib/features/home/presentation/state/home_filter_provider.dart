@@ -276,10 +276,19 @@ List<ExpenseEntry> _resolveScopeAwareExpenses(
       (state) => state[activeHouseholdId] ?? const <ExpenseEntry>[],
     ),
   );
+  final deletedIds = ref.watch(
+    householdOptimisticDeletedExpenseIdsProvider.select(
+      (state) => state[activeHouseholdId] ?? const <String>{},
+    ),
+  );
 
-  if (optimistic.isEmpty) {
+  if (optimistic.isEmpty && deletedIds.isEmpty) {
     return analyticsData.allExpenses;
   }
 
-  return mergeHouseholdExpenses(analyticsData.allExpenses, optimistic);
+  return mergeHouseholdExpenses(
+    analyticsData.allExpenses,
+    optimistic,
+    deletedIds: deletedIds,
+  );
 }

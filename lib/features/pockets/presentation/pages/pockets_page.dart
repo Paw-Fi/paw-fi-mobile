@@ -56,7 +56,7 @@ class PocketsPage extends HookConsumerWidget {
     // month instead of silently dropping back out.
     final includeUpcomingRecurring =
         ref.watch(includeUpcomingRecurringInPocketsProvider);
-    final recurringPreferenceReady = useState(false);
+    final recurringPreferenceReady = useState(true);
     final prefs = ref.read(sharedPreferencesProvider);
     final pageTraceRef = useRef<PocketsDebugTrace?>(null);
     pageTraceRef.value ??= PocketsDebugTrace(

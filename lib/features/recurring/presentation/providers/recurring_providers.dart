@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/foundation.dart' show immutable;
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
+import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart'
     show SplitType, MemberSplit;
@@ -45,6 +49,56 @@ String? _buildEndDateYmd(DateTime? endDate) {
 
 String _makeOptimisticRecurringId() {
   return 'optimistic-recurring-${DateTime.now().microsecondsSinceEpoch}';
+}
+
+RecurringTransaction _recurringTransactionFromExpenseEntry(ExpenseEntry entry) {
+  final description = entry.rawText?.trim();
+  return RecurringTransaction(
+    id: entry.id,
+    userId: entry.userId,
+    date: entry.date,
+    category: entry.category ?? 'Uncategorized',
+    description: description?.isEmpty == true ? null : description,
+    merchant: entry.merchant,
+    amount: entry.amount,
+    currency: entry.currency ?? 'USD',
+    ownerType: 'me',
+    privacyScope: 'full',
+    householdId: entry.householdId,
+    splitGroupId: entry.splitGroupId,
+    accountId: entry.walletId,
+    recurrenceRule: null,
+    type: entry.type ?? 'expense',
+    attachments: const [],
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  );
+}
+
+ExpenseEntry _expenseEntryFromRecurringTransaction(
+  RecurringTransaction transaction,
+  String fallbackUserId,
+) {
+  return ExpenseEntry(
+    id: transaction.id,
+    userId: transaction.userId?.trim().isNotEmpty == true
+        ? transaction.userId
+        : fallbackUserId,
+    householdId: transaction.householdId,
+    date: transaction.date,
+    amountCents: (transaction.amount * 100).round(),
+    currency: transaction.currency,
+    category: transaction.category,
+    createdAt: transaction.createdAt,
+    updatedAt: transaction.updatedAt,
+    rawText:
+        transaction.description ?? transaction.merchant ?? transaction.source,
+    merchant: transaction.merchant,
+    splitGroupId: transaction.splitGroupId,
+    walletId: transaction.accountId,
+    type: transaction.type,
+    isRecurring: true,
+  );
 }
 
 RecurringTransaction _buildOptimisticRecurringTransaction({
@@ -198,11 +252,33 @@ class RecurringTransactionsNotifier
 
     if (!mounted) return;
 
+    if (!forceRefresh) {
+      final hydrated = await _hydrateFromLocalCache(userId, limit: limit);
+      if (hydrated) {
+        unawaited(_refreshRecurringTransactionsFromNetwork(
+          userId,
+          limit,
+          preserveCachedDataOnError: true,
+        ));
+        return;
+      }
+    }
+
     // Skip loading if already loaded successfully (unless forced refresh)
     if (state.hasLoadedOnce && !forceRefresh) return;
-    if (!state.hasLoadedOnce) {
+    if (!state.hasLoadedOnce || forceRefresh) {
       state = state.copyWith(data: const AsyncValue.loading());
     }
+
+    await _refreshRecurringTransactionsFromNetwork(userId, limit);
+  }
+
+  Future<void> _refreshRecurringTransactionsFromNetwork(
+    String userId,
+    int limit, {
+    bool preserveCachedDataOnError = false,
+  }) async {
+    if (!mounted) return;
 
     try {
       // For recurring transactions we only need rows from the `expenses`
@@ -284,12 +360,16 @@ class RecurringTransactionsNotifier
         data: AsyncValue.data(mergedTransactions),
         hasLoadedOnce: true,
       );
+      unawaited(_cacheRecurringTransactions(allTransactions, userId));
 
       _debugPrint(
           '[RecurringTx] Loaded ${allTransactions.length} recurring transactions');
     } catch (e, st) {
       _debugPrint('[RecurringTx] Load failed: $e');
       if (!mounted) return;
+      if (preserveCachedDataOnError && state.data.hasValue) {
+        return;
+      }
       // Mark hasLoadedOnce=true even on error so the RecurringPage does
       // not keep auto-retrying in a loop. The error state will be
       // rendered and the user can manually pull-to-refresh.
@@ -297,6 +377,54 @@ class RecurringTransactionsNotifier
         data: AsyncValue.error(e, st),
         hasLoadedOnce: true,
       );
+    }
+  }
+
+  Future<bool> _hydrateFromLocalCache(
+    String userId, {
+    required int limit,
+  }) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      final rows = await database.getRecurringTransactions(
+        userId: userId,
+        householdId: householdId,
+        limit: limit,
+      );
+      if (rows.isEmpty || !mounted) return false;
+
+      state = state.copyWith(
+        data: AsyncValue.data(
+          rows.map(_recurringTransactionFromExpenseEntry).toList(
+                growable: false,
+              ),
+        ),
+        hasLoadedOnce: true,
+      );
+      return true;
+    } catch (error) {
+      _debugPrint('[RecurringTx] Local hydrate failed: $error');
+      return false;
+    }
+  }
+
+  Future<void> _cacheRecurringTransactions(
+    List<RecurringTransaction> transactions,
+    String fallbackUserId,
+  ) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.replaceRecurringTransactionsForScope(
+        userId: fallbackUserId,
+        householdId: householdId,
+        entries: transactions
+            .map((transaction) => _expenseEntryFromRecurringTransaction(
+                transaction, fallbackUserId))
+            .where((entry) => entry.userId?.trim().isNotEmpty == true)
+            .toList(growable: false),
+      );
+    } catch (error) {
+      _debugPrint('[RecurringTx] Local cache write failed: $error');
     }
   }
 

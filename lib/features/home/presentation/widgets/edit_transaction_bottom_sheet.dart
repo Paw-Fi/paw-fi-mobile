@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -626,43 +628,38 @@ class _EditTransactionBottomSheetState
       return;
     }
 
-    // Call notifier with optimistic update
-    final success =
-        await ref.read(transactionEditProvider.notifier).updateExpense(
-              widget.expenseId,
-              updates,
-            );
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final toastContext = rootNavigator.context;
+    final shouldShowCurrencyNotification =
+        widget.field == EditField.currency && updates.containsKey('currency');
+    final newCurrency = updates['currency'] as String?;
 
-    if (!mounted) return;
+    Navigator.pop(context);
+    AppToast.success(toastContext, '${_getLabel()} updated successfully');
 
-    if (success) {
-      if (!mounted) return;
-      Navigator.pop(context);
+    unawaited(() async {
+      final success =
+          await ref.read(transactionEditProvider.notifier).updateExpense(
+                widget.expenseId,
+                updates,
+                originalExpense: widget.expense,
+              );
 
-      // Show currency change notification if currency was changed
-      if (widget.field == EditField.currency &&
-          updates.containsKey('currency')) {
-        // Close the transaction detail sheet as well
-        if (mounted) {
-          Navigator.pop(context);
+      if (success) {
+        if (shouldShowCurrencyNotification && newCurrency != null) {
+          await _showCurrencyChangeNotification(newCurrency);
         }
-
-        await _showCurrencyChangeNotification(updates['currency'] as String);
+        return;
       }
 
-      if (!mounted) return;
-      // Prefer AppToast over SnackBar for visibility above sheets
-      AppToast.success(context, '${_getLabel()} updated successfully');
-    } else {
       final error = ref.read(transactionEditProvider).error;
       final message = ErrorHandler.getUserFriendlyMessage(
         error,
         context: BackendErrorContext.updateExpense,
       );
-      setState(() => _error = message);
-
-      AppToast.error(context, message);
-    }
+      if (!toastContext.mounted) return;
+      AppToast.error(toastContext, message);
+    }());
   }
 
   Future<void> _showCurrencyChangeNotification(String newCurrency) async {

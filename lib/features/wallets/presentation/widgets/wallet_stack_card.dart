@@ -152,6 +152,14 @@ class WalletStackCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (metadataChips.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: metadataChips,
+                    ),
+                  ],
                 ],
               ),
             ),

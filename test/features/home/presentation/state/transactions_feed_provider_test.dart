@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
 
 ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       id: id,
+      userId: 'user-1',
       date: date,
       amountCents: 1000,
       createdAt: date,
@@ -13,10 +15,11 @@ ExpenseEntry _entry(String id, DateTime date) => ExpenseEntry(
       currency: 'USD',
     );
 
-class _FakeTransactionsFeedService implements TransactionsFeedService {
+class _FakeTransactionsFeedService extends TransactionsFeedService {
   int summaryCallCount = 0;
   int pageCallCount = 0;
   int allPagesCallCount = 0;
+  final fetchedQueries = <TransactionsFeedQuery>[];
 
   TransactionsFeedSummary summary = const TransactionsFeedSummary(
     transactionCount: 3,
@@ -42,6 +45,7 @@ class _FakeTransactionsFeedService implements TransactionsFeedService {
     TransactionsFeedQuery query, {
     TransactionsFeedCursor? cursor,
   }) async {
+    fetchedQueries.add(query);
     final pageIndex = pageCallCount;
     pageCallCount += 1;
     return pages[pageIndex];
@@ -63,6 +67,7 @@ class _FakeTransactionsFeedService implements TransactionsFeedService {
   @override
   Future<TransactionsFeedSummary> fetchSummary(
       TransactionsFeedQuery query) async {
+    fetchedQueries.add(query);
     summaryCallCount += 1;
     return summary;
   }
@@ -299,5 +304,93 @@ void main() {
 
     expect(refreshedItems.map((expense) => expense.id).toList(), ['c']);
     expect(service.allPagesCallCount, 2);
+  });
+
+  test('local-first service returns cached page and summary before remote',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    await database.upsertTransactions([
+      ExpenseEntry(
+        id: 'local_1',
+        userId: 'user-1',
+        date: DateTime(2026, 4, 4),
+        amountCents: 1100,
+        currency: 'USD',
+        category: 'food',
+        createdAt: DateTime.utc(2026, 4, 4, 10),
+        type: 'expense',
+      ),
+    ]);
+    final remote = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [_entry('remote_1', DateTime(2026, 4, 5))],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    remote.summary = const TransactionsFeedSummary(
+      transactionCount: 1,
+      expenseTotal: 22,
+      incomeTotal: 0,
+      hasMultipleCurrencies: false,
+      categorySummaries: <TransactionsFeedCategorySummary>[
+        TransactionsFeedCategorySummary(
+          category: 'food',
+          amount: 22,
+          transactionCount: 1,
+        ),
+      ],
+      yearlyPeriodTotals: <DateTime, double>{},
+    );
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    final query = buildQuery();
+    final page = await service.fetchPage(query);
+    final summary = await service.fetchSummary(query);
+
+    expect(page.items.map((entry) => entry.id), ['local_1']);
+    expect(summary.transactionCount, 1);
+    expect(summary.expenseTotal, 11);
+    expect(remote.pageCallCount, 0);
+    expect(remote.summaryCallCount, 0);
+
+    await service.refreshFromRemote(query);
+
+    final refreshed = await service.fetchPage(query);
+    expect(remote.pageCallCount, 1);
+    expect(remote.summaryCallCount, 1);
+    expect(refreshed.items.map((entry) => entry.id), ['remote_1', 'local_1']);
+  });
+
+  test('local-first service falls back to remote when cache is empty',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final remote = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [_entry('remote_1', DateTime(2026, 4, 5))],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    final page = await service.fetchPage(buildQuery());
+    final cached = await database.getRecentTransactions(
+      userId: 'user-1',
+      householdId: null,
+      limit: 10,
+    );
+
+    expect(page.items.map((entry) => entry.id), ['remote_1']);
+    expect(remote.pageCallCount, 1);
+    expect(cached.map((entry) => entry.id), ['remote_1']);
   });
 }

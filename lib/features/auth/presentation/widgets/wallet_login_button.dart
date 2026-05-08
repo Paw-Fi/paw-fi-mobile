@@ -49,6 +49,7 @@ class WalletLoginButton extends HookConsumerWidget {
     Future<void> handleWalletLogin() async {
       error.value = null;
       isLoading.value = true;
+      final walletSignInStatement = context.l10n.walletSignInStatement;
 
       try {
         // Step 1: Ask user to choose blockchain
@@ -59,9 +60,6 @@ class WalletLoginButton extends HookConsumerWidget {
         }
 
         debugPrint('🔐 [Web3] Starting authentication for $chain');
-
-        // Capture l10n before async call
-        final walletSignInStatement = context.l10n.walletSignInStatement;
 
         // Step 2: Call web3SignIn from JS interop
         final sessionData = await web3SignIn(

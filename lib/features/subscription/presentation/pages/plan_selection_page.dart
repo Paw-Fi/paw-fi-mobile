@@ -618,7 +618,8 @@ class PlanSelectionPage extends HookConsumerWidget {
         },
         restoreError: () =>
             ref.read(iapControllerProvider).valueOrNull?.lastError ?? '',
-        maxRefreshAttempts: showProcessing ? 6 : 5,
+        maxRefreshAttempts: showProcessing ? 6 : 1,
+        retryDelay: showProcessing ? const Duration(seconds: 1) : Duration.zero,
       );
     }
 

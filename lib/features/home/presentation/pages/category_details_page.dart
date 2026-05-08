@@ -259,7 +259,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
             slivers: [
               SliverAppBar(
                 pinned: true,
-                backgroundColor: colorScheme.background,
+                backgroundColor: colorScheme.surface,
                 title: Text(
                   categoryName,
                   style: TextStyle(
@@ -275,7 +275,7 @@ class _CategoryDetailsPageState extends ConsumerState<CategoryDetailsPage> {
                 pinned: true,
                 delegate: _StickyFilterDelegate(
                   child: Container(
-                    color: colorScheme.background,
+                    color: colorScheme.surface,
                     child: _buildDateFilterChips(colorScheme),
                   ),
                 ),

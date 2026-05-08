@@ -708,10 +708,8 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
           DateTime(now.year, now.month, 1).subtract(const Duration(seconds: 1));
       return (start, end);
     case DateRangeFilter.last3Months:
-      final firstOfThisMonth = DateTime(now.year, now.month, 1);
-      final end = firstOfThisMonth.subtract(const Duration(seconds: 1));
-      final start = DateTime(end.year, end.month - 2, 1);
-      return (start, end);
+      final start = DateTime(now.year, now.month - 2, 1);
+      return (start, todayEnd);
     case DateRangeFilter.last30Days:
       final start = todayStart.subtract(const Duration(days: 29));
       return (start, todayEnd);
@@ -783,15 +781,9 @@ Widget _buildWhereMoneyWentSkeleton(ColorScheme colorScheme) {
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
       return (prevStart, prevEnd);
     case DateRangeFilter.last3Months:
-      final firstOfThisMonth = DateTime(now.year, now.month, 1);
-      final currentStart = DateTime(now.year, now.month - 3, 1);
+      final currentStart = DateTime(now.year, now.month - 2, 1);
       final prevEnd = currentStart.subtract(const Duration(seconds: 1));
       final prevStart = DateTime(prevEnd.year, prevEnd.month - 2, 1);
-      if (prevEnd.isBefore(prevStart)) {
-        final fallbackEnd =
-            firstOfThisMonth.subtract(const Duration(seconds: 1));
-        return (currentStart, fallbackEnd);
-      }
       return (prevStart, prevEnd);
     case DateRangeFilter.last30Days:
       final currentStart = todayStart.subtract(const Duration(days: 29));

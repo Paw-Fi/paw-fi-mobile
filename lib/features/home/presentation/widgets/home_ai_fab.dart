@@ -37,6 +37,7 @@ import 'package:moneko/features/home/presentation/state/ai_hold_quick_action_pre
 import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/expense_save_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/home/presentation/utils/smart_transaction_input.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
@@ -67,6 +68,8 @@ const int _maxBatchSize = 400;
 const int _maxAiFileUploadBytes = 20 * 1024 * 1024;
 const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
+const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
+const int _smartInputMemoryLimit = 25;
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -176,6 +179,108 @@ Map<String, dynamic>? _asStringDynamicMap(Object? value) {
     );
   }
   return null;
+}
+
+String _smartInputMemoryKey({
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+}) {
+  final scope = [
+    userId.trim(),
+    householdId?.trim() ?? '',
+    currency?.trim().toUpperCase() ?? '',
+    languageTag.trim().toLowerCase(),
+  ].join('|');
+  final digest = sha256.convert(utf8.encode(scope)).toString();
+  return '${_smartInputMemoryKeyPrefix}_$digest';
+}
+
+List<SmartInputAnalysisMemory> _readSmartInputMemories(
+  SharedPreferences prefs,
+  String key,
+) {
+  final encoded = prefs.getStringList(key) ?? const <String>[];
+  final memories = <SmartInputAnalysisMemory>[];
+  for (final item in encoded) {
+    try {
+      final decoded = jsonDecode(item);
+      final memory = SmartInputAnalysisMemory.fromJson(decoded);
+      if (memory != null) {
+        memories.add(memory);
+      }
+    } catch (_) {}
+  }
+  return memories;
+}
+
+Map<String, dynamic>? _tryBuildSmartInputMemoryResponse({
+  required SharedPreferences prefs,
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+  required String inputText,
+  required String defaultDateYmd,
+}) {
+  final key = _smartInputMemoryKey(
+    userId: userId,
+    householdId: householdId,
+    currency: currency,
+    languageTag: languageTag,
+  );
+  for (final memory in _readSmartInputMemories(prefs, key)) {
+    final response = memory.tryBuildResponseFor(
+      inputText: inputText,
+      defaultDateYmd: defaultDateYmd,
+    );
+    if (response != null) {
+      return response;
+    }
+  }
+  return null;
+}
+
+Future<void> _rememberSmartInputAnalysis({
+  required SharedPreferences prefs,
+  required String userId,
+  required String? householdId,
+  required String? currency,
+  required String languageTag,
+  required String inputText,
+  required String defaultDateYmd,
+  required Map<String, dynamic> responseData,
+}) async {
+  final memory = SmartInputAnalysisMemory.fromAnalysisResponse(
+    inputText: inputText,
+    responseData: responseData,
+    defaultDateYmd: defaultDateYmd,
+  );
+  if (memory == null) return;
+
+  final key = _smartInputMemoryKey(
+    userId: userId,
+    householdId: householdId,
+    currency: currency,
+    languageTag: languageTag,
+  );
+  final previous = _readSmartInputMemories(prefs, key);
+  final updated = <SmartInputAnalysisMemory>[
+    memory,
+    ...previous.where(
+      (candidate) =>
+          candidate.measurement.orderedSignature !=
+              memory.measurement.orderedSignature ||
+          candidate.measurement.unorderedSignature !=
+              memory.measurement.unorderedSignature,
+    ),
+  ].take(_smartInputMemoryLimit).toList(growable: false);
+
+  await prefs.setStringList(
+    key,
+    updated.map((entry) => jsonEncode(entry.toJson())).toList(growable: false),
+  );
 }
 
 List<Map<String, dynamic>> _asMapList(Object? value) {
@@ -1639,12 +1744,26 @@ Future<void> _processExpense(
   final effectiveUserId = preview.isActive
       ? (PreviewMockData.contact.userId ?? 'preview-user')
       : user.uid;
+  final locale = Localizations.localeOf(context);
+  final languageTag =
+      locale.countryCode != null && locale.countryCode!.isNotEmpty
+          ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
+          : locale.languageCode;
+  final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
+  final defaultDateYmd = formatDateOnlyYmd(today);
+  final filterState = ref.read(homeFilterProvider);
+  final selectedCurrency = filterState.selectedCurrency;
+  final effectiveCurrency =
+      (selectedCurrency != null && selectedCurrency.isNotEmpty)
+          ? selectedCurrency.toUpperCase()
+          : contact?.preferredCurrency?.toUpperCase();
 
   // Determine if this is a potentially slow operation.
   final hasAttachments = attachments?.isNotEmpty ?? false;
   final hasImageInput = imagePath != null && imagePath.isNotEmpty;
   final hasAudioInput = audioBytes != null && audioBytes.isNotEmpty;
   final hasTextInput = text != null && text.trim().isNotEmpty;
+  final trimmedText = text?.trim();
   final isPdfUpload = attachments?.any((a) =>
           a['contentType']?.toString().contains('pdf') == true ||
           a['filename']?.toString().toLowerCase().endsWith('.pdf') == true) ??
@@ -1656,9 +1775,32 @@ Future<void> _processExpense(
       }) ??
       false;
 
-  final shouldStream =
-      hasAttachments || hasImageInput || hasAudioInput || hasTextInput;
-  final useEnhancedDialog = shouldStream || isPdfUpload || isLargeFile;
+  Map<String, dynamic>? responseData;
+  final canUseSmartInputMemory = !preview.isActive &&
+      hasTextInput &&
+      trimmedText != null &&
+      !hasAttachments &&
+      !hasImageInput &&
+      !hasAudioInput;
+  var usedSmartInputMemory = false;
+  if (canUseSmartInputMemory) {
+    responseData = _tryBuildSmartInputMemoryResponse(
+      prefs: ref.read(sharedPreferencesProvider),
+      userId: effectiveUserId,
+      householdId: householdId,
+      currency: effectiveCurrency,
+      languageTag: languageTag,
+      inputText: trimmedText,
+      defaultDateYmd: defaultDateYmd,
+    );
+    usedSmartInputMemory = responseData != null;
+  }
+
+  final shouldShowProcessingDialog = !usedSmartInputMemory;
+  final shouldStream = shouldShowProcessingDialog &&
+      (hasAttachments || hasImageInput || hasAudioInput || hasTextInput);
+  final useEnhancedDialog = shouldShowProcessingDialog &&
+      (shouldStream || isPdfUpload || isLargeFile);
 
   // Show enhanced processing modal with timeout handling for PDFs
   BlockingProcessingController? dialogController;
@@ -1681,7 +1823,7 @@ Future<void> _processExpense(
       showElapsedTime: true,
       enableCancelAfterSeconds: 0,
     );
-  } else {
+  } else if (shouldShowProcessingDialog) {
     showBlockingProcessingDialog(
       context: context,
       message: imagePath != null
@@ -1691,14 +1833,6 @@ Future<void> _processExpense(
   }
 
   try {
-    final locale = Localizations.localeOf(context);
-    final languageTag =
-        locale.countryCode != null && locale.countryCode!.isNotEmpty
-            ? '${locale.languageCode}-${locale.countryCode!.toUpperCase()}'
-            : locale.languageCode;
-
-    final today = effectiveToday(preferredTimezone: contact?.preferredTimezone);
-    Map<String, dynamic>? responseData;
     List<Map<String, dynamic>> householdMembersContext =
         const <Map<String, dynamic>>[];
 
@@ -1712,7 +1846,7 @@ Future<void> _processExpense(
               'amount': 5.50,
               'currency': 'USD',
               'category': 'Dining',
-              'date': formatDateOnlyYmd(today),
+              'date': defaultDateYmd,
               'is_income': false,
             },
           ],
@@ -1722,7 +1856,7 @@ Future<void> _processExpense(
 
     final Map<String, dynamic> body = {
       'userId': effectiveUserId,
-      'date': formatDateOnlyYmd(today),
+      'date': defaultDateYmd,
       'language': languageTag,
       'typeHint': 'mixed',
     };
@@ -1742,12 +1876,8 @@ Future<void> _processExpense(
     // Always use selected currency as default (same as personal expense)
     // Backend will use this as a fallback if no currency is detected in the text/image.
     // If this is also missing, backend defaults to USD.
-    final filterState = ref.read(homeFilterProvider);
-    final selectedCurrency = filterState.selectedCurrency;
-    if (selectedCurrency != null && selectedCurrency.isNotEmpty) {
-      body['currency'] = selectedCurrency.toUpperCase();
-    } else if (contact?.preferredCurrency != null) {
-      body['currency'] = contact!.preferredCurrency!.toUpperCase();
+    if (effectiveCurrency != null && effectiveCurrency.isNotEmpty) {
+      body['currency'] = effectiveCurrency;
     }
 
     // Add either text, image, audio, or file attachments to the request
@@ -1845,8 +1975,23 @@ Future<void> _processExpense(
       }
     }
 
+    if (!usedSmartInputMemory &&
+        canUseSmartInputMemory &&
+        responseData != null) {
+      unawaited(_rememberSmartInputAnalysis(
+        prefs: ref.read(sharedPreferencesProvider),
+        userId: effectiveUserId,
+        householdId: householdId,
+        currency: effectiveCurrency,
+        languageTag: languageTag,
+        inputText: trimmedText,
+        defaultDateYmd: defaultDateYmd,
+        responseData: responseData,
+      ));
+    }
+
     // Close processing modal
-    if (context.mounted) {
+    if (shouldShowProcessingDialog && context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
     }
 
@@ -2065,7 +2210,7 @@ Future<void> _processExpense(
     _debugPrint('Error in analysis: $e');
 
     // Close processing modal
-    if (context.mounted) {
+    if (shouldShowProcessingDialog && context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
     }
 

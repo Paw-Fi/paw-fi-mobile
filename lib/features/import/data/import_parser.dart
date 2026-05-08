@@ -869,7 +869,7 @@ DateTime? parseDateValue(
   return null;
 }
 
-final List<String?> _dateParseLocales = <String?>[
+final List<String?> _dateParseLocales = <String?>{
   null,
   'en_US',
   ...AppLocalizations.supportedLocales.expand((locale) sync* {
@@ -879,7 +879,7 @@ final List<String?> _dateParseLocales = <String?>[
       yield locale.languageCode;
     }
   }),
-].toSet().toList(growable: false);
+}.toList(growable: false);
 
 DateTime? _parseYearFirstNumericDate(String value) {
   final match = RegExp(

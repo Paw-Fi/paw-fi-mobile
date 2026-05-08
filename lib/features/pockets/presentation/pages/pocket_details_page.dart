@@ -235,6 +235,7 @@ class PocketDetailsPage extends HookConsumerWidget {
         };
       }
 
+      if (!context.mounted) return;
       final didChange = await showTransactionDetailsSheet(
         context,
         expense: expense,

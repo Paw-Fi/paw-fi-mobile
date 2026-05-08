@@ -132,7 +132,16 @@ final householdDerivedSummaryProvider =
         (state) => state[params.householdId] ?? const <ExpenseEntry>[],
       ),
     );
-    final mergedExpenses = mergeHouseholdExpenses(expenses, optimisticExpenses);
+    final deletedIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[params.householdId] ?? const <String>{},
+      ),
+    );
+    final mergedExpenses = mergeHouseholdExpenses(
+      expenses,
+      optimisticExpenses,
+      deletedIds: deletedIds,
+    );
     final splits = splitsAsync.valueOrNull ?? const <ExpenseSplitGroup>[];
     final members = membersAsync.valueOrNull ?? const <HouseholdMember>[];
     final budgets = budgetsAsync.valueOrNull ?? const <SharedBudget>[];

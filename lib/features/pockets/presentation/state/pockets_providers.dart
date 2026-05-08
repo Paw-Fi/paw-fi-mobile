@@ -806,6 +806,7 @@ class PocketsState {
     required this.unallocatedSpend,
     required this.uncategorized,
     required this.uncategorizedExpenses,
+    this.envelopeCategories = const {},
   });
 
   final bool isLoading;
@@ -822,6 +823,7 @@ class PocketsState {
   final double unallocatedSpend;
   final List<UncategorizedCategory> uncategorized;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
+  final Map<String, List<String>> envelopeCategories;
 
   bool get hasChanges {
     // Check if budget has changed
@@ -865,6 +867,7 @@ class PocketsState {
     double? unallocatedSpend,
     List<UncategorizedCategory>? uncategorized,
     Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses,
+    Map<String, List<String>>? envelopeCategories,
     bool clearError = false,
   }) {
     return PocketsState(
@@ -884,6 +887,7 @@ class PocketsState {
       uncategorized: uncategorized ?? this.uncategorized,
       uncategorizedExpenses:
           uncategorizedExpenses ?? this.uncategorizedExpenses,
+      envelopeCategories: envelopeCategories ?? this.envelopeCategories,
     );
   }
 
@@ -902,6 +906,7 @@ class PocketsState {
         unallocatedSpend: 0,
         uncategorized: [],
         uncategorizedExpenses: {},
+        envelopeCategories: const {},
       );
 
   Map<String, dynamic> toCacheJson() {
@@ -922,6 +927,9 @@ class PocketsState {
       'uncategorized':
           uncategorized.map((item) => item.toJson()).toList(growable: false),
       'uncategorized_expenses': uncategorizedExpenses,
+      'envelope_categories': envelopeCategories.map(
+        (key, value) => MapEntry(key, value.toList(growable: false)),
+      ),
     };
   }
 
@@ -964,6 +972,16 @@ class PocketsState {
           ((value as List?) ?? const [])
               .cast<Map>()
               .map((row) => Map<String, dynamic>.from(row))
+              .toList(growable: false),
+        ),
+      ),
+      envelopeCategories:
+          ((json['envelope_categories'] as Map?) ?? const {}).map(
+        (key, value) => MapEntry(
+          key.toString(),
+          ((value as List?) ?? const [])
+              .map((category) => category.toString().trim().toLowerCase())
+              .where((category) => category.isNotEmpty)
               .toList(growable: false),
         ),
       ),
@@ -1473,6 +1491,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           unallocatedSpend: 0,
           uncategorized: const [],
           uncategorizedExpenses: const {},
+          envelopeCategories: const {},
         );
       }
 
@@ -1738,6 +1757,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         unallocatedSpend: unallocatedSpend,
         uncategorized: uncategorized,
         uncategorizedExpenses: uncategorizedExpensesMap,
+        envelopeCategories: categoriesByEnvelopeId.map(
+          (key, value) => MapEntry(key, value.toList(growable: false)),
+        ),
       );
     }
 
