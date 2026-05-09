@@ -35,7 +35,7 @@ Future<void> showWalletTransferDetailsSheet(
   return showModalBottomSheet<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) => _WalletTransferDetailsSheet(

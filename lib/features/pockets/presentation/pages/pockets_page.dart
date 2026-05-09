@@ -1066,7 +1066,7 @@ class _PocketsMonthView extends HookConsumerWidget {
                       isScrollControlled: true,
                       useSafeArea: true,
                       isDismissible: false,
-                      enableDrag: false,
+                      enableDrag: true,
                       backgroundColor:
                           Colors.transparent, // Sheet handles its own styling
                       builder: (context) => CreateBudgetFromTemplateSheet(

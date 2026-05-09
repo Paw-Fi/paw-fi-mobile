@@ -6,6 +6,10 @@ SplitType resolveStoredSplitType(
   Map<String, dynamic>? config, {
   SplitType fallback = SplitType.amount,
 }) {
+  if (isStoredSplitConfigEffectivelyEqual(config)) {
+    return SplitType.equal;
+  }
+
   final rawValue = config?['splitType']?.toString().trim().toLowerCase();
   switch (rawValue) {
     case 'equal':
@@ -18,6 +22,49 @@ SplitType resolveStoredSplitType(
       return SplitType.shares;
     default:
       return fallback;
+  }
+}
+
+bool isStoredSplitConfigEffectivelyEqual(Map<String, dynamic>? config) {
+  final rawValue = config?['splitType']?.toString().trim().toLowerCase();
+  if (rawValue == null || rawValue.isEmpty || rawValue == 'equal') {
+    return true;
+  }
+
+  final rawSplits = config?['memberSplits'];
+  if (rawSplits is! List || rawSplits.isEmpty) return false;
+
+  final splits = rawSplits.whereType<Map>().toList(growable: false);
+  if (splits.isEmpty || splits.length != rawSplits.length) return false;
+
+  bool closeTo(double actual, double expected) =>
+      (actual - expected).abs() <= 0.01;
+
+  switch (rawValue) {
+    case 'percentage':
+      final expected = 100 / splits.length;
+      return splits.every((split) {
+        final percentage = _asDouble(split['percentage']);
+        final included =
+            _asBool(split['includedInPercentage']) ?? ((percentage ?? 0) != 0);
+        return included && percentage != null && closeTo(percentage, expected);
+      });
+    case 'shares':
+      final firstShares = _asPositiveInt(splits.first['shares']);
+      if (firstShares == null) return false;
+      return splits
+          .every((split) => _asPositiveInt(split['shares']) == firstShares);
+    case 'amount':
+      final firstAmount = _asDouble(splits.first['amount']);
+      if (firstAmount == null) return false;
+      return splits.every((split) {
+        final amount = _asDouble(split['amount']);
+        final included =
+            _asBool(split['includedInAmount']) ?? ((amount ?? 0) != 0);
+        return included && amount != null && closeTo(amount, firstAmount);
+      });
+    default:
+      return false;
   }
 }
 

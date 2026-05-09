@@ -10,6 +10,7 @@ Future<String?> showCalculatorKeypadSheet({
 }) {
   return MonekoBottomSheet.show<String>(
     context: context,
+    isScrollControlled: true,
     builder: (sheetContext) => CalculatorKeypad(
       initialValue: initialValue,
       onValueChange: onValueChange,

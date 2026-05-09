@@ -335,7 +335,7 @@ class PocketDetailsPage extends HookConsumerWidget {
                           context: context,
                           barrierColor:
                               colorScheme.scrim.withValues(alpha: 0.5),
-                          enableDrag: false,
+                          enableDrag: true,
                           useSafeArea: true,
                           isScrollControlled: true,
                           builder: (sheetContext) => EditPocketEnvelopeSheet(

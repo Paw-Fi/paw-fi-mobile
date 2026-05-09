@@ -438,7 +438,8 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
                           );
                           return;
                         }
-                        final nextConfig = splitType == SplitType.equal
+                        final nextConfig = splitType == SplitType.equal ||
+                                _isEffectivelyEqualSplit(splitType, splits)
                             ? null
                             : serializeStoredSplitConfig(
                                 splitType: splitType,
@@ -710,6 +711,36 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
     setState(() {
       _autoSplitEnabled = value;
     });
+  }
+
+  bool _isEffectivelyEqualSplit(
+    SplitType splitType,
+    List<MemberSplit> splits,
+  ) {
+    if (splits.isEmpty) return true;
+
+    bool closeTo(double actual, double expected) =>
+        (actual - expected).abs() <= 0.01;
+
+    switch (splitType) {
+      case SplitType.equal:
+        return true;
+      case SplitType.percentage:
+        final expected = 100 / splits.length;
+        return splits.every(
+          (split) =>
+              split.includedInPercentage &&
+              closeTo(split.percentage ?? 0, expected),
+        );
+      case SplitType.shares:
+        return splits.every((split) => (split.shares ?? 0) == 1);
+      case SplitType.amount:
+        final expected = 1 / splits.length;
+        return splits.every(
+          (split) =>
+              split.includedInAmount && closeTo(split.amount ?? 0, expected),
+        );
+    }
   }
 
   Future<void> _handleUnsavedBackNavigation() async {

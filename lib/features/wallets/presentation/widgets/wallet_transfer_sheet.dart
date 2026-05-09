@@ -70,7 +70,7 @@ Future<WalletTransferResult?> showWalletTransferSheet(
   return showModalBottomSheet<WalletTransferResult>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     builder: (context) => _WalletTransferSheet(
@@ -123,7 +123,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
       final result = await showModalBottomSheet<String>(
         context: context,
         barrierColor: Colors.black.withValues(alpha: 0.5),
-        enableDrag: false,
+        enableDrag: true,
         useSafeArea: true,
         isScrollControlled: true,
         builder: (context) {
@@ -662,7 +662,7 @@ class _WalletTransferSheet extends HookConsumerWidget {
     return showModalBottomSheet<String>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.5),
-      enableDrag: false,
+      enableDrag: true,
       useSafeArea: true,
       builder: (context) {
         return Container(

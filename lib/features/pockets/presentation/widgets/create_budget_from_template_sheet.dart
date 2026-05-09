@@ -486,7 +486,7 @@ class CreateBudgetFromTemplateSheet extends HookConsumerWidget {
                             showModalBottomSheet(
                               context: context,
                               barrierColor: Colors.black.withValues(alpha: 0.5),
-                              enableDrag: false,
+                              enableDrag: true,
                               useSafeArea: true,
                               isScrollControlled: true,
                               builder: (context) => EditPocketEnvelopeSheet(

@@ -147,7 +147,7 @@ Future<bool?> showUnifiedTransactionSheet(
   return showModalBottomSheet<bool>(
     context: context,
     barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     isDismissible: true,

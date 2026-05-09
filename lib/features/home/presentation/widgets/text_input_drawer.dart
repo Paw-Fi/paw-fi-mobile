@@ -27,7 +27,7 @@ Future<void> showTextInputDrawer(
   return showModalBottomSheet<void>(
     context: parentContext,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    enableDrag: false,
+    enableDrag: true,
     useSafeArea: true,
     isScrollControlled: true,
     backgroundColor: colorScheme.sheetBackground,

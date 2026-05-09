@@ -377,7 +377,7 @@ class PocketsGridSection extends HookConsumerWidget {
                           showModalBottomSheet<void>(
                             context: context,
                             barrierColor: Colors.black.withValues(alpha: 0.5),
-                            enableDrag: false,
+                            enableDrag: true,
                             useSafeArea: true,
                             isScrollControlled: true,
                             builder: (sheetContext) {
@@ -455,7 +455,7 @@ class PocketsGridSection extends HookConsumerWidget {
                           showModalBottomSheet<void>(
                             context: context,
                             barrierColor: Colors.black.withValues(alpha: 0.5),
-                            enableDrag: false,
+                            enableDrag: true,
                             useSafeArea: true,
                             isScrollControlled: true,
                             builder: (sheetContext) {
