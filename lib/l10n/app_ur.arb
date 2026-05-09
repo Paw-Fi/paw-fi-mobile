@@ -2649,5 +2649,8 @@
   "onboardingPreparingTitleAppStoreRestored": "App Store سبسکرپشن بحال ہو گئی ہے",
   "onboardingPreparingBodyAppStoreRestored": "واپسی پر خوش آمدید! آپ کی Moneko Plus App Store سبسکرپشن اس اکاؤنٹ کے لیے بحال کر دی گئی ہے۔",
   "paywallBenefit0": "پورے خاندان کے لیے ایک ہی سبسکرپشن",
-  "helpCenter": "مرکزِ مدد"
+  "helpCenter": "مرکزِ مدد",
+  "autoSplit": "خودکار تقسیم",
+  "autoSplitDescriptionOn": "اخراجات تمام اراکین کے درمیان خودکار طور پر تقسیم ہوں گے",
+  "autoSplitDescriptionOff": "اخراجات خودکار طور پر تقسیم نہیں ہوں گے، لیکن اس اسپیس میں شامل کی گئی ٹرانزیکشنز تمام اراکین کو نظر آتی رہیں گی۔"
 }

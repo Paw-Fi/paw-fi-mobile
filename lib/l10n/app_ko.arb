@@ -2507,5 +2507,8 @@
   "onboardingPreparingTitleAppStoreRestored": "App Store 구독이 복원되었습니다",
   "onboardingPreparingBodyAppStoreRestored": "다시 오신 걸 환영해요! 이 계정에 Moneko Plus App Store 구독이 복원되었습니다.",
   "paywallBenefit0": "온 가족이 함께 쓰는 하나의 구독",
-  "helpCenter": "도움말 센터"
+  "helpCenter": "도움말 센터",
+  "autoSplit": "자동 분할",
+  "autoSplitDescriptionOn": "지출은 모든 멤버 간에 자동으로 분할됩니다",
+  "autoSplitDescriptionOff": "지출은 자동으로 나뉘지 않지만, 이 공간에 추가된 거래는 계속 모든 멤버에게 표시됩니다."
 }

@@ -47,6 +47,7 @@ import 'package:moneko/features/subscription/presentation/providers/subscription
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
+import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
@@ -264,6 +265,9 @@ class MainShell extends HookConsumerWidget {
         subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
             subscriptionGateStatus == SubscriptionGateStatus.unknown;
 
+    final isSyncing = useState(false);
+    final syncKey = useState(UniqueKey());
+
     useEffect(() {
       if (visitedTabs.value.contains(currentIndex)) {
         return null;
@@ -339,6 +343,9 @@ class MainShell extends HookConsumerWidget {
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
             return;
           }
+
+          isSyncing.value = true;
+          syncKey.value = UniqueKey();
 
           unawaited(Future<void>.microtask(
             () => _silentResyncMainShellData(
@@ -584,6 +591,16 @@ class MainShell extends HookConsumerWidget {
                         ),
                       ),
                       const WidgetSyncManager(),
+                      if (isSyncing.value)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: ReconcileProgressBar(
+                            key: syncKey.value,
+                            onComplete: () => isSyncing.value = false,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -625,7 +642,12 @@ class MainShell extends HookConsumerWidget {
           ],
           selectedIndex: currentIndex,
           onTap: (index) {
+            if (index == currentIndex) return;
             ref.read(mainShellTabIndexProvider.notifier).state = index;
+            final userId = ref.read(authProvider).uid;
+            if (userId.isNotEmpty && !ref.read(previewModeProvider).isActive) {
+              _silentResyncMainShellData(ref, userId, index);
+            }
           },
         ),
       ),

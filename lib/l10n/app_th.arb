@@ -2720,5 +2720,8 @@
   "onboardingPreparingTitleAppStoreRestored": "กู้คืนการสมัครสมาชิก App Store แล้ว",
   "onboardingPreparingBodyAppStoreRestored": "ยินดีต้อนรับกลับ! กู้คืนการสมัครสมาชิก Moneko Plus ผ่าน App Store ให้กับบัญชีนี้แล้ว",
   "paywallBenefit0": "สมัครครั้งเดียว ใช้ได้ทั้งครอบครัว",
-  "helpCenter": "ศูนย์ช่วยเหลือ"
+  "helpCenter": "ศูนย์ช่วยเหลือ",
+  "autoSplit": "แบ่งค่าใช้จ่ายอัตโนมัติ",
+  "autoSplitDescriptionOn": "ค่าใช้จ่ายจะถูกแบ่งอัตโนมัติระหว่างสมาชิกทุกคน",
+  "autoSplitDescriptionOff": "ค่าใช้จ่ายจะไม่ถูกแบ่งโดยอัตโนมัติ แต่ธุรกรรมที่เพิ่มในพื้นที่นี้จะยังคงมองเห็นได้สำหรับสมาชิกทุกคน"
 }

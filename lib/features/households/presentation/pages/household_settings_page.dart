@@ -393,7 +393,7 @@ class _HouseholdSettingsPageState extends ConsumerState<HouseholdSettingsPage> {
 
     return _buildSettingsSection(
       context,
-      title: 'Auto Split',
+      title: context.l10n.autoSplit,
       children: [
         AutoSplitToggleTile(
           value: isEnabled,

@@ -2699,5 +2699,8 @@
   "onboardingPreparingTitleAppStoreRestored": "已恢复 App Store 订阅",
   "onboardingPreparingBodyAppStoreRestored": "欢迎回来！你的 Moneko Plus App Store 订阅已为此账号恢复。",
   "paywallBenefit0": "一个订阅，全家共享",
-  "helpCenter": "帮助中心"
+  "helpCenter": "帮助中心",
+  "autoSplit": "自动分摊",
+  "autoSplitDescriptionOn": "费用将自动在所有成员之间分摊",
+  "autoSplitDescriptionOff": "费用不会自动分摊，但添加到此空间的交易仍会对所有成员可见。"
 }

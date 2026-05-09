@@ -2,6 +2,7 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 
 class AutoSplitToggleTile extends StatelessWidget {
   const AutoSplitToggleTile({
@@ -20,43 +21,55 @@ class AutoSplitToggleTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: colorScheme.surface.withValues(alpha: 0.0),
+      color: Colors.transparent,
       child: InkWell(
         onTap: enabled ? () => onChanged(!value) : null,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+         
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Auto split',
+                      context.l10n.autoSplit,
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                         color: colorScheme.foreground,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Set how shared expenses are split by default',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: colorScheme.mutedForeground,
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: Text(
+                        value
+                            ? context.l10n.autoSplitDescriptionOn
+                            : context.l10n.autoSplitDescriptionOff,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w400,
+                          color: colorScheme.mutedForeground,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              AdaptiveSwitch(
-                value: value,
-                onChanged: enabled ? onChanged : null,
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: AdaptiveSwitch(
+                  value: value,
+                  onChanged: enabled ? onChanged : null,
+                ),
               ),
             ],
           ),

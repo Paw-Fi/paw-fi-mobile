@@ -45,6 +45,7 @@ import 'package:moneko/features/home/presentation/utils/smart_transaction_input.
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
+import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -132,12 +133,30 @@ String _friendlyProgressMessage(AnalysisProgressEvent event) {
 class _AiParsedItem {
   final ParsedExpense transaction;
   final String optimisticId;
+  final ExpenseEntry optimisticEntry;
   final Map<String, dynamic> raw;
 
   const _AiParsedItem({
     required this.transaction,
     required this.optimisticId,
+    required this.optimisticEntry,
     required this.raw,
+  });
+}
+
+class _AiPreparedMutation {
+  final _AiParsedItem item;
+  final TransactionMutationMetadata metadata;
+  final String functionName;
+  final Map<String, dynamic> individualRequestBody;
+  final Map<String, dynamic> batchRequestBody;
+
+  const _AiPreparedMutation({
+    required this.item,
+    required this.metadata,
+    required this.functionName,
+    required this.individualRequestBody,
+    required this.batchRequestBody,
   });
 }
 
@@ -817,6 +836,8 @@ Future<void> _persistAiTransactions(
       .toString();
   final scopedDefaultAccountId =
       container.read(defaultScopedAccountProvider)?.id;
+  MonekoDatabase? localDatabase;
+  var queuedLocally = false;
 
   Future<void> cacheSavedEntriesAndRefresh(
     List<ExpenseEntry> savedEntries,
@@ -827,7 +848,9 @@ Future<void> _persistAiTransactions(
     if (cacheable.isEmpty) return;
 
     try {
-      final database = await container.read(localDatabaseProvider.future);
+      final MonekoDatabase database =
+          localDatabase ?? await container.read(localDatabaseProvider.future);
+      localDatabase = database;
       await database.upsertTransactions(
         cacheable,
         syncStatus: localSyncStatusSynced,
@@ -933,9 +956,10 @@ Future<void> _persistAiTransactions(
   }
 
   void upsertSavedEntry({
-    required String optimisticId,
+    required _AiPreparedMutation prepared,
     required ExpenseEntry savedEntry,
   }) {
+    final optimisticId = prepared.item.optimisticId;
     if (savedEntry.id.isNotEmpty) {
       container
           .read(householdOptimisticExpensesProvider.notifier)
@@ -951,6 +975,11 @@ Future<void> _persistAiTransactions(
         savedEntry: savedEntry,
         householdId: fromBucket,
       );
+      unawaited(localDatabase?.replaceOptimisticTransaction(
+        optimisticId: optimisticId,
+        savedEntry: savedEntry,
+        clientMutationId: prepared.metadata.clientMutationId,
+      ));
       return;
     }
 
@@ -964,6 +993,11 @@ Future<void> _persistAiTransactions(
       entry: savedEntry,
       householdId: toBucket,
     );
+    unawaited(localDatabase?.replaceOptimisticTransaction(
+      optimisticId: optimisticId,
+      savedEntry: savedEntry,
+      clientMutationId: prepared.metadata.clientMutationId,
+    ));
   }
 
   Future<void> attachOptimisticSplitsForSavedExpenses(
@@ -1039,8 +1073,9 @@ Future<void> _persistAiTransactions(
             )
           : null;
 
-  // Build batch payload - all transactions in a single request
-  final batchTransactions = transactions.map((item) {
+  // Build both the batch payload and individual outbox payloads. The outbox
+  // makes AI saves survive weak/offline network and app restarts.
+  final preparedMutations = transactions.map((item) {
     final tx = item.transaction;
     final isIncome = tx.isIncome;
     final isRecurring = resolveIsRecurring(item.raw);
@@ -1085,8 +1120,7 @@ Future<void> _persistAiTransactions(
       'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
     );
 
-    return <String, dynamic>{
-      'type': isIncome ? 'income' : 'expense',
+    final commonRequestBody = <String, dynamic>{
       'amount': tx.amount,
       'category': tx.category,
       'currency': tx.currency,
@@ -1105,7 +1139,53 @@ Future<void> _persistAiTransactions(
       if (effectiveCustomSplits != null) 'customSplits': effectiveCustomSplits,
       // Income ownerType/privacyScope use backend defaults.
     };
+
+    return _AiPreparedMutation(
+      item: item,
+      metadata: mutationMetadata,
+      functionName: isIncome ? 'save-income' : 'save-expense',
+      individualRequestBody: <String, dynamic>{
+        'userId': userId,
+        ...commonRequestBody,
+        if (householdId != null && householdId.isNotEmpty)
+          'householdId': householdId,
+        if (householdId != null && householdId.isNotEmpty)
+          'isPortfolio': isPortfolio,
+      },
+      batchRequestBody: <String, dynamic>{
+        'type': isIncome ? 'income' : 'expense',
+        ...commonRequestBody,
+      },
+    );
   }).toList(growable: false);
+
+  final batchTransactions = preparedMutations
+      .map((prepared) => prepared.batchRequestBody)
+      .toList(growable: false);
+
+  try {
+    final database = await container.read(localDatabaseProvider.future);
+    localDatabase = database;
+    for (final prepared in preparedMutations) {
+      await database.writeOptimisticTransaction(
+        entry: prepared.item.optimisticEntry,
+        clientMutationId: prepared.metadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          ...prepared.metadata.toRequestJson(),
+          'transaction': prepared.item.optimisticEntry.toJson(),
+          'functionName': prepared.functionName,
+          'requestBody': prepared.individualRequestBody,
+        },
+      );
+    }
+    queuedLocally = true;
+    container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    container.invalidate(pocketsProvider);
+  } catch (error) {
+    _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
+  }
 
   try {
     _debugPrint(
@@ -1172,16 +1252,17 @@ Future<void> _persistAiTransactions(
           }
 
           final originalIndex = batchOffset + index;
-          if (originalIndex < 0 || originalIndex >= transactions.length) {
+          if (originalIndex < 0 || originalIndex >= preparedMutations.length) {
             continue;
           }
 
-          final originalItem = transactions[originalIndex];
+          final prepared = preparedMutations[originalIndex];
+          final originalItem = prepared.item;
 
           if (success && data != null) {
             final savedEntry = ExpenseEntry.fromJson(data);
             upsertSavedEntry(
-              optimisticId: originalItem.optimisticId,
+              prepared: prepared,
               savedEntry: savedEntry,
             );
             didPersistAny = true;
@@ -1196,6 +1277,11 @@ Future<void> _persistAiTransactions(
               container: container,
               optimisticId: originalItem.optimisticId,
               householdId: householdId,
+            );
+            await localDatabase?.rollbackOptimisticTransaction(
+              optimisticId: originalItem.optimisticId,
+              clientMutationId: prepared.metadata.clientMutationId,
+              error: result['error'] ?? 'Batch item failed',
             );
             _debugPrint(
                 '❌ Failed to persist transaction at index $originalIndex: ${result['error'] ?? 'unknown error'}');
@@ -1248,111 +1334,49 @@ Future<void> _persistAiTransactions(
       final savedEntries = <ExpenseEntry>[];
       final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
-      for (final item in transactions) {
+      for (final prepared in preparedMutations) {
+        final item = prepared.item;
         try {
-          final tx = item.transaction;
-          final isIncome = tx.isIncome;
-          final isRecurring = resolveIsRecurring(item.raw);
-          final mutationMetadata = buildTransactionMutationMetadata(
-            item.optimisticId,
+          final response = await supabase.functions.invoke(
+            prepared.functionName,
+            body: prepared.individualRequestBody,
           );
-          final recurrenceRule = normalizeRecurrenceRule(
-            item.raw,
-            formatDateOnlyYmd(tx.date),
-          );
-          final endpoint = isIncome ? 'save-income' : 'save-expense';
-
-          final requestBody = <String, dynamic>{
-            'userId': userId,
-            'amount': tx.amount,
-            'category': tx.category,
-            'currency': tx.currency,
-            'date': formatDateOnlyYmd(tx.date),
-            if (scopedDefaultAccountId != null &&
-                scopedDefaultAccountId.isNotEmpty)
-              'accountId': scopedDefaultAccountId,
-            'clientCreatedAt': clientCreatedAtIso,
-            ...mutationMetadata.toRequestJson(),
-            if (isRecurring) 'isRecurring': true,
-            if (isRecurring && recurrenceRule != null)
-              'recurrence_rule': recurrenceRule,
-            if (tx.description?.isNotEmpty == true)
-              'description': tx.description,
-            if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
-            if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-            if (householdId != null && householdId.isNotEmpty)
-              'householdId': householdId,
-            if (householdId != null && householdId.isNotEmpty)
-              'isPortfolio': isPortfolio,
-          };
-
-          final rawPayerUserId = item.raw['payerUserId'];
-          final payerUserId =
-              rawPayerUserId is String && rawPayerUserId.trim().isNotEmpty
-                  ? rawPayerUserId.trim()
-                  : null;
-
-          final hasExplicitCustomSplits = _hasExplicitCustomSplits(
-            item.raw['customSplits'],
-          );
-          final autoSplitEnabled =
-              autoSplitContext?.household.autoSplitEnabled != false;
-          final explicitCustomSplits = autoSplitEnabled
-              ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
-              : null;
-          final defaultCustomSplits = householdId != null &&
-                  householdId.isNotEmpty &&
-                  !isPortfolio &&
-                  autoSplitEnabled &&
-                  !hasExplicitCustomSplits
-              ? _resolveAutoSplitCustomSplitsPayload(
-                  autoSplitContext,
-                  totalAmount: tx.amount,
-                )
-              : null;
-          final effectiveCustomSplits =
-              explicitCustomSplits ?? defaultCustomSplits;
-          _debugPrint(
-            '[AI Fallback Save] Auto-split payload decision: household=$householdId '
-            'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
-            'sendPayer=${autoSplitEnabled && payerUserId != null} '
-            'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
-          );
-
-          if (autoSplitEnabled && payerUserId != null) {
-            requestBody['payerUserId'] = payerUserId;
-          }
-          if (effectiveCustomSplits != null) {
-            requestBody['customSplits'] = effectiveCustomSplits;
-          }
-
-          final response =
-              await supabase.functions.invoke(endpoint, body: requestBody);
 
           final savedPayload = _extractSavedEntryPayload(response.data);
 
           if (savedPayload != null) {
             final savedEntry = ExpenseEntry.fromJson(savedPayload);
             upsertSavedEntry(
-              optimisticId: item.optimisticId,
+              prepared: prepared,
               savedEntry: savedEntry,
             );
             savedCount++;
             savedEntries.add(savedEntry);
-            if (!isIncome) {
+            if (!item.transaction.isIncome) {
               savedExpenseCount++;
               savedExpenseEntriesById[savedEntry.id] = savedEntry;
             }
           } else {
             throw Exception(
-                'No saved transaction data returned from $endpoint');
+                'No saved transaction data returned from ${prepared.functionName}');
           }
         } catch (itemError) {
           _debugPrint('❌ Failed to save individual transaction: $itemError');
+          if (queuedLocally && _shouldKeepQueuedLocalMutation(itemError)) {
+            _debugPrint(
+              '📦 Keeping queued AI transaction ${item.optimisticId} for background retry',
+            );
+            continue;
+          }
           removeOptimisticTransactionWithContainer(
             container: container,
             optimisticId: item.optimisticId,
             householdId: householdId,
+          );
+          await localDatabase?.rollbackOptimisticTransaction(
+            optimisticId: item.optimisticId,
+            clientMutationId: prepared.metadata.clientMutationId,
+            error: itemError,
           );
         }
       }
@@ -1390,12 +1414,28 @@ Future<void> _persistAiTransactions(
       return; // Exit successfully after fallback
     }
 
+    if (queuedLocally && _shouldKeepQueuedLocalMutation(error)) {
+      _debugPrint(
+        '📦 Keeping ${preparedMutations.length} queued AI transaction(s) for background retry',
+      );
+      container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      container.invalidate(pocketsProvider);
+      return;
+    }
+
     // For non-recoverable errors, remove all optimistic entries and rethrow
-    for (final item in transactions) {
+    for (final prepared in preparedMutations) {
+      final item = prepared.item;
       removeOptimisticTransactionWithContainer(
         container: container,
         optimisticId: item.optimisticId,
         householdId: householdId,
+      );
+      await localDatabase?.rollbackOptimisticTransaction(
+        optimisticId: item.optimisticId,
+        clientMutationId: prepared.metadata.clientMutationId,
+        error: error,
       );
     }
 
@@ -1421,6 +1461,24 @@ bool shouldFallbackForBatchError(Object error) {
     return true;
   }
   return false;
+}
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  if (error is SocketException || error is TimeoutException) return true;
+
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error') ||
+      message.contains('bad file descriptor');
 }
 
 List<List<T>> chunkList<T>(List<T> items, int maxSize) {
@@ -2165,6 +2223,7 @@ Future<void> _processExpense(
                 return _AiParsedItem(
                   transaction: transaction,
                   optimisticId: optimisticId,
+                  optimisticEntry: entry,
                   raw: item,
                 );
               })

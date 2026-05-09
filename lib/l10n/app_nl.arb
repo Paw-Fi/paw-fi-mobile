@@ -2650,5 +2650,8 @@
   "onboardingPreparingTitleAppStoreRestored": "App Store-abonnement hersteld",
   "onboardingPreparingBodyAppStoreRestored": "Welkom terug! Je Moneko Plus-abonnement via de App Store is voor dit account hersteld.",
   "paywallBenefit0": "Eén abonnement voor het hele gezin",
-  "helpCenter": "Helpcentrum"
+  "helpCenter": "Helpcentrum",
+  "autoSplit": "Automatisch splitsen",
+  "autoSplitDescriptionOn": "Uitgaven worden automatisch verdeeld onder alle leden",
+  "autoSplitDescriptionOff": "Uitgaven worden niet automatisch gesplitst, maar transacties die aan deze ruimte zijn toegevoegd, blijven zichtbaar voor alle leden."
 }

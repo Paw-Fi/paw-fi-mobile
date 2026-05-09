@@ -2653,5 +2653,8 @@
   "onboardingPreparingTitleAppStoreRestored": "Подписка App Store восстановлена",
   "onboardingPreparingBodyAppStoreRestored": "С возвращением! Ваша подписка Moneko Plus через App Store восстановлена для этой учетной записи.",
   "paywallBenefit0": "Одна подписка для всей семьи",
-  "helpCenter": "Справочный центр"
+  "helpCenter": "Справочный центр",
+  "autoSplit": "Авторазделение",
+  "autoSplitDescriptionOn": "Расходы будут автоматически распределяться между всеми участниками",
+  "autoSplitDescriptionOff": "Расходы не будут разделяться автоматически, но транзакции, добавленные в это пространство, по-прежнему будут видны всем участникам."
 }

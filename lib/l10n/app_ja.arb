@@ -2703,5 +2703,8 @@
   "onboardingPreparingTitleAppStoreRestored": "App Storeのサブスクリプションが復元されました",
   "onboardingPreparingBodyAppStoreRestored": "おかえりなさい！このアカウントでMoneko PlusのApp Storeサブスクリプションが復元されました。",
   "paywallBenefit0": "家族みんなで使える1つのサブスクリプション",
-  "helpCenter": "ヘルプセンター"
+  "helpCenter": "ヘルプセンター",
+  "autoSplit": "自動分割",
+  "autoSplitDescriptionOn": "支出はすべてのメンバー間で自動的に分割されます",
+  "autoSplitDescriptionOff": "支出は自動的に分割されませんが、このスペースに追加された取引は引き続きすべてのメンバーに表示されます。"
 }

@@ -2650,5 +2650,8 @@
   "onboardingPreparingTitleAppStoreRestored": "Abbonamento App Store ripristinato",
   "onboardingPreparingBodyAppStoreRestored": "Bentornato! Il tuo abbonamento Moneko Plus tramite App Store è stato ripristinato per questo account.",
   "paywallBenefit0": "Un solo abbonamento per tutta la famiglia",
-  "helpCenter": "Centro assistenza"
+  "helpCenter": "Centro assistenza",
+  "autoSplit": "Divisione automatica",
+  "autoSplitDescriptionOn": "Le spese verranno divise automaticamente tra tutti i membri",
+  "autoSplitDescriptionOff": "Le spese non verranno divise automaticamente, ma le transazioni aggiunte a questo spazio resteranno visibili a tutti i membri."
 }

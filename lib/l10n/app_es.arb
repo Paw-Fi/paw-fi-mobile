@@ -2705,5 +2705,8 @@
   "onboardingPreparingTitleAppStoreRestored": "Suscripción del App Store restaurada",
   "onboardingPreparingBodyAppStoreRestored": "¡Te damos la bienvenida de nuevo! Tu suscripción a Moneko Plus del App Store se ha restaurado para esta cuenta.",
   "paywallBenefit0": "Una suscripción para toda la familia",
-  "helpCenter": "Centro de ayuda"
+  "helpCenter": "Centro de ayuda",
+  "autoSplit": "División automática",
+  "autoSplitDescriptionOn": "Los gastos se dividirán automáticamente entre todos los miembros",
+  "autoSplitDescriptionOff": "Los gastos no se dividirán automáticamente, pero las transacciones añadidas a este espacio seguirán siendo visibles para todos los miembros."
 }

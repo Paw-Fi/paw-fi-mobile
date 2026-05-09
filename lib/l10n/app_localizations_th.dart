@@ -7177,4 +7177,13 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get helpCenter => 'ศูนย์ช่วยเหลือ';
+
+  @override
+  String get autoSplit => 'แบ่งค่าใช้จ่ายอัตโนมัติ';
+
+  @override
+  String get autoSplitDescriptionOn => 'ค่าใช้จ่ายจะถูกแบ่งอัตโนมัติระหว่างสมาชิกทุกคน';
+
+  @override
+  String get autoSplitDescriptionOff => 'ค่าใช้จ่ายจะไม่ถูกแบ่งโดยอัตโนมัติ แต่ธุรกรรมที่เพิ่มในพื้นที่นี้จะยังคงมองเห็นได้สำหรับสมาชิกทุกคน';
 }

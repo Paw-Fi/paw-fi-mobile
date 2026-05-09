@@ -2702,5 +2702,8 @@
   "onboardingPreparingTitleAppStoreRestored": "Đã khôi phục gói đăng ký App Store",
   "onboardingPreparingBodyAppStoreRestored": "Chào mừng bạn trở lại! Gói đăng ký Moneko Plus qua App Store của bạn đã được khôi phục cho tài khoản này.",
   "paywallBenefit0": "Một gói đăng ký cho cả gia đình",
-  "helpCenter": "Trung tâm trợ giúp"
+  "helpCenter": "Trung tâm trợ giúp",
+  "autoSplit": "Tự động chia",
+  "autoSplitDescriptionOn": "Chi phí sẽ được tự động chia giữa tất cả thành viên",
+  "autoSplitDescriptionOff": "Chi phí sẽ không được tự động chia, nhưng các giao dịch được thêm vào không gian này vẫn hiển thị với tất cả thành viên."
 }

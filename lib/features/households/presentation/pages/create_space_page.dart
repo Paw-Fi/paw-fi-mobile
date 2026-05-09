@@ -215,22 +215,19 @@ class _CreateSpacePageState extends ConsumerState<CreateSpacePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'AUTO SPLIT',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.0,
-            color: colorScheme.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 12),
+    
         Container(
           decoration: BoxDecoration(
             color: colorScheme.cardSurface,
             borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.symmetric(vertical: 4),
           child: AutoSplitToggleTile(
             value: _autoSplitEnabled,
             enabled: !isLoading,
