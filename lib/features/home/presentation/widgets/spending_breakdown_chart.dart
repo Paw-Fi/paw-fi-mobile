@@ -500,12 +500,14 @@ Widget buildSpendingBreakdownChart(
   List<DailyBudgetEntry> budgets,
   UserContact? contact,
   DateRangeFilter dateRangeFilter, {
+  Key? key,
   DateTime? referenceNow,
   String? selectedCurrency,
   DateTime? customStartDate,
   DateTime? customEndDate,
 }) {
   return SpendingBreakdownChart(
+    key: key,
     colorScheme: colorScheme,
     expenses: expenses,
     budgets: budgets,

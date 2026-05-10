@@ -539,18 +539,20 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-/// Legacy function wrapper for backward compatibility
 Widget buildSpendingCard(
     BuildContext context,
     ColorScheme colorScheme,
     List<ExpenseEntry> expenses,
     UserContact? contact,
-    DateRangeFilter dateFilter,
-    {DateTime? referenceNow,
+    DateRangeFilter dateFilter, {
+    Key? key,
+    DateTime? referenceNow,
     String? selectedCurrency,
     DateTime? customStartDate,
-    DateTime? customEndDate}) {
+    DateTime? customEndDate,
+}) {
   return SpendingCard(
+    key: key,
     colorScheme: colorScheme,
     expenses: expenses,
     contact: contact,
@@ -561,3 +563,4 @@ Widget buildSpendingCard(
     customEndDate: customEndDate,
   );
 }
+

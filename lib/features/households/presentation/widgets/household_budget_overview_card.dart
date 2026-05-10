@@ -13,6 +13,7 @@ Widget buildHouseholdBudgetOverviewCard(
   ColorScheme colorScheme,
   HouseholdSummary? summary,
   DateRangeFilter dateFilter, {
+  Key? key,
   int? totalExpensesCentsOverride,
   int? transactionCountOverride,
   VoidCallback? onTap,
@@ -58,6 +59,7 @@ Widget buildHouseholdBudgetOverviewCard(
       : 0.0;
 
   final card = Container(
+    key: key,
     width: double.infinity,
     decoration: BoxDecoration(
       color: colorScheme.homeCardSurface,

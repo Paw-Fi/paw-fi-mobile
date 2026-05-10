@@ -14,8 +14,10 @@ Widget buildNetCashflowCard(
   List<ExpenseEntry> currentTransactions,
   List<ExpenseEntry> previousTransactions,
   UserContact? contact,
-  DateRangeFilter filter, {
+  DateRangeFilter dateFilter, {
+  Key? key,
   String? selectedCurrency,
+
   DateTime? customStartDate,
   DateTime? customEndDate,
 }) {
@@ -30,10 +32,11 @@ Widget buildNetCashflowCard(
   final localizedAmount = formatLocalizedNumber(context, normalized);
   final displayText =
       isNegative ? '-$symbol$localizedAmount' : '$symbol$localizedAmount';
-  final title = _netCashflowTitleForFilter(context, filter);
+  final title = _netCashflowTitleForFilter(context, dateFilter);
   final isBetter = currentNet > previousNet;
 
   return Container(
+    key: key,
     decoration: BoxDecoration(
       color: colorScheme.homeCardSurface,
       borderRadius: BorderRadius.circular(24),

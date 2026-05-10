@@ -535,75 +535,79 @@ class MainShell extends HookConsumerWidget {
         body: SafeArea(
           child: Material(
             color: colorScheme.appBackground,
-            child: Column(
+            child: Stack(
               children: [
-                if (previewState.isActive)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _PreviewModeBanner(
-                      currentIndex: currentIndex,
-                      onRegisterTap: () {
-                        unawaited(() async {
-                          await exitPreviewMode(restorePreauthOnExit: false);
-                          if (context.mounted) {
-                            context.go('/register');
-                          }
-                        }());
-                      },
-                      onExitTap: () {
-                        unawaited(() async {
-                          final returnRoute = await exitPreviewMode(
-                            restorePreauthOnExit: true,
-                          );
-                          if (context.mounted) {
-                            context.go(returnRoute ?? '/paywall');
-                          }
-                        }());
-                      },
-                    ),
-                  ),
-                if (!previewState.isActive &&
-                    showSubscriptionVerificationBanner)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    child: _SubscriptionVerificationBanner(
-                      status: subscriptionGateStatus,
-                      onRetryTap: () {
-                        unawaited(ref
-                            .read(subscriptionNotifierProvider.notifier)
-                            .refresh());
-                      },
-                      onManageTap: () {
-                        context.push('/paywall?mode=resubscribe');
-                      },
-                    ),
-                  ),
-                const TrialReminderBannerGate(),
-                const HomeHeaderSliver(),
-                Expanded(
-                  child: Stack(
-                    children: [
+                Column(
+                  children: [
+                    if (previewState.isActive)
                       Padding(
-                        padding: const EdgeInsets.only(top: 0.0),
-                        child: IndexedStack(
-                          index: currentIndex,
-                          children: pages,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _PreviewModeBanner(
+                          currentIndex: currentIndex,
+                          onRegisterTap: () {
+                            unawaited(() async {
+                              await exitPreviewMode(restorePreauthOnExit: false);
+                              if (context.mounted) {
+                                context.go('/register');
+                              }
+                            }());
+                          },
+                          onExitTap: () {
+                            unawaited(() async {
+                              final returnRoute = await exitPreviewMode(
+                                restorePreauthOnExit: true,
+                              );
+                              if (context.mounted) {
+                                context.go(returnRoute ?? '/paywall');
+                              }
+                            }());
+                          },
                         ),
                       ),
-                      const WidgetSyncManager(),
-                      if (isSyncing.value)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: ReconcileProgressBar(
-                            key: syncKey.value,
-                            onComplete: () => isSyncing.value = false,
-                          ),
+                    if (!previewState.isActive &&
+                        showSubscriptionVerificationBanner)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _SubscriptionVerificationBanner(
+                          status: subscriptionGateStatus,
+                          onRetryTap: () {
+                            unawaited(ref
+                                .read(subscriptionNotifierProvider.notifier)
+                                .refresh());
+                          },
+                          onManageTap: () {
+                            context.push('/paywall?mode=resubscribe');
+                          },
                         ),
-                    ],
-                  ),
+                      ),
+                    const TrialReminderBannerGate(),
+                    const HomeHeaderSliver(),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0.0),
+                            child: IndexedStack(
+                              index: currentIndex,
+                              children: pages,
+                            ),
+                          ),
+                          const WidgetSyncManager(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+                if (isSyncing.value)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: ReconcileProgressBar(
+                      key: syncKey.value,
+                      onComplete: () => isSyncing.value = false,
+                    ),
+                  ),
               ],
             ),
           ),
