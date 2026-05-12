@@ -1,13 +1,16 @@
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/core/preview/preview_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/household.dart';
 import '../../domain/entities/household_summary.dart';
@@ -24,6 +27,171 @@ import '../../../home/presentation/state/home_debug_tracing.dart';
 import '../../../home/presentation/state/dashboard_lazy_providers.dart';
 import 'cached_providers.dart';
 import 'household_optimistic_providers.dart';
+
+const _householdEntityCacheTtl = Duration(minutes: 30);
+const _householdTransactionCacheTtl = Duration(minutes: 10);
+
+final _householdBackgroundRefreshes = <String, Future<void>>{};
+
+String _userHouseholdsCacheKey(String userId) =>
+    'households:user-list:v1:$userId';
+
+String _householdMembersCacheKey(String householdId) =>
+    'households:members:v1:$householdId';
+
+String _householdBudgetsCacheKey(String householdId) =>
+    'households:budgets:v1:$householdId';
+
+String _householdSplitsCacheKey(HouseholdSplitsParams params) =>
+    'households:splits:v1:${params.householdId}:${params.dateRange ?? '<all>'}';
+
+String _householdExpensesCacheKey(HouseholdExpensesParams params) =>
+    'households:expenses:v1:${params.householdId}:${params.limit}:${params.startDate?.toIso8601String() ?? '<none>'}:${params.endDate?.toIso8601String() ?? '<none>'}';
+
+String _householdSummaryCacheKey(HouseholdSummaryParams params) =>
+    'households:summary:v1:${params.householdId}:${params.currency}:${params.startDate}:${params.endDate}';
+
+String _householdSettlementPaymentsCacheKey(
+        String householdId, String userId) =>
+    'households:settlement-payments:v1:$householdId:$userId';
+
+Future<SharedPreferences?> _householdPrefsOrNull() async {
+  try {
+    return SharedPreferences.getInstance();
+  } catch (_) {
+    return null;
+  }
+}
+
+DateTime? _cachedAtFromPayload(Map<String, dynamic> payload) {
+  final raw = payload['cached_at'] as String?;
+  if (raw == null || raw.isEmpty) return null;
+  return DateTime.tryParse(raw);
+}
+
+Map<String, dynamic>? _statePayload(Map<String, dynamic> payload) {
+  final state = payload['state'];
+  if (state is Map) return Map<String, dynamic>.from(state);
+  return payload;
+}
+
+Future<({DateTime? cachedAt, List<T> items})?> _readHouseholdCachedList<T>(
+  String key,
+  T Function(Map<String, dynamic>) decode,
+) async {
+  final prefs = await _householdPrefsOrNull();
+  final raw = prefs?.getString(key);
+  if (raw == null || raw.isEmpty) return null;
+
+  try {
+    final payload = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final state = _statePayload(payload);
+    final rawItems = state?['items'];
+    if (rawItems is! List) return null;
+    final items = rawItems
+        .whereType<Map>()
+        .map((row) => decode(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+    return (cachedAt: _cachedAtFromPayload(payload), items: items);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<T?> _readHouseholdCachedObject<T>(
+  String key,
+  T Function(Map<String, dynamic>) decode,
+) async {
+  final prefs = await _householdPrefsOrNull();
+  final raw = prefs?.getString(key);
+  if (raw == null || raw.isEmpty) return null;
+
+  try {
+    final payload = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final state = _statePayload(payload);
+    final rawItem = state?['item'];
+    if (rawItem is! Map) return null;
+    return decode(Map<String, dynamic>.from(rawItem));
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _writeHouseholdCachedList<T>(
+  String key,
+  List<T> items,
+  Map<String, dynamic> Function(T) encode,
+) async {
+  final prefs = await _householdPrefsOrNull();
+  if (prefs == null) return;
+  await prefs.setString(
+    key,
+    jsonEncode({
+      'cached_at': DateTime.now().toIso8601String(),
+      'state': {
+        'items': items.map(encode).toList(growable: false),
+      },
+    }),
+  );
+}
+
+Future<void> _writeHouseholdCachedObject<T>(
+  String key,
+  T item,
+  Map<String, dynamic> Function(T) encode,
+) async {
+  final prefs = await _householdPrefsOrNull();
+  if (prefs == null) return;
+  await prefs.setString(
+    key,
+    jsonEncode({
+      'cached_at': DateTime.now().toIso8601String(),
+      'state': {'item': encode(item)},
+    }),
+  );
+}
+
+bool _isFresh(DateTime? cachedAt, Duration ttl) {
+  if (cachedAt == null) return false;
+  return DateTime.now().difference(cachedAt) <= ttl;
+}
+
+SettlementPaymentRecord _settlementPaymentRecordFromJson(
+  Map<String, dynamic> json,
+) {
+  return SettlementPaymentRecord(
+    payerUserId: json['payer_user_id'] as String? ?? '',
+    participantUserId: json['participant_user_id'] as String? ?? '',
+    amountCents: (json['amount_cents'] as num?)?.toInt() ?? 0,
+    currency: json['currency'] as String?,
+  );
+}
+
+Map<String, dynamic> _settlementPaymentRecordToJson(
+  SettlementPaymentRecord record,
+) {
+  return {
+    'payer_user_id': record.payerUserId,
+    'participant_user_id': record.participantUserId,
+    'amount_cents': record.amountCents,
+    'currency': record.currency,
+  };
+}
+
+void _runHouseholdBackgroundRefresh(
+  String key,
+  Future<void> Function() refresh,
+) {
+  if (_householdBackgroundRefreshes.containsKey(key)) return;
+
+  late Future<void> future;
+  future = refresh().whenComplete(() {
+    if (_householdBackgroundRefreshes[key] == future) {
+      _householdBackgroundRefreshes.remove(key);
+    }
+  });
+  _householdBackgroundRefreshes[key] = future;
+}
 
 // ============================================================================
 // CORE PROVIDERS
@@ -107,8 +275,16 @@ class UserHouseholdsNotifier
   }
 
   Future<void> _scheduleDeferredInitialLoad() async {
+    final cached = await _readHouseholdCachedList<Household>(
+      _userHouseholdsCacheKey(_userId),
+      Household.fromJson,
+    );
+    if (mounted && cached != null && !state.hasValue) {
+      state = AsyncValue.data(cached.items);
+    }
+
     await Future.delayed(const Duration(milliseconds: 700));
-    if (!mounted || state.hasValue || _inFlightLoad != null) {
+    if (!mounted || _inFlightLoad != null) {
       return;
     }
     await load();
@@ -139,11 +315,32 @@ class UserHouseholdsNotifier
     }
 
     try {
-      state = const AsyncValue.loading();
-      final result =
-          await AsyncValue.guard(() => _repository.getUserHouseholds(_userId));
+      final cacheKey = _userHouseholdsCacheKey(_userId);
+      final cached = await _readHouseholdCachedList<Household>(
+        cacheKey,
+        Household.fromJson,
+      );
       if (!mounted) return;
-      state = result;
+      if (cached != null && !state.hasValue) {
+        state = AsyncValue.data(cached.items);
+        trace.mark('persisted-cache-hit', {'count': cached.items.length});
+      } else if (!state.hasValue) {
+        state = const AsyncValue.loading();
+      }
+
+      final result = await AsyncValue.guard(() async {
+        final households = await _repository.getUserHouseholds(_userId);
+        unawaited(_writeHouseholdCachedList(
+          cacheKey,
+          households,
+          (household) => household.toJson(),
+        ));
+        return households;
+      });
+      if (!mounted) return;
+      if (result.hasValue || !state.hasValue) {
+        state = result;
+      }
       trace.mark('load-finished', {
         'hasError': result.hasError,
         'count': result.valueOrNull?.length,
@@ -160,6 +357,13 @@ class UserHouseholdsNotifier
   void hydrate(List<Household> households) {
     if (!mounted) return;
     state = AsyncValue.data(households);
+    if (_userId.isNotEmpty) {
+      unawaited(_writeHouseholdCachedList(
+        _userHouseholdsCacheKey(_userId),
+        households,
+        (household) => household.toJson(),
+      ));
+    }
   }
 
   void addOrReplaceHousehold(Household household) {
@@ -174,6 +378,13 @@ class UserHouseholdsNotifier
     }
 
     state = AsyncValue.data(updated);
+    if (_userId.isNotEmpty) {
+      unawaited(_writeHouseholdCachedList(
+        _userHouseholdsCacheKey(_userId),
+        updated,
+        (household) => household.toJson(),
+      ));
+    }
   }
 
   void removeHousehold(String householdId) {
@@ -184,6 +395,13 @@ class UserHouseholdsNotifier
           .where((household) => household.id != householdId)
           .toList(growable: false),
     );
+    if (_userId.isNotEmpty) {
+      unawaited(_writeHouseholdCachedList(
+        _userHouseholdsCacheKey(_userId),
+        state.valueOrNull ?? const <Household>[],
+        (household) => household.toJson(),
+      ));
+    }
   }
 
   Future<void> createHousehold({
@@ -260,13 +478,30 @@ class HouseholdMembersNotifier
 
   Future<void> load() async {
     if (!mounted) return;
-    if (!state.hasValue) {
+    final cacheKey = _householdMembersCacheKey(_householdId);
+    final cached = await _readHouseholdCachedList<HouseholdMember>(
+      cacheKey,
+      HouseholdMember.fromJson,
+    );
+    if (!mounted) return;
+    if (cached != null && !state.hasValue) {
+      state = AsyncValue.data(cached.items);
+    } else if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
-    final result = await AsyncValue.guard(
-        () => _repository.getHouseholdMembers(_householdId));
+    final result = await AsyncValue.guard(() async {
+      final members = await _repository.getHouseholdMembers(_householdId);
+      unawaited(_writeHouseholdCachedList(
+        cacheKey,
+        members,
+        (member) => member.toJson(),
+      ));
+      return members;
+    });
     if (!mounted) return;
-    state = result;
+    if (result.hasValue || !state.hasValue) {
+      state = result;
+    }
   }
 
   Future<void> removeMember(String memberId) async {
@@ -300,21 +535,39 @@ class HouseholdBudgetsNotifier
     extends StateNotifier<AsyncValue<List<SharedBudget>>> {
   final HouseholdRepository _repository;
   final String _householdId;
+  final Ref? _ref;
 
-  HouseholdBudgetsNotifier(this._repository, this._householdId)
+  HouseholdBudgetsNotifier(this._repository, this._householdId, [this._ref])
       : super(const AsyncValue.loading()) {
     load();
   }
 
   Future<void> load() async {
     if (!mounted) return;
-    if (!state.hasValue) {
+    final cacheKey = _householdBudgetsCacheKey(_householdId);
+    final cached = await _readHouseholdCachedList<SharedBudget>(
+      cacheKey,
+      SharedBudget.fromJson,
+    );
+    if (!mounted) return;
+    if (cached != null && !state.hasValue) {
+      state = AsyncValue.data(cached.items);
+    } else if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
-    final result = await AsyncValue.guard(
-        () => _repository.getHouseholdBudgets(_householdId));
+    final result = await AsyncValue.guard(() async {
+      final budgets = await _repository.getHouseholdBudgets(_householdId);
+      unawaited(_writeHouseholdCachedList(
+        cacheKey,
+        budgets,
+        (budget) => budget.toJson(),
+      ));
+      return budgets;
+    });
     if (!mounted) return;
-    state = result;
+    if (result.hasValue || !state.hasValue) {
+      state = result;
+    }
   }
 
   Future<void> createBudget({
@@ -327,19 +580,89 @@ class HouseholdBudgetsNotifier
     String? budgetType,
     bool? countSplitPortionOnly,
   }) async {
-    await _repository.createBudget(
+    final now = DateTime.now();
+    final optimisticId =
+        'optimistic-shared-budget-${now.microsecondsSinceEpoch}';
+    final optimistic = SharedBudget(
+      id: optimisticId,
       householdId: _householdId,
       name: name,
-      period: period,
+      period: BudgetPeriod.fromJson(period),
       currency: currency,
       amountCents: amountCents,
-      warnThreshold: warnThreshold,
-      alertThreshold: alertThreshold,
-      budgetType: budgetType,
-      countSplitPortionOnly: countSplitPortionOnly,
+      warnThreshold: warnThreshold ?? 0.8,
+      alertThreshold: alertThreshold ?? 1.0,
+      isActive: true,
+      budgetType: BudgetType.fromJson(budgetType ?? 'household'),
+      countSplitPortionOnly: countSplitPortionOnly ?? false,
+      createdAt: now,
+      updatedAt: now,
     );
-    if (!mounted) return;
-    await load();
+    final previous = state;
+    state = AsyncValue.data([
+      optimistic,
+      ...(state.valueOrNull ?? const <SharedBudget>[]),
+    ]);
+    unawaited(_writeHouseholdCachedList(
+      _householdBudgetsCacheKey(_householdId),
+      state.valueOrNull ?? const <SharedBudget>[],
+      (budget) => budget.toJson(),
+    ));
+
+    final mutationId =
+        'mobile:shared_budget_${_householdId}_${currency}_$period'
+            .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    try {
+      final ref = _ref;
+      if (ref != null) {
+        final database = await ref.read(localDatabaseProvider.future);
+        await database.enqueueMutation(
+          clientMutationId: mutationId,
+          entityType: 'shared_budget',
+          entityId: optimisticId,
+          operation: 'save_shared_budget',
+          payload: {
+            'householdId': _householdId,
+            'name': name,
+            'period': period,
+            'currency': currency,
+            'amountCents': amountCents,
+            'warnThreshold': warnThreshold,
+            'alertThreshold': alertThreshold,
+            'budgetType': budgetType,
+            'countSplitPortionOnly': countSplitPortionOnly,
+          },
+        );
+      }
+    } catch (_) {}
+
+    try {
+      await _repository.createBudget(
+        householdId: _householdId,
+        name: name,
+        period: period,
+        currency: currency,
+        amountCents: amountCents,
+        warnThreshold: warnThreshold,
+        alertThreshold: alertThreshold,
+        budgetType: budgetType,
+        countSplitPortionOnly: countSplitPortionOnly,
+      );
+      final ref = _ref;
+      if (ref != null) {
+        final database = await ref.read(localDatabaseProvider.future);
+        await database.markMutationSynced(mutationId);
+      }
+      if (!mounted) return;
+      await load();
+    } catch (error) {
+      if (_shouldKeepQueuedLocalMutation(error)) {
+        return;
+      }
+      if (!mounted) return;
+      state = previous;
+      rethrow;
+    }
   }
 }
 
@@ -348,7 +671,7 @@ final householdBudgetsProvider = StateNotifierProvider.family<
     HouseholdBudgetsNotifier, AsyncValue<List<SharedBudget>>, String>(
   (ref, householdId) {
     final repository = ref.watch(householdRepositoryProvider);
-    return HouseholdBudgetsNotifier(repository, householdId);
+    return HouseholdBudgetsNotifier(repository, householdId, ref);
   },
 );
 
@@ -548,6 +871,11 @@ final householdSummaryProvider =
     trace.mark('load-start');
     ref.watch(dashboardRefreshSignalProvider);
     final repository = ref.watch(householdRepositoryProvider);
+    final cacheKey = _householdSummaryCacheKey(params);
+    final cached = await _readHouseholdCachedObject(
+      cacheKey,
+      HouseholdSummary.fromJson,
+    );
 
     // Use a tighter timeout so dashboard widgets fail fast instead of
     // appearing to load forever when the backend is slow/unresponsive.
@@ -570,6 +898,11 @@ final householdSummaryProvider =
               endDate: params.endDate,
             )
             .timeout(timeout);
+        unawaited(_writeHouseholdCachedObject(
+          cacheKey,
+          summary,
+          (value) => value.toJson(),
+        ));
         trace.mark('load-success', {'hasSummary': true});
         return summary;
       } on TimeoutException catch (e) {
@@ -591,6 +924,11 @@ final householdSummaryProvider =
         FirebaseCrashlytics.instance.log(
             '⚠️ householdSummaryProvider error (attempt $attempt/$maxAttempts) for ${params.householdId} ${params.currency}: $e');
       }
+    }
+
+    if (cached != null) {
+      trace.mark('fallback-cache-hit');
+      return cached;
     }
 
     throw lastError ?? Exception('Unknown household summary error');
@@ -632,11 +970,39 @@ final householdSplitsProvider =
       householdOptimisticSplitsProvider
           .select((state) => state[params.householdId] ?? const []),
     );
+    final cacheKey = _householdSplitsCacheKey(params);
+    final cached = await _readHouseholdCachedList<ExpenseSplitGroup>(
+      cacheKey,
+      ExpenseSplitGroup.fromJson,
+    );
+    if (cached != null) {
+      final cachedMerged = mergeHouseholdSplits(cached.items, optimistic);
+      if (!_isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
+        _runHouseholdBackgroundRefresh(cacheKey, () async {
+          try {
+            final refreshed = await repository.getHouseholdSplits(
+              householdId: params.householdId,
+            );
+            await _writeHouseholdCachedList(
+              cacheKey,
+              refreshed,
+              (split) => split.toJson(),
+            );
+          } catch (_) {}
+        });
+      }
+      return cachedMerged;
+    }
 
     // Get splits for the household
     final splits = await repository.getHouseholdSplits(
       householdId: params.householdId,
     );
+    unawaited(_writeHouseholdCachedList(
+      cacheKey,
+      splits,
+      (split) => split.toJson(),
+    ));
 
     if (optimistic.isNotEmpty) {
       ref
@@ -694,6 +1060,28 @@ final householdExpensesProvider = FutureProvider.autoDispose
     .family<List<ExpenseEntry>, HouseholdExpensesParams>(
   (ref, params) async {
     final supabase = ref.watch(supabaseClientProvider);
+    final optimistic = ref.watch(
+      householdOptimisticExpensesProvider
+          .select((state) => state[params.householdId] ?? const []),
+    );
+    final deletedIds = ref.watch(
+      householdOptimisticDeletedExpenseIdsProvider.select(
+        (state) => state[params.householdId] ?? const <String>{},
+      ),
+    );
+    final cacheKey = _householdExpensesCacheKey(params);
+    final cached = await _readHouseholdCachedList<ExpenseEntry>(
+      cacheKey,
+      ExpenseEntry.fromJson,
+    );
+    if (cached != null &&
+        _isFresh(cached.cachedAt, _householdTransactionCacheTtl)) {
+      return mergeHouseholdExpenses(
+        cached.items,
+        optimistic,
+        deletedIds: deletedIds,
+      );
+    }
     // Reduce timeout so the UI can surface an error state quickly rather than
     // waiting ~25s before giving up on a stuck query.
     const timeout = Duration(seconds: 10);
@@ -767,7 +1155,18 @@ final householdExpensesProvider = FutureProvider.autoDispose
         expensesList = (response as List).cast<Map<String, dynamic>>();
       }
 
-      if (expensesList.isEmpty) return [];
+      if (expensesList.isEmpty) {
+        unawaited(_writeHouseholdCachedList<ExpenseEntry>(
+          cacheKey,
+          const <ExpenseEntry>[],
+          (entry) => entry.toJson(),
+        ));
+        return mergeHouseholdExpenses(
+          const <ExpenseEntry>[],
+          optimistic,
+          deletedIds: deletedIds,
+        );
+      }
 
       // Collect userIds to enrich display (optional)
       final userIds = expensesList
@@ -818,15 +1217,11 @@ final householdExpensesProvider = FutureProvider.autoDispose
       }
 
       final entries = expensesList.map(ExpenseEntry.fromJson).toList();
-      final optimistic = ref.watch(
-        householdOptimisticExpensesProvider
-            .select((state) => state[params.householdId] ?? const []),
-      );
-      final deletedIds = ref.watch(
-        householdOptimisticDeletedExpenseIdsProvider.select(
-          (state) => state[params.householdId] ?? const <String>{},
-        ),
-      );
+      unawaited(_writeHouseholdCachedList(
+        cacheKey,
+        entries,
+        (entry) => entry.toJson(),
+      ));
       if (optimistic.isNotEmpty) {
         ref
             .read(householdOptimisticExpensesProvider.notifier)
@@ -844,11 +1239,25 @@ final householdExpensesProvider = FutureProvider.autoDispose
       );
       FirebaseCrashlytics.instance
           .log('❌ Error loading household expenses (timeout): $e\n$st');
+      if (cached != null) {
+        return mergeHouseholdExpenses(
+          cached.items,
+          optimistic,
+          deletedIds: deletedIds,
+        );
+      }
       // Bubble up to UI to show consistent error state
       rethrow;
     } catch (e, st) {
       FirebaseCrashlytics.instance
           .log('❌ Error loading household expenses: $e\n$st');
+      if (cached != null) {
+        return mergeHouseholdExpenses(
+          cached.items,
+          optimistic,
+          deletedIds: deletedIds,
+        );
+      }
       // Bubble up to UI to show consistent error state
       rethrow;
     }
@@ -918,6 +1327,17 @@ final householdSettlementPaymentsProvider = FutureProvider.autoDispose
   final supabase = ref.watch(supabaseClientProvider);
   final currentUserId = supabase.auth.currentUser?.id;
   if (currentUserId == null) return const <SettlementPaymentRecord>[];
+  final cacheKey = _householdSettlementPaymentsCacheKey(
+    householdId,
+    currentUserId,
+  );
+  final cached = await _readHouseholdCachedList<SettlementPaymentRecord>(
+    cacheKey,
+    _settlementPaymentRecordFromJson,
+  );
+  if (cached != null && _isFresh(cached.cachedAt, _householdEntityCacheTtl)) {
+    return cached.items;
+  }
 
   try {
     final response = await supabase
@@ -944,8 +1364,14 @@ final householdSettlementPaymentsProvider = FutureProvider.autoDispose
         currency: currency,
       ));
     }
+    unawaited(_writeHouseholdCachedList(
+      cacheKey,
+      out,
+      _settlementPaymentRecordToJson,
+    ));
     return out;
   } catch (e) {
+    if (cached != null) return cached.items;
     return const <SettlementPaymentRecord>[];
   }
 });
@@ -1261,3 +1687,18 @@ final householdSettlementHistoryProvider = FutureProvider.autoDispose
     return const <SettlementEvent>[];
   }
 });
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error');
+}

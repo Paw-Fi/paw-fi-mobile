@@ -1060,9 +1060,15 @@ Future<void> _persistAiTransactions(
   // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
   if (localImagePath != null && localImagePath.isNotEmpty) {
-    receiptUrl = await container
-        .read(expenseSaveNotifierProvider.notifier)
-        .uploadReceiptImage(File(localImagePath), userId);
+    try {
+      receiptUrl = await container
+          .read(expenseSaveNotifierProvider.notifier)
+          .uploadReceiptImage(File(localImagePath), userId);
+    } catch (error) {
+      _debugPrint(
+        '⚠️ Receipt upload failed before AI transaction queueing; continuing without receipt image: $error',
+      );
+    }
   }
 
   final autoSplitContext =

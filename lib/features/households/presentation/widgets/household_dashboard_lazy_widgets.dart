@@ -101,75 +101,63 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       });
     }
 
+    Widget child;
+
     if ((transactionsAsync.isLoading &&
             !transactionsAsync.hasValue &&
             transactions.isEmpty) ||
         (splitsAsync.isLoading && !splitsAsync.hasValue)) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildSpentByYouSkeleton(
-          context,
-          selectedCurrency,
-          config.dateRange,
-          referenceNow,
-          key: const ValueKey('spent_by_you_skeleton'),
-        ),
+      child = _buildSpentByYouSkeleton(
+        context,
+        selectedCurrency,
+        config.dateRange,
+        referenceNow,
+        key: const ValueKey('spent_by_you_skeleton'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('spent_by_you_error_1'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('spent_by_you_error_1'),
       );
-    }
-    if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-          key: const ValueKey('spent_by_you_error_2'),
-        ),
+    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
+        key: const ValueKey('spent_by_you_error_2'),
       );
-    }
+    } else {
+      final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
+      );
+      final totals = computeSplitAwareMemberSpendingTotals(
+        transactions: mergedTransactions,
+        from: range['from']!,
+        to: range['to']!,
+        splits: splitsAsync.valueOrNull ?? const [],
+        selectedCurrency: selectedCurrency,
+      );
+      final spentByUser = totals.totalForUser(userId);
 
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-    final totals = computeSplitAwareMemberSpendingTotals(
-      transactions: mergedTransactions,
-      from: range['from']!,
-      to: range['to']!,
-      splits: splitsAsync.valueOrNull ?? const [],
-      selectedCurrency: selectedCurrency,
-    );
-    final spentByUser = totals.totalForUser(userId);
+      final syntheticExpense = buildSyntheticSpentByUserExpense(
+        userId: userId,
+        totalSpentCents: spentByUser,
+        anchorDate: range['to']!,
+        currency: selectedCurrency,
+        householdId: household.id,
+      );
 
-    final syntheticExpense = buildSyntheticSpentByUserExpense(
-      userId: userId,
-      totalSpentCents: spentByUser,
-      anchorDate: range['to']!,
-      currency: selectedCurrency,
-      householdId: household.id,
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: GestureDetector(
+      child = GestureDetector(
         key: ValueKey('spent_by_you_data_${syntheticExpense.id}_$spentByUser'),
         onTap: () {
           Navigator.of(context).push(
@@ -192,7 +180,12 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
           referenceNow: referenceNow,
           selectedCurrency: selectedCurrency,
         ),
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -290,106 +283,96 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
     final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
 
+    Widget child;
+
     if (summary == null && summaryAsync.hasError) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
-          key: const ValueKey('member_spending_error_1'),
-        ),
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
+        key: const ValueKey('member_spending_error_1'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('member_spending_error_2'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('member_spending_error_2'),
       );
-    }
-    if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-          key: const ValueKey('member_spending_error_3'),
-        ),
+    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
+        key: const ValueKey('member_spending_error_3'),
       );
-    }
-    if (summary == null) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: summaryAsync.isLoading
-            ? Skeletonizer(
-                key: const ValueKey('member_spending_skeleton'),
-                effect: ShimmerEffect(
-                  baseColor: Theme.of(context).colorScheme.skeletonBase,
-                  highlightColor: Theme.of(context).colorScheme.skeletonHighlight,
-                ),
-                child: buildHouseholdMemberSpendingCard(
-                  context,
-                  Theme.of(context).colorScheme,
-                  null,
-                  members: const [],
-                  householdId: household.id,
-                  selectedCurrency: selectedCurrency,
-                  dateRangeFilter: config.dateRange,
-                  currentUserId: userId,
-                ),
-              )
-            : const SizedBox.shrink(key: ValueKey('member_spending_empty')),
+    } else if (summary == null) {
+      child = summaryAsync.isLoading
+          ? Skeletonizer(
+              key: const ValueKey('member_spending_skeleton'),
+              effect: ShimmerEffect(
+                baseColor: Theme.of(context).colorScheme.skeletonBase,
+                highlightColor: Theme.of(context).colorScheme.skeletonHighlight,
+              ),
+              child: buildHouseholdMemberSpendingCard(
+                context,
+                Theme.of(context).colorScheme,
+                null,
+                members: const [],
+                householdId: household.id,
+                selectedCurrency: selectedCurrency,
+                dateRangeFilter: config.dateRange,
+                currentUserId: userId,
+              ),
+            )
+          : const SizedBox.shrink(key: ValueKey('member_spending_empty'));
+    } else {
+      final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
       );
-    }
 
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildHouseholdMemberSpendingCard(
-        key: ValueKey('member_spending_data_${summary.totals.totalExpensesCents}_${membersAsync.valueOrNull?.length}'),
+      child = buildHouseholdMemberSpendingCard(
+        key: ValueKey(
+            'member_spending_data_${summary.totals.totalExpensesCents}_${membersAsync.valueOrNull?.length}'),
         context,
         Theme.of(context).colorScheme,
         summary,
         members: membersAsync.valueOrNull,
-      householdId: household.id,
-      transactions: mergedTransactions,
-      splits: splitsAsync.valueOrNull,
-      from: range['from'],
-      to: range['to'],
-      selectedCurrency: selectedCurrency,
-      dateRangeFilter: config.dateRange,
-      currentUserId: userId,
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => TransactionsPage(
-              householdId: household.id,
-              enableDateFilter: true,
-              initialStartDate: range['from'],
-              initialEndDate: range['to'],
+        householdId: household.id,
+        transactions: mergedTransactions,
+        splits: splitsAsync.valueOrNull,
+        from: range['from'],
+        to: range['to'],
+        selectedCurrency: selectedCurrency,
+        dateRangeFilter: config.dateRange,
+        currentUserId: userId,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TransactionsPage(
+                householdId: household.id,
+                enableDateFilter: true,
+                initialStartDate: range['from'],
+                initialEndDate: range['to'],
+              ),
             ),
-          ),
-        );
-      },
-    )
+          );
+        },
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -426,40 +409,32 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       limit: 5,
     );
 
+    Widget child;
+
     if (recentAsync.isLoading &&
         !recentAsync.hasValue &&
         recentTransactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildRecentTransactionsSkeleton(
-          context,
-          selectedCurrency,
-          household.id,
-          userId,
-          key: const ValueKey('household_recent_skeleton'),
-        ),
+      child = _buildRecentTransactionsSkeleton(
+        context,
+        selectedCurrency,
+        household.id,
+        userId,
+        key: const ValueKey('household_recent_skeleton'),
       );
-    }
-    if (recentAsync.hasError && !recentAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(
-            dashboardRecentTransactionsProvider(
-              DashboardRecentTransactionsRequest(query: query, limit: 5),
-            ),
+    } else if (recentAsync.hasError && !recentAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(
+          dashboardRecentTransactionsProvider(
+            DashboardRecentTransactionsRequest(query: query, limit: 5),
           ),
-          key: const ValueKey('household_recent_error'),
         ),
+        key: const ValueKey('household_recent_error'),
       );
-    }
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildRecentTransactionsCard(
+    } else {
+      child = buildRecentTransactionsCard(
         context,
         Theme.of(context).colorScheme,
         recentTransactions,
@@ -475,7 +450,12 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
             ),
           );
         },
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -529,44 +509,37 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
       });
     }
 
+    Widget child;
+
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildBreakdownSkeleton(
-          context,
-          key: const ValueKey('household_breakdown_skeleton'),
-        ),
+      child = _buildBreakdownSkeleton(
+        context,
+        key: const ValueKey('household_breakdown_skeleton'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('household_breakdown_error'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('household_breakdown_error'),
       );
-    }
+    } else {
+      final expenses = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
+      );
 
-    final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildSpendingBreakdownChart(
-        key: ValueKey('household_breakdown_data_${expenses.length}_$selectedCurrency'),
+      child = buildSpendingBreakdownChart(
+        key: ValueKey(
+            'household_breakdown_data_${expenses.length}_$selectedCurrency'),
         context,
         Theme.of(context).colorScheme,
         expenses,
@@ -577,7 +550,12 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
         selectedCurrency: selectedCurrency,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -631,50 +609,48 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
       });
     }
 
+    Widget child;
+
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildWhereMoneyWentSkeleton(
-          context,
-          key: const ValueKey('household_where_money_went_skeleton'),
-        ),
+      child = _buildWhereMoneyWentSkeleton(
+        context,
+        key: const ValueKey('household_where_money_went_skeleton'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('household_where_money_went_error'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('household_where_money_went_error'),
       );
-    }
+    } else {
+      final expenses = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
+      );
 
-    final expenses = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: WhereTheMoneyWentWidget(
-        key: ValueKey('household_where_money_went_data_${expenses.length}_$selectedCurrency'),
+      child = WhereTheMoneyWentWidget(
+        key: ValueKey(
+            'household_where_money_went_data_${expenses.length}_$selectedCurrency'),
         expenses: expenses,
         currency: selectedCurrency,
         onHelpTap: () =>
             showCategoryGuide(context, Theme.of(context).colorScheme),
         dateRange: config.dateRange,
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -842,63 +818,52 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
       });
     }
 
+    Widget child;
+
     if (summary == null && summaryAsync.hasError) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
-          key: const ValueKey('household_budget_error_1'),
-        ),
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
+        key: const ValueKey('household_budget_error_1'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('household_budget_error_2'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('household_budget_error_2'),
       );
-    }
-    if (summary == null) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: summaryAsync.isLoading
-            ? _buildBreakdownSkeleton(
-                context,
-                key: const ValueKey('household_budget_skeleton'),
-              )
-            : const SizedBox.shrink(key: ValueKey('household_budget_empty')),
+    } else if (summary == null) {
+      child = summaryAsync.isLoading
+          ? _buildBreakdownSkeleton(
+              context,
+              key: const ValueKey('household_budget_skeleton'),
+            )
+          : const SizedBox.shrink(key: ValueKey('household_budget_empty'));
+    } else {
+      final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
       );
-    }
+      final spendOnly = mergedTransactions
+          .where((tx) => (tx.type ?? 'expense').toLowerCase() != 'income')
+          .toList(growable: false);
+      final totalSpentByHouseholdCents = spendOnly.fold<int>(
+        0,
+        (sum, tx) => sum + tx.amountCents.abs(),
+      );
 
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-    final spendOnly = mergedTransactions
-        .where((tx) => (tx.type ?? 'expense').toLowerCase() != 'income')
-        .toList(growable: false);
-    final totalSpentByHouseholdCents = spendOnly.fold<int>(
-      0,
-      (sum, tx) => sum + tx.amountCents.abs(),
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildHouseholdBudgetOverviewCard(
-        key: ValueKey('household_budget_data_${spendOnly.length}_$totalSpentByHouseholdCents'),
+      child = buildHouseholdBudgetOverviewCard(
+        key: ValueKey(
+            'household_budget_data_${spendOnly.length}_$totalSpentByHouseholdCents'),
         context,
         Theme.of(context).colorScheme,
         summary,
@@ -917,7 +882,12 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
             ),
           );
         },
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -980,63 +950,49 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         recurringNotifier.loadRecurringTransactions(userId);
       });
     }
+
+    Widget child;
+
     if (summary == null && summaryAsync.hasError) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
-          key: const ValueKey('fairness_error_1'),
-        ),
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdDerivedSummaryProvider(params)),
+        key: const ValueKey('fairness_error_1'),
       );
-    }
-    if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () =>
-              ref.invalidate(dashboardCalendarTransactionsProvider(query)),
-          key: const ValueKey('fairness_error_2'),
-        ),
+    } else if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () =>
+            ref.invalidate(dashboardCalendarTransactionsProvider(query)),
+        key: const ValueKey('fairness_error_2'),
       );
-    }
-    if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
-          context,
-          Theme.of(context).colorScheme,
-          context.l10n.errorLoadingDashboard,
-          onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-          key: const ValueKey('fairness_error_3'),
-        ),
+    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
+      child = _buildDashboardErrorCard(
+        context,
+        Theme.of(context).colorScheme,
+        context.l10n.errorLoadingDashboard,
+        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
+        key: const ValueKey('fairness_error_3'),
       );
-    }
-    if (summary == null) {
-      return const AnimatedSwitcher(
-        duration: Duration(milliseconds: 350),
-        child: SizedBox.shrink(key: ValueKey('fairness_empty')),
+    } else if (summary == null) {
+      child = const SizedBox.shrink(key: ValueKey('fairness_empty'));
+    } else {
+      final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
+        actualExpenses: transactions,
+        recurringTransactions: recurringState.data.valueOrNull ?? const [],
+        rangeStart: range['from']!,
+        rangeEnd: range['to']!,
+        selectedCurrency: selectedCurrency,
+        includeFutureOccurrences: false,
       );
-    }
 
-    final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
-      actualExpenses: transactions,
-      recurringTransactions: recurringState.data.valueOrNull ?? const [],
-      rangeStart: range['from']!,
-      rangeEnd: range['to']!,
-      selectedCurrency: selectedCurrency,
-      includeFutureOccurrences: false,
-    );
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: GroupFairnessMeter(
-        key: ValueKey('fairness_data_${mergedTransactions.length}_$selectedCurrency'),
+      child = GroupFairnessMeter(
+        key: ValueKey(
+            'fairness_data_${mergedTransactions.length}_$selectedCurrency'),
         summary: summary,
         transactions: mergedTransactions,
         splits: splitsAsync.valueOrNull,
@@ -1044,7 +1000,12 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         to: range['to'],
         currency: selectedCurrency,
         dateRange: config.dateRange,
-      ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: child,
     );
   }
 }
@@ -1075,27 +1036,30 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
     );
     final summaryAsync = ref.watch(householdDerivedSummaryProvider(params));
     final summary = summaryAsync.valueOrNull;
+
+    Widget child;
+
     if (summary == null || userId == null) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: summaryAsync.isLoading
-            ? _buildBreakdownSkeleton(
-                context,
-                key: const ValueKey('settlement_skeleton'),
-              )
-            : const SizedBox.shrink(key: ValueKey('settlement_empty')),
+      child = summaryAsync.isLoading
+          ? _buildBreakdownSkeleton(
+              context,
+              key: const ValueKey('settlement_skeleton'),
+            )
+          : const SizedBox.shrink(key: ValueKey('settlement_empty'));
+    } else {
+      child = SettlementSuggestionsCard(
+        key: ValueKey(
+            'settlement_data_${summary.householdId}_${membersAsync.valueOrNull?.length}'),
+        summary: summary,
+        currency: selectedCurrency,
+        members: membersAsync.valueOrNull,
+        currentUserId: userId,
       );
     }
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
-      child: SettlementSuggestionsCard(
-        key: ValueKey('settlement_data_${summary.householdId}_${membersAsync.valueOrNull?.length}'),
-        summary: summary,
-        currency: selectedCurrency,
-        members: membersAsync.valueOrNull,
-        currentUserId: userId,
-      ),
+      child: child,
     );
   }
 }

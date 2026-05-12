@@ -582,43 +582,73 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     TransactionsFeedQuery query, {
     TransactionsFeedCursor? cursor,
   }) async {
+    final localQuery = _localQuery(query, cursor: cursor);
     final localPage = await _database.getTransactionsFeedPage(
-      _localQuery(query, cursor: cursor),
+      localQuery,
     );
-    if (localPage.items.isNotEmpty || cursor != null) {
+    final isComplete = await _database.isTransactionsFeedCacheComplete(
+      _localQuery(query),
+    );
+    if (isComplete || cursor != null) {
       return _pageFromLocal(localPage, query);
     }
 
-    final remotePage = await _remote.fetchPage(query, cursor: cursor);
-    await _cacheRemoteItems(remotePage.items);
-    return remotePage;
+    try {
+      final remotePage = await _remote.fetchPage(query, cursor: cursor);
+      await _cacheRemoteItems(remotePage.items);
+      if (cursor == null) {
+        await _database.markTransactionsFeedCacheComplete(
+          _localQuery(query),
+          isComplete: !remotePage.hasMore,
+        );
+      }
+      return remotePage;
+    } catch (_) {
+      return _pageFromLocal(localPage, query);
+    }
   }
 
   @override
   Future<TransactionsFeedSummary> fetchSummary(
     TransactionsFeedQuery query,
   ) async {
-    final localSummary = await _database.getTransactionsFeedSummary(
-      _localQuery(query),
+    final localQuery = _localQuery(query);
+    final localSummary = await _database.getTransactionsFeedSummary(localQuery);
+    final isComplete = await _database.isTransactionsFeedCacheComplete(
+      localQuery,
     );
-    if (localSummary.transactionCount > 0) {
+    if (isComplete) {
       return _summaryFromLocal(localSummary);
     }
-    return _remote.fetchSummary(query);
+    try {
+      return await _remote.fetchSummary(query);
+    } catch (_) {
+      return _summaryFromLocal(localSummary);
+    }
   }
 
   @override
   Future<List<ExpenseEntry>> fetchAllPages(TransactionsFeedQuery query) async {
-    final localItems = await _database.getTransactionsFeedItems(
-      _localQuery(query, pageSize: query.pageSize),
+    final localQuery = _localQuery(query, pageSize: query.pageSize);
+    final localItems = await _database.getTransactionsFeedItems(localQuery);
+    final isComplete = await _database.isTransactionsFeedCacheComplete(
+      _localQuery(query),
     );
-    if (localItems.isNotEmpty) {
+    if (isComplete) {
       return localItems;
     }
 
-    final remoteItems = await _remote.fetchAllPages(query);
-    await _cacheRemoteItems(remoteItems);
-    return remoteItems;
+    try {
+      final remoteItems = await _remote.fetchAllPages(query);
+      await _cacheRemoteItems(remoteItems);
+      await _database.markTransactionsFeedCacheComplete(
+        _localQuery(query),
+        isComplete: true,
+      );
+      return remoteItems;
+    } catch (_) {
+      return localItems;
+    }
   }
 
   @override
@@ -636,6 +666,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       authoritativeItems: page.items,
       remoteHasMore: page.hasMore,
     );
+    await _database.markTransactionsFeedCacheComplete(
+      localQuery,
+      isComplete: !page.hasMore,
+    );
 
     final syncedLocalCount = await _database.getTransactionsFeedCount(
       localQuery,
@@ -648,6 +682,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         query: localQuery,
         authoritativeItems: authoritativeItems,
         remoteHasMore: false,
+      );
+      await _database.markTransactionsFeedCacheComplete(
+        localQuery,
+        isComplete: true,
       );
     }
   }
@@ -696,7 +734,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
   ) {
     return TransactionsFeedPageResult(
       items: page.items,
-      hasMore: page.hasMore || page.items.length >= query.pageSize,
+      hasMore: page.hasMore,
       nextCursor: page.nextCursor == null
           ? null
           : TransactionsFeedCursor(

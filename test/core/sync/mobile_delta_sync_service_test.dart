@@ -71,6 +71,59 @@ void main() {
     expect(rows.map((entry) => entry.id), ['expense_1']);
   });
 
+  test('MobileDeltaSyncService preserves pending local rows and tombstones',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final pending = MobileDelta.fromJson({
+      'transactions': [_entryJson('pending_create')],
+    }).transactions.single;
+    final deleting = MobileDelta.fromJson({
+      'transactions': [_entryJson('pending_delete')],
+    }).transactions.single;
+    await database.writeOptimisticTransaction(
+      entry: pending,
+      clientMutationId: 'mobile:create_pending',
+      operation: 'create',
+      payload: {'id': pending.id},
+    );
+    await database.upsertTransactions([deleting]);
+    await database.writeOptimisticTransactionDelete(
+      entries: [deleting],
+      clientMutationId: 'mobile:delete_pending',
+      payload: {'expenseIds': deleting.id},
+    );
+
+    final service = MobileDeltaSyncService(
+      database: database,
+      fetchDelta: ({
+        required userId,
+        required since,
+        required sinceId,
+        required limit,
+      }) async {
+        return MobileDelta.fromJson({
+          'transactions': [
+            {..._entryJson('pending_create'), 'amount_cents': 9999},
+            {..._entryJson('pending_delete'), 'amount_cents': 9999},
+          ],
+          'deletedTransactionIds': const [],
+          'hasMore': false,
+        });
+      },
+    );
+
+    await service.pullAndApply(userId: 'user_1');
+    final rows = await database.getRecentTransactions(
+      userId: 'user_1',
+      householdId: null,
+      limit: 20,
+    );
+
+    expect(rows.map((entry) => entry.id), ['pending_create']);
+    expect(rows.single.amountCents, 1250);
+  });
+
   test('MobileDeltaSyncService persists and reuses sync cursor', () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);

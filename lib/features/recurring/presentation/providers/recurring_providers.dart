@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/currency_transaction_counts_provider.dart';
 import 'package:moneko/features/home/presentation/state/state.dart'
     show analyticsProvider;
@@ -522,10 +524,26 @@ class RecurringTransactionsNotifier
     if (_guardPreviewWrites()) {
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
+    MonekoDatabase? localDatabase;
+    List<ExpenseEntry> deletedEntries = const <ExpenseEntry>[];
+    final mutationMetadata = buildTransactionMutationMetadataForRecord(
+      clientRecordId: transactionId,
+      operation: 'delete_recurring_transaction',
+    );
+
     try {
       // Optimistic update
       if (!mounted) {
         return const DeleteRecurringResult.failure('Provider unmounted');
+      }
+      final currentTransactions = state.data.valueOrNull ?? const [];
+      final target = currentTransactions
+          .where((transaction) => transaction.id == transactionId)
+          .firstOrNull;
+      if (target != null) {
+        deletedEntries = [
+          _expenseEntryFromRecurringTransaction(target, userId),
+        ];
       }
       state.data.whenData((transactions) {
         state = state.copyWith(
@@ -535,10 +553,28 @@ class RecurringTransactionsNotifier
         );
       });
 
+      if (deletedEntries.isNotEmpty) {
+        final database = await ref.read(localDatabaseProvider.future);
+        localDatabase = database;
+        await database.writeOptimisticTransactionDelete(
+          entries: deletedEntries,
+          clientMutationId: mutationMetadata.clientMutationId,
+          payload: {
+            ...mutationMetadata.toRequestJson(),
+            'userId': userId,
+            'expenseIds': transactionId,
+          },
+        );
+      }
+
       // Backend call
       final response = await supabase.functions.invoke(
         'delete-expense',
-        body: {'userId': userId, 'expenseIds': transactionId},
+        body: {
+          ...mutationMetadata.toRequestJson(),
+          'userId': userId,
+          'expenseIds': transactionId,
+        },
       );
 
       _debugPrint(
@@ -546,6 +582,9 @@ class RecurringTransactionsNotifier
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
+        await localDatabase?.markOptimisticTransactionDeleteSynced(
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
         // Keep other tabs (pockets + currency selector) in sync with the
         // underlying `expenses` table mutation.
         ref.invalidate(pocketsProvider);
@@ -564,11 +603,30 @@ class RecurringTransactionsNotifier
 
       _debugPrint('❌ [RecurringTx] DELETE FAILED: $errorMessage');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (deletedEntries.isNotEmpty) {
+        await localDatabase?.rollbackOptimisticTransactionDelete(
+          entries: deletedEntries,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: errorMessage ?? 'Delete failed',
+        );
+      }
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
       _debugPrint('❌ [RecurringTx] DELETE EXCEPTION: $e');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
+        return const DeleteRecurringResult.success();
+      }
+      if (deletedEntries.isNotEmpty) {
+        await localDatabase?.rollbackOptimisticTransactionDelete(
+          entries: deletedEntries,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: e,
+        );
+      }
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));
@@ -843,6 +901,8 @@ class RecurringTransactionSaveNotifier
     }
     state = const AsyncValue.loading();
     RecurringTransaction? optimisticTransaction;
+    TransactionMutationMetadata? mutationMetadata;
+    MonekoDatabase? localDatabase;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -946,9 +1006,20 @@ class RecurringTransactionSaveNotifier
         payerUserId: payerUserId,
         accountId: accountId,
       );
+      mutationMetadata = buildTransactionMutationMetadata(
+        optimisticTransaction.id,
+      );
+      requestBody.addAll(mutationMetadata.toRequestJson());
       ref
           .read(recurringTransactionsProvider(householdId).notifier)
           .addRecurring(optimisticTransaction);
+      localDatabase = await _queueRecurringCreate(
+        optimisticTransaction: optimisticTransaction,
+        mutationMetadata: mutationMetadata,
+        functionName: 'save-expense',
+        requestBody: requestBody,
+        fallbackUserId: userId,
+      );
 
       final response = await supabase.functions.invoke(
         'save-expense',
@@ -961,6 +1032,11 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, expense);
+        await localDatabase?.replaceOptimisticTransaction(
+          optimisticId: optimisticTransaction.id,
+          savedEntry: _expenseEntryFromRecurringTransaction(expense, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
         state = AsyncValue.data(expense);
 
         _debugPrint(
@@ -973,6 +1049,11 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .removeRecurring(optimisticTransaction.id);
+        await localDatabase?.rollbackOptimisticTransaction(
+          optimisticId: optimisticTransaction.id,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: response.data,
+        );
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to save recurring expense',
@@ -986,10 +1067,26 @@ class RecurringTransactionSaveNotifier
     } catch (e, st) {
       try {
         final optimistic = optimisticTransaction;
+        final metadata = mutationMetadata;
+        if (optimistic != null &&
+            localDatabase != null &&
+            _shouldKeepQueuedLocalMutation(e)) {
+          state = AsyncValue.data(optimistic);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+          return optimistic;
+        }
         if (optimistic != null) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
               .removeRecurring(optimistic.id);
+          if (localDatabase != null && metadata != null) {
+            await localDatabase.rollbackOptimisticTransaction(
+              optimisticId: optimistic.id,
+              clientMutationId: metadata.clientMutationId,
+              error: e,
+            );
+          }
         }
       } catch (_) {}
       state = AsyncValue.error(e, st);
@@ -1023,6 +1120,8 @@ class RecurringTransactionSaveNotifier
     }
     state = const AsyncValue.loading();
     RecurringTransaction? optimisticTransaction;
+    TransactionMutationMetadata? mutationMetadata;
+    MonekoDatabase? localDatabase;
 
     try {
       final dateFormatter = DateFormat('yyyy-MM-dd');
@@ -1067,33 +1166,46 @@ class RecurringTransactionSaveNotifier
         householdId: householdId,
         accountId: accountId,
       );
+      mutationMetadata = buildTransactionMutationMetadata(
+        optimisticTransaction.id,
+      );
       ref
           .read(recurringTransactionsProvider(householdId).notifier)
           .addRecurring(optimisticTransaction);
 
+      final requestBody = <String, dynamic>{
+        ...mutationMetadata.toRequestJson(),
+        'userId': userId,
+        'amount': amount,
+        'category': category,
+        'currency': currency,
+        'date': formattedAccountingDate,
+        'clientCreatedAt': clientCreatedAtIso,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+        if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
+        if (source != null && source.isNotEmpty) 'source': source,
+        'ownerType': ownerType,
+        'privacyScope': privacyScope,
+        if (householdId != null) 'householdId': householdId,
+        if (householdId != null)
+          'isPortfolio':
+              ref.read(householdScopeProvider).isPortfolioId(householdId),
+        'isRecurring': true,
+        'recurrence_rule': recurrenceRule,
+        if (accountId != null) 'accountId': accountId,
+      };
+      localDatabase = await _queueRecurringCreate(
+        optimisticTransaction: optimisticTransaction,
+        mutationMetadata: mutationMetadata,
+        functionName: 'save-income',
+        requestBody: requestBody,
+        fallbackUserId: userId,
+      );
+
       final response = await supabase.functions.invoke(
         'save-income',
-        body: {
-          'userId': userId,
-          'amount': amount,
-          'category': category,
-          'currency': currency,
-          'date': formattedAccountingDate,
-          'clientCreatedAt': clientCreatedAtIso,
-          if (description != null && description.isNotEmpty)
-            'description': description,
-          if (merchant != null && merchant.isNotEmpty) 'merchant': merchant,
-          if (source != null && source.isNotEmpty) 'source': source,
-          'ownerType': ownerType,
-          'privacyScope': privacyScope,
-          if (householdId != null) 'householdId': householdId,
-          if (householdId != null)
-            'isPortfolio':
-                ref.read(householdScopeProvider).isPortfolioId(householdId),
-          'isRecurring': true,
-          'recurrence_rule': recurrenceRule,
-          if (accountId != null) 'accountId': accountId,
-        },
+        body: requestBody,
       );
 
       if (response.data['success'] == true) {
@@ -1102,6 +1214,11 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(optimisticTransaction.id, income);
+        await localDatabase?.replaceOptimisticTransaction(
+          optimisticId: optimisticTransaction.id,
+          savedEntry: _expenseEntryFromRecurringTransaction(income, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
         state = AsyncValue.data(income);
 
         _debugPrint(
@@ -1114,6 +1231,11 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .removeRecurring(optimisticTransaction.id);
+        await localDatabase?.rollbackOptimisticTransaction(
+          optimisticId: optimisticTransaction.id,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: response.data,
+        );
         final errorPayload = _buildFunctionErrorPayload(
           response.data,
           fallback: 'Failed to save recurring income',
@@ -1126,10 +1248,27 @@ class RecurringTransactionSaveNotifier
       }
     } catch (e, st) {
       try {
-        if (optimisticTransaction != null) {
+        final optimistic = optimisticTransaction;
+        final metadata = mutationMetadata;
+        if (optimistic != null &&
+            localDatabase != null &&
+            _shouldKeepQueuedLocalMutation(e)) {
+          state = AsyncValue.data(optimistic);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+          return optimistic;
+        }
+        if (optimistic != null) {
           ref
               .read(recurringTransactionsProvider(householdId).notifier)
-              .removeRecurring(optimisticTransaction.id);
+              .removeRecurring(optimistic.id);
+          if (localDatabase != null && metadata != null) {
+            await localDatabase.rollbackOptimisticTransaction(
+              optimisticId: optimistic.id,
+              clientMutationId: metadata.clientMutationId,
+              error: e,
+            );
+          }
         }
       } catch (_) {}
       state = AsyncValue.error(e, st);
@@ -1387,6 +1526,8 @@ class RecurringTransactionSaveNotifier
         .valueOrNull
         ?.where((transaction) => transaction.id == expenseId)
         .firstOrNull;
+    MonekoDatabase? localDatabase;
+    TransactionMutationMetadata? mutationMetadata;
 
     void rollbackOptimisticExpense() {
       try {
@@ -1449,7 +1590,12 @@ class RecurringTransactionSaveNotifier
       _debugPrint('   updates prepared');
 
       // Build base request body
+      mutationMetadata = buildTransactionMutationMetadataForRecord(
+        clientRecordId: expenseId,
+        operation: 'update_recurring_expense',
+      );
       final requestBody = <String, dynamic>{
+        ...mutationMetadata.toRequestJson(),
         'userId': userId,
         'expenseId': expenseId,
         'updates': updates,
@@ -1559,6 +1705,32 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(expenseId, optimisticExpense);
+        if (originalExpense != null) {
+          final database = await ref.read(localDatabaseProvider.future);
+          localDatabase = database;
+          await database.writeOptimisticTransactionUpdate(
+            originalEntry:
+                _expenseEntryFromRecurringTransaction(originalExpense, userId),
+            updatedEntry: _expenseEntryFromRecurringTransaction(
+                optimisticExpense, userId),
+            clientMutationId: mutationMetadata.clientMutationId,
+            payload: {
+              ...mutationMetadata.toRequestJson(),
+              'userId': userId,
+              'expenseId': expenseId,
+              'updates': updates,
+              'extraBody': {
+                if (householdId != null) 'householdId': householdId,
+                if (requestBody.containsKey('customSplits'))
+                  'customSplits': requestBody['customSplits'],
+                if (requestBody.containsKey('splitUpdate'))
+                  'splitUpdate': requestBody['splitUpdate'],
+                if (requestBody.containsKey('payerUserId'))
+                  'payerUserId': requestBody['payerUserId'],
+              },
+            },
+          );
+        }
       } catch (_) {}
 
       final response = await supabase.functions.invoke(
@@ -1569,6 +1741,10 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final updatedExpense = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        await localDatabase?.markOptimisticTransactionUpdateSynced(
+          entry: _expenseEntryFromRecurringTransaction(updatedExpense, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
         state = AsyncValue.data(updatedExpense);
         _debugPrint(
             '✅ [UpdateRecurring] update-expense succeeded for $expenseId');
@@ -1612,6 +1788,30 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        final queued = ref
+            .read(recurringTransactionsProvider(householdId))
+            .data
+            .valueOrNull
+            ?.where((transaction) => transaction.id == expenseId)
+            .firstOrNull;
+        if (queued != null) {
+          state = AsyncValue.data(queued);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+          return queued;
+        }
+      }
+      if (localDatabase != null &&
+          originalExpense != null &&
+          mutationMetadata != null) {
+        await localDatabase.rollbackOptimisticTransactionUpdate(
+          originalEntry:
+              _expenseEntryFromRecurringTransaction(originalExpense, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: e,
+        );
+      }
       rollbackOptimisticExpense();
       state = AsyncValue.error(e, st);
       return null;
@@ -1651,6 +1851,8 @@ class RecurringTransactionSaveNotifier
         .valueOrNull
         ?.where((transaction) => transaction.id == expenseId)
         .firstOrNull;
+    MonekoDatabase? localDatabase;
+    TransactionMutationMetadata? mutationMetadata;
 
     void rollbackOptimisticIncome() {
       try {
@@ -1729,11 +1931,41 @@ class RecurringTransactionSaveNotifier
         ref
             .read(recurringTransactionsProvider(householdId).notifier)
             .replaceRecurring(expenseId, optimisticIncome);
+        if (originalIncome != null) {
+          mutationMetadata = buildTransactionMutationMetadataForRecord(
+            clientRecordId: expenseId,
+            operation: 'update_recurring_income',
+          );
+          final database = await ref.read(localDatabaseProvider.future);
+          localDatabase = database;
+          await database.writeOptimisticTransactionUpdate(
+            originalEntry:
+                _expenseEntryFromRecurringTransaction(originalIncome, userId),
+            updatedEntry:
+                _expenseEntryFromRecurringTransaction(optimisticIncome, userId),
+            clientMutationId: mutationMetadata.clientMutationId,
+            payload: {
+              ...mutationMetadata.toRequestJson(),
+              'userId': userId,
+              'expenseId': expenseId,
+              'updates': updatesIncome,
+              'extraBody': {
+                if (householdId != null) 'householdId': householdId,
+              },
+            },
+          );
+        }
       } catch (_) {}
+
+      mutationMetadata ??= buildTransactionMutationMetadataForRecord(
+        clientRecordId: expenseId,
+        operation: 'update_recurring_income',
+      );
 
       final response = await supabase.functions.invoke(
         'update-expense',
         body: {
+          ...mutationMetadata.toRequestJson(),
           'userId': userId,
           'expenseId': expenseId,
           'updates': updatesIncome,
@@ -1748,6 +1980,10 @@ class RecurringTransactionSaveNotifier
       if (response.data['success'] == true) {
         final updatedIncome = RecurringTransaction.fromJson(
             response.data['data'] as Map<String, dynamic>);
+        await localDatabase?.markOptimisticTransactionUpdateSynced(
+          entry: _expenseEntryFromRecurringTransaction(updatedIncome, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
         state = AsyncValue.data(updatedIncome);
 
         // Force refresh the list provider to show the updated transaction
@@ -1769,6 +2005,30 @@ class RecurringTransactionSaveNotifier
         return null;
       }
     } catch (e, st) {
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        final queued = ref
+            .read(recurringTransactionsProvider(householdId))
+            .data
+            .valueOrNull
+            ?.where((transaction) => transaction.id == expenseId)
+            .firstOrNull;
+        if (queued != null) {
+          state = AsyncValue.data(queued);
+          ref.invalidate(pocketsProvider);
+          ref.invalidate(currencyTransactionCountsProvider);
+          return queued;
+        }
+      }
+      if (localDatabase != null &&
+          originalIncome != null &&
+          mutationMetadata != null) {
+        await localDatabase.rollbackOptimisticTransactionUpdate(
+          originalEntry:
+              _expenseEntryFromRecurringTransaction(originalIncome, userId),
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: e,
+        );
+      }
       rollbackOptimisticIncome();
       state = AsyncValue.error(e, st);
       return null;
@@ -1872,6 +2132,54 @@ class RecurringTransactionSaveNotifier
       'code': 'SERVER_ERROR',
     };
   }
+
+  Future<MonekoDatabase?> _queueRecurringCreate({
+    required RecurringTransaction optimisticTransaction,
+    required TransactionMutationMetadata mutationMetadata,
+    required String functionName,
+    required Map<String, dynamic> requestBody,
+    required String fallbackUserId,
+  }) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransaction(
+        entry: _expenseEntryFromRecurringTransaction(
+          optimisticTransaction,
+          fallbackUserId,
+        ),
+        clientMutationId: mutationMetadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          ...mutationMetadata.toRequestJson(),
+          'transaction': _expenseEntryFromRecurringTransaction(
+            optimisticTransaction,
+            fallbackUserId,
+          ).toJson(),
+          'functionName': functionName,
+          'requestBody': requestBody,
+        },
+      );
+      return database;
+    } catch (error) {
+      _debugPrint('[RecurringTx] Local recurring queue unavailable: $error');
+      return null;
+    }
+  }
+}
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error');
 }
 
 // ============================================================================

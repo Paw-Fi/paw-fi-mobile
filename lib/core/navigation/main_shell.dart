@@ -202,7 +202,12 @@ Future<void> _refreshDeferredMainShellData(
 Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
   try {
     final service = await ref.read(mobileDeltaSyncServiceProvider.future);
-    await service.pullAndApply(userId: userId);
+    final delta = await service.pullAndApply(userId: userId);
+    if (delta.transactions.isNotEmpty ||
+        delta.deletedTransactionIds.isNotEmpty) {
+      ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+    }
   } catch (_) {}
 }
 
@@ -546,7 +551,8 @@ class MainShell extends HookConsumerWidget {
                           currentIndex: currentIndex,
                           onRegisterTap: () {
                             unawaited(() async {
-                              await exitPreviewMode(restorePreauthOnExit: false);
+                              await exitPreviewMode(
+                                  restorePreauthOnExit: false);
                               if (context.mounted) {
                                 context.go('/register');
                               }

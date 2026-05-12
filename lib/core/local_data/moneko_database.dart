@@ -16,6 +16,8 @@ const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
 
+const int _localDatabaseSchemaVersion = 1;
+
 String localScopeKey({
   required String userId,
   required String? householdId,
@@ -216,14 +218,21 @@ class MonekoDatabase {
   Future<void> upsertTransactions(
     List<ExpenseEntry> entries, {
     String syncStatus = localSyncStatusSynced,
+    bool preserveLocalPending = true,
   }) async {
     if (entries.isEmpty) return;
 
     final touched = <_SummaryKey>{};
     _runInTransaction(() {
       for (final entry in entries) {
-        _upsertTransaction(entry, syncStatus: syncStatus);
-        touched.add(_SummaryKey.fromEntry(entry));
+        final didUpsert = _upsertTransaction(
+          entry,
+          syncStatus: syncStatus,
+          preserveLocalPending: preserveLocalPending,
+        );
+        if (didUpsert) {
+          touched.add(_SummaryKey.fromEntry(entry));
+        }
       }
 
       for (final key in touched) {
@@ -289,7 +298,11 @@ class MonekoDatabase {
     required String clientMutationId,
   }) async {
     _runInTransaction(() {
-      _upsertTransaction(entry, syncStatus: localSyncStatusSynced);
+      _upsertTransaction(
+        entry,
+        syncStatus: localSyncStatusSynced,
+        preserveLocalPending: false,
+      );
       _markMutationStatus(
         clientMutationId: clientMutationId,
         status: localMutationStatusSynced,
@@ -310,7 +323,11 @@ class MonekoDatabase {
     if (updatedKey != null) touched.add(updatedKey);
 
     _runInTransaction(() {
-      _upsertTransaction(originalEntry, syncStatus: localSyncStatusSynced);
+      _upsertTransaction(
+        originalEntry,
+        syncStatus: localSyncStatusSynced,
+        preserveLocalPending: false,
+      );
       _markMutationCancelledRow(
         clientMutationId: clientMutationId,
         error: error,
@@ -334,6 +351,11 @@ class MonekoDatabase {
     final touched = entries.map(_SummaryKey.fromEntry).toSet();
     _runInTransaction(() {
       for (final entry in entries) {
+        _upsertTransactionTombstone(
+          entry: entry,
+          clientMutationId: clientMutationId,
+          status: localMutationStatusQueued,
+        );
         _db.execute(
           'DELETE FROM local_transactions WHERE id = ?',
           [entry.id],
@@ -358,10 +380,13 @@ class MonekoDatabase {
   Future<void> markOptimisticTransactionDeleteSynced({
     required String clientMutationId,
   }) async {
-    _markMutationStatus(
-      clientMutationId: clientMutationId,
-      status: localMutationStatusSynced,
-    );
+    _runInTransaction(() {
+      _markMutationStatus(
+        clientMutationId: clientMutationId,
+        status: localMutationStatusSynced,
+      );
+      _markTransactionTombstonesSynced(clientMutationId);
+    });
   }
 
   Future<void> rollbackOptimisticTransactionDelete({
@@ -374,7 +399,12 @@ class MonekoDatabase {
     final touched = entries.map(_SummaryKey.fromEntry).toSet();
     _runInTransaction(() {
       for (final entry in entries) {
-        _upsertTransaction(entry, syncStatus: localSyncStatusSynced);
+        _deleteTransactionTombstone(entry.id);
+        _upsertTransaction(
+          entry,
+          syncStatus: localSyncStatusSynced,
+          preserveLocalPending: false,
+        );
       }
       _markMutationCancelledRow(
         clientMutationId: clientMutationId,
@@ -404,7 +434,11 @@ class MonekoDatabase {
         [optimisticId],
       );
 
-      _upsertTransaction(savedEntry, syncStatus: localSyncStatusSynced);
+      _upsertTransaction(
+        savedEntry,
+        syncStatus: localSyncStatusSynced,
+        preserveLocalPending: false,
+      );
       touched.add(_SummaryKey.fromEntry(savedEntry));
       _markMutationStatus(
         clientMutationId: clientMutationId,
@@ -456,7 +490,13 @@ class MonekoDatabase {
       for (final id in normalizedIds) {
         final key = _summaryKeyForTransactionId(id);
         if (key != null) touched.add(key);
-        _db.execute('DELETE FROM local_transactions WHERE id = ?', [id]);
+        _db.execute(
+          '''
+          DELETE FROM local_transactions
+          WHERE id = ? AND sync_status != ?
+          ''',
+          [id, localSyncStatusLocal],
+        );
       }
 
       for (final key in touched) {
@@ -660,19 +700,26 @@ class MonekoDatabase {
   }
 
   Future<LocalTransactionsFeedPage> getTransactionsFeedPage(
-    LocalTransactionsFeedQuery query,
-  ) async {
+    LocalTransactionsFeedQuery query, {
+    String? syncStatus,
+  }) async {
     final filter = _localFeedFilter(query, includeCursor: true);
+    final conditions = <String>[filter.whereSql];
+    final args = <Object?>[...filter.args];
+    if (syncStatus != null) {
+      conditions.add('sync_status = ?');
+      args.add(syncStatus);
+    }
     final pageSize = query.pageSize.clamp(1, 500);
     final rows = _db.select(
       '''
       SELECT *
       FROM local_transactions
-      WHERE ${filter.whereSql}
+      WHERE ${conditions.join(' AND ')}
       ORDER BY date DESC, created_at DESC, id DESC
       LIMIT ?
       ''',
-      [...filter.args, pageSize + 1],
+      [...args, pageSize + 1],
     );
 
     final visibleRows = rows.take(pageSize).toList(growable: false);
@@ -695,16 +742,20 @@ class MonekoDatabase {
   }
 
   Future<List<ExpenseEntry>> getTransactionsFeedItems(
-    LocalTransactionsFeedQuery query,
-  ) async {
+    LocalTransactionsFeedQuery query, {
+    String? syncStatus,
+  }) async {
     final items = <ExpenseEntry>[];
     LocalTransactionFeedCursor? cursor = query.cursor;
     var hasMore = true;
     while (hasMore) {
-      final page = await getTransactionsFeedPage(query.copyWith(
-        cursor: cursor,
-        pageSize: query.pageSize,
-      ));
+      final page = await getTransactionsFeedPage(
+        query.copyWith(
+          cursor: cursor,
+          pageSize: query.pageSize,
+        ),
+        syncStatus: syncStatus,
+      );
       items.addAll(page.items);
       hasMore = page.hasMore;
       cursor = page.nextCursor;
@@ -814,6 +865,44 @@ class MonekoDatabase {
     );
 
     return rows.isEmpty ? 0 : _rowInt(rows.first['transaction_count']);
+  }
+
+  Future<void> markTransactionsFeedCacheComplete(
+    LocalTransactionsFeedQuery query, {
+    required bool isComplete,
+  }) async {
+    final now = DateTime.now().toUtc();
+    _db.execute(
+      '''
+      INSERT INTO local_transaction_feed_cache (
+        query_key, is_complete, updated_at
+      ) VALUES (?, ?, ?)
+      ON CONFLICT(query_key) DO UPDATE SET
+        is_complete = excluded.is_complete,
+        updated_at = excluded.updated_at
+      ''',
+      [
+        _feedCacheKey(query),
+        isComplete ? 1 : 0,
+        _instant(now),
+      ],
+    );
+  }
+
+  Future<bool> isTransactionsFeedCacheComplete(
+    LocalTransactionsFeedQuery query,
+  ) async {
+    final rows = _db.select(
+      '''
+      SELECT is_complete
+      FROM local_transaction_feed_cache
+      WHERE query_key = ?
+      LIMIT 1
+      ''',
+      [_feedCacheKey(query)],
+    );
+    if (rows.isEmpty) return false;
+    return _rowInt(rows.first['is_complete']) == 1;
   }
 
   Stream<List<ExpenseEntry>> watchRecentTransactions({
@@ -1014,6 +1103,16 @@ class MonekoDatabase {
     );
   }
 
+  Future<void> markMutationCancelled({
+    required String clientMutationId,
+    required Object error,
+  }) async {
+    _markMutationCancelledRow(
+      clientMutationId: clientMutationId,
+      error: error,
+    );
+  }
+
   void _markMutationStatus({
     required String clientMutationId,
     required String status,
@@ -1198,6 +1297,116 @@ class MonekoDatabase {
         PRIMARY KEY (scope_key, wallet_id, currency)
       );
     ''');
+    _db.execute('''
+      CREATE TABLE IF NOT EXISTS local_transaction_tombstones (
+        transaction_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        household_id TEXT,
+        scope_key TEXT NOT NULL,
+        client_mutation_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'queued',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_transaction_tombstones_scope '
+      'ON local_transaction_tombstones(scope_key, updated_at DESC);',
+    );
+    _db.execute('''
+      CREATE TABLE IF NOT EXISTS local_transaction_feed_cache (
+        query_key TEXT PRIMARY KEY,
+        is_complete INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      );
+    ''');
+    _migrateSchemaIfNeeded();
+  }
+
+  void _migrateSchemaIfNeeded() {
+    final version =
+        _db.select('PRAGMA user_version').first['user_version'] as int;
+    if (version >= _localDatabaseSchemaVersion) return;
+
+    _runInTransaction(() {
+      _ensureColumn('local_transactions', 'contact_id', 'TEXT');
+      _ensureColumn('local_transactions', 'household_id', 'TEXT');
+      _ensureColumn(
+          'local_transactions', 'scope_key', "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transactions', 'updated_at', 'TEXT');
+      _ensureColumn('local_transactions', 'raw_text', 'TEXT');
+      _ensureColumn('local_transactions', 'merchant', 'TEXT');
+      _ensureColumn('local_transactions', 'breakdown_json', 'TEXT');
+      _ensureColumn('local_transactions', 'receipt_image_url', 'TEXT');
+      _ensureColumn('local_transactions', 'shared_member_ids_json', 'TEXT');
+      _ensureColumn('local_transactions', 'split_group_id', 'TEXT');
+      _ensureColumn('local_transactions', 'bank_account_id', 'TEXT');
+      _ensureColumn('local_transactions', 'wallet_id', 'TEXT');
+      _ensureColumn('local_transactions', 'account_name', 'TEXT');
+      _ensureColumn('local_transactions', 'account_icon', 'TEXT');
+      _ensureColumn('local_transactions', 'account_color', 'TEXT');
+      _ensureColumn(
+          'local_transactions', 'type', "TEXT NOT NULL DEFAULT 'expense'");
+      _ensureColumn(
+          'local_transactions', 'is_recurring', 'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn('local_transactions', 'client_record_id', 'TEXT');
+      _ensureColumn('local_transactions', 'client_mutation_id', 'TEXT');
+      _ensureColumn('local_transactions', 'idempotency_key', 'TEXT');
+      _ensureColumn('local_transactions', 'sync_status',
+          "TEXT NOT NULL DEFAULT 'synced'");
+      _ensureColumn(
+          'local_transactions', 'local_revision', 'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn('local_transactions', 'server_revision', 'INTEGER');
+      _ensureColumn('local_transactions', 'last_error', 'TEXT');
+      _ensureColumn('local_transactions', 'created_device_id', 'TEXT');
+      _ensureColumn('local_transactions', 'deleted_at', 'TEXT');
+
+      _ensureColumn('local_mutation_outbox', 'attempt_count',
+          'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn(
+          'local_mutation_outbox', 'status', "TEXT NOT NULL DEFAULT 'queued'");
+      _ensureColumn('local_mutation_outbox', 'last_error', 'TEXT');
+      _ensureColumn('local_mutation_outbox', 'retry_after', 'TEXT');
+      _ensureColumn('local_transaction_tombstones', 'transaction_id', 'TEXT');
+      _ensureColumn('local_transaction_tombstones', 'user_id',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transaction_tombstones', 'household_id', 'TEXT');
+      _ensureColumn('local_transaction_tombstones', 'scope_key',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transaction_tombstones', 'client_mutation_id',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transaction_tombstones', 'status',
+          "TEXT NOT NULL DEFAULT 'queued'");
+      _ensureColumn('local_transaction_tombstones', 'created_at',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transaction_tombstones', 'updated_at',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_transaction_feed_cache', 'query_key', 'TEXT');
+      _ensureColumn('local_transaction_feed_cache', 'is_complete',
+          'INTEGER NOT NULL DEFAULT 0');
+      _ensureColumn('local_transaction_feed_cache', 'updated_at',
+          "TEXT NOT NULL DEFAULT ''");
+
+      _db.execute('''
+        UPDATE local_transactions
+        SET scope_key = CASE
+          WHEN household_id IS NOT NULL AND TRIM(household_id) != ''
+            THEN 'household:' || household_id
+          ELSE user_id || ':personal'
+        END
+        WHERE scope_key = ''
+      ''');
+      _db.execute('PRAGMA user_version = $_localDatabaseSchemaVersion');
+    });
+  }
+
+  void _ensureColumn(String tableName, String columnName, String definition) {
+    final columns = _db
+        .select('PRAGMA table_info($tableName)')
+        .map((row) => row['name']?.toString())
+        .toSet();
+    if (columns.contains(columnName)) return;
+    _db.execute('ALTER TABLE $tableName ADD COLUMN $columnName $definition');
   }
 
   void _runInTransaction(void Function() action) {
@@ -1211,9 +1420,10 @@ class MonekoDatabase {
     }
   }
 
-  void _upsertTransaction(
+  bool _upsertTransaction(
     ExpenseEntry entry, {
     required String syncStatus,
+    bool preserveLocalPending = true,
   }) {
     final userId = entry.userId?.trim();
     if (userId == null || userId.isEmpty) {
@@ -1224,6 +1434,13 @@ class MonekoDatabase {
             ? entry.currency!.trim()
             : 'USD')
         .toUpperCase();
+
+    if (preserveLocalPending &&
+        syncStatus == localSyncStatusSynced &&
+        (_isLocalPendingTransaction(entry.id) ||
+            _hasActiveTransactionTombstone(entry.id))) {
+      return false;
+    }
 
     _db.execute(
       '''
@@ -1288,6 +1505,110 @@ class MonekoDatabase {
         syncStatus,
       ],
     );
+    return true;
+  }
+
+  bool _isLocalPendingTransaction(String id) {
+    final rows = _db.select(
+      '''
+      SELECT sync_status
+      FROM local_transactions
+      WHERE id = ?
+      LIMIT 1
+      ''',
+      [id],
+    );
+    if (rows.isEmpty) return false;
+    return rows.first['sync_status'] == localSyncStatusLocal;
+  }
+
+  bool _hasActiveTransactionTombstone(String id) {
+    final rows = _db.select(
+      '''
+      SELECT status
+      FROM local_transaction_tombstones
+      WHERE transaction_id = ?
+      LIMIT 1
+      ''',
+      [id],
+    );
+    if (rows.isEmpty) return false;
+    final status = rows.first['status']?.toString();
+    return status == localMutationStatusQueued ||
+        status == localMutationStatusFailed ||
+        status == localMutationStatusSyncing ||
+        status == localMutationStatusSynced;
+  }
+
+  void _upsertTransactionTombstone({
+    required ExpenseEntry entry,
+    required String clientMutationId,
+    required String status,
+  }) {
+    final userId = entry.userId?.trim();
+    if (userId == null || userId.isEmpty) return;
+    final now = _instant(DateTime.now().toUtc());
+    _db.execute(
+      '''
+      INSERT INTO local_transaction_tombstones (
+        transaction_id, user_id, household_id, scope_key, client_mutation_id,
+        status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(transaction_id) DO UPDATE SET
+        user_id = excluded.user_id,
+        household_id = excluded.household_id,
+        scope_key = excluded.scope_key,
+        client_mutation_id = excluded.client_mutation_id,
+        status = excluded.status,
+        updated_at = excluded.updated_at
+      ''',
+      [
+        entry.id,
+        userId,
+        entry.householdId,
+        localScopeKey(userId: userId, householdId: entry.householdId),
+        clientMutationId,
+        status,
+        now,
+        now,
+      ],
+    );
+  }
+
+  void _markTransactionTombstonesSynced(String clientMutationId) {
+    _db.execute(
+      '''
+      UPDATE local_transaction_tombstones
+      SET status = ?, updated_at = ?
+      WHERE client_mutation_id = ?
+      ''',
+      [localMutationStatusSynced, _instant(DateTime.now()), clientMutationId],
+    );
+  }
+
+  void _deleteTransactionTombstone(String transactionId) {
+    _db.execute(
+      'DELETE FROM local_transaction_tombstones WHERE transaction_id = ?',
+      [transactionId],
+    );
+  }
+
+  String _feedCacheKey(LocalTransactionsFeedQuery query) {
+    return jsonEncode({
+      'userId': query.userId,
+      'householdId': query.householdId,
+      'currency': query.currency?.toUpperCase(),
+      'category': query.category?.toLowerCase(),
+      'categories':
+          query.categories?.map((value) => value.toLowerCase()).toList(),
+      'accountId': query.accountId,
+      'includeUnassignedAccount': query.includeUnassignedAccount,
+      'type': query.type.toLowerCase(),
+      'searchQuery': query.searchQuery,
+      'startDate': query.startDate == null ? null : _dateOnly(query.startDate!),
+      'endDate': query.endDate == null ? null : _dateOnly(query.endDate!),
+      'intervalGranularity': query.intervalGranularity,
+    });
   }
 
   void _enqueueMutationRow({

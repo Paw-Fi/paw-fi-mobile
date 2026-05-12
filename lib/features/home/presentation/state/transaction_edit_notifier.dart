@@ -285,6 +285,19 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       // 6. Error: Rollback optimistic update
       _debugPrint('❌ Update failed: $e');
 
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.invalidate(pocketsProvider);
+        ref.read(walletActionsProvider).refreshAccountData();
+        state = state.copyWith(
+          isLoading: false,
+          clearOptimisticUpdate: true,
+          clearError: true,
+        );
+        return true;
+      }
+
       try {
         if (localDatabase != null && originalForRollback != null) {
           await localDatabase.rollbackOptimisticTransactionUpdate(
@@ -389,6 +402,13 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       return true;
     } catch (e) {
       _debugPrint('❌ Delete failed: $e');
+
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        await _refreshAfterTransactionMutation(user.uid);
+        _clearOptimisticDeletedIds(targets);
+        state = state.copyWith(clearError: true);
+        return true;
+      }
 
       if (localDatabase != null) {
         await localDatabase.rollbackOptimisticTransactionDelete(
@@ -658,6 +678,21 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
   void clearError() {
     state = state.copyWith(clearError: true);
   }
+}
+
+bool _shouldKeepQueuedLocalMutation(Object error) {
+  final message = error.toString().toLowerCase();
+  return message.contains('network') ||
+      message.contains('socket') ||
+      message.contains('failed host lookup') ||
+      message.contains('connection') ||
+      message.contains('timed out') ||
+      message.contains('timeout') ||
+      message.contains('status: 502') ||
+      message.contains('status: 503') ||
+      message.contains('status: 504') ||
+      message.contains('service is temporarily unavailable') ||
+      message.contains('supabase_edge_runtime_error');
 }
 
 final transactionEditSupabaseClientProvider = Provider<SupabaseClient>((ref) {

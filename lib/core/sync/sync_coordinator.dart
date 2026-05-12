@@ -11,11 +11,13 @@ class SyncCoordinator {
     required this.database,
     required this.dispatchMutation,
     DateTime Function()? now,
+    this.maxAttempts = 8,
   }) : _now = now;
 
   final MonekoDatabase database;
   final LocalMutationDispatcher dispatchMutation;
   final DateTime Function()? _now;
+  final int maxAttempts;
 
   DateTime get _currentTime => (_now ?? DateTime.now)().toUtc();
 
@@ -34,12 +36,18 @@ class SyncCoordinator {
         syncedCount += 1;
       } catch (error) {
         final nextAttempt = mutation.attemptCount + 1;
-        await database.markMutationFailed(
-          clientMutationId: mutation.clientMutationId,
-          error: error,
-          retryAfter: _currentTime.add(retryDelayForAttempt(nextAttempt)),
-        );
-        break;
+        if (nextAttempt >= maxAttempts) {
+          await database.markMutationCancelled(
+            clientMutationId: mutation.clientMutationId,
+            error: error,
+          );
+        } else {
+          await database.markMutationFailed(
+            clientMutationId: mutation.clientMutationId,
+            error: error,
+            retryAfter: _currentTime.add(retryDelayForAttempt(nextAttempt)),
+          );
+        }
       }
     }
 

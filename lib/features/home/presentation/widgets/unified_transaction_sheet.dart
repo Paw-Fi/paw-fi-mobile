@@ -4150,63 +4150,19 @@ class _UnifiedTransactionSheetState
     setState(() => _isDeleting = true);
 
     try {
-      final user = ref.read(authProvider);
-
-      debugPrint(' Deleting expense');
-
-      // Capture l10n before async call
       final failedToDeleteExpenseMsg = context.l10n.failedToDeleteExpense;
-
-      // Call delete API
-      final response = await supabase.functions.invoke(
-        'delete-expense',
-        body: {
-          'userId': user.uid,
-          'expenseIds': widget.existingExpense!.id,
-        },
+      debugPrint(' Deleting expense');
+      final deleted = await ref
+          .read(transactionEditProvider.notifier)
+          .deleteExpensesOptimistically(
+        [widget.existingExpense!],
       );
 
-      if (response.data == null || response.data['success'] != true) {
-        throw Exception(response.data?['error'] ?? failedToDeleteExpenseMsg);
+      if (!deleted) {
+        throw Exception(failedToDeleteExpenseMsg);
       }
 
       debugPrint(' Expense deleted successfully');
-
-      ref.read(analyticsProvider.notifier).refresh(user.uid);
-
-      // CRITICAL: Always invalidate ALL pocket providers (all scopes, all months)
-      // This ensures pockets page refreshes regardless of personal/household mode
-      debugPrint(' Invalidating ALL pockets provider families...');
-      ref.invalidate(pocketsProvider);
-      ref.invalidate(pocketDetailsProvider);
-      ref.read(walletActionsProvider).refreshAccountData();
-      ref.invalidate(currencyTransactionCountsProvider);
-      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-      ref
-          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
-          .state += 1;
-
-      // If this was a household expense, invalidate household providers
-      final householdId = widget.existingExpense!.householdId;
-      if (householdId != null) {
-        debugPrint(' Invalidating household providers for selected household');
-
-        // Clear cached data first
-        ref.read(cacheInvalidatorProvider).invalidateHouseholdData(householdId);
-
-        // Invalidate household list to update counts
-        ref.invalidate(userHouseholdsProvider(user.uid));
-
-        // Invalidate ALL provider families so all parameterized instances refresh
-        ref.invalidate(householdExpensesProvider);
-        ref.invalidate(cachedHouseholdExpensesProvider);
-        ref.invalidate(householdSplitsProvider);
-        ref.invalidate(cachedHouseholdSplitsProvider);
-        ref.invalidate(householdBudgetsProvider);
-        ref.invalidate(householdMembersProvider);
-
-        debugPrint(' Invalidated household providers');
-      }
 
       if (!mounted || !toastContext.mounted) return;
 

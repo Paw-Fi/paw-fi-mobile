@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
@@ -172,11 +174,16 @@ class SupabaseWalletsDataService implements WalletsDataService {
           rpcName: 'get_wallets_history_v2',
         ),
       );
+      final historyWithLocalOverlay = await _overlayPendingLocalWalletHistory(
+        ref,
+        query,
+        history,
+      );
       trace.mark('history-rpc-success', {
-        'months': history.availableMonths.length,
-        'seriesPoints': history.netWorthSeries.length,
+        'months': historyWithLocalOverlay.availableMonths.length,
+        'seriesPoints': historyWithLocalOverlay.netWorthSeries.length,
       });
-      return history;
+      return historyWithLocalOverlay;
     } catch (error) {
       if (!_isMissingWalletsRpcFunctionError(error,
           rpcName: 'get_wallets_history_v2')) {
@@ -210,11 +217,13 @@ class SupabaseWalletsDataService implements WalletsDataService {
           rpcName: 'get_wallets_month_snapshot_v2',
         ),
       );
+      final snapshotWithLocalOverlay =
+          await _overlayPendingLocalWalletMonthSnapshot(ref, query, snapshot);
       trace.mark('month-snapshot-rpc-success', {
-        'walletBalanceCount': snapshot.walletBalances.length,
-        'netWorthCents': snapshot.netWorthCents,
+        'walletBalanceCount': snapshotWithLocalOverlay.walletBalances.length,
+        'netWorthCents': snapshotWithLocalOverlay.netWorthCents,
       });
-      return snapshot;
+      return snapshotWithLocalOverlay;
     } catch (error) {
       if (!_isMissingWalletsRpcFunctionError(error,
           rpcName: 'get_wallets_month_snapshot_v2')) {
@@ -240,6 +249,34 @@ final walletsRpcRunnerProvider = Provider<WalletsRpcRunner>((ref) {
 
 final walletsDataServiceProvider = Provider<WalletsDataService>((ref) {
   return SupabaseWalletsDataService(ref);
+});
+
+final _walletsTransactionCacheInvalidationProvider = Provider<void>((ref) {
+  void clearWalletPageCaches() {
+    final userId = ref.read(authProvider).uid;
+    ref.read(walletsPageStateSessionCacheProvider.notifier).state = const {};
+    if (userId.isEmpty) return;
+
+    ref.read(walletsPersistedCacheBypassCountProvider.notifier).state++;
+    unawaited(
+      Future<void>.microtask(() {
+        final notifier =
+            ref.read(walletsPersistedCacheBypassCountProvider.notifier);
+        notifier.state = notifier.state > 0 ? notifier.state - 1 : 0;
+      }),
+    );
+  }
+
+  ref.listen(dashboardRefreshSignalProvider, (previous, next) {
+    if (previous != null && previous != next) {
+      clearWalletPageCaches();
+    }
+  });
+  ref.listen(transactionsFeedRefreshSignalProvider, (previous, next) {
+    if (previous != null && previous != next) {
+      clearWalletPageCaches();
+    }
+  });
 });
 
 Map<String, dynamic> _parseWalletsRpcPayload(
@@ -280,6 +317,7 @@ void _debugWalletsMissingRpc(String rpcName) {
 final walletsHistoryProvider =
     FutureProvider.family<WalletsHistorySummary, WalletsScopeQuery>(
   (ref, query) async {
+    ref.watch(_walletsTransactionCacheInvalidationProvider);
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
     final authHeaders = ref.watch(walletAuthHeadersProvider);
@@ -296,13 +334,23 @@ final walletsHistoryProvider =
     }
 
     final service = ref.watch(walletsDataServiceProvider);
-    return service.fetchHistory(query);
+    try {
+      return await service.fetchHistory(query);
+    } catch (_) {
+      final cached = readPersistedWalletsPageState(ref, query);
+      final history = cached?.history;
+      if (history != null) {
+        return _overlayPendingLocalWalletHistory(ref, query, history);
+      }
+      rethrow;
+    }
   },
 );
 
 final walletsMonthSnapshotProvider =
     FutureProvider.autoDispose.family<WalletsMonthSnapshot, WalletsMonthQuery>(
   (ref, query) async {
+    ref.watch(_walletsTransactionCacheInvalidationProvider);
     ref.watch(walletsRefreshSignalProvider);
     ref.watch(dashboardRefreshSignalProvider);
     final authHeaders = ref.watch(walletAuthHeadersProvider);
@@ -322,7 +370,17 @@ final walletsMonthSnapshotProvider =
     }
 
     final service = ref.watch(walletsDataServiceProvider);
-    return service.fetchMonthSnapshot(query);
+    try {
+      return await service.fetchMonthSnapshot(query);
+    } catch (_) {
+      final cached = readPersistedWalletsPageState(ref, query.scope);
+      final snapshot = cached
+          ?.cachedSnapshotsByMonth[normalizeWalletMonthStart(query.monthStart)];
+      if (snapshot != null) {
+        return _overlayPendingLocalWalletMonthSnapshot(ref, query, snapshot);
+      }
+      rethrow;
+    }
   },
 );
 
@@ -343,10 +401,14 @@ class WalletsPageStateNotifier
   @override
   Future<WalletsPageState> build(WalletsScopeQuery arg) async {
     _query = arg;
-    ref.watch(walletsRefreshSignalProvider);
-    ref.watch(dashboardRefreshSignalProvider);
+    ref.watch(_walletsTransactionCacheInvalidationProvider);
+    final walletsRefreshSignal = ref.watch(walletsRefreshSignalProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
     final bypassPersistedCache =
         ref.watch(walletsPersistedCacheBypassCountProvider) > 0;
+    final bypassPageStateCache = bypassPersistedCache ||
+        walletsRefreshSignal > 0 ||
+        dashboardRefreshSignal > 0;
     final trace = _createWalletsTrace(
       ref,
       label: 'WalletsPageStateBuild',
@@ -356,7 +418,7 @@ class WalletsPageStateNotifier
       trace.mark('build-start');
       final sessionCache = ref.read(walletsPageStateSessionCacheProvider);
       final sessionState = sessionCache[walletsPageStateCacheKey(_query)];
-      if (sessionState != null) {
+      if (!bypassPageStateCache && sessionState != null) {
         trace.mark('session-cache-hit', {
           'visibleMonths': sessionState.visibleMonths.length,
           'snapshotCount': sessionState.cachedSnapshotsByMonth.length,
@@ -364,7 +426,7 @@ class WalletsPageStateNotifier
         return sessionState;
       }
 
-      if (!bypassPersistedCache) {
+      if (!bypassPageStateCache) {
         final cachedState = _readPersistedCachedPageState();
         if (cachedState != null) {
           trace.mark('cache-hit', {
@@ -384,6 +446,10 @@ class WalletsPageStateNotifier
       return _loadInitialState(trace: trace);
     } catch (error) {
       trace.mark('build-error', {'error': error});
+      final cachedState = _readPersistedCachedPageState();
+      if (cachedState != null) {
+        return _overlayPendingLocalWalletPageState(cachedState);
+      }
       rethrow;
     }
   }
@@ -716,6 +782,29 @@ class WalletsPageStateNotifier
     };
     unawaited(persistWalletsPageState(ref, _query, pageState));
   }
+
+  Future<WalletsPageState> _overlayPendingLocalWalletPageState(
+    WalletsPageState cachedState,
+  ) async {
+    final history = await _overlayPendingLocalWalletHistory(
+      ref,
+      _query,
+      cachedState.history,
+    );
+    final snapshots = <DateTime, WalletsMonthSnapshot>{};
+    for (final entry in cachedState.cachedSnapshotsByMonth.entries) {
+      snapshots[entry.key] = await _overlayPendingLocalWalletMonthSnapshot(
+        ref,
+        WalletsMonthQuery(scope: _query, monthStart: entry.key),
+        entry.value,
+      );
+    }
+    return cachedState.copyWith(
+      history: history,
+      cachedSnapshotsByMonth: snapshots,
+      isRefreshing: false,
+    );
+  }
 }
 
 class _WalletRecurringAwareData {
@@ -903,6 +992,157 @@ Future<List<RecurringTransaction>> _fetchScopedRecurringTransactions(
     trace.mark('recurring-fetch-success', {'count': transactions.length});
     return transactions;
   });
+}
+
+Future<List<ExpenseEntry>> _loadPendingLocalWalletTransactions(
+  Ref ref,
+  WalletsScopeQuery query, {
+  DateTime? startDate,
+  required DateTime endInclusive,
+}) async {
+  if (query.userId.trim().isEmpty) {
+    return const <ExpenseEntry>[];
+  }
+
+  try {
+    final database = await ref.read(localDatabaseProvider.future);
+    final transactions = await database.getTransactionsFeedItems(
+      LocalTransactionsFeedQuery(
+        userId: query.userId,
+        householdId: query.householdId,
+        currency: query.selectedCurrency,
+        category: null,
+        accountId: null,
+        categories: null,
+        type: 'all',
+        searchQuery: '',
+        startDate: startDate,
+        endDate: endInclusive,
+        pageSize: 500,
+      ),
+      syncStatus: localSyncStatusLocal,
+    );
+    final scope = ref.read(householdScopeProvider);
+    return filterWalletTransactions(
+      allExpenses: transactions,
+      scope: scope,
+      selectedCurrency: query.selectedCurrency,
+    );
+  } catch (_) {
+    return const <ExpenseEntry>[];
+  }
+}
+
+Future<WalletsHistorySummary> _overlayPendingLocalWalletHistory(
+  Ref ref,
+  WalletsScopeQuery query,
+  WalletsHistorySummary history,
+) async {
+  final now = _walletProjectionNow(ref);
+  final pendingTransactions = await _loadPendingLocalWalletTransactions(
+    ref,
+    query,
+    endInclusive: now,
+  );
+  if (pendingTransactions.isEmpty) {
+    return history;
+  }
+
+  return WalletsHistorySummary(
+    availableMonths: history.availableMonths,
+    netWorthSeries: history.netWorthSeries.map((point) {
+      final endExclusive = _walletSnapshotEndExclusive(
+        monthStart: point.monthStart,
+        now: now,
+      );
+      final localDeltaCents = pendingTransactions.fold<int>(0, (sum, tx) {
+        if (!tx.date.isBefore(endExclusive)) return sum;
+        return sum + _walletTransactionNetDeltaCents(tx);
+      });
+      if (localDeltaCents == 0) return point;
+      return WalletNetWorthPoint(
+        monthStart: point.monthStart,
+        netWorthCents: point.netWorthCents + localDeltaCents,
+      );
+    }).toList(growable: false),
+  );
+}
+
+Future<WalletsMonthSnapshot> _overlayPendingLocalWalletMonthSnapshot(
+  Ref ref,
+  WalletsMonthQuery query,
+  WalletsMonthSnapshot snapshot,
+) async {
+  final pendingTransactions = await _loadPendingLocalWalletTransactions(
+    ref,
+    query.scope,
+    endInclusive: snapshot.monthEndExclusive.subtract(const Duration(days: 1)),
+  );
+  if (pendingTransactions.isEmpty) {
+    return snapshot;
+  }
+
+  var incomeTotalCents = snapshot.incomeTotalCents;
+  var spentTotalCents = snapshot.spentTotalCents;
+  var netWorthCents = snapshot.netWorthCents;
+  final walletBalances = <String, int>{...snapshot.walletBalances};
+  final monthStart =
+      DateTime(snapshot.monthStart.year, snapshot.monthStart.month);
+
+  for (final tx in pendingTransactions) {
+    if (!tx.date.isBefore(snapshot.monthEndExclusive)) continue;
+
+    final amountCents = tx.amountCents.abs();
+    final isIncome = (tx.type ?? 'expense').toLowerCase() == 'income';
+    final localDeltaCents = isIncome ? amountCents : -amountCents;
+    netWorthCents += localDeltaCents;
+
+    final walletId = _resolvePendingWalletBalanceId(tx, walletBalances);
+    if (walletId != null) {
+      walletBalances[walletId] =
+          (walletBalances[walletId] ?? 0) + localDeltaCents;
+    }
+
+    final transactionMonth = DateTime(tx.date.year, tx.date.month);
+    if (transactionMonth == monthStart) {
+      if (isIncome) {
+        incomeTotalCents += amountCents;
+      } else {
+        spentTotalCents += amountCents;
+      }
+    }
+  }
+
+  return WalletsMonthSnapshot(
+    monthStart: snapshot.monthStart,
+    monthEndExclusive: snapshot.monthEndExclusive,
+    incomeTotalCents: incomeTotalCents,
+    spentTotalCents: spentTotalCents,
+    netWorthCents: netWorthCents,
+    walletBalances: walletBalances,
+  );
+}
+
+int _walletTransactionNetDeltaCents(ExpenseEntry transaction) {
+  final amountCents = transaction.amountCents.abs();
+  final isIncome = (transaction.type ?? 'expense').toLowerCase() == 'income';
+  return isIncome ? amountCents : -amountCents;
+}
+
+String? _resolvePendingWalletBalanceId(
+  ExpenseEntry transaction,
+  Map<String, int> walletBalances,
+) {
+  final accountId = transaction.walletId?.trim();
+  if (accountId != null &&
+      accountId.isNotEmpty &&
+      walletBalances.containsKey(accountId)) {
+    return accountId;
+  }
+  if (walletBalances.length == 1) {
+    return walletBalances.keys.single;
+  }
+  return null;
 }
 
 WalletsDebugTrace _createWalletsTrace(

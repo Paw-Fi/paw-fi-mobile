@@ -312,6 +312,98 @@ void main() {
       expect(mutations.single.status, localMutationStatusCancelled);
     });
 
+    test('remote delta cannot resurrect a pending local delete', () async {
+      final entry = _entry(
+        id: 'expense_1',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.upsertTransactions([entry]);
+      await database.writeOptimisticTransactionDelete(
+        entries: [entry],
+        clientMutationId: 'mobile:delete_1',
+        payload: {'expenseIds': entry.id},
+      );
+
+      await database.upsertTransactions([
+        entry.copyWith(amountCents: 9999),
+      ]);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+      final summary = await database.getMonthlySummary(
+        scopeKey: localScopeKey(userId: 'user_1', householdId: null),
+        month: DateTime(2026, 4),
+        currency: 'EUR',
+      );
+
+      expect(rows, isEmpty);
+      expect(summary?.transactionCount, 0);
+    });
+
+    test('remote delta cannot overwrite a pending local row', () async {
+      final local = _entry(
+        id: 'expense_1',
+        userId: 'user_1',
+        amountCents: 1200,
+      );
+      await database.writeOptimisticTransaction(
+        entry: local,
+        clientMutationId: 'mobile:create_1',
+        operation: 'create',
+        payload: {'expenseIds': local.id},
+      );
+
+      await database.upsertTransactions([
+        local.copyWith(amountCents: 9999),
+      ]);
+
+      final rows = await database.getRecentTransactions(
+        userId: 'user_1',
+        householdId: null,
+        limit: 20,
+      );
+
+      expect(rows.single.amountCents, 1200);
+    });
+
+    test('stores transaction feed cache completeness by query', () async {
+      const completeQuery = LocalTransactionsFeedQuery(
+        userId: 'user_1',
+        householdId: null,
+        currency: 'EUR',
+        pageSize: 60,
+      );
+      const otherQuery = LocalTransactionsFeedQuery(
+        userId: 'user_1',
+        householdId: null,
+        currency: 'USD',
+        pageSize: 60,
+      );
+
+      expect(
+        await database.isTransactionsFeedCacheComplete(completeQuery),
+        isFalse,
+      );
+
+      await database.markTransactionsFeedCacheComplete(
+        completeQuery,
+        isComplete: true,
+      );
+
+      expect(
+        await database.isTransactionsFeedCacheComplete(completeQuery),
+        isTrue,
+      );
+      expect(
+        await database.isTransactionsFeedCacheComplete(otherQuery),
+        isFalse,
+      );
+    });
+
     test('stores sync cursors by entity and scope', () async {
       final cursor = DateTime.utc(2026, 4, 8, 9, 30);
 
