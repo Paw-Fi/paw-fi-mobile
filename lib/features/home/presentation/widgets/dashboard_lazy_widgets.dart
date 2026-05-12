@@ -27,6 +27,24 @@ import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart
 import 'package:moneko/features/recurring/presentation/providers/recurring_providers.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+Widget _buildDashboardSwitcher(Widget child) {
+  return AnimatedSwitcher(
+    duration: const Duration(milliseconds: 350),
+    transitionBuilder: _buildDashboardSwitcherTransition,
+    child: child,
+  );
+}
+
+Widget _buildDashboardSwitcherTransition(
+  Widget child,
+  Animation<double> animation,
+) {
+  return FadeTransition(
+    opacity: animation,
+    child: child,
+  );
+}
+
 class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
   const LazyDashboardSpendingSummaryCard({
     super.key,
@@ -82,9 +100,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildSpendingSkeleton(
+      return _buildDashboardSwitcher(
+        _buildSpendingSkeleton(
           context,
           colorScheme,
           config.dateRange,
@@ -95,9 +112,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
@@ -108,9 +124,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildSpendingCard(
+    return _buildDashboardSwitcher(
+      buildSpendingCard(
         context,
         colorScheme,
         mergedTransactions,
@@ -202,9 +217,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         (previousTransactionsAsync.isLoading &&
             !previousTransactionsAsync.hasValue &&
             previousBaseTransactions.isEmpty)) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildNetCashflowSkeleton(
+      return _buildDashboardSwitcher(
+        _buildNetCashflowSkeleton(
           context,
           colorScheme,
           budgets,
@@ -219,9 +233,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
             !currentTransactionsAsync.hasValue) ||
         (previousTransactionsAsync.hasError &&
             !previousTransactionsAsync.hasValue)) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
@@ -252,9 +265,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
       includeFutureOccurrences: false,
     );
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildNetCashflowCard(
+    return _buildDashboardSwitcher(
+      buildNetCashflowCard(
         context,
         colorScheme,
         budgets.cast(),
@@ -293,9 +305,8 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
       recurringTransactionsProvider(scope.activeAccountHouseholdId),
     );
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: FinancialCalendarWidget(
+    return _buildDashboardSwitcher(
+      FinancialCalendarWidget(
         key: ValueKey(
             'fin_cal_${config.id}_${selectedCurrency ?? fallbackCurrency}'),
         userId: auth.uid,
@@ -342,9 +353,8 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
     if (recentAsync.isLoading &&
         !recentAsync.hasValue &&
         recentTransactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildRecentTransactionsSkeleton(
+      return _buildDashboardSwitcher(
+        _buildRecentTransactionsSkeleton(
           context,
           colorScheme,
           filterState.selectedCurrency,
@@ -353,9 +363,8 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       );
     }
     if (recentAsync.hasError && !recentAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
@@ -369,9 +378,8 @@ class LazyDashboardRecentTransactionsCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildRecentTransactionsCard(
+    return _buildDashboardSwitcher(
+      buildRecentTransactionsCard(
         context,
         colorScheme,
         recentTransactions,
@@ -444,18 +452,16 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildBreakdownSkeleton(
+      return _buildDashboardSwitcher(
+        _buildBreakdownSkeleton(
           colorScheme,
           key: const ValueKey('breakdown_skeleton'),
         ),
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
@@ -466,9 +472,8 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: buildSpendingBreakdownChart(
+    return _buildDashboardSwitcher(
+      buildSpendingBreakdownChart(
         context,
         colorScheme,
         expenses,
@@ -538,18 +543,16 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     if (transactionsAsync.isLoading &&
         !transactionsAsync.hasValue &&
         transactions.isEmpty) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildWhereMoneyWentSkeleton(
+      return _buildDashboardSwitcher(
+        _buildWhereMoneyWentSkeleton(
           colorScheme,
           key: const ValueKey('where_money_went_skeleton'),
         ),
       );
     }
     if (transactionsAsync.hasError && !transactionsAsync.hasValue) {
-      return AnimatedSwitcher(
-        duration: const Duration(milliseconds: 350),
-        child: _buildDashboardErrorCard(
+      return _buildDashboardSwitcher(
+        _buildDashboardErrorCard(
           context,
           colorScheme,
           context.l10n.errorLoadingDashboard,
@@ -560,9 +563,8 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: WhereTheMoneyWentWidget(
+    return _buildDashboardSwitcher(
+      WhereTheMoneyWentWidget(
         key: ValueKey(
             'where_money_went_data_${config.id}_${filterState.selectedCurrency}'),
         expenses: expenses,

@@ -328,6 +328,39 @@ class _DashboardWidgetWrapperState extends ConsumerState<DashboardWidgetWrapper>
 // DRAGGABLE LIST
 // ============================================================================
 
+class _KeepAliveDashboardItem extends StatefulWidget {
+  const _KeepAliveDashboardItem({
+    super.key,
+    required this.index,
+    required this.enabled,
+    required this.child,
+  });
+
+  final int index;
+  final bool enabled;
+  final Widget child;
+
+  @override
+  State<_KeepAliveDashboardItem> createState() =>
+      _KeepAliveDashboardItemState();
+}
+
+class _KeepAliveDashboardItemState extends State<_KeepAliveDashboardItem>
+    with AutomaticKeepAliveClientMixin<_KeepAliveDashboardItem> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return ReorderableDelayedDragStartListener(
+      index: widget.index,
+      enabled: widget.enabled,
+      child: widget.child,
+    );
+  }
+}
+
 class DraggableDashboardList extends ConsumerWidget {
   final List<DashboardWidgetConfig> configs;
   final Map<DashboardWidgetType,
@@ -361,14 +394,14 @@ class DraggableDashboardList extends ConsumerWidget {
         final builder = widgetBuilders[config.type];
 
         if (builder == null) {
-          return const SizedBox.shrink(key: ValueKey('empty'));
+          return SizedBox.shrink(key: ValueKey(config.id));
         }
 
         if (!isEditMode && !config.isVisible) {
           return SizedBox.shrink(key: ValueKey(config.id));
         }
 
-        return ReorderableDelayedDragStartListener(
+        return _KeepAliveDashboardItem(
           key: ValueKey(config.id),
           index: index,
           enabled: isEditMode,

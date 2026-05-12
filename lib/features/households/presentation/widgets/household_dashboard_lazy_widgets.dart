@@ -48,6 +48,24 @@ HouseholdSummaryParams buildHouseholdSummaryParams({
   );
 }
 
+Widget _buildDashboardSwitcher(Widget child) {
+  return AnimatedSwitcher(
+    duration: const Duration(milliseconds: 350),
+    transitionBuilder: _buildDashboardSwitcherTransition,
+    child: child,
+  );
+}
+
+Widget _buildDashboardSwitcherTransition(
+  Widget child,
+  Animation<double> animation,
+) {
+  return FadeTransition(
+    opacity: animation,
+    child: child,
+  );
+}
+
 class LazyHouseholdSpentByYouCard extends ConsumerWidget {
   const LazyHouseholdSpentByYouCard({
     super.key,
@@ -183,10 +201,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -208,10 +223,10 @@ class LazyHouseholdFinancialCalendarCard extends ConsumerWidget {
     final recurringAsync =
         ref.watch(recurringTransactionsProvider(household.id));
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: FinancialCalendarWidget(
-        key: ValueKey('household_fin_cal_${recurringAsync.data.valueOrNull?.length}_$selectedCurrency'),
+    return _buildDashboardSwitcher(
+      FinancialCalendarWidget(
+        key: ValueKey(
+            'household_fin_cal_${recurringAsync.data.valueOrNull?.length}_$selectedCurrency'),
         userId: userId,
         householdId: household.id,
         recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
@@ -370,10 +385,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -453,10 +465,7 @@ class LazyHouseholdRecentTransactionsCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -553,10 +562,7 @@ class LazyHouseholdSpendingBreakdownChartCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -648,10 +654,7 @@ class LazyHouseholdWhereTheMoneyWentCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -885,10 +888,7 @@ class LazyHouseholdBudgetOverviewCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -1003,10 +1003,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 
@@ -1057,10 +1054,7 @@ class LazyHouseholdSettlementCard extends ConsumerWidget {
       );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: child,
-    );
+    return _buildDashboardSwitcher(child);
   }
 }
 

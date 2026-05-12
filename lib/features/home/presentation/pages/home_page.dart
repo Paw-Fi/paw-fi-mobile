@@ -75,6 +75,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   static const bool _enableDebugLogs =
       bool.fromEnvironment('MONEKO_DEBUG_LOGS', defaultValue: false);
+  static const double _dashboardScrollCacheExtent = 1600;
 
   void _debugPrint(String? message, {int? wrapWidth}) {
     if (foundation.kDebugMode && _enableDebugLogs) {
@@ -359,6 +360,10 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
 
     final scrollView = CustomScrollView(
+      key: PageStorageKey<String>(
+        'home_page_${householdScope.activeAccountType.name}_${householdScope.activeAccountHouseholdId ?? 'personal'}',
+      ),
+      cacheExtent: _dashboardScrollCacheExtent,
       slivers: [
         if (householdScope.isHouseholdView) ...[
           const HouseholdHomeContent(),
