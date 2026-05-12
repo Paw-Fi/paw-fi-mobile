@@ -2706,5 +2706,16 @@
   "helpCenter": "Hilfe-Center",
   "autoSplit": "Automatisch teilen",
   "autoSplitDescriptionOn": "Ausgaben werden automatisch unter allen Mitgliedern aufgeteilt",
-  "autoSplitDescriptionOff": "Ausgaben werden nicht automatisch aufgeteilt, aber Transaktionen in diesem Bereich bleiben für alle Mitglieder sichtbar."
+  "autoSplitDescriptionOff": "Ausgaben werden nicht automatisch aufgeteilt, aber Transaktionen in diesem Bereich bleiben für alle Mitglieder sichtbar.",
+  "offlineGraceAccess": "Du bist offline, kannst die App aber weiter nutzen",
+  "subscriptionCheckTrouble": "Dein Abo konnte gerade nicht überprüft werden",
+  "offlineSyncMessage": "Du kannst deine Ausgaben auch offline weiter erfassen. Sobald du wieder online bist, wird alles synchronisiert.",
+  "fullAccessRetryMessage": "Du hast weiterhin vollen Zugriff. Nutze die App einfach wie gewohnt – wir versuchen es automatisch im Hintergrund erneut.",
+  "retryNow": "Jetzt erneut versuchen",
+  "managePlan": "Abo verwalten",
+  "previewModeTitle": "Vorschaumodus aktiviert · Nur Demodaten",
+  "previewModeDescription": "Dein Fortschritt wird nicht gespeichert. Erstelle ein Konto, um deine Änderungen zu behalten.",
+  "exitTour": "Tour beenden",
+  "previewModeCollapsed": "Vorschaumodus · Daten werden nicht gespeichert",
+  "exit": "Beenden"
 }

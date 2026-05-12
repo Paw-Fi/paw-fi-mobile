@@ -2706,5 +2706,16 @@
   "helpCenter": "ヘルプセンター",
   "autoSplit": "自動分割",
   "autoSplitDescriptionOn": "支出はすべてのメンバー間で自動的に分割されます",
-  "autoSplitDescriptionOff": "支出は自動的に分割されませんが、このスペースに追加された取引は引き続きすべてのメンバーに表示されます。"
+  "autoSplitDescriptionOff": "支出は自動的に分割されませんが、このスペースに追加された取引は引き続きすべてのメンバーに表示されます。",
+  "offlineGraceAccess": "オフライン中でも、引き続きアプリをご利用いただけます",
+  "subscriptionCheckTrouble": "サブスクリプションを確認できませんでした",
+  "offlineSyncMessage": "オフラインでも支出を記録できます。オンラインに戻ると自動で同期されます。",
+  "fullAccessRetryMessage": "引き続きすべての機能をご利用いただけます。通常どおりアプリをお使いください。バックグラウンドで自動的に再試行します。",
+  "retryNow": "今すぐ再試行",
+  "managePlan": "サブスクリプションを管理",
+  "previewModeTitle": "プレビューモード中 · デモデータのみ",
+  "previewModeDescription": "進行状況は保存されません。変更内容を保存するにはアカウントを作成してください。",
+  "exitTour": "ツアーを終了",
+  "previewModeCollapsed": "プレビューモード · データは保存されません",
+  "exit": "終了"
 }

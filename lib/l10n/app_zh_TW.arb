@@ -2650,5 +2650,16 @@
   "helpCenter": "說明中心",
   "autoSplit": "自動分攤",
   "autoSplitDescriptionOn": "費用將自動在所有成員之間分攤",
-  "autoSplitDescriptionOff": "費用不會自動分攤，但新增到此空間的交易仍會對所有成員可見。"
+  "autoSplitDescriptionOff": "費用不會自動分攤，但新增到此空間的交易仍會對所有成員可見。",
+  "offlineGraceAccess": "你目前處於離線狀態，但仍可繼續使用 App",
+  "subscriptionCheckTrouble": "暫時無法檢查你的訂閱狀態",
+  "offlineSyncMessage": "離線時你也可以繼續記錄支出，重新連線後所有內容都會自動同步。",
+  "fullAccessRetryMessage": "你仍然擁有完整使用權限。請繼續正常使用 App，我們會在背景自動重試。",
+  "retryNow": "立即重試",
+  "managePlan": "管理訂閱",
+  "previewModeTitle": "預覽模式已開啟 · 僅使用示範資料",
+  "previewModeDescription": "你的進度不會儲存。建立帳號即可保留你的變更。",
+  "exitTour": "離開導覽",
+  "previewModeCollapsed": "預覽模式 · 資料不會儲存",
+  "exit": "離開"
 }

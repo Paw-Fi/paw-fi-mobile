@@ -2706,5 +2706,16 @@
   "helpCenter": "Centre d’aide",
   "autoSplit": "Répartition automatique",
   "autoSplitDescriptionOn": "Les dépenses seront automatiquement réparties entre tous les membres",
-  "autoSplitDescriptionOff": "Les dépenses ne seront pas réparties automatiquement, mais les transactions ajoutées à cet espace resteront visibles par tous les membres."
+  "autoSplitDescriptionOff": "Les dépenses ne seront pas réparties automatiquement, mais les transactions ajoutées à cet espace resteront visibles par tous les membres.",
+  "offlineGraceAccess": "Vous êtes hors ligne, mais vous pouvez continuer à utiliser l’application",
+  "subscriptionCheckTrouble": "Impossible de vérifier votre abonnement pour le moment",
+  "offlineSyncMessage": "Vous pouvez continuer à enregistrer vos dépenses hors ligne. Tout se synchronisera dès que vous serez de nouveau en ligne.",
+  "fullAccessRetryMessage": "Vous conservez l’accès complet. Continuez à utiliser l’application normalement, nous réessaierons automatiquement en arrière-plan.",
+  "retryNow": "Réessayer maintenant",
+  "managePlan": "Gérer l’abonnement",
+  "previewModeTitle": "Mode aperçu activé · Données de démonstration uniquement",
+  "previewModeDescription": "Votre progression ne sera pas enregistrée. Créez un compte pour conserver vos modifications.",
+  "exitTour": "Quitter la visite guidée",
+  "previewModeCollapsed": "Mode aperçu · Les données ne seront pas enregistrées",
+  "exit": "Quitter"
 }

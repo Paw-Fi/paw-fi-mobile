@@ -2725,5 +2725,16 @@
   "helpCenter": "Help Center",
   "autoSplit": "Auto split",
   "autoSplitDescriptionOn": "Expenses will be split automatically among all members",
-  "autoSplitDescriptionOff": "Expenses won't be split automatically, but transactions added to this space will still be visible to all members."
+  "autoSplitDescriptionOff": "Expenses won't be split automatically, but transactions added to this space will still be visible to all members.",
+  "offlineGraceAccess": "You're offline, but you can keep using the app",
+  "subscriptionCheckTrouble": "Having trouble checking your subscription",
+  "offlineSyncMessage": "You can keep logging expenses offline, and everything will sync once you're back online.",
+  "fullAccessRetryMessage": "You still have full access. Keep using the app normally, and we'll retry automatically in the background.",
+  "retryNow": "Retry now",
+  "managePlan": "Manage subscription",
+  "previewModeTitle": "Preview mode is on · Demo data only",
+  "previewModeDescription": "Your progress won't be saved. Create an account to keep your changes.",
+  "exitTour": "Exit tour",
+  "previewModeCollapsed": "Preview mode · Data won't be saved",
+  "exit": "Exit"
 }

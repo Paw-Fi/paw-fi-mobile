@@ -689,11 +689,12 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isGraceAccess = status == SubscriptionGateStatus.graceActive;
     final title = isGraceAccess
-        ? 'You are in offline grace access'
-        : 'We can’t verify your subscription right now';
+      ? context.l10n.offlineGraceAccess
+      : context.l10n.subscriptionCheckTrouble;
+
     final subtitle = isGraceAccess
-        ? 'Your previous active subscription is kept for up to 72 hours while we reconnect.'
-        : 'You still have full access while we retry in the background. Your subscription is not removed.';
+      ? context.l10n.offlineSyncMessage
+      : context.l10n.fullAccessRetryMessage;
 
     return Container(
       width: double.infinity,
@@ -734,7 +735,7 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
                   minimumSize: const Size(0, 34),
                 ),
                 onPressed: onRetryTap,
-                child: const Text('Retry now'),
+                child: Text(context.l10n.retryNow),
               ),
               OutlinedButton(
                 style: OutlinedButton.styleFrom(
@@ -743,7 +744,7 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
                   minimumSize: const Size(0, 34),
                 ),
                 onPressed: onManageTap,
-                child: const Text('Manage plan'),
+                child: Text(context.l10n.managePlan),
               ),
             ],
           ),
@@ -791,7 +792,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final title = Text(
-      'Preview mode is on · Demo data only',
+      context.l10n.previewModeTitle,
       style: TextStyle(
         color: colorScheme.warning,
         fontSize: 16,
@@ -838,7 +839,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                               ],
                             ),
                             Text(
-                              'Your progress won’t be saved. Create an account to keep your changes.',
+                              context.l10n.previewModeDescription,
                               style: TextStyle(
                                 color: colorScheme.foreground,
                                 height: 1.35,
@@ -856,7 +857,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                                 backgroundColor: colorScheme.warning,
                               ),
                               onPressed: widget.onExitTap,
-                              child: const Text('Exit tour'),
+                              child: Text(context.l10n.exitTour),
                             ),
                           ],
                         ),
@@ -871,7 +872,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    'Preview Mode - Data won\'t be saved',
+                    context.l10n.previewModeCollapsed,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
@@ -893,7 +894,7 @@ class _PreviewModeBannerState extends State<_PreviewModeBanner> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Exit',
+                      context.l10n.exit,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

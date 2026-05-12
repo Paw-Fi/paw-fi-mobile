@@ -2653,5 +2653,16 @@
   "helpCenter": "Helpcentrum",
   "autoSplit": "Automatisch splitsen",
   "autoSplitDescriptionOn": "Uitgaven worden automatisch verdeeld onder alle leden",
-  "autoSplitDescriptionOff": "Uitgaven worden niet automatisch gesplitst, maar transacties die aan deze ruimte zijn toegevoegd, blijven zichtbaar voor alle leden."
+  "autoSplitDescriptionOff": "Uitgaven worden niet automatisch gesplitst, maar transacties die aan deze ruimte zijn toegevoegd, blijven zichtbaar voor alle leden.",
+  "offlineGraceAccess": "Je bent offline, maar je kunt de app blijven gebruiken",
+  "subscriptionCheckTrouble": "We kunnen je abonnement momenteel niet controleren",
+  "offlineSyncMessage": "Je kunt je uitgaven ook offline blijven bijhouden. Alles synchroniseert zodra je weer online bent.",
+  "fullAccessRetryMessage": "Je hebt nog steeds volledige toegang. Blijf de app gewoon gebruiken; we proberen het automatisch opnieuw op de achtergrond.",
+  "retryNow": "Nu opnieuw proberen",
+  "managePlan": "Abonnement beheren",
+  "previewModeTitle": "Previewmodus actief · Alleen demogegevens",
+  "previewModeDescription": "Je voortgang wordt niet opgeslagen. Maak een account aan om je wijzigingen te bewaren.",
+  "exitTour": "Rondleiding afsluiten",
+  "previewModeCollapsed": "Previewmodus · Gegevens worden niet opgeslagen",
+  "exit": "Afsluiten"
 }

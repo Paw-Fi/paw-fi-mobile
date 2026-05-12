@@ -2653,5 +2653,16 @@
   "helpCenter": "Centro assistenza",
   "autoSplit": "Divisione automatica",
   "autoSplitDescriptionOn": "Le spese verranno divise automaticamente tra tutti i membri",
-  "autoSplitDescriptionOff": "Le spese non verranno divise automaticamente, ma le transazioni aggiunte a questo spazio resteranno visibili a tutti i membri."
+  "autoSplitDescriptionOff": "Le spese non verranno divise automaticamente, ma le transazioni aggiunte a questo spazio resteranno visibili a tutti i membri.",
+  "offlineGraceAccess": "Sei offline, ma puoi continuare a usare l’app",
+  "subscriptionCheckTrouble": "Non riusciamo a verificare il tuo abbonamento",
+  "offlineSyncMessage": "Puoi continuare a registrare le spese anche offline. Tutto verrà sincronizzato quando tornerai online.",
+  "fullAccessRetryMessage": "Hai ancora accesso completo. Continua a usare l’app normalmente: riproveremo automaticamente in background.",
+  "retryNow": "Riprova ora",
+  "managePlan": "Gestisci abbonamento",
+  "previewModeTitle": "Modalità anteprima attiva · Solo dati demo",
+  "previewModeDescription": "I tuoi progressi non verranno salvati. Crea un account per conservare le modifiche.",
+  "exitTour": "Esci dal tour",
+  "previewModeCollapsed": "Modalità anteprima · I dati non verranno salvati",
+  "exit": "Esci"
 }

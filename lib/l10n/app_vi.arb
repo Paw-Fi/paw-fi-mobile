@@ -2705,5 +2705,16 @@
   "helpCenter": "Trung tâm trợ giúp",
   "autoSplit": "Tự động chia",
   "autoSplitDescriptionOn": "Chi phí sẽ được tự động chia giữa tất cả thành viên",
-  "autoSplitDescriptionOff": "Chi phí sẽ không được tự động chia, nhưng các giao dịch được thêm vào không gian này vẫn hiển thị với tất cả thành viên."
+  "autoSplitDescriptionOff": "Chi phí sẽ không được tự động chia, nhưng các giao dịch được thêm vào không gian này vẫn hiển thị với tất cả thành viên.",
+  "offlineGraceAccess": "Bạn đang ngoại tuyến nhưng vẫn có thể tiếp tục sử dụng ứng dụng",
+  "subscriptionCheckTrouble": "Chưa thể kiểm tra gói đăng ký của bạn",
+  "offlineSyncMessage": "Bạn vẫn có thể ghi lại chi tiêu khi ngoại tuyến. Mọi thứ sẽ tự động đồng bộ khi có mạng trở lại.",
+  "fullAccessRetryMessage": "Bạn vẫn có toàn quyền truy cập. Hãy tiếp tục sử dụng ứng dụng như bình thường, chúng tôi sẽ tự động thử lại trong nền.",
+  "retryNow": "Thử lại ngay",
+  "managePlan": "Quản lý gói đăng ký",
+  "previewModeTitle": "Đang bật chế độ xem trước · Chỉ dùng dữ liệu mẫu",
+  "previewModeDescription": "Tiến trình của bạn sẽ không được lưu. Hãy tạo tài khoản để giữ lại các thay đổi.",
+  "exitTour": "Thoát phần hướng dẫn",
+  "previewModeCollapsed": "Chế độ xem trước · Dữ liệu sẽ không được lưu",
+  "exit": "Thoát"
 }

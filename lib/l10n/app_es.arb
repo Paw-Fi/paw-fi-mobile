@@ -2708,5 +2708,16 @@
   "helpCenter": "Centro de ayuda",
   "autoSplit": "División automática",
   "autoSplitDescriptionOn": "Los gastos se dividirán automáticamente entre todos los miembros",
-  "autoSplitDescriptionOff": "Los gastos no se dividirán automáticamente, pero las transacciones añadidas a este espacio seguirán siendo visibles para todos los miembros."
+  "autoSplitDescriptionOff": "Los gastos no se dividirán automáticamente, pero las transacciones añadidas a este espacio seguirán siendo visibles para todos los miembros.",
+  "offlineGraceAccess": "Estás sin conexión, pero puedes seguir usando la app",
+  "subscriptionCheckTrouble": "No hemos podido comprobar tu suscripción",
+  "offlineSyncMessage": "Puedes seguir registrando gastos sin conexión. Todo se sincronizará cuando vuelvas a estar online.",
+  "fullAccessRetryMessage": "Sigues teniendo acceso completo. Usa la app con normalidad y lo intentaremos de nuevo automáticamente en segundo plano.",
+  "retryNow": "Intentarlo de nuevo",
+  "managePlan": "Gestionar suscripción",
+  "previewModeTitle": "Modo de vista previa activado · Solo datos de prueba",
+  "previewModeDescription": "Tu progreso no se guardará. Crea una cuenta para conservar tus cambios.",
+  "exitTour": "Salir del recorrido",
+  "previewModeCollapsed": "Modo de vista previa · Los datos no se guardarán",
+  "exit": "Salir"
 }

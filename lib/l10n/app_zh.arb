@@ -2702,5 +2702,16 @@
   "helpCenter": "帮助中心",
   "autoSplit": "自动分摊",
   "autoSplitDescriptionOn": "费用将自动在所有成员之间分摊",
-  "autoSplitDescriptionOff": "费用不会自动分摊，但添加到此空间的交易仍会对所有成员可见。"
+  "autoSplitDescriptionOff": "费用不会自动分摊，但添加到此空间的交易仍会对所有成员可见。",
+  "offlineGraceAccess": "你当前处于离线状态，但仍可继续使用应用",
+  "subscriptionCheckTrouble": "暂时无法检查你的订阅状态",
+  "offlineSyncMessage": "离线时你也可以继续记录支出，恢复联网后所有内容都会自动同步。",
+  "fullAccessRetryMessage": "你仍然拥有完整使用权限。请继续正常使用应用，我们会在后台自动重试。",
+  "retryNow": "立即重试",
+  "managePlan": "管理订阅",
+  "previewModeTitle": "预览模式已开启 · 仅使用演示数据",
+  "previewModeDescription": "你的进度不会保存。创建账号即可保留你的更改。",
+  "exitTour": "退出导览",
+  "previewModeCollapsed": "预览模式 · 数据不会保存",
+  "exit": "退出"
 }

@@ -7186,4 +7186,37 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get autoSplitDescriptionOff => 'ค่าใช้จ่ายจะไม่ถูกแบ่งโดยอัตโนมัติ แต่ธุรกรรมที่เพิ่มในพื้นที่นี้จะยังคงมองเห็นได้สำหรับสมาชิกทุกคน';
+
+  @override
+  String get offlineGraceAccess => 'คุณออฟไลน์อยู่ แต่ยังใช้งานแอปต่อได้';
+
+  @override
+  String get subscriptionCheckTrouble => 'ไม่สามารถตรวจสอบการสมัครสมาชิกของคุณได้';
+
+  @override
+  String get offlineSyncMessage => 'คุณยังบันทึกรายจ่ายขณะออฟไลน์ได้ และข้อมูลทั้งหมดจะซิงก์เมื่อกลับมาออนไลน์';
+
+  @override
+  String get fullAccessRetryMessage => 'คุณยังใช้งานได้เต็มรูปแบบ ใช้แอปได้ตามปกติ แล้วเราจะลองใหม่ให้อัตโนมัติในเบื้องหลัง';
+
+  @override
+  String get retryNow => 'ลองอีกครั้งตอนนี้';
+
+  @override
+  String get managePlan => 'จัดการการสมัครสมาชิก';
+
+  @override
+  String get previewModeTitle => 'เปิดโหมดพรีวิว · ใช้เฉพาะข้อมูลตัวอย่าง';
+
+  @override
+  String get previewModeDescription => 'ความคืบหน้าของคุณจะไม่ถูกบันทึก สร้างบัญชีเพื่อเก็บการเปลี่ยนแปลงของคุณไว้';
+
+  @override
+  String get exitTour => 'ออกจากคำแนะนำ';
+
+  @override
+  String get previewModeCollapsed => 'โหมดพรีวิว · ข้อมูลจะไม่ถูกบันทึก';
+
+  @override
+  String get exit => 'ออก';
 }

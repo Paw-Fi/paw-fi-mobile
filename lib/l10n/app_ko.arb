@@ -2510,5 +2510,16 @@
   "helpCenter": "도움말 센터",
   "autoSplit": "자동 분할",
   "autoSplitDescriptionOn": "지출은 모든 멤버 간에 자동으로 분할됩니다",
-  "autoSplitDescriptionOff": "지출은 자동으로 나뉘지 않지만, 이 공간에 추가된 거래는 계속 모든 멤버에게 표시됩니다."
+  "autoSplitDescriptionOff": "지출은 자동으로 나뉘지 않지만, 이 공간에 추가된 거래는 계속 모든 멤버에게 표시됩니다.",
+  "offlineGraceAccess": "오프라인 상태여도 앱을 계속 사용할 수 있어요",
+  "subscriptionCheckTrouble": "구독 상태를 확인하는 데 문제가 발생했어요",
+  "offlineSyncMessage": "오프라인에서도 지출을 기록할 수 있으며, 다시 온라인이 되면 자동으로 동기화됩니다.",
+  "fullAccessRetryMessage": "계속 전체 기능을 이용할 수 있어요. 평소처럼 앱을 사용하면 백그라운드에서 자동으로 다시 시도할게요.",
+  "retryNow": "지금 다시 시도",
+  "managePlan": "구독 관리",
+  "previewModeTitle": "미리보기 모드 사용 중 · 데모 데이터만 표시됩니다",
+  "previewModeDescription": "진행 상황은 저장되지 않아요. 변경 내용을 저장하려면 계정을 만들어 주세요.",
+  "exitTour": "둘러보기 종료",
+  "previewModeCollapsed": "미리보기 모드 · 데이터는 저장되지 않습니다",
+  "exit": "종료"
 }
