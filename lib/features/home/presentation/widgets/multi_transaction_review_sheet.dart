@@ -586,7 +586,7 @@ class _MultiTransactionReviewSheetState
         }
       }
 
-      if (!_isIncomeMode && successCount > 0) {
+      if (successCount > 0) {
         await ref
             .read(expenseSaveNotifierProvider.notifier)
             .invalidateAfterBatch(userId: user.uid, householdId: householdId);

@@ -6,8 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/core.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/features/home/presentation/models/parsed_expense.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/ai_quick_log.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/widgets/custom_split_sheet.dart';
@@ -91,9 +94,25 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     bool invalidateProviders = true,
   }) async {
     state = const AsyncValue.loading();
+    String? queuedMutationId;
+    String? optimisticId;
+    ExpenseEntry? optimisticEntry;
 
     try {
       final user = ref.read(authProvider);
+      optimisticId = clientRecordId?.trim().isNotEmpty == true
+          ? clientRecordId!.trim()
+          : makeOptimisticTransactionId();
+      final mutationMetadata = TransactionMutationMetadata(
+        clientRecordId: optimisticId,
+        clientMutationId: clientMutationId?.trim().isNotEmpty == true
+            ? clientMutationId!.trim()
+            : 'mobile:$optimisticId',
+        idempotencyKey: idempotencyKey?.trim().isNotEmpty == true
+            ? idempotencyKey!.trim()
+            : 'mobile:$optimisticId',
+      );
+      queuedMutationId = mutationMetadata.clientMutationId;
 
       _debugPrint('💾 Saving expense request');
       if (householdId != null) {
@@ -123,17 +142,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         'type': 'expense',
       };
 
-      if (clientRecordId != null && clientRecordId.trim().isNotEmpty) {
-        requestBody['clientRecordId'] = clientRecordId.trim();
-      }
-
-      if (clientMutationId != null && clientMutationId.trim().isNotEmpty) {
-        requestBody['clientMutationId'] = clientMutationId.trim();
-      }
-
-      if (idempotencyKey != null && idempotencyKey.trim().isNotEmpty) {
-        requestBody['idempotencyKey'] = idempotencyKey.trim();
-      }
+      requestBody.addAll(mutationMetadata.toRequestJson());
 
       final description = expense.description;
       if (description != null && description.trim().isNotEmpty) {
@@ -225,6 +234,26 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
         requestBody['payerUserId'] = payerUserId;
       }
 
+      optimisticEntry = _buildOptimisticExpenseEntry(
+        expense: expense,
+        expenseId: optimisticId,
+        householdId: householdId,
+        userId: user.uid,
+        receiptImageUrl: receiptImageUrl,
+        createdAt: DateTime.now(),
+        accountId: accountId,
+      );
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.writeOptimisticTransaction(
+        entry: optimisticEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        operation: 'create',
+        payload: {
+          'functionName': 'save-expense',
+          'requestBody': requestBody,
+        },
+      );
+
       // Call save-expense edge function
       final response = await supabase.functions.invoke(
         'save-expense',
@@ -242,6 +271,15 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       final saved = responseMap?['data'];
       final savedEntry =
           saved is Map<String, dynamic> ? ExpenseEntry.fromJson(saved) : null;
+      if (savedEntry != null) {
+        await database.replaceOptimisticTransaction(
+          optimisticId: optimisticId,
+          savedEntry: savedEntry,
+          clientMutationId: mutationMetadata.clientMutationId,
+        );
+      } else {
+        await database.markMutationSynced(mutationMetadata.clientMutationId);
+      }
 
       if (addHouseholdOptimisticData) {
         _addOptimisticHouseholdData(
@@ -265,6 +303,27 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       return savedEntry;
     } catch (error, stackTrace) {
+      if (queuedMutationId != null &&
+          optimisticId != null &&
+          optimisticEntry != null &&
+          ErrorHandler.isRetryable(error)) {
+        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        state = const AsyncValue.data(null);
+        return optimisticEntry;
+      }
+      if (queuedMutationId != null && optimisticId != null) {
+        try {
+          final database = await ref.read(localDatabaseProvider.future);
+          await database.rollbackOptimisticTransaction(
+            optimisticId: optimisticId,
+            clientMutationId: queuedMutationId,
+            error: error,
+          );
+        } catch (_) {
+          // Keep the original save error as the user-facing failure.
+        }
+      }
       _debugPrint('❌ Error saving expense: $error');
       state = AsyncValue.error(error, stackTrace);
       rethrow;
@@ -344,7 +403,7 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   ExpenseEntry _buildOptimisticExpenseEntry({
     required ParsedExpense expense,
     required String expenseId,
-    required String householdId,
+    required String? householdId,
     required String userId,
     required String? receiptImageUrl,
     required DateTime createdAt,

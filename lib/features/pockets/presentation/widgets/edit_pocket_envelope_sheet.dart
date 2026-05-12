@@ -377,6 +377,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
       }
 
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      String? queuedMutationId;
       try {
         final nowIso = DateTime.now().toIso8601String();
         final originalAmountCents = existingEnvelope?.budgetAmountCents ?? 0;
@@ -441,11 +442,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               lastUpdated: DateTime.now(),
             ),
         ];
-        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
-              pockets: optimisticPockets,
-              totalBudget: totalBudget,
-              budgetId: budgetId,
-            );
+        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        pocketsNotifier.applyOptimisticPockets(
+          pockets: optimisticPockets,
+          totalBudget: totalBudget,
+          budgetId: budgetId,
+        );
+        queuedMutationId =
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
 
         Future<void> persistSiblingAllocations() async {
           for (var index = 0; index < siblingPockets.length; index++) {
@@ -535,6 +539,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           await supabase.from('envelope_category_links').insert(linksPayload);
         }
 
+        await ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .markQueuedPocketsSnapshotSynced(queuedMutationId);
+
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
         if (isScopedToHousehold && householdId != null) {
           debugPrint(
@@ -561,6 +569,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, message);
         }
       } catch (e) {
+        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            AppToast.info(context, context.l10n.offlineSyncMessage);
+          }
+          return;
+        }
         ref
             .read(pocketsProvider(scopeParams).notifier)
             .restoreOptimisticPockets(previousPocketsState);
@@ -594,6 +609,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         isLoading.value = true;
       }
       final previousPocketsState = ref.read(pocketsProvider(scopeParams));
+      String? queuedMutationId;
       try {
         final remainingPockets = allPockets
             .where((pocket) => pocket.id != existingEnvelope!.id)
@@ -616,11 +632,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               budgetId: budgetId,
             ),
         ];
-        ref.read(pocketsProvider(scopeParams).notifier).applyOptimisticPockets(
-              pockets: optimisticRemaining,
-              totalBudget: totalBudget,
-              budgetId: budgetId,
-            );
+        final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
+        pocketsNotifier.applyOptimisticPockets(
+          pockets: optimisticRemaining,
+          totalBudget: totalBudget,
+          budgetId: budgetId,
+        );
+        queuedMutationId =
+            await pocketsNotifier.queueCurrentPocketsSnapshotForSync();
 
         await supabase
             .from('budget_envelopes')
@@ -641,6 +660,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
             nowIso: nowIso,
           );
         }
+
+        await ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .markQueuedPocketsSnapshotSynced(queuedMutationId);
 
         // CRITICAL: Invalidate RequestDeduplicator cache for household data
         final isScopedToHousehold =
@@ -670,6 +693,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
           AppToast.success(context, l10n.pocketDeleted);
         }
       } catch (e) {
+        if (queuedMutationId != null && shouldKeepQueuedPocketsMutation(e)) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+            onDeleteCompleted?.call();
+            AppToast.info(context, context.l10n.offlineSyncMessage);
+          }
+          return;
+        }
         ref
             .read(pocketsProvider(scopeParams).notifier)
             .restoreOptimisticPockets(previousPocketsState);

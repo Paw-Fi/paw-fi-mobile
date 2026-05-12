@@ -199,7 +199,7 @@ class PocketCard extends StatelessWidget {
                                   );
                                 },
                                 child: Text.rich(
-                                  key: ValueKey('${pocket.spent}_${limit}'),
+                                  key: ValueKey('${pocket.spent}_$limit'),
                                   TextSpan(
                                     children: [
                                       TextSpan(

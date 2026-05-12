@@ -426,6 +426,7 @@ class WalletActions {
         _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(optimisticId, error);
       clearOptimisticWallet(optimisticId);
       rethrow;
     }
@@ -470,18 +471,18 @@ class WalletActions {
       '[Accounts][Update] start accountId=$walletId name=$name icon=$icon color=$color opening=$openingBalanceCents goal=$goalAmountCents includeGoal=$includeGoalAmount isDefault=$isDefault invalidate=$invalidate',
     );
 
+    final requestBody = {
+      'accountId': walletId,
+      if (name != null) 'name': name,
+      if (icon != null) 'icon': icon,
+      if (color != null) 'color': color,
+      if (openingBalanceCents != null)
+        'openingBalanceCents': openingBalanceCents,
+      if (includeGoalAmount || goalAmountCents != null)
+        'goalAmountCents': goalAmountCents,
+      if (isDefault != null) 'isDefault': isDefault,
+    };
     try {
-      final requestBody = {
-        'accountId': walletId,
-        if (name != null) 'name': name,
-        if (icon != null) 'icon': icon,
-        if (color != null) 'color': color,
-        if (openingBalanceCents != null)
-          'openingBalanceCents': openingBalanceCents,
-        if (includeGoalAmount || goalAmountCents != null)
-          'goalAmountCents': goalAmountCents,
-        if (isDefault != null) 'isDefault': isDefault,
-      };
       final localDatabase = await _enqueueWalletMutation(
         entityId: walletId,
         functionName: 'update-wallet',
@@ -503,6 +504,7 @@ class WalletActions {
         if (invalidate) _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(walletId, error);
       clearOptimisticWallet(walletId);
       rethrow;
     }
@@ -534,6 +536,7 @@ class WalletActions {
         _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(accountId, error);
       clearOptimisticWallet(accountId);
       rethrow;
     }
@@ -568,6 +571,7 @@ class WalletActions {
         _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(accountId, error);
       clearOptimisticWallet(accountId);
       rethrow;
     }
@@ -597,6 +601,8 @@ class WalletActions {
         currentBalanceCents: toWallet.currentBalanceCents + amountCents,
       ));
     }
+    final transferMutationEntityId =
+        '$fromAccountId:$toAccountId:${DateTime.now().microsecondsSinceEpoch}';
     try {
       final requestBody = {
         'fromAccountId': fromAccountId,
@@ -606,8 +612,6 @@ class WalletActions {
         'date': formatDateOnlyYmd(date),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       };
-      final transferMutationEntityId =
-          '$fromAccountId:$toAccountId:${DateTime.now().microsecondsSinceEpoch}';
       final localDatabase = await _enqueueWalletMutation(
         entityId: transferMutationEntityId,
         functionName: 'create-wallet-transfer',
@@ -628,6 +632,7 @@ class WalletActions {
         _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(transferMutationEntityId, error);
       clearOptimisticWallet(fromAccountId);
       clearOptimisticWallet(toAccountId);
       rethrow;
@@ -692,6 +697,7 @@ class WalletActions {
         if (invalidate) _invalidateAll();
         return;
       }
+      await _cancelWalletMutation(walletId, error);
       clearOptimisticWallet(walletId);
       rethrow;
     }
@@ -743,6 +749,18 @@ class WalletActions {
       },
     );
     return database;
+  }
+
+  Future<void> _cancelWalletMutation(String entityId, Object error) async {
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      await database.markMutationCancelled(
+        clientMutationId: _walletMutationId(entityId),
+        error: error,
+      );
+    } catch (cancelError) {
+      debugPrint('[Accounts][Outbox] failed to cancel mutation: $cancelError');
+    }
   }
 
   String _walletMutationId(String entityId) {

@@ -306,8 +306,7 @@ void main() {
     expect(service.allPagesCallCount, 2);
   });
 
-  test('local-first service returns cached page and summary before remote',
-      () async {
+  test('local-first service returns cached page before remote', () async {
     final database = MonekoDatabase.inMemory();
     addTearDown(database.close);
     await database.upsertTransactions([
@@ -354,16 +353,72 @@ void main() {
 
     expect(page.items.map((entry) => entry.id), ['local_1']);
     expect(summary.transactionCount, 1);
-    expect(summary.expenseTotal, 11);
+    expect(summary.expenseTotal, 22);
     expect(remote.pageCallCount, 0);
-    expect(remote.summaryCallCount, 0);
+    expect(remote.summaryCallCount, 1);
 
     await service.refreshFromRemote(query);
 
     final refreshed = await service.fetchPage(query);
     expect(remote.pageCallCount, 1);
-    expect(remote.summaryCallCount, 1);
+    expect(remote.summaryCallCount, 2);
     expect(refreshed.items.map((entry) => entry.id), ['remote_1']);
+  });
+
+  test(
+      'local-first service overlays pending rows on remote summary and all pages',
+      () async {
+    final database = MonekoDatabase.inMemory();
+    addTearDown(database.close);
+    final pending = ExpenseEntry(
+      id: 'pending_1',
+      userId: 'user-1',
+      date: DateTime(2026, 4, 6),
+      amountCents: 1100,
+      currency: 'USD',
+      category: 'food',
+      createdAt: DateTime.utc(2026, 4, 6, 10),
+      type: 'expense',
+    );
+    await database.writeOptimisticTransaction(
+      entry: pending,
+      clientMutationId: 'mutation-1',
+      operation: 'create',
+      payload: {'id': pending.id},
+    );
+    final remote = _FakeTransactionsFeedService([
+      TransactionsFeedPageResult(
+        items: [_entry('remote_1', DateTime(2026, 4, 5))],
+        hasMore: false,
+        nextCursor: null,
+      ),
+    ]);
+    remote.summary = const TransactionsFeedSummary(
+      transactionCount: 1,
+      expenseTotal: 22,
+      incomeTotal: 0,
+      hasMultipleCurrencies: false,
+      categorySummaries: <TransactionsFeedCategorySummary>[
+        TransactionsFeedCategorySummary(
+          category: 'food',
+          amount: 22,
+          transactionCount: 1,
+        ),
+      ],
+      yearlyPeriodTotals: <DateTime, double>{},
+    );
+    final service = LocalFirstTransactionsFeedService(
+      database: database,
+      remote: remote,
+    );
+
+    final query = buildQuery();
+    final summary = await service.fetchSummary(query);
+    final allItems = await service.fetchAllPages(query);
+
+    expect(summary.transactionCount, 2);
+    expect(summary.expenseTotal, 33);
+    expect(allItems.map((entry) => entry.id), ['pending_1', 'remote_1']);
   });
 
   test('local-first service removes synced local rows missing from remote page',

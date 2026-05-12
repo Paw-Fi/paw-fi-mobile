@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 
 import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:markdown_widget/markdown_widget.dart';
+import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
+import 'package:moneko/core/utils/error_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,6 +18,73 @@ double _asDouble(dynamic v) {
   if (v is num) return v.toDouble();
   if (v is String) return double.tryParse(v) ?? 0.0;
   return 0.0;
+}
+
+String _scenarioMutationId(String operation, String userId, String entityId) {
+  return 'mobile:scenario_${operation}_${userId}_$entityId'
+      .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+}
+
+Future<String> _enqueueScenarioSave(
+  BuildContext context, {
+  required String userId,
+  required String? householdId,
+  required String question,
+  required String answer,
+  required String? targetDate,
+  required String? currency,
+  required String mode,
+}) async {
+  final localId = 'local-scenario-${DateTime.now().microsecondsSinceEpoch}';
+  final mutationId = _scenarioMutationId('save', userId, localId);
+  final database = await ProviderScope.containerOf(context, listen: false)
+      .read(localDatabaseProvider.future);
+  await database.enqueueMutation(
+    clientMutationId: mutationId,
+    entityType: 'scenario_history',
+    entityId: localId,
+    operation: 'save_scenario_history',
+    payload: {
+      'userId': userId,
+      'householdId': householdId,
+      'question': question,
+      'answer': answer,
+      'targetDate': targetDate,
+      'currency': currency,
+      'mode': mode,
+    },
+  );
+  return mutationId;
+}
+
+Future<String> _enqueueScenarioDelete(
+  BuildContext context, {
+  required String userId,
+  required String scenarioId,
+}) async {
+  final mutationId = _scenarioMutationId('delete', userId, scenarioId);
+  final database = await ProviderScope.containerOf(context, listen: false)
+      .read(localDatabaseProvider.future);
+  await database.enqueueMutation(
+    clientMutationId: mutationId,
+    entityType: 'scenario_history',
+    entityId: scenarioId,
+    operation: 'delete_scenario_history',
+    payload: {
+      'userId': userId,
+      'scenarioId': scenarioId,
+    },
+  );
+  return mutationId;
+}
+
+Future<void> _markScenarioMutationSynced(
+  BuildContext context,
+  String clientMutationId,
+) async {
+  final database = await ProviderScope.containerOf(context, listen: false)
+      .read(localDatabaseProvider.future);
+  await database.markMutationSynced(clientMutationId);
 }
 
 /// Shows scenario analysis result bottom sheet
@@ -183,7 +252,19 @@ void showScenarioResultSheet(
                                     // ask for confirmation and delete.
                                     if (!isSaved) {
                                       debugPrint('Saving scenario...');
+                                      String? queuedMutationId;
                                       try {
+                                        queuedMutationId =
+                                            await _enqueueScenarioSave(
+                                          context,
+                                          userId: userId,
+                                          householdId: effectiveHouseholdId,
+                                          question: question,
+                                          answer: getFullAdvice(),
+                                          targetDate: targetDateStr,
+                                          currency: selectedCurrency,
+                                          mode: effectiveMode,
+                                        );
                                         final inserted =
                                             await Supabase.instance.client
                                                 .from('ai_scenario_history')
@@ -203,6 +284,11 @@ void showScenarioResultSheet(
                                         scenarioHistoryId =
                                             inserted['id'] as String? ??
                                                 scenarioHistoryId;
+                                        if (!context.mounted) return;
+                                        await _markScenarioMutationSynced(
+                                          context,
+                                          queuedMutationId,
+                                        );
 
                                         setState(() {
                                           isSaved = true;
@@ -218,6 +304,19 @@ void showScenarioResultSheet(
                                           context.l10n.scenarioSaved,
                                         );
                                       } catch (e) {
+                                        if (queuedMutationId != null &&
+                                            ErrorHandler.isRetryable(e)) {
+                                          setState(() {
+                                            isSaved = true;
+                                          });
+                                          onSaved?.call();
+                                          if (!context.mounted) return;
+                                          AppToast.info(
+                                            context,
+                                            context.l10n.offlineSyncMessage,
+                                          );
+                                          return;
+                                        }
                                         if (!context.mounted) return;
                                         AppToast.error(
                                           context,
@@ -256,6 +355,7 @@ void showScenarioResultSheet(
                                             title: context.l10n.delete,
                                             style: AlertActionStyle.destructive,
                                             onPressed: () async {
+                                              String? queuedMutationId;
                                               try {
                                                 if (scenarioHistoryId == null) {
                                                   if (context.mounted) {
@@ -268,11 +368,24 @@ void showScenarioResultSheet(
                                                   return;
                                                 }
 
+                                                queuedMutationId =
+                                                    await _enqueueScenarioDelete(
+                                                  context,
+                                                  userId: userId,
+                                                  scenarioId:
+                                                      scenarioHistoryId!,
+                                                );
+
                                                 await Supabase.instance.client
                                                     .from('ai_scenario_history')
                                                     .delete()
                                                     .eq('id',
                                                         scenarioHistoryId!);
+                                                if (!context.mounted) return;
+                                                await _markScenarioMutationSynced(
+                                                  context,
+                                                  queuedMutationId,
+                                                );
 
                                                 setState(() {
                                                   isSaved = false;
@@ -292,6 +405,22 @@ void showScenarioResultSheet(
                                                 // successful deletion.
                                                 Navigator.of(context).pop();
                                               } catch (e) {
+                                                if (queuedMutationId != null &&
+                                                    ErrorHandler.isRetryable(
+                                                        e)) {
+                                                  setState(() {
+                                                    isSaved = false;
+                                                  });
+                                                  onDeleted?.call();
+                                                  if (!context.mounted) return;
+                                                  AppToast.info(
+                                                    context,
+                                                    context.l10n
+                                                        .offlineSyncMessage,
+                                                  );
+                                                  Navigator.of(context).pop();
+                                                  return;
+                                                }
                                                 if (!context.mounted) return;
                                                 AppToast.error(
                                                   context,
@@ -329,7 +458,19 @@ void showScenarioResultSheet(
                                     : () async {
                                         if (!isSaved) {
                                           debugPrint('Saving scenario...');
+                                          String? queuedMutationId;
                                           try {
+                                            queuedMutationId =
+                                                await _enqueueScenarioSave(
+                                              context,
+                                              userId: userId,
+                                              householdId: effectiveHouseholdId,
+                                              question: question,
+                                              answer: getFullAdvice(),
+                                              targetDate: targetDateStr,
+                                              currency: selectedCurrency,
+                                              mode: effectiveMode,
+                                            );
                                             final inserted = await Supabase
                                                 .instance.client
                                                 .from('ai_scenario_history')
@@ -349,6 +490,11 @@ void showScenarioResultSheet(
                                             scenarioHistoryId =
                                                 inserted['id'] as String? ??
                                                     scenarioHistoryId;
+                                            if (!context.mounted) return;
+                                            await _markScenarioMutationSynced(
+                                              context,
+                                              queuedMutationId,
+                                            );
 
                                             setState(() {
                                               isSaved = true;
@@ -364,6 +510,19 @@ void showScenarioResultSheet(
                                               context.l10n.scenarioSaved,
                                             );
                                           } catch (e) {
+                                            if (queuedMutationId != null &&
+                                                ErrorHandler.isRetryable(e)) {
+                                              setState(() {
+                                                isSaved = true;
+                                              });
+                                              onSaved?.call();
+                                              if (!context.mounted) return;
+                                              AppToast.info(
+                                                context,
+                                                context.l10n.offlineSyncMessage,
+                                              );
+                                              return;
+                                            }
                                             if (!context.mounted) return;
                                             AppToast.error(
                                               context,
@@ -389,6 +548,7 @@ void showScenarioResultSheet(
                                                 style: AlertActionStyle
                                                     .destructive,
                                                 onPressed: () async {
+                                                  String? queuedMutationId;
                                                   try {
                                                     if (scenarioHistoryId ==
                                                         null) {
@@ -402,6 +562,14 @@ void showScenarioResultSheet(
                                                       return;
                                                     }
 
+                                                    queuedMutationId =
+                                                        await _enqueueScenarioDelete(
+                                                      context,
+                                                      userId: userId,
+                                                      scenarioId:
+                                                          scenarioHistoryId!,
+                                                    );
+
                                                     await Supabase
                                                         .instance.client
                                                         .from(
@@ -409,6 +577,13 @@ void showScenarioResultSheet(
                                                         .delete()
                                                         .eq('id',
                                                             scenarioHistoryId!);
+                                                    if (!context.mounted) {
+                                                      return;
+                                                    }
+                                                    await _markScenarioMutationSynced(
+                                                      context,
+                                                      queuedMutationId,
+                                                    );
 
                                                     setState(() {
                                                       isSaved = false;
@@ -431,6 +606,26 @@ void showScenarioResultSheet(
                                                     // successful deletion.
                                                     Navigator.of(context).pop();
                                                   } catch (e) {
+                                                    if (queuedMutationId !=
+                                                            null &&
+                                                        ErrorHandler
+                                                            .isRetryable(e)) {
+                                                      setState(() {
+                                                        isSaved = false;
+                                                      });
+                                                      onDeleted?.call();
+                                                      if (!context.mounted) {
+                                                        return;
+                                                      }
+                                                      AppToast.info(
+                                                        context,
+                                                        context.l10n
+                                                            .offlineSyncMessage,
+                                                      );
+                                                      Navigator.of(context)
+                                                          .pop();
+                                                      return;
+                                                    }
                                                     if (!context.mounted) {
                                                       return;
                                                     }

@@ -745,6 +745,7 @@ class _UnifiedTransactionSheetState
       );
 
       if (photo != null) {
+        if (!mounted) return false;
         debugPrint('📷 Receipt photo selected');
         setState(() {
           _localImagePath = photo.path;
@@ -2971,6 +2972,7 @@ class _UnifiedTransactionSheetState
     required SplitType? customSplitType,
     required List<MemberSplit>? customSplits,
     required String? payerUserId,
+    required String? localImagePath,
   }) async {
     try {
       final database = await container.read(localDatabaseProvider.future);
@@ -3007,6 +3009,10 @@ class _UnifiedTransactionSheetState
           'transaction': optimisticEntry.toJson(),
           'functionName': expense.isIncome ? 'save-income' : 'save-expense',
           'requestBody': requestBody,
+          if (!expense.isIncome &&
+              localImagePath != null &&
+              localImagePath.trim().isNotEmpty)
+            'localReceiptImagePath': localImagePath,
         },
       );
       return database;
@@ -3051,9 +3057,9 @@ class _UnifiedTransactionSheetState
     required String? localImagePath,
   }) async {
     final localDatabase = await localWrite;
+    String? receiptUrl;
 
     try {
-      String? receiptUrl;
       if (!expense.isIncome &&
           localImagePath != null &&
           localImagePath.trim().isNotEmpty) {
@@ -3142,6 +3148,25 @@ class _UnifiedTransactionSheetState
         savedHouseholdId: householdId,
       );
     } catch (error) {
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(error)) {
+        if (receiptUrl != null) {
+          await container
+              .read(expenseSaveNotifierProvider.notifier)
+              .deleteReceiptImage(receiptUrl);
+        }
+        container.read(transactionsFeedRefreshSignalProvider.notifier).state +=
+            1;
+        container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+        if (toastContext.mounted) {
+          AppToast.info(
+            toastContext,
+            toastContext.l10n.offlineSyncMessage,
+            duration: const Duration(seconds: 5),
+          );
+        }
+        return;
+      }
+
       removeOptimisticTransactionWithContainer(
         container: container,
         optimisticId: optimisticId,
@@ -3304,6 +3329,7 @@ class _UnifiedTransactionSheetState
       customSplitType: _customSplitType,
       customSplits: _customSplits,
       payerUserId: _selectedPayerUserId,
+      localImagePath: expenseWithTime.localImagePath ?? widget.localImagePath,
     );
 
     addOptimisticTransactionWithContainer(
@@ -3311,6 +3337,8 @@ class _UnifiedTransactionSheetState
       entry: optimisticEntry,
       householdId: effectiveHouseholdId,
     );
+    ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
     ref.read(pendingExpenseProvider.notifier).state = null;
     ref.read(selectedHouseholdForSharingProvider.notifier).state = null;
@@ -3362,6 +3390,7 @@ class _UnifiedTransactionSheetState
     setState(() => _isSaving = true);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     final toastContext = rootNavigator.context;
+    final expenseSaveNotifier = ref.read(expenseSaveNotifierProvider.notifier);
     var dialogOpen = false;
     showBlockingProcessingDialog(
       context: toastContext,
@@ -3374,6 +3403,8 @@ class _UnifiedTransactionSheetState
       if (rootNavigator.canPop()) rootNavigator.pop();
       dialogOpen = false;
     }
+
+    String? uploadedReplacementReceiptImageUrl;
 
     try {
       final user = ref.read(authProvider);
@@ -3765,13 +3796,15 @@ class _UnifiedTransactionSheetState
         // Handle receipt image upload for existing expenses
         if (_localImagePath != null) {
           debugPrint(' Uploading new receipt image for existing expense');
-          final receiptUrl = await ref
-              .read(expenseSaveNotifierProvider.notifier)
-              .uploadReceiptImage(File(_localImagePath!), user.uid);
+          final receiptUrl = await expenseSaveNotifier.uploadReceiptImage(
+            File(_localImagePath!),
+            user.uid,
+          );
           debugPrint(' New receipt upload completed');
 
           if (receiptUrl != null) {
             updates['receipt_image_url'] = receiptUrl;
+            uploadedReplacementReceiptImageUrl = receiptUrl;
             replacedReceiptImageUrl = widget.existingExpense!.receiptImageUrl;
           }
         }
@@ -4040,6 +4073,10 @@ class _UnifiedTransactionSheetState
             duration: const Duration(seconds: 4),
           );
         } else {
+          if (uploadedReplacementReceiptImageUrl != null) {
+            await expenseSaveNotifier
+                .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+          }
           // Surface the raw error from the edit provider (which contains the
           // backend/FunctionException message) instead of a generic exception.
           final editState = ref.read(transactionEditProvider);
@@ -4066,7 +4103,11 @@ class _UnifiedTransactionSheetState
       }
     } catch (error) {
       debugPrint(' Error saving expense: $error');
-      if (!mounted) {
+      if (uploadedReplacementReceiptImageUrl != null) {
+        await expenseSaveNotifier
+            .deleteReceiptImage(uploadedReplacementReceiptImageUrl);
+      }
+      if (!mounted || !toastContext.mounted) {
         closeDialog();
         return;
       }
@@ -4086,6 +4127,24 @@ class _UnifiedTransactionSheetState
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  bool _shouldKeepQueuedLocalMutation(Object error) {
+    if (error is SocketException || error is TimeoutException) return true;
+
+    final message = error.toString().toLowerCase();
+    return message.contains('network') ||
+        message.contains('socket') ||
+        message.contains('failed host lookup') ||
+        message.contains('connection') ||
+        message.contains('timed out') ||
+        message.contains('timeout') ||
+        message.contains('status: 502') ||
+        message.contains('status: 503') ||
+        message.contains('status: 504') ||
+        message.contains('service is temporarily unavailable') ||
+        message.contains('supabase_edge_runtime_error') ||
+        message.contains('bad file descriptor');
   }
 
   Future<void> _handleCategoryRemapPrompt({

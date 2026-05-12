@@ -797,6 +797,46 @@ List<ExpenseEntry> filterPocketActualExpenses(
       .toList(growable: false);
 }
 
+@foundation.visibleForTesting
+Map<String, dynamic> buildPocketsMonthMutationPayload({
+  required String userId,
+  required PocketsScopeType scopeType,
+  required String? householdId,
+  required String periodMonth,
+  required String currency,
+  required String? budgetId,
+  required int totalBudgetCents,
+  required List<PocketEnvelope> pockets,
+  required Map<String, List<String>> envelopeCategories,
+}) {
+  return {
+    'userId': userId,
+    'scope': scopeType.name,
+    'householdId': householdId,
+    'periodMonth': periodMonth,
+    'currency': currency,
+    'budgetId': budgetId,
+    'totalBudgetCents': totalBudgetCents,
+    'replaceMissingPockets': true,
+    'replaceCategories': true,
+    'pockets': pockets
+        .map((pocket) => {
+              'id': pocket.id,
+              'name': pocket.name,
+              'budgetAmountCents': pocket.budgetAmountCents,
+              'currency': pocket.currency,
+              'icon': pocket.icon,
+              'color': pocket.color,
+              'categories': (envelopeCategories[pocket.id] ?? const <String>[])
+                  .map((category) => category.trim().toLowerCase())
+                  .where((category) => category.isNotEmpty)
+                  .toSet()
+                  .toList(growable: false),
+            })
+        .toList(growable: false),
+  };
+}
+
 class PocketsState {
   const PocketsState({
     required this.isLoading,
@@ -2145,6 +2185,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (!mounted) return;
     state = state.copyWith(isLoading: false, clearError: true);
 
+    final previousState = state;
+    String? queuedMutationId;
     try {
       final nowIso = DateTime.now().toIso8601String();
 
@@ -2356,6 +2398,56 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             .add(category);
       }
 
+      final copiedAt = DateTime.now();
+      final optimisticPockets = envRows.asMap().entries.map((entry) {
+        final index = entry.key;
+        final row = entry.value;
+        final sourceEnvId = row['id'] as String? ?? 'source-$index';
+        final rawAmountCents = allocationCentsByEnvelopeId[sourceEnvId] ??
+            (row['budget_amount_cents'] as num?)?.toInt() ??
+            0;
+        return PocketEnvelope(
+          id: 'optimistic-pocket-${copiedAt.microsecondsSinceEpoch}-$index',
+          name: row['name'] as String? ?? '',
+          budgetAmountCents: normalizePocketBudgetAmountCentsForCurrency(
+            rawAmountCents,
+            effectiveCurrency,
+          ),
+          spent: 0,
+          currency: effectiveCurrency,
+          icon: row['icon']?.toString(),
+          color: row['color'] as String?,
+          budgetId: currentBudgetId,
+          householdId: isScopedToHousehold ? householdId : null,
+          lastUpdated: copiedAt,
+        );
+      }).toList(growable: false);
+      final optimisticCategories = <String, List<String>>{};
+      for (var index = 0; index < optimisticPockets.length; index++) {
+        final sourceEnvId = envRows[index]['id'] as String?;
+        optimisticCategories[optimisticPockets[index].id] = sourceEnvId == null
+            ? const <String>[]
+            : categoriesByEnvelopeId[sourceEnvId] ?? const <String>[];
+      }
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        saved: optimisticPockets,
+        editing: optimisticPockets.map((pocket) => pocket.copyWith()).toList(),
+        budgetId: currentBudgetId,
+        periodMonth: targetMonthStart,
+        currency: effectiveCurrency,
+        totalBudget: sourceTotalBudgetCents > 0
+            ? sourceTotalBudgetCents / 100.0
+            : state.totalBudget,
+        savedTotalBudget: sourceTotalBudgetCents > 0
+            ? sourceTotalBudgetCents / 100.0
+            : state.totalBudget,
+        envelopeCategories: optimisticCategories,
+        clearError: true,
+      );
+      queuedMutationId = await queueCurrentPocketsSnapshotForSync();
+
       final linksPayload = <Map<String, dynamic>>[];
       var insertedCount = 0;
       for (final row in envRows) {
@@ -2436,9 +2528,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       ref.read(analyticsProvider.notifier).refresh(authUser.uid);
       ref.read(widgetSyncVersionProvider.notifier).state++;
     } catch (e) {
+      if (queuedMutationId != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.read(analyticsProvider.notifier).refresh(authUser.uid);
+        ref.read(widgetSyncVersionProvider.notifier).state++;
+        return;
+      }
       if (!mounted) return;
-      state = state.copyWith(
-          isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
+      state = previousState.copyWith(
+        isLoading: false,
+        error: ErrorHandler.getUserFriendlyMessage(e),
+      );
     }
   }
 
@@ -2792,6 +2891,54 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         currency: selectedCurrency,
       ));
     }
+  }
+
+  Future<String> queueCurrentPocketsSnapshotForSync() async {
+    final authUser = ref.read(authProvider);
+    if (authUser.isEmpty) {
+      throw StateError('Not authenticated');
+    }
+    final selectedCurrency = _resolveWriteCurrency();
+    final monthStart =
+        DateTime(state.periodMonth.year, state.periodMonth.month);
+    final periodMonth = _formatDate(monthStart);
+    final scopeType = params.scope;
+    final isScopedToHousehold = scopeType != PocketsScopeType.personal;
+    final householdId = params.householdId;
+    if (isScopedToHousehold && householdId == null) {
+      throw StateError('No household selected for scoped budget save');
+    }
+    await _persistCurrentStateSnapshot(
+      userId: authUser.uid,
+      scopeType: scopeType,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: selectedCurrency,
+    );
+    final mutationId = _pocketsMutationId(
+      userId: authUser.uid,
+      scopeType: scopeType,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: selectedCurrency,
+    );
+    await _enqueuePocketsSaveMutation(
+      clientMutationId: mutationId,
+      userId: authUser.uid,
+      scopeType: scopeType,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: selectedCurrency,
+      budgetId: state.budgetId,
+      totalBudgetCents: (state.totalBudget * 100).round(),
+      pockets: state.saved,
+    );
+    return mutationId;
+  }
+
+  Future<void> markQueuedPocketsSnapshotSynced(String clientMutationId) async {
+    final database = await ref.read(localDatabaseProvider.future);
+    await database.markMutationSynced(clientMutationId);
   }
 
   void restoreOptimisticPockets(PocketsState previousState) {
@@ -3158,27 +3305,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       entityId:
           '${scopeType.name}:${householdId ?? 'personal'}:$periodMonth:$currency',
       operation: 'save_pockets_month',
-      payload: {
-        'userId': userId,
-        'scope': scopeType.name,
-        'householdId': householdId,
-        'periodMonth': periodMonth,
-        'currency': currency,
-        'budgetId': budgetId,
-        'totalBudgetCents': totalBudgetCents,
-        'pockets': pockets
-            .map((pocket) => {
-                  'id': pocket.id,
-                  'name': pocket.name,
-                  'budgetAmountCents': pocket.budgetAmountCents,
-                  'currency': pocket.currency,
-                  'icon': pocket.icon,
-                  'color': pocket.color,
-                  'categories':
-                      state.envelopeCategories[pocket.id] ?? const <String>[],
-                })
-            .toList(growable: false),
-      },
+      payload: buildPocketsMonthMutationPayload(
+        userId: userId,
+        scopeType: scopeType,
+        householdId: householdId,
+        periodMonth: periodMonth,
+        currency: currency,
+        budgetId: budgetId,
+        totalBudgetCents: totalBudgetCents,
+        pockets: pockets,
+        envelopeCategories: state.envelopeCategories,
+      ),
     );
   }
 
@@ -3246,6 +3383,9 @@ bool _shouldKeepQueuedLocalMutation(Object error) {
       message.contains('service is temporarily unavailable') ||
       message.contains('supabase_edge_runtime_error');
 }
+
+bool shouldKeepQueuedPocketsMutation(Object error) =>
+    _shouldKeepQueuedLocalMutation(error);
 
 Map<String, Object?> _describePocketsScopeParams(PocketsScopeParams params) {
   return {

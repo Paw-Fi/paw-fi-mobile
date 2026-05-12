@@ -104,14 +104,12 @@ Future<void> _refreshActiveMainShellTab(
         await _refreshActiveTransactionsWindow(ref, userId);
         final scope = ref.read(householdScopeProvider);
         if (scope.isHouseholdView) {
-          ref.read(cacheInvalidatorProvider).invalidateAll();
-          ref.invalidate(userHouseholdsProvider(userId));
-          ref.invalidate(householdExpensesProvider);
-          ref.invalidate(cachedHouseholdExpensesProvider);
-          ref.invalidate(householdSplitsProvider);
-          ref.invalidate(cachedHouseholdSplitsProvider);
-          ref.invalidate(householdBudgetsProvider);
-          ref.invalidate(householdMembersProvider);
+          final householdId = _activeMainShellHouseholdId(ref);
+          if (householdId != null && householdId.isNotEmpty) {
+            ref
+                .read(cacheInvalidatorProvider)
+                .invalidateHouseholdData(householdId);
+          }
         } else {
           ref.read(analyticsProvider.notifier).refresh(userId);
           ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
@@ -654,10 +652,6 @@ class MainShell extends HookConsumerWidget {
           onTap: (index) {
             if (index == currentIndex) return;
             ref.read(mainShellTabIndexProvider.notifier).state = index;
-            final userId = ref.read(authProvider).uid;
-            if (userId.isNotEmpty && !ref.read(previewModeProvider).isActive) {
-              _silentResyncMainShellData(ref, userId, index);
-            }
           },
         ),
       ),
@@ -689,12 +683,12 @@ class _SubscriptionVerificationBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final isGraceAccess = status == SubscriptionGateStatus.graceActive;
     final title = isGraceAccess
-      ? context.l10n.offlineGraceAccess
-      : context.l10n.subscriptionCheckTrouble;
+        ? context.l10n.offlineGraceAccess
+        : context.l10n.subscriptionCheckTrouble;
 
     final subtitle = isGraceAccess
-      ? context.l10n.offlineSyncMessage
-      : context.l10n.fullAccessRetryMessage;
+        ? context.l10n.offlineSyncMessage
+        : context.l10n.fullAccessRetryMessage;
 
     return Container(
       width: double.infinity,

@@ -621,18 +621,13 @@ class _HomePageState extends ConsumerState<HomePage> {
 
               // Refresh based on current view mode
               if (householdScope.isHouseholdView) {
-                // In household mode: invalidate ALL household-related providers
+                final householdId = householdScope.activeAccountHouseholdId;
                 _debugPrint('🔄 Pull-to-refresh: Refreshing household data');
-                ref.read(cacheInvalidatorProvider).invalidateAll();
-                ref.invalidate(userHouseholdsProvider(user.uid));
-                ref.invalidate(householdExpensesProvider);
-                ref.invalidate(cachedHouseholdExpensesProvider);
-                ref.invalidate(householdSplitsProvider);
-                ref.invalidate(cachedHouseholdSplitsProvider);
-                ref.invalidate(householdBudgetsProvider);
-                ref.invalidate(householdMembersProvider);
-                _debugPrint(
-                    '✅ Invalidated: households, expenses, splits, cached splits/expenses, budgets, members');
+                if (householdId != null && householdId.isNotEmpty) {
+                  ref
+                      .read(cacheInvalidatorProvider)
+                      .invalidateHouseholdData(householdId);
+                }
               } else {
                 await ref.read(analyticsProvider.notifier).loadData(user.uid);
               }

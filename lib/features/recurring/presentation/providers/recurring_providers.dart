@@ -642,6 +642,14 @@ class RecurringTransactionsNotifier
     if (_guardPreviewWrites()) {
       return const DeleteRecurringResult.failure('preview_mode_blocked');
     }
+    MonekoDatabase? localDatabase;
+    ExpenseEntry? originalEntry;
+    ExpenseEntry? updatedEntry;
+    RecurringTransaction? target;
+    final mutationMetadata = buildTransactionMutationMetadataForRecord(
+      clientRecordId: transactionId,
+      operation: 'skip_recurring_occurrence',
+    );
     try {
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _debugPrint('⏭️ [RecurringTx] SKIP OCCURRENCE REQUESTED');
@@ -656,7 +664,6 @@ class RecurringTransactionsNotifier
       }
 
       // Find the transaction to get its current recurrence_rule
-      RecurringTransaction? target;
       state.data.whenData((transactions) {
         target = transactions.where((t) => t.id == transactionId).firstOrNull;
       });
@@ -675,22 +682,43 @@ class RecurringTransactionsNotifier
       }
 
       // Build updated rule with the new excluded date
-      final updatedExcluded = [...rule.excludedDates, dateToSkip];
+      final updatedExcluded = {
+        ...rule.excludedDates.map(formatDateOnlyYmd),
+        formatDateOnlyYmd(dateToSkip),
+      }.map(DateTime.parse).toList(growable: false);
       final updatedRule = rule.copyWith(excludedDates: updatedExcluded);
 
       // Optimistic update
       final updatedTransaction = target!.copyWith(recurrenceRule: updatedRule);
       updateRecurring(updatedTransaction);
+      originalEntry = _expenseEntryFromRecurringTransaction(target!, userId);
+      updatedEntry = _expenseEntryFromRecurringTransaction(
+        updatedTransaction,
+        userId,
+      );
+      final updates = {'recurrence_rule': updatedRule.toJson()};
+      final database = await ref.read(localDatabaseProvider.future);
+      localDatabase = database;
+      await database.writeOptimisticTransactionUpdate(
+        originalEntry: originalEntry,
+        updatedEntry: updatedEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        payload: {
+          ...mutationMetadata.toRequestJson(),
+          'userId': userId,
+          'expenseId': transactionId,
+          'updates': updates,
+        },
+      );
 
       // Backend call - update the recurrence_rule via update-expense
       final response = await supabase.functions.invoke(
         'update-expense',
         body: {
+          ...mutationMetadata.toRequestJson(),
           'userId': userId,
           'expenseId': transactionId,
-          'updates': {
-            'recurrence_rule': updatedRule.toJson(),
-          },
+          'updates': updates,
         },
       );
 
@@ -699,6 +727,9 @@ class RecurringTransactionsNotifier
 
       if (response.data is Map<String, dynamic> &&
           (response.data as Map<String, dynamic>)['success'] == true) {
+        await localDatabase.markMutationSynced(
+          mutationMetadata.clientMutationId,
+        );
         _debugPrint('✅ [RecurringTx] SKIP OCCURRENCE SUCCEEDED');
         _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return const DeleteRecurringResult.success();
@@ -712,11 +743,32 @@ class RecurringTransactionsNotifier
 
       _debugPrint('❌ [RecurringTx] SKIP FAILED: $errorMessage');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      await localDatabase.rollbackOptimisticTransactionUpdate(
+        originalEntry: originalEntry,
+        clientMutationId: mutationMetadata.clientMutationId,
+        error: errorMessage ?? 'Skip occurrence failed',
+      );
+      updateRecurring(target!);
       await refresh(userId);
       return DeleteRecurringResult.failure(errorMessage);
     } catch (e) {
       _debugPrint('❌ [RecurringTx] SKIP EXCEPTION: $e');
       _debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
+        ref.invalidate(pocketsProvider);
+        ref.invalidate(currencyTransactionCountsProvider);
+        return const DeleteRecurringResult.success();
+      }
+      if (originalEntry != null && updatedEntry != null) {
+        await localDatabase?.rollbackOptimisticTransactionUpdate(
+          originalEntry: originalEntry,
+          clientMutationId: mutationMetadata.clientMutationId,
+          error: e,
+        );
+      }
+      if (target != null) {
+        updateRecurring(target!);
+      }
       await refresh(userId);
       return DeleteRecurringResult.failure(
           ErrorHandler.getUserFriendlyMessage(e));

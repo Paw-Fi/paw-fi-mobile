@@ -590,7 +590,10 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _localQuery(query),
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
-    if (isComplete || cursor != null || hasPendingLocalRows) {
+    if (isComplete ||
+        cursor != null ||
+        hasPendingLocalRows ||
+        localPage.items.isNotEmpty) {
       return _pageFromLocal(localPage, query);
     }
 
@@ -619,11 +622,18 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       localQuery,
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
-    if (isComplete || hasPendingLocalRows) {
+    if (isComplete) {
       return _summaryFromLocal(localSummary);
     }
     try {
-      return await _remote.fetchSummary(query);
+      final remoteSummary = await _remote.fetchSummary(query);
+      if (!hasPendingLocalRows) return remoteSummary;
+
+      final pendingItems = await _database.getTransactionsFeedItems(
+        localQuery,
+        syncStatus: localSyncStatusLocal,
+      );
+      return remoteSummary.addingExpenses(pendingItems);
     } catch (_) {
       return _summaryFromLocal(localSummary);
     }
@@ -637,7 +647,7 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
       _localQuery(query),
     );
     final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
-    if (isComplete || hasPendingLocalRows) {
+    if (isComplete) {
       return localItems;
     }
 
@@ -648,10 +658,37 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         _localQuery(query),
         isComplete: true,
       );
-      return remoteItems;
+      if (!hasPendingLocalRows) return remoteItems;
+
+      final pendingItems = await _database.getTransactionsFeedItems(
+        localQuery,
+        syncStatus: localSyncStatusLocal,
+      );
+      return _mergeRemoteWithPendingItems(remoteItems, pendingItems);
     } catch (_) {
       return localItems;
     }
+  }
+
+  List<ExpenseEntry> _mergeRemoteWithPendingItems(
+    List<ExpenseEntry> remoteItems,
+    List<ExpenseEntry> pendingItems,
+  ) {
+    if (pendingItems.isEmpty) return remoteItems;
+
+    final mergedById = <String, ExpenseEntry>{
+      for (final item in remoteItems) item.id: item,
+      for (final item in pendingItems) item.id: item,
+    };
+    final merged = mergedById.values.toList(growable: false)
+      ..sort((left, right) {
+        final dateCompare = right.date.compareTo(left.date);
+        if (dateCompare != 0) return dateCompare;
+        final createdCompare = right.createdAt.compareTo(left.createdAt);
+        if (createdCompare != 0) return createdCompare;
+        return right.id.compareTo(left.id);
+      });
+    return merged;
   }
 
   @override

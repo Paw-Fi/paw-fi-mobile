@@ -280,6 +280,10 @@ class MonekoDatabase {
     required String clientMutationId,
     required Map<String, dynamic> payload,
   }) async {
+    final outboxPayload = <String, dynamic>{
+      ...payload,
+      'originalEntry': originalEntry.toJson(),
+    };
     final touched = <_SummaryKey>{
       _SummaryKey.fromEntry(originalEntry),
       _SummaryKey.fromEntry(updatedEntry),
@@ -292,7 +296,7 @@ class MonekoDatabase {
         entityType: 'transaction',
         entityId: updatedEntry.id,
         operation: 'update_transaction',
-        payload: payload,
+        payload: outboxPayload,
       );
 
       for (final key in touched) {
@@ -397,6 +401,78 @@ class MonekoDatabase {
       );
       _markTransactionTombstonesSynced(clientMutationId);
     });
+  }
+
+  Future<void> markTransactionMutationExhausted({
+    required LocalMutationOutboxData mutation,
+  }) async {
+    if (mutation.entityType != 'transaction') return;
+
+    final ids = mutation.entityId
+        .split(',')
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    if (ids.isEmpty) return;
+
+    final touched = <_SummaryKey>{};
+    _runInTransaction(() {
+      if (mutation.operation == 'delete_transaction') {
+        _markTransactionTombstonesFailed(mutation.clientMutationId);
+        return;
+      }
+
+      if (mutation.operation == 'update_transaction') {
+        final originalEntry = _originalEntryFromMutationPayload(mutation);
+        if (originalEntry != null) {
+          final currentKey = _summaryKeyForTransactionId(originalEntry.id);
+          if (currentKey != null) touched.add(currentKey);
+          touched.add(_SummaryKey.fromEntry(originalEntry));
+          _upsertTransaction(
+            originalEntry,
+            syncStatus: localSyncStatusSynced,
+            preserveLocalPending: false,
+          );
+          for (final key in touched) {
+            _rebuildSummary(key);
+          }
+          return;
+        }
+      }
+
+      final placeholders = List.filled(ids.length, '?').join(',');
+      for (final id in ids) {
+        final key = _summaryKeyForTransactionId(id);
+        if (key != null) touched.add(key);
+      }
+      _db.execute(
+        '''
+        UPDATE local_transactions
+        SET sync_status = ?
+        WHERE id IN ($placeholders)
+        ''',
+        [localSyncStatusFailed, ...ids],
+      );
+      for (final key in touched) {
+        _rebuildSummary(key);
+      }
+    });
+
+    _notifyChanged();
+  }
+
+  ExpenseEntry? _originalEntryFromMutationPayload(
+    LocalMutationOutboxData mutation,
+  ) {
+    try {
+      final decoded = jsonDecode(mutation.payloadJson);
+      if (decoded is! Map<String, dynamic>) return null;
+      final original = decoded['originalEntry'];
+      if (original is! Map<String, dynamic>) return null;
+      return ExpenseEntry.fromJson(original);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> rollbackOptimisticTransactionDelete({
@@ -677,11 +753,13 @@ class MonekoDatabase {
       '''
       SELECT *
       FROM local_transactions
-      WHERE scope_key = ? AND deleted_at IS NULL
+      WHERE scope_key = ?
+        AND deleted_at IS NULL
+        AND sync_status != ?
       ORDER BY date DESC, created_at DESC
       LIMIT ?
       ''',
-      [scope, limit],
+      [scope, localSyncStatusFailed, limit],
     );
 
     return rows.map(_entryFromTransactionRow).toList(growable: false);
@@ -699,11 +777,12 @@ class MonekoDatabase {
       FROM local_transactions
       WHERE scope_key = ?
         AND deleted_at IS NULL
+        AND sync_status != ?
         AND is_recurring = 1
       ORDER BY date DESC, created_at DESC
       LIMIT ?
       ''',
-      [scope, limit.clamp(1, 1000)],
+      [scope, localSyncStatusFailed, limit.clamp(1, 1000)],
     );
 
     return rows.map(_entryFromTransactionRow).toList(growable: false);
@@ -719,6 +798,9 @@ class MonekoDatabase {
     if (syncStatus != null) {
       conditions.add('sync_status = ?');
       args.add(syncStatus);
+    } else {
+      conditions.add('sync_status != ?');
+      args.add(localSyncStatusFailed);
     }
     final pageSize = query.pageSize.clamp(1, 500);
     final rows = _db.select(
@@ -778,6 +860,8 @@ class MonekoDatabase {
     LocalTransactionsFeedQuery query,
   ) async {
     final filter = _localFeedFilter(query, includeCursor: false);
+    final whereSql = '${filter.whereSql} AND sync_status != ?';
+    final args = <Object?>[...filter.args, localSyncStatusFailed];
     final totals = _db.select(
       '''
       SELECT
@@ -788,9 +872,9 @@ class MonekoDatabase {
           THEN 0 ELSE ABS(amount_cents) END) AS expense_total_cents,
         COUNT(DISTINCT currency) AS currency_count
       FROM local_transactions
-      WHERE ${filter.whereSql}
+      WHERE $whereSql
       ''',
-      filter.args,
+      args,
     ).first;
 
     final categoryRows = _db.select(
@@ -800,12 +884,12 @@ class MonekoDatabase {
         SUM(ABS(amount_cents)) AS amount_cents,
         COUNT(*) AS transaction_count
       FROM local_transactions
-      WHERE ${filter.whereSql}
+      WHERE $whereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY category_key
       ORDER BY amount_cents DESC, category_key ASC
       ''',
-      filter.args,
+      args,
     );
 
     final yearlyRows = _db.select(
@@ -814,12 +898,12 @@ class MonekoDatabase {
         SUBSTR(date, 1, 4) || '-01-01' AS bucket_start,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE ${filter.whereSql}
+      WHERE $whereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
-      filter.args,
+      args,
     );
 
     final periodRows = _db.select(
@@ -828,12 +912,12 @@ class MonekoDatabase {
         ${_periodBucketExpression(query.intervalGranularity)} AS bucket_start,
         SUM(ABS(amount_cents)) AS amount_cents
       FROM local_transactions
-      WHERE ${filter.whereSql}
+      WHERE $whereSql
         AND LOWER(COALESCE(type, 'expense')) != 'income'
       GROUP BY bucket_start
       ORDER BY bucket_start ASC
       ''',
-      filter.args,
+      args,
     );
 
     return LocalTransactionsFeedSummary(
@@ -1674,6 +1758,17 @@ class MonekoDatabase {
     );
   }
 
+  void _markTransactionTombstonesFailed(String clientMutationId) {
+    _db.execute(
+      '''
+      UPDATE local_transaction_tombstones
+      SET status = ?, updated_at = ?
+      WHERE client_mutation_id = ?
+      ''',
+      [localMutationStatusFailed, _instant(DateTime.now()), clientMutationId],
+    );
+  }
+
   void _deleteTransactionTombstone(String transactionId) {
     _db.execute(
       'DELETE FROM local_transaction_tombstones WHERE transaction_id = ?',
@@ -1749,8 +1844,15 @@ class MonekoDatabase {
         AND date >= ?
         AND date < ?
         AND deleted_at IS NULL
+        AND sync_status != ?
       ''',
-      [key.scopeKey, key.currency, _dateOnly(key.month), _dateOnly(nextMonth)],
+      [
+        key.scopeKey,
+        key.currency,
+        _dateOnly(key.month),
+        _dateOnly(nextMonth),
+        localSyncStatusFailed,
+      ],
     );
 
     var expenseCents = 0;

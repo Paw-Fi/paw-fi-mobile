@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
@@ -30,6 +31,8 @@ final insightsTabIndexProvider = StateProvider<int>((ref) => 0);
 
 class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
   late final SpotlightTourController _insightsTourController;
+  int? _lastHandledTransactionRefreshSignal;
+  int? _lastHandledDashboardRefreshSignal;
 
   @override
   void initState() {
@@ -52,6 +55,9 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final auth = ref.watch(authProvider);
     final analyticsData = ref.watch(analyticsProvider);
+    final transactionRefreshSignal =
+        ref.watch(transactionsFeedRefreshSignalProvider);
+    final dashboardRefreshSignal = ref.watch(dashboardRefreshSignalProvider);
     final filterState = ref.watch(homeFilterProvider);
     final householdScope = ref.watch(householdScopeProvider);
     final activeHouseholdId =
@@ -90,6 +96,23 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           );
     final currentInsightsTabIndex = ref.watch(insightsTabIndexProvider);
     final preview = ref.watch(previewModeProvider);
+
+    if (!preview.isActive && auth.uid.isNotEmpty) {
+      final shouldHydratePendingLocalRows =
+          _lastHandledTransactionRefreshSignal != transactionRefreshSignal ||
+              _lastHandledDashboardRefreshSignal != dashboardRefreshSignal;
+      if (shouldHydratePendingLocalRows) {
+        _lastHandledTransactionRefreshSignal = transactionRefreshSignal;
+        _lastHandledDashboardRefreshSignal = dashboardRefreshSignal;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(analyticsProvider.notifier).hydrateFromLocalCache(
+                auth.uid,
+                householdId: activeHouseholdId,
+              );
+        });
+      }
+    }
 
     if (!preview.isActive &&
         auth.uid.isNotEmpty &&

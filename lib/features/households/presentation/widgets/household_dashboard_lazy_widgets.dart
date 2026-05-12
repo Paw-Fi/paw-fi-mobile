@@ -17,6 +17,7 @@ import 'package:moneko/features/home/presentation/widgets/spending_card.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/dashboard_config.dart';
 import 'package:moneko/features/home/presentation/widgets/customizable_dashboard/widgets/where_the_money_went_widget.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
+import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_derived_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/widgets/group_fairness_meter.dart';
@@ -108,7 +109,7 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
       query: query,
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
+    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (!recurringState.hasLoadedOnce && !recurringState.data.isLoading) {
@@ -121,10 +122,9 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
 
     Widget child;
 
-    if ((transactionsAsync.isLoading &&
-            !transactionsAsync.hasValue &&
-            transactions.isEmpty) ||
-        (splitsAsync.isLoading && !splitsAsync.hasValue)) {
+    if (transactionsAsync.isLoading &&
+        !transactionsAsync.hasValue &&
+        transactions.isEmpty) {
       child = _buildSpentByYouSkeleton(
         context,
         selectedCurrency,
@@ -140,14 +140,6 @@ class LazyHouseholdSpentByYouCard extends ConsumerWidget {
         onRetry: () =>
             ref.invalidate(dashboardCalendarTransactionsProvider(query)),
         key: const ValueKey('spent_by_you_error_1'),
-      );
-    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      child = _buildDashboardErrorCard(
-        context,
-        Theme.of(context).colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-        key: const ValueKey('spent_by_you_error_2'),
       );
     } else {
       final mergedTransactions = mergeActualExpensesWithProjectedRecurring(
@@ -276,7 +268,7 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
       query: query,
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
+    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (userId != null &&
@@ -316,14 +308,6 @@ class LazyHouseholdMemberSpendingCard extends ConsumerWidget {
         onRetry: () =>
             ref.invalidate(dashboardCalendarTransactionsProvider(query)),
         key: const ValueKey('member_spending_error_2'),
-      );
-    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      child = _buildDashboardErrorCard(
-        context,
-        Theme.of(context).colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-        key: const ValueKey('member_spending_error_3'),
       );
     } else if (summary == null) {
       child = summaryAsync.isLoading
@@ -938,7 +922,7 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
       query: query,
     );
     final splitsParams = HouseholdSplitsParams(householdId: household.id);
-    final splitsAsync = ref.watch(householdSplitsProvider(splitsParams));
+    final splitsAsync = ref.watch(cachedHouseholdSplitsProvider(splitsParams));
     final recurringState =
         ref.watch(recurringTransactionsProvider(household.id));
     if (userId.isNotEmpty &&
@@ -969,14 +953,6 @@ class LazyHouseholdFairnessCard extends ConsumerWidget {
         onRetry: () =>
             ref.invalidate(dashboardCalendarTransactionsProvider(query)),
         key: const ValueKey('fairness_error_2'),
-      );
-    } else if (splitsAsync.hasError && !splitsAsync.hasValue) {
-      child = _buildDashboardErrorCard(
-        context,
-        Theme.of(context).colorScheme,
-        context.l10n.errorLoadingDashboard,
-        onRetry: () => ref.invalidate(householdSplitsProvider(splitsParams)),
-        key: const ValueKey('fairness_error_3'),
       );
     } else if (summary == null) {
       child = const SizedBox.shrink(key: ValueKey('fairness_empty'));

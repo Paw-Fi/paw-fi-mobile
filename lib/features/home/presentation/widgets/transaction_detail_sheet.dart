@@ -10,14 +10,14 @@ import 'package:moneko/features/home/presentation/widgets/unified_transaction_sh
 /// Backward compatibility: Shows transaction detail sheet
 /// Now delegates to unified_transaction_sheet for consistency
 @Deprecated('Use showUnifiedTransactionSheet instead')
-void showTransactionDetailSheet(
+Future<bool?> showTransactionDetailSheet(
   BuildContext context,
   ExpenseEntry expense, {
   UserContact? contact,
   String? localImagePath,
 }) {
   // Delegate to unified sheet
-  showUnifiedTransactionSheet(
+  return showUnifiedTransactionSheet(
     context,
     existingExpense: expense,
     contact: contact,

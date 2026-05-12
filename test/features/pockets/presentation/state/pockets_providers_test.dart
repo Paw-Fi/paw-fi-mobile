@@ -258,6 +258,45 @@ void main() {
     });
   });
 
+  group('buildPocketsMonthMutationPayload', () {
+    test('marks full-month snapshots as authoritative and keeps categories',
+        () {
+      final payload = buildPocketsMonthMutationPayload(
+        userId: 'user-1',
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        periodMonth: '2026-05-01',
+        currency: 'USD',
+        budgetId: 'budget-1',
+        totalBudgetCents: 100000,
+        pockets: [
+          PocketEnvelope(
+            id: 'pocket-food',
+            name: 'Food',
+            budgetAmountCents: 60000,
+            spent: 0,
+            currency: 'USD',
+            icon: 'food',
+            color: '#111111',
+            budgetId: 'budget-1',
+            lastUpdated: DateTime(2026, 5, 1),
+          ),
+        ],
+        envelopeCategories: const {
+          'pocket-food': ['Groceries', ' dining '],
+        },
+      );
+
+      expect(payload['replaceMissingPockets'], isTrue);
+      expect(payload['replaceCategories'], isTrue);
+      expect(payload['pockets'], hasLength(1));
+      expect(
+        (payload['pockets'] as List).single,
+        containsPair('categories', ['groceries', 'dining']),
+      );
+    });
+  });
+
   group('applyRebalancedBudgetToPocketsState', () {
     test('updates editing pockets proportionally and preserves saved pockets',
         () {

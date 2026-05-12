@@ -1,11 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final mobileOutboxSyncCoordinatorProvider =
     FutureProvider<SyncCoordinator>((ref) async {
@@ -13,6 +16,8 @@ final mobileOutboxSyncCoordinatorProvider =
   return SyncCoordinator(
     database: database,
     dispatchMutation: (mutation) => _dispatchMobileMutation(database, mutation),
+    onMutationCancelled: (mutation, _) =>
+        database.markTransactionMutationExhausted(mutation: mutation),
   );
 });
 
@@ -30,9 +35,13 @@ Future<void> _dispatchMobileMutation(
 
   switch (mutation.operation) {
     case 'create':
+      final requestBody = await _requestBodyWithQueuedReceipt(
+        _mapValue(payload['requestBody']),
+        payload,
+      );
       final responseBody = await _invokeMutationFunction(
         payload['functionName']?.toString(),
-        _mapValue(payload['requestBody']),
+        requestBody,
       );
       if (mutation.entityType == 'transaction') {
         final savedPayload = _extractSavedEntryPayload(responseBody);
@@ -47,6 +56,10 @@ Future<void> _dispatchMobileMutation(
           clientMutationId: mutation.clientMutationId,
         );
       }
+      await _deleteQueuedLocalFile(payload['localReceiptImagePath']);
+      return;
+    case 'analyze_ai_input':
+      await _analyzeQueuedAiInput(payload, mutation.entityId);
       return;
     case 'invoke_function':
       await _invokeMutationFunction(
@@ -56,6 +69,12 @@ Future<void> _dispatchMobileMutation(
       return;
     case 'save_pockets_month':
       await _savePocketsMonth(payload);
+      return;
+    case 'save_scenario_history':
+      await _saveScenarioHistory(payload);
+      return;
+    case 'delete_scenario_history':
+      await _deleteScenarioHistory(payload);
       return;
     case 'assign_pocket_category':
       await _assignPocketCategory(payload);
@@ -89,11 +108,46 @@ Future<void> _dispatchMobileMutation(
         'userId': payload['userId'],
         'expenseIds': payload['expenseIds'] ?? mutation.entityId,
       });
+      await database.markOptimisticTransactionDeleteSynced(
+        clientMutationId: mutation.clientMutationId,
+      );
       return;
     default:
       throw UnsupportedError(
           'Unsupported local mutation: ${mutation.operation}');
   }
+}
+
+Future<void> _saveScenarioHistory(Map<String, dynamic> payload) async {
+  final userId = payload['userId']?.toString();
+  final question = payload['question']?.toString();
+  final answer = payload['answer']?.toString();
+  if (userId == null || userId.isEmpty) {
+    throw ArgumentError('Missing userId for scenario history sync');
+  }
+  if (question == null || question.isEmpty) {
+    throw ArgumentError('Missing question for scenario history sync');
+  }
+  if (answer == null || answer.isEmpty) {
+    throw ArgumentError('Missing answer for scenario history sync');
+  }
+  await supabase.from('ai_scenario_history').insert({
+    'user_id': userId,
+    'household_id': payload['householdId'],
+    'question': question,
+    'answer': answer,
+    'target_date': payload['targetDate'],
+    'currency': payload['currency'],
+    'mode': payload['mode']?.toString() ?? 'personal',
+  });
+}
+
+Future<void> _deleteScenarioHistory(Map<String, dynamic> payload) async {
+  final scenarioId = payload['scenarioId']?.toString();
+  if (scenarioId == null || scenarioId.isEmpty) {
+    throw ArgumentError('Missing scenarioId for scenario history delete sync');
+  }
+  await supabase.from('ai_scenario_history').delete().eq('id', scenarioId);
 }
 
 Future<Map<String, dynamic>> _invokeMutationFunction(
@@ -115,6 +169,288 @@ Future<Map<String, dynamic>> _invokeMutationFunction(
     );
   }
   return responseBody;
+}
+
+Future<Map<String, dynamic>?> _requestBodyWithQueuedReceipt(
+  Map<String, dynamic>? requestBody,
+  Map<String, dynamic> payload,
+) async {
+  if (requestBody == null) return null;
+  final localReceiptImagePath = payload['localReceiptImagePath']?.toString();
+  if (localReceiptImagePath == null || localReceiptImagePath.isEmpty) {
+    return requestBody;
+  }
+  if (requestBody['receiptImageUrl'] != null) return requestBody;
+
+  final userId =
+      requestBody['userId']?.toString() ?? payload['userId']?.toString();
+  if (userId == null || userId.isEmpty) {
+    throw ArgumentError('Missing userId for queued receipt upload');
+  }
+  final receiptUrl = await _uploadQueuedReceiptImage(
+    localReceiptImagePath,
+    userId,
+    storageKey: payload['clientMutationId']?.toString() ??
+        payload['idempotencyKey']?.toString(),
+  );
+  return <String, dynamic>{
+    ...requestBody,
+    'receiptImageUrl': receiptUrl,
+  };
+}
+
+Future<void> _analyzeQueuedAiInput(
+  Map<String, dynamic> payload,
+  String queuedInputId,
+) async {
+  final userId = payload['userId']?.toString();
+  if (userId == null || userId.isEmpty) {
+    throw ArgumentError('Missing userId for queued AI input');
+  }
+
+  final analysisBody = await _queuedAiAnalysisBody(payload);
+  final analysisResponse = await _invokeMutationFunction(
+    'analyze-expense',
+    analysisBody,
+  );
+  final transactions = await _saveTransactionsForQueuedAiInput(
+    payload: payload,
+    queuedInputId: queuedInputId,
+    analysisResponse: analysisResponse,
+  );
+  if (transactions.isEmpty) {
+    throw StateError('Queued AI input produced no saveable transactions');
+  }
+
+  final batchResponse =
+      await _invokeMutationFunction('save-transactions-batch', {
+    'userId': userId,
+    'debugTraceId': 'mobile-ai-replay-$queuedInputId',
+    if (payload['householdId'] != null) 'householdId': payload['householdId'],
+    if (payload['householdId'] != null)
+      'isPortfolio': payload['isPortfolio'] == true,
+    'transactions': transactions,
+  });
+  _ensureQueuedBatchSavedAll(
+    batchResponse,
+    expectedCount: transactions.length,
+  );
+  await _deleteQueuedAiInputFiles(payload);
+}
+
+void _ensureQueuedBatchSavedAll(
+  Map<String, dynamic> responseBody, {
+  required int expectedCount,
+}) {
+  final summary = _mapValue(responseBody['summary']);
+  final summaryFailed = (summary?['failed'] as num?)?.toInt();
+  final summarySucceeded = (summary?['succeeded'] as num?)?.toInt();
+  final rawResults = responseBody['results'];
+  final results = rawResults is List
+      ? rawResults.map(_mapValue).whereType<Map<String, dynamic>>().toList()
+      : const <Map<String, dynamic>>[];
+  final failedResults = results.where((result) => result['success'] != true);
+
+  if (summaryFailed != null && summaryFailed > 0) {
+    throw StateError(
+      'Queued AI input batch save failed for $summaryFailed transaction(s)',
+    );
+  }
+  if (failedResults.isNotEmpty) {
+    throw StateError(
+      'Queued AI input batch save returned failed transaction result(s)',
+    );
+  }
+  if (summarySucceeded != null && summarySucceeded < expectedCount) {
+    throw StateError(
+      'Queued AI input batch save persisted $summarySucceeded/$expectedCount transaction(s)',
+    );
+  }
+  if (results.isNotEmpty && results.length < expectedCount) {
+    throw StateError(
+      'Queued AI input batch save returned ${results.length}/$expectedCount transaction result(s)',
+    );
+  }
+}
+
+Future<void> _deleteQueuedAiInputFiles(Map<String, dynamic> payload) async {
+  await _deleteQueuedLocalFile(payload['localImagePath']);
+  await _deleteQueuedLocalFile(payload['localAudioPath']);
+}
+
+Future<void> _deleteQueuedLocalFile(Object? path) async {
+  final value = path?.toString().trim();
+  if (value == null || value.isEmpty) return;
+
+  try {
+    final file = File(value);
+    if (await file.exists()) {
+      await file.delete();
+    }
+  } catch (_) {}
+}
+
+Future<Map<String, dynamic>> _queuedAiAnalysisBody(
+  Map<String, dynamic> payload,
+) async {
+  final body = _mapValue(payload['body']);
+  if (body == null || body.isEmpty) {
+    throw ArgumentError('Missing queued AI input body');
+  }
+  final nextBody = Map<String, dynamic>.from(body);
+
+  final localImagePath = payload['localImagePath']?.toString();
+  if (localImagePath != null && localImagePath.isNotEmpty) {
+    final file = File(localImagePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Queued AI image is missing', localImagePath);
+    }
+    nextBody['image'] = <String, dynamic>{
+      'data': base64Encode(await file.readAsBytes()),
+      'contentType': payload['imageContentType']?.toString() ?? 'image/jpeg',
+    };
+  }
+
+  final localAudioPath = payload['localAudioPath']?.toString();
+  if (localAudioPath != null && localAudioPath.isNotEmpty) {
+    final file = File(localAudioPath);
+    if (!await file.exists()) {
+      throw FileSystemException('Queued AI audio is missing', localAudioPath);
+    }
+    nextBody['audio'] = <String, dynamic>{
+      'data': base64Encode(await file.readAsBytes()),
+      'contentType': payload['audioContentType']?.toString() ?? 'audio/mpeg',
+    };
+  }
+
+  return nextBody;
+}
+
+Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
+  required Map<String, dynamic> payload,
+  required String queuedInputId,
+  required Map<String, dynamic> analysisResponse,
+}) async {
+  final data = _mapValue(analysisResponse['data']);
+  final rawItems = data?['items'];
+  if (rawItems is! List || rawItems.isEmpty) {
+    return const <Map<String, dynamic>>[];
+  }
+  final items = rawItems.length > 1
+      ? rawItems.where((item) => !_isTotalLikeAnalysisItem(item)).toList()
+      : rawItems;
+  if (items.isEmpty) return const <Map<String, dynamic>>[];
+
+  String? receiptUrl;
+  final localImagePath = payload['localImagePath']?.toString();
+  if (localImagePath != null && localImagePath.isNotEmpty) {
+    final userId = payload['userId']?.toString();
+    if (userId == null || userId.isEmpty) {
+      throw ArgumentError('Missing userId for queued receipt upload');
+    }
+    receiptUrl = await _uploadQueuedReceiptImage(
+      localImagePath,
+      userId,
+      storageKey: queuedInputId,
+    );
+  }
+
+  final clientCreatedAt = DateTime.now().toUtc().toIso8601String();
+  final queuedBody = _mapValue(payload['body']);
+  final transactions = <Map<String, dynamic>>[];
+  for (var index = 0; index < items.length; index++) {
+    final item = _mapValue(items[index]);
+    if (item == null) continue;
+
+    final amount = _parseAmount(item['amount']);
+    final currency = item['currency']?.toString().trim();
+    final date =
+        item['date']?.toString().trim() ?? queuedBody?['date']?.toString();
+    if (amount == null || currency == null || currency.isEmpty) continue;
+    if (date == null || date.isEmpty) continue;
+
+    final rawType = item['type']?.toString().trim().toLowerCase();
+    final isIncome = rawType == 'income' || item['is_income'] == true;
+    final clientRecordId = '$queuedInputId-$index';
+    final transaction = <String, dynamic>{
+      'type': isIncome ? 'income' : 'expense',
+      'amount': amount,
+      'category': item['category']?.toString().trim().isNotEmpty == true
+          ? item['category'].toString().trim()
+          : isIncome
+              ? 'income'
+              : 'other',
+      'currency': currency,
+      'date': date,
+      'clientCreatedAt': clientCreatedAt,
+      'clientRecordId': clientRecordId,
+      'clientMutationId': 'mobile:$clientRecordId',
+      'idempotencyKey': 'mobile:$clientRecordId',
+      if (payload['accountId'] != null) 'accountId': payload['accountId'],
+      if (!isIncome && receiptUrl != null) 'receiptImageUrl': receiptUrl,
+      if (item['description']?.toString().trim().isNotEmpty == true)
+        'description': item['description'].toString().trim(),
+      if (item['breakdown'] is List) 'breakdown': item['breakdown'],
+      if (item['payerUserId']?.toString().trim().isNotEmpty == true)
+        'payerUserId': item['payerUserId'].toString().trim(),
+      if (item['customSplits'] is Map) 'customSplits': item['customSplits'],
+    };
+    transactions.add(transaction);
+  }
+  return transactions;
+}
+
+double? _parseAmount(Object? value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value.trim());
+  return null;
+}
+
+bool _isTotalLikeAnalysisItem(Object? value) {
+  final item = _mapValue(value);
+  final description = item?['description']?.toString() ?? '';
+  return RegExp(
+    r'(sub\s*total|subtotal|grand\s*total|total)',
+    caseSensitive: false,
+  ).hasMatch(description);
+}
+
+Future<String> _uploadQueuedReceiptImage(
+  String localImagePath,
+  String userId, {
+  String? storageKey,
+}) async {
+  final imageFile = File(localImagePath);
+  if (!await imageFile.exists()) {
+    throw FileSystemException(
+        'Queued receipt image is missing', localImagePath);
+  }
+
+  final compressedBytes = await ImageCompressor.compressFile(
+    imageFile,
+    config: ImageCompressConfig.receipt,
+  );
+  final safeStorageKey = storageKey
+      ?.replaceAll(RegExp(r'[^a-zA-Z0-9_-]+'), '_')
+      .replaceAll(RegExp(r'_+'), '_')
+      .trim();
+  final fileName = safeStorageKey != null && safeStorageKey.isNotEmpty
+      ? '$safeStorageKey.jpg'
+      : '${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final path = 'receipts/$userId/$fileName';
+  final response = await supabase.storage.from('expense-receipts').uploadBinary(
+        path,
+        compressedBytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          cacheControl: '31536000',
+          upsert: true,
+        ),
+      );
+  if (response.isEmpty) {
+    throw StateError('Queued receipt upload failed');
+  }
+  return supabase.storage.from('expense-receipts').getPublicUrl(path);
 }
 
 Map<String, dynamic>? _extractSavedEntryPayload(Map<String, dynamic> data) {
@@ -213,6 +549,26 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
   }
 
   final pockets = (payload['pockets'] as List?) ?? const [];
+  final replaceMissingPockets = payload['replaceMissingPockets'] == true;
+  final replaceCategories = payload['replaceCategories'] == true;
+  if (replaceMissingPockets) {
+    final keptEnvelopeIds = pockets
+        .whereType<Map>()
+        .map((item) => item['id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty && !id.startsWith('optimistic-'))
+        .toSet();
+    final existingRows = await supabase
+        .from('budget_envelopes')
+        .select('id')
+        .eq('budget_id', budgetId);
+    for (final row in (existingRows as List?) ?? const []) {
+      if (row is! Map) continue;
+      final id = row['id']?.toString();
+      if (id == null || id.isEmpty || keptEnvelopeIds.contains(id)) continue;
+      await supabase.from('budget_envelopes').delete().eq('id', id);
+    }
+  }
   for (final item in pockets) {
     if (item is! Map) continue;
     final pocket = Map<String, dynamic>.from(item);
@@ -243,6 +599,12 @@ Future<void> _savePocketsMonth(Map<String, dynamic> payload) async {
           .from('budget_envelopes')
           .update(envelopePayload)
           .eq('id', id);
+    }
+    if (replaceCategories) {
+      await supabase
+          .from('envelope_category_links')
+          .delete()
+          .eq('envelope_id', envelopeId);
     }
     await supabase.from('envelope_allocations').upsert(
       <String, dynamic>{

@@ -28,6 +28,7 @@ import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
 import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/core/utils/error_handler.dart';
+import 'package:moneko/core/utils/image_compressor.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
@@ -54,6 +55,7 @@ import 'package:moneko/features/households/presentation/providers/household_scop
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 import 'package:moneko/shared/widgets/moneko_alert_dialog.dart';
 import 'package:moneko/shared/widgets/blocking_processing_dialog.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Shared helpers and widgets for the unified transaction FAB / AI expense capture.
 
@@ -75,6 +77,7 @@ const double _recordCancelDragThreshold = 90;
 const int _minimumHoldRecordingMs = 1000;
 const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
 const int _smartInputMemoryLimit = 25;
+const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
 
 final ImagePicker _imagePicker = ImagePicker();
 
@@ -1268,14 +1271,39 @@ Future<void> _persistAiTransactions(
 
   // Upload receipt image first (if any) - shared across all transactions
   String? receiptUrl;
+  final hasReceiptExpense = localImagePath != null &&
+      localImagePath.isNotEmpty &&
+      transactions.any((item) => !item.transaction.isIncome);
+  Object? receiptUploadError;
   if (localImagePath != null && localImagePath.isNotEmpty) {
     try {
-      receiptUrl = await container
-          .read(expenseSaveNotifierProvider.notifier)
-          .uploadReceiptImage(File(localImagePath), userId);
+      receiptUrl = await _uploadReceiptImageForAiQueue(
+        File(localImagePath),
+        userId,
+      );
     } catch (error) {
+      receiptUploadError = error;
       _debugPrint(
         '⚠️ Receipt upload failed before AI transaction queueing; continuing without receipt image: $error',
+      );
+    }
+  }
+  var shouldDeferForReceiptUpload = hasReceiptExpense &&
+      receiptUrl == null &&
+      receiptUploadError != null &&
+      _shouldKeepQueuedLocalMutation(receiptUploadError);
+  String? durableReceiptImagePath;
+  if (shouldDeferForReceiptUpload) {
+    try {
+      durableReceiptImagePath = await _copyPendingAiInputFile(
+        source: File(localImagePath),
+        prefix: 'receipt',
+        fallbackExtension: 'jpg',
+      );
+    } catch (error) {
+      shouldDeferForReceiptUpload = false;
+      _debugPrint(
+        '⚠️ Failed to keep receipt image for retry; saving without receipt: $error',
       );
     }
   }
@@ -1394,6 +1422,9 @@ Future<void> _persistAiTransactions(
           'transaction': prepared.item.optimisticEntry.toJson(),
           'functionName': prepared.functionName,
           'requestBody': prepared.individualRequestBody,
+          if (shouldDeferForReceiptUpload &&
+              !prepared.item.transaction.isIncome)
+            'localReceiptImagePath': durableReceiptImagePath,
         },
       );
     }
@@ -1402,6 +1433,13 @@ Future<void> _persistAiTransactions(
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
   } catch (error) {
     _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
+  }
+
+  if (shouldDeferForReceiptUpload && queuedLocally) {
+    _debugPrint(
+      '📦 Keeping queued AI transaction(s) for receipt upload retry',
+    );
+    return;
   }
 
   try {
@@ -1701,6 +1739,203 @@ bool _shouldKeepQueuedLocalMutation(Object error) {
       message.contains('service is temporarily unavailable') ||
       message.contains('supabase_edge_runtime_error') ||
       message.contains('bad file descriptor');
+}
+
+bool shouldQueueAiInputForRetry(Object error) =>
+    _shouldKeepQueuedLocalMutation(error);
+
+Map<String, dynamic> buildQueuedAiInputPayload({
+  required String userId,
+  required String? householdId,
+  required bool isPortfolio,
+  required String? accountId,
+  required Map<String, dynamic> analysisBody,
+  String? localImagePath,
+  String? imageContentType,
+  String? localAudioPath,
+  String? audioContentType,
+}) {
+  final body = Map<String, dynamic>.from(analysisBody)
+    ..remove('image')
+    ..remove('audio');
+  final normalizedHouseholdId = householdId?.trim();
+  final normalizedAccountId = accountId?.trim();
+  final normalizedImagePath = localImagePath?.trim();
+  final normalizedAudioPath = localAudioPath?.trim();
+
+  return <String, dynamic>{
+    'userId': userId,
+    'body': body,
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty)
+      'householdId': normalizedHouseholdId,
+    if (normalizedHouseholdId != null && normalizedHouseholdId.isNotEmpty)
+      'isPortfolio': isPortfolio,
+    if (normalizedAccountId != null && normalizedAccountId.isNotEmpty)
+      'accountId': normalizedAccountId,
+    if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
+      'localImagePath': normalizedImagePath,
+    if (normalizedImagePath != null && normalizedImagePath.isNotEmpty)
+      'imageContentType': imageContentType ?? 'image/jpeg',
+    if (normalizedAudioPath != null && normalizedAudioPath.isNotEmpty)
+      'localAudioPath': normalizedAudioPath,
+    if (normalizedAudioPath != null && normalizedAudioPath.isNotEmpty)
+      'audioContentType': audioContentType ?? 'audio/mpeg',
+  };
+}
+
+String _fileExtensionFromPath(String path, {String fallback = 'bin'}) {
+  final name = path.split('/').last;
+  if (!name.contains('.')) return fallback;
+  final extension = name.split('.').last.toLowerCase().trim();
+  if (!RegExp(r'^[a-z0-9]{1,8}$').hasMatch(extension)) return fallback;
+  return extension;
+}
+
+String _imageContentTypeForPath(String path) {
+  final extension = _fileExtensionFromPath(path, fallback: 'jpg');
+  return switch (extension) {
+    'png' => 'image/png',
+    'heic' => 'image/heic',
+    'webp' => 'image/webp',
+    'jpg' || 'jpeg' => 'image/jpeg',
+    _ => 'image/jpeg',
+  };
+}
+
+Future<Directory> _pendingAiInputDirectory() async {
+  final documents = await getApplicationDocumentsDirectory();
+  final directory =
+      Directory('${documents.path}/$_pendingAiInputDirectoryName');
+  if (!await directory.exists()) {
+    await directory.create(recursive: true);
+  }
+  return directory;
+}
+
+Future<String> _copyPendingAiInputFile({
+  required File source,
+  required String prefix,
+  String fallbackExtension = 'bin',
+}) async {
+  if (!await source.exists()) {
+    throw FileSystemException(
+        'Pending AI input file does not exist', source.path);
+  }
+  final directory = await _pendingAiInputDirectory();
+  final extension = _fileExtensionFromPath(
+    source.path,
+    fallback: fallbackExtension,
+  );
+  final fileName = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_'
+      '${Random.secure().nextInt(1 << 32)}.$extension';
+  final copy = await source.copy('${directory.path}/$fileName');
+  return copy.path;
+}
+
+Future<String> _writePendingAiInputBytes({
+  required Uint8List bytes,
+  required String prefix,
+  required String extension,
+}) async {
+  final directory = await _pendingAiInputDirectory();
+  final safeExtension =
+      RegExp(r'^[a-z0-9]{1,8}$').hasMatch(extension) ? extension : 'bin';
+  final fileName = '${prefix}_${DateTime.now().microsecondsSinceEpoch}_'
+      '${Random.secure().nextInt(1 << 32)}.$safeExtension';
+  final file = File('${directory.path}/$fileName');
+  await file.writeAsBytes(bytes, flush: true);
+  return file.path;
+}
+
+Future<String> _uploadReceiptImageForAiQueue(
+    File imageFile, String userId) async {
+  final compressedBytes = await ImageCompressor.compressFile(
+    imageFile,
+    config: ImageCompressConfig.receipt,
+  );
+  final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+  final path = 'receipts/$userId/$fileName';
+  final response = await supabase.storage.from('expense-receipts').uploadBinary(
+        path,
+        compressedBytes,
+        fileOptions: const FileOptions(
+          contentType: 'image/jpeg',
+          cacheControl: '31536000',
+        ),
+      );
+  if (response.isEmpty) throw StateError('Receipt upload failed');
+  return supabase.storage.from('expense-receipts').getPublicUrl(path);
+}
+
+Future<bool> _queueAiInputForBackgroundRetry(
+  ProviderContainer container, {
+  required String userId,
+  required String? householdId,
+  required bool isPortfolio,
+  required String? accountId,
+  required Map<String, dynamic> analysisBody,
+  String? imagePath,
+  Uint8List? audioBytes,
+  String? audioContentType,
+}) async {
+  final hasText = analysisBody['text']?.toString().trim().isNotEmpty == true;
+  final hasAttachments = analysisBody['attachments'] is List &&
+      (analysisBody['attachments'] as List).isNotEmpty;
+  final hasImage = imagePath?.trim().isNotEmpty == true;
+  final hasAudio = audioBytes != null && audioBytes.isNotEmpty;
+  if (!hasText && !hasAttachments && !hasImage && !hasAudio) return false;
+
+  String? durableImagePath;
+  String? durableAudioPath;
+  if (hasImage) {
+    durableImagePath = await _copyPendingAiInputFile(
+      source: File(imagePath!),
+      prefix: 'image',
+      fallbackExtension: 'jpg',
+    );
+  }
+  if (hasAudio) {
+    final contentType = audioContentType ?? 'audio/mpeg';
+    final extension = contentType.contains('aac')
+        ? 'aac'
+        : contentType.contains('wav')
+            ? 'wav'
+            : contentType.contains('m4a')
+                ? 'm4a'
+                : 'mp3';
+    durableAudioPath = await _writePendingAiInputBytes(
+      bytes: audioBytes,
+      prefix: 'audio',
+      extension: extension,
+    );
+  }
+
+  final database = await container.read(localDatabaseProvider.future);
+  final queuedId = makeOptimisticTransactionId().replaceFirst(
+    'optimistic_',
+    'ai_input_',
+  );
+  final payload = buildQueuedAiInputPayload(
+    userId: userId,
+    householdId: householdId,
+    isPortfolio: isPortfolio,
+    accountId: accountId,
+    analysisBody: analysisBody,
+    localImagePath: durableImagePath,
+    imageContentType:
+        imagePath == null ? null : _imageContentTypeForPath(imagePath),
+    localAudioPath: durableAudioPath,
+    audioContentType: audioContentType,
+  );
+
+  await database.enqueueMutation(
+    clientMutationId: 'mobile:$queuedId',
+    entityType: 'ai_input',
+    entityId: queuedId,
+    operation: 'analyze_ai_input',
+    payload: payload,
+  );
+  return true;
 }
 
 List<List<T>> chunkList<T>(List<T> items, int maxSize) {
@@ -2083,6 +2318,7 @@ Future<void> _processExpense(
       (selectedCurrency != null && selectedCurrency.isNotEmpty)
           ? selectedCurrency.toUpperCase()
           : contact?.preferredCurrency?.toUpperCase();
+  final providerContainer = ProviderScope.containerOf(context, listen: false);
 
   // Determine if this is a potentially slow operation.
   final hasAttachments = attachments?.isNotEmpty ?? false;
@@ -2102,6 +2338,21 @@ Future<void> _processExpense(
       false;
 
   Map<String, dynamic>? responseData;
+  var analysisRequestBody = <String, dynamic>{};
+  Future<bool> queueCurrentAiInputForRetry() {
+    return _queueAiInputForBackgroundRetry(
+      providerContainer,
+      userId: user.uid,
+      householdId: householdId,
+      isPortfolio: isPortfolio,
+      accountId: ref.read(defaultScopedAccountProvider)?.id.trim(),
+      analysisBody: analysisRequestBody,
+      imagePath: imagePath,
+      audioBytes: audioBytes,
+      audioContentType: audioContentType,
+    );
+  }
+
   final canUseSmartInputMemory = !preview.isActive &&
       hasTextInput &&
       trimmedText != null &&
@@ -2180,12 +2431,13 @@ Future<void> _processExpense(
       };
     }
 
-    final Map<String, dynamic> body = {
+    analysisRequestBody = <String, dynamic>{
       'userId': effectiveUserId,
       'date': defaultDateYmd,
       'language': languageTag,
       'typeHint': 'mixed',
     };
+    final body = analysisRequestBody;
 
     if (householdId != null && householdId.isNotEmpty) {
       body['householdId'] = householdId;
@@ -2542,10 +2794,9 @@ Future<void> _processExpense(
           }
 
           if (!preview.isActive) {
-            final container = ProviderScope.containerOf(context, listen: false);
             unawaited(
               _persistAiTransactions(
-                container,
+                providerContainer,
                 userId: user.uid,
                 householdId: householdId,
                 isPortfolio: isPortfolio,
@@ -2572,6 +2823,24 @@ Future<void> _processExpense(
         'code': responseData?['code'],
         'status': responseData?['status'],
       };
+      if (!preview.isActive && shouldQueueAiInputForRetry(errorPayload)) {
+        try {
+          final queued = await queueCurrentAiInputForRetry();
+          if (queued) {
+            if (context.mounted) {
+              AppToast.success(
+                context,
+                context.l10n.walletCaptureOfflineDescription,
+              );
+            }
+            return;
+          }
+        } catch (queueError) {
+          _debugPrint(
+            '⚠️ Failed to queue AI input for background retry: $queueError',
+          );
+        }
+      }
       if (context.mounted) {
         AppToast.error(
           context,
@@ -2588,6 +2857,24 @@ Future<void> _processExpense(
     // Close processing modal
     if (shouldShowProcessingDialog && context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
+    }
+
+    if (!preview.isActive && shouldQueueAiInputForRetry(e)) {
+      try {
+        final queued = await queueCurrentAiInputForRetry();
+        if (queued) {
+          if (context.mounted) {
+            AppToast.success(
+              context,
+              context.l10n.walletCaptureOfflineDescription,
+            );
+          }
+          return;
+        }
+      } catch (queueError) {
+        _debugPrint(
+            '⚠️ Failed to queue AI input for background retry: $queueError');
+      }
     }
 
     if (context.mounted) {

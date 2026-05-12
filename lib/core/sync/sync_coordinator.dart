@@ -6,16 +6,23 @@ typedef LocalMutationDispatcher = Future<void> Function(
   LocalMutationOutboxData mutation,
 );
 
+typedef LocalMutationCancelledHandler = Future<void> Function(
+  LocalMutationOutboxData mutation,
+  Object error,
+);
+
 class SyncCoordinator {
   const SyncCoordinator({
     required this.database,
     required this.dispatchMutation,
+    this.onMutationCancelled,
     DateTime Function()? now,
     this.maxAttempts = 8,
   }) : _now = now;
 
   final MonekoDatabase database;
   final LocalMutationDispatcher dispatchMutation;
+  final LocalMutationCancelledHandler? onMutationCancelled;
   final DateTime Function()? _now;
   final int maxAttempts;
 
@@ -41,6 +48,7 @@ class SyncCoordinator {
             clientMutationId: mutation.clientMutationId,
             error: error,
           );
+          await onMutationCancelled?.call(mutation, error);
         } else {
           await database.markMutationFailed(
             clientMutationId: mutation.clientMutationId,
