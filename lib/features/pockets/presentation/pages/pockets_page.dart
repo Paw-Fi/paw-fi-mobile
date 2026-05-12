@@ -718,35 +718,40 @@ class PocketsPage extends HookConsumerWidget {
                   ),
               };
 
-              if (!shouldBuildFullView) {
-                return _PocketsMonthPlaceholder(
-                  colorScheme: colorScheme,
-                );
-              }
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: !shouldBuildFullView
+                    ? _PocketsMonthPlaceholder(
+                        key: ValueKey(
+                            'month_placeholder_${month.year}_${month.month}_${householdScope.activeAccountType}'),
+                        colorScheme: colorScheme,
+                      )
+                    : _PocketsMonthView(
+                        key: ValueKey(
+                            'month_view_${month.year}_${month.month}_${householdScope.activeAccountType}'),
+                        scopeParams: scopeParams,
+                        colorScheme: colorScheme,
+                        isPersonalMode: householdScope.activeAccountType !=
+                            ActiveWalletType.household,
+                        isActiveMonth: scopeParams == currentScopeParams,
+                        showSwipeHint: !hasDismissedSwipeHintState.value,
+                        onDateSelected: (date) {
+                          final diffYears = date.year - initialMonth.year;
+                          final diffMonths = date.month - initialMonth.month;
+                          final totalMonthDiff = diffYears * 12 + diffMonths;
+                          final int targetPage = initialPage + totalMonthDiff;
 
-              return _PocketsMonthView(
-                scopeParams: scopeParams,
-                colorScheme: colorScheme,
-                isPersonalMode: householdScope.activeAccountType !=
-                    ActiveWalletType.household,
-                isActiveMonth: scopeParams == currentScopeParams,
-                showSwipeHint: !hasDismissedSwipeHintState.value,
-                onDateSelected: (date) {
-                  final diffYears = date.year - initialMonth.year;
-                  final diffMonths = date.month - initialMonth.month;
-                  final totalMonthDiff = diffYears * 12 + diffMonths;
-                  final int targetPage = initialPage + totalMonthDiff;
+                          // Allow prefetching the target month without triggering loads
+                          // for all intermediate months during the animation.
+                          pendingJumpTargetIndexState.value = targetPage;
 
-                  // Allow prefetching the target month without triggering loads
-                  // for all intermediate months during the animation.
-                  pendingJumpTargetIndexState.value = targetPage;
-
-                  pageController.animateToPage(
-                    targetPage,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
+                          pageController.animateToPage(
+                            targetPage,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                      ),
               );
             },
           ),
@@ -939,6 +944,7 @@ class PocketsPage extends HookConsumerWidget {
 
 class _PocketsMonthView extends HookConsumerWidget {
   const _PocketsMonthView({
+    super.key,
     required this.scopeParams,
     required this.colorScheme,
     required this.isPersonalMode,
@@ -981,98 +987,111 @@ class _PocketsMonthView extends HookConsumerWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          if (showCopyPocketsFromPreviousMonth)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: _CopyBudgetBanner(
-                  previousBudget: pocketsState.previousBudget,
-                  onCopy: () async {
-                    try {
-                      pocketsNotifier
-                          .reusePreviousBudget(pocketsState.previousBudget);
-                      if (context.mounted) {
-                        AppToast.success(
-                          context,
-                          context.l10n.budgetUpdated,
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppToast.error(
-                          context,
-                          ErrorHandler.getUserFriendlyMessage(e),
-                        );
-                      }
-                    }
-                  },
-                  onCopyPockets: () async {
-                    if (isCopyingPockets.value) return;
+          SliverToBoxAdapter(
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: showCopyPocketsFromPreviousMonth
+                    ? Padding(
+                        key: ValueKey(
+                            'copy_budget_banner_${scopeParams.periodMonth?.year}_${scopeParams.periodMonth?.month}'),
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: _CopyBudgetBanner(
+                          previousBudget: pocketsState.previousBudget,
+                          onCopy: () async {
+                            try {
+                              pocketsNotifier.reusePreviousBudget(
+                                  pocketsState.previousBudget);
+                              if (context.mounted) {
+                                AppToast.success(
+                                  context,
+                                  context.l10n.budgetUpdated,
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                AppToast.error(
+                                  context,
+                                  ErrorHandler.getUserFriendlyMessage(e),
+                                );
+                              }
+                            }
+                          },
+                          onCopyPockets: () async {
+                            if (isCopyingPockets.value) return;
 
-                    final result = await MonekoAlertDialog.show(
-                      context: context,
-                      title: context.l10n.pocketsCopyDialogTitle,
-                      description: context.l10n.pocketsCopyDialogDesc,
-                      confirmLabel: context.l10n.pocketsCopyConfirm,
-                      cancelLabel: context.l10n.cancel,
-                    );
-                    final confirmed = result?.confirmed ?? false;
+                            final result = await MonekoAlertDialog.show(
+                              context: context,
+                              title: context.l10n.pocketsCopyDialogTitle,
+                              description: context.l10n.pocketsCopyDialogDesc,
+                              confirmLabel: context.l10n.pocketsCopyConfirm,
+                              cancelLabel: context.l10n.cancel,
+                            );
+                            final confirmed = result?.confirmed ?? false;
 
-                    if (confirmed != true || !context.mounted) return;
+                            if (confirmed != true || !context.mounted) return;
 
-                    isCopyingPockets.value = true;
-                    try {
-                      final now = scopeParams.periodMonth ?? DateTime.now();
-                      final previousMonth =
-                          DateTime(now.year, now.month - 1, 1);
-                      await pocketsNotifier.copyPocketsFromMonth(previousMonth);
-                      if (context.mounted) {
-                        AppToast.success(
-                          context,
-                          context.l10n.budgetCreatedSuccessfully,
-                        );
-                      }
-                    } catch (e) {
-                      if (context.mounted) {
-                        AppToast.error(
-                          context,
-                          ErrorHandler.getUserFriendlyMessage(e),
-                        );
-                      }
-                    } finally {
-                      if (context.mounted) {
-                        isCopyingPockets.value = false;
-                      }
-                    }
-                  },
-                  isCopying: isCopyingPockets.value,
-                  colorScheme: colorScheme,
-                ),
+                            isCopyingPockets.value = true;
+                            try {
+                              final now =
+                                  scopeParams.periodMonth ?? DateTime.now();
+                              final previousMonth =
+                                  DateTime(now.year, now.month - 1, 1);
+                              await pocketsNotifier
+                                  .copyPocketsFromMonth(previousMonth);
+                              if (context.mounted) {
+                                AppToast.success(
+                                  context,
+                                  context.l10n.budgetCreatedSuccessfully,
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                AppToast.error(
+                                  context,
+                                  ErrorHandler.getUserFriendlyMessage(e),
+                                );
+                              }
+                            } finally {
+                              if (context.mounted) {
+                                isCopyingPockets.value = false;
+                              }
+                            }
+                          },
+                          isCopying: isCopyingPockets.value,
+                          colorScheme: colorScheme,
+                        ),
+                      )
+                    : showCreateFromTemplate
+                        ? Padding(
+                            key: ValueKey(
+                                'create_template_banner_${scopeParams.periodMonth?.year}_${scopeParams.periodMonth?.month}'),
+                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                            child: _CreateFromTemplateBanner(
+                              colorScheme: colorScheme,
+                              onTap: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  useSafeArea: true,
+                                  isDismissible: false,
+                                  enableDrag: true,
+                                  backgroundColor: Colors
+                                      .transparent, // Sheet handles its own styling
+                                  builder: (context) =>
+                                      CreateBudgetFromTemplateSheet(
+                                    scopeParams: scopeParams,
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : const SizedBox.shrink(),
               ),
             ),
-          if (showCreateFromTemplate)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: _CreateFromTemplateBanner(
-                  colorScheme: colorScheme,
-                  onTap: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      useSafeArea: true,
-                      isDismissible: false,
-                      enableDrag: true,
-                      backgroundColor:
-                          Colors.transparent, // Sheet handles its own styling
-                      builder: (context) => CreateBudgetFromTemplateSheet(
-                        scopeParams: scopeParams,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
+          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -1094,7 +1113,10 @@ class _PocketsMonthView extends HookConsumerWidget {
 }
 
 class _PocketsMonthPlaceholder extends StatelessWidget {
-  const _PocketsMonthPlaceholder({required this.colorScheme});
+  const _PocketsMonthPlaceholder({
+    super.key,
+    required this.colorScheme,
+  });
 
   final ColorScheme colorScheme;
 

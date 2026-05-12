@@ -190,30 +190,40 @@ class PocketCard extends StatelessWidget {
                             FittedBox(
                               fit: BoxFit.scaleDown,
                               alignment: Alignment.centerLeft,
-                              child: Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: spentDisplay,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: isOverBudget
-                                            ? colorScheme.error
-                                            : colorScheme.pocketTitle,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 300),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  );
+                                },
+                                child: Text.rich(
+                                  key: ValueKey('${pocket.spent}_${limit}'),
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: spentDisplay,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: isOverBudget
+                                              ? colorScheme.error
+                                              : colorScheme.pocketTitle,
+                                        ),
                                       ),
-                                    ),
-                                    TextSpan(
-                                      text: ' / $limitDisplay',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: colorScheme.pocketSubtitle,
+                                      TextSpan(
+                                        text: ' / $limitDisplay',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: colorScheme.pocketSubtitle,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
+                                  maxLines: 1,
                                 ),
-                                maxLines: 1,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -223,21 +233,30 @@ class PocketCard extends StatelessWidget {
                                 height: 4,
                                 width: double.infinity,
                                 color: colorScheme.pocketProgressTrack,
-                                child: FractionallySizedBox(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: progress.clamp(0.0, 1.0),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: getProgressGradient(
-                                          colorScheme,
-                                          baseColor,
-                                          progress,
-                                          isOverBudget,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return Stack(
+                                      children: [
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                              milliseconds: 1000),
+                                          curve: Curves.easeOutQuart,
+                                          width: constraints.maxWidth *
+                                              progress.clamp(0.0, 1.0),
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              colors: getProgressGradient(
+                                                colorScheme,
+                                                baseColor,
+                                                progress,
+                                                isOverBudget,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                  ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ),
                             ),
