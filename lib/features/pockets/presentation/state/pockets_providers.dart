@@ -180,13 +180,18 @@ Duration _pocketsCacheTtl(
 
 final _pocketsMonthCache = _PocketsMonthCache();
 
-void _invalidatePocketsCachesForUser(Ref ref, String userId) {
+void _invalidatePocketsCachesForUser(
+  Ref ref,
+  String userId, {
+  bool clearPersisted = false,
+}) {
   if (userId.trim().isEmpty) {
     _pocketsMonthCache.clear();
     return;
   }
 
   _pocketsMonthCache.invalidateUser(userId);
+  if (!clearPersisted) return;
   ref.read(pocketsPersistedCacheBypassCountProvider.notifier).state++;
   unawaited(() async {
     try {
@@ -854,6 +859,16 @@ class PocketsState {
 
   double get totalSpent => editing.fold<double>(0, (sum, p) => sum + p.spent);
 
+  bool get hasDisplayData {
+    return periodMonth.year != 1970 ||
+        saved.isNotEmpty ||
+        editing.isNotEmpty ||
+        budgetId != null ||
+        totalBudget != 0 ||
+        previousBudget != 0 ||
+        uncategorized.isNotEmpty;
+  }
+
   PocketsState copyWith({
     bool? isLoading,
     String? error,
@@ -1020,8 +1035,15 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     // Auto-load once when the notifier is created.
     // This ensures that:
     // - The first time a pockets provider is watched, data starts loading immediately.
-    // - After ref.invalidate(pocketsProvider(...)) creates a new notifier,
-    //   pockets are reloaded without relying on widget lifecycle hooks.
+    // - Warmed providers can serve SQLite cache first, then reconcile silently.
+    ref.listen<int>(transactionsFeedRefreshSignalProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      _scheduleSilentReload();
+    });
+    ref.listen<int>(dashboardRefreshSignalProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      _scheduleSilentReload();
+    });
     Future.microtask(load);
   }
 
@@ -1032,6 +1054,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   bool _hasLoadedOnce = false;
   bool get _isPreview => ref.read(previewModeProvider).isActive;
+
+  void _scheduleSilentReload() {
+    if (!mounted || state.hasChanges) return;
+    unawaited(load(bypassCache: true));
+  }
 
   dynamic _applyAccountScopeFilter(
     dynamic query,
@@ -1238,10 +1265,13 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           ref.read(pocketsPersistedCacheBypassCountProvider) > 0;
 
       final now = DateTime.now();
+      final hasPendingLocalChanges =
+          await _hasPendingLocalPocketMutations(authUser.uid);
       if (!bypassCache) {
         final cached = _pocketsMonthCache.getAny(cacheKey, now);
         if (cached != null) {
-          final isFresh = _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
+          final isFresh = !hasPendingLocalChanges &&
+              _pocketsMonthCache.isFresh(cacheKey, now, monthStart);
           trace.mark('cache-hit', {
             'editingCount': cached.editing.length,
             'isFresh': isFresh,
@@ -1285,7 +1315,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         }
 
         if (!bypassPersistedCache) {
-          final persistedPayload = readPersistedPocketsCache(
+          final persistedPayload = await readPersistedPocketsCache(
             ref,
             key: persistedCacheKey,
           );
@@ -1297,7 +1327,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   .copyWith(isLoading: false, clearError: true);
               final cachedAt =
                   resolvePersistedPocketsCachedAt(persistedPayload);
-              final isFresh = cachedAt != null
+              final isFresh = !hasPendingLocalChanges && cachedAt != null
                   ? now.difference(cachedAt) <=
                       _pocketsCacheTtl(cacheKey, monthStart)
                   : false;
@@ -1340,7 +1370,11 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       // No cache (or bypass requested), show loader.
       trace.mark('cache-miss', {'periodMonth': periodMonth});
-      state = state.copyWith(isLoading: true, clearError: true);
+      if (!state.hasDisplayData) {
+        state = state.copyWith(isLoading: true, clearError: true);
+      } else {
+        state = state.copyWith(isLoading: false, clearError: true);
+      }
 
       _debugLog(
           '[Pockets] Using currency: $selectedCurrency (params: ${params.currency}, fallback: $fallbackCurrency, allowFallback: $allowCurrencyFallback)');
@@ -1783,7 +1817,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     final future = doFetch();
     _pocketsMonthCache.setInFlight(cacheKey, future, now);
 
-    if (showLoadingIndicator && mounted) {
+    if (showLoadingIndicator && mounted && !state.hasDisplayData) {
       state = state.copyWith(isLoading: true, clearError: true);
     }
 
@@ -1904,6 +1938,25 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       merged.add(entry);
     }
     return merged;
+  }
+
+  Future<bool> _hasPendingLocalPocketMutations(String userId) async {
+    if (userId.trim().isEmpty) return false;
+    try {
+      final database = await ref.read(localDatabaseProvider.future);
+      final mutations = await database.getOutboxMutations();
+      return mutations.any((mutation) {
+        if (mutation.status == localMutationStatusSynced ||
+            mutation.status == localMutationStatusCancelled) {
+          return false;
+        }
+        return mutation.entityType == 'transaction' ||
+            mutation.entityType == 'pockets_month' ||
+            mutation.entityType == 'pocket_category';
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   void _applyPreviewState() {
@@ -2090,7 +2143,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         '[Pockets][Copy] targetPeriodMonth=$targetPeriodMonth (budgetId=$currentBudgetId), sourcePeriodMonth=$sourcePeriodMonth');
 
     if (!mounted) return;
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: false, clearError: true);
 
     try {
       final nowIso = DateTime.now().toIso8601String();
@@ -2729,6 +2782,16 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       budgetId: budgetId,
       clearError: true,
     );
+    final authUser = ref.read(authProvider);
+    if (!authUser.isEmpty) {
+      unawaited(_persistCurrentStateSnapshot(
+        userId: authUser.uid,
+        scopeType: params.scope,
+        householdId: params.householdId,
+        periodMonth: _formatDate(state.periodMonth),
+        currency: selectedCurrency,
+      ));
+    }
   }
 
   void restoreOptimisticPockets(PocketsState previousState) {
@@ -2753,7 +2816,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
 
     final previousState = state;
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: false, clearError: true);
     String? queuedMutationId;
 
     try {
@@ -3044,6 +3107,20 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String periodMonth,
     required String currency,
   }) async {
+    final cacheKey = (
+      userId: userId,
+      scope: scopeType,
+      householdId: householdId,
+      periodMonth: periodMonth,
+      currency: currency,
+      includeUpcomingRecurring: params.includeUpcomingRecurring,
+      allowCurrencyFallback: params.isBootstrapCurrency,
+    );
+    _pocketsMonthCache.set(
+      cacheKey,
+      state.copyWith(isLoading: false, clearError: true),
+      DateTime.now(),
+    );
     final key = pocketsPersistedCacheKey(
       userId: userId,
       scope: scopeType.name,
@@ -3118,17 +3195,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
   void _showPreviewModeToast() {
     if (!mounted) return;
-  }
-
-  @override
-  void dispose() {
-    // If this provider instance was invalidated/disposed, we treat that as an
-    // explicit invalidation signal and drop any cached month snapshot.
-    final key = _lastCacheKey;
-    if (key != null) {
-      _pocketsMonthCache.invalidate(key);
-    }
-    super.dispose();
   }
 }
 

@@ -578,7 +578,8 @@ class PocketsPage extends HookConsumerWidget {
     final currentPocketsNotifier =
         ref.read(pocketsProvider(currentScopeParams).notifier);
     final hasChanges = currentPocketsState.hasChanges;
-    final isPocketsLoading = currentPocketsState.isLoading;
+    final isPocketsInitialLoading =
+        currentPocketsState.isLoading && !currentPocketsState.hasDisplayData;
     final didLogUsefulPaintRef = useRef<bool>(false);
 
     useEffect(() {
@@ -925,13 +926,13 @@ class PocketsPage extends HookConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton:
-          shouldShowHomeFab(viewMode, householdsAsync) && !isPocketsLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(0),
-                  child: HomeAiExpandableFab(),
-                )
-              : null,
+      floatingActionButton: shouldShowHomeFab(viewMode, householdsAsync) &&
+              !isPocketsInitialLoading
+          ? const Padding(
+              padding: EdgeInsets.all(0),
+              child: HomeAiExpandableFab(),
+            )
+          : null,
     ));
   }
 }
@@ -959,12 +960,7 @@ class _PocketsMonthView extends HookConsumerWidget {
     final pocketsNotifier = ref.read(pocketsProvider(scopeParams).notifier);
 
     Future<void> refresh() async {
-      // Invalidate and reload pockets data only - analytics is managed by app_initialization_provider.
-      // Invalidation recreates the notifier; we then explicitly call load() to force an immediate refresh.
-      ref.invalidate(pocketsProvider(scopeParams));
-      await ref
-          .read(pocketsProvider(scopeParams).notifier)
-          .load(bypassCache: true);
+      await pocketsNotifier.load(bypassCache: true);
     }
 
     // When a new month starts, users often have zero budget and no pockets yet.

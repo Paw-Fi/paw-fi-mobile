@@ -177,7 +177,7 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             alignment: Alignment.centerRight,
-            height: 80,
+            height: 90,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.center,

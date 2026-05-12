@@ -11,6 +11,7 @@ import 'package:moneko/features/wallets/presentation/widgets/wallet_icon_resolve
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/features/home/presentation/state/home_filter_provider.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/moneko_input.dart';
@@ -119,83 +120,9 @@ class _WalletTransferSheet extends HookConsumerWidget {
     }
 
     Future<void> handleEditAmount() async {
-      final controller = TextEditingController(text: amountText.value);
-      final result = await showModalBottomSheet<String>(
+      final result = await showCalculatorKeypadSheet(
         context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.5),
-        enableDrag: true,
-        useSafeArea: true,
-        isScrollControlled: true,
-        builder: (context) {
-          return Container(
-            decoration: BoxDecoration(
-              color: colorScheme.sheetBackground,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const ModalSheetHandle(),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Text(
-                          context.l10n.amount,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.foreground,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        TextField(
-                          controller: controller,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          textAlign: TextAlign.center,
-                          autofocus: true,
-                          style: TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.foreground,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '0.00',
-                            hintStyle: TextStyle(
-                              color: colorScheme.mutedForeground,
-                            ),
-                            border: InputBorder.none,
-                            prefixText: symbol,
-                            prefixStyle: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: PrimaryAdaptiveButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(controller.text),
-                            child: Text(context.l10n.done),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        initialValue: amountText.value,
       );
       if (result != null) {
         amountText.value = result;

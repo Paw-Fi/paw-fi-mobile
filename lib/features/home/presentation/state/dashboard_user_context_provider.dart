@@ -88,7 +88,7 @@ final dashboardPersonalBudgetsProvider =
 
   ref.watch(dashboardCacheInvalidationProvider);
   final bypassPersistedCache =
-      ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+      ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
   final cacheKey = dashboardBudgetsCacheKey(contactId: contactId);
   final sessionCached =
       readDashboardSessionCache<List<DailyBudgetEntry>>(cacheKey);
@@ -477,7 +477,7 @@ List<CurrencySummary>? _readCachedCurrencySummaries(Ref ref, String cacheKey) {
   }
 
   final bypassPersistedCache =
-      ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+      ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
   if (bypassPersistedCache) {
     _debugCurrencySummaries('persisted-cache-skip key=$cacheKey bypass=true');
     return null;
@@ -527,7 +527,7 @@ Map<String, int>? _readCachedCurrencyTransactionCounts(
   }
 
   final bypassPersistedCache =
-      ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+      ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
   if (bypassPersistedCache) {
     _debugCurrencySummaries(
       'direct-counts persisted-cache-skip key=$cacheKey bypass=true',

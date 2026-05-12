@@ -31,6 +31,7 @@ import 'package:moneko/core/utils/error_handler.dart';
 import 'package:moneko/core/utils/image_picker_guard.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/money_parser.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/features/auth/auth.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
@@ -45,7 +46,6 @@ import 'package:moneko/features/home/presentation/utils/smart_transaction_input.
 import 'package:moneko/features/home/presentation/widgets/custom_split_config_codec.dart';
 import 'package:moneko/features/home/presentation/widgets/widgets.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/households/domain/entities/household.dart';
 import 'package:moneko/features/households/domain/entities/expense_split.dart';
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
@@ -452,6 +452,140 @@ Map<String, dynamic>? _normalizeExplicitCustomSplits(Object? rawCustomSplits) {
   return customSplits;
 }
 
+String _resolveOptimisticAiCategory({
+  required Object? rawCategory,
+  required Object? rawDescription,
+  required bool isIncome,
+}) {
+  final fallback = isIncome ? 'income' : 'other';
+  final category = rawCategory?.toString().trim() ?? '';
+  final normalizedCategory = normalizeCategory(category);
+  final builtinCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedCategory,
+  );
+  if (builtinCategory != null &&
+      builtinCategory != 'other' &&
+      builtinCategory != 'uncategorized') {
+    return builtinCategory;
+  }
+
+  final description = rawDescription?.toString().trim() ?? '';
+  final normalizedDescription = normalizeCategory(description);
+  final descriptionCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedDescription,
+  );
+  if (descriptionCategory != null &&
+      descriptionCategory != 'other' &&
+      descriptionCategory != 'uncategorized') {
+    return descriptionCategory;
+  }
+
+  return builtinCategory ?? fallback;
+}
+
+SplitType? _parseSplitTypeForOptimisticGroup(Object? rawSplitType) {
+  final value = rawSplitType?.toString().trim().toLowerCase();
+  if (value == null || value.isEmpty || value == 'equal') return null;
+  try {
+    return SplitType.fromJson(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+ExpenseSplitGroup? _buildOptimisticSplitGroupFromPayload({
+  required String householdId,
+  required String expenseId,
+  required String payerUserId,
+  required double totalAmount,
+  required String currency,
+  required Object? rawCustomSplits,
+  String? description,
+  String? splitGroupId,
+}) {
+  final customSplits = _normalizeExplicitCustomSplits(rawCustomSplits);
+  if (customSplits == null) return null;
+
+  final splitType =
+      _parseSplitTypeForOptimisticGroup(customSplits['splitType']);
+  if (splitType == null) return null;
+
+  final rawMemberSplits = customSplits['memberSplits'];
+  if (rawMemberSplits is! List || rawMemberSplits.isEmpty) return null;
+
+  final totalCents = (totalAmount.abs() * 100).round();
+  final now = DateTime.now();
+  final normalizedGroupId = (splitGroupId?.trim().isNotEmpty == true)
+      ? splitGroupId!.trim()
+      : 'optimistic_split_$expenseId';
+
+  final rawMaps = rawMemberSplits
+      .whereType<Map>()
+      .map((entry) => Map<String, dynamic>.from(entry))
+      .where((entry) => entry['userId']?.toString().trim().isNotEmpty == true)
+      .toList(growable: false);
+  if (rawMaps.isEmpty) return null;
+
+  int amountCentsFor(Map<String, dynamic> entry) {
+    switch (splitType) {
+      case SplitType.amount:
+        return ((_parseAmountValue(entry['amount']) ?? 0).abs() * 100).round();
+      case SplitType.percentage:
+        final percentage = _parseAmountValue(entry['percentage']) ?? 0;
+        return ((totalCents * percentage) / 100).round();
+      case SplitType.shares:
+        final totalShares = rawMaps.fold<int>(
+          0,
+          (sum, item) => sum + ((item['shares'] as num?)?.toInt() ?? 0),
+        );
+        if (totalShares <= 0) return 0;
+        final shares = (entry['shares'] as num?)?.toInt() ?? 0;
+        return ((totalCents * shares) / totalShares).round();
+      case SplitType.equal:
+        return 0;
+    }
+  }
+
+  final cents = rawMaps.map(amountCentsFor).toList(growable: true);
+  final centsDiff =
+      totalCents - cents.fold<int>(0, (sum, value) => sum + value);
+  if (centsDiff != 0 && cents.isNotEmpty) {
+    cents[cents.length - 1] += centsDiff;
+  }
+
+  final lines = <ExpenseSplitLine>[];
+  for (var index = 0; index < rawMaps.length; index++) {
+    final entry = rawMaps[index];
+    lines.add(
+      ExpenseSplitLine(
+        id: '${normalizedGroupId}_line_$index',
+        splitGroupId: normalizedGroupId,
+        userId: entry['userId'].toString().trim(),
+        amountCents: cents[index],
+        percentage: _parseAmountValue(entry['percentage']),
+        shares: (entry['shares'] as num?)?.toInt(),
+        isSettled: false,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  return ExpenseSplitGroup(
+    id: normalizedGroupId,
+    householdId: householdId,
+    expenseId: expenseId,
+    payerUserId: payerUserId,
+    splitType: splitType,
+    currency: currency,
+    totalAmountCents: totalCents,
+    description: description,
+    createdAt: now,
+    updatedAt: now,
+    splitLines: lines,
+  );
+}
+
 String _normalizeMemberAlias(String value) {
   final lowered = value.toLowerCase().trim();
   if (lowered.isEmpty) return '';
@@ -542,6 +676,28 @@ bool _itemsContainExplicitCustomSplits(List<dynamic> items) {
   return false;
 }
 
+List<String> _expandAmountSplitClauses(String text) {
+  final baseClauses = text
+      .split(RegExp(r'[;,]'))
+      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList(growable: false);
+
+  final repeatedAmountPattern = RegExp(
+    r'(?:\bsplit\s+)?(\d+(?:\.\d{1,2})?)\s*(?:for|to|with)\s+(.+?)(?=\s+(?:\bsplit\s+)?\d+(?:\.\d{1,2})?\s*(?:for|to|with)\b|$)',
+    caseSensitive: false,
+  );
+
+  return baseClauses.expand((clause) {
+    final matches = repeatedAmountPattern.allMatches(clause).toList();
+    if (matches.length <= 1) return <String>[clause];
+    return matches
+        .map((match) => match.group(0)?.trim() ?? '')
+        .where((match) => match.isNotEmpty);
+  }).toList(growable: false);
+}
+
 _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
   required String text,
   required List<Map<String, dynamic>> householdMembers,
@@ -549,12 +705,7 @@ _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
 }) {
   if (text.trim().isEmpty || householdMembers.isEmpty) return null;
 
-  final clauses = text
-      .split(RegExp(r'[;,]'))
-      .expand((chunk) => chunk.split(RegExp(r'\band\b', caseSensitive: false)))
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList(growable: false);
+  final clauses = _expandAmountSplitClauses(text);
 
   if (clauses.isEmpty) return null;
 
@@ -636,7 +787,13 @@ _ExplicitAmountSplitOverride? _extractExplicitAmountSplitOverride({
   final missingIds =
       allMemberIds.where((id) => !specifiedCents.containsKey(id)).toList();
   var remainderCents = totalCents - specifiedSumCents;
-  if (missingIds.isNotEmpty && remainderCents > 0) {
+  if (totalHint != null &&
+      remainderCents > 0 &&
+      missingIds.contains(callerUserId)) {
+    specifiedCents[callerUserId] = remainderCents;
+    specifiedSumCents = specifiedCents.values.fold<int>(0, (a, b) => a + b);
+    remainderCents = totalCents - specifiedSumCents;
+  } else if (missingIds.isNotEmpty && remainderCents > 0) {
     final per = remainderCents ~/ missingIds.length;
     var extra = remainderCents % missingIds.length;
     for (final id in missingIds) {
@@ -821,6 +978,7 @@ Future<void> _persistAiTransactions(
   required String? householdId,
   required bool isPortfolio,
   required List<_AiParsedItem> transactions,
+  required String? accountId,
   String? localImagePath,
 }) async {
   if (transactions.isEmpty) return;
@@ -834,8 +992,6 @@ Future<void> _persistAiTransactions(
         ...transactions.map((item) => item.optimisticId),
       ].join('|')))
       .toString();
-  final scopedDefaultAccountId =
-      container.read(defaultScopedAccountProvider)?.id;
   MonekoDatabase? localDatabase;
   var queuedLocally = false;
 
@@ -864,6 +1020,24 @@ Future<void> _persistAiTransactions(
     container
         .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
         .state += 1;
+  }
+
+  Future<void> replaceLocalOptimisticTransaction({
+    required String optimisticId,
+    required ExpenseEntry savedEntry,
+    required TransactionMutationMetadata metadata,
+  }) async {
+    try {
+      await localDatabase?.replaceOptimisticTransaction(
+        optimisticId: optimisticId,
+        savedEntry: savedEntry,
+        clientMutationId: metadata.clientMutationId,
+      );
+    } catch (error) {
+      _debugPrint(
+        '⚠️ Failed to replace local AI optimistic transaction: $error',
+      );
+    }
   }
 
   String? normalizeBucketId(String? value) {
@@ -955,34 +1129,73 @@ Future<void> _persistAiTransactions(
     return normalizedRule;
   }
 
-  void upsertSavedEntry({
+  Future<ExpenseEntry> upsertSavedEntry({
     required _AiPreparedMutation prepared,
     required ExpenseEntry savedEntry,
-  }) {
+  }) async {
     final optimisticId = prepared.item.optimisticId;
+    var entryToStore = savedEntry;
+    final savedHouseholdId = savedEntry.householdId?.trim();
+    if (savedHouseholdId != null &&
+        savedHouseholdId.isNotEmpty &&
+        !prepared.item.transaction.isIncome) {
+      final existingSplitGroupId = savedEntry.splitGroupId?.trim();
+      final optimisticSplitGroup = _buildOptimisticSplitGroupFromPayload(
+        householdId: savedHouseholdId,
+        expenseId: savedEntry.id,
+        payerUserId: (prepared.batchRequestBody['payerUserId'] as String?)
+                    ?.trim()
+                    .isNotEmpty ==
+                true
+            ? (prepared.batchRequestBody['payerUserId'] as String).trim()
+            : userId,
+        totalAmount: savedEntry.amount,
+        currency: savedEntry.currency ?? prepared.item.transaction.currency,
+        rawCustomSplits: prepared.batchRequestBody['customSplits'],
+        description:
+            savedEntry.rawText ?? prepared.item.transaction.description,
+        splitGroupId: existingSplitGroupId?.isNotEmpty == true
+            ? existingSplitGroupId
+            : null,
+      );
+      if (optimisticSplitGroup != null) {
+        container
+            .read(householdOptimisticSplitsProvider.notifier)
+            .addSplitGroup(savedHouseholdId, optimisticSplitGroup);
+        if (existingSplitGroupId == null || existingSplitGroupId.isEmpty) {
+          entryToStore =
+              savedEntry.copyWith(splitGroupId: optimisticSplitGroup.id);
+        }
+      }
+    }
     if (savedEntry.id.isNotEmpty) {
       container
           .read(householdOptimisticExpensesProvider.notifier)
           .removeExpenseByIdAcrossHouseholds(savedEntry.id);
     }
     final fromBucket = normalizeBucketId(householdId);
-    final toBucket = normalizeBucketId(savedEntry.householdId);
+    final toBucket = normalizeBucketId(entryToStore.householdId);
 
     if (fromBucket == toBucket) {
+      await replaceLocalOptimisticTransaction(
+        optimisticId: optimisticId,
+        savedEntry: entryToStore,
+        metadata: prepared.metadata,
+      );
       replaceOptimisticTransactionWithContainer(
         container: container,
         optimisticId: optimisticId,
-        savedEntry: savedEntry,
+        savedEntry: entryToStore,
         householdId: fromBucket,
       );
-      unawaited(localDatabase?.replaceOptimisticTransaction(
-        optimisticId: optimisticId,
-        savedEntry: savedEntry,
-        clientMutationId: prepared.metadata.clientMutationId,
-      ));
-      return;
+      return entryToStore;
     }
 
+    await replaceLocalOptimisticTransaction(
+      optimisticId: optimisticId,
+      savedEntry: entryToStore,
+      metadata: prepared.metadata,
+    );
     removeOptimisticTransactionWithContainer(
       container: container,
       optimisticId: optimisticId,
@@ -990,14 +1203,10 @@ Future<void> _persistAiTransactions(
     );
     addOptimisticTransactionWithContainer(
       container: container,
-      entry: savedEntry,
+      entry: entryToStore,
       householdId: toBucket,
     );
-    unawaited(localDatabase?.replaceOptimisticTransaction(
-      optimisticId: optimisticId,
-      savedEntry: savedEntry,
-      clientMutationId: prepared.metadata.clientMutationId,
-    ));
+    return entryToStore;
   }
 
   Future<void> attachOptimisticSplitsForSavedExpenses(
@@ -1105,9 +1314,9 @@ Future<void> _persistAiTransactions(
     );
     final autoSplitEnabled =
         autoSplitContext?.household.autoSplitEnabled != false;
-    final explicitCustomSplits = autoSplitEnabled
-        ? _normalizeExplicitCustomSplits(item.raw['customSplits'])
-        : null;
+    final explicitCustomSplits = _normalizeExplicitCustomSplits(
+      item.raw['customSplits'],
+    );
     final defaultCustomSplits = householdId != null &&
             householdId.isNotEmpty &&
             !isPortfolio &&
@@ -1122,8 +1331,10 @@ Future<void> _persistAiTransactions(
     _debugPrint(
       '[AI Batch Save] Auto-split payload decision: household=$householdId '
       'enabled=$autoSplitEnabled explicit=$hasExplicitCustomSplits '
-      'sendPayer=${autoSplitEnabled && payerUserId != null} '
-      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'}',
+      'sendPayer=${(autoSplitEnabled || explicitCustomSplits != null) && payerUserId != null} '
+      'sendSplits=${effectiveCustomSplits != null} type=${tx.isIncome ? 'income' : 'expense'} '
+      'rawCustomSplits=${jsonEncode(item.raw['customSplits'])} '
+      'effectiveCustomSplits=${jsonEncode(effectiveCustomSplits)}',
     );
 
     final commonRequestBody = <String, dynamic>{
@@ -1131,8 +1342,7 @@ Future<void> _persistAiTransactions(
       'category': tx.category,
       'currency': tx.currency,
       'date': formatDateOnlyYmd(tx.date),
-      if (scopedDefaultAccountId != null && scopedDefaultAccountId.isNotEmpty)
-        'accountId': scopedDefaultAccountId,
+      if (accountId != null && accountId.isNotEmpty) 'accountId': accountId,
       'clientCreatedAt': clientCreatedAtIso,
       ...mutationMetadata.toRequestJson(),
       if (isRecurring) 'isRecurring': true,
@@ -1141,7 +1351,9 @@ Future<void> _persistAiTransactions(
       if (tx.description?.isNotEmpty == true) 'description': tx.description,
       if (tx.breakdown?.isNotEmpty == true) 'breakdown': tx.breakdown,
       if (receiptUrl != null && !isIncome) 'receiptImageUrl': receiptUrl,
-      if (autoSplitEnabled && payerUserId != null) 'payerUserId': payerUserId,
+      if ((autoSplitEnabled || explicitCustomSplits != null) &&
+          payerUserId != null)
+        'payerUserId': payerUserId,
       if (effectiveCustomSplits != null) 'customSplits': effectiveCustomSplits,
       // Income ownerType/privacyScope use backend defaults.
     };
@@ -1188,7 +1400,6 @@ Future<void> _persistAiTransactions(
     queuedLocally = true;
     container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
     container.read(dashboardRefreshSignalProvider.notifier).state += 1;
-    container.invalidate(pocketsProvider);
   } catch (error) {
     _debugPrint('⚠️ Failed to queue AI transactions locally: $error');
   }
@@ -1267,15 +1478,15 @@ Future<void> _persistAiTransactions(
 
           if (success && data != null) {
             final savedEntry = ExpenseEntry.fromJson(data);
-            upsertSavedEntry(
+            final storedEntry = await upsertSavedEntry(
               prepared: prepared,
               savedEntry: savedEntry,
             );
             didPersistAny = true;
-            savedEntries.add(savedEntry);
+            savedEntries.add(storedEntry);
             if (!originalItem.transaction.isIncome) {
               savedExpenseCount += 1;
-              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+              savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
             // Remove failed optimistic entry
@@ -1311,6 +1522,9 @@ Future<void> _persistAiTransactions(
           .invalidateAfterBatch(
             userId: userId,
             householdId: householdId,
+            refreshAnalytics: false,
+            refreshTransactionFeed: false,
+            emitDashboardRefresh: false,
           );
     }
 
@@ -1352,15 +1566,15 @@ Future<void> _persistAiTransactions(
 
           if (savedPayload != null) {
             final savedEntry = ExpenseEntry.fromJson(savedPayload);
-            upsertSavedEntry(
+            final storedEntry = await upsertSavedEntry(
               prepared: prepared,
               savedEntry: savedEntry,
             );
             savedCount++;
-            savedEntries.add(savedEntry);
+            savedEntries.add(storedEntry);
             if (!item.transaction.isIncome) {
               savedExpenseCount++;
-              savedExpenseEntriesById[savedEntry.id] = savedEntry;
+              savedExpenseEntriesById[storedEntry.id] = storedEntry;
             }
           } else {
             throw Exception(
@@ -1402,6 +1616,9 @@ Future<void> _persistAiTransactions(
             .invalidateAfterBatch(
               userId: userId,
               householdId: householdId,
+              refreshAnalytics: false,
+              refreshTransactionFeed: false,
+              emitDashboardRefresh: false,
             );
       }
 
@@ -1426,7 +1643,6 @@ Future<void> _persistAiTransactions(
       );
       container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       container.read(dashboardRefreshSignalProvider.notifier).state += 1;
-      container.invalidate(pocketsProvider);
       return;
     }
 
@@ -2116,6 +2332,20 @@ Future<void> _processExpense(
 
       if (innerData != null && innerData['items'] is List) {
         List items = List.from(innerData['items'] as List);
+        _debugPrint(
+          '[AI] Analysis split fields: ${jsonEncode(items.map((rawItem) {
+            final item = rawItem is Map
+                ? Map<String, dynamic>.from(rawItem)
+                : <String, dynamic>{};
+            return <String, dynamic>{
+              'amount': item['amount'],
+              'description': item['description'],
+              'payerUserId': item['payerUserId'],
+              'customSplits': item['customSplits'],
+            };
+          }).toList(growable: false))}',
+          wrapWidth: 1024,
+        );
         // Safety filter: drop total/subtotal rows when multiple items exist
         if (items.length > 1) {
           bool isTotalLike(dynamic it) {
@@ -2142,6 +2372,12 @@ Future<void> _processExpense(
 
         if (items.isNotEmpty) {
           final analyticsContactId = ref.read(appUserContactProvider)?.id;
+          final rawScopedDefaultAccountId =
+              ref.read(defaultScopedAccountProvider)?.id.trim();
+          final scopedDefaultAccountId =
+              rawScopedDefaultAccountId?.isEmpty == true
+                  ? null
+                  : rawScopedDefaultAccountId;
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -2176,15 +2412,16 @@ Future<void> _processExpense(
                   _debugPrint('Skipping AI item with invalid amount/currency');
                   return null;
                 }
+                final category = _resolveOptimisticAiCategory(
+                  rawCategory: item['category'],
+                  rawDescription: item['description'],
+                  isIncome: isIncome,
+                );
                 final transaction = ParsedExpense(
                   isIncome: isIncome,
                   amount: amount,
                   // Normalize income categories to at least 'income' umbrella if model returns a granular one
-                  category: (item['category'] as String?)?.isNotEmpty == true
-                      ? (isIncome
-                          ? (item['category'] as String)
-                          : item['category'] as String)
-                      : (isIncome ? 'income' : 'other'),
+                  category: category,
                   currency: currency,
                   currencySymbol: item['currencySymbol'] as String? ?? '\$',
                   date: accountingDate,
@@ -2212,19 +2449,46 @@ Future<void> _processExpense(
                 );
 
                 final optimisticId = makeOptimisticTransactionId();
+                final optimisticSplitGroup = householdId != null &&
+                        householdId.isNotEmpty &&
+                        !isPortfolio &&
+                        !isIncome
+                    ? _buildOptimisticSplitGroupFromPayload(
+                        householdId: householdId,
+                        expenseId: optimisticId,
+                        payerUserId:
+                            transaction.payerUserId?.trim().isNotEmpty == true
+                                ? transaction.payerUserId!.trim()
+                                : user.uid,
+                        totalAmount: transaction.amount,
+                        currency: transaction.currency,
+                        rawCustomSplits: item['customSplits'],
+                        description: transaction.description,
+                      )
+                    : null;
                 final entry = buildOptimisticEntry(
                   transaction: transaction,
                   optimisticId: optimisticId,
                   userId: user.uid,
                   contactId: analyticsContactId,
                   householdId: householdId,
+                  accountId: scopedDefaultAccountId,
                   type: isIncome ? 'income' : 'expense',
+                  splitGroupId: optimisticSplitGroup?.id,
                 );
                 addOptimisticTransaction(
                   ref: ref,
                   entry: entry,
                   householdId: householdId,
                 );
+                if (optimisticSplitGroup != null) {
+                  ref
+                      .read(householdOptimisticSplitsProvider.notifier)
+                      .addSplitGroup(
+                        optimisticSplitGroup.householdId,
+                        optimisticSplitGroup,
+                      );
+                }
 
                 return _AiParsedItem(
                   transaction: transaction,
@@ -2286,6 +2550,7 @@ Future<void> _processExpense(
                 householdId: householdId,
                 isPortfolio: isPortfolio,
                 transactions: parsed,
+                accountId: scopedDefaultAccountId,
                 localImagePath: imagePath,
               ),
             );

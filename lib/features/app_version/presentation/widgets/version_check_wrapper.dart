@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:moneko/core/app/router.dart';
 import '../providers/version_provider.dart';
 import 'force_update_dialog.dart';
 
@@ -24,6 +23,7 @@ class VersionCheckWrapper extends ConsumerStatefulWidget {
 class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
     with WidgetsBindingObserver {
   bool _shouldShowDialog = false;
+  bool _isCheckingVersion = false;
 
   @override
   void initState() {
@@ -61,11 +61,13 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
 
   Future<void> _checkVersion() async {
     // Prevent multiple simultaneous checks
-    if (_shouldShowDialog) {
+    if (_shouldShowDialog || _isCheckingVersion) {
       developer.log('Dialog already showing, skipping...',
           name: 'VersionCheck');
       return;
     }
+
+    _isCheckingVersion = true;
 
     try {
       developer.log('Starting version check...', name: 'VersionCheck');
@@ -95,11 +97,15 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
         developer.log('Showing force update dialog imperatively',
             name: 'VersionCheck');
 
-        final dialogContext = rootNavigatorKey.currentContext ?? context;
+        // Wait until current frame work is complete so we don't show dialogs
+        // while widgets are being deactivated/rebuilt during route transitions.
+        await WidgetsBinding.instance.endOfFrame;
 
-        if (dialogContext.mounted) {
+        if (mounted &&
+            (ModalRoute.of(context)?.isCurrent ?? true) &&
+            context.mounted) {
           await showForceUpdateDialog(
-            context: dialogContext,
+            context: context,
             currentVersion: currentVersion,
             message: versionConfig.updateMessage,
             appStoreUrl: Platform.isIOS
@@ -121,6 +127,8 @@ class _VersionCheckWrapperState extends ConsumerState<VersionCheckWrapper>
     } catch (e, stack) {
       developer.log('Exception in version check: $e',
           name: 'VersionCheck', error: e, stackTrace: stack);
+    } finally {
+      _isCheckingVersion = false;
     }
   }
 

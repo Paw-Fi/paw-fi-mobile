@@ -70,6 +70,7 @@ ExpenseEntry buildOptimisticEntry({
   String? householdId,
   String? receiptImageUrl,
   String? accountId,
+  String? splitGroupId,
 }) {
   return ExpenseEntry(
     id: optimisticId,
@@ -85,6 +86,7 @@ ExpenseEntry buildOptimisticEntry({
     merchant: transaction.merchant,
     breakdown: transaction.breakdown,
     receiptImageUrl: receiptImageUrl,
+    splitGroupId: splitGroupId,
     walletId: accountId,
     type: type,
   );

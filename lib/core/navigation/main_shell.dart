@@ -125,7 +125,7 @@ Future<void> _refreshActiveMainShellTab(
             .refresh(userId);
         return;
       case 2:
-        ref.invalidate(pocketsProvider);
+        ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         return;
       case 3:
         await _refreshWalletsMainShellData(ref);

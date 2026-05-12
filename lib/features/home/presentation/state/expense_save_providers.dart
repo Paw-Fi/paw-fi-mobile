@@ -19,7 +19,6 @@ import 'package:moneko/features/households/presentation/providers/cached_provide
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
 import 'package:moneko/features/auth/auth.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:moneko/core/utils/user_timezone.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
@@ -532,7 +531,13 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   /// Invalidate appropriate providers based on sharing preference
-  Future<void> _invalidateProviders(String userId, String? householdId) async {
+  Future<void> _invalidateProviders(
+    String userId,
+    String? householdId, {
+    bool refreshAnalytics = true,
+    bool refreshTransactionFeed = true,
+    bool emitDashboardRefresh = true,
+  }) async {
     _debugPrint('🔄 Invalidating providers...');
 
     final isPortfolioSave = householdId != null &&
@@ -542,38 +547,42 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
     // Refresh analytics for personal + portfolio saves.
     // Portfolio dashboards read from analytics state, so they need an immediate
     // refresh after save to reflect backend category remaps and server truth.
-    if (householdId == null || householdId.isEmpty || isPortfolioSave) {
+    if (refreshAnalytics &&
+        (householdId == null || householdId.isEmpty || isPortfolioSave)) {
       ref.read(analyticsProvider.notifier).refresh(userId);
     }
 
-    unawaited(() async {
-      try {
-        await ref.read(transactionsFeedServiceProvider).refreshFromRemote(
-              TransactionsFeedQuery(
-                userId: userId,
-                householdId: householdId,
-                selectedCurrency: null,
-                selectedCategory: null,
-                selectedType: 'all',
-                searchQuery: '',
-                startDate: null,
-                endDate: null,
-                pageSize: 120,
-              ),
-            );
-        ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-      } catch (_) {}
-    }());
+    if (refreshTransactionFeed) {
+      unawaited(() async {
+        try {
+          await ref.read(transactionsFeedServiceProvider).refreshFromRemote(
+                TransactionsFeedQuery(
+                  userId: userId,
+                  householdId: householdId,
+                  selectedCurrency: null,
+                  selectedCategory: null,
+                  selectedType: 'all',
+                  searchQuery: '',
+                  startDate: null,
+                  endDate: null,
+                  pageSize: 120,
+                ),
+              );
+          ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
+        } catch (_) {}
+      }());
+    }
 
-    ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
-    ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
-        1;
+    if (emitDashboardRefresh) {
+      ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      ref
+          .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
+          .state += 1;
+    }
     ref.read(walletActionsProvider).refreshAccountData();
 
-    // Refresh pockets so budget calculations reflect the new expense.
-    // Note: currencyTransactionCountsProvider auto-recomputes reactively
-    // via ref.watch(analyticsProvider), so no explicit invalidation needed.
-    ref.invalidate(pocketsProvider);
+    // Pockets providers listen to transaction/dashboard refresh signals and
+    // reconcile from SQLite without disposing the visible page.
 
     if (householdId != null) {
       // Shared expense: refresh household data
@@ -604,8 +613,17 @@ class ExpenseSaveNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> invalidateAfterBatch({
     required String userId,
     String? householdId,
+    bool refreshAnalytics = true,
+    bool refreshTransactionFeed = true,
+    bool emitDashboardRefresh = true,
   }) async {
-    await _invalidateProviders(userId, householdId);
+    await _invalidateProviders(
+      userId,
+      householdId,
+      refreshAnalytics: refreshAnalytics,
+      refreshTransactionFeed: refreshTransactionFeed,
+      emitDashboardRefresh: emitDashboardRefresh,
+    );
   }
 
   /// Upload receipt image to storage (if needed)

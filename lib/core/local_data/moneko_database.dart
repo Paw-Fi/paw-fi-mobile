@@ -193,6 +193,16 @@ class LocalMutationOutboxData {
   final DateTime? retryAfter;
 }
 
+class LocalJsonCacheEntry {
+  const LocalJsonCacheEntry({
+    required this.payload,
+    required this.cachedAt,
+  });
+
+  final Map<String, dynamic> payload;
+  final DateTime cachedAt;
+}
+
 class MonekoDatabase {
   MonekoDatabase._(this._db) {
     _createSchema();
@@ -889,6 +899,70 @@ class MonekoDatabase {
     );
   }
 
+  Future<LocalJsonCacheEntry?> getJsonCache({
+    required String namespace,
+    required String cacheKey,
+  }) async {
+    final rows = _db.select(
+      '''
+      SELECT payload_json, cached_at
+      FROM local_json_cache
+      WHERE namespace = ? AND cache_key = ?
+      LIMIT 1
+      ''',
+      [namespace, cacheKey],
+    );
+    if (rows.isEmpty) return null;
+
+    final payloadJson = rows.first['payload_json']?.toString() ?? '';
+    final cachedAtRaw = rows.first['cached_at']?.toString() ?? '';
+    final payload = _tryDecodeJsonObject(payloadJson);
+    final cachedAt = DateTime.tryParse(cachedAtRaw);
+    if (payload == null || cachedAt == null) return null;
+    return LocalJsonCacheEntry(payload: payload, cachedAt: cachedAt);
+  }
+
+  Future<void> upsertJsonCache({
+    required String namespace,
+    required String cacheKey,
+    required Map<String, dynamic> payload,
+    DateTime? cachedAt,
+  }) async {
+    final now = DateTime.now().toUtc();
+    final resolvedCachedAt = cachedAt ?? now;
+    _db.execute(
+      '''
+      INSERT INTO local_json_cache (
+        namespace, cache_key, payload_json, cached_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(namespace, cache_key) DO UPDATE SET
+        payload_json = excluded.payload_json,
+        cached_at = excluded.cached_at,
+        updated_at = excluded.updated_at
+      ''',
+      [
+        namespace,
+        cacheKey,
+        jsonEncode(payload),
+        _instant(resolvedCachedAt),
+        _instant(now),
+      ],
+    );
+  }
+
+  Future<void> deleteJsonCacheByPrefix({
+    required String namespace,
+    required String cacheKeyPrefix,
+  }) async {
+    _db.execute(
+      '''
+      DELETE FROM local_json_cache
+      WHERE namespace = ? AND cache_key LIKE ?
+      ''',
+      [namespace, '$cacheKeyPrefix%'],
+    );
+  }
+
   Future<bool> isTransactionsFeedCacheComplete(
     LocalTransactionsFeedQuery query,
   ) async {
@@ -1320,6 +1394,20 @@ class MonekoDatabase {
         updated_at TEXT NOT NULL
       );
     ''');
+    _db.execute('''
+      CREATE TABLE IF NOT EXISTS local_json_cache (
+        namespace TEXT NOT NULL,
+        cache_key TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        cached_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (namespace, cache_key)
+      );
+    ''');
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_json_cache_namespace_updated '
+      'ON local_json_cache(namespace, updated_at DESC);',
+    );
     _migrateSchemaIfNeeded();
   }
 

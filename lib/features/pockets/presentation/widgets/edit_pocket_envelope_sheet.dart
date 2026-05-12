@@ -544,14 +544,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .invalidateHouseholdData(householdId);
         }
 
-        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
-        // This ensures pockets page refreshes in all views, not just current month/scope
+        // Keep the active page on its optimistic SQLite-backed state while the
+        // backend response reconciles in place.
         debugPrint(
-            '🗑️ [POCKET SAVE] Invalidating ALL pockets provider families...');
-        ref.invalidate(pocketsProvider);
+            '🔄 [POCKET SAVE] Refreshing active pockets provider silently...');
+        unawaited(ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .load(bypassCache: true));
 
-        debugPrint(
-            '✅ [POCKET SAVE] Pocket saved and all providers invalidated');
+        debugPrint('✅ [POCKET SAVE] Pocket saved and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -653,14 +654,15 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
               .invalidateHouseholdData(householdId);
         }
 
-        // CRITICAL: Invalidate ALL pocket providers (all scopes, all months)
-        // This ensures pockets page refreshes in all views, not just current month/scope
+        // Keep the active page on its optimistic SQLite-backed state while the
+        // backend response reconciles in place.
         debugPrint(
-            '🗑️ [POCKET DELETE] Invalidating ALL pockets provider families...');
-        ref.invalidate(pocketsProvider);
+            '🔄 [POCKET DELETE] Refreshing active pockets provider silently...');
+        unawaited(ref
+            .read(pocketsProvider(scopeParams).notifier)
+            .load(bypassCache: true));
 
-        debugPrint(
-            '✅ [POCKET DELETE] Pocket deleted and all providers invalidated');
+        debugPrint('✅ [POCKET DELETE] Pocket deleted and refresh scheduled');
 
         if (context.mounted) {
           Navigator.of(context).pop(); // close sheet

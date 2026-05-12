@@ -132,7 +132,7 @@ class PocketsGridSection extends HookConsumerWidget {
       });
     }
 
-    if (state.error != null) {
+    if (state.error != null && !state.hasDisplayData) {
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
@@ -149,7 +149,7 @@ class PocketsGridSection extends HookConsumerWidget {
       );
     }
 
-    final isLoading = state.isLoading;
+    final isLoading = state.isLoading && !state.hasDisplayData;
     final totalBudget = state.totalBudget;
     final totalSpent = state.totalSpent;
     final uncategorized = state.uncategorized;

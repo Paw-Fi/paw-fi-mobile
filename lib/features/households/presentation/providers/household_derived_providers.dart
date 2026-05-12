@@ -118,10 +118,11 @@ final householdDerivedSummaryProvider =
         currentUserId.isNotEmpty &&
         !recurringState.hasLoadedOnce &&
         !recurringState.data.isLoading) {
+      final recurringNotifier = ref.read(
+        recurringTransactionsProvider(params.householdId).notifier,
+      );
       Future.microtask(() {
-        ref
-            .read(recurringTransactionsProvider(params.householdId).notifier)
-            .loadRecurringTransactions(currentUserId);
+        recurringNotifier.loadRecurringTransactions(currentUserId);
       });
     }
 

@@ -17,7 +17,6 @@ import 'package:moneko/features/home/presentation/state/transactions_feed_provid
 import 'package:moneko/features/households/presentation/providers/household_providers.dart';
 import 'package:moneko/features/households/presentation/providers/cached_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -266,8 +265,8 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       ref.read(cacheInvalidatorProvider).invalidateAll();
       _debugPrint('✅ Invalidated household providers');
 
-      // Keep other tabs in sync (pockets + currency counts).
-      ref.invalidate(pocketsProvider);
+      // Keep other tabs in sync. Pockets reconciles from refresh signals
+      // without disposing its visible provider.
       ref.invalidate(currencyTransactionCountsProvider);
       ref
           .read(dashboardCurrencySummariesRefreshSignalProvider.notifier)
@@ -288,7 +287,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
       if (localDatabase != null && _shouldKeepQueuedLocalMutation(e)) {
         ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
         ref.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
-        ref.invalidate(pocketsProvider);
         ref.read(walletActionsProvider).refreshAccountData();
         state = state.copyWith(
           isLoading: false,
@@ -502,7 +500,6 @@ class TransactionEditNotifier extends StateNotifier<TransactionEditState> {
     ref.invalidate(cachedHouseholdSplitsProvider);
     ref.read(cacheInvalidatorProvider).invalidateAll();
 
-    ref.invalidate(pocketsProvider);
     ref.invalidate(currencyTransactionCountsProvider);
     ref.read(dashboardCurrencySummariesRefreshSignalProvider.notifier).state +=
         1;

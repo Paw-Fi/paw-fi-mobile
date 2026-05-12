@@ -477,7 +477,7 @@ final dashboardRecentTransactionsProvider = FutureProvider.autoDispose
       },
     );
     final bypassPersistedCache =
-        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+        ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
     if (sessionCached != null &&
         DateTime.now().difference(sessionCached.cachedAt) <=
             dashboardRecentTransactionsCacheTtl) {
@@ -542,7 +542,7 @@ final dashboardCalendarTransactionsProvider =
     );
     final ttl = dashboardTransactionsCacheTtl(query.startDate, query.endDate);
     final bypassPersistedCache =
-        ref.watch(dashboardPersistedCacheBypassCountProvider) > 0;
+        ref.read(dashboardPersistedCacheBypassCountProvider) > 0;
     final sessionCached =
         readDashboardSessionCache<List<ExpenseEntry>>(cacheKey);
     final trace = HomeDebugTrace(

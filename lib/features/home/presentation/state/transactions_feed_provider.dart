@@ -589,7 +589,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
-    if (isComplete || cursor != null) {
+    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (isComplete || cursor != null || hasPendingLocalRows) {
       return _pageFromLocal(localPage, query);
     }
 
@@ -617,7 +618,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       localQuery,
     );
-    if (isComplete) {
+    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (isComplete || hasPendingLocalRows) {
       return _summaryFromLocal(localSummary);
     }
     try {
@@ -634,7 +636,8 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
     final isComplete = await _database.isTransactionsFeedCacheComplete(
       _localQuery(query),
     );
-    if (isComplete) {
+    final hasPendingLocalRows = await _hasPendingLocalRows(localQuery);
+    if (isComplete || hasPendingLocalRows) {
       return localItems;
     }
 
@@ -696,6 +699,14 @@ class LocalFirstTransactionsFeedService extends TransactionsFeedService {
         .toList(growable: false);
     if (cacheable.isEmpty) return;
     await _database.upsertTransactions(cacheable);
+  }
+
+  Future<bool> _hasPendingLocalRows(LocalTransactionsFeedQuery query) async {
+    return await _database.getTransactionsFeedCount(
+          query,
+          syncStatus: localSyncStatusLocal,
+        ) >
+        0;
   }
 
   LocalTransactionsFeedQuery _localQuery(

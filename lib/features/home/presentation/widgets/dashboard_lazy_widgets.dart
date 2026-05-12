@@ -116,7 +116,8 @@ class LazyDashboardSpendingSummaryCard extends ConsumerWidget {
         mergedTransactions,
         contact,
         config.dateRange,
-        key: ValueKey('spending_data_${mergedTransactions.length}_${filterState.selectedCurrency}'),
+        key: ValueKey(
+            'spending_data_${config.id}_${filterState.selectedCurrency}'),
         referenceNow: userNow,
         selectedCurrency: filterState.selectedCurrency,
         customStartDate: config.customStartDate,
@@ -226,7 +227,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
           context.l10n.errorLoadingDashboard,
           onRetry: () {
             ref.invalidate(dashboardCalendarTransactionsProvider(currentQuery));
-            ref.invalidate(dashboardCalendarTransactionsProvider(previousQuery));
+            ref.invalidate(
+                dashboardCalendarTransactionsProvider(previousQuery));
           },
           key: const ValueKey('net_cashflow_error'),
         ),
@@ -260,7 +262,8 @@ class LazyDashboardNetCashflowCard extends ConsumerWidget {
         previousTransactions,
         contact,
         config.dateRange,
-        key: ValueKey('net_cashflow_data_${currentTransactions.length}_${previousTransactions.length}'),
+        key: ValueKey(
+            'net_cashflow_data_${config.id}_${filterState.selectedCurrency}'),
         selectedCurrency: filterState.selectedCurrency,
         customStartDate: config.customStartDate,
         customEndDate: config.customEndDate,
@@ -293,7 +296,8 @@ class LazyDashboardFinancialCalendarCard extends ConsumerWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       child: FinancialCalendarWidget(
-        key: ValueKey('fin_cal_${recurringAsync.data.valueOrNull?.length}_${selectedCurrency ?? fallbackCurrency}'),
+        key: ValueKey(
+            'fin_cal_${config.id}_${selectedCurrency ?? fallbackCurrency}'),
         userId: auth.uid,
         householdId: scope.activeAccountHouseholdId,
         recurringTransactions: recurringAsync.data.valueOrNull ?? const [],
@@ -471,7 +475,8 @@ class LazyDashboardSpendingBreakdownCard extends ConsumerWidget {
         const [],
         analyticsContact,
         config.dateRange,
-        key: ValueKey('breakdown_data_${expenses.length}_${filterState.selectedCurrency}'),
+        key: ValueKey(
+            'breakdown_data_${config.id}_${filterState.selectedCurrency}'),
         referenceNow: userNow,
         selectedCurrency: filterState.selectedCurrency,
         customStartDate: config.customStartDate,
@@ -558,7 +563,8 @@ class LazyDashboardWhereTheMoneyWentCard extends ConsumerWidget {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       child: WhereTheMoneyWentWidget(
-        key: ValueKey('where_money_went_data_${expenses.length}_${filterState.selectedCurrency}'),
+        key: ValueKey(
+            'where_money_went_data_${config.id}_${filterState.selectedCurrency}'),
         expenses: expenses,
         currency: filterState.selectedCurrency,
         onHelpTap: () => showCategoryGuide(context, colorScheme),

@@ -21,7 +21,6 @@ import 'package:moneko/features/home/presentation/models/daily_budget_entry.dart
 import 'package:moneko/features/home/presentation/state/home_debug_tracing.dart';
 import 'package:moneko/features/home/presentation/state/home_page_command_provider.dart';
 import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
-import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/features/home/presentation/pages/thai_language_prompt_logic.dart';
 import 'package:moneko/core/app/locale_provider.dart';
@@ -636,7 +635,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               ref.read(dashboardRefreshSignalProvider.notifier).state += 1;
 
               // Keep other tabs and selectors consistent.
-              ref.invalidate(pocketsProvider);
               ref.invalidate(currencyTransactionCountsProvider);
               await Future.delayed(const Duration(milliseconds: 500));
             },
