@@ -803,6 +803,98 @@ bool shouldLoadLocalPocketExpenseOverlaySyncStatus(String syncStatus) {
 }
 
 @foundation.visibleForTesting
+PocketsState applyLocalPocketExpenseOverlay({
+  required PocketsState state,
+  required Iterable<ExpenseEntry> expenses,
+}) {
+  if (expenses.isEmpty) return state;
+
+  final monthStart = DateTime(state.periodMonth.year, state.periodMonth.month);
+  final selectedCurrency = state.currency.trim().toUpperCase();
+  final existingOverlayIds = state.localOverlayExpenseIds;
+  final overlay = filterPocketActualExpenses(expenses).where((expense) {
+    if (expense.id.isEmpty || existingOverlayIds.contains(expense.id)) {
+      return false;
+    }
+    if (expense.date.year != monthStart.year ||
+        expense.date.month != monthStart.month) {
+      return false;
+    }
+    final currency = expense.currency?.trim().toUpperCase();
+    return selectedCurrency.isEmpty || currency == selectedCurrency;
+  }).toList(growable: false);
+
+  if (overlay.isEmpty) return state;
+
+  final spentByEnvelopeId = <String, double>{};
+  final linkedCategories = <String>{};
+  for (final entry in state.envelopeCategories.entries) {
+    final envelopeId = entry.key;
+    for (final category in entry.value) {
+      final normalizedCategory = category.trim().toLowerCase();
+      if (normalizedCategory.isEmpty) continue;
+      linkedCategories.add(normalizedCategory);
+      for (final expense in overlay) {
+        final expenseCategory = (expense.category ?? '').trim().toLowerCase();
+        if (expenseCategory == normalizedCategory) {
+          spentByEnvelopeId.update(
+            envelopeId,
+            (amount) => amount + expense.amount,
+            ifAbsent: () => expense.amount,
+          );
+        }
+      }
+    }
+  }
+
+  List<PocketEnvelope> addOverlaySpend(List<PocketEnvelope> pockets) {
+    return pockets.map((pocket) {
+      final extraSpent = spentByEnvelopeId[pocket.id] ?? 0;
+      if (extraSpent == 0) return pocket;
+      return pocket.copyWith(spent: pocket.spent + extraSpent);
+    }).toList(growable: false);
+  }
+
+  final uncategorizedByCategory = <String, UncategorizedCategory>{
+    for (final item in state.uncategorized) item.category: item,
+  };
+  final uncategorizedExpenses = state.uncategorizedExpenses.map(
+    (key, value) => MapEntry(key, value.toList(growable: true)),
+  );
+  var unallocatedOverlaySpend = 0.0;
+
+  for (final expense in overlay) {
+    final category = (expense.category ?? 'uncategorized').trim().toLowerCase();
+    final key = category.isEmpty ? 'uncategorized' : category;
+    if (linkedCategories.contains(key)) continue;
+
+    unallocatedOverlaySpend += expense.amount;
+    final previous = uncategorizedByCategory[key];
+    uncategorizedByCategory[key] = UncategorizedCategory(
+      category: key,
+      amount: (previous?.amount ?? 0) + expense.amount,
+    );
+    uncategorizedExpenses
+        .putIfAbsent(key, () => <Map<String, dynamic>>[])
+        .add(expense.toJson());
+  }
+
+  return state.copyWith(
+    saved: addOverlaySpend(state.saved),
+    editing: addOverlaySpend(state.editing),
+    unallocatedSpend: state.unallocatedSpend + unallocatedOverlaySpend,
+    uncategorized: uncategorizedByCategory.values.toList(growable: false),
+    uncategorizedExpenses: uncategorizedExpenses.map(
+      (key, value) => MapEntry(key, value.toList(growable: false)),
+    ),
+    localOverlayExpenseIds: {
+      ...existingOverlayIds,
+      ...overlay.map((expense) => expense.id),
+    },
+  );
+}
+
+@foundation.visibleForTesting
 Map<String, dynamic> buildPocketsMonthMutationPayload({
   required String userId,
   required PocketsScopeType scopeType,
@@ -859,6 +951,7 @@ class PocketsState {
     required this.uncategorized,
     required this.uncategorizedExpenses,
     this.envelopeCategories = const {},
+    this.localOverlayExpenseIds = const {},
   });
 
   final bool isLoading;
@@ -876,6 +969,7 @@ class PocketsState {
   final List<UncategorizedCategory> uncategorized;
   final Map<String, List<Map<String, dynamic>>> uncategorizedExpenses;
   final Map<String, List<String>> envelopeCategories;
+  final Set<String> localOverlayExpenseIds;
 
   bool get hasChanges {
     // Check if budget has changed
@@ -930,6 +1024,7 @@ class PocketsState {
     List<UncategorizedCategory>? uncategorized,
     Map<String, List<Map<String, dynamic>>>? uncategorizedExpenses,
     Map<String, List<String>>? envelopeCategories,
+    Set<String>? localOverlayExpenseIds,
     bool clearError = false,
   }) {
     return PocketsState(
@@ -950,6 +1045,8 @@ class PocketsState {
       uncategorizedExpenses:
           uncategorizedExpenses ?? this.uncategorizedExpenses,
       envelopeCategories: envelopeCategories ?? this.envelopeCategories,
+      localOverlayExpenseIds:
+          localOverlayExpenseIds ?? this.localOverlayExpenseIds,
     );
   }
 
@@ -969,6 +1066,7 @@ class PocketsState {
         uncategorized: [],
         uncategorizedExpenses: {},
         envelopeCategories: const {},
+        localOverlayExpenseIds: const {},
       );
 
   Map<String, dynamic> toCacheJson() {
@@ -991,6 +1089,9 @@ class PocketsState {
       'uncategorized_expenses': uncategorizedExpenses,
       'envelope_categories': envelopeCategories.map(
         (key, value) => MapEntry(key, value.toList(growable: false)),
+      ),
+      'local_overlay_expense_ids': localOverlayExpenseIds.toList(
+        growable: false,
       ),
     };
   }
@@ -1047,6 +1148,11 @@ class PocketsState {
               .toList(growable: false),
         ),
       ),
+      localOverlayExpenseIds:
+          ((json['local_overlay_expense_ids'] as List?) ?? const [])
+              .map((id) => id.toString())
+              .where((id) => id.isNotEmpty)
+              .toSet(),
     );
   }
 }
@@ -1107,6 +1213,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (!mounted || state.hasChanges) return;
     _refreshRevision++;
     _hasPendingSilentReload = true;
+    unawaited(_applyFastLocalPocketExpenseOverlay());
     final cacheKey = _lastCacheKey;
     if (cacheKey != null) {
       _pocketsMonthCache.clearInFlight(cacheKey);
@@ -1125,6 +1232,35 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       }
     } finally {
       _isDrainingSilentReload = false;
+    }
+  }
+
+  Future<void> _applyFastLocalPocketExpenseOverlay() async {
+    if (!mounted || state.hasChanges || !state.hasDisplayData) return;
+    final authUser = ref.read(authProvider);
+    if (authUser.uid.trim().isEmpty) return;
+
+    final monthStart = DateTime(
+      state.periodMonth.year,
+      state.periodMonth.month,
+      1,
+    );
+    final localExpenses = await _loadLocalPocketExpensesForStatuses(
+      userId: authUser.uid,
+      scopeType: params.scope,
+      householdId: params.householdId,
+      monthStart: monthStart,
+      selectedCurrency: state.currency,
+      syncStatuses: const [localSyncStatusLocal],
+    );
+    if (!mounted || state.hasChanges || localExpenses.isEmpty) return;
+
+    final updated = applyLocalPocketExpenseOverlay(
+      state: state,
+      expenses: localExpenses,
+    );
+    if (!identical(updated, state)) {
+      state = updated;
     }
   }
 
@@ -1660,12 +1796,26 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // monthly pocket totals will double count.
       final actualExpenses = actualExpenseRows.map(ExpenseEntry.fromJson);
       final filteredActualExpenses = filterPocketActualExpenses(actualExpenses);
-      final pendingLocalExpenses = await _loadPendingLocalPocketExpenses(
+      final pendingLocalOnlyExpenses =
+          await _loadLocalPocketExpensesForStatuses(
         userId: authUser.uid,
         scopeType: scopeType,
         householdId: householdId,
         monthStart: monthStart,
         selectedCurrency: selectedCurrency,
+        syncStatuses: const [localSyncStatusLocal],
+      );
+      final syncedLocalExpenses = await _loadLocalPocketExpensesForStatuses(
+        userId: authUser.uid,
+        scopeType: scopeType,
+        householdId: householdId,
+        monthStart: monthStart,
+        selectedCurrency: selectedCurrency,
+        syncStatuses: const [localSyncStatusSynced],
+      );
+      final pendingLocalExpenses = _mergeUniqueExpenses(
+        pendingLocalOnlyExpenses,
+        syncedLocalExpenses,
       );
       final actualExpensesWithPending = _mergeUniqueExpenses(
         filteredActualExpenses,
@@ -1898,6 +2048,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         envelopeCategories: categoriesByEnvelopeId.map(
           (key, value) => MapEntry(key, value.toList(growable: false)),
         ),
+        localOverlayExpenseIds:
+            pendingLocalOnlyExpenses.map((expense) => expense.id).toSet(),
       );
     }
 
@@ -1985,12 +2137,34 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required String? householdId,
     required DateTime monthStart,
     required String selectedCurrency,
+  }) {
+    return _loadLocalPocketExpensesForStatuses(
+      userId: userId,
+      scopeType: scopeType,
+      householdId: householdId,
+      monthStart: monthStart,
+      selectedCurrency: selectedCurrency,
+      syncStatuses: const [
+        localSyncStatusLocal,
+        localSyncStatusSynced,
+      ],
+    );
+  }
+
+  Future<List<ExpenseEntry>> _loadLocalPocketExpensesForStatuses({
+    required String userId,
+    required PocketsScopeType scopeType,
+    required String? householdId,
+    required DateTime monthStart,
+    required String selectedCurrency,
+    required List<String> syncStatuses,
   }) async {
     if (userId.trim().isEmpty) return const <ExpenseEntry>[];
     if (scopeType != PocketsScopeType.personal &&
         (householdId == null || householdId.trim().isEmpty)) {
       return const <ExpenseEntry>[];
     }
+    if (syncStatuses.isEmpty) return const <ExpenseEntry>[];
 
     try {
       final database = await ref.read(localDatabaseProvider.future);
@@ -2010,10 +2184,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         pageSize: 500,
       );
       final items = <ExpenseEntry>[];
-      for (final syncStatus in const [
-        localSyncStatusLocal,
-        localSyncStatusSynced,
-      ]) {
+      for (final syncStatus in syncStatuses) {
         if (!shouldLoadLocalPocketExpenseOverlaySyncStatus(syncStatus)) {
           continue;
         }

@@ -75,7 +75,9 @@ const int _holdQuickActionReminderFirstPromptAt = 2;
 const int _maxBatchSize = 400;
 const int _maxAiFileUploadBytes = 20 * 1024 * 1024;
 const double _recordCancelDragThreshold = 90;
-const int _minimumHoldRecordingMs = 1000;
+const int _minimumHoldRecordingMs = 800;
+const double _silentRecordingPeakDb = -160.0;
+const double _minimumVoicePeakDb = -55.0;
 const String _smartInputMemoryKeyPrefix = 'smart_input_analysis_memory_v1';
 const int _smartInputMemoryLimit = 25;
 const String _pendingAiInputDirectoryName = 'pending_ai_inputs';
@@ -2986,10 +2988,13 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
   double _holdDragDeltaX = 0;
   DateTime? _holdRecordingStartedAt;
   double? _holdStartGlobalX;
+  Timer? _holdAmplitudeTimer;
+  double _holdRecordingPeakDb = _silentRecordingPeakDb;
   bool _isFabOpen = false;
 
   @override
   void dispose() {
+    _holdAmplitudeTimer?.cancel();
     _holdRecorder.dispose();
     super.dispose();
   }
@@ -3089,7 +3094,9 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: filePath,
       );
+      _startHoldAmplitudeProbe();
     } catch (error) {
+      _holdAmplitudeTimer?.cancel();
       if (mounted) {
         setState(() {
           _isHoldRecording = false;
@@ -3108,6 +3115,25 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         );
       }
     }
+  }
+
+  void _startHoldAmplitudeProbe() {
+    _holdRecordingPeakDb = _silentRecordingPeakDb;
+    _holdAmplitudeTimer?.cancel();
+    _holdAmplitudeTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (_) {
+      unawaited(_captureHoldRecordingAmplitude());
+    });
+  }
+
+  Future<void> _captureHoldRecordingAmplitude() async {
+    try {
+      final amp = await _holdRecorder.getAmplitude();
+      final peak = max(amp.current, amp.max);
+      if (peak > _holdRecordingPeakDb) {
+        _holdRecordingPeakDb = peak;
+      }
+    } catch (_) {}
   }
 
   void _applyHoldDragDelta(double deltaX) {
@@ -3158,11 +3184,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
         _didCrossCancelThreshold = false;
         _holdDragDeltaX = 0;
         _holdStartGlobalX = null;
+        _holdRecordingStartedAt = null;
       });
     }
 
     File? audioFile;
     try {
+      await _captureHoldRecordingAmplitude();
+      _holdAmplitudeTimer?.cancel();
       final path = await _holdRecorder.stop();
       if (path == null) return;
       audioFile = File(path);
@@ -3177,6 +3206,14 @@ class _HomeAiExpandableFabState extends ConsumerState<HomeAiExpandableFab> {
               _minimumHoldRecordingMs) {
         if (mounted) {
           AppToast.error(context, context.l10n.recordingTooShort);
+        }
+        return;
+      }
+
+      final hasVoiceInput = _holdRecordingPeakDb > _minimumVoicePeakDb;
+      if (!hasVoiceInput) {
+        if (mounted) {
+          AppToast.error(context, context.l10n.recordingIsEmpty);
         }
         return;
       }

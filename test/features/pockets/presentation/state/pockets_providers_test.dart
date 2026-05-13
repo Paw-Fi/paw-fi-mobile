@@ -686,6 +686,76 @@ void main() {
         isFalse,
       );
     });
+
+    test('applies local expense overlay to matching pocket immediately', () {
+      final month = DateTime(2026, 5, 1);
+      final state = PocketsState(
+        isLoading: false,
+        error: null,
+        saved: [
+          PocketEnvelope(
+            id: 'env-bills',
+            name: 'Bills',
+            budgetAmountCents: 10000,
+            spent: 0,
+            currency: 'USD',
+            icon: null,
+            color: null,
+            budgetId: 'budget-1',
+            householdId: null,
+            lastUpdated: month,
+          ),
+        ],
+        editing: [
+          PocketEnvelope(
+            id: 'env-bills',
+            name: 'Bills',
+            budgetAmountCents: 10000,
+            spent: 0,
+            currency: 'USD',
+            icon: null,
+            color: null,
+            budgetId: 'budget-1',
+            householdId: null,
+            lastUpdated: month,
+          ),
+        ],
+        budgetId: 'budget-1',
+        periodMonth: month,
+        previousBudget: 0,
+        hasPreviousMonthPockets: false,
+        currency: 'USD',
+        totalBudget: 100,
+        savedTotalBudget: 100,
+        unallocatedSpend: 0,
+        uncategorized: const [],
+        uncategorizedExpenses: const {},
+        envelopeCategories: const {
+          'env-bills': ['bills'],
+        },
+      );
+
+      final updated = applyLocalPocketExpenseOverlay(
+        state: state,
+        expenses: [
+          ExpenseEntry(
+            id: 'optimistic-bills-1',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 2000,
+            currency: 'USD',
+            category: 'bills',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+        ],
+      );
+
+      expect(updated.saved.single.spent, 20);
+      expect(updated.editing.single.spent, 20);
+      expect(updated.localOverlayExpenseIds, {'optimistic-bills-1'});
+      expect(updated.hasChanges, isFalse);
+    });
   });
 
   group('resolveEnvelopeRowsForViewedMonth', () {

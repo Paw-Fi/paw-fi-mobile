@@ -1,19 +1,50 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
 import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/shared/widgets/shimmering_text.dart';
 
-class MonthlyReportPage extends ConsumerWidget {
+const _monthlyReportFakeProgressCap = 0.965;
+const _monthlyReportFakeProgressTimeConstantSeconds = 10.0;
+const _monthlyReportCompletionDuration = Duration(milliseconds: 260);
+
+class MonthlyReportPage extends HookConsumerWidget {
   const MonthlyReportPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final reportAsync = ref.watch(monthlyFinancialReportProvider);
+    final loadedSnapshot = reportAsync.valueOrNull;
+    final visibleSnapshot = useState<MonthlyFinancialReportSnapshot?>(null);
+    final isCompletingInitialLoad = useState(false);
+
+    useEffect(() {
+      if (loadedSnapshot == null) {
+        if (visibleSnapshot.value == null) {
+          isCompletingInitialLoad.value = false;
+        }
+        return null;
+      }
+
+      if (visibleSnapshot.value == null) {
+        isCompletingInitialLoad.value = true;
+        return null;
+      }
+
+      if (!identical(visibleSnapshot.value, loadedSnapshot)) {
+        visibleSnapshot.value = loadedSnapshot;
+      }
+
+      return null;
+    }, [loadedSnapshot]);
+
+    final snapshot = visibleSnapshot.value;
 
     return Scaffold(
       backgroundColor: colorScheme.appBackground,
@@ -21,12 +52,20 @@ class MonthlyReportPage extends ConsumerWidget {
         duration: const Duration(milliseconds: 250),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
-        child: reportAsync.when(
-          loading: () => _buildLoadingState(colorScheme),
-          error: (error, _) => _buildErrorState(context, colorScheme, error),
-          data: (report) =>
-              _buildReportContent(context, ref, colorScheme, report),
-        ),
+        child: snapshot != null && !isCompletingInitialLoad.value
+            ? _buildReportContent(context, ref, colorScheme, snapshot)
+            : reportAsync.hasError && loadedSnapshot == null
+                ? _buildErrorState(context, colorScheme, reportAsync.error!)
+                : _buildLoadingState(
+                    colorScheme,
+                    isComplete: isCompletingInitialLoad.value,
+                    onComplete: () {
+                      final completedSnapshot = loadedSnapshot;
+                      if (!context.mounted || completedSnapshot == null) return;
+                      visibleSnapshot.value = completedSnapshot;
+                      isCompletingInitialLoad.value = false;
+                    },
+                  ),
       ),
     );
   }
@@ -35,10 +74,14 @@ class MonthlyReportPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     ColorScheme colorScheme,
-    MonthlyFinancialReport report,
+    MonthlyFinancialReportSnapshot snapshot,
   ) {
+    final report = snapshot.report;
+
     return RefreshIndicator(
-      onRefresh: () => ref.refresh(monthlyFinancialReportProvider.future),
+      onRefresh: () => ref
+          .read(monthlyFinancialReportProvider.notifier)
+          .refreshReport(),
       color: colorScheme.primary,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -56,7 +99,7 @@ class MonthlyReportPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildPageHeader(context, colorScheme, report),
+                _buildPageHeader(context, colorScheme, snapshot),
                 const SizedBox(height: 12),
                 _buildHealthRingsSummary(context, colorScheme, report),
                 const SizedBox(height: 12),
@@ -88,8 +131,6 @@ class MonthlyReportPage extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _buildCashFlowForecast(context, colorScheme, report),
                 const SizedBox(height: 12),
-                _buildGoalProgress(context, colorScheme, report),
-                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -101,22 +142,40 @@ class MonthlyReportPage extends ConsumerWidget {
   Widget _buildPageHeader(
     BuildContext context,
     ColorScheme colorScheme,
-    MonthlyFinancialReport report,
+    MonthlyFinancialReportSnapshot snapshot,
   ) {
+    final report = snapshot.report;
     final month = MaterialLocalizations.of(context).formatMonthYear(
       report.monthStart,
     );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(
-        month,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.mutedForeground,
-          height: 1.2,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            month,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.mutedForeground,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: _MonthlyReportSyncStatus(
+              key: ValueKey(
+                '${snapshot.lastSyncedAt?.toIso8601String()}_${snapshot.isRefreshing}',
+              ),
+              colorScheme: colorScheme,
+              lastSyncedAt: snapshot.lastSyncedAt,
+              isRefreshing: snapshot.isRefreshing,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -723,46 +782,6 @@ class MonthlyReportPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildGoalProgress(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Goal Progress',
-            subtitle: 'Active goals in this report currency',
-            kind: _ReportIllustrationKind.target,
-            accent: colorScheme.success,
-          ),
-          const SizedBox(height: 16),
-          if (!report.goalsDataAvailable)
-            _emptyText(
-              colorScheme,
-              'Goal data could not be loaded for this report.',
-            )
-          else if (report.goals.isEmpty)
-            _emptyText(
-              colorScheme,
-              'No active goals with matching currency data are available for this report.',
-            )
-          else
-            ...report.goals.take(5).map(
-                  (goal) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildGoalRow(colorScheme, report, goal),
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildSummaryCard(ColorScheme colorScheme, _SummaryItem item) {
     return _ReportCard(
@@ -1719,17 +1738,16 @@ class MonthlyReportPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildLoadingState(ColorScheme colorScheme) {
-    return Center(
+  Widget _buildLoadingState(
+    ColorScheme colorScheme, {
+    required bool isComplete,
+    required VoidCallback onComplete,
+  }) {
+    return _MonthlyReportLoadingState(
       key: const ValueKey('monthly_report_loading'),
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: CircularProgressIndicator(
-          color: colorScheme.primary,
-          strokeWidth: 3,
-        ),
-      ),
+      colorScheme: colorScheme,
+      isComplete: isComplete,
+      onComplete: onComplete,
     );
   }
 
@@ -2000,6 +2018,231 @@ class MonthlyReportPage extends ConsumerWidget {
         .withLightness((hsl.lightness - 0.02).clamp(0.34, 0.62))
         .toColor();
   }
+}
+
+class _MonthlyReportLoadingState extends HookWidget {
+  const _MonthlyReportLoadingState({
+    super.key,
+    required this.colorScheme,
+    required this.isComplete,
+    required this.onComplete,
+  });
+
+  final ColorScheme colorScheme;
+  final bool isComplete;
+  final VoidCallback onComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    final fakeProgressController = useAnimationController(
+      duration: const Duration(days: 1),
+    );
+    final completionController = useAnimationController(
+      duration: _monthlyReportCompletionDuration,
+    );
+    final completeProgressStart = useRef(0.06);
+    final didNotifyComplete = useRef(false);
+
+    useEffect(() {
+      fakeProgressController.forward();
+      return null;
+    }, const []);
+
+    useEffect(() {
+      void handleCompletionStatus(AnimationStatus status) {
+        if (status != AnimationStatus.completed || didNotifyComplete.value) {
+          return;
+        }
+        didNotifyComplete.value = true;
+        onComplete();
+      }
+
+      completionController.addStatusListener(handleCompletionStatus);
+
+      if (isComplete) {
+        completionController.forward();
+      } else {
+        didNotifyComplete.value = false;
+        completionController.value = 0;
+      }
+
+      return () {
+        completionController.removeStatusListener(handleCompletionStatus);
+      };
+    }, [isComplete, onComplete]);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: _ReportCard(
+            colorScheme: colorScheme,
+            padding: const EdgeInsets.all(20),
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                fakeProgressController,
+                completionController,
+              ]),
+              builder: (context, _) {
+                final elapsed = fakeProgressController.lastElapsedDuration ??
+                    Duration.zero;
+                final elapsedSeconds = elapsed.inMilliseconds / 1000;
+                final fakeProgress = math.max(
+                  0.06,
+                  _monthlyReportFakeProgressCap *
+                      (1 -
+                          math.exp(
+                            -elapsedSeconds /
+                                _monthlyReportFakeProgressTimeConstantSeconds,
+                          )),
+                );
+
+                if (!isComplete) {
+                  completeProgressStart.value = fakeProgress;
+                }
+
+                final completionProgress = Curves.easeOutCubic.transform(
+                  completionController.value,
+                );
+                final visibleProgress = isComplete
+                    ? completeProgressStart.value +
+                        ((1 - completeProgressStart.value) *
+                            completionProgress)
+                    : fakeProgress;
+                final progressPercent = (visibleProgress * 100).floor();
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Building monthly report',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Checking budgets, trends, and upcoming commitments.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: visibleProgress.clamp(0.0, 1.0),
+                        minHeight: 8,
+                        backgroundColor: colorScheme.mutedForeground
+                            .withValues(alpha: 0.15),
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: ShimmeringText(
+                        key: ValueKey(isComplete),
+                        text: isComplete
+                            ? 'Report ready'
+                            : 'Preparing $progressPercent%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.mutedForeground,
+                        ),
+                        shimmering: !isComplete,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportSyncStatus extends StatelessWidget {
+  const _MonthlyReportSyncStatus({
+    super.key,
+    required this.colorScheme,
+    required this.lastSyncedAt,
+    required this.isRefreshing,
+  });
+
+  final ColorScheme colorScheme;
+  final DateTime? lastSyncedAt;
+  final bool isRefreshing;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        isRefreshing ? colorScheme.primary : colorScheme.mutedForeground;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isRefreshing ? Icons.sync_rounded : Icons.cloud_done_rounded,
+          size: 14,
+          color: foreground,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          isRefreshing
+              ? 'Refreshing report'
+              : 'Last synced ${_formatLastSyncedAt(context, lastSyncedAt)}',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: foreground,
+            height: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _formatLastSyncedAt(BuildContext context, DateTime? value) {
+  if (value == null) return 'never';
+
+  final localValue = value.toLocal();
+  final now = DateTime.now();
+  final elapsed = now.difference(localValue);
+  if (elapsed.inSeconds < 45) return 'just now';
+  if (elapsed.inMinutes < 60) {
+    final minutes = elapsed.inMinutes;
+    return '$minutes min${minutes == 1 ? '' : 's'} ago';
+  }
+  if (elapsed.inHours < 12) {
+    final hours = elapsed.inHours;
+    return '$hours hour${hours == 1 ? '' : 's'} ago';
+  }
+
+  final localizations = MaterialLocalizations.of(context);
+  final time = localizations.formatTimeOfDay(
+    TimeOfDay.fromDateTime(localValue),
+  );
+  final sameDay = now.year == localValue.year &&
+      now.month == localValue.month &&
+      now.day == localValue.day;
+  if (sameDay) return 'today at $time';
+
+  return '${localizations.formatShortDate(localValue)} at $time';
 }
 
 class _ReportCard extends StatelessWidget {

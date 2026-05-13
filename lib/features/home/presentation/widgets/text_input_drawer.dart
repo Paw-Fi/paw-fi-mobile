@@ -16,6 +16,10 @@ import 'package:moneko/core/ui/notifications/app_toast.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
 
+const int _minimumAudioRecordingMs = 800;
+const double _silentRecordingPeakDb = -160.0;
+const double _minimumVoicePeakDb = -55.0;
+
 Future<void> showTextInputDrawer(
   BuildContext parentContext,
   Future<void> Function(String text) onSubmit, {
@@ -64,10 +68,12 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
   bool _isRecording = false;
   DateTime? _recordingStartTime;
   Timer? _mockTranscribingTimer;
+  Timer? _recordingAmplitudeTimer;
   final AudioRecorder _recorder = AudioRecorder();
   final FocusNode _textFocusNode = FocusNode();
   late final TextEditingController _textController;
   double? _keyboardInsetOnRecordStart;
+  double _recordingPeakDb = _silentRecordingPeakDb;
 
   // Animation for the mic button scale
   late AnimationController _micScaleController;
@@ -89,6 +95,7 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     _textController.dispose();
     _micScaleController.dispose();
     _mockTranscribingTimer?.cancel();
+    _recordingAmplitudeTimer?.cancel();
     _recorder.dispose();
     _textFocusNode.dispose();
     super.dispose();
@@ -157,6 +164,26 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: filePath,
     );
+    _startRecordingAmplitudeProbe();
+  }
+
+  void _startRecordingAmplitudeProbe() {
+    _recordingPeakDb = _silentRecordingPeakDb;
+    _recordingAmplitudeTimer?.cancel();
+    _recordingAmplitudeTimer =
+        Timer.periodic(const Duration(milliseconds: 100), (_) {
+      unawaited(_captureRecordingAmplitude());
+    });
+  }
+
+  Future<void> _captureRecordingAmplitude() async {
+    try {
+      final amp = await _recorder.getAmplitude();
+      final peak = max(amp.current, amp.max);
+      if (peak > _recordingPeakDb) {
+        _recordingPeakDb = peak;
+      }
+    } catch (_) {}
   }
 
   void _onRecordEnd() async {
@@ -173,7 +200,8 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
     debugPrint(
         '🎙️ Recording finished. Duration: ${duration.inMilliseconds} ms');
 
-    if (duration.inMilliseconds < 1000) {
+    final isTooShort = duration.inMilliseconds < _minimumAudioRecordingMs;
+    if (isTooShort) {
       HapticFeedback.vibrate();
     } else {
       HapticFeedback.lightImpact();
@@ -182,12 +210,45 @@ class _TextInputContentState extends ConsumerState<_TextInputContent>
       _isRecording = false;
     });
 
+    await _captureRecordingAmplitude();
+    _recordingAmplitudeTimer?.cancel();
     final path = await _recorder.stop();
+    if (isTooShort) {
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingTooShort);
+      }
+      if (path != null) {
+        final file = File(path);
+        try {
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+
     if (path == null) {
       if (widget.parentContext.mounted) {
         AppToast.error(
             widget.parentContext, widget.parentContext.l10n.recordingFailed);
       }
+      return;
+    }
+
+    final hasVoiceInput = _recordingPeakDb > _minimumVoicePeakDb;
+    if (!hasVoiceInput) {
+      if (widget.parentContext.mounted) {
+        AppToast.error(
+            widget.parentContext, widget.parentContext.l10n.recordingIsEmpty);
+      }
+      final file = File(path);
+      try {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
       return;
     }
 
