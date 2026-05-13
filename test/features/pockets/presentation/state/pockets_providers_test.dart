@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:moneko/features/pockets/domain/entities/pocket_envelope.dart';
 import 'package:moneko/features/pockets/presentation/state/pockets_providers.dart';
@@ -669,6 +670,21 @@ void main() {
       ]);
 
       expect(filtered.map((e) => e.id).toList(), const ['rec-exp-1', 'exp-1']);
+    });
+
+    test('overlays local and synced cached rows but not failed rows', () {
+      expect(
+        shouldLoadLocalPocketExpenseOverlaySyncStatus(localSyncStatusLocal),
+        isTrue,
+      );
+      expect(
+        shouldLoadLocalPocketExpenseOverlaySyncStatus(localSyncStatusSynced),
+        isTrue,
+      );
+      expect(
+        shouldLoadLocalPocketExpenseOverlaySyncStatus(localSyncStatusFailed),
+        isFalse,
+      );
     });
   });
 

@@ -23,6 +23,7 @@ import 'package:moneko/core/app/app_user_context_provider.dart';
 import 'package:moneko/core/core.dart';
 import 'package:moneko/core/local_data/local_database_provider.dart';
 import 'package:moneko/core/local_data/moneko_database.dart';
+import 'package:moneko/core/sync/mobile_outbox_sync_provider.dart';
 import 'package:moneko/core/utils/text_sanitizer.dart';
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/services/sse_service.dart';
@@ -1467,6 +1468,10 @@ Future<void> _persistAiTransactions(
     _debugPrint(
       '📦 Keeping queued AI transaction(s) for receipt upload retry',
     );
+    scheduleMobileOutboxDrain(
+      container,
+      maxMutations: max(20, preparedMutations.length),
+    );
     return;
   }
 
@@ -1617,6 +1622,7 @@ Future<void> _persistAiTransactions(
       // Save transactions individually using existing endpoints
       var savedCount = 0;
       var savedExpenseCount = 0;
+      var keptQueuedForRetry = false;
       final savedEntries = <ExpenseEntry>[];
       final savedExpenseEntriesById = <String, ExpenseEntry>{};
 
@@ -1652,6 +1658,7 @@ Future<void> _persistAiTransactions(
             _debugPrint(
               '📦 Keeping queued AI transaction ${item.optimisticId} for background retry',
             );
+            keptQueuedForRetry = true;
             continue;
           }
           removeOptimisticTransactionWithContainer(
@@ -1700,6 +1707,13 @@ Future<void> _persistAiTransactions(
         ));
       }
 
+      if (keptQueuedForRetry) {
+        scheduleMobileOutboxDrain(
+          container,
+          maxMutations: max(20, preparedMutations.length),
+        );
+      }
+
       return; // Exit successfully after fallback
     }
 
@@ -1709,6 +1723,10 @@ Future<void> _persistAiTransactions(
       );
       container.read(transactionsFeedRefreshSignalProvider.notifier).state += 1;
       container.read(dashboardRefreshSignalProvider.notifier).state += 1;
+      scheduleMobileOutboxDrain(
+        container,
+        maxMutations: max(20, preparedMutations.length),
+      );
       return;
     }
 

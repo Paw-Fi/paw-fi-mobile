@@ -22,10 +22,102 @@ final mobileOutboxSyncCoordinatorProvider =
   );
 });
 
+bool _isMobileOutboxDrainScheduled = false;
+bool _mobileOutboxDrainRequested = false;
+Future<int>? _mobileOutboxDrainInFlight;
+
+Duration? resolveNextMobileOutboxRetryDelay(
+  Iterable<LocalMutationOutboxData> mutations, {
+  required DateTime now,
+}) {
+  DateTime? nextRetryAt;
+  for (final mutation in mutations) {
+    if (mutation.status != localMutationStatusQueued &&
+        mutation.status != localMutationStatusFailed) {
+      continue;
+    }
+
+    final retryAfter = mutation.retryAfter;
+    if (retryAfter == null || !retryAfter.isAfter(now)) {
+      return Duration.zero;
+    }
+    if (nextRetryAt == null || retryAfter.isBefore(nextRetryAt)) {
+      nextRetryAt = retryAfter;
+    }
+  }
+
+  if (nextRetryAt == null) return null;
+  return nextRetryAt.difference(now);
+}
+
+void scheduleMobileOutboxDrain(
+  ProviderContainer container, {
+  int maxMutations = 20,
+  Duration initialDelay = Duration.zero,
+}) {
+  if (_isMobileOutboxDrainScheduled) {
+    _mobileOutboxDrainRequested = true;
+    return;
+  }
+  _isMobileOutboxDrainScheduled = true;
+
+  Future<void>(() async {
+    try {
+      if (initialDelay > Duration.zero) {
+        await Future<void>.delayed(initialDelay);
+      }
+
+      await _drainMobileOutboxWithContainer(
+        container,
+        maxMutations: maxMutations,
+      );
+    } catch (_) {
+      // Main shell lifecycle sync remains the fallback if the container is
+      // disposed or the local database/provider graph is unavailable.
+    } finally {
+      _isMobileOutboxDrainScheduled = false;
+      if (_mobileOutboxDrainRequested) {
+        _mobileOutboxDrainRequested = false;
+        scheduleMobileOutboxDrain(container, maxMutations: maxMutations);
+      }
+    }
+  });
+}
+
 Future<int> drainMobileOutbox(Ref ref, {int maxMutations = 20}) async {
-  final coordinator =
-      await ref.read(mobileOutboxSyncCoordinatorProvider.future);
-  return coordinator.drainOutbox(maxMutations: maxMutations);
+  return _drainMobileOutboxWithReader(
+    () => ref.read(mobileOutboxSyncCoordinatorProvider.future),
+    maxMutations: maxMutations,
+  );
+}
+
+Future<int> _drainMobileOutboxWithContainer(
+  ProviderContainer container, {
+  required int maxMutations,
+}) {
+  return _drainMobileOutboxWithReader(
+    () => container.read(mobileOutboxSyncCoordinatorProvider.future),
+    maxMutations: maxMutations,
+  );
+}
+
+Future<int> _drainMobileOutboxWithReader(
+  Future<SyncCoordinator> Function() readCoordinator, {
+  required int maxMutations,
+}) {
+  final inFlight = _mobileOutboxDrainInFlight;
+  if (inFlight != null) return inFlight;
+
+  final run = () async {
+    try {
+      final coordinator = await readCoordinator();
+      return coordinator.drainOutbox(maxMutations: maxMutations);
+    } finally {
+      _mobileOutboxDrainInFlight = null;
+    }
+  }();
+  _mobileOutboxDrainInFlight = run;
+  return run;
 }
 
 Future<void> _dispatchMobileMutation(

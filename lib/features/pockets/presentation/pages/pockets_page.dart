@@ -5,7 +5,6 @@ import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:moneko/core/app/app_user_context_provider.dart';
@@ -22,6 +21,8 @@ import 'package:moneko/features/pockets/presentation/state/pockets_providers.dar
 import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing.dart';
 import 'package:moneko/features/pockets/presentation/widgets/pockets_grid_section.dart';
 import 'package:moneko/features/pockets/presentation/widgets/create_budget_from_template_sheet.dart';
+import 'package:moneko/features/utils/currency.dart';
+import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/core/theme/app_theme.dart';
@@ -1000,6 +1001,9 @@ class _PocketsMonthView extends HookConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                         child: _CopyBudgetBanner(
                           previousBudget: pocketsState.previousBudget,
+                          currency: pocketsState.currency.trim().isNotEmpty
+                              ? pocketsState.currency.trim()
+                              : (scopeParams.currency ?? 'USD'),
                           onCopy: () async {
                             try {
                               pocketsNotifier.reusePreviousBudget(
@@ -1159,6 +1163,7 @@ String _pocketsMonthSwipeHintDismissedKey(String userId) {
 class _CopyBudgetBanner extends StatelessWidget {
   const _CopyBudgetBanner({
     required this.previousBudget,
+    required this.currency,
     required this.onCopy,
     required this.onCopyPockets,
     required this.isCopying,
@@ -1166,6 +1171,7 @@ class _CopyBudgetBanner extends StatelessWidget {
   });
 
   final double previousBudget;
+  final String currency;
   final VoidCallback onCopy;
   final VoidCallback onCopyPockets;
   final bool isCopying;
@@ -1173,8 +1179,8 @@ class _CopyBudgetBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency(decimalDigits: 0);
-    final formattedAmount = currencyFormatter.format(previousBudget);
+    final formattedAmount =
+        '${resolveCurrencySymbol(currency)}${formatLocalizedNumber(context, previousBudget)}';
 
     return Container(
       padding: const EdgeInsets.all(16),

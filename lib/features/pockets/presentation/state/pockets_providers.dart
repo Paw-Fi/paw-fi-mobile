@@ -797,6 +797,11 @@ List<ExpenseEntry> filterPocketActualExpenses(
       .toList(growable: false);
 }
 
+bool shouldLoadLocalPocketExpenseOverlaySyncStatus(String syncStatus) {
+  return syncStatus == localSyncStatusLocal ||
+      syncStatus == localSyncStatusSynced;
+}
+
 @foundation.visibleForTesting
 Map<String, dynamic> buildPocketsMonthMutationPayload({
   required String userId,
@@ -1990,23 +1995,35 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final database = await ref.read(localDatabaseProvider.future);
       final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
-      final items = await database.getTransactionsFeedItems(
-        LocalTransactionsFeedQuery(
-          userId: userId,
-          householdId:
-              scopeType == PocketsScopeType.personal ? null : householdId,
-          currency: selectedCurrency,
-          category: null,
-          accountId: null,
-          categories: null,
-          type: 'all',
-          searchQuery: '',
-          startDate: monthStart,
-          endDate: monthEnd,
-          pageSize: 500,
-        ),
-        syncStatus: localSyncStatusLocal,
+      final query = LocalTransactionsFeedQuery(
+        userId: userId,
+        householdId:
+            scopeType == PocketsScopeType.personal ? null : householdId,
+        currency: selectedCurrency,
+        category: null,
+        accountId: null,
+        categories: null,
+        type: 'all',
+        searchQuery: '',
+        startDate: monthStart,
+        endDate: monthEnd,
+        pageSize: 500,
       );
+      final items = <ExpenseEntry>[];
+      for (final syncStatus in const [
+        localSyncStatusLocal,
+        localSyncStatusSynced,
+      ]) {
+        if (!shouldLoadLocalPocketExpenseOverlaySyncStatus(syncStatus)) {
+          continue;
+        }
+        items.addAll(
+          await database.getTransactionsFeedItems(
+            query,
+            syncStatus: syncStatus,
+          ),
+        );
+      }
       return filterPocketActualExpenses(items);
     } catch (error) {
       _debugLog('[Pockets] Failed to load pending local expenses: $error');
