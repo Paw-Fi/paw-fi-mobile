@@ -6,8 +6,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
+import 'package:moneko/core/util/constants.dart';
 
 import 'package:moneko/features/home/presentation/pages/home_page.dart';
 import 'package:moneko/features/insights/presentation/pages/insights_page.dart';
@@ -51,8 +53,32 @@ import 'package:moneko/shared/widgets/reconcile_progress_bar.dart';
 
 const Duration _foregroundDeferredResyncDelay = Duration(seconds: 2);
 const Duration _foregroundDeferredResyncSpacing = Duration(milliseconds: 300);
+const Duration _networkReachabilityCheckInterval = Duration(seconds: 15);
+const Duration _networkReachabilityTimeout = Duration(seconds: 3);
 
 final Map<String, Future<void>> _mobileSyncInFlightByUser = {};
+
+final _networkReachabilityProvider =
+    StreamProvider.autoDispose<bool>((ref) async* {
+  while (true) {
+    yield await _hasNetworkAccess();
+    await Future<void>.delayed(_networkReachabilityCheckInterval);
+  }
+});
+
+Future<bool> _hasNetworkAccess() async {
+  final supabaseUrl = Constants.supabaseUrl.trim();
+  if (supabaseUrl.isEmpty) return true;
+
+  try {
+    await http
+        .head(Uri.parse(supabaseUrl))
+        .timeout(_networkReachabilityTimeout);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
 class _MainShellLifecycleObserver extends WidgetsBindingObserver {
   _MainShellLifecycleObserver({required this.onResume});
@@ -257,6 +283,11 @@ class MainShell extends HookConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
     final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
+    final hasNetworkAccess =
+        ref.watch(_networkReachabilityProvider).valueOrNull ?? true;
+    final effectiveSubscriptionGateStatus = !hasNetworkAccess
+        ? SubscriptionGateStatus.graceActive
+        : subscriptionGateStatus;
     final auth = ref.watch(authProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
@@ -265,8 +296,8 @@ class MainShell extends HookConsumerWidget {
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
     final showSubscriptionVerificationBanner =
-        subscriptionGateStatus == SubscriptionGateStatus.graceActive ||
-            subscriptionGateStatus == SubscriptionGateStatus.unknown;
+        effectiveSubscriptionGateStatus == SubscriptionGateStatus.graceActive ||
+            effectiveSubscriptionGateStatus == SubscriptionGateStatus.unknown;
 
     final isSyncing = useState(false);
     final syncKey = useState(UniqueKey());
@@ -568,12 +599,13 @@ class MainShell extends HookConsumerWidget {
                           },
                         ),
                       ),
-                    if (!previewState.isActive &&
-                        showSubscriptionVerificationBanner)
-                      Padding(
+                    _AnimatedTopBannerSlot(
+                      visible: !previewState.isActive &&
+                          showSubscriptionVerificationBanner,
+                      child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                         child: _SubscriptionVerificationBanner(
-                          status: subscriptionGateStatus,
+                          status: effectiveSubscriptionGateStatus,
                           onRetryTap: () {
                             unawaited(ref
                                 .read(subscriptionNotifierProvider.notifier)
@@ -584,6 +616,7 @@ class MainShell extends HookConsumerWidget {
                           },
                         ),
                       ),
+                    ),
                     const TrialReminderBannerGate(),
                     const HomeHeaderSliver(),
                     Expanded(
@@ -663,6 +696,57 @@ class MainShell extends HookConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => _WidgetConfigurationDialog(widgetId: widgetId),
+    );
+  }
+}
+
+class _AnimatedTopBannerSlot extends StatelessWidget {
+  const _AnimatedTopBannerSlot({
+    required this.visible,
+    required this.child,
+  });
+
+  static const _duration = Duration(milliseconds: 240);
+  static const _reverseDuration = Duration(milliseconds: 180);
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: _duration,
+      reverseDuration: _reverseDuration,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final offset = Tween<Offset>(
+          begin: const Offset(0, -0.08),
+          end: Offset.zero,
+        ).animate(animation);
+
+        return ClipRect(
+          child: SizeTransition(
+            sizeFactor: animation,
+            axisAlignment: -1,
+            child: FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: offset,
+                child: child,
+              ),
+            ),
+          ),
+        );
+      },
+      child: visible
+          ? KeyedSubtree(
+              key: const ValueKey('subscription_verification_banner'),
+              child: child,
+            )
+          : const SizedBox.shrink(
+              key: ValueKey('subscription_verification_banner_hidden'),
+            ),
     );
   }
 }

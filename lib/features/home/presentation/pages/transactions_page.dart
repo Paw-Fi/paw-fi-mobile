@@ -85,11 +85,32 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   final TextEditingController _searchController = TextEditingController();
   final PageController _chartPageController = PageController();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _dateFilterScrollController = ScrollController();
+  final GlobalKey _dateFilterScrollViewKey = GlobalKey();
+  final Map<DateRangeFilter, GlobalKey> _dateFilterChipKeys = {
+    for (final filter in _dateFilterOptions) filter: GlobalKey(),
+  };
   Timer? _searchDebounce;
+  bool _didScrollInitialDateFilterIntoView = false;
 
   TransactionsFeedQuery? _activeFeedQuery;
   _TransactionsDerivedCacheKey? _derivedCacheKey;
   TransactionsPageDerivedData? _cachedDerivedData;
+
+  static const _dateFilterOptions = [
+    DateRangeFilter.last7Days,
+    DateRangeFilter.today,
+    DateRangeFilter.yesterday,
+    DateRangeFilter.thisWeek,
+    DateRangeFilter.lastWeek,
+    DateRangeFilter.thisMonth,
+    DateRangeFilter.lastMonth,
+    DateRangeFilter.last3Months,
+    DateRangeFilter.last30Days,
+    DateRangeFilter.thisYear,
+    DateRangeFilter.allTime,
+    DateRangeFilter.custom,
+  ];
 
   String _dateFilterPrefKey(String userId) =>
       'transactions_date_filter:$userId';
@@ -110,6 +131,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _searchController.dispose();
     _chartPageController.dispose();
     _scrollController.dispose();
+    _dateFilterScrollController.dispose();
     super.dispose();
   }
 
@@ -153,6 +175,51 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       _customStart = customStart;
       _customEnd = customEnd;
     });
+    _scheduleInitialDateFilterScroll();
+  }
+
+  void _scheduleInitialDateFilterScroll() {
+    if (_didScrollInitialDateFilterIntoView) {
+      return;
+    }
+    _didScrollInitialDateFilterIntoView = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollSelectedDateFilterIntoView();
+    });
+  }
+
+  void _scrollSelectedDateFilterIntoView() {
+    if (!mounted || !_dateFilterScrollController.hasClients) {
+      return;
+    }
+
+    final chipContext =
+        _dateFilterChipKeys[_selectedDateFilter]?.currentContext;
+    final scrollContext = _dateFilterScrollViewKey.currentContext;
+    if (chipContext == null || scrollContext == null) {
+      return;
+    }
+
+    final chipBox = chipContext.findRenderObject() as RenderBox?;
+    final scrollBox = scrollContext.findRenderObject() as RenderBox?;
+    if (chipBox == null || scrollBox == null) {
+      return;
+    }
+
+    final chipLeft = chipBox.localToGlobal(Offset.zero).dx;
+    final scrollLeft = scrollBox.localToGlobal(Offset.zero).dx;
+    final targetOffset = (_dateFilterScrollController.offset +
+            chipLeft -
+            scrollLeft -
+            (scrollBox.size.width - chipBox.size.width) / 2)
+        .clamp(0.0, _dateFilterScrollController.position.maxScrollExtent)
+        .toDouble();
+
+    _dateFilterScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _persistDateFilterPreference() async {
@@ -1138,105 +1205,101 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   Widget _buildDateFilterChips(ColorScheme colorScheme) {
-    const filters = [
-      DateRangeFilter.last7Days,
-      DateRangeFilter.today,
-      DateRangeFilter.yesterday,
-      DateRangeFilter.thisWeek,
-      DateRangeFilter.lastWeek,
-      DateRangeFilter.thisMonth,
-      DateRangeFilter.lastMonth,
-      DateRangeFilter.last3Months,
-      DateRangeFilter.last30Days,
-      DateRangeFilter.thisYear,
-      DateRangeFilter.allTime,
-      DateRangeFilter.custom,
-    ];
-
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: SizedBox(
         height: 35,
-        child: ListView.separated(
+        child: SingleChildScrollView(
+          key: _dateFilterScrollViewKey,
+          controller: _dateFilterScrollController,
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: filters.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final filter = filters[index];
-            final isSelected = _selectedDateFilter == filter;
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                for (final filter in _dateFilterOptions) ...[
+                  _buildDateFilterChip(colorScheme, filter),
+                  if (filter != _dateFilterOptions.last)
+                    const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-            String label;
-            if (filter == DateRangeFilter.custom &&
-                _customStart != null &&
-                _customEnd != null &&
-                isSelected) {
-              final fmt = DateFormat('MMM d');
-              label =
-                  '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
-            } else {
-              label = filter.getLabel(context);
-            }
+  Widget _buildDateFilterChip(
+    ColorScheme colorScheme,
+    DateRangeFilter filter,
+  ) {
+    final isSelected = _selectedDateFilter == filter;
 
-            return GestureDetector(
-              onTap: () async {
-                if (filter == DateRangeFilter.custom) {
-                  final result = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2000),
-                    lastDate: effectiveNow(
-                      preferredTimezone: ref
-                          .read(analyticsProvider)
-                          .contact
-                          ?.preferredTimezone,
-                    ),
-                    initialDateRange: _customStart != null && _customEnd != null
-                        ? DateTimeRange(start: _customStart!, end: _customEnd!)
-                        : null,
-                  );
-                  if (result != null) {
-                    setState(() {
-                      _selectedDateFilter = DateRangeFilter.custom;
-                      _customStart = result.start;
-                      _customEnd = result.end;
-                    });
-                    unawaited(_persistDateFilterPreference());
-                  }
-                } else {
-                  setState(() {
-                    _selectedDateFilter = filter;
-                    _customStart = null;
-                    _customEnd = null;
-                  });
-                  unawaited(_persistDateFilterPreference());
-                }
-              },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? colorScheme.primary : colorScheme.card,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? colorScheme.primary
-                        : colorScheme.border.withValues(alpha: 0.4),
-                  ),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? colorScheme.primaryForeground
-                        : colorScheme.foreground,
-                  ),
-                ),
-              ),
-            );
-          },
+    String label;
+    if (filter == DateRangeFilter.custom &&
+        _customStart != null &&
+        _customEnd != null &&
+        isSelected) {
+      final fmt = DateFormat('MMM d');
+      label = '${fmt.format(_customStart!)} – ${fmt.format(_customEnd!)}';
+    } else {
+      label = filter.getLabel(context);
+    }
+
+    return GestureDetector(
+      key: _dateFilterChipKeys[filter],
+      onTap: () async {
+        if (filter == DateRangeFilter.custom) {
+          final result = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(2000),
+            lastDate: effectiveNow(
+              preferredTimezone:
+                  ref.read(analyticsProvider).contact?.preferredTimezone,
+            ),
+            initialDateRange: _customStart != null && _customEnd != null
+                ? DateTimeRange(start: _customStart!, end: _customEnd!)
+                : null,
+          );
+          if (result != null) {
+            setState(() {
+              _selectedDateFilter = DateRangeFilter.custom;
+              _customStart = result.start;
+              _customEnd = result.end;
+            });
+            unawaited(_persistDateFilterPreference());
+          }
+        } else {
+          setState(() {
+            _selectedDateFilter = filter;
+            _customStart = null;
+            _customEnd = null;
+          });
+          unawaited(_persistDateFilterPreference());
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? colorScheme.primary : colorScheme.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? colorScheme.primary
+                : colorScheme.border.withValues(alpha: 0.4),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected
+                ? colorScheme.primaryForeground
+                : colorScheme.foreground,
+          ),
         ),
       ),
     );

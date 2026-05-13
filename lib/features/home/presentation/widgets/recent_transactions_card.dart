@@ -488,6 +488,11 @@ class _RecentTransactionsCardState
               final rootNavigator = Navigator.of(context, rootNavigator: true);
               final toastContext = rootNavigator.context;
 
+              setState(() {
+                _rows = _rows
+                    .where((currentRow) => currentRow.key != row.key)
+                    .toList(growable: false);
+              });
               AppToast.success(toastContext, l10n.transactionDeleted);
               final success = await ref
                   .read(transactionEditProvider.notifier)

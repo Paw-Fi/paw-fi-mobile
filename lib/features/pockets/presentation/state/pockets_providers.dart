@@ -1093,11 +1093,34 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
   _CacheKey? _lastCacheKey;
 
   bool _hasLoadedOnce = false;
+  bool _hasPendingSilentReload = false;
+  bool _isDrainingSilentReload = false;
+  int _refreshRevision = 0;
   bool get _isPreview => ref.read(previewModeProvider).isActive;
 
   void _scheduleSilentReload() {
     if (!mounted || state.hasChanges) return;
-    unawaited(load(bypassCache: true));
+    _refreshRevision++;
+    _hasPendingSilentReload = true;
+    final cacheKey = _lastCacheKey;
+    if (cacheKey != null) {
+      _pocketsMonthCache.clearInFlight(cacheKey);
+    }
+    if (state.isLoading && _hasLoadedOnce) return;
+    unawaited(_drainPendingSilentReload());
+  }
+
+  Future<void> _drainPendingSilentReload() async {
+    if (_isDrainingSilentReload) return;
+    _isDrainingSilentReload = true;
+    try {
+      while (mounted && _hasPendingSilentReload && !state.hasChanges) {
+        _hasPendingSilentReload = false;
+        await _load(bypassCache: true);
+      }
+    } finally {
+      _isDrainingSilentReload = false;
+    }
   }
 
   dynamic _applyAccountScopeFilter(
@@ -1179,10 +1202,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       return;
     }
 
-    await _load(bypassCache: bypassCache);
+    try {
+      await _load(bypassCache: bypassCache);
+    } finally {
+      if (mounted && _hasPendingSilentReload && !state.hasChanges) {
+        unawaited(_drainPendingSilentReload());
+      }
+    }
   }
 
   Future<void> _load({bool bypassCache = false}) async {
+    final refreshRevision = _refreshRevision;
     final trace = _createPocketsTrace(
       ref,
       label: 'PocketsLoad',
@@ -1326,6 +1356,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
             final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
             if (existingInFlight == null) {
               trace.mark('background-refresh-start');
+              final backgroundRefreshRevision = _refreshRevision;
               unawaited(
                 _refreshFromBackend(
                   cacheKey: cacheKey,
@@ -1339,6 +1370,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                   trace: trace,
                 ).then((loaded) {
                   if (!mounted) return;
+                  if (_refreshRevision != backgroundRefreshRevision) return;
                   // Avoid clobbering local edits.
                   if (state.hasChanges) return;
                   if (_lastCacheKey != cacheKey) return;
@@ -1380,6 +1412,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
               if (!mounted) return;
               state = persistedState;
               if (!isFresh) {
+                final backgroundRefreshRevision = _refreshRevision;
                 Future<void>(() async {
                   try {
                     final loaded = await _refreshFromBackend(
@@ -1394,6 +1427,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
                       trace: trace,
                     );
                     if (!mounted) return;
+                    if (_refreshRevision != backgroundRefreshRevision) return;
                     if (state.hasChanges) return;
                     if (_lastCacheKey != cacheKey) return;
                     state = loaded;
@@ -1431,6 +1465,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         trace: trace,
       );
       if (!mounted) return;
+      if (_refreshRevision != refreshRevision) {
+        trace.mark('load-superseded');
+        return;
+      }
       state = loadedState;
       trace.mark('load-success', {
         'editingCount': loadedState.editing.length,
@@ -1441,6 +1479,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     } catch (e) {
       trace.mark('load-error', {'error': e});
       if (!mounted) return;
+      if (_refreshRevision != refreshRevision) {
+        trace.mark('load-error-superseded');
+        return;
+      }
       state = state.copyWith(
           isLoading: false, error: ErrorHandler.getUserFriendlyMessage(e));
     }
@@ -1507,6 +1549,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     required bool showLoadingIndicator,
     required PocketsDebugTrace trace,
   }) async {
+    final refreshRevision = _refreshRevision;
     final existingInFlight = _pocketsMonthCache.getInFlight(cacheKey);
     if (existingInFlight != null) {
       trace.mark('backend-inflight-hit');
@@ -1864,6 +1907,10 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     try {
       final loaded = await future;
       final completedAt = DateTime.now();
+      if (_refreshRevision != refreshRevision) {
+        trace.mark('backend-state-superseded');
+        return loaded;
+      }
       _pocketsMonthCache.set(cacheKey, loaded, completedAt);
 
       // If the RPC selected a different currency (bootstrap fallback), cache
