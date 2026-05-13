@@ -28,6 +28,9 @@ class MonthlyReportInput {
     required this.futureTransactions,
     required this.recurringItems,
     required this.goals,
+    this.historicalTransactions = const [],
+    this.previousNetWorth,
+    this.goalsDataAvailable = true,
   });
 
   final DateTime monthStart;
@@ -36,10 +39,13 @@ class MonthlyReportInput {
   final double currentBalance;
   final List<MonthlyReportTransactionInput> currentMonthTransactions;
   final List<MonthlyReportTransactionInput> previousMonthTransactions;
+  final List<MonthlyReportTransactionInput> historicalTransactions;
   final List<MonthlyReportBudgetInput> budgetItems;
   final List<MonthlyReportTransactionInput> futureTransactions;
   final List<MonthlyReportRecurringInput> recurringItems;
   final List<MonthlyReportGoalInput> goals;
+  final double? previousNetWorth;
+  final bool goalsDataAvailable;
 }
 
 class MonthlyReportTransactionInput {
@@ -125,6 +131,14 @@ class MonthlyFinancialReport {
     required this.upcomingObligations,
     required this.cashFlowForecast,
     required this.goals,
+    required this.trendSummary,
+    required this.budgetPlan,
+    required this.categoryTrends,
+    required this.merchantConcentration,
+    required this.recurringCommitment,
+    required this.cashFlowHealth,
+    required this.netWorthTrend,
+    required this.goalsDataAvailable,
     required this.summary,
   });
 
@@ -139,6 +153,14 @@ class MonthlyFinancialReport {
   final List<MonthlyCashFlowItem> upcomingObligations;
   final List<MonthlyCashFlowPoint> cashFlowForecast;
   final List<MonthlyGoalReportItem> goals;
+  final MonthlyTrendSummary trendSummary;
+  final MonthlyBudgetPlanSummary budgetPlan;
+  final List<MonthlyCategoryTrendItem> categoryTrends;
+  final List<MonthlyMerchantSpendItem> merchantConcentration;
+  final MonthlyRecurringCommitmentSummary recurringCommitment;
+  final MonthlyCashFlowHealth cashFlowHealth;
+  final MonthlyNetWorthTrend? netWorthTrend;
+  final bool goalsDataAvailable;
   final String summary;
 }
 
@@ -288,6 +310,142 @@ class MonthlyGoalReportItem {
   final MonthlyReportStatus status;
 }
 
+class MonthlyTrendSummary {
+  const MonthlyTrendSummary({
+    required this.currentIncome,
+    required this.previousIncome,
+    required this.incomeChange,
+    required this.incomeChangePercent,
+    required this.currentSpending,
+    required this.previousSpending,
+    required this.spendingChange,
+    required this.spendingChangePercent,
+    required this.currentSavings,
+    required this.previousSavings,
+    required this.savingsRate,
+    required this.previousSavingsRate,
+    required this.netCashFlow,
+  });
+
+  final double currentIncome;
+  final double previousIncome;
+  final double incomeChange;
+  final double? incomeChangePercent;
+  final double currentSpending;
+  final double previousSpending;
+  final double spendingChange;
+  final double? spendingChangePercent;
+  final double currentSavings;
+  final double previousSavings;
+  final double savingsRate;
+  final double previousSavingsRate;
+  final double netCashFlow;
+}
+
+class MonthlyBudgetPlanSummary {
+  const MonthlyBudgetPlanSummary({
+    required this.totalBudgeted,
+    required this.totalSpent,
+    required this.totalRemaining,
+    required this.overBudgetCount,
+    required this.atRiskCount,
+    required this.unbudgetedSpent,
+    required this.budgetToIncomeRatio,
+  });
+
+  final double totalBudgeted;
+  final double totalSpent;
+  final double totalRemaining;
+  final int overBudgetCount;
+  final int atRiskCount;
+  final double unbudgetedSpent;
+  final double? budgetToIncomeRatio;
+}
+
+class MonthlyCategoryTrendItem {
+  const MonthlyCategoryTrendItem({
+    required this.name,
+    required this.currentSpent,
+    required this.previousSpent,
+    required this.baselineAverageSpent,
+    required this.previousChange,
+    required this.previousChangePercent,
+    required this.baselineChange,
+    required this.baselineChangePercent,
+    required this.status,
+    required this.insight,
+  });
+
+  final String name;
+  final double currentSpent;
+  final double previousSpent;
+  final double baselineAverageSpent;
+  final double previousChange;
+  final double? previousChangePercent;
+  final double baselineChange;
+  final double? baselineChangePercent;
+  final MonthlyReportStatus status;
+  final String insight;
+}
+
+class MonthlyMerchantSpendItem {
+  const MonthlyMerchantSpendItem({
+    required this.name,
+    required this.amount,
+    required this.transactionCount,
+    required this.spendingShare,
+  });
+
+  final String name;
+  final double amount;
+  final int transactionCount;
+  final double spendingShare;
+}
+
+class MonthlyRecurringCommitmentSummary {
+  const MonthlyRecurringCommitmentSummary({
+    required this.monthlyAmount,
+    required this.incomeShare,
+    required this.dueSoonAmount,
+    required this.dueSoonCount,
+    required this.status,
+  });
+
+  final double monthlyAmount;
+  final double? incomeShare;
+  final double dueSoonAmount;
+  final int dueSoonCount;
+  final MonthlyReportStatus status;
+}
+
+class MonthlyCashFlowHealth {
+  const MonthlyCashFlowHealth({
+    required this.lowWaterBalance,
+    required this.lowWaterDate,
+    required this.firstNegativeDate,
+    required this.status,
+  });
+
+  final double lowWaterBalance;
+  final DateTime? lowWaterDate;
+  final DateTime? firstNegativeDate;
+  final MonthlyReportStatus status;
+}
+
+class MonthlyNetWorthTrend {
+  const MonthlyNetWorthTrend({
+    required this.currentNetWorth,
+    required this.previousNetWorth,
+    required this.change,
+    required this.changePercent,
+  });
+
+  final double currentNetWorth;
+  final double previousNetWorth;
+  final double change;
+  final double? changePercent;
+}
+
 MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
   final monthStart = _dateOnly(input.monthStart);
   final monthEnd = DateTime(monthStart.year, monthStart.month + 1, 0);
@@ -296,6 +454,14 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
   final currentTransactions = input.currentMonthTransactions
       .where((tx) => _isInRange(tx.date, monthStart, monthEnd))
       .toList(growable: false);
+  final previousComparableTransactions = _previousMonthToDateTransactions(
+    input.previousMonthTransactions,
+    today: today,
+  );
+  final historicalComparableTransactions = _historicalMonthToDateTransactions(
+    input.historicalTransactions,
+    comparableDay: today.day,
+  );
   final income = _sumByType(currentTransactions, income: true);
   final spending = _sumByType(currentTransactions, income: false);
   final future = input.futureTransactions
@@ -309,6 +475,22 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
   );
   final budgetHealth = _buildBudgetHealth(input.budgetItems, timeProgress);
   final spendingPace = _buildSpendingPace(input.budgetItems, timeProgress);
+  final trendSummary = _buildTrendSummary(
+    currentTransactions: currentTransactions,
+    previousComparableTransactions: previousComparableTransactions,
+  );
+  final budgetPlan = _buildBudgetPlan(
+    budgets: input.budgetItems,
+    transactions: currentTransactions,
+    income: income,
+  );
+  final categoryTrends = _buildCategoryTrends(
+    currentTransactions: currentTransactions,
+    previousComparableTransactions: previousComparableTransactions,
+    historicalComparableTransactions: historicalComparableTransactions,
+  );
+  final merchantConcentration =
+      _buildMerchantConcentration(currentTransactions);
   final goalReports = _buildGoalReports(input.goals, input.now);
   final double budgetRemaining = input.budgetItems.isEmpty
       ? math.max(income - spending - futureObligations, 0)
@@ -343,11 +525,25 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
     forecastedBalance: forecastedBalance,
     futureTransactions: future,
   );
+  final cashFlowHealth = _buildCashFlowHealth(
+    currentBalance: input.currentBalance,
+    futureTransactions: future,
+    today: today,
+  );
   final anomalies = _buildAnomalies(
     currentTransactions: currentTransactions,
     previousTransactions: input.previousMonthTransactions,
   );
   final subscriptions = _buildSubscriptions(input.recurringItems, input.now);
+  final recurringCommitment = _buildRecurringCommitment(
+    subscriptions: subscriptions,
+    income: income,
+    now: input.now,
+  );
+  final netWorthTrend = _buildNetWorthTrend(
+    currentNetWorth: input.currentBalance,
+    previousNetWorth: input.previousNetWorth,
+  );
   final overviewStatus = _overviewStatus(
     budgetHealth: budgetHealth,
     anomalies: anomalies,
@@ -374,6 +570,14 @@ MonthlyFinancialReport buildMonthlyFinancialReport(MonthlyReportInput input) {
     upcomingObligations: upcomingObligations,
     cashFlowForecast: cashFlowForecast,
     goals: goalReports,
+    trendSummary: trendSummary,
+    budgetPlan: budgetPlan,
+    categoryTrends: categoryTrends,
+    merchantConcentration: merchantConcentration,
+    recurringCommitment: recurringCommitment,
+    cashFlowHealth: cashFlowHealth,
+    netWorthTrend: netWorthTrend,
+    goalsDataAvailable: input.goalsDataAvailable,
     summary: _buildSummary(
       status: overviewStatus,
       safeToSpend: safeToSpend.dailyAmount,
@@ -589,6 +793,345 @@ List<MonthlyGoalReportItem> _buildGoalReports(
     );
   }).toList(growable: false)
     ..sort((a, b) => a.progress.compareTo(b.progress));
+}
+
+MonthlyTrendSummary _buildTrendSummary({
+  required List<MonthlyReportTransactionInput> currentTransactions,
+  required List<MonthlyReportTransactionInput> previousComparableTransactions,
+}) {
+  final currentIncome = _sumByType(currentTransactions, income: true);
+  final previousIncome =
+      _sumByType(previousComparableTransactions, income: true);
+  final currentSpending = _sumByType(currentTransactions, income: false);
+  final previousSpending =
+      _sumByType(previousComparableTransactions, income: false);
+  final currentSavings = currentIncome - currentSpending;
+  final previousSavings = previousIncome - previousSpending;
+
+  return MonthlyTrendSummary(
+    currentIncome: _roundMoney(currentIncome),
+    previousIncome: _roundMoney(previousIncome),
+    incomeChange: _roundMoney(currentIncome - previousIncome),
+    incomeChangePercent: _percentChange(currentIncome, previousIncome),
+    currentSpending: _roundMoney(currentSpending),
+    previousSpending: _roundMoney(previousSpending),
+    spendingChange: _roundMoney(currentSpending - previousSpending),
+    spendingChangePercent: _percentChange(currentSpending, previousSpending),
+    currentSavings: _roundMoney(currentSavings),
+    previousSavings: _roundMoney(previousSavings),
+    savingsRate: _savingsRate(currentIncome, currentSpending),
+    previousSavingsRate: _savingsRate(previousIncome, previousSpending),
+    netCashFlow: _roundMoney(currentSavings),
+  );
+}
+
+MonthlyBudgetPlanSummary _buildBudgetPlan({
+  required List<MonthlyReportBudgetInput> budgets,
+  required List<MonthlyReportTransactionInput> transactions,
+  required double income,
+}) {
+  final expenseTransactions = transactions.where(_isExpenseTransaction);
+  final totalBudgeted =
+      budgets.fold<double>(0, (sum, item) => sum + item.budgetAmount);
+  final totalSpent =
+      expenseTransactions.fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+  final budgetNames = budgets.map((item) => _normalizedName(item.name)).toSet();
+  final unbudgetedSpent = expenseTransactions.where((tx) {
+    return !budgetNames.contains(_normalizedName(tx.category));
+  }).fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+  var overBudgetCount = 0;
+  var atRiskCount = 0;
+  for (final item in budgets) {
+    if (item.budgetAmount <= 0 && item.spent <= 0) continue;
+    if (item.budgetAmount > 0 && item.spent > item.budgetAmount) {
+      overBudgetCount++;
+    } else if (item.budgetAmount > 0 &&
+        item.spent >= item.budgetAmount * 0.85) {
+      atRiskCount++;
+    }
+  }
+
+  return MonthlyBudgetPlanSummary(
+    totalBudgeted: _roundMoney(totalBudgeted),
+    totalSpent: _roundMoney(totalSpent),
+    totalRemaining: _roundMoney(totalBudgeted - totalSpent),
+    overBudgetCount: overBudgetCount,
+    atRiskCount: atRiskCount,
+    unbudgetedSpent: _roundMoney(unbudgetedSpent),
+    budgetToIncomeRatio:
+        income <= 0 ? null : _roundRatio(totalBudgeted / income),
+  );
+}
+
+List<MonthlyCategoryTrendItem> _buildCategoryTrends({
+  required List<MonthlyReportTransactionInput> currentTransactions,
+  required List<MonthlyReportTransactionInput> previousComparableTransactions,
+  required List<MonthlyReportTransactionInput> historicalComparableTransactions,
+}) {
+  final currentByCategory = _expenseTotalsByCategory(currentTransactions);
+  final previousByCategory =
+      _expenseTotalsByCategory(previousComparableTransactions);
+  final historicalAverages =
+      _expenseMonthlyAveragesByCategory(historicalComparableTransactions);
+  final items = <MonthlyCategoryTrendItem>[];
+
+  for (final entry in currentByCategory.entries) {
+    final previous = previousByCategory[entry.key] ?? 0;
+    final baseline = historicalAverages[entry.key] ?? 0;
+    final previousChange = entry.value - previous;
+    final baselineChange = baseline <= 0 ? 0.0 : entry.value - baseline;
+    final previousChangePercent = _percentChange(entry.value, previous);
+    final baselineChangePercent =
+        baseline <= 0 ? null : _percentChange(entry.value, baseline);
+    final hasComparison = previous > 0 || baseline > 0;
+    final isMeaningful = entry.value >= 50 &&
+        (previousChange.abs() >= 50 ||
+            baselineChange.abs() >= 50 ||
+            (previousChangePercent?.abs() ?? 0) >= 0.25 ||
+            (baselineChangePercent?.abs() ?? 0) >= 0.25);
+    if (!hasComparison || !isMeaningful) continue;
+
+    final strongestPercent = (baselineChangePercent?.abs() ?? 0) >
+            (previousChangePercent?.abs() ?? 0)
+        ? baselineChangePercent
+        : previousChangePercent;
+    final status = (strongestPercent ?? 0) > 0
+        ? MonthlyReportStatus.unusualSpending
+        : MonthlyReportStatus.onTrack;
+    items.add(
+      MonthlyCategoryTrendItem(
+        name: _titleCase(entry.key),
+        currentSpent: _roundMoney(entry.value),
+        previousSpent: _roundMoney(previous),
+        baselineAverageSpent: _roundMoney(baseline),
+        previousChange: _roundMoney(previousChange),
+        previousChangePercent: previousChangePercent,
+        baselineChange: _roundMoney(baselineChange),
+        baselineChangePercent: baselineChangePercent,
+        status: status,
+        insight: _categoryTrendInsight(
+          _titleCase(entry.key),
+          previousChangePercent,
+          baselineChangePercent,
+          previousChange,
+          baselineChange,
+        ),
+      ),
+    );
+  }
+
+  items.sort((a, b) {
+    final aMagnitude = math.max(a.previousChange.abs(), a.baselineChange.abs());
+    final bMagnitude = math.max(b.previousChange.abs(), b.baselineChange.abs());
+    return bMagnitude.compareTo(aMagnitude);
+  });
+  return items.take(6).toList(growable: false);
+}
+
+List<MonthlyMerchantSpendItem> _buildMerchantConcentration(
+  List<MonthlyReportTransactionInput> transactions,
+) {
+  final expenses = transactions.where(_isExpenseTransaction).toList();
+  final totalSpending =
+      expenses.fold<double>(0, (sum, tx) => sum + tx.amount.abs());
+  if (totalSpending <= 0) return const [];
+
+  final totals = <String, double>{};
+  final counts = <String, int>{};
+  final displayNames = <String, String>{};
+  for (final tx in expenses) {
+    final rawName = (tx.merchant ?? '').trim();
+    if (rawName.isEmpty) continue;
+    final key = _normalizedName(rawName);
+    totals[key] = (totals[key] ?? 0) + tx.amount.abs();
+    counts[key] = (counts[key] ?? 0) + 1;
+    displayNames[key] = rawName;
+  }
+
+  final items = totals.entries.map((entry) {
+    return MonthlyMerchantSpendItem(
+      name: displayNames[entry.key] ?? _titleCase(entry.key),
+      amount: _roundMoney(entry.value),
+      transactionCount: counts[entry.key] ?? 0,
+      spendingShare: _roundRatio(entry.value / totalSpending),
+    );
+  }).toList(growable: false);
+
+  items.sort((a, b) {
+    final byAmount = b.amount.compareTo(a.amount);
+    if (byAmount != 0) return byAmount;
+    return a.name.compareTo(b.name);
+  });
+  return items.take(5).toList(growable: false);
+}
+
+MonthlyRecurringCommitmentSummary _buildRecurringCommitment({
+  required MonthlySubscriptionReport subscriptions,
+  required double income,
+  required DateTime now,
+}) {
+  final today = _dateOnly(now);
+  var dueSoonAmount = 0.0;
+  var dueSoonCount = 0;
+  for (final item in subscriptions.items) {
+    final daysUntil = _dateOnly(item.nextDate).difference(today).inDays;
+    if (daysUntil >= 0 && daysUntil <= 14) {
+      dueSoonAmount += item.amount;
+      dueSoonCount++;
+    }
+  }
+  final incomeShare = income <= 0
+      ? null
+      : _roundRatio(subscriptions.totalMonthlyAmount / income);
+  final status = subscriptions.totalMonthlyAmount <= 0
+      ? MonthlyReportStatus.onTrack
+      : incomeShare == null
+          ? MonthlyReportStatus.needsAttention
+          : incomeShare >= 0.5
+              ? MonthlyReportStatus.needsAttention
+              : incomeShare >= 0.3
+                  ? MonthlyReportStatus.spendingFast
+                  : MonthlyReportStatus.onTrack;
+
+  return MonthlyRecurringCommitmentSummary(
+    monthlyAmount: subscriptions.totalMonthlyAmount,
+    incomeShare: incomeShare,
+    dueSoonAmount: _roundMoney(dueSoonAmount),
+    dueSoonCount: dueSoonCount,
+    status: status,
+  );
+}
+
+MonthlyCashFlowHealth _buildCashFlowHealth({
+  required double currentBalance,
+  required List<MonthlyReportTransactionInput> futureTransactions,
+  required DateTime today,
+}) {
+  var running = currentBalance;
+  var lowWaterBalance = currentBalance;
+  DateTime? lowWaterDate = today;
+  DateTime? firstNegativeDate;
+
+  for (final tx in futureTransactions) {
+    running +=
+        tx.type.toLowerCase() == 'income' ? tx.amount.abs() : -tx.amount.abs();
+    if (running < lowWaterBalance) {
+      lowWaterBalance = running;
+      lowWaterDate = _dateOnly(tx.date);
+    }
+    if (running < 0 && firstNegativeDate == null) {
+      firstNegativeDate = _dateOnly(tx.date);
+    }
+  }
+
+  return MonthlyCashFlowHealth(
+    lowWaterBalance: _roundMoney(lowWaterBalance),
+    lowWaterDate: lowWaterDate,
+    firstNegativeDate: firstNegativeDate,
+    status: firstNegativeDate != null
+        ? MonthlyReportStatus.needsAttention
+        : MonthlyReportStatus.onTrack,
+  );
+}
+
+MonthlyNetWorthTrend? _buildNetWorthTrend({
+  required double currentNetWorth,
+  required double? previousNetWorth,
+}) {
+  if (previousNetWorth == null) return null;
+  final change = currentNetWorth - previousNetWorth;
+  return MonthlyNetWorthTrend(
+    currentNetWorth: _roundMoney(currentNetWorth),
+    previousNetWorth: _roundMoney(previousNetWorth),
+    change: _roundMoney(change),
+    changePercent: previousNetWorth == 0
+        ? null
+        : _roundRatio(change / previousNetWorth.abs()),
+  );
+}
+
+List<MonthlyReportTransactionInput> _previousMonthToDateTransactions(
+  List<MonthlyReportTransactionInput> transactions, {
+  required DateTime today,
+}) {
+  final previousMonthEnd = DateTime(today.year, today.month, 0);
+  final comparableDay = math.min(today.day, previousMonthEnd.day);
+  return transactions
+      .where((tx) => _dateOnly(tx.date).day <= comparableDay)
+      .toList(growable: false);
+}
+
+List<MonthlyReportTransactionInput> _historicalMonthToDateTransactions(
+  List<MonthlyReportTransactionInput> transactions, {
+  required int comparableDay,
+}) {
+  return transactions
+      .where((tx) => _dateOnly(tx.date).day <= comparableDay)
+      .toList(growable: false);
+}
+
+Map<String, double> _expenseMonthlyAveragesByCategory(
+  List<MonthlyReportTransactionInput> transactions,
+) {
+  final totalsByMonthAndCategory = <String, Map<String, double>>{};
+  for (final tx in transactions) {
+    if (!_isExpenseTransaction(tx)) continue;
+    final monthKey = '${tx.date.year}-${tx.date.month}';
+    final category = _normalizedName(
+      tx.category.isEmpty ? 'Uncategorized' : tx.category,
+    );
+    final monthTotals = totalsByMonthAndCategory.putIfAbsent(
+        monthKey, () => <String, double>{});
+    monthTotals[category] = (monthTotals[category] ?? 0) + tx.amount.abs();
+  }
+  final categorySums = <String, double>{};
+  final categoryMonthCounts = <String, int>{};
+  for (final monthTotals in totalsByMonthAndCategory.values) {
+    for (final entry in monthTotals.entries) {
+      categorySums[entry.key] = (categorySums[entry.key] ?? 0) + entry.value;
+      categoryMonthCounts[entry.key] =
+          (categoryMonthCounts[entry.key] ?? 0) + 1;
+    }
+  }
+  return <String, double>{
+    for (final entry in categorySums.entries)
+      entry.key: entry.value / (categoryMonthCounts[entry.key] ?? 1),
+  };
+}
+
+bool _isExpenseTransaction(MonthlyReportTransactionInput tx) =>
+    tx.type.toLowerCase() != 'income';
+
+double _savingsRate(double income, double spending) {
+  if (income <= 0) return 0;
+  return _roundRatio(((income - spending) / income).clamp(-1.0, 1.0));
+}
+
+double? _percentChange(double current, double previous) {
+  if (previous <= 0) return null;
+  return _roundRatio((current - previous) / previous);
+}
+
+double _roundRatio(double value) => (value * 1000).roundToDouble() / 1000;
+
+String _categoryTrendInsight(
+  String category,
+  double? previousPercent,
+  double? baselinePercent,
+  double previousChange,
+  double baselineChange,
+) {
+  final useBaseline =
+      (baselinePercent?.abs() ?? 0) > (previousPercent?.abs() ?? 0);
+  final percent = useBaseline ? baselinePercent : previousPercent;
+  final change = useBaseline ? baselineChange : previousChange;
+  final comparator = useBaseline ? 'recent average' : 'same point last month';
+  if (percent == null) {
+    final direction = change >= 0 ? 'higher' : 'lower';
+    return '$category is ${change.abs().toStringAsFixed(2)} $direction than the $comparator.';
+  }
+  final direction = percent >= 0 ? 'higher' : 'lower';
+  return '$category is ${(percent.abs() * 100).round()}% $direction than the $comparator.';
 }
 
 MonthlyReportStatus _budgetStatus({

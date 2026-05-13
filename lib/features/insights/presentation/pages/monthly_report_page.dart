@@ -57,27 +57,39 @@ class MonthlyReportPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildPageHeader(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildHealthRingsSummary(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildOverallHealthStatus(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildTopSummaryCards(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                _buildMonthTrend(context, colorScheme, report),
+                const SizedBox(height: 12),
+                _buildBudgetPlanSummary(context, colorScheme, report),
+                const SizedBox(height: 12),
                 _buildSafeToSpend(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                _buildCategoryTrends(context, colorScheme, report),
+                const SizedBox(height: 12),
+                _buildMerchantConcentration(context, colorScheme, report),
+                const SizedBox(height: 12),
                 _buildBudgetHealthRows(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildSpendingPaceTracking(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildAnomalies(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                _buildRecurringCommitment(context, colorScheme, report),
+                const SizedBox(height: 12),
                 _buildSubscriptions(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildBillCalendar(context, colorScheme, report),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildCashFlowForecast(context, colorScheme, report),
-                const SizedBox(height: 36),
+                const SizedBox(height: 12),
+                _buildGoalProgress(context, colorScheme, report),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -97,29 +109,14 @@ class MonthlyReportPage extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            month,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.mutedForeground,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Monthly Financial Health Report',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-              height: 1.05,
-            ),
-          ),
-        ],
+      child: Text(
+        month,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.mutedForeground,
+          height: 1.2,
+        ),
       ),
     );
   }
@@ -131,7 +128,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -145,7 +142,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     Text(
                       _healthHeadline(report.overview.status),
                       style: TextStyle(
-                        fontSize: 23,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: colorScheme.foreground,
                         height: 1.12,
@@ -155,7 +152,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     Text(
                       report.summary,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         color: colorScheme.mutedForeground,
                         height: 1.55,
                         fontWeight: FontWeight.w500,
@@ -169,7 +166,7 @@ class MonthlyReportPage extends ConsumerWidget {
                 kind: _ReportIllustrationKind.pulse,
                 colorScheme: colorScheme,
                 accent: _statusColor(report.overview.status, colorScheme),
-                size: 78,
+                size: 56,
               ),
             ],
           ),
@@ -218,11 +215,11 @@ class MonthlyReportPage extends ConsumerWidget {
 
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(18),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 680;
-          final ringSize = isWide ? 198.0 : 184.0;
+          final ringSize = isWide ? 160.0 : 150.0;
           final legend = Column(
             children: [
               for (final metric in rings) ...[
@@ -248,9 +245,9 @@ class MonthlyReportPage extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Financial Health Rings',
+                'Monthly Financial Health Report',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: colorScheme.foreground,
                   height: 1.15,
@@ -262,7 +259,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     ? 'All core signals are moving within a healthy range.'
                     : '$watchCount signal${watchCount == 1 ? '' : 's'} need a closer look this month.',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: colorScheme.mutedForeground,
                   height: 1.35,
@@ -352,12 +349,427 @@ class MonthlyReportPage extends ConsumerWidget {
     );
   }
 
+  Widget _buildMonthTrend(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final trend = report.trendSummary;
+    final hasAnyData = trend.currentIncome > 0 ||
+        trend.currentSpending > 0 ||
+        trend.previousIncome > 0 ||
+        trend.previousSpending > 0;
+
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Month vs Last Month',
+            subtitle: 'Compared with the same point in the previous month',
+            kind: _ReportIllustrationKind.pulse,
+            accent: colorScheme.info,
+          ),
+          const SizedBox(height: 16),
+          if (!hasAnyData)
+            _emptyText(
+              colorScheme,
+              'No income or spending has been recorded for this month yet.',
+            )
+          else ...[
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildCalculationPill(
+                  colorScheme,
+                  'Income change',
+                  _formatSignedCurrency(
+                    trend.incomeChange,
+                    report.currencyCode,
+                  ),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Spending change',
+                  _formatSignedCurrency(
+                    trend.spendingChange,
+                    report.currencyCode,
+                  ),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Savings rate',
+                  _formatPercent(trend.savingsRate),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Net cash flow',
+                  _formatSignedCurrency(
+                    trend.netCashFlow,
+                    report.currencyCode,
+                  ),
+                ),
+              ],
+            ),
+            if (report.netWorthTrend != null) ...[
+              const SizedBox(height: 10),
+              _InsightTile(
+                colorScheme: colorScheme,
+                title: 'Net worth',
+                description:
+                    '${formatCurrency(report.netWorthTrend!.currentNetWorth, report.currencyCode)} now, ${_formatSignedCurrency(report.netWorthTrend!.change, report.currencyCode)} from the previous wallet snapshot.',
+                status: _formatNullablePercent(
+                  report.netWorthTrend!.changePercent,
+                ),
+                accent: report.netWorthTrend!.change >= 0
+                    ? colorScheme.success
+                    : colorScheme.warning,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetPlanSummary(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final plan = report.budgetPlan;
+    final hasBudgetData = plan.totalBudgeted > 0 || plan.totalSpent > 0;
+
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Budget Plan',
+            subtitle: 'Budgeted, spent, remaining, and unbudgeted money',
+            kind: _ReportIllustrationKind.target,
+            accent: colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          if (!hasBudgetData)
+            _emptyText(
+              colorScheme,
+              'No budgets or spending have been recorded for this month yet.',
+            )
+          else ...[
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildCalculationPill(
+                  colorScheme,
+                  'Budgeted',
+                  formatCurrency(plan.totalBudgeted, report.currencyCode),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Spent',
+                  formatCurrency(plan.totalSpent, report.currencyCode),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Remaining',
+                  formatCurrency(plan.totalRemaining, report.currencyCode),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Budget / income',
+                  _formatNullablePercent(plan.budgetToIncomeRatio),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildQuietMetric(
+                  colorScheme,
+                  'Over',
+                  '${plan.overBudgetCount}',
+                ),
+                _buildQuietMetric(
+                  colorScheme,
+                  'At risk',
+                  '${plan.atRiskCount}',
+                ),
+                _buildQuietMetric(
+                  colorScheme,
+                  'Unbudgeted',
+                  formatCurrency(plan.unbudgetedSpent, report.currencyCode),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryTrends(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Spending Movers',
+            subtitle: 'Categories with meaningful movement from real history',
+            kind: _ReportIllustrationKind.magnifier,
+            accent: colorScheme.warning,
+          ),
+          const SizedBox(height: 16),
+          if (report.categoryTrends.isEmpty)
+            _emptyText(
+              colorScheme,
+              'Not enough comparable category history yet. This will appear once a category has real prior spending to compare.',
+            )
+          else
+            ...report.categoryTrends.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _InsightTile(
+                  colorScheme: colorScheme,
+                  title: item.name,
+                  description:
+                      '${item.insight} Current spend is ${formatCurrency(item.currentSpent, report.currencyCode)}.',
+                  status: monthlyReportStatusLabel(item.status),
+                  accent: _statusColor(item.status, colorScheme),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMerchantConcentration(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final merchants = report.merchantConcentration;
+    if (merchants.isEmpty) {
+      return _ReportCard(
+        colorScheme: colorScheme,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeading(
+              colorScheme: colorScheme,
+              title: 'Top Merchants',
+              subtitle: 'Where the largest share of spending went this month',
+              kind: _ReportIllustrationKind.receipt,
+              accent: colorScheme.info,
+            ),
+            const SizedBox(height: 16),
+            _emptyText(
+              colorScheme,
+              'No merchant or payee names are available in this month\'s spending yet.',
+            ),
+          ],
+        ),
+      );
+    }
+
+    final colors = [
+      colorScheme.primary,
+      colorScheme.info,
+      colorScheme.success,
+      colorScheme.warning,
+      colorScheme.error,
+    ];
+
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Top Merchants',
+            subtitle: 'Where the largest share of spending went this month',
+            kind: _ReportIllustrationKind.receipt,
+            accent: colorScheme.info,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 12,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: merchants.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                final color = colors[index % colors.length];
+                return Expanded(
+                  flex: (item.spendingShare * 100).round(),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: index == 0
+                          ? const BorderRadius.only(
+                              topLeft: Radius.circular(6),
+                              bottomLeft: Radius.circular(6),
+                            )
+                          : index == merchants.length - 1
+                              ? const BorderRadius.only(
+                                  topRight: Radius.circular(6),
+                                  bottomRight: Radius.circular(6),
+                                )
+                              : null,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: merchants.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final color = colors[index % colors.length];
+              return _merchantLegendItem(
+                colorScheme: colorScheme,
+                color: color,
+                name: item.name,
+                percentage: item.spendingShare,
+                amount: item.amount,
+                currencyCode: report.currencyCode,
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecurringCommitment(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final commitment = report.recurringCommitment;
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Recurring Commitment',
+            subtitle: 'How much income is already committed to recurring costs',
+            kind: _ReportIllustrationKind.calendar,
+            accent: colorScheme.warning,
+          ),
+          const SizedBox(height: 16),
+          if (commitment.monthlyAmount <= 0)
+            _emptyText(
+                colorScheme, 'No active recurring expenses detected yet.')
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildCalculationPill(
+                  colorScheme,
+                  'Monthly recurring',
+                  formatCurrency(commitment.monthlyAmount, report.currencyCode),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Income share',
+                  _formatNullablePercent(commitment.incomeShare),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Due in 14 days',
+                  formatCurrency(commitment.dueSoonAmount, report.currencyCode),
+                ),
+                _buildCalculationPill(
+                  colorScheme,
+                  'Due-soon count',
+                  '${commitment.dueSoonCount}',
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalProgress(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionHeading(
+            colorScheme: colorScheme,
+            title: 'Goal Progress',
+            subtitle: 'Active goals in this report currency',
+            kind: _ReportIllustrationKind.target,
+            accent: colorScheme.success,
+          ),
+          const SizedBox(height: 16),
+          if (!report.goalsDataAvailable)
+            _emptyText(
+              colorScheme,
+              'Goal data could not be loaded for this report.',
+            )
+          else if (report.goals.isEmpty)
+            _emptyText(
+              colorScheme,
+              'No active goals with matching currency data are available for this report.',
+            )
+          else
+            ...report.goals.take(5).map(
+                  (goal) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _buildGoalRow(colorScheme, report, goal),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSummaryCard(ColorScheme colorScheme, _SummaryItem item) {
     return _ReportCard(
       colorScheme: colorScheme,
       padding: const EdgeInsets.all(16),
       child: SizedBox(
-        height: 148,
+        height: 130,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -367,7 +779,7 @@ class MonthlyReportPage extends ConsumerWidget {
                 kind: item.kind,
                 colorScheme: colorScheme,
                 accent: item.accent,
-                size: 64,
+                size: 48,
               ),
             ),
             const Spacer(),
@@ -389,7 +801,7 @@ class MonthlyReportPage extends ConsumerWidget {
               child: Text(
                 item.value,
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: colorScheme.foreground,
                   height: 1.1,
@@ -421,7 +833,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -437,7 +849,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     Text(
                       'You can safely spend',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 12,
                         color: colorScheme.mutedForeground,
                         fontWeight: FontWeight.w600,
                         height: 1.2,
@@ -450,7 +862,7 @@ class MonthlyReportPage extends ConsumerWidget {
                       child: Text(
                         '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
                         style: TextStyle(
-                          fontSize: 38,
+                          fontSize: 30,
                           fontWeight: FontWeight.w900,
                           color: colorScheme.foreground,
                           height: 1.05,
@@ -461,7 +873,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     Text(
                       'for the next ${report.safeToSpend.daysRemaining} days after bills and remaining budgets.',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         color: colorScheme.mutedForeground,
                         height: 1.45,
                       ),
@@ -474,7 +886,7 @@ class MonthlyReportPage extends ConsumerWidget {
                 kind: _ReportIllustrationKind.wallet,
                 colorScheme: colorScheme,
                 accent: colorScheme.success,
-                size: 86,
+                size: 64,
               ),
             ],
           ),
@@ -523,7 +935,7 @@ class MonthlyReportPage extends ConsumerWidget {
 
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -596,7 +1008,7 @@ class MonthlyReportPage extends ConsumerWidget {
                       Text(
                         paceItem.label,
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: colorScheme.foreground,
                           height: 1.15,
@@ -705,7 +1117,7 @@ class MonthlyReportPage extends ConsumerWidget {
 
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -786,7 +1198,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -806,7 +1218,7 @@ class MonthlyReportPage extends ConsumerWidget {
           else
             ...report.anomalies.map(
               (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: _InsightTile(
                   colorScheme: colorScheme,
                   title: item.title,
@@ -828,7 +1240,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -846,7 +1258,7 @@ class MonthlyReportPage extends ConsumerWidget {
           else
             ...report.subscriptions.items.take(6).map(
                   (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: _buildSubscriptionRow(colorScheme, report, item),
                   ),
                 ),
@@ -931,7 +1343,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -955,7 +1367,7 @@ class MonthlyReportPage extends ConsumerWidget {
                 final accent =
                     isIncome ? colorScheme.success : colorScheme.foreground;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -986,7 +1398,7 @@ class MonthlyReportPage extends ConsumerWidget {
                           child: Text(
                             item.name,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: colorScheme.foreground,
                               height: 1.25,
@@ -1004,7 +1416,7 @@ class MonthlyReportPage extends ConsumerWidget {
                                   report.currencyCode,
                                 ),
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 13,
                             fontWeight: FontWeight.w900,
                             color: accent,
                           ),
@@ -1027,7 +1439,7 @@ class MonthlyReportPage extends ConsumerWidget {
   ) {
     return _ReportCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1037,6 +1449,41 @@ class MonthlyReportPage extends ConsumerWidget {
             subtitle: 'Expected balance after scheduled money movement',
             kind: _ReportIllustrationKind.wallet,
             accent: colorScheme.success,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildCalculationPill(
+                colorScheme,
+                'Lowest projected balance',
+                formatCurrency(
+                  report.cashFlowHealth.lowWaterBalance,
+                  report.currencyCode,
+                ),
+              ),
+              _buildCalculationPill(
+                colorScheme,
+                'Lowest date',
+                report.cashFlowHealth.lowWaterDate == null
+                    ? 'No projection'
+                    : _formatShortDate(
+                        context,
+                        report.cashFlowHealth.lowWaterDate!,
+                      ),
+              ),
+              _buildCalculationPill(
+                colorScheme,
+                'Negative balance',
+                report.cashFlowHealth.firstNegativeDate == null
+                    ? 'Not projected'
+                    : _formatShortDate(
+                        context,
+                        report.cashFlowHealth.firstNegativeDate!,
+                      ),
+              ),
+            ],
           ),
           const SizedBox(height: 18),
           ...report.cashFlowForecast.asMap().entries.map((entry) {
@@ -1145,6 +1592,133 @@ class MonthlyReportPage extends ConsumerWidget {
     );
   }
 
+  Widget _merchantLegendItem({
+    required ColorScheme colorScheme,
+    required Color color,
+    required String name,
+    required double percentage,
+    required double amount,
+    required String currencyCode,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          name,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.foreground,
+            height: 1.2,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '(${_formatPercent(percentage)})',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.mutedForeground,
+            height: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGoalRow(
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+    MonthlyGoalReportItem goal,
+  ) {
+    final accent = _statusColor(goal.status, colorScheme);
+    final progress = goal.progress.clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  goal.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _buildStatusBadge(goal.status, colorScheme),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _PaceProgressBar(
+            colorScheme: colorScheme,
+            accent: accent,
+            spentProgress: progress,
+            timeProgress: 1,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_formatPercent(progress)} funded',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                  ),
+                ),
+              ),
+              Text(
+                '${formatCurrency(goal.currentAmount, report.currencyCode)} / ${formatCurrency(goal.targetAmount, report.currencyCode)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                ),
+              ),
+            ],
+          ),
+          if (goal.monthlyNeeded > 0) ...[
+            const SizedBox(height: 7),
+            Text(
+              '${formatCurrency(goal.monthlyNeeded, report.currencyCode)}/mo needed to hit the target date',
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.mutedForeground,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildLoadingState(ColorScheme colorScheme) {
     return Center(
       key: const ValueKey('monthly_report_loading'),
@@ -1167,7 +1741,7 @@ class MonthlyReportPage extends ConsumerWidget {
     return Center(
       key: const ValueKey('monthly_report_error'),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: _ReportCard(
           colorScheme: colorScheme,
           child: Text(
@@ -1241,6 +1815,20 @@ class MonthlyReportPage extends ConsumerWidget {
     if (context == null) return '${date.day}/${date.month}';
     final localizations = MaterialLocalizations.of(context);
     return localizations.formatMediumDate(date).split(',').first;
+  }
+
+  String _formatPercent(double value) => '${(value * 100).round()}%';
+
+  String _formatNullablePercent(double? value) {
+    if (value == null) return 'No baseline';
+    final sign = value > 0 ? '+' : '';
+    return '$sign${_formatPercent(value)}';
+  }
+
+  String _formatSignedCurrency(double value, String currencyCode) {
+    if (value == 0) return formatCurrency(0, currencyCode);
+    final sign = value > 0 ? '+' : '';
+    return '$sign${formatCurrency(value, currencyCode)}';
   }
 
   String _healthHeadline(MonthlyReportStatus status) {
@@ -1518,7 +2106,7 @@ class _MultiRingProgressIndicator extends StatelessWidget {
                         child: Text(
                           '$animatedScore',
                           style: TextStyle(
-                            fontSize: 36,
+                            fontSize:animatedScore>99?23: 30,
                             fontWeight: FontWeight.w900,
                             color: colorScheme.foreground,
                             height: 0.95,
@@ -1785,7 +2373,7 @@ class _SectionHeading extends StatelessWidget {
               Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: colorScheme.mutedForeground,
                   height: 1.35,
@@ -1999,7 +2587,7 @@ class _ForecastStep extends StatelessWidget {
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: isLast ? FontWeight.w900 : FontWeight.w700,
                         color: isLast
                             ? colorScheme.foreground
