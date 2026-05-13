@@ -29,6 +29,7 @@ import 'package:moneko/features/home/presentation/state/currency_transaction_cou
 import 'package:moneko/features/home/presentation/state/dashboard_lazy_providers.dart';
 import 'package:moneko/features/home/presentation/state/dashboard_snapshot_models.dart';
 import 'package:moneko/features/home/presentation/state/transactions_feed_provider.dart';
+import 'package:moneko/features/home/presentation/state/user_categories_provider.dart';
 import 'package:moneko/features/home/presentation/state/view_mode_provider.dart';
 import 'package:moneko/core/services/widget_service.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
@@ -235,6 +236,12 @@ Future<void> _pullMobileDelta(WidgetRef ref, String userId) async {
   } catch (_) {}
 }
 
+Future<void> _syncCategoryRemaps(WidgetRef ref, String userId) async {
+  try {
+    await syncUserCategoryRemapsFromSupabase(ref, userId: userId);
+  } catch (_) {}
+}
+
 Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
   if (userId.isEmpty) return;
 
@@ -247,6 +254,7 @@ Future<void> _syncMobileTransactions(WidgetRef ref, String userId) async {
   final sync = () async {
     try {
       await _drainMobileOutbox(ref);
+      await _syncCategoryRemaps(ref, userId);
       await _pullMobileDelta(ref, userId);
     } finally {
       _mobileSyncInFlightByUser.remove(userId);

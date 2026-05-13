@@ -145,6 +145,128 @@ void main() {
       expect(next!.clientMutationId, 'ready');
     });
 
+    test('stores category remaps locally and queues sync mutation', () async {
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Groceries',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_1',
+        usedAt: DateTime.utc(2026, 4, 6, 12),
+      );
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+      final mutations = await database.getOutboxMutations();
+      final payload = jsonDecode(mutations.single.payloadJson) as Map;
+
+      expect(mapped, 'groceries');
+      expect(mutations.single.entityType, 'category_remap');
+      expect(mutations.single.entityId, 'user_1:expense:dining');
+      expect(mutations.single.operation, 'save_category_remap');
+      expect(payload['fromCategory'], 'dining');
+      expect(payload['toCategory'], 'groceries');
+      expect(payload['transactionType'], 'expense');
+      expect(payload['useCount'], 1);
+    });
+
+    test('increments local category remap use count on repeated saves',
+        () async {
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Groceries',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_1',
+        usedAt: DateTime.utc(2026, 4, 6, 12),
+      );
+
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Food',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_1',
+        usedAt: DateTime.utc(2026, 4, 7, 12),
+      );
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'DINING',
+        transactionType: 'expense',
+      );
+      final mutations = await database.getOutboxMutations();
+      final payload = jsonDecode(mutations.last.payloadJson) as Map;
+
+      expect(mapped, 'food');
+      expect(mutations, hasLength(1));
+      expect(mutations.single.clientMutationId, 'mobile:category_remap_1');
+      expect(payload['toCategory'], 'food');
+      expect(payload['useCount'], 2);
+      expect(payload['lastUsedAt'],
+          DateTime.utc(2026, 4, 7, 12).toIso8601String());
+    });
+
+    test('reconciles remote category remaps without queueing mutations',
+        () async {
+      await database.upsertCategoryRemapsFromRemote([
+        LocalCategoryRemapPreference(
+          userId: 'user_1',
+          transactionType: 'expense',
+          fromCategory: 'Dining',
+          toCategory: 'Groceries',
+          useCount: 3,
+          lastUsedAt: DateTime.utc(2026, 4, 8, 12),
+        ),
+      ]);
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+      final mutations = await database.getOutboxMutations();
+
+      expect(mapped, 'groceries');
+      expect(mutations, isEmpty);
+    });
+
+    test('remote category remaps do not overwrite newer local mappings',
+        () async {
+      await database.saveCategoryRemapPreference(
+        userId: 'user_1',
+        fromCategory: 'Dining',
+        toCategory: 'Food',
+        transactionType: 'expense',
+        clientMutationId: 'mobile:category_remap_1',
+        usedAt: DateTime.utc(2026, 4, 9, 12),
+      );
+
+      await database.upsertCategoryRemapsFromRemote([
+        LocalCategoryRemapPreference(
+          userId: 'user_1',
+          transactionType: 'expense',
+          fromCategory: 'Dining',
+          toCategory: 'Groceries',
+          useCount: 3,
+          lastUsedAt: DateTime.utc(2026, 4, 8, 12),
+        ),
+      ]);
+
+      final mapped = await database.resolveCategoryRemap(
+        userId: 'user_1',
+        category: 'dining',
+        transactionType: 'expense',
+      );
+      final mutations = await database.getOutboxMutations();
+
+      expect(mapped, 'food');
+      expect(mutations.single.status, localMutationStatusQueued);
+    });
+
     test('replaces optimistic transaction with server row and marks synced',
         () async {
       await database.writeOptimisticTransaction(

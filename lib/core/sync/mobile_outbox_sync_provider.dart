@@ -7,6 +7,7 @@ import 'package:moneko/core/local_data/moneko_database.dart';
 import 'package:moneko/core/resources/lib/supabase.dart';
 import 'package:moneko/core/sync/sync_coordinator.dart';
 import 'package:moneko/core/utils/image_compressor.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/home/presentation/models/expense_entry.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -59,7 +60,7 @@ Future<void> _dispatchMobileMutation(
       await _deleteQueuedLocalFile(payload['localReceiptImagePath']);
       return;
     case 'analyze_ai_input':
-      await _analyzeQueuedAiInput(payload, mutation.entityId);
+      await _analyzeQueuedAiInput(database, payload, mutation.entityId);
       return;
     case 'invoke_function':
       await _invokeMutationFunction(
@@ -81,6 +82,9 @@ Future<void> _dispatchMobileMutation(
       return;
     case 'save_shared_budget':
       await _saveSharedBudget(payload);
+      return;
+    case 'save_category_remap':
+      await _saveCategoryRemap(payload);
       return;
     case 'update_transaction':
       final responseBody = await _invokeMutationFunction('update-expense', {
@@ -150,6 +154,56 @@ Future<void> _deleteScenarioHistory(Map<String, dynamic> payload) async {
   await supabase.from('ai_scenario_history').delete().eq('id', scenarioId);
 }
 
+Future<void> _saveCategoryRemap(Map<String, dynamic> payload) async {
+  final userId = payload['userId']?.toString().trim();
+  final transactionType = payload['transactionType']?.toString().trim();
+  final fromCategory = payload['fromCategory']?.toString().trim();
+  final toCategory = payload['toCategory']?.toString().trim();
+  if (userId == null ||
+      userId.isEmpty ||
+      transactionType == null ||
+      (transactionType != 'expense' && transactionType != 'income') ||
+      fromCategory == null ||
+      fromCategory.isEmpty ||
+      toCategory == null ||
+      toCategory.isEmpty) {
+    throw ArgumentError('Invalid category remap payload');
+  }
+
+  final localUseCount =
+      (payload['useCount'] is num) ? (payload['useCount'] as num).toInt() : 1;
+  var nextUseCount = localUseCount < 1 ? 1 : localUseCount;
+  try {
+    final existing = await supabase
+        .from('user_category_remaps')
+        .select('use_count')
+        .eq('user_id', userId)
+        .eq('transaction_type', transactionType)
+        .eq('from_category_name', fromCategory)
+        .maybeSingle();
+    final existingUseCount = existing?['use_count'];
+    if (existingUseCount is num && existingUseCount >= nextUseCount) {
+      nextUseCount = existingUseCount.toInt() + 1;
+    }
+  } catch (_) {
+    // Keep the local count when the pre-read fails; the upsert below remains
+    // idempotent and will retry from the outbox if Supabase is unavailable.
+  }
+
+  await supabase.from('user_category_remaps').upsert(
+    <String, dynamic>{
+      'user_id': userId,
+      'transaction_type': transactionType,
+      'from_category_name': fromCategory,
+      'to_category_name': toCategory,
+      'use_count': nextUseCount,
+      'last_used_at': payload['lastUsedAt']?.toString() ??
+          DateTime.now().toUtc().toIso8601String(),
+    },
+    onConflict: 'user_id,transaction_type,from_category_name',
+  );
+}
+
 Future<Map<String, dynamic>> _invokeMutationFunction(
   String? functionName,
   Map<String, dynamic>? body,
@@ -200,6 +254,7 @@ Future<Map<String, dynamic>?> _requestBodyWithQueuedReceipt(
 }
 
 Future<void> _analyzeQueuedAiInput(
+  MonekoDatabase database,
   Map<String, dynamic> payload,
   String queuedInputId,
 ) async {
@@ -214,6 +269,8 @@ Future<void> _analyzeQueuedAiInput(
     analysisBody,
   );
   final transactions = await _saveTransactionsForQueuedAiInput(
+    database: database,
+    userId: userId,
     payload: payload,
     queuedInputId: queuedInputId,
     analysisResponse: analysisResponse,
@@ -327,6 +384,8 @@ Future<Map<String, dynamic>> _queuedAiAnalysisBody(
 }
 
 Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
+  required MonekoDatabase database,
+  required String userId,
   required Map<String, dynamic> payload,
   required String queuedInputId,
   required Map<String, dynamic> analysisResponse,
@@ -371,15 +430,20 @@ Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
 
     final rawType = item['type']?.toString().trim().toLowerCase();
     final isIncome = rawType == 'income' || item['is_income'] == true;
+    final rawCategory = item['category']?.toString().trim();
+    final category = await _resolveQueuedCategory(
+      database: database,
+      userId: userId,
+      transactionType: isIncome ? 'income' : 'expense',
+      rawCategory: rawCategory,
+      rawDescription: item['description']?.toString().trim(),
+      fallbackCategory: isIncome ? 'income' : 'other',
+    );
     final clientRecordId = '$queuedInputId-$index';
     final transaction = <String, dynamic>{
       'type': isIncome ? 'income' : 'expense',
       'amount': amount,
-      'category': item['category']?.toString().trim().isNotEmpty == true
-          ? item['category'].toString().trim()
-          : isIncome
-              ? 'income'
-              : 'other',
+      'category': category,
       'currency': currency,
       'date': date,
       'clientCreatedAt': clientCreatedAt,
@@ -398,6 +462,55 @@ Future<List<Map<String, dynamic>>> _saveTransactionsForQueuedAiInput({
     transactions.add(transaction);
   }
   return transactions;
+}
+
+Future<String> _resolveQueuedCategory({
+  required MonekoDatabase database,
+  required String userId,
+  required String transactionType,
+  required String? rawCategory,
+  required String? rawDescription,
+  required String fallbackCategory,
+}) async {
+  final category = _resolveQueuedBaseCategory(
+    rawCategory: rawCategory,
+    rawDescription: rawDescription,
+    fallbackCategory: fallbackCategory,
+  );
+  final mapped = await database.resolveCategoryRemap(
+    userId: userId,
+    category: category,
+    transactionType: transactionType,
+  );
+  return mapped ?? category;
+}
+
+String _resolveQueuedBaseCategory({
+  required String? rawCategory,
+  required String? rawDescription,
+  required String fallbackCategory,
+}) {
+  final normalizedCategory = normalizeCategory(rawCategory ?? '');
+  final builtinCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedCategory,
+  );
+  if (builtinCategory != null &&
+      builtinCategory != 'other' &&
+      builtinCategory != 'uncategorized') {
+    return builtinCategory;
+  }
+
+  final normalizedDescription = normalizeCategory(rawDescription ?? '');
+  final descriptionCategory = resolveBuiltinCategoryKeyAcrossLocales(
+    normalizedDescription,
+  );
+  if (descriptionCategory != null &&
+      descriptionCategory != 'other' &&
+      descriptionCategory != 'uncategorized') {
+    return descriptionCategory;
+  }
+
+  return builtinCategory ?? fallbackCategory;
 }
 
 double? _parseAmount(Object? value) {

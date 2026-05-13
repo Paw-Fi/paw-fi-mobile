@@ -4048,7 +4048,6 @@ class _UnifiedTransactionSheetState
           if (shouldPromptCategoryRemap && remapToCategory != null) {
             await _handleCategoryRemapPrompt(
               toastContext: toastContext,
-              userId: user.uid,
               transactionType:
                   (widget.existingExpense?.type?.toLowerCase() == 'income')
                       ? 'income'
@@ -4149,7 +4148,6 @@ class _UnifiedTransactionSheetState
 
   Future<void> _handleCategoryRemapPrompt({
     required BuildContext toastContext,
-    required String userId,
     required String transactionType,
     required String fromCategory,
     required String toCategory,
@@ -4172,8 +4170,8 @@ class _UnifiedTransactionSheetState
     if (!toastContext.mounted) return;
 
     if (result?.confirmed == true) {
-      final saved = await saveUserCategoryRemapPreferenceForUser(
-        userId: userId,
+      final saved = await saveUserCategoryRemapPreference(
+        ref: ref,
         fromCategory: fromCategory,
         toCategory: toCategory,
         transactionType: transactionType,

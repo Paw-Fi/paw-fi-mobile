@@ -486,6 +486,34 @@ String _resolveOptimisticAiCategory({
   return builtinCategory ?? fallback;
 }
 
+Future<Map<String, String>> _loadLocalCategoryRemaps(
+  ProviderContainer container, {
+  required String userId,
+  required String transactionType,
+}) async {
+  if (userId.trim().isEmpty) return const <String, String>{};
+  try {
+    final database = await container.read(localDatabaseProvider.future);
+    return database.getCategoryRemaps(
+      userId: userId,
+      transactionType: transactionType,
+    );
+  } catch (error) {
+    _debugPrint('⚠️ Local category remaps unavailable: $error');
+    return const <String, String>{};
+  }
+}
+
+String _applyLocalCategoryRemap({
+  required String category,
+  required Map<String, String> remaps,
+}) {
+  if (remaps.isEmpty) return category;
+  final direct = category.trim().toLowerCase();
+  final normalized = normalizeCategory(category);
+  return remaps[direct] ?? remaps[normalized] ?? category;
+}
+
 SplitType? _parseSplitTypeForOptimisticGroup(Object? rawSplitType) {
   final value = rawSplitType?.toString().trim().toLowerCase();
   if (value == null || value.isEmpty || value == 'equal') return null;
@@ -2630,6 +2658,16 @@ Future<void> _processExpense(
               rawScopedDefaultAccountId?.isEmpty == true
                   ? null
                   : rawScopedDefaultAccountId;
+          final expenseCategoryRemaps = await _loadLocalCategoryRemaps(
+            providerContainer,
+            userId: user.uid,
+            transactionType: 'expense',
+          );
+          final incomeCategoryRemaps = await _loadLocalCategoryRemaps(
+            providerContainer,
+            userId: user.uid,
+            transactionType: 'income',
+          );
 
           // Parse ALL items and immediately optimistic-log them.
           final parsed = items
@@ -2664,10 +2702,15 @@ Future<void> _processExpense(
                   _debugPrint('Skipping AI item with invalid amount/currency');
                   return null;
                 }
-                final category = _resolveOptimisticAiCategory(
+                final resolvedCategory = _resolveOptimisticAiCategory(
                   rawCategory: item['category'],
                   rawDescription: item['description'],
                   isIncome: isIncome,
+                );
+                final category = _applyLocalCategoryRemap(
+                  category: resolvedCategory,
+                  remaps:
+                      isIncome ? incomeCategoryRemaps : expenseCategoryRemaps,
                 );
                 final transaction = ParsedExpense(
                   isIncome: isIncome,

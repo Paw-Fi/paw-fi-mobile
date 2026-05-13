@@ -16,7 +16,7 @@ const String localMutationStatusFailed = 'failed';
 const String localMutationStatusSynced = 'synced';
 const String localMutationStatusCancelled = 'cancelled';
 
-const int _localDatabaseSchemaVersion = 1;
+const int _localDatabaseSchemaVersion = 2;
 
 String localScopeKey({
   required String userId,
@@ -191,6 +191,24 @@ class LocalMutationOutboxData {
   final String status;
   final String? lastError;
   final DateTime? retryAfter;
+}
+
+class LocalCategoryRemapPreference {
+  const LocalCategoryRemapPreference({
+    required this.userId,
+    required this.transactionType,
+    required this.fromCategory,
+    required this.toCategory,
+    required this.useCount,
+    required this.lastUsedAt,
+  });
+
+  final String userId;
+  final String transactionType;
+  final String fromCategory;
+  final String toCategory;
+  final int useCount;
+  final DateTime lastUsedAt;
 }
 
 class LocalJsonCacheEntry {
@@ -1204,6 +1222,201 @@ class MonekoDatabase {
     );
   }
 
+  Future<void> saveCategoryRemapPreference({
+    required String userId,
+    required String fromCategory,
+    required String toCategory,
+    required String transactionType,
+    required String clientMutationId,
+    DateTime? usedAt,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedFrom = _normalizeCategoryRemapValue(fromCategory);
+    final normalizedTo = _normalizeCategoryRemapValue(toCategory);
+    final normalizedType = _normalizeCategoryRemapValue(transactionType);
+    if (normalizedUserId.isEmpty ||
+        normalizedFrom.isEmpty ||
+        normalizedTo.isEmpty ||
+        (normalizedType != 'expense' && normalizedType != 'income')) {
+      return;
+    }
+
+    final now = DateTime.now().toUtc();
+    final lastUsed = (usedAt ?? now).toUtc();
+    final entityId = '$normalizedUserId:$normalizedType:$normalizedFrom';
+    final existing = _db.select(
+      '''
+      SELECT use_count
+      FROM local_category_remaps
+      WHERE user_id = ? AND transaction_type = ? AND from_category_name = ?
+      LIMIT 1
+      ''',
+      [normalizedUserId, normalizedType, normalizedFrom],
+    );
+    final existingUseCount =
+        existing.isEmpty ? 0 : ((existing.first['use_count'] as int?) ?? 0);
+    final nextUseCount = existingUseCount + 1;
+
+    _runInTransaction(() {
+      _db.execute(
+        '''
+        INSERT INTO local_category_remaps (
+          user_id, transaction_type, from_category_name, to_category_name,
+          use_count, last_used_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, transaction_type, from_category_name) DO UPDATE SET
+          to_category_name = excluded.to_category_name,
+          use_count = excluded.use_count,
+          last_used_at = excluded.last_used_at,
+          updated_at = excluded.updated_at
+        ''',
+        [
+          normalizedUserId,
+          normalizedType,
+          normalizedFrom,
+          normalizedTo,
+          nextUseCount,
+          _instant(lastUsed),
+          _instant(now),
+        ],
+      );
+      _enqueueMutationRow(
+        clientMutationId: clientMutationId,
+        entityType: 'category_remap',
+        entityId: entityId,
+        operation: 'save_category_remap',
+        payload: {
+          'userId': normalizedUserId,
+          'fromCategory': normalizedFrom,
+          'toCategory': normalizedTo,
+          'transactionType': normalizedType,
+          'useCount': nextUseCount,
+          'lastUsedAt': _instant(lastUsed),
+        },
+      );
+    });
+  }
+
+  Future<String?> resolveCategoryRemap({
+    required String userId,
+    required String category,
+    required String transactionType,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedCategory = _normalizeCategoryRemapValue(category);
+    final normalizedType = _normalizeCategoryRemapValue(transactionType);
+    if (normalizedUserId.isEmpty ||
+        normalizedCategory.isEmpty ||
+        (normalizedType != 'expense' && normalizedType != 'income')) {
+      return null;
+    }
+
+    final rows = _db.select(
+      '''
+      SELECT to_category_name
+      FROM local_category_remaps
+      WHERE user_id = ? AND transaction_type = ? AND from_category_name = ?
+      LIMIT 1
+      ''',
+      [normalizedUserId, normalizedType, normalizedCategory],
+    );
+    if (rows.isEmpty) return null;
+    final mapped = rows.first['to_category_name']?.toString().trim();
+    return mapped == null || mapped.isEmpty ? null : mapped;
+  }
+
+  Future<void> upsertCategoryRemapsFromRemote(
+    Iterable<LocalCategoryRemapPreference> remaps,
+  ) async {
+    _runInTransaction(() {
+      for (final remap in remaps) {
+        final normalizedUserId = remap.userId.trim();
+        final normalizedFrom = _normalizeCategoryRemapValue(remap.fromCategory);
+        final normalizedTo = _normalizeCategoryRemapValue(remap.toCategory);
+        final normalizedType =
+            _normalizeCategoryRemapValue(remap.transactionType);
+        if (normalizedUserId.isEmpty ||
+            normalizedFrom.isEmpty ||
+            normalizedTo.isEmpty ||
+            (normalizedType != 'expense' && normalizedType != 'income')) {
+          continue;
+        }
+
+        final remoteLastUsed = remap.lastUsedAt.toUtc();
+        final existing = _db.select(
+          '''
+          SELECT last_used_at
+          FROM local_category_remaps
+          WHERE user_id = ? AND transaction_type = ? AND from_category_name = ?
+          LIMIT 1
+          ''',
+          [normalizedUserId, normalizedType, normalizedFrom],
+        );
+        if (existing.isNotEmpty) {
+          final localLastUsed = _parseNullableDate(
+            existing.first['last_used_at']?.toString(),
+          );
+          if (localLastUsed != null && localLastUsed.isAfter(remoteLastUsed)) {
+            continue;
+          }
+        }
+
+        _db.execute(
+          '''
+          INSERT INTO local_category_remaps (
+            user_id, transaction_type, from_category_name, to_category_name,
+            use_count, last_used_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(user_id, transaction_type, from_category_name) DO UPDATE SET
+            to_category_name = excluded.to_category_name,
+            use_count = excluded.use_count,
+            last_used_at = excluded.last_used_at,
+            updated_at = excluded.updated_at
+          ''',
+          [
+            normalizedUserId,
+            normalizedType,
+            normalizedFrom,
+            normalizedTo,
+            remap.useCount < 1 ? 1 : remap.useCount,
+            _instant(remoteLastUsed),
+            _instant(DateTime.now().toUtc()),
+          ],
+        );
+      }
+    });
+  }
+
+  Future<Map<String, String>> getCategoryRemaps({
+    required String userId,
+    required String transactionType,
+  }) async {
+    final normalizedUserId = userId.trim();
+    final normalizedType = _normalizeCategoryRemapValue(transactionType);
+    if (normalizedUserId.isEmpty ||
+        (normalizedType != 'expense' && normalizedType != 'income')) {
+      return const <String, String>{};
+    }
+
+    final rows = _db.select(
+      '''
+      SELECT from_category_name, to_category_name
+      FROM local_category_remaps
+      WHERE user_id = ? AND transaction_type = ?
+      ORDER BY last_used_at DESC
+      ''',
+      [normalizedUserId, normalizedType],
+    );
+    return {
+      for (final row in rows)
+        if ((row['from_category_name']?.toString().trim().isNotEmpty ??
+                false) &&
+            (row['to_category_name']?.toString().trim().isNotEmpty ?? false))
+          row['from_category_name'].toString():
+              row['to_category_name'].toString(),
+    };
+  }
+
   Future<List<LocalMutationOutboxData>> getOutboxMutations() async {
     final rows = _db.select(
       '''
@@ -1492,6 +1705,22 @@ class MonekoDatabase {
       'CREATE INDEX IF NOT EXISTS idx_local_json_cache_namespace_updated '
       'ON local_json_cache(namespace, updated_at DESC);',
     );
+    _db.execute('''
+      CREATE TABLE IF NOT EXISTS local_category_remaps (
+        user_id TEXT NOT NULL,
+        transaction_type TEXT NOT NULL,
+        from_category_name TEXT NOT NULL,
+        to_category_name TEXT NOT NULL,
+        use_count INTEGER NOT NULL DEFAULT 1,
+        last_used_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, transaction_type, from_category_name)
+      );
+    ''');
+    _db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_local_category_remaps_user_type '
+      'ON local_category_remaps(user_id, transaction_type, last_used_at DESC);',
+    );
     _migrateSchemaIfNeeded();
   }
 
@@ -1558,6 +1787,20 @@ class MonekoDatabase {
           'INTEGER NOT NULL DEFAULT 0');
       _ensureColumn('local_transaction_feed_cache', 'updated_at',
           "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn(
+          'local_category_remaps', 'user_id', "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_category_remaps', 'transaction_type',
+          "TEXT NOT NULL DEFAULT 'expense'");
+      _ensureColumn('local_category_remaps', 'from_category_name',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn('local_category_remaps', 'to_category_name',
+          "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn(
+          'local_category_remaps', 'use_count', 'INTEGER NOT NULL DEFAULT 1');
+      _ensureColumn(
+          'local_category_remaps', 'last_used_at', "TEXT NOT NULL DEFAULT ''");
+      _ensureColumn(
+          'local_category_remaps', 'updated_at', "TEXT NOT NULL DEFAULT ''");
 
       _db.execute('''
         UPDATE local_transactions
@@ -1571,6 +1814,9 @@ class MonekoDatabase {
       _db.execute('PRAGMA user_version = $_localDatabaseSchemaVersion');
     });
   }
+
+  String _normalizeCategoryRemapValue(String value) =>
+      value.trim().toLowerCase();
 
   void _ensureColumn(String tableName, String columnName, String definition) {
     final columns = _db

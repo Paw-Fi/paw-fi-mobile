@@ -9,6 +9,7 @@ import 'package:moneko/features/home/presentation/state/state.dart';
 import 'package:moneko/core/navigation/navigation_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/household_scope_provider.dart';
+import 'monthly_report_page.dart';
 import '../widgets/tabs/tabs.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/shared/widgets/moneko_tab_bar_view.dart';
@@ -168,6 +169,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     context.l10n.runningTab,
                     context.l10n.day30Tab,
                     context.l10n.longTermTab,
+                    'Health',
                   ],
                   children: [
                     _buildLazyInsightsTab(
@@ -212,6 +214,11 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                         householdScope: householdScope,
                         selectedCurrency: filterState.selectedCurrency,
                       ),
+                    ),
+                    _buildLazyInsightsTab(
+                      index: 4,
+                      activeIndex: currentInsightsTabIndex,
+                      buildChild: () => const MonthlyReportPage(),
                     ),
                   ],
                   onTabChanged: (index) {
