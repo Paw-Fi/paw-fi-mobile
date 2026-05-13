@@ -39,29 +39,94 @@ class MonthlyReportPage extends ConsumerWidget {
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics()),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 64),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildHeader(context, colorScheme, report),
+            const SizedBox(height: 20),
             _buildOverallHealthStatus(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Today'),
+            const SizedBox(height: 12),
             _buildTopSummaryCards(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Daily allowance'),
+            const SizedBox(height: 12),
             _buildSafeToSpend(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Budget health'),
+            const SizedBox(height: 12),
             _buildBudgetHealthRows(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Unusual activity'),
+            const SizedBox(height: 12),
             _buildAnomalies(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Recurring'),
+            const SizedBox(height: 12),
             _buildSubscriptions(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Coming up'),
+            const SizedBox(height: 12),
             _buildBillCalendar(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Cash flow forecast'),
+            const SizedBox(height: 12),
             _buildCashFlowForecast(context, colorScheme, report),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
+            _buildSectionLabel(colorScheme, 'Goals & sinking funds'),
+            const SizedBox(height: 12),
             _buildGoals(context, colorScheme, report),
-            const SizedBox(height: 60),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final monthLabel = _formatMonthYear(report.monthStart);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          monthLabel.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.4,
+            color: colorScheme.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Monthly Report',
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.8,
+            color: colorScheme.foreground,
+            height: 1.1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionLabel(ColorScheme colorScheme, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          color: colorScheme.mutedForeground,
         ),
       ),
     );
@@ -72,44 +137,55 @@ class MonthlyReportPage extends ConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
+    final statusColor = _statusColor(report.overview.status, colorScheme);
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
       decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.1)),
+        color: colorScheme.homeCardSurface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+            spreadRadius: -8,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.auto_awesome_rounded, color: colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Monthly Health Status',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ],
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-              _buildStatusBadge(report.overview.status, colorScheme),
+              const SizedBox(width: 8),
+              Text(
+                monthlyReportStatusLabel(report.overview.status).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: statusColor,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
             report.summary,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 17,
               color: colorScheme.foreground,
-              height: 1.6,
-              fontWeight: FontWeight.w500,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
             ),
           ),
         ],
@@ -126,40 +202,44 @@ class MonthlyReportPage extends ConsumerWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 0.85,
+      mainAxisSpacing: 14,
+      crossAxisSpacing: 14,
+      childAspectRatio: 0.92,
       children: [
         _buildGridCard(
           colorScheme: colorScheme,
-          icon: Icons.account_balance_wallet_rounded,
-          iconColor: AppTheme.success,
+          illustration: _Illustration.wallet,
+          accent: colorScheme.success,
           label: 'Safe to spend',
-          value: '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+          value:
+              '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
           status: monthlyReportStatusLabel(report.overview.status),
         ),
         _buildGridCard(
           colorScheme: colorScheme,
-          icon: Icons.monitor_heart_rounded,
-          iconColor: AppTheme.danger,
+          illustration: _Illustration.pulse,
+          accent: colorScheme.primary,
           label: 'Spending pace',
-          value: formatCurrency(report.overview.spending, report.currencyCode),
+          value: formatCurrency(
+              report.overview.spending, report.currencyCode),
           status: 'Total spent',
         ),
         _buildGridCard(
           colorScheme: colorScheme,
-          icon: Icons.savings_rounded,
-          iconColor: AppTheme.insightsRunning,
+          illustration: _Illustration.coins,
+          accent: AppTheme.insightsRunning,
           label: 'Savings progress',
-          value: formatCurrency(report.overview.savings, report.currencyCode),
+          value: formatCurrency(
+              report.overview.savings, report.currencyCode),
           status: 'Saved so far',
         ),
         _buildGridCard(
           colorScheme: colorScheme,
-          icon: Icons.calendar_month_rounded,
-          iconColor: AppTheme.warning,
+          illustration: _Illustration.calendar,
+          accent: colorScheme.warning,
           label: 'Upcoming bills',
-          value: formatCurrency(report.subscriptions.totalMonthlyAmount, report.currencyCode),
+          value: formatCurrency(
+              report.subscriptions.totalMonthlyAmount, report.currencyCode),
           status: 'This month',
         ),
       ],
@@ -168,8 +248,8 @@ class MonthlyReportPage extends ConsumerWidget {
 
   Widget _buildGridCard({
     required ColorScheme colorScheme,
-    required IconData icon,
-    required Color iconColor,
+    required _Illustration illustration,
+    required Color accent,
     required String label,
     required String value,
     required String status,
@@ -178,25 +258,31 @@ class MonthlyReportPage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.homeCardBorder, width: 1),
         boxShadow: [
           BoxShadow(
             color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+            blurRadius: 28,
+            offset: const Offset(0, 6),
+            spreadRadius: -8,
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(
-            icon,
-            size: 44,
-            color: iconColor.withValues(alpha: 0.8),
+          SizedBox(
+            height: 52,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _MonekoIllustration(
+                variant: illustration,
+                accent: accent,
+                muted: colorScheme.mutedForeground,
+                size: 52,
+              ),
+            ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,9 +290,10 @@ class MonthlyReportPage extends ConsumerWidget {
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: colorScheme.mutedForeground,
+                  letterSpacing: 0.1,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -221,7 +308,7 @@ class MonthlyReportPage extends ConsumerWidget {
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: colorScheme.foreground,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.6,
                   ),
                 ),
               ),
@@ -230,8 +317,8 @@ class MonthlyReportPage extends ConsumerWidget {
                 status,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: iconColor,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -248,61 +335,116 @@ class MonthlyReportPage extends ConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
+    final daily = formatCurrency(
+        report.safeToSpend.dailyAmount, report.currencyCode);
+    final budgetRemaining = formatCurrency(
+        report.safeToSpend.budgetRemaining, report.currencyCode);
+    final futureIncome = formatCurrency(
+        report.safeToSpend.futureIncome, report.currencyCode);
+    final futureObligations = formatCurrency(
+        report.safeToSpend.futureObligations, report.currencyCode);
     return InsightsSectionCard(
       colorScheme: colorScheme,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.bolt_rounded, color: colorScheme.primary, size: 28),
-              const SizedBox(width: 12),
-              Text(
-                'Daily Safe-to-Spend',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Safe to spend daily',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '$daily/day',
+                        style: TextStyle(
+                          fontSize: 38,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -1.2,
+                          color: colorScheme.foreground,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'for the next ${report.safeToSpend.daysRemaining} days',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.mutedForeground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              _MonekoIllustration(
+                variant: _Illustration.pulse,
+                accent: colorScheme.primary,
+                muted: colorScheme.mutedForeground,
+                size: 84,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          RichText(
-            text: TextSpan(
-              style: TextStyle(
-                fontSize: 16,
-                color: colorScheme.foreground,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
-              children: [
-                const TextSpan(text: 'You can safely spend '),
-                TextSpan(
-                  text: '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                TextSpan(
-                  text: ' for the next ${report.safeToSpend.daysRemaining} days.',
-                ),
-              ],
-            ),
+          const SizedBox(height: 22),
+          Container(
+            height: 1,
+            color: colorScheme.border.withValues(alpha: 0.4),
           ),
+          const SizedBox(height: 18),
+          _buildSafeRow(colorScheme, 'Budget remaining', budgetRemaining,
+              colorScheme.foreground),
           const SizedBox(height: 12),
-          Text(
-            'Based on remaining income, fixed bills, savings goals, and category budgets. Easy to understand without inspecting every category.',
-            style: TextStyle(
-              fontSize: 13,
-              color: colorScheme.mutedForeground,
-              height: 1.4,
-            ),
-          ),
+          _buildSafeRow(colorScheme, 'Expected income left', '+$futureIncome',
+              colorScheme.success),
+          const SizedBox(height: 12),
+          _buildSafeRow(colorScheme, 'Bills still due', '−$futureObligations',
+              colorScheme.warning),
         ],
       ),
+    );
+  }
+
+  Widget _buildSafeRow(
+    ColorScheme colorScheme,
+    String label,
+    String value,
+    Color valueColor,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: colorScheme.mutedForeground,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: valueColor,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ],
     );
   }
 
@@ -318,8 +460,6 @@ class MonthlyReportPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Budget Health & Pace', colorScheme),
-          const SizedBox(height: 24),
           ...report.spendingPace.map((paceItem) {
             final healthItem = report.budgetHealth.firstWhere(
               (h) => h.name == paceItem.label,
@@ -331,8 +471,9 @@ class MonthlyReportPage extends ConsumerWidget {
                 remaining: 0,
               ),
             );
+            final isLast = paceItem == report.spendingPace.last;
             return Padding(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 22),
               child: _buildBudgetRow(context, colorScheme, report.currencyCode, paceItem, healthItem),
             );
           }),
@@ -466,19 +607,48 @@ class MonthlyReportPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Unusual Activity', colorScheme),
-          const SizedBox(height: 20),
           if (report.anomalies.isEmpty)
-            _emptyText(colorScheme, 'No unusual spending detected from your real data.')
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _MonekoIllustration(
+                  variant: _Illustration.magnifier,
+                  accent: colorScheme.success,
+                  muted: colorScheme.mutedForeground,
+                  size: 56,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'No unusual spending this month. Nice and steady.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            )
           else
-            ...report.anomalies.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 20),
+            ...report.anomalies.asMap().entries.map((entry) {
+              final item = entry.value;
+              final isLast = entry.key == report.anomalies.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.search_rounded, size: 28, color: AppTheme.warning.withValues(alpha: 0.8)),
-                    const SizedBox(width: 16),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: _MonekoIllustration(
+                        variant: _Illustration.magnifier,
+                        accent: _statusColor(item.status, colorScheme),
+                        muted: colorScheme.mutedForeground,
+                        size: 44,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,8 +657,9 @@ class MonthlyReportPage extends ConsumerWidget {
                             item.title,
                             style: TextStyle(
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               color: colorScheme.foreground,
+                              letterSpacing: -0.2,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -497,7 +668,7 @@ class MonthlyReportPage extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 13,
                               color: colorScheme.mutedForeground,
-                              height: 1.4,
+                              height: 1.45,
                             ),
                           ),
                         ],
@@ -505,8 +676,8 @@ class MonthlyReportPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+            }),
         ],
       ),
     );
@@ -523,69 +694,112 @@ class MonthlyReportPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _sectionTitle('Subscriptions & Recurring', colorScheme),
-              Text(
-                '${formatCurrency(report.subscriptions.totalMonthlyAmount, report.currencyCode)}/mo',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          if (report.subscriptions.items.isEmpty)
-            _emptyText(colorScheme, 'No recurring expenses detected yet.')
-          else
-            ...report.subscriptions.items.take(6).map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.receipt_long_rounded,
-                      size: 28,
-                      color: _subscriptionColor(item.status, colorScheme).withValues(alpha: 0.8),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.name,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.foreground,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item.note,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _subscriptionColor(item.status, colorScheme),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'Monthly recurring',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
                       ),
                     ),
+                    const SizedBox(height: 6),
                     Text(
-                      formatCurrency(item.amount, report.currencyCode),
+                      '${formatCurrency(report.subscriptions.totalMonthlyAmount, report.currencyCode)}/mo',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
                         color: colorScheme.foreground,
+                        letterSpacing: -0.6,
                       ),
                     ),
                   ],
                 ),
               ),
+              _MonekoIllustration(
+                variant: _Illustration.receipt,
+                accent: colorScheme.primary,
+                muted: colorScheme.mutedForeground,
+                size: 64,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            height: 1,
+            color: colorScheme.border.withValues(alpha: 0.4),
+          ),
+          const SizedBox(height: 16),
+          if (report.subscriptions.items.isEmpty)
+            _emptyText(colorScheme, 'No recurring expenses detected yet.')
+          else
+            ...report.subscriptions.items.take(6).toList().asMap().entries.map(
+              (entry) {
+                final item = entry.value;
+                final isLast = entry.key ==
+                    report.subscriptions.items.take(6).length - 1;
+                final accent = _subscriptionColor(item.status, colorScheme);
+                return Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.foreground,
+                                letterSpacing: -0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.note,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: accent,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        formatCurrency(item.amount, report.currencyCode),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.foreground,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
         ],
       ),
@@ -602,53 +816,105 @@ class MonthlyReportPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Bill Calendar', colorScheme),
-          const SizedBox(height: 24),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Bill calendar',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.foreground,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ),
+              _MonekoIllustration(
+                variant: _Illustration.calendar,
+                accent: colorScheme.warning,
+                muted: colorScheme.mutedForeground,
+                size: 56,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           if (report.upcomingObligations.isEmpty)
-            _emptyText(colorScheme, 'No upcoming bills or income detected this month.')
+            _emptyText(colorScheme,
+                'No upcoming bills or income detected this month.')
           else
-            ...report.upcomingObligations.take(8).map(
-              (item) {
+            ...report.upcomingObligations.take(8).toList().asMap().entries.map(
+              (entry) {
+                final item = entry.value;
                 final isIncome = item.type == 'income';
+                final isLast = entry.key ==
+                    report.upcomingObligations.take(8).length - 1;
+                final accent = isIncome
+                    ? colorScheme.success
+                    : colorScheme.mutedForeground;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 20),
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SizedBox(
-                        width: 56,
-                        child: Text(
-                          _formatShortDate(context, item.date),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: colorScheme.mutedForeground,
-                          ),
+                      Container(
+                        width: 46,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              _formatDayNumber(item.date),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: accent,
+                                height: 1.0,
+                                letterSpacing: -0.4,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _formatMonthAbbrev(item.date).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: accent.withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: colorScheme.border.withValues(alpha: 0.5),
-                        margin: const EdgeInsets.only(right: 16),
-                      ),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Text(
                           item.name,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: colorScheme.foreground,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         isIncome
                             ? '+${formatCurrency(item.amount, report.currencyCode)}'
-                            : formatCurrency(-item.amount, report.currencyCode),
+                            : formatCurrency(
+                                -item.amount, report.currencyCode),
                         style: TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: isIncome ? AppTheme.success : colorScheme.foreground,
+                          fontWeight: FontWeight.w800,
+                          color: isIncome
+                              ? colorScheme.success
+                              : colorScheme.foreground,
+                          letterSpacing: -0.3,
                         ),
                       ),
                     ],
@@ -671,8 +937,43 @@ class MonthlyReportPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Cash Flow Forecast', colorScheme),
-          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'End of month forecast',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.mutedForeground,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      formatCurrency(report.overview.forecastedBalance,
+                          report.currencyCode),
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _MonekoIllustration(
+                variant: _Illustration.coins,
+                accent: colorScheme.success,
+                muted: colorScheme.mutedForeground,
+                size: 64,
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
           ...report.cashFlowForecast.asMap().entries.map((entry) {
             final index = entry.key;
             final point = entry.value;
@@ -748,14 +1049,35 @@ class MonthlyReportPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Goals & Sinking Funds', colorScheme),
-          const SizedBox(height: 24),
           if (report.goals.isEmpty)
-            _emptyText(colorScheme, 'No active goals found for this currency.')
+            Row(
+              children: [
+                _MonekoIllustration(
+                  variant: _Illustration.target,
+                  accent: colorScheme.primary,
+                  muted: colorScheme.mutedForeground,
+                  size: 56,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    'No active goals found for this currency.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.mutedForeground,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            )
           else
-            ...report.goals.take(5).map(
-              (goal) => Padding(
-                padding: const EdgeInsets.only(bottom: 24),
+            ...report.goals.take(5).toList().asMap().entries.map((entry) {
+              final goal = entry.value;
+              final isLast = entry.key == report.goals.take(5).length - 1;
+              final pct = (goal.progress.clamp(0.0, 1.0) * 100).round();
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 22),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -763,49 +1085,55 @@ class MonthlyReportPage extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Row(
-                            children: [
-                              Icon(Icons.flag_rounded, size: 24, color: colorScheme.primary.withValues(alpha: 0.8)),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                child: Text(
-                                  goal.title,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: colorScheme.foreground,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            goal.title,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _buildStatusBadge(goal.status, colorScheme),
+                        Text(
+                          '$pct%',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: _statusColor(goal.status, colorScheme),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
-                        minHeight: 8,
+                        minHeight: 6,
                         value: goal.progress,
-                        backgroundColor: colorScheme.muted,
-                        valueColor: AlwaysStoppedAnimation(colorScheme.primary.withValues(alpha: 0.8)),
+                        backgroundColor:
+                            colorScheme.muted.withValues(alpha: 0.6),
+                        valueColor: AlwaysStoppedAnimation(
+                            _statusColor(goal.status, colorScheme)),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Saved: ${formatCurrency(goal.currentAmount, report.currencyCode)} / ${formatCurrency(goal.targetAmount, report.currencyCode)}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: colorScheme.foreground,
+                        Expanded(
+                          child: Text(
+                            '${formatCurrency(goal.currentAmount, report.currencyCode)} of ${formatCurrency(goal.targetAmount, report.currencyCode)}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.foreground,
+                              letterSpacing: -0.1,
+                            ),
                           ),
                         ),
                         Text(
@@ -824,15 +1152,15 @@ class MonthlyReportPage extends ConsumerWidget {
                         'You might need to adjust your contributions to stay on track for this goal.',
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppTheme.warning,
+                          color: colorScheme.warning,
                           height: 1.4,
                         ),
                       ),
                     ]
                   ],
                 ),
-              ),
-            ),
+              );
+            }),
         ],
       ),
     );
@@ -885,17 +1213,6 @@ class MonthlyReportPage extends ConsumerWidget {
     );
   }
 
-  Widget _sectionTitle(String text, ColorScheme colorScheme) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: colorScheme.mutedForeground,
-      ),
-    );
-  }
-
   Widget _emptyText(ColorScheme colorScheme, String text) {
     return Text(
       text,
@@ -936,14 +1253,256 @@ class MonthlyReportPage extends ConsumerWidget {
     }
   }
 
-  String _formatShortDate(BuildContext context, DateTime date) {
-    final localizations = MaterialLocalizations.of(context);
-    return localizations.formatMediumDate(date).split(',').first;
+  String _formatMonthYear(DateTime date) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return '${months[date.month - 1]} ${date.year}';
   }
 
-  String _subscriptionInitial(String name) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return '?';
-    return trimmed.characters.first.toUpperCase();
+  String _formatDayNumber(DateTime date) => date.day.toString();
+
+  String _formatMonthAbbrev(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return months[date.month - 1];
   }
+}
+
+enum _Illustration { wallet, pulse, coins, calendar, target, receipt, magnifier }
+
+class _MonekoIllustration extends StatelessWidget {
+  const _MonekoIllustration({
+    required this.variant,
+    required this.accent,
+    required this.muted,
+    this.size = 56,
+  });
+
+  final _Illustration variant;
+  final Color accent;
+  final Color muted;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _IllustrationPainter(
+          variant: variant,
+          accent: accent,
+          muted: muted,
+        ),
+      ),
+    );
+  }
+}
+
+class _IllustrationPainter extends CustomPainter {
+  _IllustrationPainter({
+    required this.variant,
+    required this.accent,
+    required this.muted,
+  });
+
+  final _Illustration variant;
+  final Color accent;
+  final Color muted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final stroke = Paint()
+      ..color = accent
+      ..strokeWidth = w * 0.06
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = accent.withValues(alpha: 0.18)
+      ..style = PaintingStyle.fill;
+    final softFill = Paint()
+      ..color = accent.withValues(alpha: 0.10)
+      ..style = PaintingStyle.fill;
+
+    switch (variant) {
+      case _Illustration.wallet:
+        _paintWallet(canvas, w, h, fill, softFill, stroke);
+        break;
+      case _Illustration.pulse:
+        _paintPulse(canvas, w, h, softFill, stroke);
+        break;
+      case _Illustration.coins:
+        _paintCoins(canvas, w, h, fill, softFill, stroke);
+        break;
+      case _Illustration.calendar:
+        _paintCalendar(canvas, w, h, fill, softFill, stroke);
+        break;
+      case _Illustration.target:
+        _paintTarget(canvas, w, h, fill, softFill, stroke);
+        break;
+      case _Illustration.receipt:
+        _paintReceipt(canvas, w, h, fill, softFill, stroke);
+        break;
+      case _Illustration.magnifier:
+        _paintMagnifier(canvas, w, h, fill, softFill, stroke);
+        break;
+    }
+  }
+
+  void _paintWallet(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    final body = RRect.fromLTRBR(
+      w * 0.10, h * 0.30, w * 0.92, h * 0.82, Radius.circular(w * 0.12));
+    canvas.drawRRect(body, soft);
+    canvas.drawRRect(body, stroke);
+    // Flap
+    final flap = Path()
+      ..moveTo(w * 0.18, h * 0.30)
+      ..lineTo(w * 0.62, h * 0.18)
+      ..lineTo(w * 0.78, h * 0.30)
+      ..close();
+    canvas.drawPath(flap, fill);
+    canvas.drawPath(flap, stroke);
+    // Clasp dot
+    final dot = Paint()..color = stroke.color;
+    canvas.drawCircle(Offset(w * 0.74, h * 0.58), w * 0.05, dot);
+  }
+
+  void _paintPulse(
+      Canvas canvas, double w, double h, Paint soft, Paint stroke) {
+    // baseline soft band
+    final band = RRect.fromLTRBR(
+        w * 0.06, h * 0.46, w * 0.94, h * 0.58, Radius.circular(h));
+    canvas.drawRRect(band, soft);
+    final path = Path()
+      ..moveTo(w * 0.06, h * 0.55)
+      ..lineTo(w * 0.26, h * 0.55)
+      ..lineTo(w * 0.34, h * 0.30)
+      ..lineTo(w * 0.44, h * 0.78)
+      ..lineTo(w * 0.54, h * 0.40)
+      ..lineTo(w * 0.62, h * 0.62)
+      ..lineTo(w * 0.74, h * 0.55)
+      ..lineTo(w * 0.94, h * 0.55);
+    canvas.drawPath(path, stroke);
+  }
+
+  void _paintCoins(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    void coin(Rect r) {
+      canvas.drawOval(r, soft);
+      canvas.drawOval(r, stroke);
+    }
+    coin(Rect.fromLTWH(w * 0.20, h * 0.62, w * 0.55, h * 0.18));
+    coin(Rect.fromLTWH(w * 0.18, h * 0.46, w * 0.58, h * 0.18));
+    coin(Rect.fromLTWH(w * 0.22, h * 0.28, w * 0.52, h * 0.18));
+    // shine
+    final shine = Paint()
+      ..color = stroke.color.withValues(alpha: 0.6)
+      ..strokeWidth = stroke.strokeWidth * 0.7
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(w * 0.34, h * 0.34),
+      Offset(w * 0.48, h * 0.34),
+      shine,
+    );
+  }
+
+  void _paintCalendar(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    final body = RRect.fromLTRBR(
+        w * 0.12, h * 0.22, w * 0.88, h * 0.86, Radius.circular(w * 0.10));
+    canvas.drawRRect(body, soft);
+    canvas.drawRRect(body, stroke);
+    // top binder line
+    final line = Paint()
+      ..color = stroke.color
+      ..strokeWidth = stroke.strokeWidth * 0.9
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+        Offset(w * 0.12, h * 0.40), Offset(w * 0.88, h * 0.40), line);
+    // rings
+    canvas.drawLine(Offset(w * 0.32, h * 0.14), Offset(w * 0.32, h * 0.30), stroke);
+    canvas.drawLine(Offset(w * 0.68, h * 0.14), Offset(w * 0.68, h * 0.30), stroke);
+    // dot for date
+    final dot = Paint()..color = accent;
+    canvas.drawRRect(
+      RRect.fromLTRBR(w * 0.42, h * 0.54, w * 0.58, h * 0.70, Radius.circular(w * 0.04)),
+      dot,
+    );
+  }
+
+  void _paintTarget(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    final center = Offset(w / 2, h / 2);
+    canvas.drawCircle(center, w * 0.42, soft);
+    canvas.drawCircle(center, w * 0.42, stroke);
+    canvas.drawCircle(center, w * 0.28, stroke);
+    canvas.drawCircle(center, w * 0.12, Paint()..color = accent);
+    // arrow
+    final arrow = Paint()
+      ..color = stroke.color
+      ..strokeWidth = stroke.strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(w * 0.80, h * 0.20),
+      center,
+      arrow,
+    );
+  }
+
+  void _paintReceipt(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    final path = Path()
+      ..moveTo(w * 0.22, h * 0.16)
+      ..lineTo(w * 0.78, h * 0.16)
+      ..lineTo(w * 0.78, h * 0.84)
+      ..lineTo(w * 0.70, h * 0.78)
+      ..lineTo(w * 0.60, h * 0.84)
+      ..lineTo(w * 0.50, h * 0.78)
+      ..lineTo(w * 0.40, h * 0.84)
+      ..lineTo(w * 0.30, h * 0.78)
+      ..lineTo(w * 0.22, h * 0.84)
+      ..close();
+    canvas.drawPath(path, soft);
+    canvas.drawPath(path, stroke);
+    final line = Paint()
+      ..color = stroke.color.withValues(alpha: 0.7)
+      ..strokeWidth = stroke.strokeWidth * 0.7
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(w * 0.32, h * 0.36), Offset(w * 0.66, h * 0.36), line);
+    canvas.drawLine(Offset(w * 0.32, h * 0.50), Offset(w * 0.58, h * 0.50), line);
+    canvas.drawLine(Offset(w * 0.32, h * 0.64), Offset(w * 0.62, h * 0.64), line);
+  }
+
+  void _paintMagnifier(
+      Canvas canvas, double w, double h, Paint fill, Paint soft, Paint stroke) {
+    final center = Offset(w * 0.44, h * 0.44);
+    final r = w * 0.28;
+    canvas.drawCircle(center, r, soft);
+    canvas.drawCircle(center, r, stroke);
+    final handle = Paint()
+      ..color = stroke.color
+      ..strokeWidth = stroke.strokeWidth * 1.1
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(center.dx + r * 0.72, center.dy + r * 0.72),
+      Offset(w * 0.86, h * 0.86),
+      handle,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _IllustrationPainter old) =>
+      old.variant != variant || old.accent != accent || old.muted != muted;
 }
