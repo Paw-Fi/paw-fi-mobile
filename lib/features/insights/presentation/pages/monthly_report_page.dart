@@ -207,7 +207,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         colorScheme: colorScheme,
         metrics: rings,
         score: score,
-        status: monthlyReportStatusLabel(report.overview.status),
+        status: _localizedStatusLabel(context, report.overview.status),
         size: 150,
       ),
     );
@@ -221,13 +221,14 @@ class MonthlyReportPage extends HookConsumerWidget {
     final budgetProgress = _budgetUsedProgress(report);
     final spendingCaption = report.trendSummary.spendingChange == 0
         ? _paceStatus(context, report)
-        : '${_formatSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month';
+        : context.l10n.vsLastMonth(_formatSignedCurrency(
+            report.trendSummary.spendingChange, report.currencyCode));
 
     final items = [
       _MonthlyMetricSpec(
         label: context.l10n.safeToSpend,
-        value:
-            '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+        value: context.l10n.perDay(formatCurrency(
+            report.safeToSpend.dailyAmount, report.currencyCode)),
         caption: context.l10n.daysLeft(report.safeToSpend.daysRemaining),
         accent: colorScheme.success,
         icon: Icons.wallet_rounded,
@@ -384,7 +385,7 @@ class MonthlyReportPage extends HookConsumerWidget {
           _MonthlyReportDisclosureRow(
             colorScheme: colorScheme,
             title: getCategoryTranslation(context, item.name),
-            subtitle: _shortCategoryInsight(item),
+            subtitle: _shortCategoryInsight(context, item),
             value: formatCurrency(item.currentSpent, report.currencyCode),
             accent: _statusColor(item.status, colorScheme),
             icon: Icons.category_rounded,
@@ -482,7 +483,7 @@ class MonthlyReportPage extends HookConsumerWidget {
       items.add(
         _MonthlyHighlightItem(
           title: context.l10n.categoryMovement,
-          label: _shortCategoryInsight(mover),
+          label: _shortCategoryInsight(context, mover),
           status: mover.status,
           icon: Icons.category_rounded,
           route:
@@ -527,13 +528,13 @@ class MonthlyReportPage extends HookConsumerWidget {
       case MonthlyReportStatus.safeToSpend:
         return context.l10n.onTrack;
       case MonthlyReportStatus.spendingFast:
-        return 'Spending is moving fast.';
+        return context.l10n.spendingIsMovingFast;
       case MonthlyReportStatus.needsAttention:
-        return 'A small adjustment helps.';
+        return context.l10n.aSmallAdjustmentHelps;
       case MonthlyReportStatus.overBudget:
-        return 'Budgets need attention.';
+        return context.l10n.budgetsNeedAttention;
       case MonthlyReportStatus.unusualSpending:
-        return 'Patterns changed.';
+        return context.l10n.patternsChanged;
     }
   }
 
@@ -545,11 +546,15 @@ class MonthlyReportPage extends HookConsumerWidget {
     return '${trimmed.substring(0, end)}...';
   }
 
-  String _shortCategoryInsight(MonthlyCategoryTrendItem item) {
+  String _shortCategoryInsight(
+      BuildContext context, MonthlyCategoryTrendItem item) {
     final change = item.previousChangePercent ?? item.baselineChangePercent;
     if (change == null) return item.insight;
-    final direction = change >= 0 ? 'higher' : 'lower';
-    return '${item.name} is ${_formatPercent(change.abs())} $direction.';
+    final direction = change >= 0 ? context.l10n.higher : context.l10n.lower;
+    return context.l10n.categoryIsPercentDirection(
+        getCategoryTranslation(context, item.name),
+        _formatPercent(change.abs()),
+        direction);
   }
 
   double _budgetUsedProgress(MonthlyFinancialReport report) {
@@ -604,7 +609,7 @@ class MonthlyReportPage extends HookConsumerWidget {
   }
 
   String _paceStatus(BuildContext context, MonthlyFinancialReport report) {
-    if (report.spendingPace.isEmpty) return 'No budgets yet';
+    if (report.spendingPace.isEmpty) return context.l10n.noBudgetsYet;
     final fastCount = report.spendingPace
         .where(
           (item) =>
@@ -613,9 +618,9 @@ class MonthlyReportPage extends HookConsumerWidget {
               item.status == MonthlyReportStatus.needsAttention,
         )
         .length;
-    if (fastCount == 0) return 'On expected pace';
-    if (fastCount == 1) return '1 budget to watch';
-    return '$fastCount budgets to watch';
+    if (fastCount == 0) return context.l10n.onExpectedPace;
+    if (fastCount == 1) return context.l10n.oneBudgetToWatch;
+    return '$fastCount ${context.l10n.budgetsToWatch}';
   }
 
   List<_HealthRingMetric> _buildHealthRingMetrics(
@@ -631,12 +636,12 @@ class MonthlyReportPage extends HookConsumerWidget {
 
     return [
       _HealthRingMetric(
-        label: 'Safe Spend',
-        value:
-            '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+        label: context.l10n.safeSpend,
+        value: context.l10n.perDay(formatCurrency(
+            report.safeToSpend.dailyAmount, report.currencyCode)),
         status: report.safeToSpend.dailyAmount > 0
-            ? 'Available today'
-            : 'Hold spending',
+            ? context.l10n.availableToday
+            : context.l10n.holdSpending,
         progress: _safeToSpendProgress(report),
         color: vibrantPalette[0],
         icon: Icons.wallet_rounded,
@@ -651,8 +656,10 @@ class MonthlyReportPage extends HookConsumerWidget {
       ),
       _HealthRingMetric(
         label: context.l10n.billsCovered,
-        value: '${report.upcomingObligations.length} scheduled',
-        status: billsCoveredProgress >= 1 ? context.l10n.coveredAhead : 'Needs cash flow',
+        value: context.l10n.scheduledCount(report.upcomingObligations.length),
+        status: billsCoveredProgress >= 1
+            ? context.l10n.coveredAhead
+            : context.l10n.needsCashFlow,
         progress: billsCoveredProgress,
         color: vibrantPalette[2],
         icon: Icons.event_note_rounded,
@@ -663,7 +670,9 @@ class MonthlyReportPage extends HookConsumerWidget {
           report.overview.forecastedBalance,
           report.currencyCode,
         ),
-        status: forecastIsPositive ? 'Positive forecast' : 'Negative forecast',
+        status: forecastIsPositive
+            ? context.l10n.positiveForecast
+            : context.l10n.negativeForecast,
         progress: savingsBufferProgress,
         color: forecastIsPositive ? vibrantPalette[3] : vibrantPalette[1],
         icon: Icons.savings_rounded,
@@ -783,7 +792,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         child: _ReportCard(
           colorScheme: colorScheme,
           child: Text(
-            'Could not load monthly financial health: $error',
+            context.l10n.couldNotLoadReport('$error'),
             textAlign: TextAlign.center,
             style: TextStyle(
               color: colorScheme.destructive,
@@ -811,7 +820,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final reportAsync = ref.watch(monthlyFinancialReportProvider);
-    final selectedRange = useState('Month');
+    final selectedRange = useState('month');
     final snapshot = reportAsync.valueOrNull;
 
     return Scaffold(
@@ -823,11 +832,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ? reportAsync.hasError
                   ? _MonthlyReportDetailShell(
                       colorScheme: colorScheme,
-                      title: _detailTitle(kind),
+                      title: _detailTitle(context, kind),
                       child: _ReportCard(
                         colorScheme: colorScheme,
                         child: Text(
-                          'Could not load report: ${reportAsync.error}',
+                          context.l10n
+                              .couldNotLoadReport('${reportAsync.error}'),
                           style: TextStyle(
                             color: colorScheme.destructive,
                             fontWeight: FontWeight.w600,
@@ -837,7 +847,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                     )
                   : _MonthlyReportDetailShell(
                       colorScheme: colorScheme,
-                      title: _detailTitle(kind),
+                      title: _detailTitle(context, kind),
                       child: _ReportCard(
                         colorScheme: colorScheme,
                         child: Center(
@@ -849,7 +859,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                     )
               : _MonthlyReportDetailShell(
                   colorScheme: colorScheme,
-                  title: _detailTitle(kind),
+                  title: _detailTitle(context, kind),
                   child: _buildDetailContent(
                     context,
                     colorScheme,
@@ -908,15 +918,15 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
           status: context.l10n.financialHealth,
-          title: _detailHealthHeadline(report.overview.status),
+          title: _detailHealthHeadline(context, report.overview.status),
           value: '$score',
-          caption: monthlyReportStatusLabel(report.overview.status),
+          caption: _localizedStatusLabel(context, report.overview.status),
           accent: statusColor,
           visual: _MonthlyReportHealthRing(
             colorScheme: colorScheme,
             metrics: rings,
             score: score,
-            status: monthlyReportStatusLabel(report.overview.status),
+            status: _localizedStatusLabel(context, report.overview.status),
             size: 184,
           ),
         ),
@@ -929,7 +939,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
           label: context.l10n.monthlyHealth,
-          title: _detailHealthHeadline(report.overview.status),
+          title: _detailHealthHeadline(context, report.overview.status),
           body: report.summary,
           accent: statusColor,
           icon: Icons.favorite_rounded,
@@ -1061,7 +1071,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 report.currencyCode,
               ),
               subtitle: report.cashFlowHealth.lowWaterDate == null
-                  ? 'No projected low date'
+                  ? context.l10n.noProjectedLowDate
                   : _detailShortDate(
                       context,
                       report.cashFlowHealth.lowWaterDate!,
@@ -1080,8 +1090,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                       report.cashFlowHealth.firstNegativeDate!,
                     ),
               subtitle: report.cashFlowHealth.firstNegativeDate == null
-                  ? 'Bills appear covered'
-                  : 'Balance may go negative',
+                  ? context.l10n.billsAppearCovered
+                  : context.l10n.balanceMayGoNegative,
               accent: report.cashFlowHealth.firstNegativeDate == null
                   ? colorScheme.success
                   : colorScheme.destructive,
@@ -1115,11 +1125,11 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          status: 'Safe to Spend',
-          title: 'Safe to Spend',
-          value:
-              '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
-          caption: '${report.safeToSpend.daysRemaining} days remaining',
+          status: context.l10n.safeToSpend,
+          title: context.l10n.safeToSpend,
+          value: context.l10n.perDay(formatCurrency(
+              report.safeToSpend.dailyAmount, report.currencyCode)),
+          caption: context.l10n.daysRemaining(report.safeToSpend.daysRemaining),
           accent: accent,
           visual: _MonthlyReportProgressRing(
             colorScheme: colorScheme,
@@ -1133,9 +1143,10 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
           label: context.l10n.allowance,
-          title: 'You can safely spend ${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)} per day.',
-          body:
-              'This covers the next ${report.safeToSpend.daysRemaining} days after scheduled bills, expected income, and remaining budgets.',
+          title: context.l10n.youCanSafelySpendPerDay(formatCurrency(
+              report.safeToSpend.dailyAmount, report.currencyCode)),
+          body: context.l10n
+              .coversNextDaysAfterBills(report.safeToSpend.daysRemaining),
           accent: accent,
           icon: Icons.wallet_rounded,
         ),
@@ -1173,7 +1184,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 report.safeToSpend.futureObligations,
                 report.currencyCode,
               ),
-              subtitle: context.l10n.scheduledCount(report.upcomingObligations.length),
+              subtitle: context.l10n
+                  .scheduledCount(report.upcomingObligations.length),
               accent: report.safeToSpend.futureObligations <=
                       report.safeToSpend.futureIncome +
                           math.max(0, report.overview.currentBalance)
@@ -1234,11 +1246,11 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          status: 'Spending',
-          title: 'Spending',
+          status: context.l10n.spending,
+          title: context.l10n.spending,
           value: formatCurrency(report.overview.spending, report.currencyCode),
-          caption:
-              '${_detailSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month',
+          caption: context.l10n.vsLastMonth(_detailSignedCurrency(
+              report.trendSummary.spendingChange, report.currencyCode)),
           accent: statusColor,
           visual: _MonthlyReportMiniBarChart(
             colorScheme: colorScheme,
@@ -1285,7 +1297,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           for (final item in report.anomalies.take(3)) ...[
             _MonthlyReportAdviceCard(
               colorScheme: colorScheme,
-              label: 'Pattern Check',
+              label: context.l10n.patternCheck,
               title: item.title,
               body: item.description,
               accent: _detailStatusColor(item.status, colorScheme),
@@ -1383,7 +1395,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 title: context.l10n.needsAttention,
                 value: '${stressedCategories.length}',
                 subtitle: stressedCategories
-                    .map((item) => item.name)
+                    .map((item) => getCategoryTranslation(context, item.name))
                     .take(2)
                     .join(', '),
                 accent: colorScheme.warning,
@@ -1432,6 +1444,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               colorScheme: colorScheme,
               title: context.l10n.budgetOverIncome,
               value: _detailNullablePercent(
+                context,
                 report.budgetPlan.budgetToIncomeRatio,
               ),
               subtitle: context.l10n.budgetRiskCount(
@@ -1451,8 +1464,10 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             colorScheme: colorScheme,
             label: context.l10n.budgetHealth,
             title: stressedCategories.length == 1
-                ? '${stressedCategories.first.name} needs attention.'
-                : '${stressedCategories.length} categories need attention.',
+                ? context.l10n.categoryNeedsAttention(
+                    getCategoryTranslation(context, stressedCategories.first.name))
+                : context.l10n
+                    .categoriesNeedAttention(stressedCategories.length),
             body: context.l10n.budgetHealthBody,
             accent: colorScheme.warning,
             icon: Icons.track_changes_rounded,
@@ -1472,7 +1487,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 colorScheme: colorScheme,
                 title: getCategoryTranslation(context, item.name),
                 value: formatCurrency(item.remaining, report.currencyCode),
-                subtitle: _detailBudgetSubtitle(report, item),
+                subtitle: _detailBudgetSubtitle(context, report, item),
                 accent: _detailStatusColor(item.status, colorScheme),
                 visual: _detailBudgetPaceVisual(colorScheme, report, item),
               ),
@@ -1487,7 +1502,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         for (final item in report.spendingPace.take(3)) ...[
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
-            label: monthlyReportStatusLabel(item.status),
+            label: _localizedStatusLabel(context, item.status),
             title: item.label,
             body: item.insight,
             accent: _detailStatusColor(item.status, colorScheme),
@@ -1525,7 +1540,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           status: context.l10n.savings,
           title: context.l10n.savings,
           value: formatCurrency(report.overview.savings, report.currencyCode),
-          caption: '${_detailPercent(report.trendSummary.savingsRate)} rate',
+          caption: context.l10n.savingsRatePercent(
+              _detailPercent(report.trendSummary.savingsRate)),
           accent: accent,
           visual: _MonthlyReportProgressRing(
             colorScheme: colorScheme,
@@ -1543,8 +1559,10 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ? context.l10n.savedMoneyThisMonth
               : context.l10n.usingYourBufferThisMonth,
           body: report.overview.savings >= 0
-              ? context.l10n.positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending
-              : context.l10n.negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst,
+              ? context.l10n
+                  .positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending
+              : context.l10n
+                  .negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst,
           accent: accent,
           icon: Icons.savings_rounded,
           visual: _MonthlyReportMiniBarChart(
@@ -1586,8 +1604,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 report.currencyCode,
               ),
               subtitle: report.overview.forecastedBalance >= 0
-                  ? 'Positive forecast'
-                  : 'Negative forecast',
+                  ? context.l10n.positiveForecast
+                  : context.l10n.negativeForecast,
               accent: report.overview.forecastedBalance >= 0
                   ? colorScheme.success
                   : colorScheme.destructive,
@@ -1598,8 +1616,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               value:
                   formatCurrency(report.overview.savings, report.currencyCode),
               subtitle: report.overview.savings >= 0
-                  ? 'Building room'
-                  : 'Using buffer',
+                  ? context.l10n.buildingRoom
+                  : context.l10n.usingBuffer,
               accent: accent,
               visual: _MonthlyReportProgressBar(
                 colorScheme: colorScheme,
@@ -1625,8 +1643,11 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                   colorScheme: colorScheme,
                   title: goal.title,
                   value: '${(goal.progress * 100).round()}%',
-                  subtitle:
-                      '${formatCurrency(goal.currentAmount, report.currencyCode)} / ${formatCurrency(goal.targetAmount, report.currencyCode)} · ${formatCurrency(goal.monthlyNeeded, report.currencyCode)}/mo needed',
+                  subtitle: context.l10n.goalProgressNeeded(
+                    formatCurrency(goal.currentAmount, report.currencyCode),
+                    formatCurrency(goal.targetAmount, report.currencyCode),
+                    formatCurrency(goal.monthlyNeeded, report.currencyCode),
+                  ),
                   accent: goal.progress >= 1
                       ? colorScheme.success
                       : colorScheme.info,
@@ -1675,9 +1696,15 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           status: first == null
               ? context.l10n.categories
               : getCategoryTranslation(context, first.name),
-          title: first == null ? 'No movers' : getCategoryTranslation(context, first.name),
-          value: first == null ? 'No movers' : formatCurrency(first.currentSpent, report.currencyCode),
-          caption: first == null ? 'More history is needed.' : _detailCategoryCopy(first),
+          title: first == null
+              ? context.l10n.noMovers
+              : getCategoryTranslation(context, first.name),
+          value: first == null
+              ? context.l10n.noMovers
+              : formatCurrency(first.currentSpent, report.currencyCode),
+          caption: first == null
+              ? context.l10n.moreHistoryNeeded
+              : _detailCategoryCopy(context, first),
           accent: first == null
               ? colorScheme.info
               : _detailStatusColor(first.status, colorScheme),
@@ -1749,7 +1776,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                   colorScheme: colorScheme,
                   title: getCategoryTranslation(context, item.name),
                   value: formatCurrency(item.currentSpent, report.currencyCode),
-                  subtitle: _detailCategoryCopy(item),
+                  subtitle: _detailCategoryCopy(context, item),
                   accent: _detailStatusColor(item.status, colorScheme),
                   visual: _MonthlyReportMiniBarChart(
                     colorScheme: colorScheme,
@@ -1796,7 +1823,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           visual: _MonthlyReportProgressRing(
             colorScheme: colorScheme,
             progress: (commitment.incomeShare ?? 0).clamp(0.0, 1.0),
-            center: _detailNullablePercent(commitment.incomeShare),
+            center: _detailNullablePercent(context, commitment.incomeShare),
             accent: accent,
             size: 104,
           ),
@@ -1826,7 +1853,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
               title: context.l10n.incomeShare,
-              value: _detailNullablePercent(commitment.incomeShare),
+              value: _detailNullablePercent(context, commitment.incomeShare),
               accent: accent,
             ),
             _MonthlyReportStaticRow(
@@ -1844,8 +1871,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
             label: context.l10n.recurringCommitment,
-            title:
-                '${formatCurrency(commitment.monthlyAmount, report.currencyCode)} is already committed each month.',
+            title: context.l10n.committedEachMonth(
+                formatCurrency(commitment.monthlyAmount, report.currencyCode)),
             body: context.l10n.recurringCommitmentBody,
             accent: accent,
             icon: Icons.event_note_rounded,
@@ -1935,9 +1962,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           _MonthlyReportStaticRow(
             colorScheme: colorScheme,
             title: entry.key == 0
-                ? entry.value.label
+                ? context.l10n.today
                 : entry.key == report.cashFlowForecast.take(6).length - 1
-                    ? entry.value.label
+                    ? context.l10n.endOfMonth
                     : context.l10n.afterLabel(entry.value.label.toLowerCase()),
             value: formatCurrency(entry.value.balance, report.currencyCode),
             accent: entry.value.balance < 0
@@ -2294,16 +2321,9 @@ class _MonthlyReportPreviewCard extends StatelessWidget {
       colorScheme: colorScheme,
       padding: EdgeInsets.zero,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var index = 0; index < children.length; index++) ...[
-            children[index],
-            if (index != children.length - 1)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: colorScheme.border.withValues(alpha: 0.32),
-              ),
-          ],
+          for (final child in children) child,
         ],
       ),
     );
@@ -2335,66 +2355,83 @@ class _MonthlyReportDisclosureRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 68),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              _MonthlyReportIconChip(
-                colorScheme: colorScheme,
-                accent: accent,
-                icon: icon,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
-                        height: 1.15,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MonthlyReportIconChip(
+                  colorScheme: colorScheme,
+                  accent: accent,
+                  icon: icon,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.foreground,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: colorScheme.mutedForeground,
-                        height: 1.2,
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (visual != null) ...[
-                      const SizedBox(height: 9),
-                      visual!,
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  height: 1.15,
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topRight,
+                      child: Text(
+                        value,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.foreground,
+                          height: 1.15,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
                 ),
+                const SizedBox(width: 4),
+                _MonthlyReportChevron(colorScheme: colorScheme),
+              ],
+            ),
+            if (visual != null) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.only(left: 46, right: 30),
+                child: visual!,
               ),
-              const SizedBox(width: 4),
-              _MonthlyReportChevron(colorScheme: colorScheme),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -2421,63 +2458,72 @@ class _MonthlyReportStaticRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 8,
-            height: 28,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    height: 1.15,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle!,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.mutedForeground,
-                      height: 1.2,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        height: 1.15,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.mutedForeground,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topRight,
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: accent,
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                    ),
                   ),
-                ],
-                if (visual != null) ...[
-                  const SizedBox(height: 9),
-                  visual!,
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.foreground,
-            ),
-          ),
+          if (visual != null) ...[
+            const SizedBox(height: 10),
+            visual!,
+          ],
         ],
       ),
     );
@@ -2500,9 +2546,9 @@ class _MonthlyReportDetailShell extends StatelessWidget {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
-        16,
+        20,
         12,
-        16,
+        20,
         24 + MediaQuery.paddingOf(context).bottom,
       ),
       child: Center(
@@ -2548,6 +2594,8 @@ class _MonthlyReportDetailShell extends StatelessWidget {
                         color: colorScheme.foreground,
                         height: 1.1,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 62),
@@ -2590,40 +2638,50 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth >= 540;
-          final metric = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MonthlyReportEyebrow(
-                colorScheme: colorScheme,
-                label: status,
-                accent: accent,
-                icon: Icons.insights_rounded,
-              ),
-              const SizedBox(height: 16),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 33,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    height: 1,
+          final visualWidth = math.min(220.0, constraints.maxWidth);
+          final constrainedVisual = SizedBox(
+            width: visualWidth,
+            child: Center(child: visual),
+          );
+          final metric = SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MonthlyReportEyebrow(
+                  colorScheme: colorScheme,
+                  label: status,
+                  accent: accent,
+                  icon: Icons.insights_rounded,
+                ),
+                const SizedBox(height: 16),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 33,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.foreground,
+                      height: 1,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                caption,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                  height: 1.25,
+                const SizedBox(height: 8),
+                Text(
+                  caption,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                    height: 1.25,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           );
 
           if (isWide) {
@@ -2631,7 +2689,7 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
               children: [
                 Expanded(child: metric),
                 const SizedBox(width: 22),
-                visual,
+                constrainedVisual,
               ],
             );
           }
@@ -2641,7 +2699,7 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
             children: [
               metric,
               const SizedBox(height: 20),
-              Center(child: visual),
+              Center(child: constrainedVisual),
             ],
           );
         },
@@ -2663,7 +2721,12 @@ class _MonthlyReportRangeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const values = ['Week', 'Month', '6M', 'Year'];
+    final entries = [
+      ('week', context.l10n.week),
+      ('month', context.l10n.month),
+      ('6m', context.l10n.sixMonths),
+      ('year', context.l10n.year),
+    ];
 
     return Container(
       padding: const EdgeInsets.all(4),
@@ -2673,10 +2736,10 @@ class _MonthlyReportRangeSelector extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final value in values)
+          for (final (key, label) in entries)
             Expanded(
               child: InkWell(
-                onTap: () => onChanged(value),
+                onTap: () => onChanged(key),
                 borderRadius: BorderRadius.circular(999),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
@@ -2684,17 +2747,17 @@ class _MonthlyReportRangeSelector extends StatelessWidget {
                   constraints: const BoxConstraints(minHeight: 38),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: selected == value
+                    color: selected == key
                         ? colorScheme.tabThumb
                         : colorScheme.surface.withValues(alpha: 0),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    value,
+                    label,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: selected == value
+                      color: selected == key
                           ? colorScheme.tabSelectedForeground
                           : colorScheme.tabUnselectedForeground,
                     ),
@@ -3135,22 +3198,39 @@ class _MonthlyReportSparklinePainter extends CustomPainter {
   }
 }
 
-String _detailTitle(MonthlyReportDetailKind kind) {
+String _localizedStatusLabel(BuildContext context, MonthlyReportStatus status) {
+  switch (status) {
+    case MonthlyReportStatus.onTrack:
+      return context.l10n.statusOnTrack;
+    case MonthlyReportStatus.spendingFast:
+      return context.l10n.statusSpendingFast;
+    case MonthlyReportStatus.overBudget:
+      return context.l10n.statusOverBudget;
+    case MonthlyReportStatus.safeToSpend:
+      return context.l10n.statusSafeToSpend;
+    case MonthlyReportStatus.needsAttention:
+      return context.l10n.statusNeedsAttention;
+    case MonthlyReportStatus.unusualSpending:
+      return context.l10n.statusUnusualSpending;
+  }
+}
+
+String _detailTitle(BuildContext context, MonthlyReportDetailKind kind) {
   switch (kind) {
     case MonthlyReportDetailKind.balance:
-      return 'Balance';
+      return context.l10n.balance;
     case MonthlyReportDetailKind.safeSpend:
-      return 'Safe to Spend';
+      return context.l10n.safeToSpend;
     case MonthlyReportDetailKind.spending:
-      return 'Spending';
+      return context.l10n.spending;
     case MonthlyReportDetailKind.budget:
-      return 'Budget';
+      return context.l10n.budget;
     case MonthlyReportDetailKind.savings:
-      return 'Savings';
+      return context.l10n.savings;
     case MonthlyReportDetailKind.categories:
-      return 'Categories';
+      return context.l10n.categories;
     case MonthlyReportDetailKind.recurring:
-      return 'Recurring';
+      return context.l10n.recurring;
   }
 }
 
@@ -3191,8 +3271,8 @@ double _detailBudgetProgress(MonthlyFinancialReport report) {
 
 String _detailPercent(double value) => '${(value * 100).round()}%';
 
-String _detailNullablePercent(double? value) {
-  if (value == null) return 'No baseline';
+String _detailNullablePercent(BuildContext context, double? value) {
+  if (value == null) return context.l10n.noBaseline;
   return _detailPercent(value);
 }
 
@@ -3209,40 +3289,43 @@ String _detailShortDate(BuildContext context, DateTime date) {
       .first;
 }
 
-String _detailCategoryCopy(MonthlyCategoryTrendItem item) {
+String _detailCategoryCopy(
+    BuildContext context, MonthlyCategoryTrendItem item) {
   final change = item.previousChangePercent ?? item.baselineChangePercent;
   if (change == null) return item.insight;
-  final direction = change >= 0 ? 'higher' : 'lower';
-  return '${_detailPercent(change.abs())} $direction than comparison.';
+  final direction = change >= 0 ? context.l10n.higher : context.l10n.lower;
+  return context.l10n
+      .percentDirectionThanComparison(_detailPercent(change.abs()), direction);
 }
 
-String _detailHealthHeadline(MonthlyReportStatus status) {
+String _detailHealthHeadline(BuildContext context, MonthlyReportStatus status) {
   switch (status) {
     case MonthlyReportStatus.onTrack:
     case MonthlyReportStatus.safeToSpend:
-      return 'Your month is mostly on track.';
+      return context.l10n.yourMonthMostlyOnTrack;
     case MonthlyReportStatus.spendingFast:
-      return 'Your spending is moving a little fast.';
+      return context.l10n.spendingMovingLittleFast;
     case MonthlyReportStatus.needsAttention:
-      return 'Your month needs a small adjustment.';
+      return context.l10n.monthNeedsSmallAdjustment;
     case MonthlyReportStatus.overBudget:
-      return 'A few budgets need attention.';
+      return context.l10n.budgetsNeedAttentionDetail;
     case MonthlyReportStatus.unusualSpending:
-      return 'There are spending patterns to review.';
+      return context.l10n.spendingPatternsToReview;
   }
 }
 
 String _detailBudgetSubtitle(
+  BuildContext context,
   MonthlyFinancialReport report,
   MonthlyBudgetHealthItem item,
 ) {
   final paceItem = _detailFindPaceItem(report, item.name);
   final spent = formatCurrency(item.spent, report.currencyCode);
-  if (paceItem == null) return '$spent spent';
+  if (paceItem == null) return '$spent ${context.l10n.spent.toLowerCase()}';
 
   final spentPercent = (paceItem.spentProgress * 100).round();
   final timePercent = (paceItem.timeProgress * 100).round();
-  return '$spent spent · $spentPercent% used vs $timePercent% month';
+  return context.l10n.spentUsedVsMonth(spent, spentPercent, timePercent);
 }
 
 Widget _detailBudgetPaceVisual(
@@ -3295,11 +3378,11 @@ List<_HealthRingMetric> _buildDetailHealthRingMetrics(
   return [
     _HealthRingMetric(
       label: context.l10n.safeSpend,
-      value:
-          '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+      value: context.l10n.perDay(
+          formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)),
       status: report.safeToSpend.dailyAmount > 0
-          ? 'Available today'
-          : 'Hold spending',
+          ? context.l10n.availableToday
+          : context.l10n.holdSpending,
       progress: _detailSafeToSpendProgress(report),
       color: vibrantPalette[1],
       icon: Icons.wallet_rounded,
@@ -3307,26 +3390,30 @@ List<_HealthRingMetric> _buildDetailHealthRingMetrics(
     _HealthRingMetric(
       label: context.l10n.budgetPace,
       value: '${(budgetPaceProgress * 100).round()}%',
-      status: _detailPaceStatus(report),
+      status: _detailPaceStatus(context, report),
       progress: budgetPaceProgress,
       color: vibrantPalette[0],
       icon: Icons.speed_rounded,
     ),
     _HealthRingMetric(
-      label: 'Bills covered',
-      value: '${report.upcomingObligations.length} scheduled',
-      status: billsCoveredProgress >= 1 ? 'Covered ahead' : 'Needs cash flow',
+      label: context.l10n.billsCovered,
+      value: context.l10n.scheduledCount(report.upcomingObligations.length),
+      status: billsCoveredProgress >= 1
+          ? context.l10n.coveredAhead
+          : context.l10n.needsCashFlow,
       progress: billsCoveredProgress,
       color: vibrantPalette[2],
       icon: Icons.event_note_rounded,
     ),
     _HealthRingMetric(
-      label: 'Month-end buffer',
+      label: context.l10n.monthEndBuffer,
       value: formatCurrency(
         report.overview.forecastedBalance,
         report.currencyCode,
       ),
-      status: forecastIsPositive ? 'Positive forecast' : 'Negative forecast',
+      status: forecastIsPositive
+          ? context.l10n.positiveForecast
+          : context.l10n.negativeForecast,
       progress: savingsBufferProgress,
       color: forecastIsPositive ? vibrantPalette[3] : vibrantPalette[1],
       icon: Icons.savings_rounded,
@@ -3427,7 +3514,7 @@ Color _detailVibrantColor(Color color, {double hueShift = 0}) {
       .toColor();
 }
 
-String _detailPaceStatus(MonthlyFinancialReport report) {
+String _detailPaceStatus(BuildContext context, MonthlyFinancialReport report) {
   final fastCount = report.spendingPace
       .where(
         (item) =>
@@ -3436,9 +3523,9 @@ String _detailPaceStatus(MonthlyFinancialReport report) {
             item.status == MonthlyReportStatus.needsAttention,
       )
       .length;
-  if (fastCount == 0) return 'On expected pace';
-  if (fastCount == 1) return '1 budget to watch';
-  return '$fastCount budgets to watch';
+  if (fastCount == 0) return context.l10n.onExpectedPace;
+  if (fastCount == 1) return context.l10n.oneBudgetToWatch;
+  return '$fastCount ${context.l10n.budgetsToWatch}';
 }
 
 class _MonthlyReportLoadingState extends HookWidget {
@@ -3537,7 +3624,7 @@ class _MonthlyReportLoadingState extends HookWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Building monthly report',
+                      context.l10n.buildingMonthlyReport,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 16,
@@ -3548,7 +3635,9 @@ class _MonthlyReportLoadingState extends HookWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Checking budgets, trends, and upcoming commitments.',
+                      isComplete
+                          ? context.l10n.reportReady
+                          : context.l10n.checkingBudgetsTrends,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
@@ -3574,8 +3663,8 @@ class _MonthlyReportLoadingState extends HookWidget {
                       child: ShimmeringText(
                         key: ValueKey(isComplete),
                         text: isComplete
-                            ? 'Report ready'
-                            : 'Preparing $progressPercent%',
+                            ? context.l10n.reportReady
+                            : context.l10n.preparing(progressPercent),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -3623,8 +3712,8 @@ class _MonthlyReportSyncStatus extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           isRefreshing
-              ? 'Refreshing report'
-              : 'Last synced ${_formatLastSyncedAt(context, lastSyncedAt)}',
+              ? context.l10n.refreshingReport
+              : '${context.l10n.lastSynced} ${_formatLastSyncedAt(context, lastSyncedAt)}',
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -3638,19 +3727,23 @@ class _MonthlyReportSyncStatus extends StatelessWidget {
 }
 
 String _formatLastSyncedAt(BuildContext context, DateTime? value) {
-  if (value == null) return 'never';
+  if (value == null) return context.l10n.never;
 
   final localValue = value.toLocal();
   final now = DateTime.now();
   final elapsed = now.difference(localValue);
-  if (elapsed.inSeconds < 45) return 'just now';
+  if (elapsed.inSeconds < 45) return context.l10n.justNow;
   if (elapsed.inMinutes < 60) {
     final minutes = elapsed.inMinutes;
-    return '$minutes min${minutes == 1 ? '' : 's'} ago';
+    return minutes == 1
+        ? context.l10n.minuteAgo
+        : context.l10n.minutesAgo(minutes, 's');
   }
   if (elapsed.inHours < 12) {
     final hours = elapsed.inHours;
-    return '$hours hour${hours == 1 ? '' : 's'} ago';
+    return hours == 1
+        ? context.l10n.hourAgo
+        : context.l10n.hoursAgoCount(hours);
   }
 
   final localizations = MaterialLocalizations.of(context);
@@ -3660,9 +3753,9 @@ String _formatLastSyncedAt(BuildContext context, DateTime? value) {
   final sameDay = now.year == localValue.year &&
       now.month == localValue.month &&
       now.day == localValue.day;
-  if (sameDay) return 'today at $time';
+  if (sameDay) return '${context.l10n.todayAt} $time';
 
-  return '${localizations.formatShortDate(localValue)} at $time';
+  return '${localizations.formatShortDate(localValue)} ${context.l10n.at} $time';
 }
 
 class _ReportCard extends StatelessWidget {
@@ -3680,7 +3773,6 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: padding,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -3698,7 +3790,10 @@ class _ReportCard extends StatelessWidget {
           side: BorderSide(color: colorScheme.surfaceBorder, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
-        child: child,
+        child: Padding(
+          padding: padding,
+          child: child,
+        ),
       ),
     );
   }

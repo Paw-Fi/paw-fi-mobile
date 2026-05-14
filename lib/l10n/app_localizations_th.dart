@@ -7746,4 +7746,135 @@ class AppLocalizationsTh extends AppLocalizations {
   String percentOfSpending(Object amount, Object percent) {
     return '$percent% · $amount';
   }
+
+  @override
+  String spentUsedVsMonth(Object amount, Object spentPercent, Object timePercent) {
+    return 'ใช้ไป $amount · ใช้ไป $spentPercent% เทียบกับเดือนที่ผ่านไป $timePercent%';
+  }
+
+  @override
+  String get yourMonthMostlyOnTrack => 'เดือนนี้ของคุณโดยรวมยังเป็นไปตามแผน';
+
+  @override
+  String get spendingMovingLittleFast => 'การใช้จ่ายของคุณค่อนข้างเร็วไปเล็กน้อย';
+
+  @override
+  String get monthNeedsSmallAdjustment => 'เดือนนี้ของคุณต้องปรับเล็กน้อย';
+
+  @override
+  String get spendingPatternsToReview => 'มีรูปแบบการใช้จ่ายที่ควรตรวจสอบ';
+
+  @override
+  String youCanSafelySpendPerDay(Object amount) {
+    return 'คุณสามารถใช้จ่าย $amount ต่อวันได้อย่างปลอดภัย';
+  }
+
+  @override
+  String coversNextDaysAfterBills(Object days) {
+    return 'นี่ครอบคลุม $days วันถัดไปหลังจากบิลที่กำหนดไว้ รายได้ที่คาดหวัง และงบประมาณที่เหลือ';
+  }
+
+  @override
+  String get lastSynced => 'ซิงค์ล่าสุด';
+
+  @override
+  String get todayAt => 'วันนี้ เวลา';
+
+  @override
+  String preparing(Object percent) {
+    return 'กำลังเตรียม $percent%';
+  }
+
+  @override
+  String get at => 'เวลา';
+
+  @override
+  String get higher => 'สูงกว่า';
+
+  @override
+  String get lower => 'ต่ำกว่า';
+
+  @override
+  String categoryIsPercentDirection(Object direction, Object name, Object percent) {
+    return '$name อยู่ที่ $percent $direction';
+  }
+
+  @override
+  String percentDirectionThanComparison(Object direction, Object percent) {
+    return '$percent $direction กว่าค่าเปรียบเทียบ';
+  }
+
+  @override
+  String get minuteAgo => '1 นาทีที่แล้ว';
+
+  @override
+  String get hourAgo => '1 ชั่วโมงที่แล้ว';
+
+  @override
+  String hoursAgoCount(Object count) {
+    return '$count ชั่วโมงที่แล้ว';
+  }
+
+  @override
+  String savingsRatePercent(Object percent) {
+    return 'อัตรา $percent';
+  }
+
+  @override
+  String goalProgressNeeded(Object current, Object monthly, Object target) {
+    return '$current / $target · ต้องการ $monthly/เดือน';
+  }
+
+  @override
+  String committedEachMonth(Object amount) {
+    return '$amount ถูกกันไว้เป็นค่าใช้จ่ายประจำทุกเดือนแล้ว';
+  }
+
+  @override
+  String get week => 'สัปดาห์';
+
+  @override
+  String get sixMonths => '6 เดือน';
+
+  @override
+  String get year => 'ปี';
+
+  @override
+  String perDay(Object amount) {
+    return '$amount/วัน';
+  }
+
+  @override
+  String financialHealthSemanticsLabel(Object score, Object status) {
+    return 'สรุปสุขภาพทางการเงิน $score จาก 100, $status';
+  }
+
+  @override
+  String get oneBudgetToWatch => 'งบประมาณที่ต้องติดตาม 1 รายการ';
+
+  @override
+  String daysRemaining(Object count) {
+    return 'เหลืออีก $count วัน';
+  }
+
+  @override
+  String get endOfMonth => 'End of month';
+
+  @override
+  String get statusOnTrack => 'On track';
+
+  @override
+  String get statusSpendingFast => 'Spending fast';
+
+  @override
+  String get statusOverBudget => 'Over budget';
+
+  @override
+  String get statusSafeToSpend => 'Safe to spend';
+
+  @override
+  String get statusNeedsAttention => 'Needs attention';
+
+  @override
+  String get statusUnusualSpending => 'Unusual spending';
 }

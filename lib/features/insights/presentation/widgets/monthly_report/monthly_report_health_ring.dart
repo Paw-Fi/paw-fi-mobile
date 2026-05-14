@@ -20,7 +20,7 @@ class _MonthlyReportHealthRing extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
-      label: 'Financial health summary, $score out of 100, $status.',
+      label: context.l10n.financialHealthSemanticsLabel(score, status),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0, end: 1),
         duration:
@@ -90,19 +90,13 @@ class _MonthlyReportHealthRingLegend extends StatelessWidget {
       colorScheme: colorScheme,
       padding: EdgeInsets.zero,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var index = 0; index < metrics.length; index++) ...[
+          for (final metric in metrics)
             _MonthlyReportHealthRingLegendRow(
               colorScheme: colorScheme,
-              metric: metrics[index],
+              metric: metric,
             ),
-            if (index != metrics.length - 1)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: colorScheme.border.withValues(alpha: 0.32),
-              ),
-          ],
         ],
       ),
     );
@@ -125,6 +119,7 @@ class _MonthlyReportHealthRingLegendRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _MonthlyReportIconChip(
             colorScheme: colorScheme,
@@ -135,61 +130,52 @@ class _MonthlyReportHealthRingLegendRow extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        metric.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.foreground,
-                          height: 1.12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      metric.value,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
-                        height: 1.12,
-                      ),
-                    ),
-                  ],
+                Text(
+                  metric.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1.12,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  metric.value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1.12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 5),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        metric.status,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.mutedForeground,
-                          height: 1.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      progressLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: metric.color,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
+                Text(
+                  metric.status,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.mutedForeground,
+                    height: 1.2,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  progressLabel,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: metric.color,
+                    height: 1.2,
+                  ),
                 ),
                 const SizedBox(height: 9),
                 _MonthlyReportProgressBar(

@@ -60,13 +60,19 @@ class _MonthlyReportAdviceCard extends StatelessWidget {
             ],
             if (visual != null) ...[
               const SizedBox(height: 14),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: colorScheme.border.withValues(alpha: 0.28),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.min(220.0, constraints.maxWidth),
+                      ),
+                      child: SizedBox(width: double.infinity, child: visual!),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 14),
-              visual!,
             ],
           ],
         ),
@@ -128,13 +134,18 @@ class _MonthlyReportPaceComparisonBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final markerLeft = (constraints.maxWidth * timeProgress.clamp(0.0, 1.0))
-            .clamp(0.0, constraints.maxWidth);
+        const markerWidth = 3.0;
+        final markerLeft =
+            (constraints.maxWidth * timeProgress.clamp(0.0, 1.0) -
+                    markerWidth / 2)
+                .clamp(0.0, math.max(0.0, constraints.maxWidth - markerWidth))
+                .toDouble();
 
         return SizedBox(
+          width: double.infinity,
           height: 18,
           child: Stack(
-            clipBehavior: Clip.none,
+            clipBehavior: Clip.hardEdge,
             alignment: Alignment.centerLeft,
             children: [
               Positioned.fill(
@@ -162,7 +173,7 @@ class _MonthlyReportPaceComparisonBar extends StatelessWidget {
               Positioned(
                 left: markerLeft,
                 child: Container(
-                  width: 3,
+                  width: markerWidth,
                   height: 18,
                   decoration: BoxDecoration(
                     color: colorScheme.foreground.withValues(alpha: 0.48),
@@ -300,8 +311,12 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Flexible(
+            flex: 2,
             child: Text(
-              context.l10n.percentOfSpending(_detailPercent(merchant.spendingShare), formatCurrency(merchant.amount, currencyCode)),
+              context.l10n.percentOfSpending(
+                _detailPercent(merchant.spendingShare),
+                formatCurrency(merchant.amount, currencyCode),
+              ),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
