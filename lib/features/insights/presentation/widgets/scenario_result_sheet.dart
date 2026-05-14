@@ -243,7 +243,7 @@ void showScenarioResultSheet(
                                           .pop();
                                       AppToast.success(
                                         context,
-                                        'Preview: scenario bookmarked for demo (not saved).',
+                                        context.l10n.previewScenarioBookmarked,
                                       );
                                       return;
                                     }
@@ -320,8 +320,7 @@ void showScenarioResultSheet(
                                         if (!context.mounted) return;
                                         AppToast.error(
                                           context,
-                                          context.l10n
-                                              .analysisFailed(e.toString()),
+                                          context.l10n.analysisFailed(e.toString()),
                                         );
                                       }
                                     } else {
@@ -336,7 +335,7 @@ void showScenarioResultSheet(
                                             .pop();
                                         AppToast.info(
                                           context,
-                                          'Preview: scenario removal skipped (demo only).',
+                                          context.l10n.previewScenarioRemovalSkipped,
                                         );
                                         return;
                                       }

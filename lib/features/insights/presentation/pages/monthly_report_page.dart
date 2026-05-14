@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moneko/core/l10n/l10n.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
 import 'package:moneko/features/insights/presentation/state/monthly_report_provider.dart';
+import 'package:moneko/features/home/presentation/constants/category_constants.dart';
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 
@@ -144,8 +146,8 @@ class MonthlyReportPage extends HookConsumerWidget {
                 _buildSummaryMetricGrid(context, colorScheme, report),
                 const SizedBox(height: 26),
                 _MonthlyReportSectionTitle(
-                  title: 'Highlights',
-                  actionLabel: 'Show All',
+                  title: context.l10n.highlights,
+                  actionLabel: context.l10n.showAll,
                   onActionTap: () => context.push(_monthlyReportSpendingRoute),
                   colorScheme: colorScheme,
                 ),
@@ -153,8 +155,8 @@ class MonthlyReportPage extends HookConsumerWidget {
                 _buildHighlights(context, colorScheme, report),
                 const SizedBox(height: 26),
                 _MonthlyReportSectionTitle(
-                  title: 'Categories',
-                  actionLabel: 'Details',
+                  title: context.l10n.categories,
+                  actionLabel: context.l10n.details,
                   onActionTap: () =>
                       context.push(_monthlyReportCategoriesRoute),
                   colorScheme: colorScheme,
@@ -163,8 +165,8 @@ class MonthlyReportPage extends HookConsumerWidget {
                 _buildCategoryPreview(context, colorScheme, report),
                 const SizedBox(height: 26),
                 _MonthlyReportSectionTitle(
-                  title: 'Upcoming',
-                  actionLabel: 'Details',
+                  title: context.l10n.upcomingBills,
+                  actionLabel: context.l10n.details,
                   onActionTap: () => context.push(_monthlyReportRecurringRoute),
                   colorScheme: colorScheme,
                 ),
@@ -183,17 +185,17 @@ class MonthlyReportPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
-    final rings = _buildHealthRingMetrics(colorScheme, report);
+    final rings = _buildHealthRingMetrics(context, colorScheme, report);
     final score = _overallHealthScore(rings);
     final netWorth = report.netWorthTrend;
     final caption = netWorth == null
-        ? 'Forecast ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}'
-        : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} from last snapshot';
+        ? '${context.l10n.forecast} ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}'
+        : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} ${context.l10n.fromLastSnapshot}';
 
     return _MonthlyReportHeroCard(
       colorScheme: colorScheme,
-      label: 'Financial Health',
-      title: _shortHealthHeadline(report.overview.status),
+      label: context.l10n.financialHealth,
+      title: _shortHealthHeadline(context, report.overview.status),
       value: formatCurrency(
         report.overview.currentBalance,
         report.currencyCode,
@@ -218,15 +220,15 @@ class MonthlyReportPage extends HookConsumerWidget {
   ) {
     final budgetProgress = _budgetUsedProgress(report);
     final spendingCaption = report.trendSummary.spendingChange == 0
-        ? _paceStatus(report)
+        ? _paceStatus(context, report)
         : '${_formatSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month';
 
     final items = [
       _MonthlyMetricSpec(
-        label: 'Safe to Spend',
+        label: context.l10n.safeToSpend,
         value:
             '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
-        caption: '${report.safeToSpend.daysRemaining} days left',
+        caption: context.l10n.daysLeft(report.safeToSpend.daysRemaining),
         accent: colorScheme.success,
         icon: Icons.wallet_rounded,
         route: _monthlyReportSafeSpendRoute,
@@ -242,7 +244,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
       ),
       _MonthlyMetricSpec(
-        label: 'Spending',
+        label: context.l10n.spending,
         value: formatCurrency(report.overview.spending, report.currencyCode),
         caption: spendingCaption,
         accent: _statusColor(report.overview.status, colorScheme),
@@ -258,10 +260,10 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
       ),
       _MonthlyMetricSpec(
-        label: 'Budget',
+        label: context.l10n.budget,
         value: _formatPercent(budgetProgress),
         caption:
-            '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} left',
+            '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} ${context.l10n.remaining}',
         accent: budgetProgress >= 1 ? colorScheme.warning : colorScheme.info,
         icon: Icons.track_changes_rounded,
         route: _monthlyReportBudgetRoute,
@@ -274,7 +276,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
       ),
       _MonthlyMetricSpec(
-        label: 'Savings',
+        label: context.l10n.savings,
         value: formatCurrency(report.overview.savings, report.currencyCode),
         caption: _formatPercent(report.trendSummary.savingsRate),
         accent: report.overview.savings >= 0
@@ -328,7 +330,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReport report,
   ) {
     final highlights =
-        _buildHighlightItems(colorScheme, report).take(3).toList();
+        _buildHighlightItems(context, colorScheme, report).take(3).toList();
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
@@ -362,8 +364,8 @@ class MonthlyReportPage extends HookConsumerWidget {
     if (categories.isEmpty) {
       return _MonthlyReportInsightCard(
         colorScheme: colorScheme,
-        title: 'Categories need more history.',
-        label: 'Spending movers will appear after more comparable activity.',
+        title: context.l10n.categories,
+        label: context.l10n.comparableSpendingWillAppearHere,
         accent: colorScheme.info,
         icon: Icons.category_rounded,
         onTap: () => context.push(_monthlyReportCategoriesRoute),
@@ -381,7 +383,7 @@ class MonthlyReportPage extends HookConsumerWidget {
         for (final item in categories)
           _MonthlyReportDisclosureRow(
             colorScheme: colorScheme,
-            title: item.name,
+            title: getCategoryTranslation(context, item.name),
             subtitle: _shortCategoryInsight(item),
             value: formatCurrency(item.currentSpent, report.currencyCode),
             accent: _statusColor(item.status, colorScheme),
@@ -440,8 +442,8 @@ class MonthlyReportPage extends HookConsumerWidget {
     if (rows.isEmpty) {
       return _MonthlyReportInsightCard(
         colorScheme: colorScheme,
-        title: 'No upcoming commitments.',
-        label: 'Bills and subscriptions will appear here when detected.',
+        title: context.l10n.noUpcomingBills,
+        label: context.l10n.recurringExpensesWillAppearHere,
         accent: colorScheme.success,
         icon: Icons.event_available_rounded,
         onTap: () => context.push(_monthlyReportRecurringRoute),
@@ -455,6 +457,7 @@ class MonthlyReportPage extends HookConsumerWidget {
   }
 
   List<_MonthlyHighlightItem> _buildHighlightItems(
+    BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
@@ -478,7 +481,7 @@ class MonthlyReportPage extends HookConsumerWidget {
       final mover = report.categoryTrends.first;
       items.add(
         _MonthlyHighlightItem(
-          title: '${mover.name} is moving.',
+          title: context.l10n.categoryMovement,
           label: _shortCategoryInsight(mover),
           status: mover.status,
           icon: Icons.category_rounded,
@@ -496,8 +499,8 @@ class MonthlyReportPage extends HookConsumerWidget {
     if (items.isEmpty) {
       items.add(
         _MonthlyHighlightItem(
-          title: _shortHealthHeadline(report.overview.status),
-          label: _paceStatus(report),
+          title: _shortHealthHeadline(context, report.overview.status),
+          label: _paceStatus(context, report),
           status: report.overview.status,
           icon: Icons.favorite_rounded,
           route: _monthlyReportBalanceRoute,
@@ -515,11 +518,14 @@ class MonthlyReportPage extends HookConsumerWidget {
     return items;
   }
 
-  String _shortHealthHeadline(MonthlyReportStatus status) {
+  String _shortHealthHeadline(
+    BuildContext context,
+    MonthlyReportStatus status,
+  ) {
     switch (status) {
       case MonthlyReportStatus.onTrack:
       case MonthlyReportStatus.safeToSpend:
-        return 'You\'re on track.';
+        return context.l10n.onTrack;
       case MonthlyReportStatus.spendingFast:
         return 'Spending is moving fast.';
       case MonthlyReportStatus.needsAttention:
@@ -597,7 +603,7 @@ class MonthlyReportPage extends HookConsumerWidget {
     return '$sign${formatCurrency(value, currencyCode)}';
   }
 
-  String _paceStatus(MonthlyFinancialReport report) {
+  String _paceStatus(BuildContext context, MonthlyFinancialReport report) {
     if (report.spendingPace.isEmpty) return 'No budgets yet';
     final fastCount = report.spendingPace
         .where(
@@ -613,6 +619,7 @@ class MonthlyReportPage extends HookConsumerWidget {
   }
 
   List<_HealthRingMetric> _buildHealthRingMetrics(
+    BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
@@ -624,7 +631,7 @@ class MonthlyReportPage extends HookConsumerWidget {
 
     return [
       _HealthRingMetric(
-        label: 'Safe spend',
+        label: 'Safe Spend',
         value:
             '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
         status: report.safeToSpend.dailyAmount > 0
@@ -635,23 +642,23 @@ class MonthlyReportPage extends HookConsumerWidget {
         icon: Icons.wallet_rounded,
       ),
       _HealthRingMetric(
-        label: 'Budget pace',
+        label: context.l10n.budgetPace,
         value: '${(budgetPaceProgress * 100).round()}%',
-        status: _paceStatus(report),
+        status: _paceStatus(context, report),
         progress: budgetPaceProgress,
         color: vibrantPalette[1],
         icon: Icons.speed_rounded,
       ),
       _HealthRingMetric(
-        label: 'Bills covered',
+        label: context.l10n.billsCovered,
         value: '${report.upcomingObligations.length} scheduled',
-        status: billsCoveredProgress >= 1 ? 'Covered ahead' : 'Needs cash flow',
+        status: billsCoveredProgress >= 1 ? context.l10n.coveredAhead : 'Needs cash flow',
         progress: billsCoveredProgress,
         color: vibrantPalette[2],
         icon: Icons.event_note_rounded,
       ),
       _HealthRingMetric(
-        label: 'Month-end buffer',
+        label: context.l10n.monthEndBuffer,
         value: formatCurrency(
           report.overview.forecastedBalance,
           report.currencyCode,
@@ -874,9 +881,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           selectedRange,
         );
       case MonthlyReportDetailKind.budget:
-        return _buildBudgetDetail(colorScheme, report);
+        return _buildBudgetDetail(context, colorScheme, report);
       case MonthlyReportDetailKind.savings:
-        return _buildSavingsDetail(colorScheme, report);
+        return _buildSavingsDetail(context, colorScheme, report);
       case MonthlyReportDetailKind.categories:
         return _buildCategoryDetail(context, colorScheme, report);
       case MonthlyReportDetailKind.recurring:
@@ -889,7 +896,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
-    final rings = _buildHealthRingMetrics(colorScheme, report);
+    final rings = _buildDetailHealthRingMetrics(context, colorScheme, report);
     final score = _overallHealthScore(rings);
     final statusColor = _detailStatusColor(report.overview.status, colorScheme);
     final watchFirst = [...rings]
@@ -900,7 +907,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Financial Health',
+          status: context.l10n.financialHealth,
+          title: _detailHealthHeadline(report.overview.status),
           value: '$score',
           caption: monthlyReportStatusLabel(report.overview.status),
           accent: statusColor,
@@ -920,7 +928,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
-          label: 'Monthly Health',
+          label: context.l10n.monthlyHealth,
           title: _detailHealthHeadline(report.overview.status),
           body: report.summary,
           accent: statusColor,
@@ -928,7 +936,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Month vs Last Month',
+          title: context.l10n.monthVsLastMonth,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -937,7 +945,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           children: [
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Income change',
+              title: context.l10n.incomeChange,
               value: _detailSignedCurrency(
                 report.trendSummary.incomeChange,
                 report.currencyCode,
@@ -948,7 +956,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Spending change',
+              title: context.l10n.spendingChange,
               value: _detailSignedCurrency(
                 report.trendSummary.spendingChange,
                 report.currencyCode,
@@ -959,7 +967,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Savings rate',
+              title: context.l10n.savingsRate,
               value: _detailPercent(report.trendSummary.savingsRate),
               accent: report.trendSummary.savingsRate >= 0
                   ? colorScheme.success
@@ -967,7 +975,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Net cash flow',
+              title: context.l10n.netCashFlow,
               value: _detailSignedCurrency(
                 report.trendSummary.netCashFlow,
                 report.currencyCode,
@@ -980,7 +988,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Watch First',
+          title: context.l10n.watchFirst,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1005,7 +1013,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Cash Flow',
+          title: context.l10n.cashFlow,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1014,7 +1022,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           children: [
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Current balance',
+              title: context.l10n.currentBalance,
               value: formatCurrency(
                 report.overview.currentBalance,
                 report.currencyCode,
@@ -1034,7 +1042,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (report.netWorthTrend != null)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'Net worth',
+                title: context.l10n.netWorth,
                 value: formatCurrency(
                   report.netWorthTrend!.currentNetWorth,
                   report.currencyCode,
@@ -1047,7 +1055,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Low water',
+              title: context.l10n.lowWater,
               value: formatCurrency(
                 report.cashFlowHealth.lowWaterBalance,
                 report.currencyCode,
@@ -1064,9 +1072,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'First shortfall',
+              title: context.l10n.firstShortfall,
               value: report.cashFlowHealth.firstNegativeDate == null
-                  ? 'None'
+                  ? context.l10n.none
                   : _detailShortDate(
                       context,
                       report.cashFlowHealth.firstNegativeDate!,
@@ -1085,9 +1093,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Financial Health',
-          body:
-              'Financial Health combines safe daily spending, budget pace, upcoming bills, and the projected month-end buffer. A lower ring points to the first place to adjust before the end of the month.',
+          title: context.l10n.aboutFinancialHealth,
+          body: context.l10n.financialHealthBody,
         ),
       ],
     );
@@ -1108,7 +1115,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Safe to Spend',
+          status: 'Safe to Spend',
+          title: 'Safe to Spend',
           value:
               '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
           caption: '${report.safeToSpend.daysRemaining} days remaining',
@@ -1124,9 +1132,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
-          label: 'Allowance',
-          title:
-              'You can safely spend ${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)} per day.',
+          label: context.l10n.allowance,
+          title: 'You can safely spend ${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)} per day.',
           body:
               'This covers the next ${report.safeToSpend.daysRemaining} days after scheduled bills, expected income, and remaining budgets.',
           accent: accent,
@@ -1134,7 +1141,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Allowance',
+          title: context.l10n.allowance,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1143,12 +1150,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           children: [
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Budget left',
+              title: context.l10n.budgetLeft,
               value: formatCurrency(
                 report.safeToSpend.budgetRemaining,
                 report.currencyCode,
               ),
-              subtitle: 'Available after month-to-date spending',
+              subtitle: context.l10n.availableAfterMonthToDateSpending,
               accent: report.safeToSpend.budgetRemaining >= 0
                   ? colorScheme.success
                   : colorScheme.destructive,
@@ -1161,12 +1168,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Bills ahead',
+              title: context.l10n.billsAhead,
               value: formatCurrency(
                 report.safeToSpend.futureObligations,
                 report.currencyCode,
               ),
-              subtitle: '${report.upcomingObligations.length} scheduled',
+              subtitle: context.l10n.scheduledCount(report.upcomingObligations.length),
               accent: report.safeToSpend.futureObligations <=
                       report.safeToSpend.futureIncome +
                           math.max(0, report.overview.currentBalance)
@@ -1175,12 +1182,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Expected income',
+              title: context.l10n.expectedIncome,
               value: formatCurrency(
                 report.safeToSpend.futureIncome,
                 report.currencyCode,
               ),
-              subtitle: 'Before month end',
+              subtitle: context.l10n.beforeMonthEnd,
               accent: colorScheme.info,
             ),
           ],
@@ -1190,9 +1197,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Safe to Spend',
-          body:
-              'Safe to Spend is the daily amount left after protecting money for remaining budgets and known upcoming bills. If this number is low or negative, pause flexible spending first.',
+          title: context.l10n.aboutSafeToSpend,
+          body: context.l10n.safeToSpendBody,
         ),
       ],
     );
@@ -1228,7 +1234,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Spending',
+          status: 'Spending',
+          title: 'Spending',
           value: formatCurrency(report.overview.spending, report.currencyCode),
           caption:
               '${_detailSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month',
@@ -1245,7 +1252,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Watch First',
+          title: context.l10n.watchFirst,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1271,7 +1278,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         if (report.anomalies.isNotEmpty) ...[
           _MonthlyReportSectionTitle(
-            title: 'Unusual Activity',
+            title: context.l10n.unusualActivity,
             colorScheme: colorScheme,
           ),
           const SizedBox(height: 10),
@@ -1289,7 +1296,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           const SizedBox(height: 4),
         ],
         _MonthlyReportSectionTitle(
-          title: 'Category Pace',
+          title: context.l10n.categoryPace,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1316,18 +1323,18 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           const SizedBox(height: 14),
           _MonthlyReportAboutCard(
             colorScheme: colorScheme,
-            title: 'About Spending Pace',
-            body:
-                'The colored bar shows budget used. The thin marker shows how far through the month you are. If the bar passes the marker, that category is spending faster than time is passing.',
+            title: context.l10n.aboutSpendingPace,
+            body: context.l10n.spendingPaceBody,
           ),
         ],
         const SizedBox(height: 14),
-        _buildMerchantPreview(colorScheme, report),
+        _buildMerchantPreview(context, colorScheme, report),
       ],
     );
   }
 
   Widget _buildBudgetDetail(
+    BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
@@ -1347,10 +1354,11 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Budget Used',
+          status: context.l10n.budgetUsed,
+          title: context.l10n.budgetUsed,
           value: '${(progress * 100).round()}%',
           caption:
-              '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} remaining',
+              '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} ${context.l10n.remaining}',
           accent: accent,
           visual: _MonthlyReportProgressRing(
             colorScheme: colorScheme,
@@ -1362,7 +1370,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Budget Plan',
+          title: context.l10n.budgetPlan,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1372,7 +1380,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (stressedCategories.isNotEmpty)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'Needs attention',
+                title: context.l10n.needsAttention,
                 value: '${stressedCategories.length}',
                 subtitle: stressedCategories
                     .map((item) => item.name)
@@ -1382,7 +1390,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Budgeted',
+              title: context.l10n.budgeted,
               value: formatCurrency(
                 report.budgetPlan.totalBudgeted,
                 report.currencyCode,
@@ -1391,7 +1399,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Remaining',
+              title: context.l10n.remaining,
               value: formatCurrency(
                 report.budgetPlan.totalRemaining,
                 report.currencyCode,
@@ -1402,7 +1410,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Spent',
+              title: context.l10n.spent,
               value: formatCurrency(
                 report.budgetPlan.totalSpent,
                 report.currencyCode,
@@ -1411,7 +1419,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Unbudgeted',
+              title: context.l10n.unbudgeted,
               value: formatCurrency(
                 report.budgetPlan.unbudgetedSpent,
                 report.currencyCode,
@@ -1422,12 +1430,14 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Budget / income',
+              title: context.l10n.budgetOverIncome,
               value: _detailNullablePercent(
                 report.budgetPlan.budgetToIncomeRatio,
               ),
-              subtitle:
-                  '${report.budgetPlan.overBudgetCount} over · ${report.budgetPlan.atRiskCount} at risk',
+              subtitle: context.l10n.budgetRiskCount(
+                report.budgetPlan.overBudgetCount,
+                report.budgetPlan.atRiskCount,
+              ),
               accent: report.budgetPlan.overBudgetCount > 0 ||
                       report.budgetPlan.atRiskCount > 0
                   ? colorScheme.warning
@@ -1439,19 +1449,18 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           const SizedBox(height: 14),
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
-            label: 'Budget Health',
+            label: context.l10n.budgetHealth,
             title: stressedCategories.length == 1
                 ? '${stressedCategories.first.name} needs attention.'
                 : '${stressedCategories.length} categories need attention.',
-            body:
-                'Review categories that are over budget or moving faster than the month. Cutting flexible spend there has the fastest effect.',
+            body: context.l10n.budgetHealthBody,
             accent: colorScheme.warning,
             icon: Icons.track_changes_rounded,
           ),
         ],
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Categories',
+          title: context.l10n.categories,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1461,7 +1470,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             for (final item in report.budgetHealth.take(8))
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: item.name,
+                title: getCategoryTranslation(context, item.name),
                 value: formatCurrency(item.remaining, report.currencyCode),
                 subtitle: _detailBudgetSubtitle(report, item),
                 accent: _detailStatusColor(item.status, colorScheme),
@@ -1469,37 +1478,35 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
               ),
           ],
         ),
-        if (report.spendingPace.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          _MonthlyReportSectionTitle(
-            title: 'Budget Notes',
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: context.l10n.budgetNotes,
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        for (final item in report.spendingPace.take(3)) ...[
+          _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
+            label: monthlyReportStatusLabel(item.status),
+            title: item.label,
+            body: item.insight,
+            accent: _detailStatusColor(item.status, colorScheme),
+            icon: Icons.speed_rounded,
           ),
           const SizedBox(height: 10),
-          for (final item in report.spendingPace.take(3)) ...[
-            _MonthlyReportAdviceCard(
-              colorScheme: colorScheme,
-              label: monthlyReportStatusLabel(item.status),
-              title: item.label,
-              body: item.insight,
-              accent: _detailStatusColor(item.status, colorScheme),
-              icon: Icons.speed_rounded,
-            ),
-            const SizedBox(height: 10),
-          ],
         ],
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Budget Health',
-          body:
-              'Budget Health compares category spending against both the budget amount and the month elapsed. A warning does not mean failure; it shows where a small adjustment matters most.',
+          title: context.l10n.aboutBudgetHealth,
+          body: context.l10n.budgetHealthNotesBody,
         ),
       ],
     );
   }
 
   Widget _buildSavingsDetail(
+    BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
@@ -1515,7 +1522,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Savings',
+          status: context.l10n.savings,
+          title: context.l10n.savings,
           value: formatCurrency(report.overview.savings, report.currencyCode),
           caption: '${_detailPercent(report.trendSummary.savingsRate)} rate',
           accent: accent,
@@ -1530,13 +1538,13 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAdviceCard(
           colorScheme: colorScheme,
-          label: 'Savings',
+          label: context.l10n.savings,
           title: report.overview.savings >= 0
-              ? 'You saved money this month.'
-              : 'You are using your buffer this month.',
+              ? context.l10n.savedMoneyThisMonth
+              : context.l10n.usingYourBufferThisMonth,
           body: report.overview.savings >= 0
-              ? 'Positive cash flow adds room for bills, goals, and unexpected spending.'
-              : 'Negative savings means spending is higher than income so far. Watch flexible categories and upcoming bills first.',
+              ? context.l10n.positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending
+              : context.l10n.negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst,
           accent: accent,
           icon: Icons.savings_rounded,
           visual: _MonthlyReportMiniBarChart(
@@ -1551,7 +1559,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Buffer',
+          title: context.l10n.categoryBuffer,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1560,19 +1568,19 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           children: [
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Net cash flow',
+              title: context.l10n.netCashFlow,
               value: _detailSignedCurrency(
                 report.trendSummary.netCashFlow,
                 report.currencyCode,
               ),
-              subtitle: 'Income minus spending',
+              subtitle: context.l10n.incomeMinusSpending,
               accent: report.trendSummary.netCashFlow >= 0
                   ? colorScheme.success
                   : colorScheme.destructive,
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Month-end buffer',
+              title: context.l10n.monthEndBuffer,
               value: formatCurrency(
                 report.overview.forecastedBalance,
                 report.currencyCode,
@@ -1586,7 +1594,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Saved this month',
+              title: context.l10n.savedThisMonth,
               value:
                   formatCurrency(report.overview.savings, report.currencyCode),
               subtitle: report.overview.savings >= 0
@@ -1605,7 +1613,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         if (report.goals.isNotEmpty) ...[
           const SizedBox(height: 14),
           _MonthlyReportSectionTitle(
-            title: 'Goals',
+            title: context.l10n.goals,
             colorScheme: colorScheme,
           ),
           const SizedBox(height: 10),
@@ -1637,9 +1645,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Savings',
-          body:
-              'Savings is income minus spending for the month. If you have goals, the progress bar shows funding progress and the detail row shows how much is already saved toward the target.',
+          title: context.l10n.aboutSavings,
+          body: context.l10n.savingsBody,
         ),
       ],
     );
@@ -1665,13 +1672,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: first?.name ?? 'Categories',
-          value: first == null
-              ? 'No movers'
-              : formatCurrency(first.currentSpent, report.currencyCode),
-          caption: first == null
-              ? 'More history is needed.'
-              : _detailCategoryCopy(first),
+          status: first == null
+              ? context.l10n.categories
+              : getCategoryTranslation(context, first.name),
+          title: first == null ? 'No movers' : getCategoryTranslation(context, first.name),
+          value: first == null ? 'No movers' : formatCurrency(first.currentSpent, report.currencyCode),
+          caption: first == null ? 'More history is needed.' : _detailCategoryCopy(first),
           accent: first == null
               ? colorScheme.info
               : _detailStatusColor(first.status, colorScheme),
@@ -1693,17 +1699,17 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         if (categories.isNotEmpty) ...[
           _MonthlyReportSectionTitle(
-            title: 'Insights',
+            title: context.l10n.categoryMovement,
             colorScheme: colorScheme,
           ),
           const SizedBox(height: 10),
           for (final item in categories.take(3)) ...[
             _MonthlyReportAdviceCard(
               colorScheme: colorScheme,
-              label: 'Category Movement',
-              title: item.name,
+              label: context.l10n.categoryMovement,
+              title: getCategoryTranslation(context, item.name),
               body:
-                  '${item.insight} Current spend is ${formatCurrency(item.currentSpent, report.currencyCode)}.',
+                  '${item.insight} ${context.l10n.currentSpendIs} ${formatCurrency(item.currentSpent, report.currencyCode)}.',
               accent: _detailStatusColor(item.status, colorScheme),
               icon: Icons.category_rounded,
               visual: _MonthlyReportMiniBarChart(
@@ -1722,7 +1728,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           const SizedBox(height: 4),
         ],
         _MonthlyReportSectionTitle(
-          title: 'Movers',
+          title: context.l10n.movers,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1732,16 +1738,16 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (categories.isEmpty)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'No category trends',
-                value: 'Waiting',
-                subtitle: 'Comparable spending will appear here.',
+                title: context.l10n.noCategoryTrends,
+                value: context.l10n.waiting,
+                subtitle: context.l10n.comparableSpendingWillAppearHere,
                 accent: colorScheme.info,
               )
             else
               for (final item in categories.take(8))
                 _MonthlyReportStaticRow(
                   colorScheme: colorScheme,
-                  title: item.name,
+                  title: getCategoryTranslation(context, item.name),
                   value: formatCurrency(item.currentSpent, report.currencyCode),
                   subtitle: _detailCategoryCopy(item),
                   accent: _detailStatusColor(item.status, colorScheme),
@@ -1755,13 +1761,12 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        _buildMerchantPreview(colorScheme, report),
+        _buildMerchantPreview(context, colorScheme, report),
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Category Movement',
-          body:
-              'Category Movement compares this month against the previous month and the historical baseline. It is most useful for spotting flexible spending that changed before it becomes a budget problem.',
+          title: context.l10n.aboutCategoryMovement,
+          body: context.l10n.categoryMovementBody,
         ),
       ],
     );
@@ -1780,12 +1785,13 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       children: [
         _MonthlyReportDetailHeader(
           colorScheme: colorScheme,
-          label: 'Recurring',
+          status: context.l10n.recurring,
+          title: context.l10n.recurring,
           value: formatCurrency(
             report.subscriptions.totalMonthlyAmount,
             report.currencyCode,
           ),
-          caption: '${commitment.dueSoonCount} due soon',
+          caption: context.l10n.dueSoonCount(commitment.dueSoonCount),
           accent: accent,
           visual: _MonthlyReportProgressRing(
             colorScheme: colorScheme,
@@ -1801,7 +1807,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           children: [
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Monthly recurring',
+              title: context.l10n.monthlyRecurring,
               value: formatCurrency(
                 commitment.monthlyAmount,
                 report.currencyCode,
@@ -1810,7 +1816,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Due in 14 days',
+              title: context.l10n.dueIn14Days,
               value: formatCurrency(
                 commitment.dueSoonAmount,
                 report.currencyCode,
@@ -1819,13 +1825,13 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Income share',
+              title: context.l10n.incomeShare,
               value: _detailNullablePercent(commitment.incomeShare),
               accent: accent,
             ),
             _MonthlyReportStaticRow(
               colorScheme: colorScheme,
-              title: 'Due-soon count',
+              title: context.l10n.dueSoonCountLabel,
               value: '${commitment.dueSoonCount}',
               accent: commitment.dueSoonCount > 0
                   ? colorScheme.warning
@@ -1837,18 +1843,17 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
           const SizedBox(height: 14),
           _MonthlyReportAdviceCard(
             colorScheme: colorScheme,
-            label: 'Recurring Commitment',
+            label: context.l10n.recurringCommitment,
             title:
                 '${formatCurrency(commitment.monthlyAmount, report.currencyCode)} is already committed each month.',
-            body:
-                'Use this section to check fixed bills before deciding what is safe to spend. Due-soon items matter most when cash flow is tight.',
+            body: context.l10n.recurringCommitmentBody,
             accent: accent,
             icon: Icons.event_note_rounded,
           ),
         ],
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Subscriptions',
+          title: context.l10n.subscriptions,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1858,9 +1863,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (report.subscriptions.items.isEmpty)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'No subscriptions',
-                value: 'Clear',
-                subtitle: 'Recurring expenses will appear here.',
+                title: context.l10n.noSubscriptions,
+                value: context.l10n.clear,
+                subtitle: context.l10n.recurringExpensesWillAppearHere,
                 accent: colorScheme.success,
               )
             else
@@ -1877,7 +1882,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         ),
         const SizedBox(height: 14),
         _MonthlyReportSectionTitle(
-          title: 'Bill Calendar',
+          title: context.l10n.billCalendar,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1887,9 +1892,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (report.upcomingObligations.isEmpty)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'No upcoming bills',
-                value: 'Clear',
-                subtitle: 'No scheduled money movement remains this month.',
+                title: context.l10n.noUpcomingBills,
+                value: context.l10n.clear,
+                subtitle: context.l10n.noScheduledMoneyMovementRemainsThisMonth,
                 accent: colorScheme.success,
               )
             else
@@ -1910,9 +1915,8 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
         const SizedBox(height: 14),
         _MonthlyReportAboutCard(
           colorScheme: colorScheme,
-          title: 'About Recurring Costs',
-          body:
-              'Recurring costs are fixed or repeating commitments. Reviewing them together with the bill calendar helps protect cash for essentials before flexible spending.',
+          title: context.l10n.aboutRecurringCosts,
+          body: context.l10n.recurringCostsBody,
         ),
       ],
     );
@@ -1934,7 +1938,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                 ? entry.value.label
                 : entry.key == report.cashFlowForecast.take(6).length - 1
                     ? entry.value.label
-                    : 'After ${entry.value.label.toLowerCase()}',
+                    : context.l10n.afterLabel(entry.value.label.toLowerCase()),
             value: formatCurrency(entry.value.balance, report.currencyCode),
             accent: entry.value.balance < 0
                 ? colorScheme.destructive
@@ -1945,6 +1949,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
   }
 
   Widget _buildMerchantPreview(
+    BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
@@ -1952,7 +1957,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _MonthlyReportSectionTitle(
-          title: 'Top Merchants',
+          title: context.l10n.topMerchants,
           colorScheme: colorScheme,
         ),
         const SizedBox(height: 10),
@@ -1970,9 +1975,9 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
             if (report.merchantConcentration.isEmpty)
               _MonthlyReportStaticRow(
                 colorScheme: colorScheme,
-                title: 'No merchant data',
-                value: 'Waiting',
-                subtitle: 'Merchant names will appear when available.',
+                title: context.l10n.noMerchantData,
+                value: context.l10n.waiting,
+                subtitle: context.l10n.merchantNamesWillAppearWhenAvailable,
                 accent: colorScheme.info,
               )
             else
@@ -1981,7 +1986,7 @@ class MonthlyReportDetailPage extends HookConsumerWidget {
                   colorScheme: colorScheme,
                   title: item.name,
                   value: formatCurrency(item.amount, report.currencyCode),
-                  subtitle: '${_detailPercent(item.spendingShare)} of spending',
+                  subtitle: context.l10n.ofSpendingLabel,
                   accent: colorScheme.info,
                   visual: _MonthlyReportProgressBar(
                     colorScheme: colorScheme,
@@ -2233,7 +2238,7 @@ class _MonthlyReportInsightCard extends StatelessWidget {
               children: [
                 _MonthlyReportEyebrow(
                   colorScheme: colorScheme,
-                  label: 'Insight',
+                  label: context.l10n.insight,
                   accent: accent,
                   icon: icon,
                 ),
@@ -2561,7 +2566,8 @@ class _MonthlyReportDetailShell extends StatelessWidget {
 class _MonthlyReportDetailHeader extends StatelessWidget {
   const _MonthlyReportDetailHeader({
     required this.colorScheme,
-    required this.label,
+    required this.status,
+    required this.title,
     required this.value,
     required this.caption,
     required this.accent,
@@ -2569,7 +2575,8 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
   });
 
   final ColorScheme colorScheme;
-  final String label;
+  final String status;
+  final String title;
   final String value;
   final String caption;
   final Color accent;
@@ -2588,7 +2595,7 @@ class _MonthlyReportDetailHeader extends StatelessWidget {
             children: [
               _MonthlyReportEyebrow(
                 colorScheme: colorScheme,
-                label: label,
+                label: status,
                 accent: accent,
                 icon: Icons.insights_rounded,
               ),
@@ -3274,7 +3281,8 @@ MonthlySpendingPaceItem? _detailFindPaceItem(
   return null;
 }
 
-List<_HealthRingMetric> _buildHealthRingMetrics(
+List<_HealthRingMetric> _buildDetailHealthRingMetrics(
+  BuildContext context,
   ColorScheme colorScheme,
   MonthlyFinancialReport report,
 ) {
@@ -3286,22 +3294,22 @@ List<_HealthRingMetric> _buildHealthRingMetrics(
 
   return [
     _HealthRingMetric(
-      label: 'Safe spend',
+      label: context.l10n.safeSpend,
       value:
           '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
       status: report.safeToSpend.dailyAmount > 0
           ? 'Available today'
           : 'Hold spending',
       progress: _detailSafeToSpendProgress(report),
-      color: vibrantPalette[0],
+      color: vibrantPalette[1],
       icon: Icons.wallet_rounded,
     ),
     _HealthRingMetric(
-      label: 'Budget pace',
+      label: context.l10n.budgetPace,
       value: '${(budgetPaceProgress * 100).round()}%',
       status: _detailPaceStatus(report),
       progress: budgetPaceProgress,
-      color: vibrantPalette[1],
+      color: vibrantPalette[0],
       icon: Icons.speed_rounded,
     ),
     _HealthRingMetric(

@@ -7219,4 +7219,531 @@ class AppLocalizationsTh extends AppLocalizations {
 
   @override
   String get exit => 'ออก';
+
+  @override
+  String get howToPlayItSmart => 'วิธีวางแผนให้ฉลาด';
+
+  @override
+  String get movesToConsider => 'สิ่งที่ควรพิจารณา';
+
+  @override
+  String get monthVsLastMonth => 'เดือนนี้เทียบกับเดือนที่แล้ว';
+
+  @override
+  String get incomeChange => 'การเปลี่ยนแปลงของรายรับ';
+
+  @override
+  String get spendingChange => 'การเปลี่ยนแปลงของรายจ่าย';
+
+  @override
+  String get netCashFlow => 'กระแสเงินสดสุทธิ';
+
+  @override
+  String get watchFirst => 'ตรวจดูก่อน';
+
+  @override
+  String get cashFlow => 'กระแสเงินสด';
+
+  @override
+  String get netWorth => 'มูลค่าสุทธิ';
+
+  @override
+  String afterLabel(Object label) {
+    return 'หลัง $label';
+  }
+
+  @override
+  String get topMerchants => 'ร้านค้ายอดนิยม';
+
+  @override
+  String get aboutFinancialHealth => 'เกี่ยวกับสุขภาพทางการเงิน';
+
+  @override
+  String get financialHealthBody => 'สุขภาพทางการเงินรวมยอดใช้จ่ายรายวันที่ปลอดภัย ความเร็วในการใช้งบ บิลที่กำลังจะมาถึง และเงินสำรองที่คาดว่าจะเหลือสิ้นเดือน วงที่ต่ำกว่าจะชี้จุดแรกที่ควรปรับก่อนสิ้นเดือน';
+
+  @override
+  String get monthlyHealth => 'สุขภาพรายเดือน';
+
+  @override
+  String get patternCheck => 'ตรวจสอบรูปแบบ';
+
+  @override
+  String get budgetHealth => 'สุขภาพงบประมาณ';
+
+  @override
+  String get categoryMovement => 'ความเคลื่อนไหวของหมวดหมู่';
+
+  @override
+  String get recurringCommitment => 'ภาระผูกพันประจำ';
+
+  @override
+  String get concentration => 'การกระจุกตัว';
+
+  @override
+  String get safeSpend => 'ยอดใช้จ่ายที่ปลอดภัย';
+
+  @override
+  String get budgetPace => 'จังหวะการใช้งบ';
+
+  @override
+  String get billsCovered => 'บิลที่ครอบคลุมแล้ว';
+
+  @override
+  String get monthEndBuffer => 'เงินสำรองสิ้นเดือน';
+
+  @override
+  String get coveredAhead => 'ครอบคลุมล่วงหน้า';
+
+  @override
+  String get needsCashFlow => 'ต้องการกระแสเงินสด';
+
+  @override
+  String get monthlyReport => 'รายงานรายเดือน';
+
+  @override
+  String get runningBalanceTab => 'ยอดคงเหลือต่อเนื่อง';
+
+  @override
+  String get highlights => 'ไฮไลต์';
+
+  @override
+  String get showAll => 'แสดงทั้งหมด';
+
+  @override
+  String get noMerchantData => 'ไม่มีข้อมูลร้านค้า';
+
+  @override
+  String get merchantNamesWillAppearWhenAvailable => 'ชื่อร้านค้าจะแสดงเมื่อพร้อมใช้งาน';
+
+  @override
+  String get financialHealth => 'สุขภาพทางการเงิน';
+
+  @override
+  String get forecast => 'คาดการณ์';
+
+  @override
+  String get fromLastSnapshot => 'จากภาพรวมล่าสุด';
+
+  @override
+  String get safeToSpend => 'ใช้จ่ายได้อย่างปลอดภัย';
+
+  @override
+  String get spending => 'รายจ่าย';
+
+  @override
+  String get noSubscriptions => 'ไม่มีการสมัครสมาชิก';
+
+  @override
+  String get clear => 'ล้าง';
+
+  @override
+  String get recurringExpensesWillAppearHere => 'รายจ่ายประจำจะแสดงที่นี่';
+
+  @override
+  String get billCalendar => 'ปฏิทินบิล';
+
+  @override
+  String get noUpcomingBills => 'ไม่มีบิลที่กำลังจะมาถึง';
+
+  @override
+  String get noScheduledMoneyMovementRemainsThisMonth => 'เดือนนี้ไม่มีรายการเคลื่อนไหวเงินที่กำหนดไว้เหลืออยู่';
+
+  @override
+  String get aboutRecurringCosts => 'เกี่ยวกับค่าใช้จ่ายประจำ';
+
+  @override
+  String get recurringCostsBody => 'ค่าใช้จ่ายประจำคือภาระผูกพันแบบคงที่หรือเกิดซ้ำ การตรวจสอบร่วมกับปฏิทินบิลช่วยกันเงินไว้สำหรับสิ่งจำเป็นก่อนใช้จ่ายแบบยืดหยุ่น';
+
+  @override
+  String get ofSpending => 'ของรายจ่าย';
+
+  @override
+  String get noCategoryTrends => 'ไม่มีแนวโน้มตามหมวดหมู่';
+
+  @override
+  String get waiting => 'กำลังรอ';
+
+  @override
+  String get comparableSpendingWillAppearHere => 'รายจ่ายที่เปรียบเทียบได้จะแสดงที่นี่';
+
+  @override
+  String get movers => 'รายการที่เปลี่ยนแปลงมาก';
+
+  @override
+  String get currentSpendIs => 'รายจ่ายปัจจุบันคือ';
+
+  @override
+  String get aboutCategoryMovement => 'เกี่ยวกับความเคลื่อนไหวของหมวดหมู่';
+
+  @override
+  String get categoryMovementBody => 'ความเคลื่อนไหวของหมวดหมู่เปรียบเทียบเดือนนี้กับเดือนก่อนและค่าพื้นฐานในอดีต มีประโยชน์มากในการมองหารายจ่ายยืดหยุ่นที่เปลี่ยนไปก่อนจะกลายเป็นปัญหางบประมาณ';
+
+  @override
+  String dueSoonCount(Object count) {
+    return 'ใกล้ครบกำหนด $count รายการ';
+  }
+
+  @override
+  String get monthlyRecurring => 'เกิดซ้ำรายเดือน';
+
+  @override
+  String get dueIn14Days => 'ครบกำหนดใน 14 วัน';
+
+  @override
+  String get incomeShare => 'สัดส่วนของรายรับ';
+
+  @override
+  String get dueSoonCountLabel => 'จำนวนที่ใกล้ครบกำหนด';
+
+  @override
+  String get subscriptions => 'การสมัครใช้บริการ';
+
+  @override
+  String get recurringCommitmentBody => 'ใช้ส่วนนี้เพื่อตรวจสอบบิลคงที่ก่อนตัดสินใจว่ายอดไหนใช้จ่ายได้อย่างปลอดภัย รายการที่ใกล้ครบกำหนดสำคัญที่สุดเมื่อกระแสเงินสดตึงตัว';
+
+  @override
+  String get aboutSavings => 'เกี่ยวกับการออม';
+
+  @override
+  String get savingsBody => 'เงินออมคือรายรับลบรายจ่ายของเดือนนั้น หากคุณมีเป้าหมาย แถบความคืบหน้าจะแสดงความคืบหน้าในการเก็บเงิน และแถวรายละเอียดจะแสดงว่ามีเงินออมไปแล้วเท่าไรจากเป้าหมาย';
+
+  @override
+  String forecastAmount(Object amount) {
+    return 'คาดการณ์ $amount';
+  }
+
+  @override
+  String amountFromLastSnapshot(Object amount) {
+    return '$amount จากภาพรวมล่าสุด';
+  }
+
+  @override
+  String get previewScenarioBookmarked => 'ตัวอย่าง: บุ๊กมาร์กสถานการณ์ไว้สำหรับเดโมแล้ว (ยังไม่ได้บันทึก)';
+
+  @override
+  String get previewScenarioRemovalSkipped => 'ตัวอย่าง: ข้ามการลบสถานการณ์แล้ว (สำหรับเดโมเท่านั้น)';
+
+  @override
+  String get budgetUsed => 'งบประมาณที่ใช้ไป';
+
+  @override
+  String get budgetPlan => 'แผนงบประมาณ';
+
+  @override
+  String get needsAttention => 'ต้องตรวจสอบ';
+
+  @override
+  String get budgeted => 'ตั้งงบไว้แล้ว';
+
+  @override
+  String get unbudgeted => 'ไม่ได้ตั้งงบไว้';
+
+  @override
+  String get budgetOverIncome => 'งบประมาณ / รายรับ';
+
+  @override
+  String budgetRiskCount(Object atRisk, Object overBudget) {
+    return 'เกินงบ $overBudget · เสี่ยง $atRisk';
+  }
+
+  @override
+  String get lowWater => 'จุดต่ำสุด';
+
+  @override
+  String get firstShortfall => 'ขาดเงินครั้งแรก';
+
+  @override
+  String get budgetLeft => 'งบประมาณคงเหลือ';
+
+  @override
+  String get availableAfterMonthToDateSpending => 'ใช้ได้หลังหักยอดใช้จ่ายเดือนนี้จนถึงปัจจุบัน';
+
+  @override
+  String get billsAhead => 'บิลที่กำลังจะถึง';
+
+  @override
+  String scheduledCount(Object count) {
+    return 'กำหนดไว้ $count รายการ';
+  }
+
+  @override
+  String get expectedIncome => 'รายรับที่คาดไว้';
+
+  @override
+  String get beforeMonthEnd => 'ก่อนสิ้นเดือน';
+
+  @override
+  String get aboutSafeToSpend => 'เกี่ยวกับยอดที่ใช้ได้อย่างปลอดภัย';
+
+  @override
+  String get safeToSpendBody => 'ยอดที่ใช้ได้อย่างปลอดภัยคือจำนวนเงินต่อวันที่เหลือหลังกันเงินไว้สำหรับงบประมาณที่เหลือและบิลที่กำลังจะมาถึงแล้ว หากตัวเลขนี้ต่ำหรือติดลบ ควรหยุดค่าใช้จ่ายที่ยืดหยุ่นได้ก่อน';
+
+  @override
+  String get unusualActivity => 'กิจกรรมผิดปกติ';
+
+  @override
+  String get categoryPace => 'จังหวะการใช้จ่ายตามหมวดหมู่';
+
+  @override
+  String get aboutSpendingPace => 'เกี่ยวกับจังหวะการใช้จ่าย';
+
+  @override
+  String get spendingPaceBody => 'แถบสีแสดงงบประมาณที่ใช้ไป ส่วนเส้นบาง ๆ แสดงว่าเดือนนี้ผ่านไปแล้วแค่ไหน หากแถบเลยเส้นนั้น แปลว่าหมวดนี้ใช้เงินเร็วกว่าเวลาที่ผ่านไป';
+
+  @override
+  String get budgetHealthBody => 'ตรวจสอบหมวดที่เกินงบหรือใช้เร็วกว่าเวลาที่ผ่านไปในเดือนนี้ การลดค่าใช้จ่ายที่ยืดหยุ่นได้ในหมวดเหล่านี้จะเห็นผลเร็วที่สุด';
+
+  @override
+  String get budgetNotes => 'บันทึกงบประมาณ';
+
+  @override
+  String get aboutBudgetHealth => 'เกี่ยวกับสุขภาพงบประมาณ';
+
+  @override
+  String get budgetHealthNotesBody => 'สุขภาพงบประมาณเปรียบเทียบค่าใช้จ่ายแต่ละหมวดกับทั้งจำนวนงบที่ตั้งไว้และเวลาของเดือนที่ผ่านไป คำเตือนไม่ได้แปลว่าล้มเหลว แต่บอกว่าการปรับเล็กน้อยตรงไหนจะสำคัญที่สุด';
+
+  @override
+  String get savedMoneyThisMonth => 'เดือนนี้คุณออมเงินได้';
+
+  @override
+  String get usingYourBufferThisMonth => 'เดือนนี้คุณกำลังใช้เงินสำรอง';
+
+  @override
+  String get positiveCashFlowAddsRoomForBillsGoalsAndUnexpectedSpending => 'กระแสเงินสดเป็นบวกช่วยเพิ่มพื้นที่สำหรับบิล เป้าหมาย และค่าใช้จ่ายที่ไม่คาดคิด';
+
+  @override
+  String get negativeSavingsMeansSpendingIsHigherThanIncomeSoFarWatchFlexibleCategoriesAndUpcomingBillsFirst => 'เงินออมติดลบหมายความว่าตอนนี้รายจ่ายสูงกว่ารายได้ ให้ดูหมวดค่าใช้จ่ายที่ยืดหยุ่นได้และบิลที่กำลังจะถึงก่อน';
+
+  @override
+  String get incomeMinusSpending => 'รายรับลบรายจ่าย';
+
+  @override
+  String get savedThisMonth => 'ออมได้ในเดือนนี้';
+
+  @override
+  String get spendingIsMovingFast => 'การใช้จ่ายกำลังเพิ่มขึ้นเร็ว';
+
+  @override
+  String get aSmallAdjustmentHelps => 'ปรับเล็กน้อยก็ช่วยได้';
+
+  @override
+  String get budgetsNeedAttention => 'งบประมาณต้องตรวจสอบ';
+
+  @override
+  String get patternsChanged => 'รูปแบบการใช้จ่ายเปลี่ยนไป';
+
+  @override
+  String get availableToday => 'ใช้ได้วันนี้';
+
+  @override
+  String get holdSpending => 'ชะลอการใช้จ่าย';
+
+  @override
+  String get toWatch => 'ที่ต้องติดตาม';
+
+  @override
+  String get budgetsToWatch => 'งบประมาณที่ต้องติดตาม';
+
+  @override
+  String get noMovers => 'ไม่มีการเปลี่ยนแปลงเด่น';
+
+  @override
+  String get moreHistoryIsNeeded => 'ต้องมีประวัติเพิ่มเติม';
+
+  @override
+  String canSafelySpendPerDay(Object amount) {
+    return 'คุณสามารถใช้ได้อย่างปลอดภัยวันละ $amount';
+  }
+
+  @override
+  String safeToSpendCoversNextDays(Object count) {
+    return 'จำนวนนี้ครอบคลุมอีก $count วันถัดไป หลังหักบิลที่กำหนดไว้ รายได้ที่คาดไว้ และงบประมาณที่เหลือแล้ว';
+  }
+
+  @override
+  String alreadyCommittedEachMonth(Object amount) {
+    return '$amount ถูกกันไว้เป็นค่าใช้จ่ายประจำทุกเดือนแล้ว';
+  }
+
+  @override
+  String couldNotLoadMonthlyFinancialHealth(Object error) {
+    return 'ไม่สามารถโหลดสุขภาพทางการเงินรายเดือนได้: $error';
+  }
+
+  @override
+  String get month => 'เดือน';
+
+  @override
+  String couldNotLoadReport(Object error) {
+    return 'ไม่สามารถโหลดรายงานได้: $error';
+  }
+
+  @override
+  String forecastLabel(Object amount) {
+    return 'คาดการณ์ $amount';
+  }
+
+  @override
+  String get noProjectedLowDate => 'ไม่มีวันที่คาดว่าจะต่ำสุด';
+
+  @override
+  String get billsAppearCovered => 'ดูเหมือนว่าบิลจะครอบคลุมแล้ว';
+
+  @override
+  String get balanceMayGoNegative => 'ยอดคงเหลืออาจติดลบ';
+
+  @override
+  String daysRemainingLabel(Object count) {
+    return 'เหลืออีก $count วัน';
+  }
+
+  @override
+  String vsLastMonth(Object amount) {
+    return '$amount เทียบกับเดือนที่แล้ว';
+  }
+
+  @override
+  String categoryNeedsAttention(Object category) {
+    return '$category ต้องตรวจสอบ';
+  }
+
+  @override
+  String categoriesNeedAttention(Object count) {
+    return 'มี $count หมวดที่ต้องตรวจสอบ';
+  }
+
+  @override
+  String rateLabel(Object value) {
+    return 'อัตรา $value';
+  }
+
+  @override
+  String get positiveForecast => 'คาดการณ์เป็นบวก';
+
+  @override
+  String get negativeForecast => 'คาดการณ์เป็นลบ';
+
+  @override
+  String get buildingRoom => 'กำลังสร้างพื้นที่เผื่อ';
+
+  @override
+  String get usingBuffer => 'กำลังใช้เงินสำรอง';
+
+  @override
+  String goalProgressDetail(Object current, Object needed, Object target) {
+    return '$current / $target · ต้องการ $needed/เดือน';
+  }
+
+  @override
+  String get moreHistoryNeeded => 'ต้องมีประวัติเพิ่มเติม';
+
+  @override
+  String get safeToSpendLabel => 'ยอดที่ใช้ได้อย่างปลอดภัย';
+
+  @override
+  String get spendingLabel => 'รายจ่าย';
+
+  @override
+  String get budgetLabel => 'งบประมาณ';
+
+  @override
+  String get savingsLabel => 'เงินออม';
+
+  @override
+  String get categoriesLabel => 'หมวดหมู่';
+
+  @override
+  String get recurringLabel => 'รายการประจำ';
+
+  @override
+  String get noBaseline => 'ไม่มีข้อมูลอ้างอิง';
+
+  @override
+  String higherThanComparison(Object percent) {
+    return 'สูงกว่าค่าเปรียบเทียบ $percent%';
+  }
+
+  @override
+  String lowerThanComparison(Object percent) {
+    return 'ต่ำกว่าค่าเปรียบเทียบ $percent%';
+  }
+
+  @override
+  String get monthOnTrack => 'เดือนนี้ของคุณโดยรวมยังเป็นไปตามแผน';
+
+  @override
+  String get spendingMovingFast => 'การใช้จ่ายของคุณค่อนข้างเร็วไปเล็กน้อย';
+
+  @override
+  String get monthNeedsAdjustment => 'เดือนนี้ของคุณต้องปรับเล็กน้อย';
+
+  @override
+  String get budgetsNeedAttentionDetail => 'มีบางงบประมาณที่ต้องตรวจสอบ';
+
+  @override
+  String get spendingPatternsReview => 'มีรูปแบบการใช้จ่ายที่ควรตรวจสอบ';
+
+  @override
+  String budgetUsageDetail(Object spentPercent, Object timePercent) {
+    return 'ใช้ไป $spentPercent% เทียบกับเดือนที่ผ่านไป $timePercent%';
+  }
+
+  @override
+  String get onExpectedPace => 'เป็นไปตามจังหวะที่คาดไว้';
+
+  @override
+  String get scheduled => 'กำหนดไว้แล้ว';
+
+  @override
+  String get buildingMonthlyReport => 'กำลังสร้างรายงานรายเดือน';
+
+  @override
+  String get checkingBudgetsTrends => 'กำลังตรวจสอบงบประมาณ แนวโน้ม และภาระผูกพันที่กำลังจะมาถึง';
+
+  @override
+  String get reportReady => 'รายงานพร้อมแล้ว';
+
+  @override
+  String preparingProgress(Object percent) {
+    return 'กำลังเตรียม $percent%';
+  }
+
+  @override
+  String get refreshingReport => 'กำลังรีเฟรชรายงาน';
+
+  @override
+  String lastSyncedLabel(Object time) {
+    return 'ซิงค์ล่าสุด $time';
+  }
+
+  @override
+  String get never => 'ไม่เคย';
+
+  @override
+  String get justNow => 'เมื่อสักครู่';
+
+  @override
+  String minutesAgo(Object count, Object plural) {
+    return '$count นาทีที่แล้ว';
+  }
+
+  @override
+  String hoursAgo(Object count, Object plural) {
+    return '$count ชั่วโมงที่แล้ว';
+  }
+
+  @override
+  String todayAtTime(Object time) {
+    return 'วันนี้ เวลา $time';
+  }
+
+  @override
+  String dateAtTime(Object date, Object time) {
+    return '$date เวลา $time';
+  }
+
+  @override
+  String percentOfSpending(Object amount, Object percent) {
+    return '$percent% · $amount';
+  }
 }

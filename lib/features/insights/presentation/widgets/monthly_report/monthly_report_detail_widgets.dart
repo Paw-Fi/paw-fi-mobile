@@ -209,7 +209,7 @@ class _MonthlyReportMerchantShareChart extends StatelessWidget {
         children: [
           _MonthlyReportEyebrow(
             colorScheme: colorScheme,
-            label: 'Concentration',
+            label: context.l10n.concentration,
             accent: colorScheme.info,
             icon: Icons.receipt_long_rounded,
           ),
@@ -271,38 +271,49 @@ class _MonthlyReportMerchantLegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          merchant.name,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: colorScheme.foreground,
-            height: 1.2,
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              merchant.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.foreground,
+                height: 1.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '${_detailPercent(merchant.spendingShare)} · ${formatCurrency(merchant.amount, currencyCode)}',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.mutedForeground,
-            height: 1.2,
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              context.l10n.percentOfSpending(_detailPercent(merchant.spendingShare), formatCurrency(merchant.amount, currencyCode)),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.mutedForeground,
+                height: 1.2,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

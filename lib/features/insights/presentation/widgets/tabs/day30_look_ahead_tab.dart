@@ -258,9 +258,8 @@ class _InsightsHelpSlideData {
 List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
   return [
     _InsightsHelpSlideData(
-      title: 'What the forecast shows',
-      summary:
-          'We blend the past 30 days of spending and income to sketch an average week ahead. It smooths out one-off splurges so you can see the usual rhythm.',
+      title: context.l10n.whatTheForecastShows,
+      summary: context.l10n.day30WhatShowsDesc,
       points: [
         context.l10n.greenLineExpected,
         context.l10n.spikesHighlight,
@@ -268,9 +267,8 @@ List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
       ],
     ),
     _InsightsHelpSlideData(
-      title: 'Why it matters',
-      summary:
-          'Forward-looking budgets help you stay proactive. Seeing big days ahead lets you set aside cash instead of scrambling later.',
+      title: context.l10n.whyItMatters,
+      summary: context.l10n.day30WhyMattersDesc,
       points: [
         context.l10n.spotExpensivePatterns,
         context.l10n.catchQuieterWeeks,
@@ -278,9 +276,8 @@ List<_InsightsHelpSlideData> _thirtyDaySlides(BuildContext context) {
       ],
     ),
     _InsightsHelpSlideData(
-      title: 'How to play it smart',
-      summary:
-          'Treat it like a friendly nudge, not a strict rulebook. Adjust your plan with tiny moves that feel doable.',
+      title: context.l10n.howToPlayItSmart,
+      summary: context.l10n.day30HowToPlaySmartDesc,
       points: [
         context.l10n.bigSpikeComing,
         context.l10n.forecastDipping,

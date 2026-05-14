@@ -165,7 +165,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
               Expanded(
                 child: MonekoTabBarView(
                   tabs: [
-                    'Monthly Report',
+                    context.l10n.monthlyReport,
                     context.l10n.scenarioTab,
                   ],
                   children: [

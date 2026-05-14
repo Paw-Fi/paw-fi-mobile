@@ -75,11 +75,23 @@ class _ScenarioPlanningTabContentState
   String? _scenarioHistoryUserId;
   String? _scenarioHistoryHouseholdId;
 
-  List<String> get _previewSavedScenarios => [
-        'Can I buy a \$1,200 laptop before Apr 15?',
-        'Can I fund my June wedding deposits before May 20?',
-        'Can I build a \$5,000 emergency fund before December 31?',
-      ];
+  List<String> _previewSavedScenarios(BuildContext context) {
+    final now = DateTime.now();
+    return [
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.buyALaptop,
+        _formatLocalizedDate(now.add(const Duration(days: 45))),
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleRentGroceries,
+        _formatLocalizedDate(now.add(const Duration(days: 90))),
+      ),
+      context.l10n.scenarioQuestionTemplate(
+        context.l10n.insightsTourExampleEmergencyFund,
+        _formatLocalizedDate(now.add(const Duration(days: 150))),
+      ),
+    ];
+  }
 
   String _buildScenarioTourDescription() {
     final now = DateTime.now();
@@ -1053,7 +1065,7 @@ class _ScenarioPlanningTabContentState
       children: [
         const Icon(Icons.history, size: 18),
         const SizedBox(height: 12),
-        ..._previewSavedScenarios.map(
+        ..._previewSavedScenarios(context).map(
           (s) => Padding(
             padding: const EdgeInsets.only(bottom: 10.0),
             child: Row(
