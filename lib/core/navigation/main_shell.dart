@@ -46,7 +46,6 @@ import 'package:moneko/features/wallets/presentation/providers/wallet_auth_heade
 import 'package:moneko/features/wallets/presentation/providers/wallets_cache_store.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallets_lazy_providers.dart';
 import 'package:moneko/features/wallets/presentation/providers/wallet_providers.dart';
-import 'package:moneko/features/subscription/presentation/providers/subscription_provider.dart';
 import 'package:moneko/core/navigation/widgets/trial_reminder_banner.dart';
 
 import 'package:moneko/shared/widgets/status_bar_overlay_region.dart';
@@ -290,12 +289,8 @@ class MainShell extends HookConsumerWidget {
     final visitedTabs = useState<Set<int>>(<int>{currentIndex});
     final colorScheme = Theme.of(context).colorScheme;
     final previewState = ref.watch(previewModeProvider);
-    final subscriptionGateStatus = ref.watch(subscriptionGateStatusProvider);
     final hasNetworkAccess =
         ref.watch(_networkReachabilityProvider).valueOrNull ?? true;
-    final effectiveSubscriptionGateStatus = !hasNetworkAccess
-        ? SubscriptionGateStatus.graceActive
-        : subscriptionGateStatus;
     final auth = ref.watch(authProvider);
     final walletAuthHeaders =
         previewState.isActive ? null : ref.watch(walletAuthHeadersProvider);
@@ -303,9 +298,7 @@ class MainShell extends HookConsumerWidget {
         ? null
         : ref.watch(walletScopeHouseholdIdProvider);
     final warmedWalletsKeyRef = useRef<String?>(null);
-    final showSubscriptionVerificationBanner =
-        effectiveSubscriptionGateStatus == SubscriptionGateStatus.graceActive ||
-            effectiveSubscriptionGateStatus == SubscriptionGateStatus.unknown;
+    final showNoNetworkBanner = !hasNetworkAccess;
 
     final isSyncing = useState(false);
     final syncKey = useState(UniqueKey());
@@ -381,6 +374,8 @@ class MainShell extends HookConsumerWidget {
     useEffect(() {
       final observer = _MainShellLifecycleObserver(
         onResume: () {
+          ref.invalidate(_networkReachabilityProvider);
+
           final userId = ref.read(authProvider).uid;
           if (userId.isEmpty || ref.read(previewModeProvider).isActive) {
             return;
@@ -608,21 +603,10 @@ class MainShell extends HookConsumerWidget {
                         ),
                       ),
                     _AnimatedTopBannerSlot(
-                      visible: !previewState.isActive &&
-                          showSubscriptionVerificationBanner,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                        child: _SubscriptionVerificationBanner(
-                          status: effectiveSubscriptionGateStatus,
-                          onRetryTap: () {
-                            unawaited(ref
-                                .read(subscriptionNotifierProvider.notifier)
-                                .refresh());
-                          },
-                          onManageTap: () {
-                            context.push('/paywall?mode=resubscribe');
-                          },
-                        ),
+                      visible: !previewState.isActive && showNoNetworkBanner,
+                      child: const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: _SubscriptionVerificationBanner(),
                       ),
                     ),
                     const TrialReminderBannerGate(),
@@ -760,79 +744,40 @@ class _AnimatedTopBannerSlot extends StatelessWidget {
 }
 
 class _SubscriptionVerificationBanner extends StatelessWidget {
-  const _SubscriptionVerificationBanner({
-    required this.status,
-    required this.onRetryTap,
-    required this.onManageTap,
-  });
-
-  final SubscriptionGateStatus status;
-  final VoidCallback onRetryTap;
-  final VoidCallback onManageTap;
+  const _SubscriptionVerificationBanner();
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isGraceAccess = status == SubscriptionGateStatus.graceActive;
-    final title = isGraceAccess
-        ? context.l10n.offlineGraceAccess
-        : context.l10n.subscriptionCheckTrouble;
-
-    final subtitle = isGraceAccess
-        ? context.l10n.offlineSyncMessage
-        : context.l10n.fullAccessRetryMessage;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.warningSurface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colorScheme.warningBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.warning,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+          Icon(
+            Icons.wifi_off_rounded,
+            color: colorScheme.warning,
+            size: 18,
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: colorScheme.foreground,
-              height: 1.3,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.l10n.offlineGraceAccess,
+              style: TextStyle(
+                color: colorScheme.foreground,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                style: FilledButton.styleFrom(
-                  foregroundColor: colorScheme.onPrimary,
-                  backgroundColor: colorScheme.warning,
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onRetryTap,
-                child: Text(context.l10n.retryNow),
-              ),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.foreground,
-                  side: BorderSide(color: colorScheme.border),
-                  minimumSize: const Size(0, 34),
-                ),
-                onPressed: onManageTap,
-                child: Text(context.l10n.managePlan),
-              ),
-            ],
           ),
         ],
       ),
