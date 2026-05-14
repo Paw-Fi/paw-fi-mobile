@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:math' as math;
 
+import 'package:adaptive_platform_ui/adaptive_platform_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -823,8 +824,14 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: colorScheme.sheetElementBackground,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: colorScheme.border),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colorScheme.homeCardShadow,
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -967,14 +974,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                                     AppTheme.pocketColorSweep,
                                               ),
                                         shape: BoxShape.circle,
-                                        border: isCustomColor
-                                            ? Border.all(
-                                                color: colorScheme.foreground,
-                                                width: 2)
-                                            : Border.all(
-                                                color: colorScheme.border),
-                                        boxShadow: const [
-                                          // Shadow removed as requested
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colorScheme.homeCardShadow,
+                                            blurRadius: 6,
+                                            offset: const Offset(0, 2),
+                                          ),
                                         ],
                                       ),
                                       child: AnimatedSwitcher(
@@ -1015,14 +1020,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     decoration: BoxDecoration(
                                       color: color,
                                       shape: BoxShape.circle,
-                                      border: isSelected
-                                          ? Border.all(
-                                              color: colorScheme.foreground,
-                                              width: 2)
-                                          : null,
-                                      boxShadow: const [
-                                        // Shadow removed as requested
-                                      ],
+                                      boxShadow: isSelected
+                                          ? [
+                                              BoxShadow(
+                                                color: colorScheme.homeCardShadow,
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: colorScheme.homeCardShadow,
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 1),
+                                              ),
+                                            ],
                                     ),
                                     child: AnimatedSwitcher(
                                       duration:
@@ -1074,32 +1086,22 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
 
                               return GestureDetector(
                                 onTap: () => selectedIcon.value = iconName,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
+                                child: Container(
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? selectedColorValue.withValues(
-                                            alpha: 0.1)
+                                            alpha: 0.2)
                                         : colorScheme.card,
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? selectedColorValue
-                                          : colorScheme.border,
-                                    ),
                                   ),
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: Icon(
-                                      iconData,
-                                      key: ValueKey(isSelected),
-                                      color: isSelected
-                                          ? selectedColorValue
-                                          : colorScheme.mutedForeground,
-                                      size: 20,
-                                    ),
+                                  child: Icon(
+                                    iconData,
+                                    color: isSelected
+                                        ? selectedColorValue
+                                        : colorScheme.mutedForeground,
+                                    size: 20,
                                   ),
                                 ),
                               );
@@ -1112,7 +1114,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                           decoration: BoxDecoration(
                             color: colorScheme.sheetElementBackground,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: colorScheme.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.homeCardShadow,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1209,29 +1217,13 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                 ],
                               ),
                               const SizedBox(height: 14),
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  trackHeight: 4,
-                                  activeTrackColor: colorScheme.primary,
-                                  inactiveTrackColor:
-                                      colorScheme.border.withValues(alpha: 0.6),
-                                  thumbColor: colorScheme.primary,
-                                  overlayColor: colorScheme.primary
-                                      .withValues(alpha: 0.12),
-                                  valueIndicatorColor: colorScheme.primary,
-                                  valueIndicatorTextStyle: TextStyle(
-                                    color: colorScheme.primaryForeground,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                child: Slider(
+                              SizedBox(
+                                width: double.infinity,
+                                child: AdaptiveSlider(
                                   value: sliderPercent,
                                   min: 0,
                                   max: 100,
                                   divisions: 100,
-                                  label: '${sliderPercent.toStringAsFixed(0)}%',
-                                  semanticFormatterCallback: (value) =>
-                                      '${value.toStringAsFixed(0)} percent',
                                   onChanged: (maxBudgetCents <= 0 ||
                                           isLoading.value)
                                       ? null
@@ -1245,15 +1237,10 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                                 .toInt(),
                                             stepCents: allocationStepCents,
                                           );
-                                          final formatted = formatAmount(
-                                            centsToAmount(newCents),
-                                          );
                                           amountController.value =
                                               TextEditingValue(
-                                            text: formatted,
-                                            selection: TextSelection.collapsed(
-                                              offset: formatted.length,
-                                            ),
+                                            text: formatAmount(
+                                                centsToAmount(newCents)),
                                           );
                                         },
                                 ),
@@ -1434,7 +1421,13 @@ class _BudgetDistributionPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.sheetElementBackground,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colorScheme.border),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

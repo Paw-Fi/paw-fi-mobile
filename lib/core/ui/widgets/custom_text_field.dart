@@ -48,82 +48,59 @@ class CustomTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return TextFormField(
-      controller: controller,
-      initialValue: initialValue,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      obscureText: obscureText,
-      onChanged: onChanged,
-      onTap: onTap,
-      readOnly: readOnly,
-      textAlign: textAlign,
-      inputFormatters: inputFormatters,
-      focusNode: focusNode,
-      autofocus: autofocus,
-      enabled: enabled,
-      style: style ??
-          TextStyle(
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.sheetElementBackground,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.homeCardShadow,
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        initialValue: initialValue,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        obscureText: obscureText,
+        onChanged: onChanged,
+        onTap: onTap,
+        readOnly: readOnly,
+        textAlign: textAlign,
+        inputFormatters: inputFormatters,
+        focusNode: focusNode,
+        autofocus: autofocus,
+        enabled: enabled,
+        style: style ??
+            TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.foreground,
+            ),
+        decoration: InputDecoration(
+          hintText: placeholder,
+          hintStyle: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: colorScheme.foreground,
+            fontWeight: FontWeight.w400,
+            color: colorScheme.mutedForeground,
           ),
-      decoration: InputDecoration(
-        hintText: placeholder,
-        hintStyle: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: colorScheme.mutedForeground,
-        ),
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: colorScheme.appBackground,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8), // Subtle 8px radius
-          borderSide: BorderSide(
-            color: colorScheme.border,
-            width: 1,
+          prefixIcon: prefixIcon,
+          suffixIcon: suffixIcon,
+          filled: true,
+          fillColor: Colors.transparent,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: colorScheme.border,
-            width: 1,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: colorScheme.primary,
-            width: 2,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: colorScheme.destructive,
-            width: 1,
-          ),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: colorScheme.destructive,
-            width: 2,
-          ),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(
-            color: colorScheme.border.withValues(alpha: 0.5),
-            width: 1,
-          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
         ),
       ),
     );
