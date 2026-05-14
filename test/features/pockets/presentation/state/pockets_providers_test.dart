@@ -687,6 +687,151 @@ void main() {
       );
     });
 
+    test('resolves personal in-memory optimistic expenses before SQLite writes',
+        () {
+      final month = DateTime(2026, 5, 1);
+
+      final resolved = resolveInMemoryPocketOverlayExpenses(
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        monthStart: month,
+        selectedCurrency: 'USD',
+        personalExpenses: [
+          ExpenseEntry(
+            id: 'optimistic_food_1',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1500,
+            currency: 'USD',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'income-ignored',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 50000,
+            currency: 'USD',
+            category: 'salary',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'income',
+          ),
+        ],
+        householdExpensesByHouseholdId: const {},
+      );
+
+      expect(resolved.map((expense) => expense.id), ['optimistic_food_1']);
+    });
+
+    test('resolves household in-memory optimistic expenses by active household',
+        () {
+      final month = DateTime(2026, 5, 1);
+
+      final resolved = resolveInMemoryPocketOverlayExpenses(
+        scopeType: PocketsScopeType.household,
+        householdId: 'house-1',
+        monthStart: month,
+        selectedCurrency: 'USD',
+        personalExpenses: const [],
+        householdExpensesByHouseholdId: {
+          'house-1': [
+            ExpenseEntry(
+              id: 'optimistic_house_1',
+              userId: 'user-1',
+              householdId: 'house-1',
+              date: DateTime(2026, 5, 13),
+              amountCents: 1500,
+              currency: 'USD',
+              category: 'food',
+              createdAt: DateTime(2026, 5, 13),
+              type: 'expense',
+            ),
+          ],
+          'house-2': [
+            ExpenseEntry(
+              id: 'wrong-house',
+              userId: 'user-1',
+              householdId: 'house-2',
+              date: DateTime(2026, 5, 13),
+              amountCents: 1500,
+              currency: 'USD',
+              category: 'food',
+              createdAt: DateTime(2026, 5, 13),
+              type: 'expense',
+            ),
+          ],
+        },
+      );
+
+      expect(resolved.map((expense) => expense.id), ['optimistic_house_1']);
+    });
+
+    test('filters in-memory optimistic expenses by viewed month and currency',
+        () {
+      final month = DateTime(2026, 5, 1);
+
+      final resolved = resolveInMemoryPocketOverlayExpenses(
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        monthStart: month,
+        selectedCurrency: 'USD',
+        personalExpenses: [
+          ExpenseEntry(
+            id: 'wrong-month',
+            userId: 'user-1',
+            date: DateTime(2026, 4, 30),
+            amountCents: 1500,
+            currency: 'USD',
+            category: 'food',
+            createdAt: DateTime(2026, 4, 30),
+            type: 'expense',
+          ),
+          ExpenseEntry(
+            id: 'wrong-currency',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1500,
+            currency: 'EUR',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+        ],
+        householdExpensesByHouseholdId: const {},
+      );
+
+      expect(resolved, isEmpty);
+    });
+
+    test(
+        'ignores non-optimistic in-memory rows to avoid double counting saved rows',
+        () {
+      final month = DateTime(2026, 5, 1);
+
+      final resolved = resolveInMemoryPocketOverlayExpenses(
+        scopeType: PocketsScopeType.personal,
+        householdId: null,
+        monthStart: month,
+        selectedCurrency: 'USD',
+        personalExpenses: [
+          ExpenseEntry(
+            id: 'server-expense-1',
+            userId: 'user-1',
+            date: DateTime(2026, 5, 13),
+            amountCents: 1500,
+            currency: 'USD',
+            category: 'food',
+            createdAt: DateTime(2026, 5, 13),
+            type: 'expense',
+          ),
+        ],
+        householdExpensesByHouseholdId: const {},
+      );
+
+      expect(resolved, isEmpty);
+    });
+
     test('applies local expense overlay to matching pocket immediately', () {
       final month = DateTime(2026, 5, 1);
       final state = PocketsState(

@@ -21,6 +21,7 @@ import 'package:moneko/features/households/presentation/providers/selected_house
 import 'package:moneko/features/households/presentation/pages/household_settings_page.dart';
 import 'package:moneko/features/households/presentation/pages/settlement_history_page.dart';
 import 'package:moneko/features/home/presentation/state/state.dart';
+import 'package:moneko/features/insights/presentation/pages/monthly_report_page.dart';
 import 'package:moneko/features/import/presentation/pages/import_wizard_page.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 import 'package:moneko/features/onboarding/presentation/pages/onboarding_pre_auth_flow_page.dart';
@@ -76,6 +77,49 @@ GoRouter router(RouterRef ref) {
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const MainShell(),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/balance',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.balance,
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/safe-spend',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.safeSpend,
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/spending',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.spending,
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/budget',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.budget,
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/savings',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.savings,
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/categories',
+        builder: (context, state) => MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.categories,
+          selectedCategoryName: state.uri.queryParameters['name'],
+        ),
+      ),
+      GoRoute(
+        path: '/insights/monthly-report/recurring',
+        builder: (context, state) => const MonthlyReportDetailPage(
+          kind: MonthlyReportDetailKind.recurring,
+        ),
       ),
 
       // Auth Routes

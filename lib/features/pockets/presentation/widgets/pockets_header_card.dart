@@ -266,14 +266,14 @@ class PocketsHeaderCard extends StatelessWidget {
       BuildContext context, double currentAmount) async {
     final value = await showCalculatorKeypadSheet(
       context: context,
-      initialValue: currentAmount == 0 ? '' : currentAmount.toStringAsFixed(0),
+      initialValue: currentAmount == 0 ? '' : formatAmount(currentAmount),
     );
     if (value == null) return;
 
     final cents = tryParseMoneyToCents(value);
     final val = cents != null ? centsToAmount(cents) : null;
     if (val != null && val >= 0) {
-      onTotalChanged(val.roundToDouble());
+      onTotalChanged(val);
       onSave?.call();
     }
   }

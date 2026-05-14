@@ -22,6 +22,7 @@ import 'package:moneko/features/pockets/presentation/state/pockets_debug_tracing
 import 'package:moneko/features/pockets/presentation/utils/pocket_budget_amount_steps.dart';
 import 'package:moneko/features/recurring/domain/models/recurring_transaction.dart';
 import 'package:moneko/features/recurring/domain/utils/recurring_projection.dart';
+import 'package:moneko/features/households/presentation/providers/household_optimistic_providers.dart';
 import 'package:moneko/features/households/presentation/providers/selected_household_provider.dart';
 
 void _debugLog(String message) {
@@ -500,14 +501,18 @@ PocketsState applyRebalancedBudgetToPocketsState({
   final baselineTotalBudget =
       hasSavedBaseline ? state.savedTotalBudget : state.totalBudget;
   final previousTotalBudgetCents = (baselineTotalBudget * 100).round();
-  final newTotalBudgetCents = (newTotalBudget * 100).round();
+  final allocationStepCents = pocketBudgetAdjustmentStepCents(state.currency);
+  final newTotalBudgetCents = quantizePocketBudgetAmountCents(
+    (newTotalBudget * 100).round(),
+    stepCents: allocationStepCents,
+  );
   final rebalancedAmounts = rescalePocketBudgetAmountsForTotalBudgetChange(
     currentAmountsCents: baselinePockets
         .map((pocket) => pocket.budgetAmountCents)
         .toList(growable: false),
     previousTotalBudgetCents: previousTotalBudgetCents,
     newTotalBudgetCents: newTotalBudgetCents,
-    allocationStepCents: pocketBudgetAdjustmentStepCents(state.currency),
+    allocationStepCents: allocationStepCents,
   );
 
   final rebalancedEditing = state.editing.isEmpty
@@ -800,6 +805,36 @@ List<ExpenseEntry> filterPocketActualExpenses(
 bool shouldLoadLocalPocketExpenseOverlaySyncStatus(String syncStatus) {
   return syncStatus == localSyncStatusLocal ||
       syncStatus == localSyncStatusSynced;
+}
+
+@foundation.visibleForTesting
+List<ExpenseEntry> resolveInMemoryPocketOverlayExpenses({
+  required PocketsScopeType scopeType,
+  required String? householdId,
+  required DateTime monthStart,
+  required String selectedCurrency,
+  required Iterable<ExpenseEntry> personalExpenses,
+  required Map<String, List<ExpenseEntry>> householdExpensesByHouseholdId,
+}) {
+  final source = switch (scopeType) {
+    PocketsScopeType.personal => personalExpenses,
+    PocketsScopeType.portfolio ||
+    PocketsScopeType.household =>
+      householdId == null || householdId.trim().isEmpty
+          ? const <ExpenseEntry>[]
+          : householdExpensesByHouseholdId[householdId] ??
+              const <ExpenseEntry>[],
+  };
+  final currency = selectedCurrency.trim().toUpperCase();
+  return filterPocketActualExpenses(source).where((expense) {
+    if (!expense.id.startsWith('optimistic_')) return false;
+    if (expense.date.year != monthStart.year ||
+        expense.date.month != monthStart.month) {
+      return false;
+    }
+    if (currency.isEmpty) return true;
+    return (expense.currency ?? '').trim().toUpperCase() == currency;
+  }).toList(growable: false);
 }
 
 @foundation.visibleForTesting
@@ -1195,6 +1230,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       if (previous == null || previous == next) return;
       _scheduleSilentReload();
     });
+    ref.listen<List<ExpenseEntry>>(
+      analyticsProvider.select((state) => state.expenses),
+      (previous, next) {
+        if (params.scope != PocketsScopeType.personal) return;
+        if (previous == null || identical(previous, next)) return;
+        _scheduleSilentReload();
+      },
+    );
+    ref.listen<Map<String, List<ExpenseEntry>>>(
+      householdOptimisticExpensesProvider,
+      (previous, next) {
+        if (params.scope == PocketsScopeType.personal) return;
+        if (previous == null || identical(previous, next)) return;
+        _scheduleSilentReload();
+      },
+    );
     Future.microtask(load);
   }
 
@@ -1213,6 +1264,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (!mounted || state.hasChanges) return;
     _refreshRevision++;
     _hasPendingSilentReload = true;
+    _applyFastInMemoryPocketExpenseOverlay();
     unawaited(_applyFastLocalPocketExpenseOverlay());
     final cacheKey = _lastCacheKey;
     if (cacheKey != null) {
@@ -1220,6 +1272,31 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     }
     if (state.isLoading && _hasLoadedOnce) return;
     unawaited(_drainPendingSilentReload());
+  }
+
+  void _applyFastInMemoryPocketExpenseOverlay() {
+    if (!mounted || state.hasChanges || !state.hasDisplayData) return;
+    final authUser = ref.read(authProvider);
+    if (authUser.uid.trim().isEmpty) return;
+
+    final monthStart = DateTime(
+      state.periodMonth.year,
+      state.periodMonth.month,
+      1,
+    );
+    final overlay = _loadInMemoryPocketOverlayExpenses(
+      monthStart: monthStart,
+      selectedCurrency: state.currency,
+    );
+    if (overlay.isEmpty) return;
+
+    final updated = applyLocalPocketExpenseOverlay(
+      state: state,
+      expenses: overlay,
+    );
+    if (!identical(updated, state)) {
+      state = updated;
+    }
   }
 
   Future<void> _drainPendingSilentReload() async {
@@ -1262,6 +1339,21 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     if (!identical(updated, state)) {
       state = updated;
     }
+  }
+
+  List<ExpenseEntry> _loadInMemoryPocketOverlayExpenses({
+    required DateTime monthStart,
+    required String selectedCurrency,
+  }) {
+    return resolveInMemoryPocketOverlayExpenses(
+      scopeType: params.scope,
+      householdId: params.householdId,
+      monthStart: monthStart,
+      selectedCurrency: selectedCurrency,
+      personalExpenses: ref.read(analyticsProvider).expenses,
+      householdExpensesByHouseholdId:
+          ref.read(householdOptimisticExpensesProvider),
+    );
   }
 
   dynamic _applyAccountScopeFilter(
@@ -1817,9 +1909,17 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         pendingLocalOnlyExpenses,
         syncedLocalExpenses,
       );
+      final inMemoryOverlayExpenses = _loadInMemoryPocketOverlayExpenses(
+        monthStart: monthStart,
+        selectedCurrency: selectedCurrency,
+      );
+      final localOverlayExpenses = _mergeUniqueExpenses(
+        pendingLocalExpenses,
+        inMemoryOverlayExpenses,
+      );
       final actualExpensesWithPending = _mergeUniqueExpenses(
         filteredActualExpenses,
-        pendingLocalExpenses,
+        localOverlayExpenses,
       );
       trace.mark('rpc-success', {
         'budgetId': budgetId ?? '<none>',
@@ -1827,6 +1927,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'actualExpenseCount': actualExpenseRows.length,
         'filteredActualExpenseCount': filteredActualExpenses.length,
         'pendingLocalExpenseCount': pendingLocalExpenses.length,
+        'inMemoryOverlayExpenseCount': inMemoryOverlayExpenses.length,
         'selectedCurrency': selectedCurrency,
       });
 
@@ -1859,7 +1960,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
 
       final shouldComputeSpendFromTransactions =
           projectedRecurringExpenses.isNotEmpty ||
-              pendingLocalExpenses.isNotEmpty;
+              localOverlayExpenses.isNotEmpty;
       final spentById = <String, double>{};
       double totalMonthlySpend = 0.0;
 
@@ -2049,7 +2150,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
           (key, value) => MapEntry(key, value.toList(growable: false)),
         ),
         localOverlayExpenseIds:
-            pendingLocalOnlyExpenses.map((expense) => expense.id).toSet(),
+            localOverlayExpenses.map((expense) => expense.id).toSet(),
       );
     }
 
@@ -2129,26 +2230,6 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
     } finally {
       _pocketsMonthCache.clearInFlight(cacheKey);
     }
-  }
-
-  Future<List<ExpenseEntry>> _loadPendingLocalPocketExpenses({
-    required String userId,
-    required PocketsScopeType scopeType,
-    required String? householdId,
-    required DateTime monthStart,
-    required String selectedCurrency,
-  }) {
-    return _loadLocalPocketExpensesForStatuses(
-      userId: userId,
-      scopeType: scopeType,
-      householdId: householdId,
-      monthStart: monthStart,
-      selectedCurrency: selectedCurrency,
-      syncStatuses: const [
-        localSyncStatusLocal,
-        localSyncStatusSynced,
-      ],
-    );
   }
 
   Future<List<ExpenseEntry>> _loadLocalPocketExpensesForStatuses({
@@ -3216,6 +3297,22 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         throw Exception('No household selected for scoped budget');
       }
 
+      final allocationStepCents =
+          pocketBudgetAdjustmentStepCents(selectedCurrency);
+      final totalBudgetCents = quantizePocketBudgetAmountCents(
+        (totalBudget * 100).round(),
+        stepCents: allocationStepCents,
+      );
+      final normalizedTotalBudget = totalBudgetCents / 100.0;
+      final weightedPocketAmounts = pockets
+          .map((template) =>
+              (normalizedTotalBudget * template.weight * 100).round())
+          .toList(growable: false);
+      final rebalancedPocketAmounts = rebalancePocketBudgetAmounts(
+        currentAmountsCents: weightedPocketAmounts,
+        newTotalBudgetCents: totalBudgetCents,
+        allocationStepCents: allocationStepCents,
+      );
       final now = DateTime.now();
       final optimisticPockets = pockets.asMap().entries.map((entry) {
         final index = entry.key;
@@ -3223,7 +3320,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         return PocketEnvelope(
           id: 'optimistic-pocket-${now.microsecondsSinceEpoch}-$index',
           name: normalizePocketTemplateName(template.name),
-          budgetAmountCents: (totalBudget * template.weight * 100).round(),
+          budgetAmountCents: rebalancedPocketAmounts[index],
           spent: 0,
           currency: selectedCurrency,
           icon: template.iconName,
@@ -3249,8 +3346,8 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         editing: optimisticPockets.map((pocket) => pocket.copyWith()).toList(),
         periodMonth: monthStart,
         currency: selectedCurrency,
-        totalBudget: totalBudget,
-        savedTotalBudget: totalBudget,
+        totalBudget: normalizedTotalBudget,
+        savedTotalBudget: normalizedTotalBudget,
         envelopeCategories: optimisticCategories,
         clearError: true,
       );
@@ -3276,7 +3373,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         periodMonth: periodMonth,
         currency: selectedCurrency,
         budgetId: state.budgetId,
-        totalBudgetCents: (totalBudget * 100).round(),
+        totalBudgetCents: totalBudgetCents,
         pockets: optimisticPockets,
       );
 
@@ -3287,7 +3384,7 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
         'household_id': isScopedToHousehold ? householdId : null,
         'currency': selectedCurrency,
         'period_month': periodMonth,
-        'total_budget_cents': (totalBudget * 100).round(),
+        'total_budget_cents': totalBudgetCents,
         'updated_at': nowIso,
       };
 
@@ -3342,8 +3439,9 @@ class PocketsNotifier extends StateNotifier<PocketsState> {
       // 2. Create Pockets & Links
       final linksPayload = <Map<String, dynamic>>[];
 
-      for (final template in pockets) {
-        final amountCents = (totalBudget * template.weight * 100).round();
+      for (var index = 0; index < pockets.length; index++) {
+        final template = pockets[index];
+        final amountCents = rebalancedPocketAmounts[index];
         final envelopeName = normalizePocketTemplateName(template.name);
         final insertRes = await supabase
             .from('budget_envelopes')

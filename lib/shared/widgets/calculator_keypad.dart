@@ -50,10 +50,7 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
   @override
   void initState() {
     super.initState();
-    // Normalize initial value to use dot internally
-    _display = widget.initialValue == '0'
-        ? ''
-        : widget.initialValue.replaceAll(',', '.');
+    _display = _normalizeInitialValue(widget.initialValue);
     _decimalSeparator = '.';
   }
 
@@ -147,8 +144,51 @@ class _CalculatorKeypadState extends State<CalculatorKeypad> {
   }
 
   String _getLocalizedDisplay(String value) {
-    if (_decimalSeparator == '.') return value;
-    return value.replaceAll('.', _decimalSeparator);
+    if (value.isEmpty) return value;
+
+    final hasTrailingDecimal = value.endsWith('.');
+    final parts = value.split('.');
+    final wholePart = parts.first.isEmpty ? '0' : parts.first;
+    final fractionPart = parts.length > 1 ? parts.sublist(1).join('') : null;
+    final wholeNumber = int.tryParse(wholePart);
+    final localizedWhole = wholeNumber == null
+        ? wholePart
+        : NumberFormat.decimalPattern(
+            Localizations.localeOf(context).toString(),
+          ).format(wholeNumber);
+
+    if (fractionPart == null) return localizedWhole;
+    if (hasTrailingDecimal) return '$localizedWhole$_decimalSeparator';
+    return '$localizedWhole$_decimalSeparator$fractionPart';
+  }
+
+  String _normalizeInitialValue(String value) {
+    final raw = value.trim();
+    if (raw.isEmpty || raw == '0') return '';
+
+    final sanitized = raw
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll(RegExp(r'[^0-9,\.\-+]'), '');
+    final lastDot = sanitized.lastIndexOf('.');
+    final lastComma = sanitized.lastIndexOf(',');
+
+    if (lastDot != -1 && lastComma != -1) {
+      return lastDot > lastComma
+          ? sanitized.replaceAll(',', '')
+          : sanitized.replaceAll('.', '').replaceAll(',', '.');
+    }
+
+    if (lastComma != -1) {
+      final digitsAfterComma = sanitized.length - lastComma - 1;
+      if (digitsAfterComma >= 1 &&
+          digitsAfterComma <= 2 &&
+          sanitized.indexOf(',') == lastComma) {
+        return sanitized.replaceAll(',', '.');
+      }
+      return sanitized.replaceAll(',', '');
+    }
+
+    return sanitized;
   }
 
   String _formatDisplay(double value) {

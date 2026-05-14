@@ -29,6 +29,7 @@ import 'package:moneko/features/utils/number_format_utils.dart';
 import 'package:moneko/shared/widgets/plain_adaptive_button.dart';
 import 'package:moneko/shared/widgets/primary_adaptive_button.dart';
 import 'package:moneko/shared/widgets/modal_sheet_handle.dart';
+import 'package:moneko/shared/widgets/calculator_keypad.dart';
 import 'package:moneko/core/utils/money_parser.dart';
 import 'package:moneko/core/preview/preview_mode_provider.dart';
 
@@ -100,31 +101,7 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         ? formatAmount(centsToAmount(existingEnvelope!.budgetAmountCents))
         : '';
     final amountController = useTextEditingController(text: initialAmountText);
-    final amountFocusNode = useFocusNode();
-    useListenable(amountFocusNode);
     useListenable(amountController);
-
-    useEffect(() {
-      void onFocusChange() {
-        if (!amountFocusNode.hasFocus) {
-          final amountCents = tryParseMoneyToCents(amountController.text);
-          if (amountCents == null) {
-            return;
-          }
-
-          final totalBudgetCents = (totalBudget * 100).round();
-          final maxBudgetCents = math.max(0, totalBudgetCents);
-          final clampedCents = quantizePocketBudgetAmountCents(
-            amountCents.clamp(0, maxBudgetCents).toInt(),
-            stepCents: pocketBudgetAdjustmentStepCents(selectedCurrency),
-          );
-          amountController.text = formatAmount(centsToAmount(clampedCents));
-        }
-      }
-
-      amountFocusNode.addListener(onFocusChange);
-      return () => amountFocusNode.removeListener(onFocusChange);
-    }, [amountFocusNode, totalBudget, selectedCurrency]);
 
     final selectedCategories = useState<List<String>>(
       existingEnvelope == null
@@ -153,9 +130,12 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         useState<String?>(existingEnvelope?.icon ?? template?.iconName);
     final isLoading = useState<bool>(false);
     final currency = selectedCurrency;
-    final totalBudgetCents = (totalBudget * 100).round();
-    final maxBudgetCents = math.max(0, totalBudgetCents);
     final allocationStepCents = pocketBudgetAdjustmentStepCents(currency);
+    final totalBudgetCents = quantizePocketBudgetAmountCents(
+      (totalBudget * 100).round(),
+      stepCents: allocationStepCents,
+    );
+    final maxBudgetCents = math.max(0, totalBudgetCents);
     final viewedMonth = scopeParams.periodMonth ?? DateTime.now();
     final monthStart = DateTime(viewedMonth.year, viewedMonth.month, 1);
     final periodMonth =
@@ -247,8 +227,21 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
         .toList(growable: false);
 
     String formatLocalizedAmount(num value) {
-      final normalized = double.parse(value.toStringAsFixed(0));
+      final normalized = double.parse(formatAmount(value.toDouble()));
       return formatLocalizedNumber(context, normalized);
+    }
+
+    String normalizeEnteredAmountText(String value) {
+      final amountCents = tryParseMoneyToCents(value);
+      if (amountCents == null) {
+        return value;
+      }
+
+      final normalizedCents = quantizePocketBudgetAmountCents(
+        amountCents.clamp(0, maxBudgetCents).toInt(),
+        stepCents: allocationStepCents,
+      );
+      return formatAmount(centsToAmount(normalizedCents));
     }
 
     Future<void> persistPocketAmount({
@@ -1143,58 +1136,54 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      SizedBox(
-                                        width: 200,
-                                        child: TextField(
-                                          controller: amountController,
-                                          focusNode: amountFocusNode,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          textInputAction: TextInputAction.done,
-                                          onEditingComplete: () =>
-                                              amountFocusNode.unfocus(),
-                                          style: TextStyle(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w700,
-                                            color: colorScheme.foreground,
-                                            letterSpacing: -0.5,
+                                      GestureDetector(
+                                        onTap: () async {
+                                          final value =
+                                              await showCalculatorKeypadSheet(
+                                            context: context,
+                                            initialValue: amountController.text,
+                                          );
+                                          if (value != null) {
+                                            final normalizedValue =
+                                                normalizeEnteredAmountText(
+                                              value,
+                                            );
+                                            amountController.value =
+                                                TextEditingValue(
+                                              text: normalizedValue,
+                                              selection:
+                                                  TextSelection.collapsed(
+                                                offset: normalizedValue.length,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        child: Container(
+                                          width: 200,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4,
                                           ),
-                                          decoration: InputDecoration(
-                                            prefixText:
-                                                resolveCurrencySymbol(currency),
-                                            prefixStyle: TextStyle(
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: colorScheme.foreground,
+                                                width: 1,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            amountController.text.isNotEmpty
+                                                ? '${resolveCurrencySymbol(currency)}${amountController.text}'
+                                                : context.l10n.tapToSet,
+                                            style: TextStyle(
                                               fontSize: 28,
                                               fontWeight: FontWeight.w700,
-                                              color: colorScheme.foreground,
+                                              color: amountController
+                                                      .text.isNotEmpty
+                                                  ? colorScheme.foreground
+                                                  : colorScheme.mutedForeground,
                                               letterSpacing: -0.5,
                                             ),
-                                            isDense: true,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    vertical: 4),
-                                            enabledBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.foreground,
-                                                  width: 1),
-                                            ),
-                                            focusedBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(
-                                                  color: colorScheme.foreground,
-                                                  width: 2),
-                                            ),
-                                            suffixIcon: amountFocusNode.hasFocus
-                                                ? IconButton(
-                                                    icon: Icon(
-                                                      Icons.check_rounded,
-                                                      color:
-                                                          colorScheme.primary,
-                                                    ),
-                                                    splashRadius: 18,
-                                                    onPressed: () =>
-                                                        amountFocusNode
-                                                            .unfocus(),
-                                                  )
-                                                : null,
                                           ),
                                         ),
                                       ),
@@ -1247,10 +1236,6 @@ class EditPocketEnvelopeSheet extends HookConsumerWidget {
                                           isLoading.value)
                                       ? null
                                       : (value) {
-                                          if (amountFocusNode.hasFocus) {
-                                            amountFocusNode.unfocus();
-                                          }
-
                                           final pct = value.clamp(0.0, 100.0);
                                           final newCents =
                                               quantizePocketBudgetAmountCents(

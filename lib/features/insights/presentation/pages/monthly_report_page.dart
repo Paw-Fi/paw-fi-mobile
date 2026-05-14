@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moneko/core/theme/app_theme.dart';
 import 'package:moneko/features/insights/domain/monthly_financial_report.dart';
@@ -9,9 +10,30 @@ import 'package:moneko/features/insights/presentation/state/monthly_report_provi
 import 'package:moneko/features/utils/currency.dart';
 import 'package:moneko/shared/widgets/shimmering_text.dart';
 
+part '../widgets/monthly_report/monthly_report_metric_card.dart';
+part '../widgets/monthly_report/monthly_report_health_ring.dart';
+part '../widgets/monthly_report/monthly_report_detail_widgets.dart';
+
 const _monthlyReportFakeProgressCap = 0.965;
 const _monthlyReportFakeProgressTimeConstantSeconds = 10.0;
 const _monthlyReportCompletionDuration = Duration(milliseconds: 260);
+const _monthlyReportBalanceRoute = '/insights/monthly-report/balance';
+const _monthlyReportSafeSpendRoute = '/insights/monthly-report/safe-spend';
+const _monthlyReportSpendingRoute = '/insights/monthly-report/spending';
+const _monthlyReportBudgetRoute = '/insights/monthly-report/budget';
+const _monthlyReportSavingsRoute = '/insights/monthly-report/savings';
+const _monthlyReportCategoriesRoute = '/insights/monthly-report/categories';
+const _monthlyReportRecurringRoute = '/insights/monthly-report/recurring';
+
+enum MonthlyReportDetailKind {
+  balance,
+  safeSpend,
+  spending,
+  budget,
+  savings,
+  categories,
+  recurring,
+}
 
 class MonthlyReportPage extends HookConsumerWidget {
   const MonthlyReportPage({super.key});
@@ -77,11 +99,13 @@ class MonthlyReportPage extends HookConsumerWidget {
     MonthlyFinancialReportSnapshot snapshot,
   ) {
     final report = snapshot.report;
+    final month = MaterialLocalizations.of(context).formatMonthYear(
+      report.monthStart,
+    );
 
     return RefreshIndicator(
-      onRefresh: () => ref
-          .read(monthlyFinancialReportProvider.notifier)
-          .refreshReport(),
+      onRefresh: () =>
+          ref.read(monthlyFinancialReportProvider.notifier).refreshReport(),
       color: colorScheme.primary,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -95,42 +119,57 @@ class MonthlyReportPage extends HookConsumerWidget {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 980),
+            constraints: const BoxConstraints(maxWidth: 760),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildPageHeader(context, colorScheme, snapshot),
+                _MonthlyReportSectionTitle(
+                  title: month,
+                  colorScheme: colorScheme,
+                  trailing: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _MonthlyReportSyncStatus(
+                      key: ValueKey(
+                        '${snapshot.lastSyncedAt?.toIso8601String()}_${snapshot.isRefreshing}',
+                      ),
+                      colorScheme: colorScheme,
+                      lastSyncedAt: snapshot.lastSyncedAt,
+                      isRefreshing: snapshot.isRefreshing,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 12),
-                _buildHealthRingsSummary(context, colorScheme, report),
+                _buildBalanceSummaryCard(context, colorScheme, report),
                 const SizedBox(height: 12),
-                _buildOverallHealthStatus(context, colorScheme, report),
+                _buildSummaryMetricGrid(context, colorScheme, report),
+                const SizedBox(height: 26),
+                _MonthlyReportSectionTitle(
+                  title: 'Highlights',
+                  actionLabel: 'Show All',
+                  onActionTap: () => context.push(_monthlyReportSpendingRoute),
+                  colorScheme: colorScheme,
+                ),
                 const SizedBox(height: 12),
-                _buildTopSummaryCards(context, colorScheme, report),
+                _buildHighlights(context, colorScheme, report),
+                const SizedBox(height: 26),
+                _MonthlyReportSectionTitle(
+                  title: 'Categories',
+                  actionLabel: 'Details',
+                  onActionTap: () =>
+                      context.push(_monthlyReportCategoriesRoute),
+                  colorScheme: colorScheme,
+                ),
                 const SizedBox(height: 12),
-                _buildMonthTrend(context, colorScheme, report),
+                _buildCategoryPreview(context, colorScheme, report),
+                const SizedBox(height: 26),
+                _MonthlyReportSectionTitle(
+                  title: 'Upcoming',
+                  actionLabel: 'Details',
+                  onActionTap: () => context.push(_monthlyReportRecurringRoute),
+                  colorScheme: colorScheme,
+                ),
                 const SizedBox(height: 12),
-                _buildBudgetPlanSummary(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildSafeToSpend(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildCategoryTrends(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildMerchantConcentration(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildBudgetHealthRows(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildSpendingPaceTracking(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildAnomalies(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildRecurringCommitment(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildSubscriptions(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildBillCalendar(context, colorScheme, report),
-                const SizedBox(height: 12),
-                _buildCashFlowForecast(context, colorScheme, report),
-                const SizedBox(height: 12),
+                _buildUpcomingPreview(context, colorScheme, report),
               ],
             ),
           ),
@@ -139,256 +178,127 @@ class MonthlyReportPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildPageHeader(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReportSnapshot snapshot,
-  ) {
-    final report = snapshot.report;
-    final month = MaterialLocalizations.of(context).formatMonthYear(
-      report.monthStart,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            month,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.mutedForeground,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 6),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            child: _MonthlyReportSyncStatus(
-              key: ValueKey(
-                '${snapshot.lastSyncedAt?.toIso8601String()}_${snapshot.isRefreshing}',
-              ),
-              colorScheme: colorScheme,
-              lastSyncedAt: snapshot.lastSyncedAt,
-              isRefreshing: snapshot.isRefreshing,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverallHealthStatus(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _healthHeadline(report.overview.status),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.foreground,
-                        height: 1.12,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      report.summary,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                        height: 1.55,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              _StandaloneIllustration(
-                kind: _ReportIllustrationKind.pulse,
-                colorScheme: colorScheme,
-                accent: _statusColor(report.overview.status, colorScheme),
-                size: 56,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildStatusBadge(report.overview.status, colorScheme),
-              _buildQuietMetric(
-                colorScheme,
-                'Forecast',
-                formatCurrency(
-                  report.overview.forecastedBalance,
-                  report.currencyCode,
-                ),
-              ),
-              _buildQuietMetric(
-                colorScheme,
-                'Saved',
-                formatCurrency(report.overview.savings, report.currencyCode),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHealthRingsSummary(
+  Widget _buildBalanceSummaryCard(
     BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
     final rings = _buildHealthRingMetrics(colorScheme, report);
-    final overallScore = _overallHealthScore(rings);
-    final watchCount = report.spendingPace
-        .where(
-          (item) =>
-              item.status == MonthlyReportStatus.spendingFast ||
-              item.status == MonthlyReportStatus.overBudget ||
-              item.status == MonthlyReportStatus.needsAttention ||
-              item.status == MonthlyReportStatus.unusualSpending,
-        )
-        .length;
+    final score = _overallHealthScore(rings);
+    final netWorth = report.netWorthTrend;
+    final caption = netWorth == null
+        ? 'Forecast ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}'
+        : '${_formatSignedCurrency(netWorth.change, report.currencyCode)} from last snapshot';
 
-    return _ReportCard(
+    return _MonthlyReportHeroCard(
       colorScheme: colorScheme,
-      padding: const EdgeInsets.all(18),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 680;
-          final ringSize = isWide ? 160.0 : 150.0;
-          final legend = Column(
-            children: [
-              for (final metric in rings) ...[
-                _HealthRingLegendRow(
-                  colorScheme: colorScheme,
-                  metric: metric,
-                ),
-                if (metric != rings.last) const SizedBox(height: 12),
-              ],
-            ],
-          );
-          final ring = Center(
-            child: _MultiRingProgressIndicator(
-              colorScheme: colorScheme,
-              metrics: rings,
-              size: ringSize,
-              score: overallScore,
-              status: monthlyReportStatusLabel(report.overview.status),
-            ),
-          );
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Monthly Financial Health Report',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.foreground,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 7),
-              Text(
-                watchCount == 0
-                    ? 'All core signals are moving within a healthy range.'
-                    : '$watchCount signal${watchCount == 1 ? '' : 's'} need a closer look this month.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 22),
-              if (isWide)
-                Row(
-                  children: [
-                    SizedBox(width: ringSize, child: ring),
-                    const SizedBox(width: 26),
-                    Expanded(child: legend),
-                  ],
-                )
-              else ...[
-                ring,
-                const SizedBox(height: 22),
-                legend,
-              ],
-            ],
-          );
-        },
+      label: 'Financial Health',
+      title: _shortHealthHeadline(report.overview.status),
+      value: formatCurrency(
+        report.overview.currentBalance,
+        report.currencyCode,
+      ),
+      caption: caption,
+      accent: _statusColor(report.overview.status, colorScheme),
+      onTap: () => context.push(_monthlyReportBalanceRoute),
+      visual: _MonthlyReportHealthRing(
+        colorScheme: colorScheme,
+        metrics: rings,
+        score: score,
+        status: monthlyReportStatusLabel(report.overview.status),
+        size: 150,
       ),
     );
   }
 
-  Widget _buildTopSummaryCards(
+  Widget _buildSummaryMetricGrid(
     BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
+    final budgetProgress = _budgetUsedProgress(report);
+    final spendingCaption = report.trendSummary.spendingChange == 0
+        ? _paceStatus(report)
+        : '${_formatSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month';
+
     final items = [
-      _SummaryItem(
-        kind: _ReportIllustrationKind.wallet,
-        label: 'Safe to spend today',
+      _MonthlyMetricSpec(
+        label: 'Safe to Spend',
         value:
             '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
-        status: monthlyReportStatusLabel(report.overview.status),
+        caption: '${report.safeToSpend.daysRemaining} days left',
         accent: colorScheme.success,
-      ),
-      _SummaryItem(
-        kind: _ReportIllustrationKind.pulse,
-        label: 'Monthly spending pace',
-        value: formatCurrency(report.overview.spending, report.currencyCode),
-        status: _paceStatus(report),
-        accent: _statusColor(report.overview.status, colorScheme),
-      ),
-      _SummaryItem(
-        kind: _ReportIllustrationKind.coins,
-        label: 'Savings progress',
-        value: formatCurrency(report.overview.savings, report.currencyCode),
-        status:
-            report.overview.savings >= 0 ? 'Building buffer' : 'Behind plan',
-        accent: colorScheme.info,
-      ),
-      _SummaryItem(
-        kind: _ReportIllustrationKind.calendar,
-        label: 'Upcoming bills',
-        value: formatCurrency(
-          report.safeToSpend.futureObligations,
-          report.currencyCode,
+        icon: Icons.wallet_rounded,
+        route: _monthlyReportSafeSpendRoute,
+        visual: _MonthlyReportMiniBarChart(
+          colorScheme: colorScheme,
+          values: [
+            report.safeToSpend.futureIncome,
+            report.safeToSpend.budgetRemaining,
+            report.overview.forecastedBalance,
+            report.safeToSpend.dailyAmount * report.safeToSpend.daysRemaining,
+          ],
+          accent: colorScheme.success,
         ),
-        status: '${report.upcomingObligations.length} scheduled',
-        accent: colorScheme.warning,
+      ),
+      _MonthlyMetricSpec(
+        label: 'Spending',
+        value: formatCurrency(report.overview.spending, report.currencyCode),
+        caption: spendingCaption,
+        accent: _statusColor(report.overview.status, colorScheme),
+        icon: Icons.show_chart_rounded,
+        route: _monthlyReportSpendingRoute,
+        visual: _MonthlyReportMiniBarChart(
+          colorScheme: colorScheme,
+          values: [
+            report.trendSummary.previousSpending,
+            report.trendSummary.currentSpending,
+          ],
+          accent: _statusColor(report.overview.status, colorScheme),
+        ),
+      ),
+      _MonthlyMetricSpec(
+        label: 'Budget',
+        value: _formatPercent(budgetProgress),
+        caption:
+            '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} left',
+        accent: budgetProgress >= 1 ? colorScheme.warning : colorScheme.info,
+        icon: Icons.track_changes_rounded,
+        route: _monthlyReportBudgetRoute,
+        visual: _MonthlyReportProgressRing(
+          colorScheme: colorScheme,
+          progress: budgetProgress,
+          center: '${(budgetProgress * 100).round()}%',
+          accent: budgetProgress >= 1 ? colorScheme.warning : colorScheme.info,
+          size: 58,
+        ),
+      ),
+      _MonthlyMetricSpec(
+        label: 'Savings',
+        value: formatCurrency(report.overview.savings, report.currencyCode),
+        caption: _formatPercent(report.trendSummary.savingsRate),
+        accent: report.overview.savings >= 0
+            ? colorScheme.success
+            : colorScheme.destructive,
+        icon: Icons.savings_rounded,
+        route: _monthlyReportSavingsRoute,
+        visual: _MonthlyReportMiniBarChart(
+          colorScheme: colorScheme,
+          values: [
+            report.trendSummary.netCashFlow,
+            report.overview.savings,
+            report.overview.forecastedBalance,
+          ],
+          accent: report.overview.savings >= 0
+              ? colorScheme.success
+              : colorScheme.destructive,
+        ),
       ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 780 ? 4 : 2;
+        final columns = constraints.maxWidth >= 620 ? 2 : 1;
         const spacing = 12.0;
         final width =
             (constraints.maxWidth - (spacing * (columns - 1))) / columns;
@@ -400,7 +310,11 @@ class MonthlyReportPage extends HookConsumerWidget {
             for (final item in items)
               SizedBox(
                 width: width,
-                child: _buildSummaryCard(colorScheme, item),
+                child: _MonthlyReportMetricCard(
+                  colorScheme: colorScheme,
+                  spec: item,
+                  onTap: () => context.push(item.route),
+                ),
               ),
           ],
         );
@@ -408,1396 +322,236 @@ class MonthlyReportPage extends HookConsumerWidget {
     );
   }
 
-  Widget _buildMonthTrend(
+  Widget _buildHighlights(
     BuildContext context,
     ColorScheme colorScheme,
     MonthlyFinancialReport report,
   ) {
-    final trend = report.trendSummary;
-    final hasAnyData = trend.currentIncome > 0 ||
-        trend.currentSpending > 0 ||
-        trend.previousIncome > 0 ||
-        trend.previousSpending > 0;
+    final highlights =
+        _buildHighlightItems(colorScheme, report).take(3).toList();
 
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Month vs Last Month',
-            subtitle: 'Compared with the same point in the previous month',
-            kind: _ReportIllustrationKind.pulse,
-            accent: colorScheme.info,
-          ),
-          const SizedBox(height: 16),
-          if (!hasAnyData)
-            _emptyText(
-              colorScheme,
-              'No income or spending has been recorded for this month yet.',
-            )
-          else ...[
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _buildCalculationPill(
-                  colorScheme,
-                  'Income change',
-                  _formatSignedCurrency(
-                    trend.incomeChange,
-                    report.currencyCode,
-                  ),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Spending change',
-                  _formatSignedCurrency(
-                    trend.spendingChange,
-                    report.currencyCode,
-                  ),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Savings rate',
-                  _formatPercent(trend.savingsRate),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Net cash flow',
-                  _formatSignedCurrency(
-                    trend.netCashFlow,
-                    report.currencyCode,
-                  ),
-                ),
-              ],
-            ),
-            if (report.netWorthTrend != null) ...[
-              const SizedBox(height: 10),
-              _InsightTile(
-                colorScheme: colorScheme,
-                title: 'Net worth',
-                description:
-                    '${formatCurrency(report.netWorthTrend!.currentNetWorth, report.currencyCode)} now, ${_formatSignedCurrency(report.netWorthTrend!.change, report.currencyCode)} from the previous wallet snapshot.',
-                status: _formatNullablePercent(
-                  report.netWorthTrend!.changePercent,
-                ),
-                accent: report.netWorthTrend!.change >= 0
-                    ? colorScheme.success
-                    : colorScheme.warning,
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetPlanSummary(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    final plan = report.budgetPlan;
-    final hasBudgetData = plan.totalBudgeted > 0 || plan.totalSpent > 0;
-
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Budget Plan',
-            subtitle: 'Budgeted, spent, remaining, and unbudgeted money',
-            kind: _ReportIllustrationKind.target,
-            accent: colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          if (!hasBudgetData)
-            _emptyText(
-              colorScheme,
-              'No budgets or spending have been recorded for this month yet.',
-            )
-          else ...[
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _buildCalculationPill(
-                  colorScheme,
-                  'Budgeted',
-                  formatCurrency(plan.totalBudgeted, report.currencyCode),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Spent',
-                  formatCurrency(plan.totalSpent, report.currencyCode),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Remaining',
-                  formatCurrency(plan.totalRemaining, report.currencyCode),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Budget / income',
-                  _formatNullablePercent(plan.budgetToIncomeRatio),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _buildQuietMetric(
-                  colorScheme,
-                  'Over',
-                  '${plan.overBudgetCount}',
-                ),
-                _buildQuietMetric(
-                  colorScheme,
-                  'At risk',
-                  '${plan.atRiskCount}',
-                ),
-                _buildQuietMetric(
-                  colorScheme,
-                  'Unbudgeted',
-                  formatCurrency(plan.unbudgetedSpent, report.currencyCode),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryTrends(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Spending Movers',
-            subtitle: 'Categories with meaningful movement from real history',
-            kind: _ReportIllustrationKind.magnifier,
-            accent: colorScheme.warning,
-          ),
-          const SizedBox(height: 16),
-          if (report.categoryTrends.isEmpty)
-            _emptyText(
-              colorScheme,
-              'Not enough comparable category history yet. This will appear once a category has real prior spending to compare.',
-            )
-          else
-            ...report.categoryTrends.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _InsightTile(
-                  colorScheme: colorScheme,
-                  title: item.name,
-                  description:
-                      '${item.insight} Current spend is ${formatCurrency(item.currentSpent, report.currencyCode)}.',
-                  status: monthlyReportStatusLabel(item.status),
-                  accent: _statusColor(item.status, colorScheme),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMerchantConcentration(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    final merchants = report.merchantConcentration;
-    if (merchants.isEmpty) {
-      return _ReportCard(
-        colorScheme: colorScheme,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionHeading(
+          for (final item in highlights) ...[
+            _MonthlyReportInsightCard(
               colorScheme: colorScheme,
-              title: 'Top Merchants',
-              subtitle: 'Where the largest share of spending went this month',
-              kind: _ReportIllustrationKind.receipt,
-              accent: colorScheme.info,
+              title: item.title,
+              label: item.label,
+              accent: _statusColor(item.status, colorScheme),
+              icon: item.icon,
+              onTap: () => context.push(item.route),
+              chart: item.chart,
             ),
-            const SizedBox(height: 16),
-            _emptyText(
-              colorScheme,
-              'No merchant or payee names are available in this month\'s spending yet.',
-            ),
+            if (item != highlights.last) const SizedBox(height: 12),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryPreview(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final categories = report.categoryTrends.take(3).toList(growable: false);
+
+    if (categories.isEmpty) {
+      return _MonthlyReportInsightCard(
+        colorScheme: colorScheme,
+        title: 'Categories need more history.',
+        label: 'Spending movers will appear after more comparable activity.',
+        accent: colorScheme.info,
+        icon: Icons.category_rounded,
+        onTap: () => context.push(_monthlyReportCategoriesRoute),
+      );
+    }
+
+    final maxSpent = categories.fold<double>(
+      1,
+      (maxValue, item) => math.max(maxValue, item.currentSpent),
+    );
+
+    return _MonthlyReportPreviewCard(
+      colorScheme: colorScheme,
+      children: [
+        for (final item in categories)
+          _MonthlyReportDisclosureRow(
+            colorScheme: colorScheme,
+            title: item.name,
+            subtitle: _shortCategoryInsight(item),
+            value: formatCurrency(item.currentSpent, report.currencyCode),
+            accent: _statusColor(item.status, colorScheme),
+            icon: Icons.category_rounded,
+            onTap: () => context.push(
+              '$_monthlyReportCategoriesRoute?name=${Uri.encodeComponent(item.name)}',
+            ),
+            visual: _MonthlyReportProgressBar(
+              colorScheme: colorScheme,
+              progress: item.currentSpent / maxSpent,
+              accent: _statusColor(item.status, colorScheme),
+              compact: true,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildUpcomingPreview(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final upcoming = report.upcomingObligations.take(3).toList(growable: false);
+    final subscriptions =
+        report.subscriptions.items.take(math.max(0, 3 - upcoming.length));
+
+    final rows = <Widget>[
+      for (final item in upcoming)
+        _MonthlyReportDisclosureRow(
+          colorScheme: colorScheme,
+          title: item.name,
+          subtitle: _formatShortDate(context, item.date),
+          value: item.type == 'income'
+              ? '+${formatCurrency(item.amount, report.currencyCode)}'
+              : formatCurrency(-item.amount, report.currencyCode),
+          accent:
+              item.type == 'income' ? colorScheme.success : colorScheme.warning,
+          icon: item.type == 'income'
+              ? Icons.arrow_downward_rounded
+              : Icons.event_note_rounded,
+          onTap: () => context.push(_monthlyReportRecurringRoute),
+        ),
+      for (final item in subscriptions)
+        _MonthlyReportDisclosureRow(
+          colorScheme: colorScheme,
+          title: item.name,
+          subtitle: _formatShortDate(context, item.nextDate),
+          value: formatCurrency(item.amount, report.currencyCode),
+          accent: _subscriptionColor(item.status, colorScheme),
+          icon: Icons.receipt_long_rounded,
+          onTap: () => context.push(_monthlyReportRecurringRoute),
+        ),
+    ];
+
+    if (rows.isEmpty) {
+      return _MonthlyReportInsightCard(
+        colorScheme: colorScheme,
+        title: 'No upcoming commitments.',
+        label: 'Bills and subscriptions will appear here when detected.',
+        accent: colorScheme.success,
+        icon: Icons.event_available_rounded,
+        onTap: () => context.push(_monthlyReportRecurringRoute),
+      );
+    }
+
+    return _MonthlyReportPreviewCard(
+      colorScheme: colorScheme,
+      children: rows,
+    );
+  }
+
+  List<_MonthlyHighlightItem> _buildHighlightItems(
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final items = <_MonthlyHighlightItem>[];
+
+    if (report.anomalies.isNotEmpty) {
+      for (final anomaly in report.anomalies.take(2)) {
+        items.add(
+          _MonthlyHighlightItem(
+            title: anomaly.title,
+            label: _shortInsightCopy(anomaly.description),
+            status: anomaly.status,
+            icon: Icons.manage_search_rounded,
+            route: _monthlyReportSpendingRoute,
+          ),
+        );
+      }
+    }
+
+    if (report.categoryTrends.isNotEmpty) {
+      final mover = report.categoryTrends.first;
+      items.add(
+        _MonthlyHighlightItem(
+          title: '${mover.name} is moving.',
+          label: _shortCategoryInsight(mover),
+          status: mover.status,
+          icon: Icons.category_rounded,
+          route:
+              '$_monthlyReportCategoriesRoute?name=${Uri.encodeComponent(mover.name)}',
+          chart: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: [mover.previousSpent, mover.currentSpent],
+            accent: _statusColor(mover.status, colorScheme),
+          ),
         ),
       );
     }
 
-    final colors = [
-      colorScheme.primary,
-      colorScheme.info,
-      colorScheme.success,
-      colorScheme.warning,
-      colorScheme.error,
-    ];
-
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
+    if (items.isEmpty) {
+      items.add(
+        _MonthlyHighlightItem(
+          title: _shortHealthHeadline(report.overview.status),
+          label: _paceStatus(report),
+          status: report.overview.status,
+          icon: Icons.favorite_rounded,
+          route: _monthlyReportBalanceRoute,
+          chart: _MonthlyReportSparkline(
             colorScheme: colorScheme,
-            title: 'Top Merchants',
-            subtitle: 'Where the largest share of spending went this month',
-            kind: _ReportIllustrationKind.receipt,
-            accent: colorScheme.info,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            height: 12,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              children: merchants.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final color = colors[index % colors.length];
-                return Expanded(
-                  flex: (item.spendingShare * 100).round(),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: index == 0
-                          ? const BorderRadius.only(
-                              topLeft: Radius.circular(6),
-                              bottomLeft: Radius.circular(6),
-                            )
-                          : index == merchants.length - 1
-                              ? const BorderRadius.only(
-                                  topRight: Radius.circular(6),
-                                  bottomRight: Radius.circular(6),
-                                )
-                              : null,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: merchants.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final color = colors[index % colors.length];
-              return _merchantLegendItem(
-                colorScheme: colorScheme,
-                color: color,
-                name: item.name,
-                percentage: item.spendingShare,
-                amount: item.amount,
-                currencyCode: report.currencyCode,
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecurringCommitment(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    final commitment = report.recurringCommitment;
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Recurring Commitment',
-            subtitle: 'How much income is already committed to recurring costs',
-            kind: _ReportIllustrationKind.calendar,
-            accent: colorScheme.warning,
-          ),
-          const SizedBox(height: 16),
-          if (commitment.monthlyAmount <= 0)
-            _emptyText(
-                colorScheme, 'No active recurring expenses detected yet.')
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _buildCalculationPill(
-                  colorScheme,
-                  'Monthly recurring',
-                  formatCurrency(commitment.monthlyAmount, report.currencyCode),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Income share',
-                  _formatNullablePercent(commitment.incomeShare),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Due in 14 days',
-                  formatCurrency(commitment.dueSoonAmount, report.currencyCode),
-                ),
-                _buildCalculationPill(
-                  colorScheme,
-                  'Due-soon count',
-                  '${commitment.dueSoonCount}',
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildSummaryCard(ColorScheme colorScheme, _SummaryItem item) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: SizedBox(
-        height: 130,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: _StandaloneIllustration(
-                kind: item.kind,
-                colorScheme: colorScheme,
-                accent: item.accent,
-                size: 48,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              item.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: colorScheme.mutedForeground,
-                height: 1.25,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                item.value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  height: 1.1,
-                ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              item.status,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: item.accent,
-                height: 1.2,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSafeToSpend(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionTitle('Daily Safe-to-Spend', colorScheme),
-                    const SizedBox(height: 12),
-                    Text(
-                      'You can safely spend',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                          color: colorScheme.foreground,
-                          height: 1.05,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'for the next ${report.safeToSpend.daysRemaining} days after bills and remaining budgets.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.mutedForeground,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              _StandaloneIllustration(
-                kind: _ReportIllustrationKind.wallet,
-                colorScheme: colorScheme,
-                accent: colorScheme.success,
-                size: 64,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _buildCalculationPill(
-                colorScheme,
-                'Budget left',
-                formatCurrency(
-                  report.safeToSpend.budgetRemaining,
-                  report.currencyCode,
-                ),
-              ),
-              _buildCalculationPill(
-                colorScheme,
-                'Fixed bills',
-                formatCurrency(
-                  report.safeToSpend.futureObligations,
-                  report.currencyCode,
-                ),
-              ),
-              _buildCalculationPill(
-                colorScheme,
-                'Income ahead',
-                formatCurrency(
-                  report.safeToSpend.futureIncome,
-                  report.currencyCode,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetHealthRows(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    if (report.spendingPace.isEmpty) return const SizedBox.shrink();
-
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Budget Health',
-            subtitle: 'Category pace compared with this point in the month',
-            kind: _ReportIllustrationKind.target,
-            accent: colorScheme.primary,
-          ),
-          const SizedBox(height: 18),
-          ...report.spendingPace.map((paceItem) {
-            final healthItem = report.budgetHealth.firstWhere(
-              (h) => h.name == paceItem.label,
-              orElse: () => MonthlyBudgetHealthItem(
-                name: paceItem.label,
-                status: paceItem.status,
-                budgetAmount: 0,
-                spent: 0,
-                remaining: 0,
-              ),
-            );
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _buildBudgetRow(
-                context,
-                colorScheme,
-                report.currencyCode,
-                paceItem,
-                healthItem,
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetRow(
-    BuildContext context,
-    ColorScheme colorScheme,
-    String currencyCode,
-    MonthlySpendingPaceItem paceItem,
-    MonthlyBudgetHealthItem healthItem,
-  ) {
-    final color = _statusColor(paceItem.status, colorScheme);
-    final spentProgress = paceItem.spentProgress.clamp(0.0, 1.0);
-    final timeProgress = paceItem.timeProgress.clamp(0.0, 1.0);
-    final pacePercent = (paceItem.spentProgress * 100).round();
-
-    return Semantics(
-      label:
-          '${paceItem.label}, ${monthlyReportStatusLabel(paceItem.status)}, $pacePercent percent of budget used.',
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.muted.withValues(alpha: 0.42),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        paceItem.label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.foreground,
-                          height: 1.15,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 7),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildStatusBadge(paceItem.status, colorScheme),
-                          _buildQuietMetric(
-                            colorScheme,
-                            'Pace',
-                            '$pacePercent%',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      formatCurrency(healthItem.remaining, currencyCode),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: healthItem.remaining < 0
-                            ? colorScheme.destructive
-                            : colorScheme.foreground,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'remaining',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colorScheme.mutedForeground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _PaceProgressBar(
-              colorScheme: colorScheme,
-              accent: color,
-              spentProgress: spentProgress,
-              timeProgress: timeProgress,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${formatCurrency(healthItem.spent, currencyCode)} spent',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.foreground,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Text(
-                  'of ${formatCurrency(healthItem.budgetAmount, currencyCode)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.mutedForeground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              paceItem.insight,
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.mutedForeground,
-                height: 1.42,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSpendingPaceTracking(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    if (report.spendingPace.isEmpty) return const SizedBox.shrink();
-
-    final watched = report.spendingPace.take(3).toList(growable: false);
-    final monthProgress = watched.first.timeProgress.clamp(0.0, 1.0);
-
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Spending Pace',
-            subtitle: 'The month is ${(monthProgress * 100).round()}% complete',
-            kind: _ReportIllustrationKind.pulse,
-            accent: colorScheme.info,
-          ),
-          const SizedBox(height: 18),
-          for (final item in watched) ...[
-            _buildPaceComparisonRow(colorScheme, item),
-            if (item != watched.last) const SizedBox(height: 14),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaceComparisonRow(
-    ColorScheme colorScheme,
-    MonthlySpendingPaceItem item,
-  ) {
-    final accent = _statusColor(item.status, colorScheme);
-    final spentPercent = (item.spentProgress * 100).round();
-    final timePercent = (item.timeProgress * 100).round();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                ),
-              ),
-            ),
-            Text(
-              '$spentPercent% used',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: accent,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        _PaceProgressBar(
-          colorScheme: colorScheme,
-          accent: accent,
-          spentProgress: item.spentProgress.clamp(0.0, 1.0),
-          timeProgress: item.timeProgress.clamp(0.0, 1.0),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Budget used: $spentPercent% · Month elapsed: $timePercent%',
-          style: TextStyle(
-            fontSize: 12,
-            color: colorScheme.mutedForeground,
-            fontWeight: FontWeight.w600,
+            values: report.cashFlowForecast
+                .map((point) => point.balance)
+                .toList(growable: false),
+            accent: _statusColor(report.overview.status, colorScheme),
           ),
         ),
-      ],
-    );
+      );
+    }
+
+    return items;
   }
 
-  Widget _buildAnomalies(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Unusual Activity',
-            subtitle: 'Helpful pattern checks, not alarms',
-            kind: _ReportIllustrationKind.magnifier,
-            accent: colorScheme.warning,
-          ),
-          const SizedBox(height: 16),
-          if (report.anomalies.isEmpty)
-            _emptyText(
-              colorScheme,
-              'No unusual spending detected from your real data.',
-            )
-          else
-            ...report.anomalies.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _InsightTile(
-                  colorScheme: colorScheme,
-                  title: item.title,
-                  description: item.description,
-                  status: monthlyReportStatusLabel(item.status),
-                  accent: _statusColor(item.status, colorScheme),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+  String _shortHealthHeadline(MonthlyReportStatus status) {
+    switch (status) {
+      case MonthlyReportStatus.onTrack:
+      case MonthlyReportStatus.safeToSpend:
+        return 'You\'re on track.';
+      case MonthlyReportStatus.spendingFast:
+        return 'Spending is moving fast.';
+      case MonthlyReportStatus.needsAttention:
+        return 'A small adjustment helps.';
+      case MonthlyReportStatus.overBudget:
+        return 'Budgets need attention.';
+      case MonthlyReportStatus.unusualSpending:
+        return 'Patterns changed.';
+    }
   }
 
-  Widget _buildSubscriptions(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Subscriptions & Recurring',
-            subtitle:
-                '${formatCurrency(report.subscriptions.totalMonthlyAmount, report.currencyCode)}/mo committed',
-            kind: _ReportIllustrationKind.receipt,
-            accent: colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          if (report.subscriptions.items.isEmpty)
-            _emptyText(colorScheme, 'No recurring expenses detected yet.')
-          else
-            ...report.subscriptions.items.take(6).map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildSubscriptionRow(colorScheme, report, item),
-                  ),
-                ),
-        ],
-      ),
-    );
+  String _shortInsightCopy(String value) {
+    final trimmed = value.trim();
+    if (trimmed.length <= 72) return trimmed;
+    final boundary = trimmed.lastIndexOf(' ', 72);
+    final end = boundary < 40 ? 72 : boundary;
+    return '${trimmed.substring(0, end)}...';
   }
 
-  Widget _buildSubscriptionRow(
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-    MonthlySubscriptionItem item,
-  ) {
-    final accent = _subscriptionColor(item.status, colorScheme);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  item.note,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: accent,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                formatCurrency(item.amount, report.currencyCode),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.foreground,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                _formatShortDate(null, item.nextDate),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.mutedForeground,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  String _shortCategoryInsight(MonthlyCategoryTrendItem item) {
+    final change = item.previousChangePercent ?? item.baselineChangePercent;
+    if (change == null) return item.insight;
+    final direction = change >= 0 ? 'higher' : 'lower';
+    return '${item.name} is ${_formatPercent(change.abs())} $direction.';
   }
 
-  Widget _buildBillCalendar(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Bill Calendar',
-            subtitle: 'Upcoming obligations for the rest of the month',
-            kind: _ReportIllustrationKind.calendar,
-            accent: colorScheme.warning,
-          ),
-          const SizedBox(height: 16),
-          if (report.upcomingObligations.isEmpty)
-            _emptyText(
-              colorScheme,
-              'No upcoming bills or income detected this month.',
-            )
-          else
-            ...report.upcomingObligations.take(8).map(
-              (item) {
-                final isIncome = item.type == 'income';
-                final accent =
-                    isIncome ? colorScheme.success : colorScheme.foreground;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: colorScheme.muted.withValues(alpha: 0.42),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 62,
-                          child: Text(
-                            _formatShortDate(context, item.date),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: colorScheme.mutedForeground,
-                              height: 1.25,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 32,
-                          color: colorScheme.border.withValues(alpha: 0.38),
-                          margin: const EdgeInsets.only(right: 14),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.foreground,
-                              height: 1.25,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          isIncome
-                              ? '+${formatCurrency(item.amount, report.currencyCode)}'
-                              : formatCurrency(
-                                  -item.amount,
-                                  report.currencyCode,
-                                ),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: accent,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCashFlowForecast(
-    BuildContext context,
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-  ) {
-    return _ReportCard(
-      colorScheme: colorScheme,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeading(
-            colorScheme: colorScheme,
-            title: 'Cash Flow Forecast',
-            subtitle: 'Expected balance after scheduled money movement',
-            kind: _ReportIllustrationKind.wallet,
-            accent: colorScheme.success,
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _buildCalculationPill(
-                colorScheme,
-                'Lowest projected balance',
-                formatCurrency(
-                  report.cashFlowHealth.lowWaterBalance,
-                  report.currencyCode,
-                ),
-              ),
-              _buildCalculationPill(
-                colorScheme,
-                'Lowest date',
-                report.cashFlowHealth.lowWaterDate == null
-                    ? 'No projection'
-                    : _formatShortDate(
-                        context,
-                        report.cashFlowHealth.lowWaterDate!,
-                      ),
-              ),
-              _buildCalculationPill(
-                colorScheme,
-                'Negative balance',
-                report.cashFlowHealth.firstNegativeDate == null
-                    ? 'Not projected'
-                    : _formatShortDate(
-                        context,
-                        report.cashFlowHealth.firstNegativeDate!,
-                      ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          ...report.cashFlowForecast.asMap().entries.map((entry) {
-            final index = entry.key;
-            final point = entry.value;
-            final isLast = index == report.cashFlowForecast.length - 1;
-            return _ForecastStep(
-              colorScheme: colorScheme,
-              label: index == 0
-                  ? point.label
-                  : isLast
-                      ? point.label
-                      : 'After ${point.label.toLowerCase()}',
-              value: formatCurrency(point.balance, report.currencyCode),
-              isLast: isLast,
-              isFirst: index == 0,
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(
-    MonthlyReportStatus status,
-    ColorScheme colorScheme,
-  ) {
-    final color = _statusColor(status, colorScheme);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        monthlyReportStatusLabel(status),
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuietMetric(
-    ColorScheme colorScheme,
-    String label,
-    String value,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.mutedForeground,
-          height: 1.1,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalculationPill(
-    ColorScheme colorScheme,
-    String label,
-    String value,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: colorScheme.mutedForeground,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              color: colorScheme.foreground,
-              fontWeight: FontWeight.w900,
-              height: 1.15,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _merchantLegendItem({
-    required ColorScheme colorScheme,
-    required Color color,
-    required String name,
-    required double percentage,
-    required double amount,
-    required String currencyCode,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          name,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: colorScheme.foreground,
-            height: 1.2,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '(${_formatPercent(percentage)})',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: colorScheme.mutedForeground,
-            height: 1.2,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGoalRow(
-    ColorScheme colorScheme,
-    MonthlyFinancialReport report,
-    MonthlyGoalReportItem goal,
-  ) {
-    final accent = _statusColor(goal.status, colorScheme);
-    final progress = goal.progress.clamp(0.0, 1.0);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  goal.title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    height: 1.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 12),
-              _buildStatusBadge(goal.status, colorScheme),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _PaceProgressBar(
-            colorScheme: colorScheme,
-            accent: accent,
-            spentProgress: progress,
-            timeProgress: 1,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${_formatPercent(progress)} funded',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.foreground,
-                  ),
-                ),
-              ),
-              Text(
-                '${formatCurrency(goal.currentAmount, report.currencyCode)} / ${formatCurrency(goal.targetAmount, report.currencyCode)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-          if (goal.monthlyNeeded > 0) ...[
-            const SizedBox(height: 7),
-            Text(
-              '${formatCurrency(goal.monthlyNeeded, report.currencyCode)}/mo needed to hit the target date',
-              style: TextStyle(
-                fontSize: 12,
-                color: colorScheme.mutedForeground,
-                height: 1.35,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingState(
-    ColorScheme colorScheme, {
-    required bool isComplete,
-    required VoidCallback onComplete,
-  }) {
-    return _MonthlyReportLoadingState(
-      key: const ValueKey('monthly_report_loading'),
-      colorScheme: colorScheme,
-      isComplete: isComplete,
-      onComplete: onComplete,
-    );
-  }
-
-  Widget _buildErrorState(
-    BuildContext context,
-    ColorScheme colorScheme,
-    Object error,
-  ) {
-    return Center(
-      key: const ValueKey('monthly_report_error'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _ReportCard(
-          colorScheme: colorScheme,
-          child: Text(
-            'Could not load monthly financial health: $error',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colorScheme.destructive,
-              fontWeight: FontWeight.w700,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text, ColorScheme colorScheme) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
-        color: colorScheme.mutedForeground,
-        height: 1.2,
-      ),
-    );
-  }
-
-  Widget _emptyText(ColorScheme colorScheme, String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        color: colorScheme.mutedForeground,
-        height: 1.45,
-        fontWeight: FontWeight.w500,
-      ),
-    );
+  double _budgetUsedProgress(MonthlyFinancialReport report) {
+    final totalBudgeted = report.budgetPlan.totalBudgeted;
+    if (totalBudgeted <= 0) {
+      return report.overview.spending <= 0 ? 0 : 1;
+    }
+    return (report.budgetPlan.totalSpent / totalBudgeted).clamp(0.0, 1.4);
   }
 
   Color _statusColor(MonthlyReportStatus status, ColorScheme colorScheme) {
@@ -1837,32 +591,10 @@ class MonthlyReportPage extends HookConsumerWidget {
 
   String _formatPercent(double value) => '${(value * 100).round()}%';
 
-  String _formatNullablePercent(double? value) {
-    if (value == null) return 'No baseline';
-    final sign = value > 0 ? '+' : '';
-    return '$sign${_formatPercent(value)}';
-  }
-
   String _formatSignedCurrency(double value, String currencyCode) {
     if (value == 0) return formatCurrency(0, currencyCode);
     final sign = value > 0 ? '+' : '';
     return '$sign${formatCurrency(value, currencyCode)}';
-  }
-
-  String _healthHeadline(MonthlyReportStatus status) {
-    switch (status) {
-      case MonthlyReportStatus.onTrack:
-      case MonthlyReportStatus.safeToSpend:
-        return 'Your month is mostly on track.';
-      case MonthlyReportStatus.spendingFast:
-        return 'Your spending is moving a little fast.';
-      case MonthlyReportStatus.needsAttention:
-        return 'Your month needs a small adjustment.';
-      case MonthlyReportStatus.overBudget:
-        return 'A few budgets need attention.';
-      case MonthlyReportStatus.unusualSpending:
-        return 'There are spending patterns to review.';
-    }
   }
 
   String _paceStatus(MonthlyFinancialReport report) {
@@ -2018,6 +750,2687 @@ class MonthlyReportPage extends HookConsumerWidget {
         .withLightness((hsl.lightness - 0.02).clamp(0.34, 0.62))
         .toColor();
   }
+
+  Widget _buildLoadingState(
+    ColorScheme colorScheme, {
+    required bool isComplete,
+    required VoidCallback onComplete,
+  }) {
+    return _MonthlyReportLoadingState(
+      key: const ValueKey('monthly_report_loading'),
+      colorScheme: colorScheme,
+      isComplete: isComplete,
+      onComplete: onComplete,
+    );
+  }
+
+  Widget _buildErrorState(
+    BuildContext context,
+    ColorScheme colorScheme,
+    Object error,
+  ) {
+    return Center(
+      key: const ValueKey('monthly_report_error'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: _ReportCard(
+          colorScheme: colorScheme,
+          child: Text(
+            'Could not load monthly financial health: $error',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.destructive,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MonthlyReportDetailPage extends HookConsumerWidget {
+  const MonthlyReportDetailPage({
+    super.key,
+    required this.kind,
+    this.selectedCategoryName,
+  });
+
+  final MonthlyReportDetailKind kind;
+  final String? selectedCategoryName;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final reportAsync = ref.watch(monthlyFinancialReportProvider);
+    final selectedRange = useState('Month');
+    final snapshot = reportAsync.valueOrNull;
+
+    return Scaffold(
+      backgroundColor: colorScheme.appBackground,
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: snapshot == null
+              ? reportAsync.hasError
+                  ? _MonthlyReportDetailShell(
+                      colorScheme: colorScheme,
+                      title: _detailTitle(kind),
+                      child: _ReportCard(
+                        colorScheme: colorScheme,
+                        child: Text(
+                          'Could not load report: ${reportAsync.error}',
+                          style: TextStyle(
+                            color: colorScheme.destructive,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _MonthlyReportDetailShell(
+                      colorScheme: colorScheme,
+                      title: _detailTitle(kind),
+                      child: _ReportCard(
+                        colorScheme: colorScheme,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    )
+              : _MonthlyReportDetailShell(
+                  colorScheme: colorScheme,
+                  title: _detailTitle(kind),
+                  child: _buildDetailContent(
+                    context,
+                    colorScheme,
+                    snapshot.report,
+                    selectedRange,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailContent(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+    ValueNotifier<String> selectedRange,
+  ) {
+    switch (kind) {
+      case MonthlyReportDetailKind.balance:
+        return _buildBalanceDetail(context, colorScheme, report);
+      case MonthlyReportDetailKind.safeSpend:
+        return _buildSafeSpendDetail(context, colorScheme, report);
+      case MonthlyReportDetailKind.spending:
+        return _buildSpendingDetail(
+          context,
+          colorScheme,
+          report,
+          selectedRange,
+        );
+      case MonthlyReportDetailKind.budget:
+        return _buildBudgetDetail(colorScheme, report);
+      case MonthlyReportDetailKind.savings:
+        return _buildSavingsDetail(colorScheme, report);
+      case MonthlyReportDetailKind.categories:
+        return _buildCategoryDetail(context, colorScheme, report);
+      case MonthlyReportDetailKind.recurring:
+        return _buildRecurringDetail(context, colorScheme, report);
+    }
+  }
+
+  Widget _buildBalanceDetail(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final rings = _buildHealthRingMetrics(colorScheme, report);
+    final score = _overallHealthScore(rings);
+    final statusColor = _detailStatusColor(report.overview.status, colorScheme);
+    final watchFirst = [...rings]
+      ..sort((a, b) => a.progress.compareTo(b.progress));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Financial Health',
+          value: '$score',
+          caption: monthlyReportStatusLabel(report.overview.status),
+          accent: statusColor,
+          visual: _MonthlyReportHealthRing(
+            colorScheme: colorScheme,
+            metrics: rings,
+            score: score,
+            status: monthlyReportStatusLabel(report.overview.status),
+            size: 184,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportHealthRingLegend(
+          colorScheme: colorScheme,
+          metrics: rings,
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportAdviceCard(
+          colorScheme: colorScheme,
+          label: 'Monthly Health',
+          title: _detailHealthHeadline(report.overview.status),
+          body: report.summary,
+          accent: statusColor,
+          icon: Icons.favorite_rounded,
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Month vs Last Month',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Income change',
+              value: _detailSignedCurrency(
+                report.trendSummary.incomeChange,
+                report.currencyCode,
+              ),
+              accent: report.trendSummary.incomeChange >= 0
+                  ? colorScheme.success
+                  : colorScheme.warning,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Spending change',
+              value: _detailSignedCurrency(
+                report.trendSummary.spendingChange,
+                report.currencyCode,
+              ),
+              accent: report.trendSummary.spendingChange <= 0
+                  ? colorScheme.success
+                  : colorScheme.warning,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Savings rate',
+              value: _detailPercent(report.trendSummary.savingsRate),
+              accent: report.trendSummary.savingsRate >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Net cash flow',
+              value: _detailSignedCurrency(
+                report.trendSummary.netCashFlow,
+                report.currencyCode,
+              ),
+              accent: report.trendSummary.netCashFlow >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Watch First',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            for (final metric in watchFirst.take(3))
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: metric.label,
+                value: metric.value,
+                subtitle: metric.status,
+                accent: metric.color,
+                visual: _MonthlyReportProgressBar(
+                  colorScheme: colorScheme,
+                  progress: metric.progress.clamp(0.0, 1.0),
+                  accent: metric.color,
+                  compact: true,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Cash Flow',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Current balance',
+              value: formatCurrency(
+                report.overview.currentBalance,
+                report.currencyCode,
+              ),
+              subtitle:
+                  'Forecast ${formatCurrency(report.overview.forecastedBalance, report.currencyCode)}',
+              accent: statusColor,
+              visual: _MonthlyReportSparkline(
+                colorScheme: colorScheme,
+                values: report.cashFlowForecast
+                    .map((point) => point.balance)
+                    .toList(growable: false),
+                accent: statusColor,
+                height: 44,
+              ),
+            ),
+            if (report.netWorthTrend != null)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'Net worth',
+                value: formatCurrency(
+                  report.netWorthTrend!.currentNetWorth,
+                  report.currencyCode,
+                ),
+                subtitle:
+                    '${_detailSignedCurrency(report.netWorthTrend!.change, report.currencyCode)} from last snapshot',
+                accent: report.netWorthTrend!.change >= 0
+                    ? colorScheme.success
+                    : colorScheme.warning,
+              ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Low water',
+              value: formatCurrency(
+                report.cashFlowHealth.lowWaterBalance,
+                report.currencyCode,
+              ),
+              subtitle: report.cashFlowHealth.lowWaterDate == null
+                  ? 'No projected low date'
+                  : _detailShortDate(
+                      context,
+                      report.cashFlowHealth.lowWaterDate!,
+                    ),
+              accent: report.cashFlowHealth.lowWaterBalance < 0
+                  ? colorScheme.destructive
+                  : colorScheme.success,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'First shortfall',
+              value: report.cashFlowHealth.firstNegativeDate == null
+                  ? 'None'
+                  : _detailShortDate(
+                      context,
+                      report.cashFlowHealth.firstNegativeDate!,
+                    ),
+              subtitle: report.cashFlowHealth.firstNegativeDate == null
+                  ? 'Bills appear covered'
+                  : 'Balance may go negative',
+              accent: report.cashFlowHealth.firstNegativeDate == null
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildForecastTimeline(context, colorScheme, report),
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Financial Health',
+          body:
+              'Financial Health combines safe daily spending, budget pace, upcoming bills, and the projected month-end buffer. A lower ring points to the first place to adjust before the end of the month.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSafeSpendDetail(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final progress = _detailSafeToSpendProgress(report);
+    final accent = report.safeToSpend.dailyAmount > 0
+        ? colorScheme.success
+        : colorScheme.warning;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Safe to Spend',
+          value:
+              '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+          caption: '${report.safeToSpend.daysRemaining} days remaining',
+          accent: accent,
+          visual: _MonthlyReportProgressRing(
+            colorScheme: colorScheme,
+            progress: progress,
+            center: '${(progress * 100).round()}%',
+            accent: accent,
+            size: 104,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportAdviceCard(
+          colorScheme: colorScheme,
+          label: 'Allowance',
+          title:
+              'You can safely spend ${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)} per day.',
+          body:
+              'This covers the next ${report.safeToSpend.daysRemaining} days after scheduled bills, expected income, and remaining budgets.',
+          accent: accent,
+          icon: Icons.wallet_rounded,
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Allowance',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Budget left',
+              value: formatCurrency(
+                report.safeToSpend.budgetRemaining,
+                report.currencyCode,
+              ),
+              subtitle: 'Available after month-to-date spending',
+              accent: report.safeToSpend.budgetRemaining >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+              visual: _MonthlyReportProgressBar(
+                colorScheme: colorScheme,
+                progress: progress,
+                accent: accent,
+                compact: true,
+              ),
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Bills ahead',
+              value: formatCurrency(
+                report.safeToSpend.futureObligations,
+                report.currencyCode,
+              ),
+              subtitle: '${report.upcomingObligations.length} scheduled',
+              accent: report.safeToSpend.futureObligations <=
+                      report.safeToSpend.futureIncome +
+                          math.max(0, report.overview.currentBalance)
+                  ? colorScheme.success
+                  : colorScheme.warning,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Expected income',
+              value: formatCurrency(
+                report.safeToSpend.futureIncome,
+                report.currencyCode,
+              ),
+              subtitle: 'Before month end',
+              accent: colorScheme.info,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildForecastTimeline(context, colorScheme, report),
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Safe to Spend',
+          body:
+              'Safe to Spend is the daily amount left after protecting money for remaining budgets and known upcoming bills. If this number is low or negative, pause flexible spending first.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpendingDetail(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+    ValueNotifier<String> selectedRange,
+  ) {
+    final statusColor = _detailStatusColor(report.overview.status, colorScheme);
+    final fastCategories = report.spendingPace
+        .where(
+          (item) =>
+              item.status != MonthlyReportStatus.onTrack &&
+              item.status != MonthlyReportStatus.safeToSpend,
+        )
+        .take(3)
+        .toList(growable: false);
+    final watchCategories = fastCategories.isEmpty
+        ? report.spendingPace.take(3).toList(growable: false)
+        : fastCategories;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportRangeSelector(
+          colorScheme: colorScheme,
+          selected: selectedRange.value,
+          onChanged: (value) => selectedRange.value = value,
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Spending',
+          value: formatCurrency(report.overview.spending, report.currencyCode),
+          caption:
+              '${_detailSignedCurrency(report.trendSummary.spendingChange, report.currencyCode)} vs last month',
+          accent: statusColor,
+          visual: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: [
+              report.trendSummary.previousSpending,
+              report.trendSummary.currentSpending,
+            ],
+            accent: statusColor,
+            height: 74,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Watch First',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            for (final item in watchCategories)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: item.label,
+                value: '${(item.spentProgress * 100).round()}%',
+                subtitle: monthlyReportStatusLabel(item.status),
+                accent: _detailStatusColor(item.status, colorScheme),
+                visual: _MonthlyReportPaceComparisonBar(
+                  colorScheme: colorScheme,
+                  accent: _detailStatusColor(item.status, colorScheme),
+                  spentProgress: item.spentProgress.clamp(0.0, 1.0),
+                  timeProgress: item.timeProgress.clamp(0.0, 1.0),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (report.anomalies.isNotEmpty) ...[
+          _MonthlyReportSectionTitle(
+            title: 'Unusual Activity',
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 10),
+          for (final item in report.anomalies.take(3)) ...[
+            _MonthlyReportAdviceCard(
+              colorScheme: colorScheme,
+              label: 'Pattern Check',
+              title: item.title,
+              body: item.description,
+              accent: _detailStatusColor(item.status, colorScheme),
+              icon: Icons.manage_search_rounded,
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 4),
+        ],
+        _MonthlyReportSectionTitle(
+          title: 'Category Pace',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            for (final item in report.spendingPace.take(6))
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: item.label,
+                value: '${(item.spentProgress * 100).round()}%',
+                subtitle: monthlyReportStatusLabel(item.status),
+                accent: _detailStatusColor(item.status, colorScheme),
+                visual: _MonthlyReportPaceComparisonBar(
+                  colorScheme: colorScheme,
+                  accent: _detailStatusColor(item.status, colorScheme),
+                  spentProgress: item.spentProgress.clamp(0.0, 1.0),
+                  timeProgress: item.timeProgress.clamp(0.0, 1.0),
+                ),
+              ),
+          ],
+        ),
+        if (report.spendingPace.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MonthlyReportAboutCard(
+            colorScheme: colorScheme,
+            title: 'About Spending Pace',
+            body:
+                'The colored bar shows budget used. The thin marker shows how far through the month you are. If the bar passes the marker, that category is spending faster than time is passing.',
+          ),
+        ],
+        const SizedBox(height: 14),
+        _buildMerchantPreview(colorScheme, report),
+      ],
+    );
+  }
+
+  Widget _buildBudgetDetail(
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final progress = _detailBudgetProgress(report);
+    final accent = progress >= 1 ? colorScheme.warning : colorScheme.info;
+    final stressedCategories = report.budgetHealth
+        .where(
+          (item) =>
+              item.status != MonthlyReportStatus.onTrack &&
+              item.status != MonthlyReportStatus.safeToSpend,
+        )
+        .take(3)
+        .toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Budget Used',
+          value: '${(progress * 100).round()}%',
+          caption:
+              '${formatCurrency(report.budgetPlan.totalRemaining, report.currencyCode)} remaining',
+          accent: accent,
+          visual: _MonthlyReportProgressRing(
+            colorScheme: colorScheme,
+            progress: progress,
+            center: '${(progress * 100).round()}%',
+            accent: accent,
+            size: 104,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Budget Plan',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            if (stressedCategories.isNotEmpty)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'Needs attention',
+                value: '${stressedCategories.length}',
+                subtitle: stressedCategories
+                    .map((item) => item.name)
+                    .take(2)
+                    .join(', '),
+                accent: colorScheme.warning,
+              ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Budgeted',
+              value: formatCurrency(
+                report.budgetPlan.totalBudgeted,
+                report.currencyCode,
+              ),
+              accent: colorScheme.info,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Remaining',
+              value: formatCurrency(
+                report.budgetPlan.totalRemaining,
+                report.currencyCode,
+              ),
+              accent: report.budgetPlan.totalRemaining >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Spent',
+              value: formatCurrency(
+                report.budgetPlan.totalSpent,
+                report.currencyCode,
+              ),
+              accent: accent,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Unbudgeted',
+              value: formatCurrency(
+                report.budgetPlan.unbudgetedSpent,
+                report.currencyCode,
+              ),
+              accent: report.budgetPlan.unbudgetedSpent > 0
+                  ? colorScheme.warning
+                  : colorScheme.success,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Budget / income',
+              value: _detailNullablePercent(
+                report.budgetPlan.budgetToIncomeRatio,
+              ),
+              subtitle:
+                  '${report.budgetPlan.overBudgetCount} over · ${report.budgetPlan.atRiskCount} at risk',
+              accent: report.budgetPlan.overBudgetCount > 0 ||
+                      report.budgetPlan.atRiskCount > 0
+                  ? colorScheme.warning
+                  : colorScheme.success,
+            ),
+          ],
+        ),
+        if (stressedCategories.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MonthlyReportAdviceCard(
+            colorScheme: colorScheme,
+            label: 'Budget Health',
+            title: stressedCategories.length == 1
+                ? '${stressedCategories.first.name} needs attention.'
+                : '${stressedCategories.length} categories need attention.',
+            body:
+                'Review categories that are over budget or moving faster than the month. Cutting flexible spend there has the fastest effect.',
+            accent: colorScheme.warning,
+            icon: Icons.track_changes_rounded,
+          ),
+        ],
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Categories',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            for (final item in report.budgetHealth.take(8))
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: item.name,
+                value: formatCurrency(item.remaining, report.currencyCode),
+                subtitle: _detailBudgetSubtitle(report, item),
+                accent: _detailStatusColor(item.status, colorScheme),
+                visual: _detailBudgetPaceVisual(colorScheme, report, item),
+              ),
+          ],
+        ),
+        if (report.spendingPace.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MonthlyReportSectionTitle(
+            title: 'Budget Notes',
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 10),
+          for (final item in report.spendingPace.take(3)) ...[
+            _MonthlyReportAdviceCard(
+              colorScheme: colorScheme,
+              label: monthlyReportStatusLabel(item.status),
+              title: item.label,
+              body: item.insight,
+              accent: _detailStatusColor(item.status, colorScheme),
+              icon: Icons.speed_rounded,
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Budget Health',
+          body:
+              'Budget Health compares category spending against both the budget amount and the month elapsed. A warning does not mean failure; it shows where a small adjustment matters most.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSavingsDetail(
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final goalProgress = report.goals.isEmpty
+        ? _detailSavingsRateProgress(report)
+        : report.goals.first.progress.clamp(0.0, 1.0);
+    final accent = report.overview.savings >= 0
+        ? colorScheme.success
+        : colorScheme.destructive;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Savings',
+          value: formatCurrency(report.overview.savings, report.currencyCode),
+          caption: '${_detailPercent(report.trendSummary.savingsRate)} rate',
+          accent: accent,
+          visual: _MonthlyReportProgressRing(
+            colorScheme: colorScheme,
+            progress: goalProgress,
+            center: '${(goalProgress * 100).round()}%',
+            accent: accent,
+            size: 104,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportAdviceCard(
+          colorScheme: colorScheme,
+          label: 'Savings',
+          title: report.overview.savings >= 0
+              ? 'You saved money this month.'
+              : 'You are using your buffer this month.',
+          body: report.overview.savings >= 0
+              ? 'Positive cash flow adds room for bills, goals, and unexpected spending.'
+              : 'Negative savings means spending is higher than income so far. Watch flexible categories and upcoming bills first.',
+          accent: accent,
+          icon: Icons.savings_rounded,
+          visual: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: [
+              report.trendSummary.previousSavings,
+              report.trendSummary.currentSavings,
+            ],
+            accent: accent,
+            height: 58,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Buffer',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Net cash flow',
+              value: _detailSignedCurrency(
+                report.trendSummary.netCashFlow,
+                report.currencyCode,
+              ),
+              subtitle: 'Income minus spending',
+              accent: report.trendSummary.netCashFlow >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Month-end buffer',
+              value: formatCurrency(
+                report.overview.forecastedBalance,
+                report.currencyCode,
+              ),
+              subtitle: report.overview.forecastedBalance >= 0
+                  ? 'Positive forecast'
+                  : 'Negative forecast',
+              accent: report.overview.forecastedBalance >= 0
+                  ? colorScheme.success
+                  : colorScheme.destructive,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Saved this month',
+              value:
+                  formatCurrency(report.overview.savings, report.currencyCode),
+              subtitle: report.overview.savings >= 0
+                  ? 'Building room'
+                  : 'Using buffer',
+              accent: accent,
+              visual: _MonthlyReportProgressBar(
+                colorScheme: colorScheme,
+                progress: goalProgress,
+                accent: accent,
+                compact: true,
+              ),
+            ),
+          ],
+        ),
+        if (report.goals.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _MonthlyReportSectionTitle(
+            title: 'Goals',
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 10),
+          _MonthlyReportPreviewCard(
+            colorScheme: colorScheme,
+            children: [
+              for (final goal in report.goals.take(5))
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: goal.title,
+                  value: '${(goal.progress * 100).round()}%',
+                  subtitle:
+                      '${formatCurrency(goal.currentAmount, report.currencyCode)} / ${formatCurrency(goal.targetAmount, report.currencyCode)} · ${formatCurrency(goal.monthlyNeeded, report.currencyCode)}/mo needed',
+                  accent: goal.progress >= 1
+                      ? colorScheme.success
+                      : colorScheme.info,
+                  visual: _MonthlyReportProgressBar(
+                    colorScheme: colorScheme,
+                    progress: goal.progress.clamp(0.0, 1.0),
+                    accent: goal.progress >= 1
+                        ? colorScheme.success
+                        : colorScheme.info,
+                    compact: true,
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Savings',
+          body:
+              'Savings is income minus spending for the month. If you have goals, the progress bar shows funding progress and the detail row shows how much is already saved toward the target.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryDetail(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final selected = selectedCategoryName == null
+        ? null
+        : report.categoryTrends.where(
+            (item) => item.name == selectedCategoryName,
+          );
+    final categories = selected != null && selected.isNotEmpty
+        ? selected.toList(growable: false)
+        : report.categoryTrends;
+    final first = categories.isEmpty ? null : categories.first;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: first?.name ?? 'Categories',
+          value: first == null
+              ? 'No movers'
+              : formatCurrency(first.currentSpent, report.currencyCode),
+          caption: first == null
+              ? 'More history is needed.'
+              : _detailCategoryCopy(first),
+          accent: first == null
+              ? colorScheme.info
+              : _detailStatusColor(first.status, colorScheme),
+          visual: _MonthlyReportMiniBarChart(
+            colorScheme: colorScheme,
+            values: first == null
+                ? const []
+                : [
+                    first.previousSpent,
+                    first.baselineAverageSpent,
+                    first.currentSpent,
+                  ],
+            accent: first == null
+                ? colorScheme.info
+                : _detailStatusColor(first.status, colorScheme),
+            height: 78,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (categories.isNotEmpty) ...[
+          _MonthlyReportSectionTitle(
+            title: 'Insights',
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: 10),
+          for (final item in categories.take(3)) ...[
+            _MonthlyReportAdviceCard(
+              colorScheme: colorScheme,
+              label: 'Category Movement',
+              title: item.name,
+              body:
+                  '${item.insight} Current spend is ${formatCurrency(item.currentSpent, report.currencyCode)}.',
+              accent: _detailStatusColor(item.status, colorScheme),
+              icon: Icons.category_rounded,
+              visual: _MonthlyReportMiniBarChart(
+                colorScheme: colorScheme,
+                values: [
+                  item.previousSpent,
+                  item.baselineAverageSpent,
+                  item.currentSpent,
+                ],
+                accent: _detailStatusColor(item.status, colorScheme),
+                height: 58,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 4),
+        ],
+        _MonthlyReportSectionTitle(
+          title: 'Movers',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            if (categories.isEmpty)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'No category trends',
+                value: 'Waiting',
+                subtitle: 'Comparable spending will appear here.',
+                accent: colorScheme.info,
+              )
+            else
+              for (final item in categories.take(8))
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: item.name,
+                  value: formatCurrency(item.currentSpent, report.currencyCode),
+                  subtitle: _detailCategoryCopy(item),
+                  accent: _detailStatusColor(item.status, colorScheme),
+                  visual: _MonthlyReportMiniBarChart(
+                    colorScheme: colorScheme,
+                    values: [item.previousSpent, item.currentSpent],
+                    accent: _detailStatusColor(item.status, colorScheme),
+                    height: 34,
+                  ),
+                ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildMerchantPreview(colorScheme, report),
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Category Movement',
+          body:
+              'Category Movement compares this month against the previous month and the historical baseline. It is most useful for spotting flexible spending that changed before it becomes a budget problem.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecurringDetail(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    final commitment = report.recurringCommitment;
+    final accent = _detailStatusColor(commitment.status, colorScheme);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportDetailHeader(
+          colorScheme: colorScheme,
+          label: 'Recurring',
+          value: formatCurrency(
+            report.subscriptions.totalMonthlyAmount,
+            report.currencyCode,
+          ),
+          caption: '${commitment.dueSoonCount} due soon',
+          accent: accent,
+          visual: _MonthlyReportProgressRing(
+            colorScheme: colorScheme,
+            progress: (commitment.incomeShare ?? 0).clamp(0.0, 1.0),
+            center: _detailNullablePercent(commitment.incomeShare),
+            accent: accent,
+            size: 104,
+          ),
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Monthly recurring',
+              value: formatCurrency(
+                commitment.monthlyAmount,
+                report.currencyCode,
+              ),
+              accent: accent,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Due in 14 days',
+              value: formatCurrency(
+                commitment.dueSoonAmount,
+                report.currencyCode,
+              ),
+              accent: colorScheme.warning,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Income share',
+              value: _detailNullablePercent(commitment.incomeShare),
+              accent: accent,
+            ),
+            _MonthlyReportStaticRow(
+              colorScheme: colorScheme,
+              title: 'Due-soon count',
+              value: '${commitment.dueSoonCount}',
+              accent: commitment.dueSoonCount > 0
+                  ? colorScheme.warning
+                  : colorScheme.success,
+            ),
+          ],
+        ),
+        if (commitment.monthlyAmount > 0) ...[
+          const SizedBox(height: 14),
+          _MonthlyReportAdviceCard(
+            colorScheme: colorScheme,
+            label: 'Recurring Commitment',
+            title:
+                '${formatCurrency(commitment.monthlyAmount, report.currencyCode)} is already committed each month.',
+            body:
+                'Use this section to check fixed bills before deciding what is safe to spend. Due-soon items matter most when cash flow is tight.',
+            accent: accent,
+            icon: Icons.event_note_rounded,
+          ),
+        ],
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Subscriptions',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            if (report.subscriptions.items.isEmpty)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'No subscriptions',
+                value: 'Clear',
+                subtitle: 'Recurring expenses will appear here.',
+                accent: colorScheme.success,
+              )
+            else
+              for (final item in report.subscriptions.items.take(8))
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: item.name,
+                  value: formatCurrency(item.amount, report.currencyCode),
+                  subtitle:
+                      '${_detailShortDate(context, item.nextDate)} · ${item.note}',
+                  accent: _detailSubscriptionColor(item.status, colorScheme),
+                ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportSectionTitle(
+          title: 'Bill Calendar',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            if (report.upcomingObligations.isEmpty)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'No upcoming bills',
+                value: 'Clear',
+                subtitle: 'No scheduled money movement remains this month.',
+                accent: colorScheme.success,
+              )
+            else
+              for (final item in report.upcomingObligations.take(8))
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: item.name,
+                  value: item.type == 'income'
+                      ? '+${formatCurrency(item.amount, report.currencyCode)}'
+                      : formatCurrency(-item.amount, report.currencyCode),
+                  subtitle: _detailShortDate(context, item.date),
+                  accent: item.type == 'income'
+                      ? colorScheme.success
+                      : colorScheme.warning,
+                ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _MonthlyReportAboutCard(
+          colorScheme: colorScheme,
+          title: 'About Recurring Costs',
+          body:
+              'Recurring costs are fixed or repeating commitments. Reviewing them together with the bill calendar helps protect cash for essentials before flexible spending.',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForecastTimeline(
+    BuildContext context,
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    return _MonthlyReportPreviewCard(
+      colorScheme: colorScheme,
+      children: [
+        for (final entry
+            in report.cashFlowForecast.take(6).toList().asMap().entries)
+          _MonthlyReportStaticRow(
+            colorScheme: colorScheme,
+            title: entry.key == 0
+                ? entry.value.label
+                : entry.key == report.cashFlowForecast.take(6).length - 1
+                    ? entry.value.label
+                    : 'After ${entry.value.label.toLowerCase()}',
+            value: formatCurrency(entry.value.balance, report.currencyCode),
+            accent: entry.value.balance < 0
+                ? colorScheme.destructive
+                : colorScheme.info,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMerchantPreview(
+    ColorScheme colorScheme,
+    MonthlyFinancialReport report,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MonthlyReportSectionTitle(
+          title: 'Top Merchants',
+          colorScheme: colorScheme,
+        ),
+        const SizedBox(height: 10),
+        if (report.merchantConcentration.isNotEmpty) ...[
+          _MonthlyReportMerchantShareChart(
+            colorScheme: colorScheme,
+            merchants: report.merchantConcentration.take(5).toList(),
+            currencyCode: report.currencyCode,
+          ),
+          const SizedBox(height: 10),
+        ],
+        _MonthlyReportPreviewCard(
+          colorScheme: colorScheme,
+          children: [
+            if (report.merchantConcentration.isEmpty)
+              _MonthlyReportStaticRow(
+                colorScheme: colorScheme,
+                title: 'No merchant data',
+                value: 'Waiting',
+                subtitle: 'Merchant names will appear when available.',
+                accent: colorScheme.info,
+              )
+            else
+              for (final item in report.merchantConcentration.take(6))
+                _MonthlyReportStaticRow(
+                  colorScheme: colorScheme,
+                  title: item.name,
+                  value: formatCurrency(item.amount, report.currencyCode),
+                  subtitle: '${_detailPercent(item.spendingShare)} of spending',
+                  accent: colorScheme.info,
+                  visual: _MonthlyReportProgressBar(
+                    colorScheme: colorScheme,
+                    progress: item.spendingShare.clamp(0.0, 1.0),
+                    accent: colorScheme.info,
+                    compact: true,
+                  ),
+                ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthlyReportSectionTitle extends StatelessWidget {
+  const _MonthlyReportSectionTitle({
+    required this.title,
+    required this.colorScheme,
+    this.actionLabel,
+    this.onActionTap,
+    this.trailing,
+  });
+
+  final String title;
+  final String? actionLabel;
+  final VoidCallback? onActionTap;
+  final ColorScheme colorScheme;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.foreground,
+                height: 1.05,
+              ),
+            ),
+          ),
+          if (actionLabel != null && onActionTap != null)
+            InkWell(
+              onTap: onActionTap,
+              borderRadius: BorderRadius.circular(999),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Center(
+                  child: Text(
+                    actionLabel!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyMetricSpec {
+  const _MonthlyMetricSpec({
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.accent,
+    required this.icon,
+    required this.route,
+    required this.visual,
+  });
+
+  final String label;
+  final String value;
+  final String caption;
+  final Color accent;
+  final IconData icon;
+  final String route;
+  final Widget visual;
+}
+
+class _MonthlyHighlightItem {
+  const _MonthlyHighlightItem({
+    required this.title,
+    required this.label,
+    required this.status,
+    required this.icon,
+    required this.route,
+    this.chart,
+  });
+
+  final String title;
+  final String label;
+  final MonthlyReportStatus status;
+  final IconData icon;
+  final String route;
+  final Widget? chart;
+}
+
+class _MonthlyReportHeroCard extends StatelessWidget {
+  const _MonthlyReportHeroCard({
+    required this.colorScheme,
+    required this.label,
+    required this.title,
+    required this.value,
+    required this.caption,
+    required this.accent,
+    required this.onTap,
+    required this.visual,
+  });
+
+  final ColorScheme colorScheme;
+  final String label;
+  final String title;
+  final String value;
+  final String caption;
+  final Color accent;
+  final VoidCallback onTap;
+  final Widget visual;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MonthlyReportTappableSurface(
+      colorScheme: colorScheme,
+      onTap: onTap,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 520;
+          final content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MonthlyReportEyebrow(
+                colorScheme: colorScheme,
+                label: label,
+                accent: accent,
+                icon: Icons.favorite_rounded,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                caption,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          );
+
+          if (isWide) {
+            return Row(
+              children: [
+                Expanded(child: content),
+                const SizedBox(width: 20),
+                visual,
+                const SizedBox(width: 8),
+                _MonthlyReportChevron(colorScheme: colorScheme),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: content),
+                  const SizedBox(width: 12),
+                  _MonthlyReportChevron(colorScheme: colorScheme),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Center(child: visual),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MonthlyReportInsightCard extends StatelessWidget {
+  const _MonthlyReportInsightCard({
+    required this.colorScheme,
+    required this.title,
+    required this.label,
+    required this.accent,
+    required this.icon,
+    required this.onTap,
+    this.chart,
+  });
+
+  final ColorScheme colorScheme;
+  final String title;
+  final String label;
+  final Color accent;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Widget? chart;
+
+  @override
+  Widget build(BuildContext context) {
+    return _MonthlyReportTappableSurface(
+      colorScheme: colorScheme,
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _MonthlyReportEyebrow(
+                  colorScheme: colorScheme,
+                  label: 'Insight',
+                  accent: accent,
+                  icon: icon,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1.18,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.mutedForeground,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (chart != null) ...[
+            const SizedBox(width: 14),
+            SizedBox(width: 84, height: 72, child: chart),
+          ],
+          const SizedBox(width: 8),
+          _MonthlyReportChevron(colorScheme: colorScheme),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyReportPreviewCard extends StatelessWidget {
+  const _MonthlyReportPreviewCard({
+    required this.colorScheme,
+    required this.children,
+  });
+
+  final ColorScheme colorScheme;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (var index = 0; index < children.length; index++) ...[
+            children[index],
+            if (index != children.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: colorScheme.border.withValues(alpha: 0.32),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyReportDisclosureRow extends StatelessWidget {
+  const _MonthlyReportDisclosureRow({
+    required this.colorScheme,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.accent,
+    required this.icon,
+    required this.onTap,
+    this.visual,
+  });
+
+  final ColorScheme colorScheme;
+  final String title;
+  final String subtitle;
+  final String value;
+  final Color accent;
+  final IconData icon;
+  final VoidCallback onTap;
+  final Widget? visual;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 68),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              _MonthlyReportIconChip(
+                colorScheme: colorScheme,
+                accent: accent,
+                icon: icon,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        height: 1.15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: colorScheme.mutedForeground,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (visual != null) ...[
+                      const SizedBox(height: 9),
+                      visual!,
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.foreground,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(width: 4),
+              _MonthlyReportChevron(colorScheme: colorScheme),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportStaticRow extends StatelessWidget {
+  const _MonthlyReportStaticRow({
+    required this.colorScheme,
+    required this.title,
+    required this.value,
+    required this.accent,
+    this.subtitle,
+    this.visual,
+  });
+
+  final ColorScheme colorScheme;
+  final String title;
+  final String value;
+  final String? subtitle;
+  final Color accent;
+  final Widget? visual;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 28,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1.15,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.mutedForeground,
+                      height: 1.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (visual != null) ...[
+                  const SizedBox(height: 9),
+                  visual!,
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyReportDetailShell extends StatelessWidget {
+  const _MonthlyReportDetailShell({
+    required this.colorScheme,
+    required this.title,
+    required this.child,
+  });
+
+  final ColorScheme colorScheme;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        24 + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/dashboard');
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colorScheme.homeCardSurface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colorScheme.homeCardBorder),
+                      ),
+                      child: Icon(
+                        Icons.chevron_left_rounded,
+                        size: 32,
+                        color: colorScheme.foreground,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.foreground,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 62),
+                ],
+              ),
+              const SizedBox(height: 24),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportDetailHeader extends StatelessWidget {
+  const _MonthlyReportDetailHeader({
+    required this.colorScheme,
+    required this.label,
+    required this.value,
+    required this.caption,
+    required this.accent,
+    required this.visual,
+  });
+
+  final ColorScheme colorScheme;
+  final String label;
+  final String value;
+  final String caption;
+  final Color accent;
+  final Widget visual;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReportCard(
+      colorScheme: colorScheme,
+      padding: const EdgeInsets.all(20),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= 540;
+          final metric = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MonthlyReportEyebrow(
+                colorScheme: colorScheme,
+                label: label,
+                accent: accent,
+                icon: Icons.insights_rounded,
+              ),
+              const SizedBox(height: 16),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 33,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                caption,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.mutedForeground,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          );
+
+          if (isWide) {
+            return Row(
+              children: [
+                Expanded(child: metric),
+                const SizedBox(width: 22),
+                visual,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              metric,
+              const SizedBox(height: 20),
+              Center(child: visual),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MonthlyReportRangeSelector extends StatelessWidget {
+  const _MonthlyReportRangeSelector({
+    required this.colorScheme,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ColorScheme colorScheme;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    const values = ['Week', 'Month', '6M', 'Year'];
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colorScheme.muted.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          for (final value in values)
+            Expanded(
+              child: InkWell(
+                onTap: () => onChanged(value),
+                borderRadius: BorderRadius.circular(999),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  constraints: const BoxConstraints(minHeight: 38),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected == value
+                        ? colorScheme.tabThumb
+                        : colorScheme.surface.withValues(alpha: 0),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: selected == value
+                          ? colorScheme.tabSelectedForeground
+                          : colorScheme.tabUnselectedForeground,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyReportTappableSurface extends StatelessWidget {
+  const _MonthlyReportTappableSurface({
+    required this.colorScheme,
+    required this.onTap,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+  });
+
+  final ColorScheme colorScheme;
+  final VoidCallback onTap;
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: colorScheme.homeCardShadow,
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: colorScheme.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: colorScheme.surfaceBorder, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(24),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: double.infinity,
+              padding: padding,
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportEyebrow extends StatelessWidget {
+  const _MonthlyReportEyebrow({
+    required this.colorScheme,
+    required this.label,
+    required this.accent,
+    required this.icon,
+  });
+
+  final ColorScheme colorScheme;
+  final String label;
+  final Color accent;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 17, color: accent),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: accent,
+              height: 1.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthlyReportChevron extends StatelessWidget {
+  const _MonthlyReportChevron({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      Icons.chevron_right_rounded,
+      size: 26,
+      color: colorScheme.mutedForeground.withValues(alpha: 0.46),
+    );
+  }
+}
+
+class _MonthlyReportIconChip extends StatelessWidget {
+  const _MonthlyReportIconChip({
+    required this.colorScheme,
+    required this.accent,
+    required this.icon,
+  });
+
+  final ColorScheme colorScheme;
+  final Color accent;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Icon(icon, size: 18, color: accent),
+    );
+  }
+}
+
+class _MonthlyReportProgressBar extends StatelessWidget {
+  const _MonthlyReportProgressBar({
+    required this.colorScheme,
+    required this.progress,
+    required this.accent,
+    this.compact = false,
+  });
+
+  final ColorScheme colorScheme;
+  final double progress;
+  final Color accent;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: SizedBox(
+        height: compact ? 6 : 8,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(
+                color: colorScheme.border.withValues(alpha: 0.22),
+              ),
+            ),
+            FractionallySizedBox(
+              widthFactor: progress.clamp(0.0, 1.0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(color: accent),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportProgressRing extends StatelessWidget {
+  const _MonthlyReportProgressRing({
+    required this.colorScheme,
+    required this.progress,
+    required this.center,
+    required this.accent,
+    required this.size,
+  });
+
+  final ColorScheme colorScheme;
+  final double progress;
+  final String center;
+  final Color accent;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: progress.clamp(0.0, 1.0)),
+      duration:
+          reduceMotion ? Duration.zero : const Duration(milliseconds: 620),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return CustomPaint(
+          painter: _MonthlyReportRingPainter(
+            colorScheme: colorScheme,
+            progress: value,
+            accent: accent,
+          ),
+          child: SizedBox.square(
+            dimension: size,
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  center,
+                  style: TextStyle(
+                    fontSize: size < 70 ? 12 : 22,
+                    fontWeight: FontWeight.w800,
+                    color: colorScheme.foreground,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MonthlyReportRingPainter extends CustomPainter {
+  const _MonthlyReportRingPainter({
+    required this.colorScheme,
+    required this.progress,
+    required this.accent,
+  });
+
+  final ColorScheme colorScheme;
+  final double progress;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final side = size.shortestSide;
+    final center = Offset(size.width / 2, size.height / 2);
+    final stroke = (side * 0.11).clamp(6.0, 14.0);
+    final radius = side / 2 - stroke / 2;
+    final trackPaint = Paint()
+      ..color = colorScheme.border.withValues(alpha: 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke;
+    final progressPaint = Paint()
+      ..color = accent
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = stroke;
+
+    canvas.drawCircle(center, radius, trackPaint);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      math.pi * 2 * progress,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MonthlyReportRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.accent != accent ||
+        oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+class _MonthlyReportMiniBarChart extends StatelessWidget {
+  const _MonthlyReportMiniBarChart({
+    required this.colorScheme,
+    required this.values,
+    required this.accent,
+    this.height = 54,
+  });
+
+  final ColorScheme colorScheme;
+  final List<double> values;
+  final Color accent;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleValues = values.isEmpty ? const [0.0] : values;
+    final maxValue = visibleValues.fold<double>(
+      1,
+      (maxValue, value) => math.max(maxValue, value.abs()),
+    );
+
+    return SizedBox(
+      height: height,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var index = 0; index < visibleValues.length; index++) ...[
+            Expanded(
+              child: FractionallySizedBox(
+                heightFactor:
+                    (visibleValues[index].abs() / maxValue).clamp(0.08, 1.0),
+                alignment: Alignment.bottomCenter,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    color: index == visibleValues.length - 1
+                        ? accent
+                        : colorScheme.border.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+            if (index != visibleValues.length - 1) const SizedBox(width: 6),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MonthlyReportSparkline extends StatelessWidget {
+  const _MonthlyReportSparkline({
+    required this.colorScheme,
+    required this.values,
+    required this.accent,
+    this.height = 54,
+  });
+
+  final ColorScheme colorScheme;
+  final List<double> values;
+  final Color accent;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final chartValues = values.length < 2 ? [0.0, ...values, 0.0] : values;
+    return SizedBox(
+      height: height,
+      child: CustomPaint(
+        painter: _MonthlyReportSparklinePainter(
+          colorScheme: colorScheme,
+          values: chartValues,
+          accent: accent,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _MonthlyReportSparklinePainter extends CustomPainter {
+  const _MonthlyReportSparklinePainter({
+    required this.colorScheme,
+    required this.values,
+    required this.accent,
+  });
+
+  final ColorScheme colorScheme;
+  final List<double> values;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    final minValue = values.reduce(math.min);
+    final maxValue = values.reduce(math.max);
+    final range = math.max(maxValue - minValue, 1);
+    final path = Path();
+    final fillPath = Path();
+
+    for (var index = 0; index < values.length; index++) {
+      final x = values.length == 1
+          ? size.width / 2
+          : size.width * index / (values.length - 1);
+      final y = size.height -
+          ((values[index] - minValue) / range).clamp(0.0, 1.0) * size.height;
+
+      if (index == 0) {
+        path.moveTo(x, y);
+        fillPath
+          ..moveTo(x, size.height)
+          ..lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    fillPath
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..color = accent.withValues(alpha: 0.1)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = accent
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = 3,
+    );
+    canvas.drawLine(
+      Offset(0, size.height - 1),
+      Offset(size.width, size.height - 1),
+      Paint()
+        ..color = colorScheme.border.withValues(alpha: 0.28)
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MonthlyReportSparklinePainter oldDelegate) {
+    return oldDelegate.values != values ||
+        oldDelegate.accent != accent ||
+        oldDelegate.colorScheme != colorScheme;
+  }
+}
+
+String _detailTitle(MonthlyReportDetailKind kind) {
+  switch (kind) {
+    case MonthlyReportDetailKind.balance:
+      return 'Balance';
+    case MonthlyReportDetailKind.safeSpend:
+      return 'Safe to Spend';
+    case MonthlyReportDetailKind.spending:
+      return 'Spending';
+    case MonthlyReportDetailKind.budget:
+      return 'Budget';
+    case MonthlyReportDetailKind.savings:
+      return 'Savings';
+    case MonthlyReportDetailKind.categories:
+      return 'Categories';
+    case MonthlyReportDetailKind.recurring:
+      return 'Recurring';
+  }
+}
+
+Color _detailStatusColor(MonthlyReportStatus status, ColorScheme colorScheme) {
+  switch (status) {
+    case MonthlyReportStatus.onTrack:
+    case MonthlyReportStatus.safeToSpend:
+      return colorScheme.success;
+    case MonthlyReportStatus.needsAttention:
+    case MonthlyReportStatus.spendingFast:
+      return colorScheme.warning;
+    case MonthlyReportStatus.overBudget:
+    case MonthlyReportStatus.unusualSpending:
+      return colorScheme.destructive;
+  }
+}
+
+Color _detailSubscriptionColor(
+  MonthlySubscriptionStatus status,
+  ColorScheme colorScheme,
+) {
+  switch (status) {
+    case MonthlySubscriptionStatus.active:
+    case MonthlySubscriptionStatus.upcoming:
+      return colorScheme.info;
+    case MonthlySubscriptionStatus.priceIncrease:
+      return colorScheme.warning;
+    case MonthlySubscriptionStatus.duplicatePossible:
+      return colorScheme.destructive;
+  }
+}
+
+double _detailBudgetProgress(MonthlyFinancialReport report) {
+  final budgeted = report.budgetPlan.totalBudgeted;
+  if (budgeted <= 0) return report.budgetPlan.totalSpent <= 0 ? 0 : 1;
+  return (report.budgetPlan.totalSpent / budgeted).clamp(0.0, 1.4);
+}
+
+String _detailPercent(double value) => '${(value * 100).round()}%';
+
+String _detailNullablePercent(double? value) {
+  if (value == null) return 'No baseline';
+  return _detailPercent(value);
+}
+
+String _detailSignedCurrency(double value, String currencyCode) {
+  if (value == 0) return formatCurrency(0, currencyCode);
+  final sign = value > 0 ? '+' : '';
+  return '$sign${formatCurrency(value, currencyCode)}';
+}
+
+String _detailShortDate(BuildContext context, DateTime date) {
+  return MaterialLocalizations.of(context)
+      .formatMediumDate(date)
+      .split(',')
+      .first;
+}
+
+String _detailCategoryCopy(MonthlyCategoryTrendItem item) {
+  final change = item.previousChangePercent ?? item.baselineChangePercent;
+  if (change == null) return item.insight;
+  final direction = change >= 0 ? 'higher' : 'lower';
+  return '${_detailPercent(change.abs())} $direction than comparison.';
+}
+
+String _detailHealthHeadline(MonthlyReportStatus status) {
+  switch (status) {
+    case MonthlyReportStatus.onTrack:
+    case MonthlyReportStatus.safeToSpend:
+      return 'Your month is mostly on track.';
+    case MonthlyReportStatus.spendingFast:
+      return 'Your spending is moving a little fast.';
+    case MonthlyReportStatus.needsAttention:
+      return 'Your month needs a small adjustment.';
+    case MonthlyReportStatus.overBudget:
+      return 'A few budgets need attention.';
+    case MonthlyReportStatus.unusualSpending:
+      return 'There are spending patterns to review.';
+  }
+}
+
+String _detailBudgetSubtitle(
+  MonthlyFinancialReport report,
+  MonthlyBudgetHealthItem item,
+) {
+  final paceItem = _detailFindPaceItem(report, item.name);
+  final spent = formatCurrency(item.spent, report.currencyCode);
+  if (paceItem == null) return '$spent spent';
+
+  final spentPercent = (paceItem.spentProgress * 100).round();
+  final timePercent = (paceItem.timeProgress * 100).round();
+  return '$spent spent · $spentPercent% used vs $timePercent% month';
+}
+
+Widget _detailBudgetPaceVisual(
+  ColorScheme colorScheme,
+  MonthlyFinancialReport report,
+  MonthlyBudgetHealthItem item,
+) {
+  final accent = _detailStatusColor(item.status, colorScheme);
+  final paceItem = _detailFindPaceItem(report, item.name);
+  if (paceItem == null) {
+    return _MonthlyReportProgressBar(
+      colorScheme: colorScheme,
+      progress: item.budgetAmount <= 0
+          ? 1
+          : (item.spent / item.budgetAmount).clamp(0.0, 1.0),
+      accent: accent,
+      compact: true,
+    );
+  }
+
+  return _MonthlyReportPaceComparisonBar(
+    colorScheme: colorScheme,
+    accent: accent,
+    spentProgress: paceItem.spentProgress.clamp(0.0, 1.0),
+    timeProgress: paceItem.timeProgress.clamp(0.0, 1.0),
+  );
+}
+
+MonthlySpendingPaceItem? _detailFindPaceItem(
+  MonthlyFinancialReport report,
+  String name,
+) {
+  for (final item in report.spendingPace) {
+    if (item.label == name) return item;
+  }
+  return null;
+}
+
+List<_HealthRingMetric> _buildHealthRingMetrics(
+  ColorScheme colorScheme,
+  MonthlyFinancialReport report,
+) {
+  final budgetPaceProgress = _detailBudgetPaceProgress(report);
+  final billsCoveredProgress = _detailBillsCoveredProgress(report);
+  final savingsBufferProgress = _detailSavingsBufferProgress(report);
+  final forecastIsPositive = report.overview.forecastedBalance >= 0;
+  final vibrantPalette = _detailVibrantRingPalette(colorScheme);
+
+  return [
+    _HealthRingMetric(
+      label: 'Safe spend',
+      value:
+          '${formatCurrency(report.safeToSpend.dailyAmount, report.currencyCode)}/day',
+      status: report.safeToSpend.dailyAmount > 0
+          ? 'Available today'
+          : 'Hold spending',
+      progress: _detailSafeToSpendProgress(report),
+      color: vibrantPalette[0],
+      icon: Icons.wallet_rounded,
+    ),
+    _HealthRingMetric(
+      label: 'Budget pace',
+      value: '${(budgetPaceProgress * 100).round()}%',
+      status: _detailPaceStatus(report),
+      progress: budgetPaceProgress,
+      color: vibrantPalette[1],
+      icon: Icons.speed_rounded,
+    ),
+    _HealthRingMetric(
+      label: 'Bills covered',
+      value: '${report.upcomingObligations.length} scheduled',
+      status: billsCoveredProgress >= 1 ? 'Covered ahead' : 'Needs cash flow',
+      progress: billsCoveredProgress,
+      color: vibrantPalette[2],
+      icon: Icons.event_note_rounded,
+    ),
+    _HealthRingMetric(
+      label: 'Month-end buffer',
+      value: formatCurrency(
+        report.overview.forecastedBalance,
+        report.currencyCode,
+      ),
+      status: forecastIsPositive ? 'Positive forecast' : 'Negative forecast',
+      progress: savingsBufferProgress,
+      color: forecastIsPositive ? vibrantPalette[3] : vibrantPalette[1],
+      icon: Icons.savings_rounded,
+    ),
+  ];
+}
+
+int _overallHealthScore(List<_HealthRingMetric> rings) {
+  final total = rings.fold<double>(
+    0,
+    (sum, metric) => sum + metric.progress.clamp(0.0, 1.0),
+  );
+  return ((total / rings.length) * 100).round();
+}
+
+double _detailSafeToSpendProgress(MonthlyFinancialReport report) {
+  if (report.safeToSpend.dailyAmount <= 0) return 0.08;
+  if (report.overview.forecastedBalance <= 0) return 0.36;
+  if (report.safeToSpend.budgetRemaining <= 0) return 0.48;
+
+  switch (report.overview.status) {
+    case MonthlyReportStatus.onTrack:
+    case MonthlyReportStatus.safeToSpend:
+      return 0.94;
+    case MonthlyReportStatus.spendingFast:
+    case MonthlyReportStatus.unusualSpending:
+      return 0.72;
+    case MonthlyReportStatus.needsAttention:
+      return 0.62;
+    case MonthlyReportStatus.overBudget:
+      return 0.42;
+  }
+}
+
+double _detailBudgetPaceProgress(MonthlyFinancialReport report) {
+  if (report.spendingPace.isEmpty) return 1;
+
+  final totalOverspend = report.spendingPace.fold<double>(
+    0,
+    (sum, item) {
+      final spentProgress = item.spentProgress.clamp(0.0, 1.4);
+      final timeProgress = item.timeProgress.clamp(0.0, 1.0);
+      return sum + math.max(0, spentProgress - timeProgress);
+    },
+  );
+  final averageOverspend = totalOverspend / report.spendingPace.length;
+  final baseScore = (1 - averageOverspend * 1.85).clamp(0.08, 1.0);
+
+  final hasOverBudget = report.spendingPace.any(
+    (item) => item.status == MonthlyReportStatus.overBudget,
+  );
+  return hasOverBudget ? math.min(baseScore, 0.52) : baseScore;
+}
+
+double _detailBillsCoveredProgress(MonthlyFinancialReport report) {
+  final obligations = report.safeToSpend.futureObligations;
+  if (obligations <= 0) return 1;
+
+  final available = math.max(0, report.overview.currentBalance) +
+      report.safeToSpend.futureIncome;
+  return (available / obligations).clamp(0.08, 2.4);
+}
+
+double _detailSavingsBufferProgress(MonthlyFinancialReport report) {
+  final forecast = report.overview.forecastedBalance;
+  if (forecast <= 0) return 0.08;
+
+  final monthlyReference = math.max(
+    report.safeToSpend.futureObligations,
+    math.max(report.overview.spending * 0.35, 1),
+  );
+  return (forecast / monthlyReference).clamp(0.12, 2.6);
+}
+
+double _detailSavingsRateProgress(MonthlyFinancialReport report) {
+  final rate = report.trendSummary.savingsRate;
+  if (rate <= 0) return 0.08;
+  return (rate / 0.25).clamp(0.08, 1.0);
+}
+
+List<Color> _detailVibrantRingPalette(ColorScheme colorScheme) {
+  return [
+    _detailVibrantColor(colorScheme.success),
+    _detailVibrantColor(colorScheme.warning, hueShift: 6),
+    _detailVibrantColor(colorScheme.info, hueShift: -18),
+    _detailVibrantColor(colorScheme.primary, hueShift: 26),
+  ];
+}
+
+Color _detailVibrantColor(Color color, {double hueShift = 0}) {
+  final hsl = HSLColor.fromColor(color);
+  final shiftedHue = (hsl.hue + hueShift + 360) % 360;
+
+  return hsl
+      .withHue(shiftedHue)
+      .withSaturation((hsl.saturation + 0.2).clamp(0.48, 1.0))
+      .withLightness((hsl.lightness - 0.02).clamp(0.34, 0.62))
+      .toColor();
+}
+
+String _detailPaceStatus(MonthlyFinancialReport report) {
+  final fastCount = report.spendingPace
+      .where(
+        (item) =>
+            item.status == MonthlyReportStatus.spendingFast ||
+            item.status == MonthlyReportStatus.overBudget ||
+            item.status == MonthlyReportStatus.needsAttention,
+      )
+      .length;
+  if (fastCount == 0) return 'On expected pace';
+  if (fastCount == 1) return '1 budget to watch';
+  return '$fastCount budgets to watch';
 }
 
 class _MonthlyReportLoadingState extends HookWidget {
@@ -2085,8 +3498,8 @@ class _MonthlyReportLoadingState extends HookWidget {
                 completionController,
               ]),
               builder: (context, _) {
-                final elapsed = fakeProgressController.lastElapsedDuration ??
-                    Duration.zero;
+                final elapsed =
+                    fakeProgressController.lastElapsedDuration ?? Duration.zero;
                 final elapsedSeconds = elapsed.inMilliseconds / 1000;
                 final fakeProgress = math.max(
                   0.06,
@@ -2107,8 +3520,7 @@ class _MonthlyReportLoadingState extends HookWidget {
                 );
                 final visibleProgress = isComplete
                     ? completeProgressStart.value +
-                        ((1 - completeProgressStart.value) *
-                            completionProgress)
+                        ((1 - completeProgressStart.value) * completionProgress)
                     : fakeProgress;
                 final progressPercent = (visibleProgress * 100).floor();
 
@@ -2120,8 +3532,8 @@ class _MonthlyReportLoadingState extends HookWidget {
                       'Building monthly report',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                         color: colorScheme.foreground,
                         height: 1.2,
                       ),
@@ -2131,7 +3543,7 @@ class _MonthlyReportLoadingState extends HookWidget {
                       'Checking budgets, trends, and upcoming commitments.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: colorScheme.mutedForeground,
                         height: 1.45,
@@ -2143,8 +3555,8 @@ class _MonthlyReportLoadingState extends HookWidget {
                       child: LinearProgressIndicator(
                         value: visibleProgress.clamp(0.0, 1.0),
                         minHeight: 8,
-                        backgroundColor: colorScheme.mutedForeground
-                            .withValues(alpha: 0.15),
+                        backgroundColor:
+                            colorScheme.mutedForeground.withValues(alpha: 0.15),
                         color: colorScheme.primary,
                       ),
                     ),
@@ -2157,8 +3569,8 @@ class _MonthlyReportLoadingState extends HookWidget {
                             ? 'Report ready'
                             : 'Preparing $progressPercent%',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                           color: colorScheme.mutedForeground,
                         ),
                         shimmering: !isComplete,
@@ -2206,8 +3618,8 @@ class _MonthlyReportSyncStatus extends StatelessWidget {
               ? 'Refreshing report'
               : 'Last synced ${_formatLastSyncedAt(context, lastSyncedAt)}',
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
             color: foreground,
             height: 1.2,
           ),
@@ -2249,7 +3661,7 @@ class _ReportCard extends StatelessWidget {
   const _ReportCard({
     required this.colorScheme,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(16),
   });
 
   final ColorScheme colorScheme;
@@ -2262,22 +3674,24 @@ class _ReportCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: colorScheme.homeCardSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: colorScheme.homeCardBorder,
-          width: 1,
-        ),
         boxShadow: [
           BoxShadow(
             color: colorScheme.homeCardShadow,
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: -4,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: child,
+      child: Material(
+        color: colorScheme.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: colorScheme.surfaceBorder, width: 0.5),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: child,
+      ),
     );
   }
 }
@@ -2298,920 +3712,4 @@ class _HealthRingMetric {
   final double progress;
   final Color color;
   final IconData icon;
-}
-
-class _MultiRingProgressIndicator extends StatelessWidget {
-  const _MultiRingProgressIndicator({
-    required this.colorScheme,
-    required this.metrics,
-    required this.size,
-    required this.score,
-    required this.status,
-  });
-
-  final ColorScheme colorScheme;
-  final List<_HealthRingMetric> metrics;
-  final double size;
-  final int score;
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    return Semantics(
-      label: 'Financial health summary, $score out of 100, $status.',
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: 1),
-        duration:
-            reduceMotion ? Duration.zero : const Duration(milliseconds: 920),
-        curve: Curves.easeOutCubic,
-        builder: (context, animationValue, _) {
-          final centerDiameter = (size * 0.42).clamp(70.0, 88.0);
-          final animatedScore = (score * animationValue).round();
-
-          return CustomPaint(
-            painter: _MultiRingProgressPainter(
-              colorScheme: colorScheme,
-              metrics: metrics,
-              animationValue: animationValue,
-            ),
-            child: SizedBox.square(
-              dimension: size,
-              child: Center(
-                child: SizedBox(
-                  width: centerDiameter,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          '$animatedScore',
-                          style: TextStyle(
-                            fontSize:animatedScore>99?23: 30,
-                            fontWeight: FontWeight.w900,
-                            color: colorScheme.foreground,
-                            height: 0.95,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MultiRingProgressPainter extends CustomPainter {
-  const _MultiRingProgressPainter({
-    required this.colorScheme,
-    required this.metrics,
-    required this.animationValue,
-  });
-
-  final ColorScheme colorScheme;
-  final List<_HealthRingMetric> metrics;
-  final double animationValue;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final side = size.shortestSide;
-    final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = (side * 0.048).clamp(8.0, 11.0);
-    final gap = strokeWidth * 0.72;
-    final outerRadius = side / 2 - strokeWidth / 2;
-    final trackPaint = Paint()
-      ..color = colorScheme.border.withValues(alpha: 0.18)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = strokeWidth;
-    final progressPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = strokeWidth;
-
-    for (var index = 0; index < metrics.length; index++) {
-      final metric = metrics[index];
-      final radius = outerRadius - index * (strokeWidth + gap);
-      final rect = Rect.fromCircle(center: center, radius: radius);
-      final progress = math.max(0, metric.progress) * animationValue;
-      final sweep = math.pi * 2 * progress;
-      final overflowSweep = sweep % (math.pi * 2);
-
-      canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, trackPaint);
-      progressPaint.color = metric.color.withValues(alpha: 0.95);
-
-      if (progress <= 1) {
-        canvas.drawArc(
-          rect,
-          -math.pi / 2,
-          sweep,
-          false,
-          progressPaint,
-        );
-      } else {
-        canvas.drawArc(rect, -math.pi / 2, math.pi * 2, false, progressPaint);
-        if (overflowSweep > 0.001) {
-          canvas.drawArc(
-            rect,
-            -math.pi / 2,
-            overflowSweep,
-            false,
-            progressPaint,
-          );
-        }
-      }
-
-      if (progress > 0.02) {
-        _drawRingEndpointMarker(
-          canvas,
-          center,
-          radius,
-          -math.pi / 2 + sweep,
-          strokeWidth,
-          metric,
-        );
-      }
-    }
-  }
-
-  void _drawRingEndpointMarker(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double angle,
-    double strokeWidth,
-    _HealthRingMetric metric,
-  ) {
-    final markerRadius = (strokeWidth * 0.72).clamp(6.0, 8.0);
-    final markerCenter = Offset(
-      center.dx + radius * math.cos(angle),
-      center.dy + radius * math.sin(angle),
-    );
-
-    final markerFillPaint = Paint()
-      ..color = metric.color
-      ..style = PaintingStyle.fill;
-    final markerBorderPaint = Paint()
-      ..color = colorScheme.surface
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = markerRadius * 0.34;
-
-    canvas.drawCircle(markerCenter, markerRadius, markerFillPaint);
-    canvas.drawCircle(markerCenter, markerRadius, markerBorderPaint);
-
-    final iconSize = markerRadius * 1.08;
-    final iconPainter = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(metric.icon.codePoint),
-        style: TextStyle(
-          inherit: false,
-          fontSize: iconSize,
-          fontFamily: metric.icon.fontFamily,
-          package: metric.icon.fontPackage,
-          color: colorScheme.surface,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    iconPainter.paint(
-      canvas,
-      Offset(
-        markerCenter.dx - iconPainter.width / 2,
-        markerCenter.dy - iconPainter.height / 2,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _MultiRingProgressPainter oldDelegate) {
-    return oldDelegate.colorScheme != colorScheme ||
-        oldDelegate.metrics != metrics ||
-        oldDelegate.animationValue != animationValue;
-  }
-}
-
-class _HealthRingLegendRow extends StatelessWidget {
-  const _HealthRingLegendRow({
-    required this.colorScheme,
-    required this.metric,
-  });
-
-  final ColorScheme colorScheme;
-  final _HealthRingMetric metric;
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (math.max(0, metric.progress) * 100).round();
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Container(
-          width: 26,
-          height: 7,
-          decoration: BoxDecoration(
-            color: metric.color.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(100),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                metric.label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.foreground,
-                  height: 1.18,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                metric.status,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              metric.value,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: colorScheme.foreground,
-                height: 1.15,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              '$percent%',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: metric.color,
-                height: 1.1,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SectionHeading extends StatelessWidget {
-  const _SectionHeading({
-    required this.colorScheme,
-    required this.title,
-    required this.subtitle,
-    required this.kind,
-    required this.accent,
-  });
-
-  final ColorScheme colorScheme;
-  final String title;
-  final String subtitle;
-  final _ReportIllustrationKind kind;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                  color: colorScheme.foreground,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.mutedForeground,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 14),
-        _StandaloneIllustration(
-          kind: kind,
-          colorScheme: colorScheme,
-          accent: accent,
-          size: 58,
-        ),
-      ],
-    );
-  }
-}
-
-class _PaceProgressBar extends StatelessWidget {
-  const _PaceProgressBar({
-    required this.colorScheme,
-    required this.accent,
-    required this.spentProgress,
-    required this.timeProgress,
-  });
-
-  final ColorScheme colorScheme;
-  final Color accent;
-  final double spentProgress;
-  final double timeProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final markerLeft = (constraints.maxWidth * timeProgress)
-            .clamp(0.0, constraints.maxWidth);
-        return SizedBox(
-          height: 18,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.centerLeft,
-            children: [
-              Container(
-                height: 8,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: colorScheme.border.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(100),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: spentProgress,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.78),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: markerLeft,
-                child: Container(
-                  width: 3,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: colorScheme.foreground.withValues(alpha: 0.52),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _InsightTile extends StatelessWidget {
-  const _InsightTile({
-    required this.colorScheme,
-    required this.title,
-    required this.description,
-    required this.status,
-    required this.accent,
-  });
-
-  final ColorScheme colorScheme;
-  final String title;
-  final String description;
-  final String status;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.muted.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: colorScheme.foreground,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.mutedForeground,
-                    height: 1.42,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                color: accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                height: 1.1,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ForecastStep extends StatelessWidget {
-  const _ForecastStep({
-    required this.colorScheme,
-    required this.label,
-    required this.value,
-    required this.isLast,
-    required this.isFirst,
-  });
-
-  final ColorScheme colorScheme;
-  final String label;
-  final String value;
-  final bool isLast;
-  final bool isFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = isLast ? colorScheme.primary : colorScheme.mutedForeground;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: isLast || isFirst ? 12 : 9,
-                height: isLast || isFirst ? 12 : 9,
-                margin: const EdgeInsets.only(top: 3),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: isLast ? 1 : 0.42),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    color: colorScheme.border.withValues(alpha: 0.28),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isLast ? FontWeight.w900 : FontWeight.w700,
-                        color: isLast
-                            ? colorScheme.foreground
-                            : colorScheme.mutedForeground,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color:
-                          isLast ? colorScheme.primary : colorScheme.foreground,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StandaloneIllustration extends StatelessWidget {
-  const _StandaloneIllustration({
-    required this.kind,
-    required this.colorScheme,
-    required this.accent,
-    required this.size,
-  });
-
-  final _ReportIllustrationKind kind;
-  final ColorScheme colorScheme;
-  final Color accent;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: _illustrationLabel(kind),
-      image: true,
-      child: CustomPaint(
-        size: Size.square(size),
-        painter: _ReportIllustrationPainter(
-          kind: kind,
-          colorScheme: colorScheme,
-          accent: accent,
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportIllustrationPainter extends CustomPainter {
-  const _ReportIllustrationPainter({
-    required this.kind,
-    required this.colorScheme,
-    required this.accent,
-  });
-
-  final _ReportIllustrationKind kind;
-  final ColorScheme colorScheme;
-  final Color accent;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    switch (kind) {
-      case _ReportIllustrationKind.wallet:
-        _paintWallet(canvas, size);
-      case _ReportIllustrationKind.calendar:
-        _paintCalendar(canvas, size);
-      case _ReportIllustrationKind.coins:
-        _paintCoins(canvas, size);
-      case _ReportIllustrationKind.pulse:
-        _paintPulse(canvas, size);
-      case _ReportIllustrationKind.target:
-        _paintTarget(canvas, size);
-      case _ReportIllustrationKind.receipt:
-        _paintReceipt(canvas, size);
-      case _ReportIllustrationKind.magnifier:
-        _paintMagnifier(canvas, size);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ReportIllustrationPainter oldDelegate) {
-    return oldDelegate.kind != kind ||
-        oldDelegate.accent != accent ||
-        oldDelegate.colorScheme != colorScheme;
-  }
-
-  Paint _paint(Color color, {PaintingStyle style = PaintingStyle.fill}) {
-    return Paint()
-      ..color = color
-      ..style = style
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-  }
-
-  void _paintWallet(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final shadow = colorScheme.shadow.withValues(alpha: 0.08);
-    final muted = colorScheme.mutedForeground.withValues(alpha: 0.2);
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.12, h * 0.34, w * 0.72, h * 0.42),
-        Radius.circular(w * 0.14),
-      ),
-      _paint(shadow),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.08, h * 0.28, w * 0.76, h * 0.42),
-        Radius.circular(w * 0.13),
-      ),
-      _paint(accent.withValues(alpha: 0.18)),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.18, h * 0.18, w * 0.58, h * 0.34),
-        Radius.circular(w * 0.1),
-      ),
-      _paint(colorScheme.homeCardSurface),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.46, h * 0.38, w * 0.36, h * 0.2),
-        Radius.circular(w * 0.1),
-      ),
-      _paint(accent.withValues(alpha: 0.55)),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.62, h * 0.48),
-      w * 0.035,
-      _paint(colorScheme.homeCardSurface.withValues(alpha: 0.85)),
-    );
-    canvas.drawLine(
-      Offset(w * 0.26, h * 0.34),
-      Offset(w * 0.48, h * 0.34),
-      _paint(muted, style: PaintingStyle.stroke)..strokeWidth = w * 0.035,
-    );
-  }
-
-  void _paintCalendar(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final body = Rect.fromLTWH(w * 0.18, h * 0.18, w * 0.64, h * 0.64);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(body, Radius.circular(w * 0.12)),
-      _paint(accent.withValues(alpha: 0.16)),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.18, h * 0.18, w * 0.64, h * 0.2),
-        Radius.circular(w * 0.12),
-      ),
-      _paint(accent.withValues(alpha: 0.45)),
-    );
-    for (var i = 0; i < 3; i++) {
-      for (var j = 0; j < 2; j++) {
-        canvas.drawCircle(
-          Offset(w * (0.34 + i * 0.16), h * (0.52 + j * 0.14)),
-          w * 0.028,
-          _paint(
-            i == 1 && j == 0
-                ? accent
-                : colorScheme.mutedForeground.withValues(alpha: 0.22),
-          ),
-        );
-      }
-    }
-    canvas.drawLine(
-      Offset(w * 0.34, h * 0.12),
-      Offset(w * 0.34, h * 0.26),
-      _paint(colorScheme.foreground.withValues(alpha: 0.3),
-          style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.04,
-    );
-    canvas.drawLine(
-      Offset(w * 0.66, h * 0.12),
-      Offset(w * 0.66, h * 0.26),
-      _paint(colorScheme.foreground.withValues(alpha: 0.3),
-          style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.04,
-    );
-  }
-
-  void _paintCoins(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    for (var i = 0; i < 4; i++) {
-      final top = h * (0.58 - i * 0.11);
-      canvas.drawOval(
-        Rect.fromLTWH(w * 0.2, top, w * 0.56, h * 0.16),
-        _paint(accent.withValues(alpha: i == 3 ? 0.62 : 0.28)),
-      );
-      canvas.drawArc(
-        Rect.fromLTWH(w * 0.2, top, w * 0.56, h * 0.16),
-        0,
-        math.pi,
-        false,
-        _paint(colorScheme.homeCardSurface.withValues(alpha: 0.58),
-            style: PaintingStyle.stroke)
-          ..strokeWidth = w * 0.025,
-      );
-    }
-    canvas.drawCircle(
-      Offset(w * 0.68, h * 0.3),
-      w * 0.14,
-      _paint(colorScheme.info.withValues(alpha: 0.24)),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.68, h * 0.3),
-      w * 0.07,
-      _paint(colorScheme.info.withValues(alpha: 0.5)),
-    );
-  }
-
-  void _paintPulse(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final line = Path()
-      ..moveTo(w * 0.08, h * 0.56)
-      ..lineTo(w * 0.24, h * 0.56)
-      ..lineTo(w * 0.34, h * 0.36)
-      ..lineTo(w * 0.46, h * 0.7)
-      ..lineTo(w * 0.58, h * 0.42)
-      ..lineTo(w * 0.7, h * 0.56)
-      ..lineTo(w * 0.9, h * 0.56);
-    canvas.drawCircle(
-      Offset(w * 0.5, h * 0.52),
-      w * 0.34,
-      _paint(accent.withValues(alpha: 0.1)),
-    );
-    canvas.drawPath(
-      line,
-      _paint(accent.withValues(alpha: 0.82), style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.055,
-    );
-    canvas.drawCircle(
-      Offset(w * 0.5, h * 0.52),
-      w * 0.17,
-      _paint(colorScheme.homeCardSurface.withValues(alpha: 0.68)),
-    );
-  }
-
-  void _paintTarget(Canvas canvas, Size size) {
-    final w = size.width;
-    final center = Offset(w * 0.46, size.height * 0.56);
-    canvas.drawCircle(center, w * 0.3, _paint(accent.withValues(alpha: 0.12)));
-    canvas.drawCircle(
-      center,
-      w * 0.2,
-      _paint(accent.withValues(alpha: 0.28)),
-    );
-    canvas.drawCircle(center, w * 0.09, _paint(accent.withValues(alpha: 0.75)));
-    final flag = Path()
-      ..moveTo(w * 0.56, size.height * 0.18)
-      ..lineTo(w * 0.56, size.height * 0.48)
-      ..moveTo(w * 0.56, size.height * 0.2)
-      ..quadraticBezierTo(
-          w * 0.76, size.height * 0.18, w * 0.78, size.height * 0.34)
-      ..quadraticBezierTo(
-          w * 0.66, size.height * 0.3, w * 0.56, size.height * 0.36);
-    canvas.drawPath(
-      flag,
-      _paint(colorScheme.foreground.withValues(alpha: 0.32),
-          style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.035,
-    );
-  }
-
-  void _paintReceipt(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final receipt = Path()
-      ..moveTo(w * 0.24, h * 0.14)
-      ..lineTo(w * 0.76, h * 0.14)
-      ..lineTo(w * 0.76, h * 0.78)
-      ..lineTo(w * 0.66, h * 0.72)
-      ..lineTo(w * 0.56, h * 0.78)
-      ..lineTo(w * 0.46, h * 0.72)
-      ..lineTo(w * 0.36, h * 0.78)
-      ..lineTo(w * 0.24, h * 0.72)
-      ..close();
-    canvas.drawPath(receipt, _paint(accent.withValues(alpha: 0.15)));
-    for (var i = 0; i < 4; i++) {
-      final y = h * (0.3 + i * 0.12);
-      canvas.drawLine(
-        Offset(w * 0.36, y),
-        Offset(w * (i == 1 ? 0.62 : 0.66), y),
-        _paint(colorScheme.mutedForeground.withValues(alpha: 0.28),
-            style: PaintingStyle.stroke)
-          ..strokeWidth = w * 0.035,
-      );
-    }
-    canvas.drawCircle(
-      Offset(w * 0.66, h * 0.22),
-      w * 0.065,
-      _paint(accent.withValues(alpha: 0.55)),
-    );
-  }
-
-  void _paintMagnifier(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final center = Offset(w * 0.42, h * 0.42);
-    canvas.drawCircle(center, w * 0.22, _paint(accent.withValues(alpha: 0.14)));
-    canvas.drawCircle(
-      center,
-      w * 0.2,
-      _paint(accent.withValues(alpha: 0.62), style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.045,
-    );
-    canvas.drawLine(
-      Offset(w * 0.57, h * 0.58),
-      Offset(w * 0.78, h * 0.8),
-      _paint(colorScheme.foreground.withValues(alpha: 0.36),
-          style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.055,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * 0.3, h * 0.44)
-        ..quadraticBezierTo(w * 0.4, h * 0.32, w * 0.52, h * 0.44),
-      _paint(colorScheme.homeCardSurface.withValues(alpha: 0.82),
-          style: PaintingStyle.stroke)
-        ..strokeWidth = w * 0.035,
-    );
-  }
-}
-
-class _SummaryItem {
-  const _SummaryItem({
-    required this.kind,
-    required this.label,
-    required this.value,
-    required this.status,
-    required this.accent,
-  });
-
-  final _ReportIllustrationKind kind;
-  final String label;
-  final String value;
-  final String status;
-  final Color accent;
-}
-
-enum _ReportIllustrationKind {
-  wallet,
-  calendar,
-  coins,
-  pulse,
-  target,
-  receipt,
-  magnifier,
-}
-
-String _illustrationLabel(_ReportIllustrationKind kind) {
-  switch (kind) {
-    case _ReportIllustrationKind.wallet:
-      return 'Wallet illustration';
-    case _ReportIllustrationKind.calendar:
-      return 'Calendar illustration';
-    case _ReportIllustrationKind.coins:
-      return 'Coin stack illustration';
-    case _ReportIllustrationKind.pulse:
-      return 'Financial health pulse illustration';
-    case _ReportIllustrationKind.target:
-      return 'Goal target illustration';
-    case _ReportIllustrationKind.receipt:
-      return 'Receipt illustration';
-    case _ReportIllustrationKind.magnifier:
-      return 'Spending pattern illustration';
-  }
 }
